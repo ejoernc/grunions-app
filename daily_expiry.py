@@ -8,7 +8,7 @@ rep = A.expiry_report(d, days)
 print(f"Grunions USAWP expiry report {dt.date.today()} (window {days}d)")
 for k, v in rep.items():
     print(f"\n{k}: {len(v)}")
-    for r in v: print(f"  [{r['item']}] {r['first']} {r['last']} <{r['email']}> {r['usawp_valid_until']} ({r['days_left']}d)")
+    for r in v: print(f"  [{r['item']}] {A.display_first(r)} {r['last']} <{r['email']}> {r['usawp_valid_until']} ({r['days_left']}d)")
 if "--remind" in sys.argv:
     n = 0
     for v in rep.values():

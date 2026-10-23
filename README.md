@@ -9,15 +9,15 @@ or:
 Env: PUBLIC_URL (base URL for QR + login links), EXPIRING_DAYS (default 30), CRON_KEY (lets a scheduler call /api/expiring?key=...),
 DEV_SHOW_LINKS=1 (local testing only: show magic link on screen; default 0), SECURE_COOKIES=1 (behind HTTPS), GRUNIONS_DB, PORT.
 Demo data: `rm grunions.db && .venv/bin/python seed_demo.py` (admin eli@example.com, coach marcus@example.com).
-Tests: `.venv/bin/python test_app.py` (84 checks) and `.venv/bin/python -m pytest -q test_v2.py` (14 tests), `.venv/bin/python -m pytest -q test_google.py` (8 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
+Tests: `.venv/bin/python test_app.py` (84 checks) and `.venv/bin/python -m pytest -q test_v2.py` (16 tests), `.venv/bin/python -m pytest -q test_google.py` (8 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
 
 ## Roles
 member (athlete), coach (check-in + #coaches), admin (everything). Manage on Admin → **Roles** (/admins): every member with Make/Remove admin and Make/Remove coach. The last admin can't be removed.
 ADMIN_EMAIL (comma-separated) bootstraps admins and keeps them admin on every start; remove an address there to demote it.
 
 ## Pages
-- /join: QR target, creates the account and logs in. /login: one-time magic link (LINK_MINUTES, default 15; single use, stored hashed), emailed via SMTP.
-- /home: Cleared to play card (membership + each required item), USAWP status, expiry warning, reminders, next practice, attendance, profile.
+- /join: QR target, creates the account and logs in. Optional preferred first name (blank uses the legal first name). /login: one-time magic link (LINK_MINUTES, default 15; single use, stored hashed), emailed via SMTP. The greeting uses the preferred first name when set.
+- /home: Cleared to play card (membership + each required item), USAWP status, expiry warning, reminders, next practice, attendance, profile (legal name, and an editable preferred first name).
   Until a member is verified and cleared, the Not cleared card includes an inline USAWP Membership # form (digits, 4-10, prefilled when stored). Add saves the number and opens a pending verification request, or updates the number on the one already pending. The card then shows "Sent to Grunions for verification" with status pending. Three submissions per member per hour.
 - /practices: recurring Tue 7–8:30 Marina HS / Fri 7–8:30 Westminster HS (next 4 weeks auto-created); Going / Not going, headcount, who's coming. Admin add/edit/cancel/restore.
 - /chat: #team (everyone; admins can post 📣 announcements) and 🔒 #coaches (coaches + admins). Polls every 3 s.
@@ -36,7 +36,7 @@ Tabs: Home, Schedule, Chat, plus Admin for coaches/admins (Check-in · Members �
 ## Verification bot API
 - Home form or admin "Ask Grunions to verify" creates a verify_requests row (pending). The Home form, if one is already pending, updates that row's member_number instead of inserting another. Admin "Ask Grunions to verify" does not create a duplicate while one is pending.
 - Whenever a verify request is created, if VERIFY_WEBHOOK_URL is set, POSTs this JSON (5 s timeout). Failures are logged only and never break the page:
-  `{"request_id": 12, "member_id": 4, "name": "Ana Lopez", "email": "ana@example.com", "member_number": "5555555", "requested_by": "Eli Joern", "app_url": "https://grunions.example"}`
+  `{"request_id": 12, "member_id": 4, "name": "Ana Lopez", "preferred_first": "Ana", "email": "ana@example.com", "member_number": "5555555", "requested_by": "Eli Joern", "app_url": "https://grunions.example"}`
   `app_url` is PUBLIC_URL. `member_number` and `requested_by` are stored on the request. If VERIFY_WEBHOOK_KEY is set, the POST sends `Authorization: Bearer <key>`. If VERIFY_WEBHOOK_HEADER is set, that name is used instead and the value is the raw key (no Bearer prefix).
 - Auth: `Authorization: Bearer $BOT_API_KEY` (401 otherwise; API disabled if unset).
 - GET /api/verify-requests?status=pending|done → list.
@@ -56,7 +56,7 @@ Tabs: Home, Schedule, Chat, plus Admin for coaches/admins (Check-in · Members �
 | GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET | no | enable Sign in with Google (button appears only when both are set). |
 | LINK_MINUTES | no | login link lifetime (default 15). |
 | SECURE_COOKIES / BEHIND_PROXY | no | force `1`/`0`; default on when PUBLIC_URL is https. |
-| VERIFY_WEBHOOK_URL | no | POST target when a verify request is created. JSON keys: request_id, member_id, name, email, member_number, requested_by, app_url (PUBLIC_URL). 5 s timeout. |
+| VERIFY_WEBHOOK_URL | no | POST target when a verify request is created. JSON keys: request_id, member_id, name (legal), preferred_first, email, member_number, requested_by, app_url (PUBLIC_URL). 5 s timeout. |
 | VERIFY_WEBHOOK_KEY | no | If set, sent as `Authorization: Bearer <key>` on that POST. |
 | VERIFY_WEBHOOK_HEADER | no | Optional header name. When set, the raw key is that header's value (no Bearer prefix). |
 | BOT_API_KEY, CRON_KEY, EXPIRING_DAYS, PORT | no | see below. |
@@ -77,7 +77,7 @@ Back up grunions.db first. It acts on whatever DATA_DIR/GRUNIONS_DB points at.
 
 ## Sport:80 roster import columns
 /import takes .csv or .xlsx (title rows above the header are skipped; headers matched case/space/punctuation-insensitively):
-- **First Name / Last Name** (or Name / Full Name), **Email / Email Address** — matching (email first, then unique first+last).
+- **First Name / Last Name** (or Name / Full Name), **Email / Email Address** — matching (email first, then unique legal first+last). Optional **Preferred First Name / Nickname** is stored as the name shown in the app and is not used to match.
 - **ID Number / Member Number / Membership Number** — stored as USAWP #. **Contact ID** — stored as sport80_contact_id.
 - **Status / Membership Status** and **Valid Until / Expiry Date / Membership Expiry Date** — status. If there's no status column, a future expiry counts as current.
 - Any column containing a requirement keyword (safesport, background, waiver, concussion; editable in Rules) plus expiry/valid through/completed/status updates that item.

@@ -87,6 +87,7 @@ T["join"] = """<h1>Join the Grunions</h1>
 <p class=t2>Tuesdays at Marina High School and Fridays at Westminster High School, 7–8:30 PM. Membership is $45/mo starting in November; a current USA Water Polo membership is required.</p>
 <form method=post>{{csrf_field()}}
 <label>Legal first name<input name=first required autocomplete=given-name></label>
+<label>Preferred first name (optional)<input name=preferred_first autocomplete=off placeholder="Leave blank to use your legal first name"></label>
 <label>Legal last name<input name=last required autocomplete=family-name></label>
 <label>Email<input name=email type=email required autocomplete=email placeholder="The one on your USA Water Polo account"></label>
 <label>Phone<input name=phone type=tel required autocomplete=tel></label>
@@ -100,7 +101,7 @@ T["login"] = """<h1>Log in</h1>
 <button class="primary full">Send login link</button></form>
 <p class="t3 sm" style="text-align:center;margin-top:20px">New here? <a href=/join>Join the team</a></p>"""
 
-T["home"] = """<h1>Hi, {{m.first}}</h1>
+T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
 {% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}
 <div class=card><div style="display:flex;align-items:center;justify-content:space-between">
@@ -116,7 +117,7 @@ T["home"] = """<h1>Hi, {{m.first}}</h1>
 <div class=t2>{{nextp.location}} · {{nextp_n}} going</div>
 <form method=post action=/practices style="margin-top:14px">{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
 {% if nextp_mine == 1 %}<button class=full name=action value=clear>Going ✓</button>{% else %}<button class="primary full" name=action value=going>I'm going</button>{% endif %}</form></div>{% endif %}
-{% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{ann.first|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}
+{% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}
 <details class=card><summary>Membership &amp; requirements</summary><div class=body>
 <div class=kv><span>USA Water Polo</span>{{ usawp(m.usawp_status) }}</div>
 <div class=kv><span>Member #</span><span>{{m.usawp_number or '—'}}</span></div><div class=kv><span>Expires</span><span>{{m.usawp_valid_until or '—'}}</span></div>
@@ -127,7 +128,11 @@ T["home"] = """<h1>Hi, {{m.first}}</h1>
 <details class=card><summary>Attendance <span class="t3 sm" style="margin-left:auto;margin-right:10px">{{hist|length}} total · {{nmonth}} this month</span></summary><div class=body>
 {% for h in hist[:20] %}<div class=kv><span>{{fmt_d(h.practice_date)}}</span><span class=t2>{{h.location}}</span></div>{% else %}<p class=t3>No practices yet.</p>{% endfor %}</div></details>
 <details class=card><summary>Profile</summary><div class=body>
-<div class=kv><span>Legal name</span><span>{{m.first}} {{m.last}}</span></div><div class=kv><span>Email</span><span>{{m.email}}</span></div>
+<div class=kv><span>Legal name</span><span>{{m.first}} {{m.last}}</span></div>
+<form method=post action=/home>{{csrf_field()}}<input type=hidden name=action value=preferred>
+<label>Preferred first name (optional)<input name=preferred_first value="{{m.preferred_first or ''}}" placeholder="Leave blank to use your legal first name" autocomplete=off></label>
+<button class=full>Save</button></form>
+<div class=kv><span>Email</span><span>{{m.email}}</span></div>
 <div class=kv><span>Phone</span><span>{{m.phone}}</span></div><div class=kv><span>Role</span><span>{{role_label(m)|capitalize}}</span></div></div></details>"""
 
 T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="{{'on' if ch=='team'}}">Team</a><a href="/chat?c=coaches" class="{{'on' if ch=='coaches'}}">Coaches</a></div>{% else %}<h1>Team</h1>{% endif %}
@@ -178,8 +183,8 @@ T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">T
 <div>{% if p.cancelled %}{{ st('bad','Cancelled') }}{% else %}<button type=button class=gobtn aria-expanded=false aria-controls=who{{p.id}}
  onclick="const w=document.getElementById('who{{p.id}}');w.hidden=!w.hidden;this.setAttribute('aria-expanded',!w.hidden)">{{x.going|length}} going</button>{% endif %}</div></div>
 {% if not p.cancelled %}<div id=who{{p.id}} class="t2 sm" hidden style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
-{% for r in x.going %}{{r.first}} {{r.last[:1]}}.{{', ' if not loop.last}}{% else %}<span class=t3>No one yet.</span>{% endfor %}
-{% if x.notgoing %}<div class=t3>Can't make it: {% for r in x.notgoing %}{{r.first}} {{r.last[:1]}}.{{', ' if not loop.last}}{% endfor %}</div>{% endif %}</div>{% endif %}
+{% for r in x.going %}{{display_first(r)}} {{r.last[:1]}}.{{', ' if not loop.last}}{% else %}<span class=t3>No one yet.</span>{% endfor %}
+{% if x.notgoing %}<div class=t3>Can't make it: {% for r in x.notgoing %}{{display_first(r)}} {{r.last[:1]}}.{{', ' if not loop.last}}{% endfor %}</div>{% endif %}</div>{% endif %}
 {% if not p.cancelled %}<form method=post class=row style="margin-top:14px">{{csrf_field()}}<input type=hidden name=pid value={{p.id}}>
 {% if x.mine == 1 %}<button name=action value=clear>Going ✓</button>{% else %}<button class=primary name=action value=going>Going</button>{% endif %}
 {% if x.mine == 0 %}<button name=action value=clear>Not going ✓</button>{% else %}<button class=quiet name=action value=notgoing style="flex:0 0 auto">Can't make it</button>{% endif %}</form>
@@ -198,7 +203,7 @@ T["admin"] = ADMIN_NAV + """
 <h1 style="margin:20px 0 4px">{{loc}}</h1><p class="t2 sm">{{fmt_d(date)}} · {{n}} checked in{% if pr %} · {{rsvp_n}} RSVP'd{% else %} · no practice scheduled{% endif %}</p>
 <div class=list>{% for r in rows %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}
 <div class=li><button type=button class=ci-name onclick="this.closest('.li').nextElementSibling.toggleAttribute('hidden')">
-<div class=ell style="font-weight:500">{{r.first}} {{r.last}}</div>
+<div class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</div>
 {% if not cl.ok %}{{ st('bad','Not cleared') }}{% elif dl is not none and dl <= EXPIRING_DAYS %}{{ st('warn','Expires in %dd' % dl) }}{% else %}{{ st('ok','Cleared') }}{% endif %}
 {% if r.vr_status == 'pending' %}<span class="t3 xs"> · verification requested</span>{% elif r.vr_status == 'done' %}<span class="t3 xs"> · bot answered</span>{% endif %}</button>
 <form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}">
@@ -210,6 +215,10 @@ T["admin"] = ADMIN_NAV + """
 {% if not cl.ok %}<div class=kv><span>Not cleared</span><span style="text-align:right">{{cl.reasons|join(', ')}}</span></div>{% endif %}
 {% if r.usawp_verified_by %}<div class=kv><span>Verified</span><span>{{r.usawp_verified_by}}, {{r.usawp_verified_at.replace('T',' ')}}</span></div>{% endif %}
 {% if r.vr_status %}<div class=kv><span>Bot request</span><span>{{r.vr_status}}{% if r.vr_note %} · {{r.vr_note}}{% endif %}</span></div>{% endif %}
+{% if r.preferred_first and r.preferred_first.strip() %}<div class=kv><span>Legal name</span><span>{{r.first}} {{r.last}}</span></div>{% endif %}
+{% if me().is_admin %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}">
+<label>Preferred first name (optional)<input name=preferred_first value="{{r.preferred_first or ''}}" placeholder="Leave blank to use legal first name"></label>
+<button class=full name=action value=preferred>Save preferred name</button></form>{% endif %}
 {% if me().is_admin and (not cl.ok or r.usawp_status != 'verified') %}
 <h3>Verify {{r.first}} on Sport:80</h3>
 <div class=row><a class="btn" target=_blank rel=noopener href="https://usawp.sport80.com/" onclick="navigator.clipboard&&navigator.clipboard.writeText('{{r.first}} {{r.last}}')">Open Sport:80</a>
@@ -230,14 +239,14 @@ T["admin"] = ADMIN_NAV + """
 
 T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-between;align-items:baseline"><h1>Members</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
 <p class="t2 sm">{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}</p>
-<div class=list>{% for r in rows %}<div class=li><div class=grow><div class=ell style="font-weight:500">{{r.first}} {{r.last}}</div>
-<div class="t3 xs ell">{{r.email}} · {{r.visits}} practices{% if r.usawp_verified_by %} · verified by {{r.usawp_verified_by}} {{r.usawp_verified_at[:10]}}{% endif %}</div></div>
+<div class=list>{% for r in rows %}<div class=li><div class=grow><div class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</div>
+<div class="t3 xs ell">{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices{% if r.usawp_verified_by %} · verified by {{r.usawp_verified_by}} {{r.usawp_verified_at[:10]}}{% endif %}</div></div>
 <div style="text-align:right">{{ usawp(r.usawp_status) }}{% if r.usawp_valid_until %}<div class="t3 xs">thru {{r.usawp_valid_until}}</div>{% endif %}</div></div>{% endfor %}</div>"""
 
 T["expiring"] = ADMIN_NAV + """<h1>Expiring</h1>
 <form class="row noprint" style="align-items:center;margin-bottom:8px"><span class="t2 sm" style="flex:0 0 auto">Window (days)</span><input name=days type=number value={{days}} onchange=this.form.submit() style="margin:0"></form>
 {% for key, label in [('expired','Already expired'),('within_7','Next 7 days'),('within_%d'%days,'Next %d days'%days)] %}<h2>{{label}} <span class=t3>{{rep[key]|length}}</span></h2>
-<div class=list>{% for r in rep[key] %}<div class=li><div class=grow><div style="font-weight:500">{{r.first}} {{r.last}}</div>
+<div class=list>{% for r in rep[key] %}<div class=li><div class=grow><div style="font-weight:500">{{display_first(r)}} {{r.last}}</div>
 <div class="t3 xs">{{r.item}} · {{r.usawp_valid_until}} · {% if r.days_left < 0 %}{{-r.days_left}}d ago{% else %}{{r.days_left}}d left{% endif %}</div></div>
 <form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button class=compact>Remind</button></form></div>{% else %}<div class=li><span class=t3>None</span></div>{% endfor %}</div>{% endfor %}
 <form method=post style="margin-top:20px">{{csrf_field()}}<button class="primary full">Remind everyone listed</button></form>
@@ -262,14 +271,14 @@ T["import_page"] = ADMIN_NAV + """<h1>Sport:80 import</h1>
 <form method=post enctype=multipart/form-data>{{csrf_field()}}<input type=file name=file accept=".csv,.xlsx" style="padding:11px 14px"><button class="primary full" style="margin-top:12px">Import</button></form>
 {% if stats %}<div class=note style="margin-top:16px">Read {{stats.rows}} rows · updated {{stats.matched}} members · {{stats.req_updates or 0}} compliance items · {{stats.unmatched|length}} roster rows not in the app</div>
 {% if stats.unmatched %}<details class=card><summary>Not signed up in the app</summary><div class=body>{% for u in stats.unmatched %}<div class="kv t2">{{u}}</div>{% endfor %}</div></details>{% endif %}{% endif %}
-<p class="t3 xs" style="margin-top:16px">Matching uses email first, then exact legal first and last name.</p>"""
+<p class="t3 xs" style="margin-top:16px">Matching uses email first, then exact legal first and last name. An optional Preferred First Name column is stored as the name shown in the app and is not used for matching.</p>"""
 
 T["qr_page"] = ADMIN_NAV + """<div style="text-align:center"><h1>New to Grunions? Scan to join.</h1>
 <div style="background:#fff;border-radius:16px;padding:18px;display:inline-block"><img src=/qr.svg alt="Sign-up QR code" style="width:min(70vw,380px);display:block"></div>
 <p class="t3 sm" style="margin-top:12px">{{u}}</p><button class="primary noprint" onclick=print()>Print</button></div>"""
 
 T["admins"] = ADMIN_NAV + """<h1>Roles</h1><p class="t2 sm">{{n_admins}} admin{{'s' if n_admins!=1}} · admins manage everything; coaches get check-in and #coaches. There must always be at least one admin.</p>
-<div class=list>{% for r in rows %}<div class=li><div class=grow><div class=ell style="font-weight:500">{{r.first}} {{r.last}}{% if r.id==me().id %} <span class="t3 xs">(you)</span>{% endif %}</div>
+<div class=list>{% for r in rows %}<div class=li><div class=grow><div class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}{% if r.id==me().id %} <span class="t3 xs">(you)</span>{% endif %}</div>
 <div class="t3 xs ell">{{r.email}} · {{role_label(r)}}{% if r.email in boot %} · set by ADMIN_EMAIL{% endif %}</div></div>
 <form method=post class=row style="flex:0 0 auto;gap:6px;margin:0">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}>
 {% if r.role=='coach' %}<button class=compact name=action value=remove_coach>Remove coach</button>{% else %}<button class=compact name=action value=make_coach>Make coach</button>{% endif %}

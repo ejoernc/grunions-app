@@ -38,7 +38,8 @@ if os.environ.get("BEHIND_PROXY", "1" if PUBLIC_URL else "0") == "1":  # Render 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS members(id INTEGER PRIMARY KEY, first TEXT NOT NULL, last TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE, phone TEXT, created TEXT DEFAULT CURRENT_TIMESTAMP, is_admin INTEGER DEFAULT 0,
-  usawp_status TEXT DEFAULT 'unknown', usawp_raw TEXT, usawp_number TEXT, usawp_valid_until TEXT, usawp_updated TEXT);
+  usawp_status TEXT DEFAULT 'unknown', usawp_raw TEXT, usawp_number TEXT, usawp_valid_until TEXT, usawp_updated TEXT,
+  preferred_first TEXT);
 CREATE TABLE IF NOT EXISTS checkins(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id),
   practice_date TEXT NOT NULL, location TEXT, at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(member_id, practice_date));
 CREATE TABLE IF NOT EXISTS login_tokens(token_hash TEXT PRIMARY KEY, member_id INTEGER, expires TEXT, used INTEGER DEFAULT 0);
@@ -60,19 +61,33 @@ CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY, member_id INTEGER RE
 def db():
     if "db" not in g:
         g.db = sqlite3.connect(DB); g.db.row_factory = sqlite3.Row; g.db.executescript(SCHEMA)
-        cols = [r[1] for r in g.db.execute("PRAGMA table_info(members)")]
-        for c, t in (("is_admin", "INTEGER DEFAULT 0"), ("role", "TEXT DEFAULT 'athlete'"), ("usawp_verified_by", "TEXT"), ("usawp_verified_at", "TEXT")):
-            if c not in cols: g.db.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
+        migrate_members(g.db)
         if not g.db.execute("SELECT 1 FROM requirements").fetchone():
             g.db.executemany("INSERT INTO requirements(name,applies_to,keywords,expires) VALUES(?,?,?,?)", DEFAULT_REQS); g.db.commit()
         mcols = [r[1] for r in g.db.execute("PRAGMA table_info(messages)")]
         if "channel" not in mcols: g.db.execute("ALTER TABLE messages ADD COLUMN channel TEXT DEFAULT 'team'")
         if "image" not in mcols: g.db.execute("ALTER TABLE messages ADD COLUMN image TEXT")
         expire_sweep(g.db)
-        if "sport80_contact_id" not in cols: g.db.execute("ALTER TABLE members ADD COLUMN sport80_contact_id TEXT")
         for e in ADMIN_EMAILS: g.db.execute("UPDATE members SET is_admin=1 WHERE email=?", (e,))
         g.db.commit()
     return g.db
+def migrate_members(d):
+    """Add columns missing from a database created by an older version (production SQLite on /data)."""
+    cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
+    for c, t in (("is_admin", "INTEGER DEFAULT 0"), ("role", "TEXT DEFAULT 'athlete'"), ("usawp_verified_by", "TEXT"),
+                 ("usawp_verified_at", "TEXT"), ("sport80_contact_id", "TEXT"), ("preferred_first", "TEXT")):
+        if c not in cols: d.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
+def clean_preferred(v):
+    v = str(v or "").strip()[:40]
+    return v or None
+def display_first(m):
+    """Name shown in the app. Blank preferred_first falls back to the legal first name."""
+    if not m: return ""
+    if "preferred_first" in m.keys():
+        pref = (m["preferred_first"] or "").strip()
+        if pref: return pref
+    return m["first"]
+app.jinja_env.globals.update(display_first=display_first)
 # applies_to: all | athlete | coach. keywords: normalized substrings to find this item's columns in a Sport:80 export.
 DEFAULT_REQS = [("SafeSport training", "all", "safesport", 1), ("Background screening", "coach", "background", 1),
                 ("Club waiver", "all", "waiver", 0), ("Concussion training", "coach", "concussion", 1)]
@@ -99,8 +114,8 @@ def expire_sweep(d):
     d.execute("UPDATE members SET usawp_status='expired', usawp_raw='Expired '||usawp_valid_until WHERE usawp_status IN ('verified','pending') AND usawp_valid_until IS NOT NULL AND usawp_valid_until < ?", (dt.date.today().isoformat(),)); d.commit()
 def expiry_report(d, days=None):
     days = days or EXPIRING_DAYS; today = dt.date.today()
-    rows = d.execute("SELECT id, first, last, email, phone, usawp_status, usawp_valid_until FROM members WHERE usawp_valid_until IS NOT NULL ORDER BY usawp_valid_until").fetchall()
-    rq = d.execute("""SELECT m.id, m.first, m.last, m.email, m.phone, 'verified' AS usawp_status, x.expires_on AS usawp_valid_until, q.name AS item
+    rows = d.execute("SELECT id, first, last, preferred_first, email, phone, usawp_status, usawp_valid_until FROM members WHERE usawp_valid_until IS NOT NULL ORDER BY usawp_valid_until").fetchall()
+    rq = d.execute("""SELECT m.id, m.first, m.last, m.preferred_first, m.email, m.phone, 'verified' AS usawp_status, x.expires_on AS usawp_valid_until, q.name AS item
       FROM member_reqs x JOIN members m ON m.id=x.member_id JOIN requirements q ON q.id=x.req_id
       WHERE q.active=1 AND (q.applies_to='all' OR q.applies_to=m.role) AND x.expires_on IS NOT NULL""").fetchall()
     out = {"expired": [], "within_7": [], "within_%d" % days: []}
@@ -114,11 +129,11 @@ def expiry_report(d, days=None):
 def days_left(v):
     return (dt.date.fromisoformat(v) - dt.date.today()).days if v else None
 def remind(d, mid, by="Grunions"):
-    r = d.execute("SELECT first, usawp_valid_until FROM members WHERE id=?", (mid,)).fetchone()
+    r = d.execute("SELECT first, preferred_first, usawp_valid_until FROM members WHERE id=?", (mid,)).fetchone()
     if not r: return
     n = days_left(r["usawp_valid_until"])
     when = "has expired" if n is not None and n < 0 else (f"expires in {n} days ({r['usawp_valid_until']})" if n is not None else "needs to be confirmed")
-    d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (mid, f"Hi {r['first']}, your USA Water Polo membership {when}. Renew at usawp.sport80.com with Grunions as your club so you can keep playing. ({by})"))
+    d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (mid, f"Hi {display_first(r)}, your USA Water Polo membership {when}. Renew at usawp.sport80.com with Grunions as your club so you can keep playing. ({by})"))
 app.jinja_env.globals.update(days_left=days_left, EXPIRING_DAYS=EXPIRING_DAYS)
 def admin_alert():
     if not (me() and me()["is_admin"]): return None
@@ -204,14 +219,14 @@ def join():
         f = {k: (request.form.get(k) or "").strip() for k in ("first", "last", "email", "phone")}
         if not all(f.values()) or not re.match(r"[^@\s]+@[^@\s]+\.[^@\s]+$", f["email"]):
             flash("Please fill in every field with a valid email."); return redirect("/join")
-        email = f["email"].lower(); d = db()
+        email = f["email"].lower(); d = db(); pref = clean_preferred(request.form.get("preferred_first"))
         if d.execute("SELECT 1 FROM members WHERE email=?", (email,)).fetchone():
             flash("You already have an account. We sent you a login link instead.")
             return send_link(email)
-        cur = d.execute("INSERT INTO members(first,last,email,phone,is_admin) VALUES(?,?,?,?,?)",
-                        (f["first"], f["last"], email, f["phone"], int(email in ADMIN_EMAILS)))
+        cur = d.execute("INSERT INTO members(first,last,email,phone,is_admin,preferred_first) VALUES(?,?,?,?,?,?)",
+                        (f["first"], f["last"], email, f["phone"], int(email in ADMIN_EMAILS), pref))
         d.commit(); start_session(cur.lastrowid)
-        flash(f"Welcome to the Grunions, {f['first']}! Find a coach on deck to get checked in.")
+        flash(f"Welcome to the Grunions, {pref or f['first']}! Find a coach on deck to get checked in.")
         return redirect("/home")
     return page(T["join"])
 
@@ -226,7 +241,7 @@ def send_email(to, subject, text):
     else: srv = smtplib.SMTP(SMTP["SMTP_HOST"], port, timeout=15); srv.starttls(context=ctx)
     with srv: srv.login(SMTP["SMTP_USER"], SMTP["SMTP_PASSWORD"]); srv.send_message(msg)
 def send_link(email):
-    m = db().execute("SELECT id, first FROM members WHERE email=? AND COALESCE(role,'')!='system'", (email,)).fetchone()
+    m = db().execute("SELECT id, first, preferred_first FROM members WHERE email=? AND COALESCE(role,'')!='system'", (email,)).fetchone()
     link = None
     if m:
         tok = secrets.token_urlsafe(32)
@@ -234,7 +249,7 @@ def send_link(email):
                      (dt.datetime.utcnow() + dt.timedelta(minutes=LINK_MINUTES)).isoformat())); db().commit()
         link = (PUBLIC_URL.rstrip("/") if PUBLIC_URL else request.host_url.rstrip("/")) + "/auth/" + tok
         if smtp_ready():
-            try: send_email(email, "Your Grunions login link", f"Hi {m['first']},\n\nTap to sign in to the Grunions team app:\n{link}\n\n"
+            try: send_email(email, "Your Grunions login link", f"Hi {display_first(m)},\n\nTap to sign in to the Grunions team app:\n{link}\n\n"
                             f"This link works once and expires in {LINK_MINUTES} minutes. If you didn't ask for it, ignore this email.\n\nGrunions Water Polo")
             except Exception as e: app.logger.error("login email to %s failed: %s", email, e)
         elif DEV_SHOW_LINKS: app.logger.warning("MAGIC LINK for %s: %s", email, link)
@@ -308,6 +323,9 @@ def logout(): session.clear(); return redirect("/login")
 @login_required
 def home():
     m = me(); d = db()
+    if request.method == "POST" and request.form.get("action") == "preferred":
+        d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), m["id"]))
+        d.commit(); flash("Preferred name saved."); return redirect("/home")
     if request.method == "POST":
         num = (request.form.get("usawp_number") or "").strip()
         if not re.fullmatch(r"[0-9]{4,10}", num):
@@ -328,14 +346,14 @@ def home():
     nextp_mine = nextp_mine[0] if nextp_mine else None
     notices = d.execute("SELECT * FROM notices WHERE member_id=? AND seen=0 ORDER BY id DESC", (m["id"],)).fetchall()
     d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (m["id"],)); d.commit()
-    ann = d.execute("SELECT m.*, p.first FROM messages m JOIN members p ON p.id=m.member_id WHERE announcement=1 AND channel='team' ORDER BY m.id DESC LIMIT 1").fetchone()
+    ann = d.execute("SELECT m.*, p.first, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id WHERE announcement=1 AND channel='team' ORDER BY m.id DESC LIMIT 1").fetchone()
     vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
     return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, vr_pending=vr_pending)
 
 # ---------- chat ----------
 def msg_dict(r):
     return {"id": r["id"], "body": r["body"], "ann": bool(r["announcement"]), "at": r["at"] + "Z",
-            "who": f'{r["first"]} {r["last"][:1]}.', "mine": r["member_id"] == me()["id"], "admin": bool(r["is_admin"]),
+            "who": f'{display_first(r)} {r["last"][:1]}.', "mine": r["member_id"] == me()["id"], "admin": bool(r["is_admin"]),
             "image": {"thumb": f"/media/{r['id']}/thumb", "full": f"/media/{r['id']}/full"} if r["image"] else None}
 def can_read(ch): return ch == "team" or (ch == "coaches" and is_staff())
 def save_image(f):
@@ -418,7 +436,7 @@ def api_messages():
         d.execute("INSERT INTO messages(member_id,body,announcement,channel,image) VALUES(?,?,?,?,?)", (me()["id"], body, ann, ch, image)); d.commit()
         return jsonify(ok=True)
     after = request.args.get("after", 0, type=int)
-    rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin FROM messages m JOIN members p ON p.id=m.member_id
+    rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id
       WHERE m.id>? AND m.channel=? ORDER BY m.id DESC LIMIT 200""", (after, ch)).fetchall()
     return jsonify([msg_dict(r) for r in reversed(rows)])
 
@@ -457,7 +475,7 @@ def practices():
     ps = d.execute("SELECT * FROM practices WHERE date>=? ORDER BY date, start LIMIT 16", (dt.date.today().isoformat(),)).fetchall()
     data = []
     for p in ps:
-        rv = d.execute("SELECT r.going, m.first, m.last, m.id FROM rsvps r JOIN members m ON m.id=r.member_id WHERE practice_id=? ORDER BY m.first", (p["id"],)).fetchall()
+        rv = d.execute("SELECT r.going, m.first, m.last, m.preferred_first, m.id FROM rsvps r JOIN members m ON m.id=r.member_id WHERE practice_id=? ORDER BY m.first", (p["id"],)).fetchall()
         mine = next((r["going"] for r in rv if r["id"] == me()["id"]), None)
         data.append(dict(p=p, going=[r for r in rv if r["going"]], notgoing=[r for r in rv if not r["going"]], mine=mine))
     return page(T["practices"], tab="practices", data=data)
@@ -475,11 +493,11 @@ def webhook_headers():
     if VERIFY_WEBHOOK_KEY:
         h[VERIFY_WEBHOOK_HEADER or "Authorization"] = VERIFY_WEBHOOK_KEY if VERIFY_WEBHOOK_HEADER else "Bearer " + VERIFY_WEBHOOK_KEY
     return h
-def post_verify_webhook(row):
+def post_verify_webhook(row, preferred_first=None):
     """POST a newly created verify request. Failures are logged and never raised."""
     if not VERIFY_WEBHOOK_URL: return "skipped (no VERIFY_WEBHOOK_URL)"
-    payload = {"request_id": row["id"], "member_id": row["member_id"], "name": row["name"], "email": row["email"],
-               "member_number": row["member_number"], "requested_by": row["requested_by"], "app_url": PUBLIC_URL}
+    payload = {"request_id": row["id"], "member_id": row["member_id"], "name": row["name"], "preferred_first": clean_preferred(preferred_first),
+               "email": row["email"], "member_number": row["member_number"], "requested_by": row["requested_by"], "app_url": PUBLIC_URL}
     try:
         req = urllib.request.Request(VERIFY_WEBHOOK_URL, data=json.dumps(payload).encode(), headers=webhook_headers(), method="POST")
         with urllib.request.urlopen(req, timeout=5) as resp: return f"sent ({resp.status})"
@@ -496,7 +514,7 @@ def create_verify_request(d, mid, update_pending=False):
     now = dt.datetime.now().isoformat(timespec="seconds")
     rid = d.execute("INSERT INTO verify_requests(member_id,name,email,member_number,requested_by,created) VALUES(?,?,?,?,?,?)",
                     (mid, f"{m['first']} {m['last']}", m["email"], m["usawp_number"], f"{me()['first']} {me()['last']}", now)).lastrowid
-    d.commit(); r = d.execute("SELECT * FROM verify_requests WHERE id=?", (rid,)).fetchone(); wh = post_verify_webhook(r)
+    d.commit(); r = d.execute("SELECT * FROM verify_requests WHERE id=?", (rid,)).fetchone(); wh = post_verify_webhook(r, m["preferred_first"])
     d.execute("UPDATE verify_requests SET webhook=? WHERE id=?", (wh, rid)); d.commit()
     return f"Asked Grunions to verify {m['first']} {m['last']}. Webhook {wh}."
 def bot_auth():
@@ -534,7 +552,9 @@ def api_verify_result(rid):
     note = (str(j.get("note") or "")[:500]) or None
     d.execute("UPDATE verify_requests SET status='done', answered=?, result=?, note=? WHERE id=?", (now, json.dumps(j), note, rid))
     expire_sweep(d)
-    text = f"Verification for {r['name']}: {'verified' if j['verified'] else 'NOT verified'}"
+    shown = d.execute("SELECT first, last, preferred_first FROM members WHERE id=?", (mid,)).fetchone()
+    who = f"{display_first(shown)} {shown['last']}" if shown else r["name"]
+    text = f"Verification for {who}: {'verified' if j['verified'] else 'NOT verified'}"
     if exp: text += f", membership expires {exp.isoformat()}"
     if applied: text += f"; updated {', '.join(applied)}"
     if note: text += f". Note: {note}"
@@ -561,7 +581,7 @@ def admin():
     d = db(); date = request.values.get("date") or dt.date.today().isoformat()
     if request.method == "POST":
         mid = int(request.form["member_id"])
-        if request.form.get("action") in ("verify", "req", "role", "ask_bot") and not me()["is_admin"]: abort(403)
+        if request.form.get("action") in ("verify", "req", "role", "ask_bot", "preferred") and not me()["is_admin"]: abort(403)
         if request.form.get("action") == "verify":
             num = (request.form.get("number") or "").strip()[:20] or None
             vu = parse_date(request.form.get("valid_until")); now = dt.datetime.now().isoformat(timespec="minutes")
@@ -586,6 +606,8 @@ def admin():
             role = request.form.get("role")
             if role != "admin" and is_last_admin(d, mid): flash("Can't remove the last admin."); return redirect(request.full_path)
             d.execute("UPDATE members SET role=?, is_admin=? WHERE id=?", ("coach" if role in ("coach", "admin") else "athlete", 1 if role == "admin" else 0, mid))
+        elif request.form.get("action") == "preferred":
+            d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), mid))
         elif request.form.get("action") == "undo":
             d.execute("DELETE FROM checkins WHERE member_id=? AND practice_date=?", (mid, date))
         else:
@@ -597,7 +619,7 @@ def admin():
       (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status,
       (SELECT note FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_note FROM members m LEFT JOIN checkins c ON c.member_id=m.id AND c.practice_date=?
       LEFT JOIN rsvps rv ON rv.member_id=m.id AND rv.practice_id=?
-      WHERE COALESCE(m.role,'')!='system' AND (?='' OR m.first||' '||m.last||' '||m.email LIKE '%'||?||'%') ORDER BY COALESCE(rv.going,-1)=1 DESC, c.id IS NULL, m.last, m.first""", (date, pr["id"] if pr else -1, q, q)).fetchall()
+      WHERE COALESCE(m.role,'')!='system' AND (?='' OR m.first||' '||COALESCE(m.preferred_first,'')||' '||m.last||' '||m.email LIKE '%'||?||'%') ORDER BY COALESCE(rv.going,-1)=1 DESC, c.id IS NULL, m.last, m.first""", (date, pr["id"] if pr else -1, q, q)).fetchall()
     n = sum(1 for r in rows if r["cid"])
     return page(T["admin"],
         tab="admin", date=date, q=q, rows=rows, n=n, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=sum(1 for r in rows if r["going"] == 1))
@@ -648,12 +670,12 @@ def admins():
         if act == "make_admin": d.execute("UPDATE members SET is_admin=1 WHERE id=?", (mid,))
         elif act == "remove_admin":
             if is_last_admin(d, mid): flash("Can't remove the last admin."); return redirect("/admins")
-            if m["email"] in ADMIN_EMAILS: flash(f"{m['first']} is set as admin by the ADMIN_EMAIL setting; change it there."); return redirect("/admins")
+            if m["email"] in ADMIN_EMAILS: flash(f"{display_first(m)} is set as admin by the ADMIN_EMAIL setting; change it there."); return redirect("/admins")
             d.execute("UPDATE members SET is_admin=0 WHERE id=?", (mid,))
         elif act == "make_coach": d.execute("UPDATE members SET role='coach' WHERE id=?", (mid,))
         elif act == "remove_coach": d.execute("UPDATE members SET role='athlete' WHERE id=?", (mid,))
         else: abort(400)
-        d.commit(); flash(f"Updated {m['first']} {m['last']}."); return redirect("/admins")
+        d.commit(); flash(f"Updated {display_first(m)} {m['last']}."); return redirect("/admins")
     rows = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY is_admin DESC, role='coach' DESC, last, first").fetchall()
     return page(T["admins"], tab="admin", rows=rows, n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS)
 
@@ -669,12 +691,13 @@ def members():
 @admin_required
 def members_csv():
     out = io.StringIO(); w = csv.writer(out)
-    w.writerow(["first", "last", "email", "phone", "usawp_status", "usawp_raw", "member_number", "valid_until", "verified_by", "verified_at"])
-    for r in db().execute("SELECT * FROM members ORDER BY last"): w.writerow([r["first"], r["last"], r["email"], r["phone"], r["usawp_status"], r["usawp_raw"], r["usawp_number"], r["usawp_valid_until"], r["usawp_verified_by"], r["usawp_verified_at"]])
+    w.writerow(["first", "last", "email", "phone", "usawp_status", "usawp_raw", "member_number", "valid_until", "verified_by", "verified_at", "preferred_first"])
+    for r in db().execute("SELECT * FROM members ORDER BY last"): w.writerow([r["first"], r["last"], r["email"], r["phone"], r["usawp_status"], r["usawp_raw"], r["usawp_number"], r["usawp_valid_until"], r["usawp_verified_by"], r["usawp_verified_at"], r["preferred_first"] or ""])
     return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=grunions-members.csv"})
 
 # ---- USAWP (Sport:80 Smart List export) import ----
 ALIASES = {  # normalized header -> field. Sport:80 Smart List columns vary by chosen columns, so match loosely.
+    "preferred": ["preferredfirstname", "preferredname", "nickname", "knownas"],
     "first": ["firstname", "forename", "givenname", "legalfirstname"],
     "last": ["lastname", "surname", "familyname", "legallastname"],
     "name": ["name", "fullname", "membername", "profilename"],
@@ -691,6 +714,7 @@ def map_headers(headers):
         n = norm(h)
         if any(k in n for k in EXCLUDE_KW): continue  # e.g. "Background Screening Expiration Date" is not membership expiry
         for field, al in ALIASES.items():
+            if field == "first" and "preferred" in n: continue  # "Preferred First Name" is not the legal first name
             if field not in m and (n in al or any(n.endswith(a) for a in al if len(a) > 5)): m[field] = i
     return m
 def parse_date(v):
@@ -761,6 +785,7 @@ def import_roster(fname, data):
                   (mid, rid, done.isoformat() if done else None, exp.isoformat() if exp else None, now))
                 stats["req_updates"] = stats.get("req_updates", 0) + 1
         if cell(r, "contact"): d.execute("UPDATE members SET sport80_contact_id=? WHERE id=?", (str(cell(r, "contact")).strip(), mid))
+        if "preferred" in hm and clean_preferred(cell(r, "preferred")): d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(cell(r, "preferred")), mid))
         st = classify(raw, valid)
         if st == "unknown" and not raw and valid and valid >= dt.date.today(): st = "verified"  # no status column: future expiry = current
         rank = {"verified": 3, "pending": 2, "expired": 1, "unknown": 0}[st]

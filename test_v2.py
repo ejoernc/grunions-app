@@ -103,3 +103,71 @@ def test_utf8_and_no_dash_strftime():
         if f.endswith((".py", ".md", ".txt", ".yaml")) or f in ("Dockerfile",):
             s = open(os.path.join(HERE, f), "rb").read().decode("utf-8")
             if f.endswith(".py") and f != "test_v2.py": assert not re.search(r"%-[a-zA-Z]", s), f
+def test_preferred_first_migration():
+    path = os.path.join(tempfile.mkdtemp(), "old.db")
+    raw = sqlite3.connect(path)
+    raw.execute("CREATE TABLE members(id INTEGER PRIMARY KEY, first TEXT NOT NULL, last TEXT NOT NULL, email TEXT NOT NULL UNIQUE, phone TEXT)")
+    raw.execute("INSERT INTO members(first,last,email,phone) VALUES('Old','Member','old@example.com','1')")
+    A.migrate_members(raw); A.migrate_members(raw); raw.commit()
+    assert "preferred_first" in [r[1] for r in raw.execute("PRAGMA table_info(members)")]
+    assert raw.execute("SELECT preferred_first FROM members").fetchone()[0] is None
+def test_preferred_first_display_and_legal_verify():
+    join_page = A.app.test_client().get("/join").get_data(as_text=True)
+    assert "Preferred first name (optional)" in join_page and "Leave blank to use your legal first name" in join_page
+    blank = A.app.test_client()
+    blank.post("/join", data=dict(csrf=csrf(blank, "/join"), first="Zoe", last="Blank", email="zoe@example.com", phone="1", preferred_first="   "))
+    assert sqlite3.connect(A.DB).execute("SELECT preferred_first FROM members WHERE email='zoe@example.com'").fetchone()[0] is None
+    assert "<h1>Hi, Zoe</h1>" in blank.get("/home").get_data(as_text=True)
+    c = A.app.test_client()
+    c.post("/join", data=dict(csrf=csrf(c, "/join"), first="Samuel", last="River", email="samuel@example.com", phone="1", preferred_first="  Sam  "), follow_redirects=True)
+    assert sqlite3.connect(A.DB).execute("SELECT first, preferred_first FROM members WHERE email='samuel@example.com'").fetchone() == ("Samuel", "Sam")
+    home = c.get("/home").get_data(as_text=True)
+    assert "<h1>Hi, Sam</h1>" in home and "Samuel River" in home and 'value="Sam"' in home
+    c.post("/api/messages", json={"body": "hey team"}, headers={"X-CSRF": csrf(c, "/chat")})
+    assert c.get("/api/messages").get_json()[-1]["who"].startswith("Sam ")
+    boss.post("/home", data=dict(csrf=csrf(boss, "/home"), action="preferred", preferred_first="Chief"))
+    boss.post("/api/messages?c=coaches", json={"body": "coach note", "announcement": False}, headers={"X-CSRF": csrf(boss, "/chat")})
+    assert boss.get("/api/messages?c=coaches").get_json()[-1]["who"].startswith("Chief ")
+    boss.post("/api/messages", json={"body": "announcement from chief", "announcement": True}, headers={"X-CSRF": csrf(boss, "/chat")})
+    assert "CHIEF" in c.get("/home").get_data(as_text=True)
+    boss.post("/home", data=dict(csrf=csrf(boss, "/home"), action="preferred", preferred_first=""))
+    pid = sqlite3.connect(A.DB).execute("SELECT id FROM practices ORDER BY date LIMIT 1").fetchone()[0]
+    c.post("/practices", data=dict(csrf=csrf(c, "/practices"), pid=pid, action="going"))
+    assert "Sam R." in c.get("/practices").get_data(as_text=True)
+    SENT.clear(); login = A.app.test_client(); login.post("/login", data=dict(csrf=csrf(login, "/login"), email="samuel@example.com"))
+    assert SENT[-1][2].startswith("Hi Sam,")
+    mid = ids()["samuel@example.com"]
+    db = sqlite3.connect(A.DB); db.execute("UPDATE members SET usawp_valid_until=? WHERE id=?", ((dt.date.today() + dt.timedelta(days=3)).isoformat(), mid)); db.commit()
+    with A.app.app_context():
+        A.remind(A.db(), mid); A.db().commit()
+    assert "Hi Sam," in c.get("/home").get_data(as_text=True)
+    admin = boss.get("/admin").get_data(as_text=True)
+    assert "Sam River" in admin and "writeText('Samuel River')" in admin and "Verify Samuel on Sport:80" in admin
+    act(boss, ids()["mem@example.com"], "make_coach")
+    assert mem.post("/admin", data=dict(csrf=csrf(mem, "/admin"), member_id=mid, action="preferred", preferred_first="Nope")).status_code == 403
+    act(boss, ids()["mem@example.com"], "remove_coach")
+    boss.post("/admin", data=dict(csrf=csrf(boss, "/admin"), member_id=mid, action="preferred", preferred_first="Sammy"))
+    assert sqlite3.connect(A.DB).execute("SELECT preferred_first FROM members WHERE id=?", (mid,)).fetchone()[0] == "Sammy"
+    assert "Sammy River" in boss.get("/members").get_data(as_text=True) and "legal Samuel" in boss.get("/members").get_data(as_text=True)
+    assert "Sammy" in boss.get("/admin?q=Sammy").get_data(as_text=True)
+    captured = []
+    class R:
+        status = 204
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    def spy(req, timeout=None, **k):
+        captured.append(json.loads(req.data.decode())); return R()
+    import urllib.request
+    orig = urllib.request.urlopen; A.VERIFY_WEBHOOK_URL = "http://hooks.example/verify"; urllib.request.urlopen = spy
+    try: boss.post("/admin", data=dict(csrf=csrf(boss, "/admin"), member_id=mid, action="ask_bot"))
+    finally:
+        urllib.request.urlopen = orig; A.VERIFY_WEBHOOK_URL = None
+    assert captured[0]["name"] == "Samuel River" and captured[0]["preferred_first"] == "Sammy" and captured[0]["requested_by"] == "Boss One"
+    assert sqlite3.connect(A.DB).execute("SELECT name FROM verify_requests WHERE member_id=?", (mid,)).fetchone()[0] == "Samuel River"
+    import io
+    csv_bytes = ("First Name,Last Name,Email Address,Preferred First Name,Membership Status\nSamuel,River,samuel@example.com,Samwell,Current\n").encode()
+    boss.post("/import", data=dict(csrf=csrf(boss, "/import"), file=(io.BytesIO(csv_bytes), "x.csv")), content_type="multipart/form-data")
+    assert sqlite3.connect(A.DB).execute("SELECT first, preferred_first FROM members WHERE email='samuel@example.com'").fetchone() == ("Samuel", "Samwell")
+    c.post("/home", data=dict(csrf=csrf(c, "/home"), action="preferred", preferred_first="   "))
+    assert sqlite3.connect(A.DB).execute("SELECT preferred_first FROM members WHERE id=?", (mid,)).fetchone()[0] is None
+    assert "<h1>Hi, Samuel</h1>" in c.get("/home").get_data(as_text=True)
