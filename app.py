@@ -119,7 +119,10 @@ def clearance(d, member):
     """Cleared to play = USAWP membership verified and current, and SafeSport current.
     An active 2-week trial counts as cleared until it ends or the membership is verified."""
     today = dt.date.today().isoformat(); reasons = []; items = []
-    if member["usawp_status"] != "verified": reasons.append(f"Membership {member['usawp_status']}")
+    until = member["usawp_valid_until"] if member and "usawp_valid_until" in member.keys() else None
+    membership_expired = bool(until and until < today)
+    if membership_expired: reasons.append("Membership expired")
+    elif member["usawp_status"] != "verified": reasons.append(f"Membership {member['usawp_status']}")
     q = safesport_req(d)
     reqs = [q] if q else []
     if not q: reasons.append("SafeSport training missing")
@@ -132,10 +135,32 @@ def clearance(d, member):
         items.append(dict(req=q, mr=mr, status=st, days_left=days_left(mr["expires_on"]) if mr else None))
         if st in ("missing", "expired"): reasons.append(f"{q['name']} {st}")
     tw = trial_window(member)
-    if tw and tw["active"] and (member["usawp_status"] or "") != "verified":
+    if tw and tw["active"] and (member["usawp_status"] or "") != "verified" and not membership_expired:
         return dict(ok=True, reasons=[], checks=items)
     return dict(ok=not reasons, reasons=reasons, checks=items)
-app.jinja_env.globals.update(clearance=lambda m: clearance(db(), m))
+def expiry_notes(member, cl=None):
+    """Lines for the home card once a membership or SafeSport date has passed."""
+    today = dt.date.today().isoformat()
+    until = None
+    if member:
+        try: keys = member.keys()
+        except AttributeError: keys = member
+        if "usawp_valid_until" in keys: until = member["usawp_valid_until"]
+    membership = bool(until and until < today)
+    safesport = None
+    for it in (cl or {}).get("checks") or []:
+        q = it["req"]; name = (q["name"] or "").lower(); kws = (q["keywords"] or "").lower()
+        if it["status"] == "expired" and ("safesport" in kws or "safesport" in name) and it.get("mr") and it["mr"]["expires_on"]:
+            safesport = it["mr"]["expires_on"]
+    lines = []
+    if membership: lines.append(f"Membership expired {until}")
+    if safesport: lines.append(f"SafeSport expired {safesport}")
+    skip = set()
+    if membership: skip.add("Membership expired")
+    if safesport: skip.add("SafeSport training expired")
+    rest = [r for r in (cl or {}).get("reasons") or [] if r not in skip]
+    return {"membership": membership, "safesport": safesport, "lines": lines, "rest": rest}
+app.jinja_env.globals.update(clearance=lambda m: clearance(db(), m), expiry_notes=expiry_notes)
 def expire_sweep(d):
     """Auto-flip: anyone whose expires_on (usawp_valid_until) has passed becomes expired."""
     d.execute("UPDATE members SET usawp_status='expired', usawp_raw='Expired '||usawp_valid_until WHERE usawp_status IN ('verified','pending') AND usawp_valid_until IS NOT NULL AND usawp_valid_until < ?", (dt.date.today().isoformat(),)); d.commit()
@@ -389,7 +414,8 @@ def home():
         if d.execute("SELECT changes()").fetchone()[0]: flash("2-week USAWP trial started", "toast")
         d.commit(); return redirect("/home")
     if request.method == "POST":
-        if (m["usawp_status"] or "") == "verified":
+        until = m["usawp_valid_until"] or ""
+        if (m["usawp_status"] or "") == "verified" and not (until and until < dt.date.today().isoformat()):
             flash("Your USAWP number is already verified."); return redirect("/home")
         num = (request.form.get("usawp_number") or "").strip()
         if not re.fullmatch(r"[0-9]{4,10}", num):
