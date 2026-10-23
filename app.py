@@ -687,10 +687,14 @@ def admin():
       (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status,
       (SELECT note FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_note FROM members m LEFT JOIN checkins c ON c.member_id=m.id AND c.practice_date=?
       LEFT JOIN rsvps rv ON rv.member_id=m.id AND rv.practice_id=?
-      WHERE COALESCE(m.role,'')!='system' AND (?='' OR m.first||' '||COALESCE(m.preferred_first,'')||' '||m.last||' '||m.email LIKE '%'||?||'%') ORDER BY COALESCE(rv.going,-1)=1 DESC, c.id IS NULL, m.last, m.first""", (date, pr["id"] if pr else -1, q, q)).fetchall()
-    n = sum(1 for r in rows if r["cid"])
+      WHERE COALESCE(m.role,'')!='system' AND (?='' OR m.first||' '||COALESCE(m.preferred_first,'')||' '||m.last||' '||m.email LIKE '%'||?||'%')""", (date, pr["id"] if pr else -1, q, q)).fetchall()
+    def by_name(r): return (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"])
+    going = sorted((r for r in rows if r["going"] == 1 and not r["cid"]), key=by_name)
+    rest = sorted((r for r in rows if not r["cid"] and r["going"] != 1), key=by_name)
+    checked = sorted((r for r in rows if r["cid"]), key=by_name)
+    n = len(checked)
     return page(T["admin"],
-        tab="admin", date=date, q=q, rows=rows, n=n, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=sum(1 for r in rows if r["going"] == 1))
+        tab="admin", date=date, q=q, going=going, rest=rest, checked=checked, n=n, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=sum(1 for r in rows if r["going"] == 1))
 
 @app.route("/expiring", methods=["GET", "POST"])
 @admin_required

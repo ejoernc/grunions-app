@@ -85,7 +85,7 @@ john.post("/practices", data=dict(csrf=tj, pid=pid[0], action="notgoing"))
 ok("1 going" in jane.get("/practices").get_data(as_text=True), "RSVP headcount")
 ok(jane.post("/practices", data=dict(csrf=tj2, pid=pid[0], action="cancel")).status_code == 403, "members cannot cancel practices")
 c = eli.get("/admin?date=%s" % pid[1]).get_data(as_text=True)
-ok("1 RSVP'd" in c and c.index("Jane Doe") < c.index("Eli Joern") and "RSVP ✓" in c and "Not cleared" in c, "check-in lists RSVPs first, flags not-cleared")
+ok("1 RSVP'd" in c and c.find(">Going <") < c.find(">Everyone else <") < c.find(">Checked in <") and c.find("Eli Joern") < c.find(">Checked in <") < c.find("Jane Doe") and "RSVP ✓" in c and "Not cleared" in c, "check-in groups going, then everyone else, then checked in")
 eli.post("/practices", data=dict(csrf=tok_e, pid=pid[0], action="edit", start="19:30", end="21:00", location="Marina High School", note="Pool B"))
 eli.post("/practices", data=dict(csrf=tok_e, pid=pid[0], action="cancel"))
 ok(tuple(D.execute("SELECT cancelled, start, note FROM practices WHERE id=?", (pid[0],)).fetchone()) == (1, "19:30", "Pool B"), "admin edit + cancel practice")
@@ -302,3 +302,29 @@ ok("Not cleared to play" in eh and 'class="st st-bad">Not cleared' in eh and ("T
 ok(("Trial ended %s" % md(ended_on)) in eli.get("/admin").get_data(as_text=True) and ("Trial ended %s" % md(ended_on)) in eli.get("/members").get_data(as_text=True), "admin marks an ended trial on check-in and the roster")
 D.execute("UPDATE members SET trial_acknowledged_at=? WHERE email='alex@example.com'", ((today - dt.timedelta(days=15)).isoformat() + "T08:00:00",)); D.commit()
 ok("Cleared to play" in alex.get("/home").get_data(as_text=True) and "Trial ended" not in alex.get("/home").get_data(as_text=True), "a verified member keeps the normal card after the trial date has passed")
+day = "2026-12-06"
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=day, start="19:00", end="20:30", location="Sort Pool"))
+spid = D.execute("SELECT id FROM practices WHERE date=? AND location='Sort Pool'", (day,)).fetchone()[0]
+def sorter(first, last, email, pref=None, going=False):
+    c = A.app.test_client(); data = dict(csrf=csrf(c, "/join"), first=first, last=last, email=email, phone="1")
+    if pref: data["preferred_first"] = pref
+    c.post("/join", data=data, follow_redirects=True)
+    if going: c.post("/practices", data=dict(csrf=csrf(c, "/practices"), pid=spid, action="going"))
+    return D.execute("SELECT id FROM members WHERE email=?", (email,)).fetchone()[0]
+sorter("Mia", "Barnes", "mia.sort@example.com", going=True)
+sorter("Liam", "Carter", "liam.sort@example.com", going=True)
+sorter("Zoe", "Able", "amy.sort@example.com", pref="Amy")
+sorter("Noah", "Diaz", "noah.sort@example.com")
+ava = sorter("Ava", "Evans", "ava.sort@example.com", going=True)
+ben = sorter("Ben", "Foster", "ben.sort@example.com")
+sorter("Aaron", "Quinn", "zack.sort@example.com", pref="Zack")
+eli.post("/admin", data=dict(csrf=csrf(eli, "/admin"), member_id=ava, date=day))
+eli.post("/admin", data=dict(csrf=csrf(eli, "/admin"), member_id=ben, date=day))
+page = eli.get("/admin?date=%s" % day).get_data(as_text=True)
+g0, e0, k0 = page.index(">Going <"), page.index(">Everyone else <"), page.index(">Checked in <")
+going_html, rest_html, done_html = page[g0:e0], page[e0:k0], page[k0:]
+ok(">Going <span class=t3>2</span>" in page and going_html.index("Liam Carter") < going_html.index("Mia Barnes") and "Ava Evans" not in going_html and "Amy Able" not in going_html and 'class="st st-bad">Not cleared' in going_html and rest_html.index("Amy Able") < rest_html.index("Noah Diaz") < rest_html.index("Zack Quinn") and "Aaron Quinn" not in rest_html.split("Zack Quinn")[0] and "Liam Carter" not in rest_html and done_html.index("Ava Evans") < done_html.index("Ben Foster") and "Mia Barnes" not in done_html and 'class="st st-bad">Not cleared' in done_html and "<details class=checkin>" in page and "<details class=checkin open" not in page, "check-in sections sort A-Z by display name and keep clearance badges")
+found = eli.get("/admin?date=%s&q=Liam" % day).get_data(as_text=True)
+eli.post("/admin", data=dict(csrf=csrf(eli, "/admin"), member_id=ava, date=day, action="undo"))
+back = eli.get("/admin?date=%s" % day).get_data(as_text=True)
+ok(">Going <span class=t3>1</span>" in found and "Liam Carter" in found and "Mia Barnes" not in found and ">Everyone else <span class=t3>0</span>" in found and ">Checked in <span class=t3>0</span>" in found and back.index(">Going <") < back.index("Ava Evans") < back.index("Mia Barnes") < back.index(">Everyone else <") and "Ava Evans" not in back[back.index(">Checked in <"):], "search stays inside the sections and undo returns a going member to Going")
