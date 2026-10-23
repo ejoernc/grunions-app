@@ -327,6 +327,8 @@ def home():
         d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), m["id"]))
         d.commit(); flash("Preferred name saved."); return redirect("/home")
     if request.method == "POST":
+        if (m["usawp_status"] or "") == "verified":
+            flash("Your USAWP number is already verified."); return redirect("/home")
         num = (request.form.get("usawp_number") or "").strip()
         if not re.fullmatch(r"[0-9]{4,10}", num):
             flash("Membership number must be 4-10 digits."); return redirect("/home")

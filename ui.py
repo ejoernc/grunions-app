@@ -15,6 +15,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:16p
 h1{font-size:28px;font-weight:650;letter-spacing:-.3px;margin:4px 0 20px}h2{font-size:17px;font-weight:600;margin:28px 0 10px}
 p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:14px}.xs{font-size:13px}
 .card{background:var(--surface);border-radius:var(--r);padding:18px;margin:0 0 12px}
+.usawp-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
 .list{background:var(--surface);border-radius:var(--r);margin:0 0 12px;overflow:hidden}
 .li{display:flex;align-items:center;gap:12px;padding:14px 18px;min-height:60px;border-top:1px solid var(--line)}.li:first-child{border-top:0}
 .grow{flex:1;min-width:0}.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -45,6 +46,7 @@ nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;fill:none;
 .composer form{max-width:600px;margin:auto;display:flex;gap:8px;align-items:flex-end}
 .composer textarea{margin:0;height:48px;min-height:48px;max-height:136px;resize:none;line-height:22px;padding:12px 14px;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
 .composer textarea::-webkit-scrollbar{display:none}.iconbtn{width:48px;padding:0;flex:none;color:var(--t2)}.iconbtn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.iconbtn.send{color:var(--accent)}
 .preview{max-width:600px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;color:var(--t2);font-size:14px}.preview img{height:48px;border-radius:8px}
 .m .img{display:block;margin-top:4px}.m.mine .img{margin-left:auto}.m .img img{max-width:min(70vw,280px);max-height:280px;border-radius:12px;display:block;background:var(--surface)}.m.mine .img{width:fit-content}
 .rx{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.m.mine .rx{justify-content:flex-end}
@@ -110,8 +112,16 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 {% if m.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %}<p class="sm" style="margin:8px 0 0"><span class="st st-warn"></span> Your membership expires in <b>{{dl}} days</b> ({{m.usawp_valid_until}}). <a href=https://usawp.sport80.com>Renew</a></p>{% endif %}
 {% if m.usawp_status != 'verified' %}<p class="t2 sm" style="margin:8px 0 0">Register or renew at <a href=https://usawp.sport80.com>usawp.sport80.com</a> with {{m.email}} and choose Grunions as your club.</p>{% endif %}
 {% if vr_pending %}<p class="sm" style="margin:12px 0 0">Sent to Grunions for verification {{ st('warn','pending') }}</p>{% endif %}
-{% if not (m.usawp_status == 'verified' and cl.ok) %}<form method=post action=/home style="margin-top:14px">{{csrf_field()}}
-<div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="{{m.usawp_number or ''}}" autocomplete=off></label>
+{% if m.usawp_status == 'verified' %}
+{% if m.usawp_number %}<p class="sm" style="margin:12px 0 0">USAWP # {{m.usawp_number}}</p>{% endif %}
+{% elif m.usawp_number %}
+<div class=usawp-line><span>USAWP # {{m.usawp_number}}</span><button type=button class=compact id=usawpEdit>Edit</button></div>
+<form id=usawpForm hidden method=post action=/home>{{csrf_field()}}
+<div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="{{m.usawp_number}}" autocomplete=off></label>
+<button class=primary style="flex:0 0 auto">Save</button></div></form>
+<script>document.getElementById('usawpEdit').onclick=function(){var f=document.getElementById('usawpForm');f.hidden=!f.hidden;if(!f.hidden)f.querySelector('input[name=usawp_number]').focus()};</script>
+{% else %}<form method=post action=/home style="margin-top:14px">{{csrf_field()}}
+<div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="" autocomplete=off></label>
 <button class=primary style="flex:0 0 auto">Add</button></div></form>{% endif %}</div>
 {% if nextp %}<div class=card><div class="t3 xs">NEXT PRACTICE</div><div style="font-size:18px;font-weight:600;margin-top:2px">{{fmt_d(nextp.date)}}, {{fmt_t(nextp.start)}}</div>
 <div class=t2>{{nextp.location}} · {{nextp_n}} going</div>
@@ -141,8 +151,7 @@ T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="{{'on' if 
 <form id=f><input type=file id=file accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic" hidden>
 <button type=button class="iconbtn" id=attach title="Attach image" aria-label="Attach image"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg></button>
 <textarea id=body rows=1 maxlength=2000 placeholder="Message {{'coaches' if ch=='coaches' else 'the team'}}"></textarea>
-{% if me().is_admin and ch=='team' %}<label title="Post as announcement" style="margin:0 0 14px;display:flex;align-items:center;font-size:13px;white-space:nowrap"><input type=checkbox id=ann>Announce</label>{% endif %}
-<button class=primary>Send</button></form></div>
+<button class="iconbtn send" type=submit aria-label=Send><svg viewBox="0 0 24 24" aria-hidden=true><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button></form></div>
 <script>
 const CSRF="{{csrf_token()}}",CH="{{ch}}",EMO={{REACTIONS|tojson}};let last=0;const box=document.getElementById('chat');
 const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -166,12 +175,12 @@ document.getElementById('attach').onclick=()=>file.click();
 file.onchange=()=>{const f=file.files[0];if(!f)return;if(f.size>8*1024*1024){alert('Image is larger than 8 MB.');file.value='';return}
  prev.hidden=false;document.getElementById('prevName').textContent=f.name;document.getElementById('prevImg').src=URL.createObjectURL(f)};
 document.getElementById('prevX').onclick=()=>{file.value='';prev.hidden=true};
-document.getElementById('f').onsubmit=async e=>{e.preventDefault();const a=document.getElementById('ann'),f=file.files[0];if(!ta.value.trim()&&!f)return;
- let r;if(f){const fd=new FormData();fd.append('body',ta.value);fd.append('image',f);if(a&&a.checked)fd.append('announcement','true');
+document.getElementById('f').onsubmit=async e=>{e.preventDefault();const f=file.files[0];if(!ta.value.trim()&&!f)return;
+ let r;if(f){const fd=new FormData();fd.append('body',ta.value);fd.append('image',f);
   r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'X-CSRF':CSRF},body:fd})}
- else r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:ta.value,announcement:a&&a.checked})});
+ else r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:ta.value})});
  if(!r.ok){const j=await r.json().catch(()=>({}));alert(j.error||'Could not send.');return}
- ta.value='';grow();file.value='';prev.hidden=true;if(a)a.checked=false;await poll();scrollTo(0,document.body.scrollHeight)};
+ ta.value='';grow();file.value='';prev.hidden=true;await poll();scrollTo(0,document.body.scrollHeight)};
 ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();document.getElementById('f').requestSubmit()}});
 poll().then(()=>scrollTo(0,document.body.scrollHeight));setInterval(poll,3000);
 </script>"""

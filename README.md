@@ -18,9 +18,9 @@ ADMIN_EMAIL (comma-separated) bootstraps admins and keeps them admin on every st
 ## Pages
 - /join: QR target, creates the account and logs in. Optional preferred first name (blank uses the legal first name). /login: one-time magic link (LINK_MINUTES, default 15; single use, stored hashed), emailed via SMTP. The greeting uses the preferred first name when set.
 - /home: Cleared to play card (membership + each required item), USAWP status, expiry warning, reminders, next practice, attendance, profile (legal name, and an editable preferred first name).
-  Until a member is verified and cleared, the Not cleared card includes an inline USAWP Membership # form (digits, 4-10, prefilled when stored). Add saves the number and opens a pending verification request, or updates the number on the one already pending. The card then shows "Sent to Grunions for verification" with status pending. Three submissions per member per hour.
+  Until a member is verified, the card includes an inline USAWP Membership # form (digits, 4-10). Add saves the number and opens a pending verification request, or Edit (shown with the number while it is pending or not yet verified) updates the number on the one already pending. The card then shows "Sent to Grunions for verification" with status pending. Once verified, Edit is hidden and the card shows the number as read-only text (USAWP # 1234567). Three submissions per member per hour.
 - /practices: recurring Tue 7–8:30 Marina HS / Fri 7–8:30 Westminster HS (next 4 weeks auto-created); Going / Not going, headcount, who's coming. Admin add/edit/cancel/restore.
-- /chat: #team (everyone; admins can post 📣 announcements) and 🔒 #coaches (coaches + admins). Polls every 3 s.
+- /chat: #team (everyone) and 🔒 #coaches (coaches + admins). Polls every 3 s. The composer has an image button and a send icon; announcements already stored still show on Home.
 - /admin (staff): check-in by date; RSVP'd first; badges for RSVP, USAWP, Cleared/Not cleared with reason, days left.
   Admin "Verify" panel: open Sport:80 (name copied to clipboard), Mark membership verified (member #, expires on; records admin + time),
   enter compliance items (completed / expires), set role.
