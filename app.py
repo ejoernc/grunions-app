@@ -116,7 +116,8 @@ def safesport_req(d):
         if "safesport" in kws or "safesport" in name: return q
     return None
 def clearance(d, member):
-    """Cleared to play = USAWP membership verified and current, and SafeSport current."""
+    """Cleared to play = USAWP membership verified and current, and SafeSport current.
+    An active 2-week trial counts as cleared until it ends or the membership is verified."""
     today = dt.date.today().isoformat(); reasons = []; items = []
     if member["usawp_status"] != "verified": reasons.append(f"Membership {member['usawp_status']}")
     q = safesport_req(d)
@@ -130,6 +131,9 @@ def clearance(d, member):
         else: st = "ok"
         items.append(dict(req=q, mr=mr, status=st, days_left=days_left(mr["expires_on"]) if mr else None))
         if st in ("missing", "expired"): reasons.append(f"{q['name']} {st}")
+    tw = trial_window(member)
+    if tw and tw["active"] and (member["usawp_status"] or "") != "verified":
+        return dict(ok=True, reasons=[], checks=items)
     return dict(ok=not reasons, reasons=reasons, checks=items)
 app.jinja_env.globals.update(clearance=lambda m: clearance(db(), m))
 def expire_sweep(d):
@@ -153,6 +157,8 @@ def days_left(v):
     return (dt.date.fromisoformat(v) - dt.date.today()).days if v else None
 TRIAL_DAYS = 14
 TRIAL_JOIN_URL = "https://usawp.sport80.com/public/widget/1"  # official registration widget linked from usawaterpolo.org; trial is a membership type in that flow
+def fmt_md(iso):
+    d = dt.date.fromisoformat(str(iso)[:10]); return d.strftime("%b ") + str(d.day)
 def trial_window(m):
     """2-week USAWP trial. The end date is the acknowledgment date plus 14 days, and that end date still counts."""
     if not m: return None
@@ -165,14 +171,21 @@ def trial_window(m):
     except ValueError: return None
     end = start + dt.timedelta(days=TRIAL_DAYS)
     today = dt.date.today()
-    return {"start": start.isoformat(), "end": end.isoformat(), "active": today <= end, "expired": today > end}
+    left = (end - today).days
+    return {"start": start.isoformat(), "end": end.isoformat(), "ends": fmt_md(end.isoformat()), "active": today <= end, "expired": today > end, "days_left": left}
+def trial_badge(tw):
+    """Status label for an active trial. The end date itself is the last day."""
+    if not tw or not tw.get("active"): return ""
+    left = tw["days_left"]
+    if left <= 0: return "Last day of trial"
+    return "Trial · %d day%s left" % (left, "" if left == 1 else "s")
 def remind(d, mid, by="Grunions"):
     r = d.execute("SELECT first, preferred_first, usawp_valid_until FROM members WHERE id=?", (mid,)).fetchone()
     if not r: return
     n = days_left(r["usawp_valid_until"])
     when = "has expired" if n is not None and n < 0 else (f"expires in {n} days ({r['usawp_valid_until']})" if n is not None else "needs to be confirmed")
     d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (mid, f"Hi {display_first(r)}, your USA Water Polo membership {when}. Renew at usawp.sport80.com with Grunions as your club so you can keep playing. ({by})"))
-app.jinja_env.globals.update(days_left=days_left, EXPIRING_DAYS=EXPIRING_DAYS, trial_window=trial_window, TRIAL_JOIN_URL=TRIAL_JOIN_URL)
+app.jinja_env.globals.update(days_left=days_left, EXPIRING_DAYS=EXPIRING_DAYS, trial_window=trial_window, trial_badge=trial_badge, TRIAL_JOIN_URL=TRIAL_JOIN_URL)
 def admin_alert():
     if not (me() and me()["is_admin"]): return None
     rep = expiry_report(db()); n7 = len(rep["within_7"]) + len(rep["within_%d" % EXPIRING_DAYS]); ne = len(rep["expired"])
