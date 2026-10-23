@@ -139,6 +139,9 @@ ok(cm[-1]["who"].startswith("Grunions") and "Ana Lopez" in cm[-1]["body"], "bot 
 a = eli.get("/admin?date=2026-10-27").get_data(as_text=True)
 ok("Verification for Ana Lopez" in a and "bot answered" in a, "admin notification + answered state")
 ok("Grunions bot" not in eli.get("/members").get_data(as_text=True).split("verified by")[0] and "bot@grunions.local" not in eli.get("/members").get_data(as_text=True), "bot account hidden from member list")
+ahome = ana.get("/home").get_data(as_text=True)
+ok((">Verified</span><span>%s<" % dt.date.today().isoformat()) in ahome and "Grunions bot" not in ahome, "member verified row shows only the date")
+ok("Grunions bot" in a and "verified by Grunions bot" in eli.get("/members").get_data(as_text=True), "admin views still show who verified")
 # reactions + images + schedule toggle
 A.UPLOADS = tempfile.mkdtemp()
 from PIL import Image

@@ -151,7 +151,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <details class=card><summary>Membership &amp; requirements</summary><div class=body>
 <div class=kv><span>USA Water Polo</span>{{ usawp(m.usawp_status) }}</div>
 <div class=kv><span>Member #</span><span>{{m.usawp_number or '—'}}</span></div><div class=kv><span>Expires</span><span>{{m.usawp_valid_until or '—'}}</span></div>
-{% if m.usawp_verified_by %}<div class=kv><span>Verified</span><span>{{m.usawp_verified_by}}, {{m.usawp_verified_at[:10]}}</span></div>{% endif %}
+{% if m.usawp_verified_at %}<div class=kv><span>Verified</span><span>{{m.usawp_verified_at[:10]}}</span></div>{% endif %}
 {% for it in cl.checks %}<div class=kv><span>{{it.req.name}}</span>{{ st({'ok':'ok','no date':'warn'}.get(it.status,'bad'),
  (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status!='expired' else 'expired') }}</div>{% endfor %}
 </div></details>
