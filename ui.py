@@ -18,7 +18,7 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:14px}.xs
 .grow{flex:1;min-width:0}.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 label{display:block;font-size:13px;color:var(--t2);margin:0 0 14px}
 input,select,textarea{display:block;width:100%;margin-top:6px;background:var(--surface2);border:1px solid var(--line);color:var(--t1);border-radius:10px;
-padding:0 14px;height:48px;font:inherit}textarea{padding:12px 14px}input[type=checkbox]{display:inline-block;width:20px;height:20px;margin:0 8px 0 0;vertical-align:-4px;accent-color:var(--accent)}
+padding:0 14px;height:48px;font:inherit}textarea{padding:12px 14px}input[type=hidden]{display:none}input[type=checkbox]{display:inline-block;width:20px;height:20px;margin:0 8px 0 0;vertical-align:-4px;accent-color:var(--accent)}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .btn,button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:48px;padding:0 18px;border-radius:10px;border:0;font:inherit;font-weight:600;
 cursor:pointer;text-decoration:none;background:var(--surface2);color:var(--t1)}.btn.primary,button.primary{background:var(--accent);color:#fff}
@@ -105,7 +105,11 @@ T["home"] = """<h1>Hi, {{m.first}}</h1>
 <div style="font-size:19px;font-weight:600">{{'Cleared to play' if cl.ok else 'Not cleared to play'}}</div>{{ st('ok' if cl.ok else 'bad', 'Cleared' if cl.ok else 'Not cleared') }}</div>
 {% if not cl.ok %}<p class="t2 sm" style="margin:8px 0 0">Needs: {{cl.reasons|join(', ')}}</p>{% endif %}
 {% if m.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %}<p class="sm" style="margin:8px 0 0"><span class="st st-warn"></span> Your membership expires in <b>{{dl}} days</b> ({{m.usawp_valid_until}}). <a href=https://usawp.sport80.com>Renew</a></p>{% endif %}
-{% if m.usawp_status != 'verified' %}<p class="t2 sm" style="margin:8px 0 0">Register or renew at <a href=https://usawp.sport80.com>usawp.sport80.com</a> with {{m.email}} and choose Grunions as your club.</p>{% endif %}</div>
+{% if m.usawp_status != 'verified' %}<p class="t2 sm" style="margin:8px 0 0">Register or renew at <a href=https://usawp.sport80.com>usawp.sport80.com</a> with {{m.email}} and choose Grunions as your club.</p>{% endif %}
+{% if vr_pending %}<p class="sm" style="margin:12px 0 0">Sent to Grunions for verification {{ st('warn','pending') }}</p>{% endif %}
+{% if not (m.usawp_status == 'verified' and cl.ok) %}<form method=post action=/home style="margin-top:14px">{{csrf_field()}}
+<div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="{{m.usawp_number or ''}}" autocomplete=off></label>
+<button class=primary style="flex:0 0 auto">Add</button></div></form>{% endif %}</div>
 {% if nextp %}<div class=card><div class="t3 xs">NEXT PRACTICE</div><div style="font-size:18px;font-weight:600;margin-top:2px">{{fmt_d(nextp.date)}}, {{fmt_t(nextp.start)}}</div>
 <div class=t2>{{nextp.location}} · {{nextp_n}} going</div>
 <form method=post action=/practices style="margin-top:14px">{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>

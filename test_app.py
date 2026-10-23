@@ -107,13 +107,18 @@ hits = []
 import threading, http.server
 class Hook(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
-        hits.append(json.loads(self.rfile.read(int(self.headers["Content-Length"])))); self.send_response(204); self.end_headers()
+        n = int(self.headers.get("Content-Length") or 0)
+        hits.append({"json": json.loads(self.rfile.read(n) or b"{}"), "authorization": self.headers.get("Authorization"),
+                     "x_verify_token": self.headers.get("X-Verify-Token"), "content_type": self.headers.get("Content-Type")})
+        self.send_response(204); self.end_headers()
     def log_message(self, *a): pass
 import json
 srv = http.server.HTTPServer(("127.0.0.1", 0), Hook); threading.Thread(target=srv.serve_forever, daemon=True).start()
+A.PUBLIC_URL = "https://grunions.example"
 A.VERIFY_WEBHOOK_URL = "http://127.0.0.1:%d/hook" % srv.server_port
 r = eli.post("/admin", data=dict(csrf=tok_e, member_id=4, date="2026-10-27", action="ask_bot"), follow_redirects=True).get_data(as_text=True)
-ok("Webhook sent" in r and hits and hits[0]["request"]["email"] == "ana@example.com" and hits[0]["request"]["status"] == "pending", "Ask Grunions creates request + POSTs webhook")
+body = hits[0]["json"] if hits else {}
+ok("Webhook sent" in r and body == {"request_id": body.get("request_id"), "member_id": 4, "name": "Ana Lopez", "email": "ana@example.com", "member_number": None, "requested_by": "Eli Joern", "app_url": "https://grunions.example"} and hits[0]["authorization"] is None and hits[0]["content_type"] == "application/json", "Ask Grunions creates request + POSTs webhook")
 ok("already pending" in eli.post("/admin", data=dict(csrf=tok_e, member_id=4, date="2026-10-27", action="ask_bot"), follow_redirects=True).get_data(as_text=True), "no duplicate pending request")
 ok(jane.post("/admin", data=dict(csrf=tj2, member_id=4, action="ask_bot")).status_code == 403, "members cannot request verification")
 ok("verification requested" in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "pending state on member row")
@@ -171,3 +176,64 @@ pg = jane.get("/practices").get_data(as_text=True)
 ok('class=gobtn aria-expanded=false' in pg and re.search(r'id=who\d+ class="t2 sm" hidden', pg), "schedule 'N going' toggles hidden list")
 ch = jane.get("/chat").get_data(as_text=True)
 ok("rows=1" in ch and "scrollbar-width:none" in ch and "shiftKey" in ch and 'id=attach' in ch, "composer: single-line autogrow, hidden scrollbar, Enter sends, attach")
+
+# member USAWP number on the Not cleared card
+jh = jane.get("/home").get_data(as_text=True)
+ok("Not cleared to play" in jh and 'name=usawp_number inputmode=numeric value="1234567"' in jh and re.search(r'<button class=primary[^>]*>Add</button>', jh), "not-cleared card shows prefilled membership form; blue only on Add")
+D.execute("UPDATE member_reqs SET expires_on='2027-06-01' WHERE member_id=2 AND req_id=1"); D.commit()
+ok("USAWP Membership #" not in jane.get("/home").get_data(as_text=True) and "Cleared to play" in jane.get("/home").get_data(as_text=True), "form hidden once verified and cleared")
+sam = A.app.test_client(); join(sam, "Sam", "River", "sam@example.com")
+sh = sam.get("/home").get_data(as_text=True)
+ok('name=usawp_number inputmode=numeric value=""' in sh and "USAWP Membership #" in sh, "empty membership form for a new member")
+ok(sam.post("/home", data=dict(usawp_number="4321")).status_code == 400, "membership form requires CSRF")
+ts = csrf(sam, "/home"); sid = D.execute("SELECT id FROM members WHERE email='sam@example.com'").fetchone()[0]
+def sam_post(num): return sam.post("/home", data=dict(csrf=ts, usawp_number=num), follow_redirects=True)
+bad = sam_post("12ab").get_data(as_text=True)
+ok("4-10 digits" in bad and all("4-10 digits" in sam_post(n).get_data(as_text=True) for n in ("123", "12345678901", "12 34")) and D.execute("SELECT COUNT(*) FROM verify_requests WHERE member_id=?", (sid,)).fetchone()[0] == 0 and D.execute("SELECT usawp_number FROM members WHERE id=?", (sid,)).fetchone()[0] in (None, ""), "rejects numbers that are not 4-10 digits")
+import urllib.request
+_open = urllib.request.urlopen
+def _spy(req, timeout=None, **k):
+    _spy.timeout = timeout
+    return _open(req, timeout=timeout)
+urllib.request.urlopen = _spy
+before = len(hits)
+page = sam_post("4321")
+urllib.request.urlopen = _open
+vr = D.execute("SELECT id, member_number, status, requested_by, name, email FROM verify_requests WHERE member_id=?", (sid,)).fetchone()
+body = hits[-1]["json"]
+ok(page.status_code == 200 and "Sent to Grunions for verification" in page.get_data(as_text=True) and ">pending<" in page.get_data(as_text=True) and D.execute("SELECT usawp_number FROM members WHERE id=?", (sid,)).fetchone()[0] == "4321" and vr[1] == "4321" and vr[2] == "pending", "submit saves number, opens pending request, shows sent status")
+ok(_spy.timeout == 5 and len(hits) == before + 1 and body == {"request_id": vr[0], "member_id": sid, "name": "Sam River", "email": "sam@example.com", "member_number": "4321", "requested_by": "Sam River", "app_url": "https://grunions.example"}, "member submit POSTs the webhook payload with a 5s timeout")
+ok("verification requested" in eli.get("/admin").get_data(as_text=True) and any(x["id"] == vr[0] and x["member_number"] == "4321" and x["status"] == "pending" for x in c0.get("/api/verify-requests?status=pending", headers=H).get_json()), "request shows in admin and on the bot API")
+sam_post("55555")
+ok(tuple(D.execute("SELECT COUNT(*), MAX(member_number) FROM verify_requests WHERE member_id=? AND status='pending'", (sid,)).fetchone()) == (1, "55555") and len(hits) == before + 1 and D.execute("SELECT requested_by FROM verify_requests WHERE id=?", (vr[0],)).fetchone()[0] == "Sam River", "second submit updates the pending number and does not POST again")
+sam_post("666666")
+blocked = sam_post("7777777").get_data(as_text=True)
+ok("3 times per hour" in blocked and D.execute("SELECT usawp_number FROM members WHERE id=?", (sid,)).fetchone()[0] == "666666" and D.execute("SELECT member_number FROM verify_requests WHERE id=?", (vr[0],)).fetchone()[0] == "666666", "rate limit is 3 submissions per member per hour")
+pat = A.app.test_client(); join(pat, "Pat", "Ng", "pat@example.com")
+pid = D.execute("SELECT id FROM members WHERE email='pat@example.com'").fetchone()[0]
+n0 = len(hits)
+eli.post("/admin", data=dict(csrf=csrf(eli, "/admin"), member_id=pid, action="ask_bot"), follow_redirects=True)
+ph = pat.post("/home", data=dict(csrf=csrf(pat, "/home"), usawp_number="246810"), follow_redirects=True).get_data(as_text=True)
+prow = D.execute("SELECT member_number, requested_by FROM verify_requests WHERE member_id=? AND status='pending'", (pid,)).fetchall()
+ok("Sent to Grunions for verification" in ph and len(prow) == 1 and tuple(prow[0]) == ("246810", "Eli Joern") and len(hits) == n0 + 1, "member form updates the admin's pending request instead of duplicating it")
+kim = A.app.test_client(); join(kim, "Kim", "Lee", "kim@example.com"); tk = csrf(kim, "/home")
+A.VERIFY_WEBHOOK_KEY = "hook-secret"
+kim.post("/home", data=dict(csrf=tk, usawp_number="10001"), follow_redirects=True)
+ok(hits[-1]["authorization"] == "Bearer hook-secret" and hits[-1]["json"]["member_number"] == "10001", "VERIFY_WEBHOOK_KEY is sent as a bearer token")
+A.VERIFY_WEBHOOK_HEADER = "X-Verify-Token"
+kid = D.execute("SELECT id FROM members WHERE email='kim@example.com'").fetchone()[0]
+D.execute("DELETE FROM verify_requests WHERE member_id=?", (kid,)); D.commit()
+kim.post("/home", data=dict(csrf=tk, usawp_number="10002"), follow_redirects=True)
+ok(hits[-1]["x_verify_token"] == "hook-secret" and hits[-1]["authorization"] is None, "VERIFY_WEBHOOK_HEADER sends the raw key under that name")
+import logging
+logged = []
+class _H(logging.Handler):
+    def emit(self, rec): logged.append(rec.getMessage())
+A.app.logger.addHandler(_H())
+A.VERIFY_WEBHOOK_URL = "http://127.0.0.1:9/hook"
+D.execute("DELETE FROM verify_requests WHERE member_id=?", (kid,)); D.commit()
+fail = kim.post("/home", data=dict(csrf=tk, usawp_number="10003"), follow_redirects=True)
+wh = D.execute("SELECT webhook, status, member_number FROM verify_requests WHERE member_id=?", (kid,)).fetchone()
+ok(fail.status_code == 200 and "Sent to Grunions for verification" in fail.get_data(as_text=True) and wh[0].startswith("failed:") and wh[1] == "pending" and wh[2] == "10003" and any("verify webhook failed" in m for m in logged), "webhook failure is logged and does not break the page")
+res = c0.post("/api/verify-requests/%d/result" % vr[0], headers=H, json={"verified": True, "member_number": "666666", "membership_expires_on": "2027-08-31", "compliance": {"SafeSport training": "2027-05-01", "Club waiver": "2027-01-01"}}).get_json()
+ok(res["ok"] and D.execute("SELECT status FROM verify_requests WHERE id=?", (vr[0],)).fetchone()[0] == "done" and tuple(D.execute("SELECT usawp_status, usawp_number FROM members WHERE id=?", (sid,)).fetchone()) == ("verified", "666666") and "USAWP Membership #" not in sam.get("/home").get_data(as_text=True), "bot result answers the member request and hides the form once cleared")

@@ -9,7 +9,7 @@ or:
 Env: PUBLIC_URL (base URL for QR + login links), EXPIRING_DAYS (default 30), CRON_KEY (lets a scheduler call /api/expiring?key=...),
 DEV_SHOW_LINKS=1 (local testing only: show magic link on screen; default 0), SECURE_COOKIES=1 (behind HTTPS), GRUNIONS_DB, PORT.
 Demo data: `rm grunions.db && .venv/bin/python seed_demo.py` (admin eli@example.com, coach marcus@example.com).
-Tests: `.venv/bin/python test_app.py` (69 checks) and `.venv/bin/python -m pytest -q test_v2.py` (14 tests), `.venv/bin/python -m pytest -q test_google.py` (8 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
+Tests: `.venv/bin/python test_app.py` (84 checks) and `.venv/bin/python -m pytest -q test_v2.py` (14 tests), `.venv/bin/python -m pytest -q test_google.py` (8 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
 
 ## Roles
 member (athlete), coach (check-in + #coaches), admin (everything). Manage on Admin → **Roles** (/admins): every member with Make/Remove admin and Make/Remove coach. The last admin can't be removed.
@@ -18,6 +18,7 @@ ADMIN_EMAIL (comma-separated) bootstraps admins and keeps them admin on every st
 ## Pages
 - /join: QR target, creates the account and logs in. /login: one-time magic link (LINK_MINUTES, default 15; single use, stored hashed), emailed via SMTP.
 - /home: Cleared to play card (membership + each required item), USAWP status, expiry warning, reminders, next practice, attendance, profile.
+  Until a member is verified and cleared, the Not cleared card includes an inline USAWP Membership # form (digits, 4-10, prefilled when stored). Add saves the number and opens a pending verification request, or updates the number on the one already pending. The card then shows "Sent to Grunions for verification" with status pending. Three submissions per member per hour.
 - /practices: recurring Tue 7–8:30 Marina HS / Fri 7–8:30 Westminster HS (next 4 weeks auto-created); Going / Not going, headcount, who's coming. Admin add/edit/cancel/restore.
 - /chat: #team (everyone; admins can post 📣 announcements) and 🔒 #coaches (coaches + admins). Polls every 3 s.
 - /admin (staff): check-in by date; RSVP'd first; badges for RSVP, USAWP, Cleared/Not cleared with reason, days left.
@@ -33,8 +34,10 @@ Templates live in ui.py (restrained dark theme: one surface, gray text, blue onl
 Tabs: Home, Schedule, Chat, plus Admin for coaches/admins (Check-in · Members · Expiring · Import · Rules · QR). Tap a name on check-in to open its details panel.
 
 ## Verification bot API
-- Admin taps "Ask Grunions to verify" in a member's panel → verify_requests row (pending). If VERIFY_WEBHOOK_URL is set, POSTs
-  {"event":"verify_request.created","request":{id,member_id,name,email,member_number,requested_by,status,created,...}} (5 s timeout).
+- Home form or admin "Ask Grunions to verify" creates a verify_requests row (pending). The Home form, if one is already pending, updates that row's member_number instead of inserting another. Admin "Ask Grunions to verify" does not create a duplicate while one is pending.
+- Whenever a verify request is created, if VERIFY_WEBHOOK_URL is set, POSTs this JSON (5 s timeout). Failures are logged only and never break the page:
+  `{"request_id": 12, "member_id": 4, "name": "Ana Lopez", "email": "ana@example.com", "member_number": "5555555", "requested_by": "Eli Joern", "app_url": "https://grunions.example"}`
+  `app_url` is PUBLIC_URL. `member_number` and `requested_by` are stored on the request. If VERIFY_WEBHOOK_KEY is set, the POST sends `Authorization: Bearer <key>`. If VERIFY_WEBHOOK_HEADER is set, that name is used instead and the value is the raw key (no Bearer prefix).
 - Auth: `Authorization: Bearer $BOT_API_KEY` (401 otherwise; API disabled if unset).
 - GET /api/verify-requests?status=pending|done → list.
 - POST /api/verify-requests/<id>/result  {"verified":true,"member_number":"123","membership_expires_on":"2027-08-31",
@@ -53,7 +56,10 @@ Tabs: Home, Schedule, Chat, plus Admin for coaches/admins (Check-in · Members �
 | GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET | no | enable Sign in with Google (button appears only when both are set). |
 | LINK_MINUTES | no | login link lifetime (default 15). |
 | SECURE_COOKIES / BEHIND_PROXY | no | force `1`/`0`; default on when PUBLIC_URL is https. |
-| BOT_API_KEY, VERIFY_WEBHOOK_URL, CRON_KEY, EXPIRING_DAYS, PORT | no | see below. |
+| VERIFY_WEBHOOK_URL | no | POST target when a verify request is created. JSON keys: request_id, member_id, name, email, member_number, requested_by, app_url (PUBLIC_URL). 5 s timeout. |
+| VERIFY_WEBHOOK_KEY | no | If set, sent as `Authorization: Bearer <key>` on that POST. |
+| VERIFY_WEBHOOK_HEADER | no | Optional header name. When set, the raw key is that header's value (no Bearer prefix). |
+| BOT_API_KEY, CRON_KEY, EXPIRING_DAYS, PORT | no | see below. |
 
 SMTP examples: **Gmail** `smtp.gmail.com`, 587, your Gmail address, a 16-char App Password (needs 2-Step Verification), MAIL_FROM `Grunions Water Polo <you@gmail.com>`.
 **Resend** `smtp.resend.com`, 465, user `resend`, password = API key, MAIL_FROM on a verified domain. **Brevo** `smtp-relay.brevo.com`, 587, SMTP login + SMTP key.
@@ -64,7 +70,7 @@ New → Blueprint → point at the repo, then fill PUBLIC_URL and the SMTP_* val
 Without Docker: `gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 8`.
 
 ## Start clean (real data)
-`python reset_real.py` (type RESET, or `--yes`) wipes members, chat, reactions, check-ins, RSVPs, verify requests, notices, login tokens and uploads.
+`python reset_real.py` (type RESET, or `--yes`) wipes members, chat, reactions, check-ins, RSVPs, verify requests, notices, login tokens, membership-number submissions and uploads.
 Keeps schema, requirements and the real practices (Tue 7–8:30 PM Marina High School, 15871 Springdale St, Huntington Beach; Fri 7–8:30 PM Westminster High School),
 and re-creates Elliott Joern (elliott.joern@gmail.com, USAWP #659226, membership thru 2027-06-07, SafeSport thru 2027-05-11, background thru 2028-08-28) as verified admin + coach.
 Back up grunions.db first. It acts on whatever DATA_DIR/GRUNIONS_DB points at.

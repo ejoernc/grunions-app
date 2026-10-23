@@ -1,6 +1,6 @@
 """Wipe demo data and leave a clean, real Grunions database.
 
-Deletes all members, chat messages, reactions, check-ins, RSVPs, verify requests, notices, login tokens and uploaded images.
+Deletes all members, chat messages, reactions, check-ins, RSVPs, verify requests, notices, login tokens, membership-number submissions and uploaded images.
 Keeps the schema, the requirements (Cleared-to-play rules) and the real practices (Tue Marina HS / Fri Westminster HS).
 Re-creates Elliott Joern as the verified admin.
 
@@ -21,7 +21,7 @@ def main():
         if input("Type RESET to continue: ").strip() != "RESET": print("Cancelled."); sys.exit(1)
     with A.app.app_context():
         d = A.db()
-        for t in ("reactions", "messages", "checkins", "rsvps", "verify_requests", "notices", "login_tokens", "member_reqs", "members"):
+        for t in ("reactions", "messages", "checkins", "rsvps", "verify_requests", "notices", "login_tokens", "usawp_submits", "member_reqs", "members"):
             d.execute(f"DELETE FROM {t}")
         d.execute("DELETE FROM practices WHERE location NOT IN (%s)" % ",".join("?" * len(REAL_LOCATIONS)), tuple(REAL_LOCATIONS))
         now = dt.datetime.now().isoformat(timespec="minutes")

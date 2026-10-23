@@ -17,6 +17,8 @@ LINK_MINUTES = int(os.environ.get("LINK_MINUTES", 15))
 SMTP = {k: os.environ.get(k) for k in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "MAIL_FROM")}
 EXPIRING_DAYS = int(os.environ.get("EXPIRING_DAYS", 30))
 VERIFY_WEBHOOK_URL = os.environ.get("VERIFY_WEBHOOK_URL")  # outbound: new verification requests are POSTed here
+VERIFY_WEBHOOK_KEY = os.environ.get("VERIFY_WEBHOOK_KEY")  # if set, Authorization: Bearer <key> (unless HEADER overrides)
+VERIFY_WEBHOOK_HEADER = os.environ.get("VERIFY_WEBHOOK_HEADER")  # if set, this header carries the raw key
 BOT_API_KEY = os.environ.get("BOT_API_KEY")  # inbound: bearer token for /api/verify-requests
 CRON_KEY = os.environ.get("CRON_KEY")  # lets a scheduler call /api/expiring without a session
 DEV_SHOW_LINKS = os.environ.get("DEV_SHOW_LINKS", "0") == "1"  # local testing only: show magic link on screen
@@ -51,6 +53,7 @@ CREATE TABLE IF NOT EXISTS verify_requests(id INTEGER PRIMARY KEY, member_id INT
   member_number TEXT, requested_by TEXT, status TEXT DEFAULT 'pending', created TEXT, answered TEXT, result TEXT, note TEXT, webhook TEXT);
 CREATE TABLE IF NOT EXISTS reactions(message_id INTEGER, member_id INTEGER, emoji TEXT, PRIMARY KEY(message_id, member_id, emoji));
 CREATE TABLE IF NOT EXISTS notices(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), body TEXT, at TEXT DEFAULT CURRENT_TIMESTAMP, seen INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS usawp_submits(id INTEGER PRIMARY KEY, member_id INTEGER, at TEXT);
 CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), body TEXT NOT NULL,
   announcement INTEGER DEFAULT 0, at TEXT DEFAULT CURRENT_TIMESTAMP);
 """
@@ -290,10 +293,21 @@ def auth_google_callback():
 def logout(): session.clear(); return redirect("/login")
 
 # ---------- member ----------
-@app.route("/home")
+@app.route("/home", methods=["GET", "POST"])
 @login_required
 def home():
     m = me(); d = db()
+    if request.method == "POST":
+        num = (request.form.get("usawp_number") or "").strip()
+        if not re.fullmatch(r"[0-9]{4,10}", num):
+            flash("Membership number must be 4-10 digits."); return redirect("/home")
+        since = (dt.datetime.now() - dt.timedelta(hours=1)).isoformat(timespec="seconds")
+        if d.execute("SELECT COUNT(*) FROM usawp_submits WHERE member_id=? AND at>=?", (m["id"], since)).fetchone()[0] >= 3:
+            flash("You can only submit a membership number 3 times per hour."); return redirect("/home")
+        d.execute("UPDATE members SET usawp_number=? WHERE id=?", (num, m["id"]))
+        d.execute("INSERT INTO usawp_submits(member_id, at) VALUES(?,?)", (m["id"], dt.datetime.now().isoformat(timespec="seconds")))
+        create_verify_request(d, m["id"], update_pending=True)
+        return redirect("/home")
     hist = d.execute("SELECT practice_date, location FROM checkins WHERE member_id=? ORDER BY practice_date DESC", (m["id"],)).fetchall()
     month = dt.date.today().strftime("%Y-%m")
     ensure_schedule(d)
@@ -304,7 +318,8 @@ def home():
     notices = d.execute("SELECT * FROM notices WHERE member_id=? AND seen=0 ORDER BY id DESC", (m["id"],)).fetchall()
     d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (m["id"],)); d.commit()
     ann = d.execute("SELECT m.*, p.first FROM messages m JOIN members p ON p.id=m.member_id WHERE announcement=1 AND channel='team' ORDER BY m.id DESC LIMIT 1").fetchone()
-    return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine)
+    vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
+    return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, vr_pending=vr_pending)
 
 # ---------- chat ----------
 def msg_dict(r):
@@ -444,20 +459,33 @@ def bot_member_id(d):
     return d.execute("INSERT INTO members(first,last,email,phone,role) VALUES('Grunions','bot',?,'','system')", (BOT_EMAIL,)).lastrowid
 def vr_dict(r):
     return {k: r[k] for k in ("id", "member_id", "name", "email", "member_number", "requested_by", "status", "created", "answered", "note")} | {"result": json.loads(r["result"]) if r["result"] else None}
-def create_verify_request(d, mid):
+def webhook_headers():
+    h = {"Content-Type": "application/json"}
+    if VERIFY_WEBHOOK_KEY:
+        h[VERIFY_WEBHOOK_HEADER or "Authorization"] = VERIFY_WEBHOOK_KEY if VERIFY_WEBHOOK_HEADER else "Bearer " + VERIFY_WEBHOOK_KEY
+    return h
+def post_verify_webhook(row):
+    """POST a newly created verify request. Failures are logged and never raised."""
+    if not VERIFY_WEBHOOK_URL: return "skipped (no VERIFY_WEBHOOK_URL)"
+    payload = {"request_id": row["id"], "member_id": row["member_id"], "name": row["name"], "email": row["email"],
+               "member_number": row["member_number"], "requested_by": row["requested_by"], "app_url": PUBLIC_URL}
+    try:
+        req = urllib.request.Request(VERIFY_WEBHOOK_URL, data=json.dumps(payload).encode(), headers=webhook_headers(), method="POST")
+        with urllib.request.urlopen(req, timeout=5) as resp: return f"sent ({resp.status})"
+    except Exception as e:
+        app.logger.warning("verify webhook failed: %s", e)
+        return f"failed: {e.__class__.__name__}"
+def create_verify_request(d, mid, update_pending=False):
     m = d.execute("SELECT * FROM members WHERE id=?", (mid,)).fetchone()
-    if d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (mid,)).fetchone(): return "A verification request is already pending."
+    pending = d.execute("SELECT id FROM verify_requests WHERE member_id=? AND status='pending' ORDER BY id DESC LIMIT 1", (mid,)).fetchone()
+    if pending:
+        if not update_pending: return "A verification request is already pending."
+        d.execute("UPDATE verify_requests SET member_number=? WHERE id=?", (m["usawp_number"], pending["id"])); d.commit()
+        return f"Updated the pending verification request for {m['first']} {m['last']}."
     now = dt.datetime.now().isoformat(timespec="seconds")
     rid = d.execute("INSERT INTO verify_requests(member_id,name,email,member_number,requested_by,created) VALUES(?,?,?,?,?,?)",
                     (mid, f"{m['first']} {m['last']}", m["email"], m["usawp_number"], f"{me()['first']} {me()['last']}", now)).lastrowid
-    d.commit(); r = d.execute("SELECT * FROM verify_requests WHERE id=?", (rid,)).fetchone(); wh = "skipped (no VERIFY_WEBHOOK_URL)"
-    if VERIFY_WEBHOOK_URL:
-        try:
-            req = urllib.request.Request(VERIFY_WEBHOOK_URL, data=json.dumps({"event": "verify_request.created", "request": vr_dict(r)}).encode(),
-                                         headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=5) as resp: wh = f"sent ({resp.status})"
-        except Exception as e: wh = f"failed: {e.__class__.__name__}"
-        app.logger.warning("verify webhook %s", wh)
+    d.commit(); r = d.execute("SELECT * FROM verify_requests WHERE id=?", (rid,)).fetchone(); wh = post_verify_webhook(r)
     d.execute("UPDATE verify_requests SET webhook=? WHERE id=?", (wh, rid)); d.commit()
     return f"Asked Grunions to verify {m['first']} {m['last']}. Webhook {wh}."
 def bot_auth():
