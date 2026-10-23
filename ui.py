@@ -30,6 +30,7 @@ cursor:pointer;text-decoration:none;background:var(--surface2);color:var(--t1)}.
 .st{display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--t2);white-space:nowrap}
 .st::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--t3)}.st-ok::before{background:var(--ok)}.st-bad::before{background:var(--bad)}.st-warn::before{background:var(--warn)}
 .note{background:var(--surface);border-radius:var(--r);padding:14px 18px;margin:0 0 12px;color:var(--t2);font-size:15px}.note b{color:var(--t1)}
+.toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;background:var(--surface);color:var(--t1);border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:15px;line-height:1.4;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.5);max-width:min(440px,calc(100% - 32px))}
 details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;min-height:56px;padding:0 18px;color:var(--t1)}
 details>summary::-webkit-details-marker{display:none}details>summary::after{content:"›";color:var(--t3);font-size:22px;transition:transform .15s}
 details[open]>summary::after{transform:rotate(90deg)}details.card{padding:0}details.card>.body{padding:0 18px 16px}
@@ -63,7 +64,8 @@ nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;fill:none;
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
 <header><a class=brand href=/>Grunions</a>{% if me() %}<a class=sub href=/logout>Log out</a>{% endif %}</header><main>
-{% for m in get_flashed_messages() %}<div class=note>{{m|safe}}</div>{% endfor %}"""
+{% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
+<script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>"""
 
 ICONS = {
  "home": '<svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
@@ -107,11 +109,11 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
 {% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}
 <div class=card><div style="display:flex;align-items:center;justify-content:space-between">
-<div style="font-size:19px;font-weight:600">{{'Cleared to play' if cl.ok else 'Not cleared to play'}}</div>{{ st('ok' if cl.ok else 'bad', 'Cleared' if cl.ok else 'Not cleared') }}</div>
+{% if vr_pending %}<div style="font-size:19px;font-weight:600">Verification pending</div>{{ st('warn','Pending') }}
+{% else %}<div style="font-size:19px;font-weight:600">{{'Cleared to play' if cl.ok else 'Not cleared to play'}}</div>{{ st('ok' if cl.ok else 'bad', 'Cleared' if cl.ok else 'Not cleared') }}{% endif %}</div>
 {% if not cl.ok %}<p class="t2 sm" style="margin:8px 0 0">Needs: {{cl.reasons|join(', ')}}</p>{% endif %}
 {% if m.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %}<p class="sm" style="margin:8px 0 0"><span class="st st-warn"></span> Your membership expires in <b>{{dl}} days</b> ({{m.usawp_valid_until}}). <a href=https://usawp.sport80.com>Renew</a></p>{% endif %}
 {% if m.usawp_status != 'verified' %}<p class="t2 sm" style="margin:8px 0 0">Register or renew at <a href=https://usawp.sport80.com>usawp.sport80.com</a> with {{m.email}} and choose Grunions as your club.</p>{% endif %}
-{% if vr_pending %}<p class="sm" style="margin:12px 0 0">Sent to Grunions for verification {{ st('warn','pending') }}</p>{% endif %}
 {% if m.usawp_status == 'verified' %}
 {% if m.usawp_number %}<p class="sm" style="margin:12px 0 0">USAWP # {{m.usawp_number}}</p>{% endif %}
 {% elif m.usawp_number %}

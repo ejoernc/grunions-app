@@ -9,7 +9,7 @@ or:
 Env: PUBLIC_URL (base URL for QR + login links), EXPIRING_DAYS (default 30), CRON_KEY (lets a scheduler call /api/expiring?key=...),
 DEV_SHOW_LINKS=1 (local testing only: show magic link on screen; default 0), SECURE_COOKIES=1 (behind HTTPS), GRUNIONS_DB, PORT.
 Demo data: `rm grunions.db && .venv/bin/python seed_demo.py` (admin eli@example.com, coach marcus@example.com).
-Tests: `.venv/bin/python test_app.py` (84 checks) and `.venv/bin/python -m pytest -q test_v2.py` (16 tests), `.venv/bin/python -m pytest -q test_google.py` (8 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
+Tests: `.venv/bin/python test_app.py` (86 checks) and `.venv/bin/python -m pytest -q test_v2.py` (16 tests), `.venv/bin/python -m pytest -q test_google.py` (8 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
 
 ## Roles
 member (athlete), coach (check-in + #coaches), admin (everything). Manage on Admin → **Roles** (/admins): every member with Make/Remove admin and Make/Remove coach. The last admin can't be removed.
@@ -18,7 +18,7 @@ ADMIN_EMAIL (comma-separated) bootstraps admins and keeps them admin on every st
 ## Pages
 - /join: QR target, creates the account and logs in. Optional preferred first name (blank uses the legal first name). /login: one-time magic link (LINK_MINUTES, default 15; single use, stored hashed), emailed via SMTP. The greeting uses the preferred first name when set.
 - /home: Cleared to play card (membership + each required item), USAWP status, expiry warning, reminders, next practice, attendance, profile (legal name, and an editable preferred first name).
-  Until a member is verified, the card includes an inline USAWP Membership # form (digits, 4-10). Add saves the number and opens a pending verification request, or Edit (shown with the number while it is pending or not yet verified) updates the number on the one already pending. The card then shows "Sent to Grunions for verification" with status pending. Once verified, Edit is hidden and the card shows the number as read-only text (USAWP # 1234567). Three submissions per member per hour.
+  Until a member is verified, the card includes an inline USAWP Membership # form (digits, 4-10). Add saves the number, opens a pending verification request, and shows a toast, "Sent to Grunions for verification", for about 3 seconds. The input is then replaced by the saved number (USAWP # 1234567) and an Edit button. Edit reveals the prefilled input; saving updates the number, re-sends that pending request's webhook, and shows the toast again. While a request is pending the card title is "Verification pending" with an amber Pending badge. After the bot answers, the card returns to Cleared (green) or Not cleared (red). Once verified, Edit is hidden and the number stays read-only. Three submissions per member per hour.
 - /practices: recurring Tue 7–8:30 Marina HS / Fri 7–8:30 Westminster HS (next 4 weeks auto-created); Going / Not going, headcount, who's coming. Admin add/edit/cancel/restore.
 - /chat: #team (everyone) and 🔒 #coaches (coaches + admins). Polls every 3 s. The composer has an image button and a send icon; announcements already stored still show on Home.
 - /admin (staff): check-in by date; RSVP'd first; badges for RSVP, USAWP, Cleared/Not cleared with reason, days left.

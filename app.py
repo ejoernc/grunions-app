@@ -338,6 +338,7 @@ def home():
         d.execute("UPDATE members SET usawp_number=? WHERE id=?", (num, m["id"]))
         d.execute("INSERT INTO usawp_submits(member_id, at) VALUES(?,?)", (m["id"], dt.datetime.now().isoformat(timespec="seconds")))
         create_verify_request(d, m["id"], update_pending=True)
+        flash("Sent to Grunions for verification", "toast")
         return redirect("/home")
     hist = d.execute("SELECT practice_date, location FROM checkins WHERE member_id=? ORDER BY practice_date DESC", (m["id"],)).fetchall()
     month = dt.date.today().strftime("%Y-%m")
@@ -496,7 +497,7 @@ def webhook_headers():
         h[VERIFY_WEBHOOK_HEADER or "Authorization"] = VERIFY_WEBHOOK_KEY if VERIFY_WEBHOOK_HEADER else "Bearer " + VERIFY_WEBHOOK_KEY
     return h
 def post_verify_webhook(row, preferred_first=None):
-    """POST a newly created verify request. Failures are logged and never raised."""
+    """POST a verify request. Failures are logged and never raised."""
     if not VERIFY_WEBHOOK_URL: return "skipped (no VERIFY_WEBHOOK_URL)"
     payload = {"request_id": row["id"], "member_id": row["member_id"], "name": row["name"], "preferred_first": clean_preferred(preferred_first),
                "email": row["email"], "member_number": row["member_number"], "requested_by": row["requested_by"], "app_url": PUBLIC_URL}
@@ -512,7 +513,10 @@ def create_verify_request(d, mid, update_pending=False):
     if pending:
         if not update_pending: return "A verification request is already pending."
         d.execute("UPDATE verify_requests SET member_number=? WHERE id=?", (m["usawp_number"], pending["id"])); d.commit()
-        return f"Updated the pending verification request for {m['first']} {m['last']}."
+        r = d.execute("SELECT * FROM verify_requests WHERE id=?", (pending["id"],)).fetchone()
+        wh = post_verify_webhook(r, m["preferred_first"])
+        d.execute("UPDATE verify_requests SET webhook=? WHERE id=?", (wh, pending["id"])); d.commit()
+        return f"Updated the pending verification request for {m['first']} {m['last']}. Webhook {wh}."
     now = dt.datetime.now().isoformat(timespec="seconds")
     rid = d.execute("INSERT INTO verify_requests(member_id,name,email,member_number,requested_by,created) VALUES(?,?,?,?,?,?)",
                     (mid, f"{m['first']} {m['last']}", m["email"], m["usawp_number"], f"{me()['first']} {me()['last']}", now)).lastrowid
