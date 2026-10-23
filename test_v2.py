@@ -73,7 +73,8 @@ def test_reset_real():
     assert db.execute("SELECT first,last,email,is_admin,usawp_status,usawp_number,usawp_valid_until FROM members WHERE COALESCE(role,'')!='system'").fetchall() == \
         [("Elliott", "Joern", "elliott.joern@gmail.com", 1, "verified", "659226", "2027-06-07")]
     for t in ("messages", "reactions", "checkins", "verify_requests", "rsvps", "notices", "login_tokens"): assert db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] == 0, t
-    assert db.execute("SELECT COUNT(*) FROM requirements").fetchone()[0] >= 4
+    assert db.execute("SELECT COUNT(*) FROM requirements").fetchone()[0] >= 3
+    assert db.execute("SELECT COUNT(*) FROM requirements WHERE lower(name) LIKE '%waiver%' OR lower(ifnull(keywords,'')) LIKE '%waiver%'").fetchone()[0] == 0
     reqs = dict(db.execute("SELECT q.name, x.expires_on FROM member_reqs x JOIN requirements q ON q.id=x.req_id").fetchall())
     assert reqs["SafeSport training"] == "2027-05-11" and reqs["Background screening"] == "2028-08-28"
     locs = {r[0] for r in db.execute("SELECT location FROM practices")}; assert locs == {"Marina High School", "Westminster High School"}

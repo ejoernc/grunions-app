@@ -184,7 +184,21 @@ jh = jane.get("/home").get_data(as_text=True)
 jp = jane.post("/home", data=dict(csrf=csrf(jane, "/home"), usawp_number="99998888"), follow_redirects=True).get_data(as_text=True)
 ok("Not cleared to play" in jh and "USAWP # 1234567" in jh and "name=usawp_number" not in jh and ">Edit<" not in jh and "already verified" in jp and D.execute("SELECT usawp_number FROM members WHERE email='jane@example.com'").fetchone()[0] == "1234567", "verified member sees read-only USAWP number; Edit is hidden and the number cannot be changed")
 D.execute("UPDATE member_reqs SET expires_on='2027-06-01' WHERE member_id=2 AND req_id=1"); D.commit()
-ok("USAWP Membership #" not in jane.get("/home").get_data(as_text=True) and "USAWP # 1234567" in jane.get("/home").get_data(as_text=True) and "Cleared to play" in jane.get("/home").get_data(as_text=True), "form hidden once verified and cleared; number stays read-only")
+ok("USAWP Membership #" not in jane.get("/home").get_data(as_text=True) and "USAWP # 1234567" in jane.get("/home").get_data(as_text=True) and "Cleared to play" in jane.get("/home").get_data(as_text=True) and "Club waiver" not in jane.get("/home").get_data(as_text=True), "form hidden once verified and cleared; number stays read-only")
+casey = A.app.test_client(); join(casey, "Casey", "Ng", "casey@example.com")
+cid = D.execute("SELECT id FROM members WHERE email='casey@example.com'").fetchone()[0]
+ssid = D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '%safesport%'").fetchone()[0]
+D.execute("UPDATE members SET role='coach', usawp_status='verified', usawp_valid_until='2027-06-07', usawp_number='659226' WHERE id=?", (cid,))
+D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,'2027-05-11','test','test','2026-10-23T00:00')", (cid, ssid)); D.commit()
+chome = casey.get("/home").get_data(as_text=True)
+ok("Cleared to play" in chome and "Needs:" not in chome and "Club waiver" not in chome and "Concussion" not in chome and "SafeSport training" in chome and "Club waiver" not in eli.get("/requirements").get_data(as_text=True) and "Club waiver" not in eli.get("/admin").get_data(as_text=True), "verified member with current SafeSport is cleared; no other item is required")
+cur = D.execute("INSERT INTO requirements(name,applies_to,keywords,expires,active) VALUES('Club waiver','all','waiver',0,1)")
+wid = cur.lastrowid
+D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?, '2026-01-01', NULL, 'test','test','2026-01-01T00:00')", (cid, wid))
+kept = D.execute("SELECT COUNT(*) FROM member_reqs WHERE req_id=?", (ssid,)).fetchone()[0]
+nmembers = D.execute("SELECT COUNT(*) FROM members").fetchone()[0]
+D.commit(); A.drop_club_waiver(D); A.drop_club_waiver(D)
+ok(D.execute("SELECT COUNT(*) FROM requirements WHERE lower(name)='club waiver' OR lower(ifnull(keywords,'')) LIKE '%waiver%'").fetchone()[0] == 0 and D.execute("SELECT COUNT(*) FROM member_reqs WHERE req_id=?", (wid,)).fetchone()[0] == 0 and D.execute("SELECT COUNT(*) FROM member_reqs WHERE req_id=?", (ssid,)).fetchone()[0] == kept and D.execute("SELECT COUNT(*) FROM members").fetchone()[0] == nmembers and "Cleared to play" in casey.get("/home").get_data(as_text=True) and "Club waiver" not in casey.get("/home").get_data(as_text=True), "migration removes Club waiver only and the member stays cleared")
 sam = A.app.test_client(); join(sam, "Sam", "River", "sam@example.com")
 sh = sam.get("/home").get_data(as_text=True)
 ok('name=usawp_number inputmode=numeric value=""' in sh and "USAWP Membership #" in sh and "Not cleared to play" in sh and 'class="st st-bad">Not cleared' in sh and "Verification pending" not in sh, "empty membership form for a new member")

@@ -64,6 +64,7 @@ def db():
         migrate_members(g.db)
         if not g.db.execute("SELECT 1 FROM requirements").fetchone():
             g.db.executemany("INSERT INTO requirements(name,applies_to,keywords,expires) VALUES(?,?,?,?)", DEFAULT_REQS); g.db.commit()
+        drop_club_waiver(g.db)
         mcols = [r[1] for r in g.db.execute("PRAGMA table_info(messages)")]
         if "channel" not in mcols: g.db.execute("ALTER TABLE messages ADD COLUMN channel TEXT DEFAULT 'team'")
         if "image" not in mcols: g.db.execute("ALTER TABLE messages ADD COLUMN image TEXT")
@@ -90,16 +91,37 @@ def display_first(m):
 app.jinja_env.globals.update(display_first=display_first)
 # applies_to: all | athlete | coach. keywords: normalized substrings to find this item's columns in a Sport:80 export.
 DEFAULT_REQS = [("SafeSport training", "all", "safesport", 1), ("Background screening", "coach", "background", 1),
-                ("Club waiver", "all", "waiver", 0), ("Concussion training", "coach", "concussion", 1)]
+                ("Concussion training", "coach", "concussion", 1)]
+def drop_club_waiver(d):
+    """Remove the Club waiver requirement from an existing database. Other rows stay put."""
+    ids = []
+    for rid, name, keywords in d.execute("SELECT id, name, keywords FROM requirements"):
+        label = (name or "").strip().lower()
+        kws = [k.strip().lower() for k in (keywords or "").split(",") if k.strip()]
+        if label == "club waiver" or "waiver" in kws: ids.append(rid)
+    if not ids: return
+    marks = ",".join("?" * len(ids))
+    d.execute("DELETE FROM member_reqs WHERE req_id IN (%s)" % marks, ids)
+    d.execute("DELETE FROM requirements WHERE id IN (%s)" % marks, ids)
+    d.commit()
 def req_keywords(d):
-    return [k for r in d.execute("SELECT keywords FROM requirements") for k in (r[0] or "").split(",") if k]
-def requirements_for(d, member):
-    return d.execute("SELECT * FROM requirements WHERE active=1 AND (applies_to='all' OR applies_to=?) ORDER BY id", (member["role"] or "athlete",)).fetchall()
+    kws = [k for r in d.execute("SELECT keywords FROM requirements") for k in (r[0] or "").split(",") if k]
+    if "waiver" not in kws: kws.append("waiver")  # leftover Sport:80 waiver columns are not membership dates
+    return kws
+def safesport_req(d):
+    for q in d.execute("SELECT * FROM requirements WHERE active=1 ORDER BY id"):
+        name = (q["name"] or "").lower()
+        kws = [k.strip().lower() for k in (q["keywords"] or "").split(",") if k.strip()]
+        if "safesport" in kws or "safesport" in name: return q
+    return None
 def clearance(d, member):
-    """Cleared to play = USAWP membership current AND every required item completed and not expired."""
+    """Cleared to play = USAWP membership verified and current, and SafeSport current."""
     today = dt.date.today().isoformat(); reasons = []; items = []
     if member["usawp_status"] != "verified": reasons.append(f"Membership {member['usawp_status']}")
-    for q in requirements_for(d, member):
+    q = safesport_req(d)
+    reqs = [q] if q else []
+    if not q: reasons.append("SafeSport training missing")
+    for q in reqs:
         mr = d.execute("SELECT * FROM member_reqs WHERE member_id=? AND req_id=?", (member["id"], q["id"])).fetchone()
         if not mr or not (mr["completed_on"] or mr["expires_on"]): st = "missing"
         elif mr["expires_on"] and mr["expires_on"] < today: st = "expired"

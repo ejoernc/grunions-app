@@ -263,12 +263,12 @@ T["expiring"] = ADMIN_NAV + """<h1>Expiring</h1>
 <form method=post style="margin-top:20px">{{csrf_field()}}<button class="primary full">Remind everyone listed</button></form>
 <p class="t3 xs" style="margin-top:10px">Reminders appear on each member's home screen. Daily report: <a href=/api/expiring>/api/expiring</a> or daily_expiry.py.</p>"""
 
-T["requirements_page"] = ADMIN_NAV + """<h1>Requirements</h1><p class="t2 sm">Cleared to play means a current USAWP membership plus every required item that applies to the member's role. Keywords match Sport:80 export columns.</p>
+T["requirements_page"] = ADMIN_NAV + """<h1>Requirements</h1><p class="t2 sm">Cleared to play means a verified, current USAWP membership and current SafeSport. Other items can stay on file for import; they do not block clearance. Keywords match Sport:80 export columns.</p>
 {% for q in reqs %}<details class=card><summary><span>{{q.name}}</span><span class="t3 sm" style="margin-left:auto;margin-right:10px">{{q.applies_to}}{{'' if q.active else ' · off'}}</span></summary>
 <form method=post class=body>{{csrf_field()}}<input type=hidden name=id value={{q.id}}>
 <div class=row><label>Applies to<select name=applies_to>{% for o in ['all','athlete','coach'] %}<option {{'selected' if q.applies_to==o}}>{{o}}</option>{% endfor %}</select></label>
 <label>Import keywords<input name=keywords value="{{q.keywords or ''}}"></label></div>
-<label><input type=checkbox name=expires {{'checked' if q.expires}}>Has an expiration date</label><label><input type=checkbox name=active {{'checked' if q.active}}>Required</label>
+<label><input type=checkbox name=expires {{'checked' if q.expires}}>Has an expiration date</label><label><input type=checkbox name=active {{'checked' if q.active}}>Active</label>
 <button class=full name=action value=save>Save</button></form></details>{% endfor %}
 <details class=card><summary>Add requirement</summary><form method=post class=body>{{csrf_field()}}<label>Name<input name=name placeholder="CPR / First Aid"></label>
 <div class=row><label>Applies to<select name=applies_to><option>all</option><option>athlete</option><option>coach</option></select></label><label>Keywords<input name=keywords placeholder="cpr,firstaid"></label></div>

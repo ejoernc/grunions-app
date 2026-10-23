@@ -9,7 +9,7 @@ or:
 Env: PUBLIC_URL (base URL for QR + login links), EXPIRING_DAYS (default 30), CRON_KEY (lets a scheduler call /api/expiring?key=...),
 DEV_SHOW_LINKS=1 (local testing only: show magic link on screen; default 0), SECURE_COOKIES=1 (behind HTTPS), GRUNIONS_DB, PORT.
 Demo data: `rm grunions.db && .venv/bin/python seed_demo.py` (admin eli@example.com, coach marcus@example.com).
-Tests: `.venv/bin/python test_app.py` (86 checks) and `.venv/bin/python -m pytest -q test_v2.py` (16 tests), `.venv/bin/python -m pytest -q test_google.py` (8 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
+Tests: `.venv/bin/python test_app.py` (88 checks) and `.venv/bin/python -m pytest -q test_v2.py` (16 tests), `.venv/bin/python -m pytest -q test_google.py` (8 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
 
 ## Roles
 member (athlete), coach (check-in + #coaches), admin (everything). Manage on Admin → **Roles** (/admins): every member with Make/Remove admin and Make/Remove coach. The last admin can't be removed.
@@ -25,7 +25,7 @@ ADMIN_EMAIL (comma-separated) bootstraps admins and keeps them admin on every st
   Admin "Verify" panel: open Sport:80 (name copied to clipboard), Mark membership verified (member #, expires on; records admin + time),
   enter compliance items (completed / expires), set role.
 - /members (admin, +CSV), /import (Sport:80 .xlsx/.csv incl. SafeSport/Background columns), /qr, /expiring (expired / 7 days / N days, incl. compliance items; in-app reminders), /requirements (configure items, who they apply to, import keywords).
-Status auto-flips to expired once expires_on passes. Cleared = membership verified AND all required items present and unexpired.
+Status auto-flips to expired once expires_on passes. Cleared = USAWP membership verified and current, and SafeSport current. Club waiver is not a requirement.
 Security: CSRF on every POST, HttpOnly SameSite cookies, chat escaped, role checks server-side.
 Before production: SMTP configured, DEV_SHOW_LINKS=0, HTTPS, DB backups (copy $DATA_DIR/grunions.db). v1 kept as app_v1_checkin.py.
 
@@ -80,7 +80,7 @@ Back up grunions.db first. It acts on whatever DATA_DIR/GRUNIONS_DB points at.
 - **First Name / Last Name** (or Name / Full Name), **Email / Email Address** — matching (email first, then unique legal first+last). Optional **Preferred First Name / Nickname** is stored as the name shown in the app and is not used to match.
 - **ID Number / Member Number / Membership Number** — stored as USAWP #. **Contact ID** — stored as sport80_contact_id.
 - **Status / Membership Status** and **Valid Until / Expiry Date / Membership Expiry Date** — status. If there's no status column, a future expiry counts as current.
-- Any column containing a requirement keyword (safesport, background, waiver, concussion; editable in Rules) plus expiry/valid through/completed/status updates that item.
+- Any column containing a requirement keyword (safesport, background, concussion; editable in Rules) plus expiry/valid through/completed/status updates that item. A Club waiver column is ignored.
 A file needs a name or email column plus at least one of status, member number, or expiry.
 
 ## Sign in with Google
