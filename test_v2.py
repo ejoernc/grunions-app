@@ -1,5 +1,5 @@
 """Tests for roles page, login emails, reset_real, import tolerance, deploy config. Run: .venv/bin/python -m pytest -q test_v2.py"""
-import os, re, sys, tempfile, sqlite3, subprocess, datetime as dt
+import os, re, sys, json, tempfile, sqlite3, subprocess, datetime as dt
 D = tempfile.mkdtemp()
 os.environ.update(DATA_DIR=D, ADMIN_EMAIL="boss@example.com, second@example.com", DEV_SHOW_LINKS="0",
                   SMTP_HOST="smtp.test", SMTP_PORT="587", SMTP_USER="u", SMTP_PASSWORD="p", MAIL_FROM="Grunions <team@test>")
@@ -84,9 +84,20 @@ def test_reset_requires_confirmation():
 def test_deploy_files():
     req = open(os.path.join(HERE, "requirements.txt"), encoding="utf-8").read()
     for pkg in ("flask", "gunicorn", "qrcode", "pillow", "openpyxl"): assert pkg in req.lower()
-    assert "gunicorn" in open(os.path.join(HERE, "Dockerfile"), encoding="utf-8").read()
+    docker = open(os.path.join(HERE, "Dockerfile"), encoding="utf-8").read()
+    assert "gunicorn" in docker and "COPY static" in docker
     ry = open(os.path.join(HERE, "render.yaml"), encoding="utf-8").read(); assert "DATA_DIR" in ry and "disk" in ry and "SECRET_KEY" in ry
     assert "elliott.joern@gmail.com" in open(os.path.join(HERE, ".env.local"), encoding="utf-8").read()
+    from PIL import Image
+    for name, size in (("icon-192.png", 192), ("icon-512.png", 512), ("maskable-512.png", 512), ("apple-touch-icon-180.png", 180), ("favicon-32.png", 32)):
+        assert Image.open(os.path.join(HERE, "static", "icons", name)).size == (size, size)
+    c = A.app.test_client()
+    m = c.get("/manifest.webmanifest"); body = json.loads(m.get_data(as_text=True))
+    assert m.content_type.startswith("application/manifest+json") and body["name"] == "Grunions Water Polo" and body["short_name"] == "Grunions" and body["display"] == "standalone"
+    assert body["theme_color"] == "#0a0a0b" and body["background_color"] == "#0a0a0b" and "maskable" in {i["purpose"] for i in body["icons"]}
+    icon = c.get("/static/icons/icon-192.png"); assert icon.status_code == 200 and icon.data[:8] == b"\x89PNG\r\n\x1a\n"
+    html = c.get("/join").get_data(as_text=True)
+    assert "rel=manifest" in html and "rel=icon" in html and "rel=apple-touch-icon" in html and 'name=theme-color content="#0a0a0b"' in html
 def test_utf8_and_no_dash_strftime():
     for f in os.listdir(HERE):
         if f.endswith((".py", ".md", ".txt", ".yaml")) or f in ("Dockerfile",):

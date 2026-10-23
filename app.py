@@ -184,6 +184,17 @@ def start_session(mid):
 def page(body, tab="", **kw): return render_template_string(ui.BASE + body + ui.TABS, tab=tab, **kw)
 
 # ---------- public: signup + login ----------
+@app.route("/manifest.webmanifest")
+def webmanifest():
+    return Response(json.dumps({
+        "name": "Grunions Water Polo", "short_name": "Grunions", "start_url": "/", "scope": "/", "display": "standalone",
+        "background_color": "#0a0a0b", "theme_color": "#0a0a0b",
+        "icons": [
+            {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+        ],
+    }), mimetype="application/manifest+json")
 @app.route("/")
 def index(): return redirect("/home" if me() else "/join")
 

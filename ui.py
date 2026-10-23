@@ -1,7 +1,9 @@
 """Templates (Jinja strings) for the Grunions app. Restrained dark UI: one surface, gray text, one blue accent."""
 
 BASE = """<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name=theme-color content="#0a0a0b"><title>Grunions</title>
+<meta name=theme-color content="#0a0a0b"><link rel=manifest href=/manifest.webmanifest>
+<link rel=icon href=/static/icons/favicon-32.png sizes=32x32 type=image/png><link rel=apple-touch-icon href=/static/icons/apple-touch-icon-180.png>
+<title>Grunions</title>
 <style>[hidden]{display:none!important}
 :root{--bg:#0a0a0b;--surface:#151517;--surface2:#1d1d20;--line:#26262a;--t1:#ececee;--t2:#a0a0a8;--t3:#6c6c74;--accent:#3b82f6;
 --ok:#3fb950;--bad:#f0524a;--warn:#e3a008;--r:14px}

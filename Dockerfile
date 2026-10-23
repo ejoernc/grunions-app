@@ -4,6 +4,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py ui.py daily_expiry.py reset_real.py ./
+COPY static ./static
 RUN mkdir -p /data
 EXPOSE 10000
 # 1 worker + threads: SQLite on a single disk; chat polling is light.
