@@ -39,7 +39,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS members(id INTEGER PRIMARY KEY, first TEXT NOT NULL, last TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE, phone TEXT, created TEXT DEFAULT CURRENT_TIMESTAMP, is_admin INTEGER DEFAULT 0,
   usawp_status TEXT DEFAULT 'unknown', usawp_raw TEXT, usawp_number TEXT, usawp_valid_until TEXT, usawp_updated TEXT,
-  preferred_first TEXT);
+  preferred_first TEXT, trial_acknowledged_at TEXT);
 CREATE TABLE IF NOT EXISTS checkins(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id),
   practice_date TEXT NOT NULL, location TEXT, at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(member_id, practice_date));
 CREATE TABLE IF NOT EXISTS login_tokens(token_hash TEXT PRIMARY KEY, member_id INTEGER, expires TEXT, used INTEGER DEFAULT 0);
@@ -76,7 +76,8 @@ def migrate_members(d):
     """Add columns missing from a database created by an older version (production SQLite on /data)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
     for c, t in (("is_admin", "INTEGER DEFAULT 0"), ("role", "TEXT DEFAULT 'athlete'"), ("usawp_verified_by", "TEXT"),
-                 ("usawp_verified_at", "TEXT"), ("sport80_contact_id", "TEXT"), ("preferred_first", "TEXT")):
+                 ("usawp_verified_at", "TEXT"), ("sport80_contact_id", "TEXT"), ("preferred_first", "TEXT"),
+                 ("trial_acknowledged_at", "TEXT")):
         if c not in cols: d.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
 def clean_preferred(v):
     v = str(v or "").strip()[:40]
@@ -150,13 +151,28 @@ def expiry_report(d, days=None):
     return out
 def days_left(v):
     return (dt.date.fromisoformat(v) - dt.date.today()).days if v else None
+TRIAL_DAYS = 14
+TRIAL_JOIN_URL = "https://usawp.sport80.com/public/widget/1"  # official registration widget linked from usawaterpolo.org; trial is a membership type in that flow
+def trial_window(m):
+    """2-week USAWP trial. The end date is the acknowledgment date plus 14 days, and that end date still counts."""
+    if not m: return None
+    try: keys = m.keys()
+    except AttributeError: keys = m
+    if "trial_acknowledged_at" not in keys: return None
+    raw = m["trial_acknowledged_at"]
+    if not raw: return None
+    try: start = dt.date.fromisoformat(str(raw)[:10])
+    except ValueError: return None
+    end = start + dt.timedelta(days=TRIAL_DAYS)
+    today = dt.date.today()
+    return {"start": start.isoformat(), "end": end.isoformat(), "active": today <= end, "expired": today > end}
 def remind(d, mid, by="Grunions"):
     r = d.execute("SELECT first, preferred_first, usawp_valid_until FROM members WHERE id=?", (mid,)).fetchone()
     if not r: return
     n = days_left(r["usawp_valid_until"])
     when = "has expired" if n is not None and n < 0 else (f"expires in {n} days ({r['usawp_valid_until']})" if n is not None else "needs to be confirmed")
     d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (mid, f"Hi {display_first(r)}, your USA Water Polo membership {when}. Renew at usawp.sport80.com with Grunions as your club so you can keep playing. ({by})"))
-app.jinja_env.globals.update(days_left=days_left, EXPIRING_DAYS=EXPIRING_DAYS)
+app.jinja_env.globals.update(days_left=days_left, EXPIRING_DAYS=EXPIRING_DAYS, trial_window=trial_window, TRIAL_JOIN_URL=TRIAL_JOIN_URL)
 def admin_alert():
     if not (me() and me()["is_admin"]): return None
     rep = expiry_report(db()); n7 = len(rep["within_7"]) + len(rep["within_%d" % EXPIRING_DAYS]); ne = len(rep["expired"])
@@ -348,6 +364,17 @@ def home():
     if request.method == "POST" and request.form.get("action") == "preferred":
         d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), m["id"]))
         d.commit(); flash("Preferred name saved."); return redirect("/home")
+    if request.method == "POST" and request.form.get("action") == "trial":
+        row = d.execute("SELECT usawp_number, usawp_status, trial_acknowledged_at FROM members WHERE id=?", (m["id"],)).fetchone()
+        if (row["usawp_status"] or "") == "verified" or (row["usawp_number"] or "").strip() or (row["trial_acknowledged_at"] or "").strip():
+            return redirect("/home")
+        now = dt.datetime.now().isoformat(timespec="seconds")
+        d.execute("""UPDATE members SET trial_acknowledged_at=? WHERE id=?
+            AND (trial_acknowledged_at IS NULL OR trial_acknowledged_at='')
+            AND (usawp_number IS NULL OR trim(usawp_number)='')
+            AND COALESCE(usawp_status,'')!='verified'""", (now, m["id"]))
+        if d.execute("SELECT changes()").fetchone()[0]: flash("2-week USAWP trial started", "toast")
+        d.commit(); return redirect("/home")
     if request.method == "POST":
         if (m["usawp_status"] or "") == "verified":
             flash("Your USAWP number is already verified."); return redirect("/home")
@@ -719,8 +746,14 @@ def members():
 @admin_required
 def members_csv():
     out = io.StringIO(); w = csv.writer(out)
-    w.writerow(["first", "last", "email", "phone", "usawp_status", "usawp_raw", "member_number", "valid_until", "verified_by", "verified_at", "preferred_first"])
-    for r in db().execute("SELECT * FROM members ORDER BY last"): w.writerow([r["first"], r["last"], r["email"], r["phone"], r["usawp_status"], r["usawp_raw"], r["usawp_number"], r["usawp_valid_until"], r["usawp_verified_by"], r["usawp_verified_at"], r["preferred_first"] or ""])
+    w.writerow(["first", "last", "email", "phone", "usawp_status", "usawp_raw", "member_number", "valid_until", "verified_by", "verified_at", "preferred_first", "trial_acknowledged_at", "trial_end"])
+    for r in db().execute("SELECT * FROM members ORDER BY last"):
+        raw = r["trial_acknowledged_at"] or ""
+        end = ""
+        if raw:
+            try: end = (dt.date.fromisoformat(str(raw)[:10]) + dt.timedelta(days=TRIAL_DAYS)).isoformat()
+            except ValueError: end = ""
+        w.writerow([r["first"], r["last"], r["email"], r["phone"], r["usawp_status"], r["usawp_raw"], r["usawp_number"], r["usawp_valid_until"], r["usawp_verified_by"], r["usawp_verified_at"], r["preferred_first"] or "", raw, end])
     return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=grunions-members.csv"})
 
 # ---- USAWP (Sport:80 Smart List export) import ----

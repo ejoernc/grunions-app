@@ -110,8 +110,9 @@ def test_preferred_first_migration():
     raw.execute("CREATE TABLE members(id INTEGER PRIMARY KEY, first TEXT NOT NULL, last TEXT NOT NULL, email TEXT NOT NULL UNIQUE, phone TEXT)")
     raw.execute("INSERT INTO members(first,last,email,phone) VALUES('Old','Member','old@example.com','1')")
     A.migrate_members(raw); A.migrate_members(raw); raw.commit()
-    assert "preferred_first" in [r[1] for r in raw.execute("PRAGMA table_info(members)")]
-    assert raw.execute("SELECT preferred_first FROM members").fetchone()[0] is None
+    cols = [r[1] for r in raw.execute("PRAGMA table_info(members)")]
+    assert "preferred_first" in cols and "trial_acknowledged_at" in cols
+    assert raw.execute("SELECT preferred_first, trial_acknowledged_at FROM members").fetchone() == (None, None)
 def test_preferred_first_display_and_legal_verify():
     join_page = A.app.test_client().get("/join").get_data(as_text=True)
     assert "Preferred first name (optional)" in join_page and "Leave blank to use your legal first name" in join_page

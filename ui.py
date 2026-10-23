@@ -28,7 +28,11 @@ cursor:pointer;text-decoration:none;background:var(--surface2);color:var(--t1)}.
 .btn.quiet,button.quiet{background:none;color:var(--t2);padding:0 8px}.btn.danger,button.danger{background:none;color:var(--bad)}
 .btn.compact,button.compact{height:40px;padding:0 14px;font-size:15px}.full{width:100%}.row{display:flex;gap:10px}.row>*{flex:1}
 .st{display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--t2);white-space:nowrap}
-.st::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--t3)}.st-ok::before{background:var(--ok)}.st-bad::before{background:var(--bad)}.st-warn::before{background:var(--warn)}
+.st::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--t3)}.st-ok::before{background:var(--ok)}.st-bad::before{background:var(--bad)}.st-warn::before{background:var(--warn)}.st-trial::before{background:var(--accent)}
+.row.wrap{flex-wrap:wrap}
+dialog.modal{border:0;padding:0;background:transparent;color:var(--t1);width:min(440px,calc(100vw - 32px))}
+dialog.modal::backdrop{background:rgba(0,0,0,.72)}
+dialog.modal .sheet{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px}
 .note{background:var(--surface);border-radius:var(--r);padding:14px 18px;margin:0 0 12px;color:var(--t2);font-size:15px}.note b{color:var(--t1)}
 .toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;background:var(--surface);color:var(--t1);border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:15px;line-height:1.4;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.5);max-width:min(440px,calc(100% - 32px))}
 details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;min-height:56px;padding:0 18px;color:var(--t1)}
@@ -107,11 +111,14 @@ T["login"] = """<h1>Log in</h1>
 
 T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
-{% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}
+{% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}
 <div class=card><div style="display:flex;align-items:center;justify-content:space-between">
 {% if vr_pending %}<div style="font-size:19px;font-weight:600">Verification pending</div>{{ st('warn','Pending') }}
-{% else %}<div style="font-size:19px;font-weight:600">{{'Cleared to play' if cl.ok else 'Not cleared to play'}}</div>{{ st('ok' if cl.ok else 'bad', 'Cleared' if cl.ok else 'Not cleared') }}{% endif %}</div>
+{% elif cl.ok %}<div style="font-size:19px;font-weight:600">Cleared to play</div>{{ st('ok','Cleared') }}
+{% elif tw and tw.active %}<div style="font-size:19px;font-weight:600">Not cleared to play</div>{{ st('trial','Trial') }}
+{% else %}<div style="font-size:19px;font-weight:600">Not cleared to play</div>{{ st('bad','Not cleared') }}{% endif %}</div>
 {% if not cl.ok %}<p class="t2 sm" style="margin:8px 0 0">Needs: {{cl.reasons|join(', ')}}</p>{% endif %}
+{% if tw and tw.active and not cl.ok %}<p class="sm" style="margin:8px 0 0">Started {{tw.start}} · ends {{tw.end}}</p>{% elif tw and tw.expired and not cl.ok %}<p class="sm" style="margin:8px 0 0">{{ st('bad','Trial expired ' ~ tw.end) }}</p>{% endif %}
 {% if m.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %}<p class="sm" style="margin:8px 0 0"><span class="st st-warn"></span> Your membership expires in <b>{{dl}} days</b> ({{m.usawp_valid_until}}). <a href=https://usawp.sport80.com>Renew</a></p>{% endif %}
 {% if m.usawp_status != 'verified' %}<p class="t2 sm" style="margin:8px 0 0">Register or renew at <a href=https://usawp.sport80.com>usawp.sport80.com</a> with {{m.email}} and choose Grunions as your club.</p>{% endif %}
 {% if m.usawp_status == 'verified' %}
@@ -123,8 +130,18 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 <button class=primary style="flex:0 0 auto">Save</button></div></form>
 <script>document.getElementById('usawpEdit').onclick=function(){var f=document.getElementById('usawpForm');f.hidden=!f.hidden;if(!f.hidden)f.querySelector('input[name=usawp_number]').focus()};</script>
 {% else %}<form method=post action=/home style="margin-top:14px">{{csrf_field()}}
-<div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="" autocomplete=off></label>
-<button class=primary style="flex:0 0 auto">Add</button></div></form>{% endif %}</div>
+<div class="row wrap" style="align-items:flex-end"><label style="margin:0;flex:1 1 180px">USAWP Membership #<input name=usawp_number inputmode=numeric value="" autocomplete=off></label>
+<button class=primary style="flex:0 0 auto">Add</button>
+{% if not tw %}<button type=button class=compact id=trialOpen style="flex:0 0 auto">2-week USAWP trial</button>{% endif %}</div></form>
+{% if not tw %}<dialog id=trialDialog class=modal><div class=sheet>
+<p>I will complete the USA Water Polo 2-week trial membership before I get in the pool. I understand I need to get a full USAWP membership soon, otherwise I will not be able to practice.</p>
+<form method=post action=/home>{{csrf_field()}}<input type=hidden name=action value=trial>
+<button class="primary full">I confirm</button></form>
+<a class="btn full" style="margin-top:10px" href="{{TRIAL_JOIN_URL}}" target=_blank rel=noopener>Get USAWP trial membership</a>
+</div></dialog>
+<script>document.getElementById('trialOpen').onclick=function(){document.getElementById('trialDialog').showModal()};
+document.getElementById('trialDialog').addEventListener('click',function(e){if(e.target===this)this.close()});</script>{% endif %}
+{% endif %}</div>
 {% if nextp %}<div class=card><div class="t3 xs">NEXT PRACTICE</div><div style="font-size:18px;font-weight:600;margin-top:2px">{{fmt_d(nextp.date)}}, {{fmt_t(nextp.start)}}</div>
 <div class=t2>{{nextp.location}} · {{nextp_n}} going</div>
 <form method=post action=/practices style="margin-top:14px">{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
@@ -212,10 +229,11 @@ T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">T
 T["admin"] = ADMIN_NAV + """
 <form class="row noprint" style="margin-bottom:8px"><input type=date name=date value="{{date}}" onchange=this.form.submit() style="margin:0"><input name=q value="{{q}}" placeholder="Search" style="margin:0"></form>
 <h1 style="margin:20px 0 4px">{{loc}}</h1><p class="t2 sm">{{fmt_d(date)}} · {{n}} checked in{% if pr %} · {{rsvp_n}} RSVP'd{% else %} · no practice scheduled{% endif %}</p>
-<div class=list>{% for r in rows %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}
+<div class=list>{% for r in rows %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}
 <div class=li><button type=button class=ci-name onclick="this.closest('.li').nextElementSibling.toggleAttribute('hidden')">
 <div class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</div>
 {% if not cl.ok %}{{ st('bad','Not cleared') }}{% elif dl is not none and dl <= EXPIRING_DAYS %}{{ st('warn','Expires in %dd' % dl) }}{% else %}{{ st('ok','Cleared') }}{% endif %}
+{% if tw and tw.active %}<div class="t3 xs">Trial · ends {{tw.end}}</div>{% elif tw and tw.expired %}<div class="xs">{{ st('bad','Trial expired ' ~ tw.end) }}</div>{% endif %}
 {% if r.vr_status == 'pending' %}<span class="t3 xs"> · verification requested</span>{% elif r.vr_status == 'done' %}<span class="t3 xs"> · bot answered</span>{% endif %}</button>
 <form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}">
 {% if r.cid %}<button class=compact name=action value=undo title="Undo check-in">Checked in</button>{% else %}<button class="primary compact">Check in</button>{% endif %}</form></div>
@@ -223,6 +241,7 @@ T["admin"] = ADMIN_NAV + """
 <div class=kv><span>RSVP</span><span>{% if r.going==1 %}RSVP ✓{% elif r.going==0 %}Not going{% else %}—{% endif %}</span></div>
 <div class=kv><span>Membership</span><span>{{ usawp(r.usawp_status) }}{% if r.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %} · {{dl}}d left{% endif %}</span></div>
 {% if r.usawp_number or r.usawp_valid_until %}<div class=kv><span>Member # / expires</span><span>{{r.usawp_number or '—'}} / {{r.usawp_valid_until or '—'}}</span></div>{% endif %}
+{% if tw %}<div class=kv><span>USAWP trial</span><span>{% if tw.active %}{{tw.start}} – {{tw.end}}{% else %}Trial expired {{tw.end}}{% endif %}</span></div>{% endif %}
 {% if not cl.ok %}<div class=kv><span>Not cleared</span><span style="text-align:right">{{cl.reasons|join(', ')}}</span></div>{% endif %}
 {% if r.usawp_verified_by %}<div class=kv><span>Verified</span><span>{{r.usawp_verified_by}}, {{r.usawp_verified_at.replace('T',' ')}}</span></div>{% endif %}
 {% if r.vr_status %}<div class=kv><span>Bot request</span><span>{{r.vr_status}}{% if r.vr_note %} · {{r.vr_note}}{% endif %}</span></div>{% endif %}
@@ -250,9 +269,10 @@ T["admin"] = ADMIN_NAV + """
 
 T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-between;align-items:baseline"><h1>Members</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
 <p class="t2 sm">{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}</p>
-<div class=list>{% for r in rows %}<div class=li><div class=grow><div class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</div>
+<div class=list>{% for r in rows %}{% set tw = trial_window(r) %}<div class=li><div class=grow><div class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</div>
 <div class="t3 xs ell">{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices{% if r.usawp_verified_by %} · verified by {{r.usawp_verified_by}} {{r.usawp_verified_at[:10]}}{% endif %}</div></div>
-<div style="text-align:right">{{ usawp(r.usawp_status) }}{% if r.usawp_valid_until %}<div class="t3 xs">thru {{r.usawp_valid_until}}</div>{% endif %}</div></div>{% endfor %}</div>"""
+<div style="text-align:right">{{ usawp(r.usawp_status) }}{% if r.usawp_valid_until %}<div class="t3 xs">thru {{r.usawp_valid_until}}</div>{% endif %}
+{% if tw and tw.active %}<div class="t3 xs">Trial · ends {{tw.end}}</div>{% elif tw and tw.expired %}<div class="xs">{{ st('bad','Trial expired ' ~ tw.end) }}</div>{% endif %}</div></div>{% endfor %}</div>"""
 
 T["expiring"] = ADMIN_NAV + """<h1>Expiring</h1>
 <form class="row noprint" style="align-items:center;margin-bottom:8px"><span class="t2 sm" style="flex:0 0 auto">Window (days)</span><input name=days type=number value={{days}} onchange=this.form.submit() style="margin:0"></form>
