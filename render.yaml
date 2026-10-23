@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: grunions-team-app
+    runtime: docker
+    plan: starter            # persistent disks need a paid plan
+    healthCheckPath: /login
+    disk:
+      name: grunions-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: SECRET_KEY
+        generateValue: true
+      - key: BOT_API_KEY
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: elliott.joern@gmail.com
+      - key: PUBLIC_URL
+        sync: false          # e.g. https://grunions-team-app.onrender.com or your own domain
+      - key: DEV_SHOW_LINKS
+        value: "0"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false

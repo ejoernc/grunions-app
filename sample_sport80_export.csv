@@ -1,0 +1,5 @@
+Name,Date of Birth,Gender,Email,Status,Member Number,Member Type,Valid Until,Center for SafeSport Training Status,Center for SafeSport Training Valid Through Date,Background Screening Status,Background Screening Expiration Date
+Jane Doe,1985-02-01,F,jane@example.com,Current,1234567,Masters,2027-08-31,Current,2027-01-15,,
+John Smith,1979-05-05,M,jsmith@other.com,Expired,7654321,Masters,2026-08-31,Current,2026-11-10,Current,2027-03-01
+Ana Lopez,1990-01-01,F,ana@example.com,Pending Approval,5555555,Masters,2027-08-31,,,,
+Ghost Player,1990-01-01,M,ghost@example.com,Current,999,Masters,2027-08-31,,,,

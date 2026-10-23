@@ -1,0 +1,9 @@
+.env.local
+.venv/
+*.db
+uploads/
+shots/
+__pycache__/
+*.tgz
+.pytest_cache/
+server.log
