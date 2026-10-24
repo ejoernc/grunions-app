@@ -130,7 +130,7 @@ setTimeout(function(){var m=/^#p(\\d+)$/.exec(location.hash);if(m&&location.path
 <script>var PUSH_CSRF="{{csrf_token()}}",VAPID_PUBLIC="{{vapid_public_key()}}";</script>""")
 
 ADMIN_NAV = """<div class="seg noprint">{% set ep = request.endpoint %}<a href=/admin class="{{'on' if ep=='admin'}}">Check-in</a>
-{% if me().is_admin %}<a href=/members class="{{'on' if ep=='members'}}">Members</a><a href=/admins class="{{'on' if ep=='admins'}}">Roles</a><a href=/expiring class="{{'on' if ep=='expiring'}}">Expiring</a>
+{% if me().is_admin %}<a href=/members class="{{'on' if ep=='members'}}">Members</a><a href=/export class="{{'on' if ep=='export_page'}}">Export</a><a href=/admins class="{{'on' if ep=='admins'}}">Roles</a><a href=/expiring class="{{'on' if ep=='expiring'}}">Expiring</a>
 <a href=/import class="{{'on' if ep=='import_page'}}">Import</a><a href=/requirements class="{{'on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="{{'on' if ep=='qr_page'}}">QR</a>{% endif %}</div>
 {% set al = admin_alert() %}{% if al %}<a href=/expiring class="note noprint" style="display:block;text-decoration:none"><span class="st st-warn"></span> USAWP: <b>{{al[0]}}</b> expired · <b>{{al[1]}}</b> expiring within {{EXPIRING_DAYS}} days</a>{% endif %}
 {% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% endfor %}"""
@@ -337,6 +337,17 @@ T["admin"] = ADMIN_NAV + """
 <details class=checkin><summary>Checked in <span class=t3>{{checked|length}}</span></summary>
 <div class=list>{% for r in checked %}{{ ci(r) }}{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div></details>
 <script>if(/^#m\\d+$/.test(location.hash)){const p=document.querySelector(location.hash);if(p){const d=p.closest('details');if(d)d.open=true;p.removeAttribute('hidden')}}</script>"""
+
+T["export_page"] = ADMIN_NAV + """<h1>Export</h1>
+<div class=card><h2 style="margin:0 0 8px">Members</h2>
+<p class="t2 sm">Legal name, preferred name, phone, role, clearance, USAWP number, membership, SafeSport, background screening, trial dates, and attendance.</p>
+<a class="btn primary" href=/members.csv>Download members CSV</a></div>
+<div class=card><h2 style="margin:0 0 8px">Practices and attendance</h2>
+<form method=get action=/export/practices.csv>
+<div class=row><label>Start<input type=date name=start value="{{start}}" required></label><label>End<input type=date name=end value="{{end}}" required></label></div>
+<button class="primary full" name=detail value=0>Download practices CSV</button>
+<button class=full style="margin-top:10px" name=detail value=1>Download detailed attendance CSV</button></form>
+<p class="t3 sm" style="margin:12px 0 0">Practices is one row per practice. Detailed attendance is one row per member per practice, with RSVP and check-in.</p></div>"""
 
 T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-between;align-items:baseline"><h1>Members</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
 <p class="t2 sm">{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}</p>

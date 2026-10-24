@@ -47,10 +47,10 @@ t = eli.get("/admin?date=2026-10-27").get_data(as_text=True)
 ok("Verify John on Sport:80" in t and "usawp.sport80.com" in t, "Verify shown only for non-verified")
 ok(jane.post("/admin", data=dict(csrf=tok, member_id=3, action="verify")).status_code == 403, "member cannot mark verified")
 eli.post("/admin", data=dict(csrf=tok_e, member_id=3, date="2026-10-27", action="verify", number="7654321", valid_until="2027-08-31"))
-t = eli.get("/members").get_data(as_text=True); r = eli.get("/members.csv").get_data(as_text=True)
-ok("John,Smith,john@example.com,555-0100,verified,Manually verified,7654321,2027-08-31,Eli Joern," in r, "manual verify records number, date, admin, time")
+t = eli.get("/members").get_data(as_text=True); raw = eli.get("/members.csv").data; r = raw.decode("utf-8-sig")
+ok(raw.startswith(b"\xef\xbb\xbf") and "John,Smith," in r and "7654321" in r and "2027-08-31" in r, "manual verify records number, date, admin, time")
 eli.post("/admin", data=dict(csrf=tok_e, member_id=1, date="2026-10-27", action="verify", valid_until="2020-01-01"))
-ok("Eli,Joern,eli@example.com,555-0100,unknown" in eli.get("/members.csv").get_data(as_text=True), "past valid-until rejected")
+ok("Eli,Joern," in eli.get("/members.csv").data.decode("utf-8-sig") and "2020-01-01" not in eli.get("/members.csv").data.decode("utf-8-sig"), "past valid-until rejected")
 # expiry
 import datetime as dt, sqlite3
 join(A.app.test_client(), "Ana", "Lopez", "ana@example.com")
@@ -295,7 +295,7 @@ ok(stamp and stamp[:10] == start and 'class="toast noprint" role=status>2-week U
 again = alex.post("/home", data=dict(csrf=csrf(alex, "/home"), action="trial"), follow_redirects=True).get_data(as_text=True)
 ok(D.execute("SELECT trial_acknowledged_at FROM members WHERE email='alex@example.com'").fetchone()[0] == stamp and "2-week USAWP trial started" not in again, "a second confirm does not reset the trial")
 adm = eli.get("/admin").get_data(as_text=True); mem = eli.get("/members").get_data(as_text=True); csv = eli.get("/members.csv").get_data(as_text=True)
-ok("Trial · 14 days left" in adm and ("Ends %s" % md(end)) in adm and "Trial · 14 days left" in mem and ("Ends %s" % md(end)) in mem and stamp in csv and end.isoformat() in csv, "admin check-in and roster show trial days left and the end date")
+ok("Trial · 14 days left" in adm and ("Ends %s" % md(end)) in adm and "Trial · 14 days left" in mem and ("Ends %s" % md(end)) in mem and stamp[:10] in csv and end.isoformat() in csv, "admin check-in and roster show trial days left and the end date")
 added = alex.post("/home", data=dict(csrf=csrf(alex, "/home"), usawp_number="88821"), follow_redirects=True).get_data(as_text=True)
 ok('class="toast noprint" role=status>Sent to Grunions for verification' in added and "Verification pending" in added and 'class="st st-warn">Pending' in added and "USAWP # 88821" in added and ">Edit<" in added and "Trial · 14 days left" not in added and "Ends %s" % md(end) not in added and D.execute("SELECT trial_acknowledged_at FROM members WHERE email='alex@example.com'").fetchone()[0] == stamp and D.execute("SELECT member_number, status FROM verify_requests WHERE member_id=(SELECT id FROM members WHERE email='alex@example.com')").fetchone() == ("88821", "pending"), "a trial member can submit a USAWP number and the card shows Pending")
 aid = D.execute("SELECT id FROM members WHERE email='alex@example.com'").fetchone()[0]
@@ -542,3 +542,43 @@ try:
     ok(D.execute("SELECT usawp_status FROM members WHERE email='john@example.com'").fetchone()[0] == "expired", "that membership expires after midnight Pacific")
 finally:
     A.now_pt = real_now
+
+# admin CSV exports
+import csv as csvmod, io as io_mod
+exp = eli.get("/export").get_data(as_text=True)
+ok("Download members CSV" in exp and "Download practices CSV" in exp and "Download detailed attendance CSV" in exp and 'name=start' in exp and 'name=end' in exp and ('value="%s"' % (A.today_pt() - dt.timedelta(days=28)).isoformat()) in exp and ('value="%s"' % (A.today_pt() + dt.timedelta(days=28)).isoformat()) in exp and ">Export<" in eli.get("/members").get_data(as_text=True), "Export page offers members and a practice date range")
+ok(jane.get("/export").status_code == 403 and jane.get("/members.csv").status_code == 403 and jane.get("/export/practices.csv").status_code == 403 and john.get("/export").status_code == 403 and A.app.test_client().get("/export").status_code == 302, "member, coach, and signed-out visitors cannot export")
+exa = A.app.test_client(); join(exa, "Exa", "Export", "exa.export@example.com")
+eid = D.execute("SELECT id FROM members WHERE email='exa.export@example.com'").fetchone()[0]
+bgid = D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '%background%'").fetchone()[0]
+D.execute("UPDATE members SET preferred_first='Ex', phone='', role='coach', is_admin=0, usawp_status='verified', usawp_number='4242421', usawp_valid_until='2027-12-01', usawp_verified_at='2026-10-01T09:00', trial_acknowledged_at='2026-09-01T08:00:00' WHERE id=?", (eid,))
+D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,?,?,'test','test','2026-01-01')", (eid, ssid, "2026-01-01", "2027-06-01"))
+D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,?,?,'test','test','2026-01-01')", (eid, bgid, "2026-01-01", "2028-01-15"))
+D.execute("INSERT INTO checkins(member_id,practice_date,location,at) VALUES(?,?,?,?)", (eid, "2026-12-01", "Export Pool", "2026-12-02 03:15:00"))
+D.commit()
+tay = A.app.test_client(); join(tay, "Tay", "Trial", "tay.trial2@example.com")
+tay.post("/home", data=dict(csrf=csrf(tay, "/home"), action="trial"), follow_redirects=True)
+pen = A.app.test_client(); join(pen, "Pen", "Ding", "pen.ding@example.com")
+pen.post("/home", data=dict(csrf=csrf(pen, "/home"), usawp_number="999111"), follow_redirects=True)
+raw = eli.get("/members.csv")
+text = raw.data.decode("utf-8-sig"); table = list(csvmod.reader(io_mod.StringIO(text)))
+by_email = {r[3]: r for r in table[1:]}
+exar, tayr, penr = by_email["exa.export@example.com"], by_email["tay.trial2@example.com"], by_email["pen.ding@example.com"]
+ok(raw.data.startswith(b"\xef\xbb\xbf") and table[0] == A.MEMBERS_CSV_HEADER and ("grunions-members-%s.csv" % A.today_pt().isoformat()) in raw.headers["Content-Disposition"] and "bot@grunions.local" not in text, "members CSV is UTF-8 with a BOM, the column list, and today's filename")
+ok(exar == ["Exa", "Export", "Ex", "exa.export@example.com", "", "coach", "no", "4242421", "cleared", "2027-12-01", "2027-06-01", "2028-01-15", "2026-09-01", "2026-09-15", "2026-10-01", A.today_pt().isoformat(), "1"] and tayr[8] == "trial" and tayr[12] == A.today_pt().isoformat() and penr[7] == "999111" and penr[8] == "pending" and penr[4] == "555-0100", "members CSV has clearance, trial, compliance dates, and attendance")
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2026-12-01", start="18:00", end="19:30", location="Export Pool"))
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2026-12-02", start="19:00", end="20:30", location="Export Pool"))
+ppid = D.execute("SELECT id FROM practices WHERE date='2026-12-01' AND location='Export Pool'").fetchone()[0]
+offid = D.execute("SELECT id FROM practices WHERE date='2026-12-02' AND location='Export Pool'").fetchone()[0]
+exa.post("/practices", data=dict(csrf=csrf(exa, "/practices"), pid=ppid, action="going"))
+jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=ppid, action="notgoing"))
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=offid, action="cancel"))
+psum = eli.get("/export/practices.csv?start=2026-12-02&end=2026-12-01")
+stable = list(csvmod.reader(io_mod.StringIO(psum.data.decode("utf-8-sig"))))
+smap = {r[0]: r for r in stable[1:]}
+ok(psum.data.startswith(b"\xef\xbb\xbf") and stable[0] == A.PRACTICE_CSV_HEADER and "grunions-practices-2026-12-01-to-2026-12-02.csv" in psum.headers["Content-Disposition"] and smap["2026-12-01"] == ["2026-12-01", "18:00-19:30", "Export Pool", "no", "1", "1"] and smap["2026-12-02"] == ["2026-12-02", "19:00-20:30", "Export Pool", "yes", "0", "0"], "practices CSV is one row per practice and the filename uses the date range")
+pdet = eli.get("/export/practices.csv?start=2026-12-01&end=2026-12-01&detail=1")
+dtable = list(csvmod.reader(io_mod.StringIO(pdet.data.decode("utf-8-sig"))))
+dmap = {r[4]: r for r in dtable[1:]}
+ok(dtable[0] == A.ATTENDANCE_CSV_HEADER and "grunions-attendance-2026-12-01-to-2026-12-01.csv" in pdet.headers["Content-Disposition"] and dmap["Ex Export"] == ["2026-12-01", "18:00-19:30", "Export Pool", "no", "Ex Export", "4242421", "going", "yes", "2026-12-01 19:15"] and dmap["Jane Doe"][6:9] == ["not going", "no", ""] and dmap["Eli Joern"][6:9] == ["", "no", ""] and len(dtable) == 1 + D.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system'").fetchone()[0], "detailed attendance is one row per member with RSVP and check-in time")
+ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&end=2026-12-01", follow_redirects=True).get_data(as_text=True), "a practice export without real dates asks for the range")

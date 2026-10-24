@@ -925,19 +925,121 @@ def members():
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
     return page(T["members"],
         tab="admin", rows=rows, c=c)
+def csv_attachment(filename, header, rows):
+    """UTF-8 with a BOM so Excel opens names and punctuation correctly."""
+    buf = io.StringIO(); buf.write("\ufeff"); w = csv.writer(buf); w.writerow(header)
+    for row in rows: w.writerow(["" if v is None else v for v in row])
+    return Response(buf.getvalue().encode("utf-8"), mimetype="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": 'attachment; filename="%s"' % filename})
+def utc_to_pt(raw, with_time=False):
+    """SQLite CURRENT_TIMESTAMP is UTC. Return the Pacific date, or date and time."""
+    if not raw: return ""
+    s = str(raw).strip().replace(" ", "T")
+    if len(s) <= 10: return s[:10]
+    try: naive = dt.datetime.fromisoformat(s[:19])
+    except ValueError: return s[:10]
+    pt = naive.replace(tzinfo=dt.timezone.utc).astimezone(PT)
+    if not with_time: return pt.date().isoformat()
+    return "%04d-%02d-%02d %02d:%02d" % (pt.year, pt.month, pt.day, pt.hour, pt.minute)
+def export_status(d, member, pending_ids):
+    """Same words as the member card: pending, then trial, then cleared, otherwise not cleared."""
+    if member["id"] in pending_ids: return "pending"
+    tw = trial_window(member); cl = clearance(d, member)
+    if cl["ok"] and tw and tw["active"] and (member["usawp_status"] or "") != "verified": return "trial"
+    if cl["ok"]: return "cleared"
+    return "not cleared"
+def trial_dates(member):
+    raw = member["trial_acknowledged_at"] if member and "trial_acknowledged_at" in member.keys() else None
+    if not raw: return "", ""
+    try: start = dt.date.fromisoformat(str(raw)[:10])
+    except ValueError: return "", ""
+    return start.isoformat(), (start + dt.timedelta(days=TRIAL_DAYS)).isoformat()
+def requirement_expiries(d):
+    """Latest SafeSport and background dates on file, keyed by member id."""
+    out = {}
+    for mid, name, keywords, exp in d.execute("SELECT x.member_id, q.name, q.keywords, x.expires_on FROM member_reqs x JOIN requirements q ON q.id=x.req_id"):
+        if not exp: continue
+        blob = ((name or "") + " " + (keywords or "")).lower()
+        for key in ("safesport", "background"):
+            if key in blob:
+                prev = out.get((mid, key))
+                if not prev or str(exp) > prev: out[(mid, key)] = str(exp)[:10]
+    return out
+MEMBERS_CSV_HEADER = ["Legal first", "Legal last", "Preferred first", "Email", "Phone", "Role", "Admin", "USAWP #", "Status",
+                      "Membership expires", "SafeSport expires", "Background screening expires", "Trial start", "Trial end",
+                      "Verified date", "Joined date", "Total attendance"]
 @app.route("/members.csv")
 @admin_required
 def members_csv():
-    out = io.StringIO(); w = csv.writer(out)
-    w.writerow(["first", "last", "email", "phone", "usawp_status", "usawp_raw", "member_number", "valid_until", "verified_by", "verified_at", "preferred_first", "trial_acknowledged_at", "trial_end"])
-    for r in db().execute("SELECT * FROM members ORDER BY last"):
-        raw = r["trial_acknowledged_at"] or ""
-        end = ""
-        if raw:
-            try: end = (dt.date.fromisoformat(str(raw)[:10]) + dt.timedelta(days=TRIAL_DAYS)).isoformat()
-            except ValueError: end = ""
-        w.writerow([r["first"], r["last"], r["email"], r["phone"], r["usawp_status"], r["usawp_raw"], r["usawp_number"], r["usawp_valid_until"], r["usawp_verified_by"], r["usawp_verified_at"], r["preferred_first"] or "", raw, end])
-    return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=grunions-members.csv"})
+    d = db()
+    pending = {r[0] for r in d.execute("SELECT DISTINCT member_id FROM verify_requests WHERE status='pending'")}
+    expiries = requirement_expiries(d)
+    rows = []
+    for m in d.execute("""SELECT m.*, (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits FROM members m
+            WHERE COALESCE(role,'')!='system' ORDER BY last, first, id"""):
+        trial_start, trial_end = trial_dates(m)
+        verified = str(m["usawp_verified_at"] or "")[:10]
+        rows.append([m["first"], m["last"], m["preferred_first"] or "", m["email"], (m["phone"] or "").strip(),
+                     role_label(m), "yes" if m["is_admin"] else "no", m["usawp_number"] or "", export_status(d, m, pending),
+                     m["usawp_valid_until"] or "", expiries.get((m["id"], "safesport"), ""), expiries.get((m["id"], "background"), ""),
+                     trial_start, trial_end, verified, utc_to_pt(m["created"]), m["visits"]])
+    return csv_attachment("grunions-members-%s.csv" % today_pt().isoformat(), MEMBERS_CSV_HEADER, rows)
+def export_default_range():
+    today = today_pt(); return today - dt.timedelta(days=28), today + dt.timedelta(days=28)
+def export_range():
+    """Start and end from the query string. A backwards range is swapped. Missing dates use the default window."""
+    if not request.args.get("start") and not request.args.get("end"): return export_default_range()
+    start, end = parse_date(request.args.get("start")), parse_date(request.args.get("end"))
+    if not start or not end: return None
+    if end < start: start, end = end, start
+    return start, end
+PRACTICE_CSV_HEADER = ["Date", "Time", "Location", "Cancelled", "RSVP going", "Checked in"]
+ATTENDANCE_CSV_HEADER = ["Date", "Time", "Location", "Cancelled", "Name", "USAWP #", "RSVP", "Checked in", "Check-in time"]
+def practice_time(p):
+    return "%s-%s" % (p["start"] or "", p["end"] or "")
+@app.route("/export")
+@admin_required
+def export_page():
+    start, end = export_default_range()
+    return page(T["export_page"], tab="admin", start=start.isoformat(), end=end.isoformat())
+@app.route("/export/practices.csv")
+@admin_required
+def practices_csv():
+    bounds = export_range()
+    if not bounds:
+        flash("Choose a start and end date."); return redirect("/export")
+    start, end = bounds
+    d = db()
+    practices = d.execute("SELECT * FROM practices WHERE date>=? AND date<=? ORDER BY date, start, id", (start.isoformat(), end.isoformat())).fetchall()
+    ids = [p["id"] for p in practices]
+    rsvps = {}
+    if ids:
+        marks = ",".join("?" * len(ids))
+        for pid, mid, going in d.execute("SELECT practice_id, member_id, going FROM rsvps WHERE practice_id IN (%s)" % marks, ids):
+            rsvps[(pid, mid)] = going
+    checkins = {}
+    for mid, day, at in d.execute("SELECT member_id, practice_date, at FROM checkins WHERE practice_date>=? AND practice_date<=?", (start.isoformat(), end.isoformat())):
+        checkins[(mid, day)] = at
+    span = "%s-to-%s" % (start.isoformat(), end.isoformat())
+    if request.args.get("detail") in ("1", "true", "yes"):
+        members = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first, id").fetchall()
+        rows = []
+        for p in practices:
+            when = practice_time(p); cancelled = "yes" if p["cancelled"] else "no"
+            for m in members:
+                going = rsvps.get((p["id"], m["id"]))
+                rsvp = "going" if going == 1 else ("not going" if going == 0 else "")
+                at = checkins.get((m["id"], p["date"]))
+                rows.append([p["date"], when, p["location"] or "", cancelled, "%s %s" % (display_first(m), m["last"]),
+                             m["usawp_number"] or "", rsvp, "yes" if (m["id"], p["date"]) in checkins else "no",
+                             utc_to_pt(at, with_time=True) if at else ""])
+        return csv_attachment("grunions-attendance-%s.csv" % span, ATTENDANCE_CSV_HEADER, rows)
+    rows = []
+    for p in practices:
+        going_n = sum(1 for (pid, _), g in rsvps.items() if pid == p["id"] and g == 1)
+        checked_n = sum(1 for (_, day) in checkins if day == p["date"])
+        rows.append([p["date"], practice_time(p), p["location"] or "", "yes" if p["cancelled"] else "no", going_n, checked_n])
+    return csv_attachment("grunions-practices-%s.csv" % span, PRACTICE_CSV_HEADER, rows)
 
 # ---- USAWP (Sport:80 Smart List export) import ----
 ALIASES = {  # normalized header -> field. Sport:80 Smart List columns vary by chosen columns, so match loosely.
