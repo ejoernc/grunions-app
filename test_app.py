@@ -576,7 +576,7 @@ eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=offid, action
 psum = eli.get("/export/practices.csv?start=2026-12-02&end=2026-12-01")
 stable = list(csvmod.reader(io_mod.StringIO(psum.data.decode("utf-8-sig"))))
 smap = {r[0]: r for r in stable[1:]}
-ok(psum.data.startswith(b"\xef\xbb\xbf") and stable[0] == A.PRACTICE_CSV_HEADER and "grunions-practices-2026-12-01-to-2026-12-02.csv" in psum.headers["Content-Disposition"] and smap["2026-12-01"] == ["2026-12-01", "18:00-19:30", "Export Pool", "no", "1", "1"] and smap["2026-12-02"] == ["2026-12-02", "19:00-20:30", "Export Pool", "yes", "0", "0"], "practices CSV is one row per practice and the filename uses the date range")
+ok(psum.data.startswith(b"\xef\xbb\xbf") and stable[0] == A.PRACTICE_CSV_HEADER and "grunions-practices-2026-12-01-to-2026-12-02.csv" in psum.headers["Content-Disposition"] and smap["2026-12-01"] == ["2026-12-01", "18:00-19:30", "Export Pool", "no", "1", "1", "", "0"] and smap["2026-12-02"] == ["2026-12-02", "19:00-20:30", "Export Pool", "yes", "0", "0", "", "0"], "practices CSV is one row per practice and the filename uses the date range")
 pdet = eli.get("/export/practices.csv?start=2026-12-01&end=2026-12-01&detail=1")
 dtable = list(csvmod.reader(io_mod.StringIO(pdet.data.decode("utf-8-sig"))))
 dmap = {r[4]: r for r in dtable[1:]}
@@ -750,6 +750,71 @@ list_act(riley_id, "remove_coaching")
 ok(not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and ('name=coach value="%d"' % riley_id) not in eli.get("/practices").get_data(as_text=True), "an admin can remove a USAWP coach from the coaching list")
 answer(True, membership_type="Individual Membership, Coach")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "usawp" and riley.get("/admin").status_code == 403, "the next coach verification puts them back on the list without coach access")
+
+# assigned coaches in the practices CSV and the Google Sheet tabs
+D.execute("INSERT INTO coaching_list(member_id, source, at) VALUES(?, 'manual', '2026-10-01') ON CONFLICT(member_id) DO UPDATE SET source='manual'", (eli_id,))
+D.execute("INSERT INTO coaching_list(member_id, source, at) VALUES(?, 'manual', '2026-10-01') ON CONFLICT(member_id) DO UPDATE SET source='manual'", (john_id,))
+D.execute("DELETE FROM coaching_list WHERE member_id=?", (jane_id,))
+D.commit()
+epid, estart, eend, eloc, enote = D.execute("SELECT id, start, end, location, COALESCE(note,'') FROM practices WHERE date='2026-12-01' AND location='Export Pool'").fetchone()
+pushed = []
+real_push = A.push_sheet_tabs
+A.push_sheet_tabs = lambda tabs: pushed.append({k: [list(row) for row in rows] for k, rows in tabs.items()}) or True
+def export_edit(ids):
+    return eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=epid, action="edit", start=estart, end=eend, location=eloc, note=enote, coach=ids))
+export_edit([str(eli_id), str(john_id), str(jane_id)])
+sheet = pushed[-1]
+srow = next(r for r in sheet["Practices"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool")
+detail = [r for r in sheet["Practice Coaches"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool"]
+csv_row = {r[0]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/export/practices.csv?start=2026-12-01&end=2026-12-01").data.decode("utf-8-sig"))))[1:]}["2026-12-01"]
+ok(sheet["Practices"][0] == A.PRACTICE_CSV_HEADER and srow[6] == "Eli, Sam" and srow[7] == 2 and csv_row[6:] == ["Eli, Sam", "2"] and "Jane" not in srow[6], "Practices tab and CSV list the assigned coaches and the count")
+ok(sheet["Practice Coaches"][0] == A.PRACTICE_COACHES_HEADER and detail == [["2026-12-01", "18:00-19:30", "Export Pool", "Eli Joern", "eli@example.com"], ["2026-12-01", "18:00-19:30", "Export Pool", "Sam Smith", "john@example.com"]], "Practice Coaches is one row per coach with name and email")
+export_edit([str(john_id)])
+changed = next(r for r in pushed[-1]["Practices"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool")
+changed_detail = [r for r in pushed[-1]["Practice Coaches"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool"]
+ok(changed[6] == "Sam" and changed[7] == 1 and changed_detail == [["2026-12-01", "18:00-19:30", "Export Pool", "Sam Smith", "john@example.com"]], "changing the assigned coaches rewrites the sheet")
+before = len(pushed)
+list_act(john_id, "remove_coaching")
+dropped = next(r for r in pushed[-1]["Practices"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool")
+ok(len(pushed) > before and dropped[6] == "" and dropped[7] == 0 and not any(r[0] == "2026-12-01" and r[2] == "Export Pool" for r in pushed[-1]["Practice Coaches"][1:]) and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? AND member_id=?", (epid, john_id)).fetchone(), "leaving the coaching list resyncs the sheet and drops that coach")
+def boom(tabs):
+    raise RuntimeError("sheet down")
+A.push_sheet_tabs = boom
+saved = export_edit([str(eli_id)])
+ok(saved.status_code == 302 and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=?", (epid,)).fetchall() == [(eli_id,)], "a Google Sheet error still saves the coach assignment")
+A.push_sheet_tabs = real_push
+ok(A.push_sheet_tabs({A.SHEET_PRACTICES: [["Date"]]}) is False, "sheet sync does nothing until a spreadsheet and service account are set")
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
+pem = rsa.generate_private_key(public_exponent=65537, key_size=2048).private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
+posted = []
+def fake_sheet(method, url, body=None, token=None, form=False):
+    posted.append((method, url, body, token, form))
+    if method == "POST" and form: return {"access_token": "ya29.test", "expires_in": 3600}
+    if method == "GET": return {"sheets": [{"properties": {"title": "Practices"}}]}
+    return {}
+real_request, real_account, real_token = A.sheet_request, A.service_account, A.sheets_access_token
+A.sheet_request = fake_sheet
+A._sheet_token.update(email="", value="", exp=0)
+info = {"client_email": "sheet@test.iam.gserviceaccount.com", "private_key": pem}
+try:
+    tok = A.sheets_access_token(info)
+    again = A.sheets_access_token(info)
+    part = posted[0][2]["assertion"].split(".")[1]
+    claim = A.json.loads(A.base64.urlsafe_b64decode(part + "=" * ((-len(part)) % 4)))
+    os.environ["GOOGLE_SHEET_ID"] = "sheet123"
+    A.service_account = lambda: info
+    A.sheets_access_token = lambda account: "tok"
+    wrote = A.push_sheet_tabs({A.SHEET_PRACTICES: [A.PRACTICE_CSV_HEADER, ["2026-12-01", "18:00-19:30", "Export Pool", "no", 1, 1, "Eli, Sam", 2]], A.SHEET_PRACTICE_COACHES: [A.PRACTICE_COACHES_HEADER, ["2026-12-01", "18:00-19:30", "Export Pool", "Eli Joern", "eli@example.com"]]})
+finally:
+    A.sheet_request, A.service_account, A.sheets_access_token = real_request, real_account, real_token
+    os.environ.pop("GOOGLE_SHEET_ID", None)
+    A._sheet_token.update(email="", value="", exp=0)
+adds = [c for c in posted if c[0] == "POST" and str(c[1]).endswith(":batchUpdate")]
+clears = [c for c in posted if "values:batchClear" in str(c[1])]
+updates = [c for c in posted if "values:batchUpdate" in str(c[1])]
+ok(tok == "ya29.test" and again == "ya29.test" and len([c for c in posted if c[4]]) == 1 and claim["iss"] == info["client_email"] and claim["scope"] == "https://www.googleapis.com/auth/spreadsheets", "the sheet token is a signed service-account JWT and it is reused")
+ok(wrote is True and adds and adds[0][2]["requests"][0]["addSheet"]["properties"]["title"] == "Practice Coaches" and clears and updates and updates[0][2]["data"][0]["values"][0] == A.PRACTICE_CSV_HEADER and updates[0][2]["data"][1]["range"].startswith("'Practice Coaches'"), "the sheet writer adds a missing Practice Coaches tab and replaces both tabs")
 
 def nav_skeleton(html):
     nav = re.search(r'<nav class="tabs noprint".*?</nav>', html, re.S).group(0)

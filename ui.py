@@ -506,7 +506,7 @@ T["export_page"] = ADMIN_NAV + """<h1>Export</h1>
 <div class=row><label>Start<input type=date name=start value="{{start}}" required></label><label>End<input type=date name=end value="{{end}}" required></label></div>
 <button class="primary full" name=detail value=0>Download practices CSV</button>
 <button class=full style="margin-top:10px" name=detail value=1>Download detailed attendance CSV</button></form>
-<p class="t3 sm" style="margin:12px 0 0">Practices is one row per practice. Detailed attendance is one row per member per practice, with RSVP and check-in.</p></div>"""
+<p class="t3 sm" style="margin:12px 0 0">Practices is one row per practice, with the assigned coaches and a coach count. Detailed attendance is one row per member per practice, with RSVP and check-in. A configured Google Sheet keeps a Practices tab and a Practice Coaches tab, and updates them when the coaches change.</p></div>"""
 
 T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-between;align-items:baseline"><h1>Members</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
 <p class="t2 sm">{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}</p>
