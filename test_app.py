@@ -346,3 +346,102 @@ D.execute("UPDATE members SET usawp_status='verified', usawp_number='1112223', u
 D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,?, 'test','test','2026-01-01T00:00')", (uid, ssid, yesterday)); D.commit()
 shome = sue.get("/home").get_data(as_text=True)
 ok(("SafeSport expired %s" % yesterday) in shome and "Not cleared to play" in shome and ">Reverify membership<" not in shome and "name=usawp_number" not in shome and "USAWP # 1112223" in shome and "Membership expired" not in shome and "SafeSport training expired" in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "expired SafeSport stays Not cleared without a membership reverify button")
+
+# notifications: web push + email
+sw = jane.get("/sw.js").get_data(as_text=True)
+home_note = jane.get("/home").get_data(as_text=True)
+nh = jane.get("/notifications").get_data(as_text=True)
+eh = eli.get("/notifications").get_data(as_text=True)
+ok("showNotification" in sw and "notificationclick" in sw and "openWindow" in sw and "Allow notifications" in home_note and "Add to Home Screen" in home_note and "iOS 16.4" in home_note and "id=allowPush" in home_note and A.VAPID_PUBLIC and A.VAPID_PUBLIC in home_note and os.path.isfile(A.VAPID_PATH), "service worker opens the notification URL, and the home card can allow notifications")
+ok('value="team_chat" checked' in nh and "Practice reminder (~3 hours before)" in nh and "Verification result" in nh and "Practice cancelled" in nh and "Trial, membership, and SafeSport expiring or expired" in nh and "Coaches chat" not in nh and "New verification requests" not in nh and "Practice cancellation emails always send" in nh and "Coaches chat" in eh and "New verification requests" in eh, "notification toggles default on; coaches and admin types stay on those roles")
+keep = ["practice_reminder", "verification_result", "practice_cancelled", "expiry"]
+jane.post("/notifications", data={"csrf": csrf(jane, "/notifications"), "push": keep})
+saved = jane.get("/notifications").get_data(as_text=True)
+ok('value="team_chat" checked' not in saved and 'value="expiry" checked' in saved and "name=email_reminders value=1 checked" not in saved, "a member can turn off team chat pushes and reminder emails")
+ok(jane.post("/api/push/subscribe", json={"endpoint": "https://push.example/jane", "keys": {"p256dh": "pk", "auth": "ak"}}).status_code == 400, "push subscribe requires CSRF")
+ok(jane.post("/api/push/subscribe", json={"endpoint": "https://push.example/jane", "keys": {"p256dh": "pk", "auth": "ak"}}, headers={"X-CSRF": csrf(jane, "/home")}).status_code == 200 and tuple(D.execute("SELECT member_id, p256dh FROM push_subscriptions WHERE endpoint='https://push.example/jane'").fetchone())[1] == "pk", "a browser subscription is stored for the member")
+def pushsub(c, endpoint):
+    c.post("/api/push/subscribe", json={"endpoint": endpoint, "keys": {"p256dh": "k", "auth": "a"}}, headers={"X-CSRF": csrf(c, "/home")})
+pushsub(eli, "https://push.example/eli"); pushsub(john, "https://push.example/john")
+pushes = []; emails = []
+A.send_push = lambda sub, payload: pushes.append((sub["member_id"], payload))
+A.smtp_ready = lambda: True
+A.send_email = lambda to, subj, text: emails.append((to, subj, text))
+D.execute("UPDATE members SET role='coach', is_admin=0 WHERE email='john@example.com'"); D.commit()
+jane.post("/notifications", data={"csrf": csrf(jane, "/notifications"), "email_reminders": "1", "push": keep + ["team_chat"]})
+eli.post("/api/messages", json={"body": "See you at the pool"}, headers={"X-CSRF": csrf(eli, "/chat")})
+mine = [p for p in pushes if p[0] == D.execute("SELECT id FROM members WHERE email='jane@example.com'").fetchone()[0]]
+ok(mine and mine[-1][1]["title"] == "Team chat" and mine[-1][1]["url"] == "/chat" and "See you at the pool" in mine[-1][1]["body"] and not any(p[0] == D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0] and p[1]["url"] == "/chat" and "See you at the pool" in p[1]["body"] for p in pushes), "team chat push goes to other members and skips the sender")
+pushes.clear()
+eli.post("/api/messages?c=coaches", json={"body": "Lineup is set"}, headers={"X-CSRF": csrf(eli, "/chat?c=coaches")})
+jid = D.execute("SELECT id FROM members WHERE email='john@example.com'").fetchone()[0]
+janie = D.execute("SELECT id FROM members WHERE email='jane@example.com'").fetchone()[0]
+jh = john.get("/notifications").get_data(as_text=True)
+ok(any(p[0] == jid and p[1]["url"] == "/chat?c=coaches" and p[1]["title"] == "Coaches chat" for p in pushes) and not any(p[0] == janie for p in pushes) and "Coaches chat" in jh and "New verification requests" not in jh, "coaches chat push stays with coaches and admins")
+pushes.clear()
+jane.post("/notifications", data={"csrf": csrf(jane, "/notifications"), "push": keep})
+eli.post("/api/messages", json={"body": "Another note"}, headers={"X-CSRF": csrf(eli, "/chat")})
+ok(not any(p[0] == janie for p in pushes), "team chat push respects the member toggle")
+emails.clear(); pushes.clear()
+day = (dt.date.today() + dt.timedelta(days=1)).isoformat()
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=day, start="03:00", end="04:00", location="Notify Pool"))
+npid = D.execute("SELECT id FROM practices WHERE location='Notify Pool'").fetchone()[0]
+n_members = D.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system'").fetchone()[0]
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=npid, action="cancel"))
+cancel_mail = [e for e in emails if "Notify Pool" in e[2]]
+ok(len(cancel_mail) == n_members and all(A.fmt_d(day) in e[2] and "3:00am" in e[2] and "4:00" in e[2] and "Notify Pool" in e[2] for e in cancel_mail) and any(e[0] == "jane@example.com" for e in cancel_mail) and any(p[0] == jid and p[1]["url"] == "/practices#p%s" % npid and p[1]["title"] == "Practice cancelled" for p in pushes), "cancelling a practice emails every member and pushes subscribers")
+n_mail = len(emails)
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=npid, action="cancel"))
+ok(len(emails) == n_mail, "cancelling the same practice again does not send another email")
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=npid, action="restore"))
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=npid, action="cancel"))
+ok(len([e for e in emails if "Notify Pool" in e[2]]) == n_members * 2, "restoring a practice lets a later cancel notify again")
+pushes.clear()
+start = dt.datetime.combine(dt.date.today() + dt.timedelta(days=1), dt.time(3, 15))
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=start.date().isoformat(), start="03:15", end="04:15", location="Reminder Pool"))
+rpid = D.execute("SELECT id FROM practices WHERE location='Reminder Pool'").fetchone()[0]
+jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=rpid, action="going"))
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=rpid, action="notgoing"))
+nd = A.open_db()
+try:
+    A.run_practice_reminders(nd, start - dt.timedelta(hours=2)); A.run_practice_reminders(nd, start - dt.timedelta(hours=2))
+finally:
+    nd.close()
+ok(sum(1 for p in pushes if p[0] == janie and p[1]["title"] == "Practice reminder" and p[1]["url"] == "/practices#p%s" % rpid and "about 2 hours" in p[1]["body"]) == 1 and not any(p[0] == D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0] and "Reminder Pool" in p[1]["body"] for p in pushes), "a practice reminder goes once to members who RSVP'd going, about 3 hours before")
+pushes.clear(); emails.clear()
+soon = (dt.date.today() + dt.timedelta(days=7)).isoformat()
+tomorrow = (dt.date.today() + dt.timedelta(days=1)).isoformat()
+D.execute("UPDATE members SET usawp_valid_until=?, email_reminders=1, usawp_status='verified' WHERE email='jane@example.com'", (soon,))
+D.execute("UPDATE members SET usawp_valid_until=?, email_reminders=0, usawp_status='verified' WHERE email='sue@example.com'", (soon,))
+D.execute("UPDATE members SET usawp_valid_until=? WHERE email='ren@example.com'", ((dt.date.today() + dt.timedelta(days=8)).isoformat(),))
+D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (tomorrow, D.execute("SELECT id FROM members WHERE email='casey@example.com'").fetchone()[0], ssid))
+D.commit()
+tmember = A.app.test_client(); join(tmember, "Tess", "Trial", "tess.trial@example.com")
+D.execute("UPDATE members SET trial_acknowledged_at=?, usawp_status='unknown', usawp_valid_until=NULL WHERE email='tess.trial@example.com'", ((dt.date.today() - dt.timedelta(days=14)).isoformat() + "T08:00:00",))
+D.commit()
+pushsub(tmember, "https://push.example/tess")
+sue_id = D.execute("SELECT id FROM members WHERE email='sue@example.com'").fetchone()[0]
+D.commit()
+pushsub(sue, "https://push.example/sue")
+pushsub(casey, "https://push.example/casey")
+nd = A.open_db()
+try:
+    A.run_expiry_notices(nd); A.run_expiry_notices(nd)
+finally:
+    nd.close()
+jane_mail = [e for e in emails if e[0] == "jane@example.com" and "membership" in e[1].lower()]
+sue_mail = [e for e in emails if e[0] == "sue@example.com"]
+ss_mail = [e for e in emails if "SafeSport" in e[1]]
+trial_mail = [e for e in emails if e[0] == "tess.trial@example.com"]
+ok(len(jane_mail) == 1 and "in 7 days" in jane_mail[0][2] and "/home" in jane_mail[0][2] and A.TRIAL_JOIN_URL in jane_mail[0][2] and sue_mail == [] and not any(e[0] == "ren@example.com" and "in 8 days" in e[2] for e in emails) and len(ss_mail) == 1 and "tomorrow" in ss_mail[0][2] and len(trial_mail) == 1 and "today" in trial_mail[0][2] and A.TRIAL_JOIN_URL in trial_mail[0][2] and any(p[0] == sue_id and p[1]["url"] == "/home" and "membership" in p[1]["body"].lower() for p in pushes) and any(p[1]["url"] == "/home" and "SafeSport" in p[1]["body"] for p in pushes) and any(p[1]["url"] == "/home" and "trial" in p[1]["body"].lower() for p in pushes), "expiry emails and pushes go out 7 days, 1 day, and the day it expires, once, and reminder emails can be turned off")
+pushes.clear()
+vera = A.app.test_client(); join(vera, "Vera", "Fy", "vera@example.com")
+vid = D.execute("SELECT id FROM members WHERE email='vera@example.com'").fetchone()[0]
+D.commit()
+pushsub(vera, "https://push.example/vera")
+vera.post("/home", data=dict(csrf=csrf(vera, "/home"), usawp_number="515151"), follow_redirects=True)
+eli_id = D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0]
+ok(any(p[0] == eli_id and p[1]["title"] == "New verification request" and p[1]["url"] == "/admin" and "515151" in p[1]["body"] for p in pushes) and not any(p[0] == vid and p[1]["title"] == "New verification request" for p in pushes), "a new verification request pushes admins")
+vr = D.execute("SELECT id FROM verify_requests WHERE member_id=? AND status='pending'", (vid,)).fetchone()[0]
+c0.post("/api/verify-requests/%d/result" % vr, headers=H, json={"verified": True, "member_number": "515151", "membership_expires_on": "2027-08-31"})
+ok(any(p[0] == vid and p[1]["title"] == "Verification result" and p[1]["url"] == "/home" and "verified" in p[1]["body"].lower() for p in pushes), "the verification result pushes the member")

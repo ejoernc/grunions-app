@@ -21,7 +21,7 @@ def main():
         if input("Type RESET to continue: ").strip() != "RESET": print("Cancelled."); sys.exit(1)
     with A.app.app_context():
         d = A.db()
-        for t in ("reactions", "messages", "checkins", "rsvps", "verify_requests", "notices", "login_tokens", "usawp_submits", "member_reqs", "members"):
+        for t in ("reactions", "messages", "checkins", "rsvps", "verify_requests", "notices", "sent_notices", "push_subscriptions", "login_tokens", "usawp_submits", "member_reqs", "members"):
             d.execute(f"DELETE FROM {t}")
         d.execute("DELETE FROM practices WHERE location NOT IN (%s)" % ",".join("?" * len(REAL_LOCATIONS)), tuple(REAL_LOCATIONS))
         now = dt.datetime.now().isoformat(timespec="minutes")

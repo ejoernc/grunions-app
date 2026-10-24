@@ -1,7 +1,7 @@
 """Templates (Jinja strings) for the Grunions app. Restrained dark UI: one surface, gray text, one blue accent."""
 
 BASE = """<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name=theme-color content="#0a0a0b"><link rel=manifest href=/manifest.webmanifest>
+<meta name=theme-color content="#0a0a0b"><meta name=apple-mobile-web-app-capable content=yes><link rel=manifest href=/manifest.webmanifest>
 <link rel=icon href=/static/icons/favicon-32.png sizes=32x32 type=image/png><link rel=apple-touch-icon href=/static/icons/apple-touch-icon-180.png>
 <title>Grunions</title>
 <style>[hidden]{display:none!important}
@@ -70,7 +70,15 @@ nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;fill:none;
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
 <header><a class=brand href=/>Grunions</a>{% if me() %}<a class=sub href=/logout>Log out</a>{% endif %}</header><main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
-<script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>"""
+<script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
+{% macro push_card() %}<div class=card id=pushCard hidden>
+<div style="font-weight:600">Notifications</div>
+<p class="t2 sm" id=iosPushHint hidden>On iPhone or iPad, add Grunions to your Home Screen to get notifications. Tap Share, then Add to Home Screen, and open the app from there (iOS 16.4 or later).</p>
+<p class="t2 sm">Allow notifications for chat, practice reminders, and membership expiry. This works on Android, and on iPhone once Grunions is on your Home Screen (iOS 16.4 or later).</p>
+<p class="t2 sm" id=pushDenied hidden>Notifications are blocked in this browser. Allow them in the site settings, then come back.</p>
+<button type=button class="primary full" id=allowPush>Allow notifications</button>
+<p class="t3 sm" style="margin:10px 0 0"><a href=/notifications>Notification settings</a></p>
+</div>{% endmacro %}"""
 
 ICONS = {
  "home": '<svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
@@ -83,7 +91,28 @@ TABS = ("""</main>{% if me() %}<nav class="tabs noprint">
 <a href=/practices class="{{'on' if tab=='practices'}}">""" + ICONS["cal"] + """Schedule</a>
 <a href=/chat class="{{'on' if tab=='chat'}}">""" + ICONS["chat"] + """Chat</a>
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
-</nav>{% endif %}""")
+</nav>{% endif %}
+<script>
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+(function(){
+var card=document.getElementById('pushCard'); if(!card) return;
+var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+var standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+var hint=document.getElementById('iosPushHint'), btn=document.getElementById('allowPush'), denied=document.getElementById('pushDenied');
+if(ios&&!standalone){card.hidden=false; if(hint) hint.hidden=false; if(btn) btn.hidden=true; return;}
+if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)) return;
+if(Notification.permission==='granted') return;
+card.hidden=false;
+if(Notification.permission==='denied'){ if(denied) denied.hidden=false; if(btn) btn.hidden=true; return;}
+function b64(s){var pad='='.repeat((4-s.length%4)%4);var b=atob((s+pad).replace(/-/g,'+').replace(/_/g,'/'));var a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
+if(btn) btn.onclick=function(){btn.disabled=true;
+Notification.requestPermission().then(function(perm){if(perm!=='granted'){btn.disabled=false;return;}
+return navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64(VAPID_PUBLIC)});}).then(function(sub){
+return fetch('/api/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':PUSH_CSRF},body:JSON.stringify(sub)});
+}).then(function(){card.hidden=true;});}).catch(function(){btn.disabled=false;});};
+})();
+</script>
+<script>var PUSH_CSRF="{{csrf_token()}}",VAPID_PUBLIC="{{vapid_public_key()}}";</script>""")
 
 ADMIN_NAV = """<div class="seg noprint">{% set ep = request.endpoint %}<a href=/admin class="{{'on' if ep=='admin'}}">Check-in</a>
 {% if me().is_admin %}<a href=/members class="{{'on' if ep=='members'}}">Members</a><a href=/admins class="{{'on' if ep=='admins'}}">Roles</a><a href=/expiring class="{{'on' if ep=='expiring'}}">Expiring</a>
@@ -111,6 +140,7 @@ T["login"] = """<h1>Log in</h1>
 <p class="t3 sm" style="text-align:center;margin-top:20px">New here? <a href=/join>Join the team</a></p>"""
 
 T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
+{{ push_card() }}
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
 {% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set ex = expiry_notes(m, cl) %}
 <div class=card><div style="display:flex;align-items:center;justify-content:space-between">
@@ -170,7 +200,18 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <label>Preferred first name (optional)<input name=preferred_first value="{{m.preferred_first or ''}}" placeholder="Leave blank to use your legal first name" autocomplete=off></label>
 <button class=full>Save</button></form>
 <div class=kv><span>Email</span><span>{{m.email}}</span></div>
-<div class=kv><span>Phone</span><span>{{m.phone}}</span></div><div class=kv><span>Role</span><span>{{role_label(m)|capitalize}}</span></div></div></details>"""
+<div class=kv><span>Phone</span><span>{{m.phone}}</span></div><div class=kv><span>Role</span><span>{{role_label(m)|capitalize}}</span></div>
+<p class="sm" style="margin:8px 0 0"><a href=/notifications>Notification settings</a></p></div></details>"""
+
+T["notifications"] = """<h1>Notifications</h1>
+{{ push_card() }}
+<form method=post action=/notifications>{{csrf_field()}}
+<div class=list>{% for key, label in types %}
+<label class=li><input type=checkbox name=push value="{{key}}" {% if prefs.get(key, True) %}checked{% endif %}>{{label}}</label>
+{% endfor %}</div>
+<label style="margin-top:16px"><input type=checkbox name=email_reminders value=1 {% if email_on %}checked{% endif %}>Email reminders for membership, SafeSport, and the 2-week trial</label>
+<p class="t3 sm">These emails go out 7 days before, 1 day before, and on the day it expires. Practice cancellation emails always send.</p>
+<button class="primary full">Save</button></form>"""
 
 T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="{{'on' if ch=='team'}}">Team</a><a href="/chat?c=coaches" class="{{'on' if ch=='coaches'}}">Coaches</a></div>{% else %}<h1>Team</h1>{% endif %}
 <div class=chat id=chat></div><div style=height:90px></div>

@@ -2,6 +2,8 @@
 .venv/
 *.db
 uploads/
+vapid_private.pem
+vapid_public.txt
 shots/
 __pycache__/
 *.tgz

@@ -9,7 +9,7 @@ or:
 Env: PUBLIC_URL (base URL for QR + login links), EXPIRING_DAYS (default 30), CRON_KEY (lets a scheduler call /api/expiring?key=...),
 DEV_SHOW_LINKS=1 (local testing only: show magic link on screen; default 0), SECURE_COOKIES=1 (behind HTTPS), GRUNIONS_DB, PORT.
 Demo data: `rm grunions.db && .venv/bin/python seed_demo.py` (admin eli@example.com, coach marcus@example.com).
-Tests: `.venv/bin/python test_app.py` (109 checks) and `.venv/bin/python -m pytest -q test_v2.py` (16 tests), `.venv/bin/python -m pytest -q test_google.py` (8 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
+Tests: `.venv/bin/python test_app.py` (124 checks) and `.venv/bin/python -m pytest -q test_v2.py` (16 tests), `.venv/bin/python -m pytest -q test_google.py` (8 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
 
 ## Roles
 member (athlete), coach (check-in + #coaches), admin (everything). Manage on Admin → **Roles** (/admins): every member with Make/Remove admin and Make/Remove coach. The last admin can't be removed.
@@ -27,6 +27,7 @@ ADMIN_EMAIL (comma-separated) bootstraps admins and keeps them admin on every st
   enter compliance items (completed / expires), set role.
 - /members (admin, +CSV), /import (Sport:80 .xlsx/.csv incl. SafeSport/Background columns), /qr, /expiring (expired / 7 days / N days, incl. compliance items; in-app reminders), /requirements (configure items, who they apply to, import keywords).
 Status auto-flips to expired once expires_on passes. Cleared = USAWP membership verified and current, and SafeSport current, or an active 2-week USAWP trial that is not yet verified. Club waiver is not a requirement.
+- /notifications: per-type push toggles, all on until changed. Team chat, coaches chat (coaches and admins), a practice reminder about 3 hours before for anyone who RSVP'd going, verification result, practice cancelled, trial / membership / SafeSport expiring or expired, and (admins) new verification requests. Home shows **Allow notifications**. On iPhone or iPad, add Grunions to the Home Screen first (iOS 16.4 or later), then open it from there. Reminder emails (7 days before, 1 day before, and the day it expires) can be turned off here. Practice cancellation emails always send, with the date, time, and location. Each notice is stored so it is not sent twice. An in-process scheduler runs the expiry and reminder checks about every 15 minutes (one scheduler per process, plus a database lock). No extra Render service.
 Security: CSRF on every POST, HttpOnly SameSite cookies, chat escaped, role checks server-side.
 Before production: SMTP configured, DEV_SHOW_LINKS=0, HTTPS, DB backups (copy $DATA_DIR/grunions.db). v1 kept as app_v1_checkin.py.
 
@@ -52,7 +53,9 @@ Tabs: Home, Schedule, Chat, plus Admin for coaches/admins (Check-in · Members �
 | ADMIN_EMAIL | yes | bootstrap admin(s), comma-separated, e.g. `elliott.joern@gmail.com`. |
 | PUBLIC_URL | prod | e.g. `https://grunions.onrender.com`; used in login links + QR. If it starts with https, secure cookies and proxy headers are on. |
 | DATA_DIR | prod | folder for `grunions.db` and `uploads/` (Render disk: `/data`). Defaults to the app folder. GRUNIONS_DB / GRUNIONS_UPLOADS override individually. |
-| SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, MAIL_FROM | prod | login emails. All five must be set. Port 465 = SSL, other ports = STARTTLS. |
+| SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, MAIL_FROM | prod | login emails, practice-cancellation emails, and expiry reminder emails. All five must be set. Port 465 = SSL, other ports = STARTTLS. |
+| VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY | no | Web Push keys. If either private key is missing, a key pair is generated at startup and saved in DATA_DIR (`vapid_private.pem`, `vapid_public.txt`). |
+| GRUNIONS_SCHEDULER | no | `0` turns off the in-process reminder scheduler. Default on. |
 | DEV_SHOW_LINKS | local | `1` shows the login link on screen. Never in production. |
 | GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET | no | enable Sign in with Google (button appears only when both are set). |
 | LINK_MINUTES | no | login link lifetime (default 15). |
