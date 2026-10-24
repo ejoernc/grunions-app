@@ -3,7 +3,7 @@ import csv, io, os, re, sqlite3, secrets, hashlib, datetime as dt, functools, ba
 import json, urllib.request, urllib.parse, urllib.error
 from zoneinfo import ZoneInfo
 import qrcode, qrcode.image.svg
-from markupsafe import Markup
+from markupsafe import Markup, escape
 import ui
 from ui import T
 from flask import (Flask, request, redirect, url_for, session, g, render_template_string, Response, abort, flash, jsonify)
@@ -65,7 +65,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS members(id INTEGER PRIMARY KEY, first TEXT NOT NULL, last TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE, phone TEXT, created TEXT DEFAULT CURRENT_TIMESTAMP, is_admin INTEGER DEFAULT 0,
   usawp_status TEXT DEFAULT 'unknown', usawp_raw TEXT, usawp_number TEXT, usawp_valid_until TEXT, usawp_updated TEXT,
-  preferred_first TEXT, trial_acknowledged_at TEXT);
+  preferred_first TEXT, trial_acknowledged_at TEXT, joined INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS checkins(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id),
   practice_date TEXT NOT NULL, location TEXT, at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(member_id, practice_date));
 CREATE TABLE IF NOT EXISTS login_tokens(token_hash TEXT PRIMARY KEY, member_id INTEGER, expires TEXT, used INTEGER DEFAULT 0);
@@ -113,8 +113,13 @@ def migrate_members(d):
     for c, t in (("is_admin", "INTEGER DEFAULT 0"), ("role", "TEXT DEFAULT 'athlete'"), ("usawp_verified_by", "TEXT"),
                  ("usawp_verified_at", "TEXT"), ("sport80_contact_id", "TEXT"), ("preferred_first", "TEXT"),
                  ("trial_acknowledged_at", "TEXT"), ("notify_prefs", "TEXT"),
-                 ("email_reminders", "INTEGER DEFAULT 1"), ("membership_type", "TEXT")):
+                 ("email_reminders", "INTEGER DEFAULT 1"), ("membership_type", "TEXT"), ("joined", "INTEGER DEFAULT 0")):
         if c not in cols: d.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
+    # /join always stores a phone. Existing registrations keep Google sign-in; a blank phone is not one.
+    cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
+    if "phone" in cols and "joined" in cols:
+        d.execute("""UPDATE members SET joined=1 WHERE COALESCE(joined,0)=0 AND COALESCE(role,'')!='system'
+                     AND trim(COALESCE(phone,''))!=''""")
 def migrate_messages(d):
     """Add chat columns missing from a database created by an older version (production SQLite on DATA_DIR)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
@@ -382,7 +387,7 @@ def join():
         if d.execute("SELECT 1 FROM members WHERE email=?", (email,)).fetchone():
             flash("You already have an account. We sent you a login link instead.")
             return send_link(email)
-        cur = d.execute("INSERT INTO members(first,last,email,phone,is_admin,preferred_first) VALUES(?,?,?,?,?,?)",
+        cur = d.execute("INSERT INTO members(first,last,email,phone,is_admin,preferred_first,joined) VALUES(?,?,?,?,?,?,1)",
                         (f["first"], f["last"], email, f["phone"], int(email in ADMIN_EMAILS), pref))
         d.commit(); start_session(cur.lastrowid)
         flash(f"Welcome to the Grunions, {pref or f['first']}! Find a coach on deck to get checked in.")
@@ -460,19 +465,19 @@ def auth_google_callback():
     if not google_enabled(): abort(404)
     try: info = google_userinfo()
     except Exception as e:
-        app.logger.warning("Google sign-in failed: %s", e); flash("Google sign-in didn't work. Try again or use an email link."); return redirect("/login")
+        app.logger.warning("Google sign-in failed: %s", e); session.clear(); flash("Google sign-in didn't work. Try again or use an email link."); return redirect("/login")
     email = (info.get("email") or "").strip().lower()
     if not email or info.get("email_verified") not in (True, "true"):
-        flash("Your Google email isn't verified. Use an email login link instead."); return redirect("/login")
-    d = db(); m = d.execute("SELECT id, role FROM members WHERE lower(email)=?", (email,)).fetchone()
-    if m and (m["role"] or "") == "system": abort(403)
-    if not m:  # same as /join (open signup); admin only via ADMIN_EMAIL
-        first = (info.get("given_name") or (info.get("name") or email.split("@")[0]).split()[0]).strip()
-        last = (info.get("family_name") or " ".join((info.get("name") or "").split()[1:]) or "-").strip()
-        mid = d.execute("INSERT INTO members(first,last,email,phone,is_admin) VALUES(?,?,?,?,?)", (first, last, email, "", int(email in ADMIN_EMAILS))).lastrowid
-        d.commit(); start_session(mid)
-        flash(f"Welcome to the Grunions, {first}! Find a coach on deck to get checked in."); return redirect("/home")
-    start_session(m["id"]); return redirect("/home")
+        session.clear(); flash("Your Google email isn't verified. Use an email login link instead."); return redirect("/login")
+    d = db(); m = d.execute("SELECT * FROM members WHERE lower(email)=?", (email,)).fetchone()
+    # Google never creates an account. /join sets joined. An existing admin can still sign in.
+    if m and (m["role"] or "") != "system" and (m["joined"] or m["is_admin"]):
+        start_session(m["id"]); return redirect("/home")
+    session.clear()
+    flash(Markup("We couldn't find a Grunions registration for ") + escape(email) + Markup(
+        '. Sign up first at /join using this email, or sign in with the email you registered with.'
+        '<a class="btn primary full" href="/join" style="margin-top:12px">Sign up</a>'))
+    return redirect("/login")
 
 @app.route("/logout")
 def logout(): session.clear(); return redirect("/login")

@@ -33,13 +33,32 @@ def test_existing_member_case_insensitive():
     assert "Hi, Jane" in t and q("SELECT COUNT(*) FROM members")[0][0] == 1
 def test_unverified_email_rejected():
     c, t = cb({"email": "jane@example.com", "email_verified": False}); assert "isn't verified" in t and c.get("/home").status_code == 302
-def test_new_member_created_not_admin():
+def test_unknown_email_does_not_create_account():
+    msg = "We couldn't find a Grunions registration for new@gmail.com. Sign up first at /join using this email, or sign in with the email you registered with."
     c, t = cb({"email": "new@gmail.com", "email_verified": True, "given_name": "Nina", "family_name": "New"})
-    assert "Welcome to the Grunions, Nina" in t and q("SELECT first,last,is_admin FROM members WHERE email='new@gmail.com'") == [("Nina", "New", 0)]
-    assert c.get("/admins").status_code == 403
-def test_admin_only_via_admin_email():
-    c, t = cb({"email": "Boss@Example.com", "email_verified": True, "name": "Big Boss"})
-    assert q("SELECT first,last,is_admin FROM members WHERE email='boss@example.com'") == [("Big", "Boss", 1)]
+    assert msg in t and 'href="/join"' in t and ">Sign up</a>" in t
+    assert q("SELECT email FROM members WHERE email='new@gmail.com'") == [] and c.get("/home").status_code == 302
+    with c.session_transaction() as s: assert "mid" not in s
+    c2, t2 = cb({"email": "Boss@Example.com", "email_verified": True, "name": "Big Boss"})
+    assert "We couldn't find a Grunions registration for boss@example.com." in t2
+    assert q("SELECT email FROM members WHERE lower(email)='boss@example.com'") == [] and c2.get("/home").status_code == 302
+def test_joined_admin_can_sign_in():
+    c = A.app.test_client(); c.post("/join", data=dict(csrf=csrf(c, "/join"), first="Big", last="Boss", email="Boss@Example.com", phone="1"))
+    assert q("SELECT first,last,is_admin,joined FROM members WHERE email='boss@example.com'") == [("Big", "Boss", 1, 1)]
+    c2, t = cb({"email": "BOSS@example.com", "email_verified": True, "name": "Ignored Name"})
+    assert "Hi, Big" in t and c2.get("/admins").status_code == 200
+    assert q("SELECT COUNT(*) FROM members WHERE lower(email)='boss@example.com'")[0][0] == 1
+def test_existing_admin_without_join_can_sign_in():
+    sqlite3.connect(A.DB).execute("INSERT INTO members(first,last,email,phone,is_admin,role,joined) VALUES('Elliott','Joern','elliott.joern@gmail.com','',1,'coach',0)").connection.commit()
+    c, t = cb({"email": "Elliott.Joern@gmail.com", "email_verified": True, "given_name": "Someone"})
+    assert "Hi, Elliott" in t and c.get("/members").status_code == 200
+    assert q("SELECT is_admin,joined,phone FROM members WHERE email='elliott.joern@gmail.com'") == [(1, 0, "")]
+def test_member_who_did_not_join_is_rejected():
+    sqlite3.connect(A.DB).execute("INSERT INTO members(first,last,email,phone,is_admin,role,joined) VALUES('Nina','New','nina.new@gmail.com','',0,'athlete',0)").connection.commit()
+    c, t = cb({"email": "Nina.New@gmail.com", "email_verified": True})
+    assert "We couldn't find a Grunions registration for nina.new@gmail.com." in t and 'href="/join"' in t
+    assert c.get("/home").status_code == 302
+    with c.session_transaction() as s: assert "mid" not in s
 def test_oauth_error_handled():
     def boom(): raise ValueError("mismatching_state")
     saved = A.google_userinfo; A.google_userinfo = boom

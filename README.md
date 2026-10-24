@@ -9,7 +9,7 @@ or:
 Env: PUBLIC_URL (base URL for QR + login links), EXPIRING_DAYS (default 30), CRON_KEY (lets a scheduler call /api/expiring?key=...),
 DEV_SHOW_LINKS=1 (local testing only: show magic link on screen; default 0), SECURE_COOKIES=1 (behind HTTPS), GRUNIONS_DB, PORT.
 Demo data: `rm grunions.db && .venv/bin/python seed_demo.py` (admin eli@example.com, coach marcus@example.com).
-Tests: `.venv/bin/python test_app.py` (234 checks) and `.venv/bin/python -m pytest -q test_v2.py` (16 tests), `.venv/bin/python -m pytest -q test_google.py` (8 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
+Tests: `.venv/bin/python test_app.py` (234 checks) and `.venv/bin/python -m pytest -q test_v2.py` (16 tests), `.venv/bin/python -m pytest -q test_google.py` (10 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
 
 ## Roles
 member (athlete), coach (check-in + #coaches), admin (everything). Manage on Admin → **Roles** (/admins): every member with Make/Remove admin and Make/Remove coach. The last admin can't be removed. Admins always have full access.
@@ -95,8 +95,7 @@ Back up grunions.db first. It acts on whatever DATA_DIR/GRUNIONS_DB points at.
 A file needs a name or email column plus at least one of status, member number, or expiry.
 
 ## Sign in with Google
-OpenID Connect via Authlib (state + nonce, ID token checked). Requires `email_verified`. Matches an existing member by email (case-insensitive);
-otherwise creates the account just like /join (open signup; phone left blank). Admin is never granted by Google sign-in, only via ADMIN_EMAIL or the Roles page.
+OpenID Connect via Authlib (state + nonce, ID token checked). Requires `email_verified`. Signs in only when that Google email matches an existing member who registered at /join (case-insensitive). It does not create an account. If there is no registration, the login page says so and offers a Sign up button to /join. An existing admin with that email still signs in, including one created outside /join. Admin is never granted by Google sign-in, only via ADMIN_EMAIL or the Roles page.
 Redirect URI: `PUBLIC_URL + /auth/google/callback`, e.g. `https://grunions-team-app.onrender.com/auth/google/callback`
 (locally without PUBLIC_URL: `http://localhost:5055/auth/google/callback`).
 
