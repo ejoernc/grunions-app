@@ -135,7 +135,20 @@ ok(tuple(row) == ("verified", "5555555", "2027-08-31", "Grunions bot"), "member 
 ok(D.execute("SELECT status FROM verify_requests WHERE id=?", (rid,)).fetchone()[0] == "done" and c0.get("/api/verify-requests?status=pending", headers=H).get_json() == [], "request marked done")
 ok(c0.post("/api/verify-requests/%d/result" % rid, json={"verified": True}, headers=H).status_code == 409, "cannot answer twice")
 cm = eli.get("/api/messages?c=coaches").get_json()
-ok(cm[-1]["who"].startswith("Grunions") and "Ana Lopez" in cm[-1]["body"], "bot posts result in #coaches")
+team = eli.get("/api/messages").get_json()
+ok(cm and not any("Verification for" in m["body"] or (m.get("who") or "").startswith("Grunions") for m in cm + team), "verification result is not posted to chat")
+bot_id = D.execute("INSERT INTO members(first,last,email,phone,role) VALUES('Grunions','bot','bot@grunions.local','','system')").lastrowid
+eli_id = D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0]
+D.execute("INSERT INTO messages(member_id,body,channel) VALUES(?,?,'coaches')", (bot_id, "Verification for Old Member: verified"))
+old_id = D.execute("SELECT id FROM messages WHERE body='Verification for Old Member: verified'").fetchone()[0]
+D.execute("INSERT INTO reactions(message_id,member_id,emoji) VALUES(?,?,?)", (old_id, eli_id, "👍"))
+D.execute("INSERT INTO messages(member_id,body,channel) VALUES(?,?,'team')", (bot_id, "Verification for Old Member: NOT verified"))
+D.execute("INSERT INTO messages(member_id,body,channel) VALUES(?,?,'team')", (bot_id, "See you Tuesday"))
+D.execute("INSERT INTO messages(member_id,body,channel) VALUES(?,?,'team')", (eli_id, "Verification for the weekend: bring caps"))
+D.commit()
+jane.get("/home")
+bodies = [r[0] for r in D.execute("SELECT body FROM messages").fetchall()]
+ok("Bring dark + white caps Friday." in bodies and "See you Tuesday" in bodies and "Verification for the weekend: bring caps" in bodies and not any(b.startswith("Verification for Old") for b in bodies) and D.execute("SELECT COUNT(*) FROM reactions WHERE message_id=?", (old_id,)).fetchone()[0] == 0, "old bot verification messages are deleted from chat")
 a = eli.get("/admin?date=2026-10-27").get_data(as_text=True)
 ok("Verification for Ana Lopez" in a and "bot answered" in a, "admin notification + answered state")
 ok("Grunions bot" not in eli.get("/members").get_data(as_text=True).split("verified by")[0] and "bot@grunions.local" not in eli.get("/members").get_data(as_text=True), "bot account hidden from member list")

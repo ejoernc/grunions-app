@@ -9,7 +9,7 @@ or:
 Env: PUBLIC_URL (base URL for QR + login links), EXPIRING_DAYS (default 30), CRON_KEY (lets a scheduler call /api/expiring?key=...),
 DEV_SHOW_LINKS=1 (local testing only: show magic link on screen; default 0), SECURE_COOKIES=1 (behind HTTPS), GRUNIONS_DB, PORT.
 Demo data: `rm grunions.db && .venv/bin/python seed_demo.py` (admin eli@example.com, coach marcus@example.com).
-Tests: `.venv/bin/python test_app.py` (124 checks) and `.venv/bin/python -m pytest -q test_v2.py` (16 tests), `.venv/bin/python -m pytest -q test_google.py` (8 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
+Tests: `.venv/bin/python test_app.py` (125 checks) and `.venv/bin/python -m pytest -q test_v2.py` (16 tests), `.venv/bin/python -m pytest -q test_google.py` (8 tests). Run each in its own process, or just `./run_tests.sh`. Daily job: `.venv/bin/python daily_expiry.py [--days 30] [--remind]`.
 
 ## Roles
 member (athlete), coach (check-in + #coaches), admin (everything). Manage on Admin → **Roles** (/admins): every member with Make/Remove admin and Make/Remove coach. The last admin can't be removed.
@@ -44,7 +44,7 @@ Tabs: Home, Schedule, Chat, plus Admin for coaches/admins (Check-in · Members �
 - GET /api/verify-requests?status=pending|done → list.
 - POST /api/verify-requests/<id>/result  {"verified":true,"member_number":"123","membership_expires_on":"2027-08-31",
   "compliance":{"SafeSport training":"2027-05-01"},"note":"..."} → updates member + compliance (matched by requirement name or keyword),
-  marks done (409 if already answered), posts summary to #coaches as "Grunions bot", and an in-app notice to every admin.
+  marks done (409 if already answered) and posts an in-app notice to every admin. It does not post to chat. The member's card updates, and they get the verification-result push when that notification is on.
 
 ## Environment variables
 | Var | Needed | Purpose |

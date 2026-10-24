@@ -72,6 +72,7 @@ def db():
         mcols = [r[1] for r in g.db.execute("PRAGMA table_info(messages)")]
         if "channel" not in mcols: g.db.execute("ALTER TABLE messages ADD COLUMN channel TEXT DEFAULT 'team'")
         if "image" not in mcols: g.db.execute("ALTER TABLE messages ADD COLUMN image TEXT")
+        drop_bot_verify_messages(g.db)
         expire_sweep(g.db)
         for e in ADMIN_EMAILS: g.db.execute("UPDATE members SET is_admin=1 WHERE email=?", (e,))
         g.db.commit()
@@ -591,6 +592,16 @@ def bot_member_id(d):
     r = d.execute("SELECT id FROM members WHERE email=?", (BOT_EMAIL,)).fetchone()
     if r: return r["id"]
     return d.execute("INSERT INTO members(first,last,email,phone,role) VALUES('Grunions','bot',?,'','system')", (BOT_EMAIL,)).lastrowid
+def drop_bot_verify_messages(d):
+    """Verification results are not chat. Remove any the bot already posted, on any channel."""
+    row = d.execute("SELECT id FROM members WHERE email=?", (BOT_EMAIL,)).fetchone()
+    if not row: return
+    ids = [r[0] for r in d.execute("SELECT id FROM messages WHERE member_id=? AND body LIKE 'Verification for %'", (row["id"],))]
+    if not ids: return
+    marks = ",".join("?" * len(ids))
+    d.execute("DELETE FROM reactions WHERE message_id IN (%s)" % marks, ids)
+    d.execute("DELETE FROM messages WHERE id IN (%s)" % marks, ids)
+    d.commit()
 def vr_dict(r):
     return {k: r[k] for k in ("id", "member_id", "name", "email", "member_number", "requested_by", "status", "created", "answered", "note")} | {"result": json.loads(r["result"]) if r["result"] else None}
 def webhook_headers():
@@ -668,7 +679,6 @@ def api_verify_result(rid):
     if exp: text += f", membership expires {exp.isoformat()}"
     if applied: text += f"; updated {', '.join(applied)}"
     if note: text += f". Note: {note}"
-    d.execute("INSERT INTO messages(member_id,body,channel) VALUES(?,?,'coaches')", (bot_member_id(d), text))
     for a in d.execute("SELECT id FROM members WHERE is_admin=1").fetchall(): d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (a["id"], text))
     d.commit()
     try: notify_verification_result(d, mid, bool(j["verified"]), exp)
