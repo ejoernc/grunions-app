@@ -750,3 +750,17 @@ list_act(riley_id, "remove_coaching")
 ok(not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and ('name=coach value="%d"' % riley_id) not in eli.get("/practices").get_data(as_text=True), "an admin can remove a USAWP coach from the coaching list")
 answer(True, membership_type="Individual Membership, Coach")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "usawp" and riley.get("/admin").status_code == 403, "the next coach verification puts them back on the list without coach access")
+
+def nav_skeleton(html):
+    nav = re.search(r'<nav class="tabs noprint".*?</nav>', html, re.S).group(0)
+    nav = re.sub(r' class="on"', "", nav)
+    nav = re.sub(r' class=""', "", nav)
+    nav = re.sub(r'\sdata-total="[^"]*"', "", nav)
+    return re.sub(r"<span class=badge>[^<]*</span>", "", nav)
+eli_pages = [eli.get(p).get_data(as_text=True) for p in ("/home", "/practices", "/chat", "/admin", "/members")]
+jane_pages = [jane.get(p).get_data(as_text=True) for p in ("/home", "/practices", "/chat")]
+login_html = client().get("/login").get_data(as_text=True)
+ok(len({nav_skeleton(h) for h in eli_pages}) == 1 and "href=/admin" in nav_skeleton(eli_pages[0]), "staff bottom nav markup matches on home, schedule, chat, and admin")
+ok(len({nav_skeleton(h) for h in jane_pages}) == 1 and "href=/admin" not in nav_skeleton(jane_pages[0]) and "href=/home" in nav_skeleton(jane_pages[0]), "member bottom nav markup matches and has no admin tab")
+ok("color-scheme:dark" in eli_pages[0][:600] and "content=dark" in eli_pages[0][:600] and "#0a0a0b" in eli_pages[0][:600] and '<body style="background:#0a0a0b' in eli_pages[0] and "color-scheme:dark" in login_html[:600] and "#0a0a0b" in login_html[:600], "dark background is in the first bytes, including the login page")
+ok("@view-transition{navigation:auto}" in eli_pages[0] and "view-transition-name:grunions-nav" in eli_pages[0] and "height:calc(64px + env(safe-area-inset-bottom))" in eli_pages[0] and 'width="24" height="24"' in eli_pages[0] and "function grunionsGo(" in eli_pages[0] and "function grunionsApply(" in eli_pages[0] and "rel=stylesheet" not in eli_pages[0] and "rel=stylesheet" not in login_html and "backdrop-filter" not in eli_pages[0], "nav is a fixed inline bar and tab clicks swap the page")
