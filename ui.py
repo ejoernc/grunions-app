@@ -48,8 +48,13 @@ nav.tabs a{position:relative;flex:1;max-width:140px;display:flex;flex-direction:
 .badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bad);color:#fff;font-size:10px;font-weight:700;line-height:1}
 nav.tabs a .badge{position:absolute;top:0;left:50%;margin-left:8px}.pdate .badge{margin-left:8px}
 nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.chat{display:flex;flex-direction:column;gap:14px}.m .who{font-size:13px;color:var(--t3);margin-bottom:3px}.m .txt{background:var(--surface);border-radius:14px;padding:10px 14px;display:inline-block;max-width:85%;white-space:pre-wrap;word-wrap:break-word}
+.chat{display:flex;flex-direction:column;gap:14px}.m{position:relative;-webkit-touch-callout:none}.m .who{font-size:13px;color:var(--t3);margin-bottom:3px}.m .txt{background:var(--surface);border-radius:14px;padding:10px 14px;display:inline-block;max-width:85%;white-space:pre-wrap;word-wrap:break-word}
 .m.mine{text-align:right}.m.mine .txt{background:var(--surface2);text-align:left}.m.ann .txt{display:block;max-width:none;border:1px solid var(--line);background:var(--surface)}
+.m .txt.deleted{font-style:italic;color:var(--t3);background:transparent}.m .edited{font-size:12px;color:var(--t3);font-weight:400}
+.m .more{display:none;position:absolute;top:-4px;right:0;width:32px;height:32px;padding:0;background:none;color:var(--t3);font-size:18px}
+.m.mine .more{left:0;right:auto}
+@media (hover:hover) and (pointer:fine){.m:hover .more{display:inline-flex}}
+.m .editbox textarea{min-height:72px;height:auto;margin:0}
 .composer{position:fixed;left:0;right:0;bottom:64px;background:var(--bg);padding:10px 20px;border-top:1px solid var(--line);z-index:8}
 .composer form{max-width:600px;margin:auto;display:flex;gap:8px;align-items:flex-end}
 .composer textarea{margin:0;height:48px;min-height:48px;max-height:136px;resize:none;line-height:22px;padding:12px 14px;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
@@ -59,9 +64,10 @@ nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;fill:none;
 .m .img{display:block;margin-top:4px}.m.mine .img{margin-left:auto}.m .img img{max-width:min(70vw,280px);max-height:280px;border-radius:12px;display:block;background:var(--surface)}.m.mine .img{width:fit-content}
 .rx{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.m.mine .rx{justify-content:flex-end}
 .rx button{height:30px;padding:0 10px;border-radius:15px;font-size:14px;font-weight:500;background:var(--surface);color:var(--t2);border:1px solid var(--line)}
-.rx button.on{border-color:var(--accent);color:var(--t1)}.rx .add{color:var(--t3)}
-.picker{display:flex;gap:4px;background:var(--surface2);border:1px solid var(--line);border-radius:20px;padding:4px;width:fit-content;margin-top:6px}.m.mine .picker{margin-left:auto}
-.picker button{height:36px;width:40px;padding:0;background:none;font-size:20px}
+.rx button.on{border-color:var(--accent);color:var(--t1)}
+.sheet .emojirow{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.sheet .emojirow button{height:36px;width:36px;padding:0;border-radius:18px;background:var(--surface2);font-size:18px}
+#actConfirm{margin:0 0 12px;font-weight:600}
 .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;z-index:20}.lightbox img{max-width:96vw;max-height:92vh;border-radius:8px}
 .gobtn{background:none;height:auto;padding:4px 0;color:var(--t2);font-weight:500;font-size:14px}.gobtn::after{content:" ›";color:var(--t3)}
 .ci-name{flex:1;min-width:0;height:auto;padding:0;background:none;display:block;text-align:left;font-weight:400}
@@ -235,23 +241,65 @@ T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="{{'on' if 
 <button type=button class="iconbtn" id=attach title="Attach image" aria-label="Attach image"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg></button>
 <textarea id=body rows=1 maxlength=2000 placeholder="Message {{'coaches' if ch=='coaches' else 'the team'}}"></textarea>
 <button class="iconbtn send" type=submit aria-label=Send><svg viewBox="0 0 24 24" aria-hidden=true><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button></form></div>
+<dialog id=actSheet class=modal><div class=sheet>
+<div class=emojirow id=actEmoji>{% for e in REACTIONS %}<button type=button>{{e}}</button>{% endfor %}</div>
+<p id=actConfirm hidden>Delete this message?</p>
+<button type=button class=full id=actEdit>Edit</button>
+<button type=button class="full danger" id=actDelete>Delete</button>
+<button type=button class="quiet full" id=actCancel>Cancel</button>
+</div></dialog>
 <script>
-const CSRF="{{csrf_token()}}",CH="{{ch}}",EMO={{REACTIONS|tojson}};let last=0;const box=document.getElementById('chat');
+const CSRF="{{csrf_token()}}",CH="{{ch}}",EMO={{REACTIONS|tojson}};let last=0;const box=document.getElementById('chat'),msgs={};
 const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const t=iso=>new Date(iso).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'});
-function rxHtml(id,r){r=r||{};return EMO.filter(e=>r[e]).map(e=>`<button type=button class="${r[e].mine?'on':''}" data-m=${id} data-e="${e}">${e} ${r[e].n}</button>`).join('')+`<button type=button class=add data-pick=${id} aria-label="Add reaction">+</button>`}
-function add(m){const d=document.createElement('div');d.className='m'+(m.mine?' mine':'')+(m.ann?' ann':'');d.id='msg'+m.id;
- d.innerHTML=`<div class=who>${m.ann?'Announcement · ':''}${esc(m.who)} · ${t(m.at)}</div>`+(m.body?`<div class=txt>${esc(m.body)}</div>`:'')+
- (m.image?`<a class=img href="${m.image.full}" data-full="${m.image.full}"><img src="${m.image.thumb}" alt="Photo from ${esc(m.who)}" loading=lazy></a>`:'')+`<div class=rx>${rxHtml(m.id)}</div>`;
- box.appendChild(d);last=Math.max(last,m.id)}
-function paintRx(map){document.querySelectorAll('.m').forEach(el=>{const id=el.id.slice(3),rx=el.querySelector('.rx');const h=rxHtml(id,map[id]);if(rx.dataset.h!==h){rx.innerHTML=h;rx.dataset.h=h}})}
-async function poll(){try{const r=await fetch('/api/messages?c='+CH+'&after='+last);const j=await r.json();const end=innerHeight+scrollY>=document.body.scrollHeight-120;
- j.forEach(add);paintRx(await (await fetch('/api/reactions?c='+CH)).json());if(window.grunionsRefresh)grunionsRefresh();if(j.length&&end)scrollTo(0,document.body.scrollHeight)}catch(e){}}
-box.addEventListener('click',async e=>{const b=e.target.closest('button,a.img');if(!b)return;
+function rxHtml(id,r){r=r||{};return EMO.filter(e=>r[e]).map(e=>`<button type=button class="${r[e].mine?'on':''}" data-m=${id} data-e="${e}">${e} ${r[e].n}</button>`).join('')}
+function bodyHtml(m){
+ if(m.deleted) return '<div class="txt deleted">Message deleted</div>';
+ let h=m.body?`<div class=txt>${esc(m.body)}${m.edited?' <span class=edited>(edited)</span>':''}</div>`:'';
+ if(m.image) h+=`<a class=img href="${m.image.full}" data-full="${m.image.full}"><img src="${m.image.thumb}" alt="Photo from ${esc(m.who)}" loading=lazy></a>`;
+ return h}
+function fill(d,m){
+ d.className='m'+(m.mine?' mine':'')+(m.ann&&!m.deleted?' ann':'');
+ d.innerHTML=(m.deleted?'':`<button type=button class=more data-act=${m.id} aria-label="Message actions">⋯</button>`)+
+  `<div class=who>${m.ann&&!m.deleted?'Announcement · ':''}${esc(m.who)} · ${t(m.at)}</div>`+bodyHtml(m)+`<div class=rx>${rxHtml(m.id)}</div>`}
+function add(m){msgs[m.id]=m;last=Math.max(last,m.id);if(document.getElementById('msg'+m.id))return;const d=document.createElement('div');d.id='msg'+m.id;fill(d,m);box.appendChild(d)}
+function upsert(m,force){msgs[m.id]=m;const d=document.getElementById('msg'+m.id);if(!d){add(m);return}last=Math.max(last,m.id);if(!force&&d.querySelector('.editbox'))return;fill(d,m)}
+function paintRx(map){document.querySelectorAll('.m').forEach(el=>{const id=el.id.slice(3),rx=el.querySelector('.rx');if(!rx)return;const h=rxHtml(id,map[id]);if(rx.dataset.h!==h){rx.innerHTML=h;rx.dataset.h=h}})}
+let pollGen=0;
+async function poll(){const gen=++pollGen;try{const r=await fetch('/api/messages?c='+CH+'&after='+last);const j=await r.json();if(gen!==pollGen)return;const end=innerHeight+scrollY>=document.body.scrollHeight-120;
+ j.forEach(add);const sync=await (await fetch('/api/messages?c='+CH+'&sync=1')).json();if(gen!==pollGen)return;sync.forEach(m=>{if(gen===pollGen)upsert(m)});
+ const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen)return;paintRx(rx);if(window.grunionsRefresh)grunionsRefresh();if(j.length&&end)scrollTo(0,document.body.scrollHeight)}catch(e){}}
+const sheet=document.getElementById('actSheet'),actEmoji=document.getElementById('actEmoji'),actEdit=document.getElementById('actEdit'),actDelete=document.getElementById('actDelete'),actConfirm=document.getElementById('actConfirm');
+let actId=null,confirming=false;
+function closeSheet(){if(sheet.open)sheet.close();actId=null;confirming=false;actConfirm.hidden=true;actDelete.textContent='Delete'}
+function openSheet(id){const m=msgs[id];if(!m||m.deleted)return;actId=id;confirming=false;actConfirm.hidden=true;actDelete.textContent='Delete';
+ actEmoji.innerHTML=EMO.map(e=>`<button type=button data-e="${e}" data-m=${id}>${e}</button>`).join('');
+ actEdit.hidden=!(m.mine&&!m.deleted);actDelete.hidden=!m.can_delete;sheet.showModal()}
+function startEdit(id){const m=msgs[id],d=document.getElementById('msg'+id);if(!d||!m||m.deleted||d.querySelector('.editbox'))return;
+ const boxe=document.createElement('div');boxe.className='editbox';
+ boxe.innerHTML='<textarea maxlength=2000></textarea><div class=row style="margin-top:8px"><button type=button class=primary data-save>Save</button><button type=button class=quiet data-cancel>Cancel</button></div>';
+ boxe.querySelector('textarea').value=m.body||'';const txt=d.querySelector('.txt');if(txt)txt.replaceWith(boxe);else d.querySelector('.who').after(boxe);
+ boxe.querySelector('[data-save]').onclick=async()=>{pollGen++;const r=await fetch('/api/messages/'+id,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:boxe.querySelector('textarea').value})});const j=await r.json().catch(()=>({}));if(!r.ok){alert(j.error||'Could not save.');return}if(j.message)upsert(j.message,true)};
+ boxe.querySelector('[data-cancel]').onclick=()=>upsert(msgs[id],true);
+ d.scrollIntoView({block:'center'});boxe.querySelector('textarea').focus()}
+actEdit.onclick=(e)=>{e.preventDefault();e.stopPropagation();const id=actId;closeSheet();setTimeout(()=>startEdit(id),0)};
+actDelete.onclick=async()=>{if(!confirming){confirming=true;actConfirm.hidden=false;return}
+ const id=actId;pollGen++;const r=await fetch('/api/messages/'+id,{method:'DELETE',headers:{'X-CSRF':CSRF}}),j=await r.json().catch(()=>({}));closeSheet();if(r.ok&&j.message)upsert(j.message,true)};
+document.getElementById('actCancel').onclick=closeSheet;
+sheet.addEventListener('click',e=>{if(e.target===sheet)closeSheet()});
+sheet.addEventListener('close',()=>{confirming=false;actConfirm.hidden=true;actDelete.textContent='Delete'});
+actEmoji.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;pollGen++;
+ await fetch('/api/messages/'+b.dataset.m+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:b.dataset.e})});closeSheet();poll()});
+box.addEventListener('pointerdown',e=>{if(e.button)return;if(e.target.closest('button,a,textarea,.editbox'))return;const row=e.target.closest('.m');if(!row)return;
+ const id=+row.id.slice(3),x=e.clientX,y=e.clientY,timer=setTimeout(()=>openSheet(id),500);
+ const cancel=ev=>{if(ev.type==='pointermove'&&Math.hypot(ev.clientX-x,ev.clientY-y)<10)return;clearTimeout(timer);row.removeEventListener('pointerup',cancel);row.removeEventListener('pointercancel',cancel);row.removeEventListener('pointermove',cancel)};
+ row.addEventListener('pointerup',cancel);row.addEventListener('pointercancel',cancel);row.addEventListener('pointermove',cancel)});
+box.addEventListener('contextmenu',e=>{const row=e.target.closest('.m');if(!row||e.target.closest('textarea'))return;e.preventDefault();openSheet(+row.id.slice(3))});
+box.addEventListener('click',async e=>{
+ const b=e.target.closest('button,a.img');if(!b||b.dataset.save!=null||b.hasAttribute('data-cancel'))return;
  if(b.matches('a.img')){e.preventDefault();const lb=document.createElement('div');lb.className='lightbox';lb.innerHTML=`<img src="${b.dataset.full}" alt="">`;lb.onclick=()=>lb.remove();document.body.appendChild(lb);return}
- if(b.dataset.pick){const m=document.getElementById('msg'+b.dataset.pick);const old=m.querySelector('.picker');document.querySelectorAll('.picker').forEach(p=>p.remove());if(old)return;
-  const p=document.createElement('div');p.className='picker';p.innerHTML=EMO.map(x=>`<button type=button data-m=${b.dataset.pick} data-e="${x}">${x}</button>`).join('');m.appendChild(p);return}
- if(b.dataset.e){document.querySelectorAll('.picker').forEach(p=>p.remove());await fetch(`/api/messages/${b.dataset.m}/react`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:b.dataset.e})});poll()}});
+ if(b.dataset.act){openSheet(+b.dataset.act);return}
+ if(b.dataset.e){pollGen++;await fetch('/api/messages/'+b.dataset.m+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:b.dataset.e})});poll()}});
 const ta=document.getElementById('body'),file=document.getElementById('file'),prev=document.getElementById('prev');
 function grow(){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,136)+'px'}ta.addEventListener('input',grow);
 document.getElementById('attach').onclick=()=>file.click();

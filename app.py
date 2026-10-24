@@ -25,7 +25,7 @@ CRON_KEY = os.environ.get("CRON_KEY")  # lets a scheduler call /api/expiring wit
 DEV_SHOW_LINKS = os.environ.get("DEV_SHOW_LINKS", "0") == "1"  # local testing only: show magic link on screen
 UPLOADS = os.environ.get("GRUNIONS_UPLOADS", os.path.join(DATA_DIR, "uploads"))
 MAX_UPLOAD = 8 * 1024 * 1024
-REACTIONS = ["👍", "❤️", "😂", "🔥", "🤽", "👏"]
+REACTIONS = ["👍", "❤️", "😂", "😮", "🎉", "🙏", "🔥", "🤽", "👏"]
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD + 64 * 1024
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
@@ -82,7 +82,8 @@ CREATE TABLE IF NOT EXISTS reactions(message_id INTEGER, member_id INTEGER, emoj
 CREATE TABLE IF NOT EXISTS notices(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), body TEXT, at TEXT DEFAULT CURRENT_TIMESTAMP, seen INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS usawp_submits(id INTEGER PRIMARY KEY, member_id INTEGER, at TEXT);
 CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), body TEXT NOT NULL,
-  announcement INTEGER DEFAULT 0, at TEXT DEFAULT CURRENT_TIMESTAMP);
+  announcement INTEGER DEFAULT 0, at TEXT DEFAULT CURRENT_TIMESTAMP, channel TEXT DEFAULT 'team', image TEXT,
+  edited_at TEXT, deleted INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS push_subscriptions(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id),
   endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created TEXT);
 CREATE TABLE IF NOT EXISTS sent_notices(member_id INTEGER, kind TEXT, sent_at TEXT, PRIMARY KEY(member_id, kind));
@@ -97,9 +98,7 @@ def db():
         if not g.db.execute("SELECT 1 FROM requirements").fetchone():
             g.db.executemany("INSERT INTO requirements(name,applies_to,keywords,expires) VALUES(?,?,?,?)", DEFAULT_REQS); g.db.commit()
         drop_club_waiver(g.db)
-        mcols = [r[1] for r in g.db.execute("PRAGMA table_info(messages)")]
-        if "channel" not in mcols: g.db.execute("ALTER TABLE messages ADD COLUMN channel TEXT DEFAULT 'team'")
-        if "image" not in mcols: g.db.execute("ALTER TABLE messages ADD COLUMN image TEXT")
+        migrate_messages(g.db)
         drop_bot_verify_messages(g.db)
         seed_chat_reads(g.db)
         expire_sweep(g.db)
@@ -114,6 +113,11 @@ def migrate_members(d):
                  ("trial_acknowledged_at", "TEXT"), ("notify_prefs", "TEXT"),
                  ("email_reminders", "INTEGER DEFAULT 1")):
         if c not in cols: d.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
+def migrate_messages(d):
+    """Add chat columns missing from a database created by an older version (production SQLite on DATA_DIR)."""
+    cols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
+    for c, t in (("channel", "TEXT DEFAULT 'team'"), ("image", "TEXT"), ("edited_at", "TEXT"), ("deleted", "INTEGER DEFAULT 0")):
+        if c not in cols: d.execute("ALTER TABLE messages ADD COLUMN %s %s" % (c, t))
 def clean_preferred(v):
     v = str(v or "").strip()[:40]
     return v or None
@@ -295,7 +299,7 @@ def csrf_token():
     return session["csrf"]
 @app.before_request
 def _csrf():
-    if request.method == "POST" and not request.path.startswith("/api/verify-requests/"):  # bot API uses bearer auth, no cookies
+    if request.method in ("POST", "DELETE") and not request.path.startswith("/api/verify-requests/"):  # bot API uses bearer auth, no cookies
         t = request.form.get("csrf") or request.headers.get("X-CSRF")
         if not t or t != session.get("csrf"): abort(400, "Bad CSRF token, reload the page.")
 def csrf_field(): return Markup('<input type=hidden name=csrf value="%s">' % csrf_token())
@@ -472,7 +476,7 @@ def home():
     nextp_mine = nextp_mine[0] if nextp_mine else None
     notices = d.execute("SELECT * FROM notices WHERE member_id=? AND seen=0 ORDER BY id DESC", (m["id"],)).fetchall()
     d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (m["id"],)); d.commit()
-    ann = d.execute("SELECT m.*, p.first, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id WHERE announcement=1 AND channel='team' ORDER BY m.id DESC LIMIT 1").fetchone()
+    ann = d.execute("SELECT m.*, p.first, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id WHERE announcement=1 AND channel='team' AND COALESCE(m.deleted,0)=0 ORDER BY m.id DESC LIMIT 1").fetchone()
     vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
     return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, vr_pending=vr_pending)
 
@@ -535,9 +539,16 @@ app.jinja_env.globals.update(badges=unread_for_me)
 
 # ---------- chat ----------
 def msg_dict(r):
-    return {"id": r["id"], "body": r["body"], "ann": bool(r["announcement"]), "at": r["at"] + "Z",
-            "who": f'{display_first(r)} {r["last"][:1]}.', "mine": r["member_id"] == me()["id"], "admin": bool(r["is_admin"]),
-            "image": {"thumb": f"/media/{r['id']}/thumb", "full": f"/media/{r['id']}/full"} if r["image"] else None}
+    deleted = bool(r["deleted"]) if "deleted" in r.keys() and r["deleted"] else False
+    edited = bool(r["edited_at"]) if "edited_at" in r.keys() and r["edited_at"] else False
+    mine = r["member_id"] == me()["id"]
+    return {"id": r["id"], "body": "" if deleted else (r["body"] or ""), "ann": bool(r["announcement"]), "at": (r["at"] or "") + "Z",
+            "who": f'{display_first(r)} {r["last"][:1]}.', "mine": mine, "admin": bool(r["is_admin"]),
+            "edited": edited and not deleted, "deleted": deleted, "can_delete": (mine or bool(me()["is_admin"])) and not deleted,
+            "image": None if deleted or not r["image"] else {"thumb": f"/media/{r['id']}/thumb", "full": f"/media/{r['id']}/full"}}
+def load_message(d, mid):
+    return d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first FROM messages m
+        JOIN members p ON p.id=m.member_id WHERE m.id=?""", (mid,)).fetchone()
 def can_read(ch): return ch == "team" or (ch == "coaches" and is_staff())
 def save_image(f):
     """Validate + re-encode an upload. Returns stored base name. Strips metadata, fixes rotation, resizes (max 1600px, thumb 480px)."""
@@ -563,8 +574,8 @@ def save_image(f):
 @app.route("/media/<int:mid>/<kind>")
 @login_required
 def media(mid, kind):
-    r = db().execute("SELECT channel, image FROM messages WHERE id=?", (mid,)).fetchone()
-    if not r or not r["image"] or kind not in ("thumb", "full"): abort(404)
+    r = db().execute("SELECT channel, image, deleted FROM messages WHERE id=?", (mid,)).fetchone()
+    if not r or not r["image"] or r["deleted"] or kind not in ("thumb", "full"): abort(404)
     if not can_read(r["channel"]): abort(403)
     from flask import send_from_directory
     fn = r["image"].rsplit(".", 1)[0] + "_t.webp" if kind == "thumb" else r["image"]
@@ -574,18 +585,44 @@ def too_big(e): return jsonify(error="Image is larger than 8 MB."), 413
 @app.route("/api/messages/<int:mid>/react", methods=["POST"])
 @login_required
 def react(mid):
-    d = db(); r = d.execute("SELECT channel FROM messages WHERE id=?", (mid,)).fetchone()
+    d = db(); r = d.execute("SELECT channel, deleted FROM messages WHERE id=?", (mid,)).fetchone()
     if not r: abort(404)
-    if not can_read(r["channel"]): abort(403)
+    ch = r["channel"] or "team"
+    if not can_read(ch): abort(403)
+    if r["deleted"]: return jsonify(error="This message was deleted"), 400
     e = (request.get_json(silent=True) or {}).get("emoji")
     if e not in REACTIONS: return jsonify(error="unsupported emoji"), 400
     if d.execute("DELETE FROM reactions WHERE message_id=? AND member_id=? AND emoji=?", (mid, me()["id"], e)).rowcount == 0:
         d.execute("INSERT INTO reactions VALUES(?,?,?)", (mid, me()["id"], e))
-    d.commit(); return jsonify(reactions_for(d, r["channel"]).get(str(mid), {}))
+    d.commit(); return jsonify(reactions_for(d, ch).get(str(mid), {}))
+@app.route("/api/messages/<int:mid>", methods=["POST", "DELETE"])
+@login_required
+def api_message_one(mid):
+    """Edit (author only) or soft-delete (author, or an admin in team and coaches chat)."""
+    d = db()
+    r = load_message(d, mid)
+    if not r: abort(404)
+    ch = r["channel"] or "team"
+    if not can_read(ch): abort(403)
+    if request.method == "DELETE":
+        if r["member_id"] != me()["id"] and not me()["is_admin"]: abort(403)
+        if not r["deleted"]:
+            d.execute("UPDATE messages SET deleted=1, body='' WHERE id=?", (mid,))
+            d.execute("DELETE FROM reactions WHERE message_id=?", (mid,))
+            d.commit()
+        return jsonify(ok=True, message=msg_dict(load_message(d, mid)))
+    if r["member_id"] != me()["id"]: abort(403)
+    if r["deleted"]: return jsonify(error="This message was deleted"), 400
+    body = ((request.get_json(silent=True) or {}).get("body") or "").strip()[:2000]
+    if not body and not r["image"]: return jsonify(error="empty"), 400
+    if body != (r["body"] or ""):
+        d.execute("UPDATE messages SET body=?, edited_at=? WHERE id=?", (body, stamp_pt(), mid))
+        d.commit()
+    return jsonify(ok=True, message=msg_dict(load_message(d, mid)))
 def reactions_for(d, ch):
     out = {}
     for x in d.execute("""SELECT x.message_id, x.emoji, COUNT(*) n, SUM(x.member_id=?) mine FROM reactions x JOIN messages m ON m.id=x.message_id
-        WHERE m.channel=? AND m.id > (SELECT COALESCE(MAX(id),0)-300 FROM messages WHERE channel=?) GROUP BY x.message_id, x.emoji""", (me()["id"], ch, ch)):
+        WHERE m.channel=? AND COALESCE(m.deleted,0)=0 AND m.id > (SELECT COALESCE(MAX(id),0)-300 FROM messages WHERE channel=?) GROUP BY x.message_id, x.emoji""", (me()["id"], ch, ch)):
         out.setdefault(str(x["message_id"]), {})[x["emoji"]] = {"n": x["n"], "mine": bool(x["mine"])}
     return out
 @app.route("/api/reactions")
@@ -622,6 +659,10 @@ def api_messages():
         except Exception as e: app.logger.warning("chat push failed: %s", e)
         return jsonify(ok=True)
     mark_chat_read(d, me()["id"], ch)
+    if request.args.get("sync") == "1":
+        rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id
+          WHERE m.channel=? ORDER BY m.id DESC LIMIT 80""", (ch,)).fetchall()
+        return jsonify([msg_dict(r) for r in reversed(rows)])
     after = request.args.get("after", 0, type=int)
     rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id
       WHERE m.id>? AND m.channel=? ORDER BY m.id DESC LIMIT 200""", (after, ch)).fetchall()
@@ -1240,10 +1281,7 @@ def app_base():
     return "http://localhost:%s" % os.environ.get("PORT", "5055")
 def open_db():
     d = sqlite3.connect(DB, timeout=30); d.row_factory = sqlite3.Row
-    d.executescript(SCHEMA); migrate_members(d)
-    mcols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
-    if "channel" not in mcols: d.execute("ALTER TABLE messages ADD COLUMN channel TEXT DEFAULT 'team'")
-    if "image" not in mcols: d.execute("ALTER TABLE messages ADD COLUMN image TEXT")
+    d.executescript(SCHEMA); migrate_members(d); migrate_messages(d)
     seed_chat_reads(d); d.commit(); return d
 def claim_notice(d, member_id, kind):
     cur = d.execute("INSERT OR IGNORE INTO sent_notices(member_id, kind, sent_at) VALUES(?,?,?)", (member_id, kind, dt.datetime.now().isoformat(timespec="seconds")))

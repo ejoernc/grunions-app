@@ -582,3 +582,71 @@ dtable = list(csvmod.reader(io_mod.StringIO(pdet.data.decode("utf-8-sig"))))
 dmap = {r[4]: r for r in dtable[1:]}
 ok(dtable[0] == A.ATTENDANCE_CSV_HEADER and "grunions-attendance-2026-12-01-to-2026-12-01.csv" in pdet.headers["Content-Disposition"] and dmap["Ex Export"] == ["2026-12-01", "18:00-19:30", "Export Pool", "no", "Ex Export", "4242421", "going", "yes", "2026-12-01 19:15"] and dmap["Jane Doe"][6:9] == ["not going", "no", ""] and dmap["Eli Joern"][6:9] == ["", "no", ""] and len(dtable) == 1 + D.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system'").fetchone()[0], "detailed attendance is one row per member with RSVP and check-in time")
 ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&end=2026-12-01", follow_redirects=True).get_data(as_text=True), "a practice export without real dates asks for the range")
+
+# chat edit, delete, reactions
+chui = jane.get("/chat").get_data(as_text=True)
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui, "chat page has the press-and-hold action sheet")
+tj = csrf(jane, "/chat"); te = csrf(eli, "/chat"); tjohn = csrf(john, "/chat")
+ok(jane.post("/api/messages", json={"body": "Edit me please"}, headers={"X-CSRF": tj}).status_code == 200, "author can post a message to edit")
+mid = [m for m in jane.get("/api/messages").get_json() if m["body"] == "Edit me please"][-1]["id"]
+edited = jane.post("/api/messages/%d" % mid, json={"body": "Edited line"}, headers={"X-CSRF": tj})
+em = edited.get_json()["message"]
+ok(edited.status_code == 200 and em["body"] == "Edited line" and em["edited"] and not em["deleted"], "author edit saves and marks the message edited")
+stamp = D.execute("SELECT edited_at FROM messages WHERE id=?", (mid,)).fetchone()[0]; D.commit()
+again = jane.post("/api/messages/%d" % mid, json={"body": "Edited line"}, headers={"X-CSRF": tj}).get_json()["message"]
+ok(again["edited"] and D.execute("SELECT edited_at FROM messages WHERE id=?", (mid,)).fetchone()[0] == stamp, "saving the same text does not change the edited time")
+D.commit()
+ok(jane.post("/api/messages/%d" % mid, json={"body": "   "}, headers={"X-CSRF": tj}).status_code == 400 and D.execute("SELECT body FROM messages WHERE id=?", (mid,)).fetchone()[0] == "Edited line", "an edit cannot be empty unless a photo remains")
+D.commit()
+ok(john.post("/api/messages/%d" % mid, json={"body": "nope"}, headers={"X-CSRF": tjohn}).status_code == 403 and eli.post("/api/messages/%d" % mid, json={"body": "nope"}, headers={"X-CSRF": te}).status_code == 403, "a coach and an admin cannot edit someone else's message")
+seen = {m["id"]: m for m in jane.get("/api/messages").get_json()}
+eli_seen = {m["id"]: m for m in eli.get("/api/messages").get_json()}
+john_seen = {m["id"]: m for m in john.get("/api/messages").get_json()}
+ok(seen[mid]["can_delete"] and eli_seen[mid]["can_delete"] and not john_seen[mid]["can_delete"], "delete is offered to the author and an admin")
+ok(jane.post("/api/messages/%d/react" % mid, json={"emoji": "👍"}, headers={"X-CSRF": tj}).status_code == 200, "reaction lands before delete")
+ok(jane.delete("/api/messages/%d" % mid).status_code == 400, "delete without CSRF is rejected")
+ok(john.delete("/api/messages/%d" % mid, headers={"X-CSRF": tjohn}).status_code == 403, "a coach cannot delete someone else's team message")
+gone = jane.delete("/api/messages/%d" % mid, headers={"X-CSRF": tj})
+gm = gone.get_json()["message"]
+ok(gone.status_code == 200 and gm["deleted"] and gm["body"] == "" and not gm["edited"] and not gm["can_delete"] and gm["image"] is None, "author delete leaves a placeholder and clears the body")
+after = jane.get("/api/messages").get_json()
+ok(not any(m["body"] == "Edited line" for m in after) and any(m["id"] == mid and m["deleted"] and m["body"] == "" for m in after) and str(mid) not in jane.get("/api/reactions?c=team").get_json() and jane.post("/api/messages/%d/react" % mid, json={"emoji": "👍"}, headers={"X-CSRF": tj}).status_code == 400 and jane.delete("/api/messages/%d" % mid, headers={"X-CSRF": tj}).status_code == 200, "deleted message stays in the list, drops reactions, and cannot be reacted to")
+ok(jane.post("/api/messages", json={"body": "admin please remove this"}, headers={"X-CSRF": tj}).status_code == 200, "member posts a message an admin will remove")
+amid = [m for m in jane.get("/api/messages").get_json() if m["body"] == "admin please remove this"][-1]["id"]
+adm = eli.delete("/api/messages/%d" % amid, headers={"X-CSRF": te}).get_json()["message"]
+ok(adm["deleted"] and adm["body"] == "" and not any(m["body"] == "admin please remove this" for m in eli.get("/api/messages").get_json()), "an admin can delete another person's team message")
+own = [m for m in john.get("/api/messages?c=coaches").get_json() if m["body"].startswith("Coaches only")][-1]
+ok(john.delete("/api/messages/%d" % own["id"], headers={"X-CSRF": tjohn}).status_code == 200, "a coach can delete their own coaches-chat message")
+line = [m for m in eli.get("/api/messages?c=coaches").get_json() if m["body"] == "lineup"][-1]
+ok(john.delete("/api/messages/%d" % line["id"], headers={"X-CSRF": tjohn}).status_code == 403, "a coach cannot delete someone else's coaches-chat message")
+ok(john.post("/api/messages?c=coaches", json={"body": "secret coach note"}, headers={"X-CSRF": tjohn}).status_code == 200, "coach posts a note an admin will remove")
+cid = [m for m in john.get("/api/messages?c=coaches").get_json() if m["body"] == "secret coach note"][-1]["id"]
+ok(jane.delete("/api/messages/%d" % cid, headers={"X-CSRF": tj}).status_code == 403, "a member cannot delete a coaches-chat message")
+cd = eli.delete("/api/messages/%d" % cid, headers={"X-CSRF": te}).get_json()["message"]
+ok(cd["deleted"] and cd["body"] == "" and any(m["id"] == cid and m["deleted"] for m in eli.get("/api/messages?c=coaches&sync=1").get_json()), "an admin can delete someone else's coaches-chat message")
+ok(jane.post("/api/messages", json={"body": "react here"}, headers={"X-CSRF": tj}).status_code == 200, "member posts a message to react to")
+rid = [m for m in jane.get("/api/messages").get_json() if m["body"] == "react here"][-1]["id"]
+ok(jane.post("/api/messages/%d/react" % rid, json={"emoji": "😮"}, headers={"X-CSRF": tj}).get_json()["😮"] == {"n": 1, "mine": True} and jane.post("/api/messages/%d/react" % rid, json={"emoji": "💩"}, headers={"X-CSRF": tj}).status_code == 400, "the extra reaction set toggles and anything outside it is rejected")
+photos = [m for m in jane.get("/api/messages").get_json() if m.get("body") == "Pool photo" and m.get("image")]
+ph = photos[-1]; img = ph["image"]["full"]
+cleared = jane.post("/api/messages/%d" % ph["id"], json={"body": "  "}, headers={"X-CSRF": tj}).get_json()["message"]
+ok(cleared["body"] == "" and cleared["edited"] and cleared["image"] and jane.get(img).status_code == 200, "a photo message can be saved with no caption")
+ok(jane.delete("/api/messages/%d" % ph["id"], headers={"X-CSRF": tj}).get_json()["message"]["image"] is None and jane.get(img).status_code == 404, "deleting a photo message removes the picture")
+ok(eli.post("/api/messages", json={"body": "Temp announce xyz", "announcement": True}, headers={"X-CSRF": te}).status_code == 200, "admin posts an announcement to delete")
+ann_id = [m for m in eli.get("/api/messages").get_json() if m["body"] == "Temp announce xyz"][-1]["id"]
+eli.delete("/api/messages/%d" % ann_id, headers={"X-CSRF": te})
+home = jane.get("/home").get_data(as_text=True)
+ok("Temp announce xyz" not in home and "$45/mo" in home, "a deleted announcement is not the home card")
+ok(jane.get("/api/messages?after=999999").get_json() == [] and any(m["id"] == mid and m["deleted"] for m in jane.get("/api/messages?after=999999&sync=1").get_json()), "sync=1 refreshes older messages and after= stays new-only")
+oldp = tempfile.mktemp(suffix=".db")
+od = sqlite3.connect(oldp)
+od.execute("CREATE TABLE messages(id INTEGER PRIMARY KEY, member_id INTEGER, body TEXT NOT NULL, announcement INTEGER DEFAULT 0, at TEXT)")
+od.execute("INSERT INTO messages(member_id, body) VALUES(1, 'kept')")
+od.commit()
+A.migrate_messages(od)
+cols = [r[1] for r in od.execute("PRAGMA table_info(messages)")]
+A.migrate_messages(od)
+cols2 = [r[1] for r in od.execute("PRAGMA table_info(messages)")]
+kept = od.execute("SELECT body, deleted FROM messages").fetchone()
+od.close(); os.remove(oldp)
+ok(cols == cols2 and set(("channel", "image", "edited_at", "deleted")) <= set(cols) and kept[0] == "kept" and kept[1] == 0, "migrate_messages adds chat columns once and keeps existing rows")
