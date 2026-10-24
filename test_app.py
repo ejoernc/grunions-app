@@ -54,10 +54,10 @@ ok("Eli,Joern,eli@example.com,555-0100,unknown" in eli.get("/members.csv").get_d
 # expiry
 import datetime as dt, sqlite3
 join(A.app.test_client(), "Ana", "Lopez", "ana@example.com")
-D = sqlite3.connect(os.environ["GRUNIONS_DB"]); soon = (dt.date.today()+dt.timedelta(days=5)).isoformat()
+D = sqlite3.connect(os.environ["GRUNIONS_DB"]); soon = (A.today_pt()+dt.timedelta(days=5)).isoformat()
 eli.post("/admin", data=dict(csrf=tok_e, member_id=4, date="2026-10-27", action="verify", valid_until=soon))
 ok("Please enter the expiration" in eli.post("/admin", data=dict(csrf=tok_e, member_id=1, date="2026-10-27", action="verify"), follow_redirects=True).get_data(as_text=True), "Mark verified asks for expiration date")
-D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until=? WHERE id=2", ((dt.date.today()-dt.timedelta(days=1)).isoformat(),)); D.commit()
+D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until=? WHERE id=2", ((A.today_pt()-dt.timedelta(days=1)).isoformat(),)); D.commit()
 t = eli.get("/admin?date=2026-10-27").get_data(as_text=True)
 ok("5d left" in t and "USAWP: <b>" in t, "check-in badge + admin banner")
 ok(D.execute("SELECT usawp_status FROM members WHERE id=2").fetchone()[0] == "expired", "auto-flip to expired after expires_on")
@@ -96,7 +96,7 @@ D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until='2027-0
 eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date="2026-10-27", action="req", req_id=1, completed_on="2026-01-10", expires_on="2027-01-10"))
 eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date="2026-10-27", action="req", req_id=3, completed_on="2026-10-01"))
 h = x.get("/home").get_data(as_text=True); ok("Cleared to play" in h and "Not cleared to play" not in h, "manual compliance entry -> Cleared")
-D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=2 AND req_id=1", ((dt.date.today()+dt.timedelta(days=10)).isoformat(),)); D.commit()
+D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=2 AND req_id=1", ((A.today_pt()+dt.timedelta(days=10)).isoformat(),)); D.commit()
 ok(any(r.get("item")=="SafeSport training" for r in eli.get("/api/expiring").get_json()["within_30"]), "compliance item in expiring report")
 D.execute("UPDATE member_reqs SET expires_on='2026-01-01' WHERE member_id=2 AND req_id=1"); D.commit()
 ok("SafeSport training expired" in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "expired compliance -> Not cleared with reason")
@@ -153,7 +153,7 @@ a = eli.get("/admin?date=2026-10-27").get_data(as_text=True)
 ok("Verification for Ana Lopez" in a and "bot answered" in a, "admin notification + answered state")
 ok("Grunions bot" not in eli.get("/members").get_data(as_text=True).split("verified by")[0] and "bot@grunions.local" not in eli.get("/members").get_data(as_text=True), "bot account hidden from member list")
 ahome = ana.get("/home").get_data(as_text=True)
-ok((">Verified</span><span>%s<" % dt.date.today().isoformat()) in ahome and "Grunions bot" not in ahome, "member verified row shows only the date")
+ok((">Verified</span><span>%s<" % A.today_pt().isoformat()) in ahome and "Grunions bot" not in ahome, "member verified row shows only the date")
 ok("Grunions bot" in a and "verified by Grunions bot" in eli.get("/members").get_data(as_text=True), "admin views still show who verified")
 # reactions + images + schedule toggle
 A.UPLOADS = tempfile.mkdtemp()
@@ -288,7 +288,7 @@ ok(D.execute("SELECT trial_acknowledged_at FROM members WHERE email='jane@exampl
 kim.post("/home", data=dict(csrf=tk, action="trial"), follow_redirects=True)
 ok(D.execute("SELECT trial_acknowledged_at FROM members WHERE email='kim@example.com'").fetchone()[0] in (None, ""), "a saved USAWP number cannot start a trial")
 def md(d): return d.strftime("%b ") + str(d.day)
-today = dt.date.today(); end = today + dt.timedelta(days=14); start = today.isoformat()
+today = A.today_pt(); end = today + dt.timedelta(days=14); start = today.isoformat()
 ap = alex.post("/home", data=dict(csrf=csrf(alex, "/home"), action="trial"), follow_redirects=True).get_data(as_text=True)
 stamp = D.execute("SELECT trial_acknowledged_at FROM members WHERE email='alex@example.com'").fetchone()[0]
 ok(stamp and stamp[:10] == start and 'class="toast noprint" role=status>2-week USAWP trial started' in ap and 'class="st st-trial">Trial · 14 days left' in ap and (">Ends %s<" % md(end)) in ap and ".st-trial::before{background:var(--ok)}" in ap and "id=trialOpen" not in ap and 'name=usawp_number inputmode=numeric value=""' in ap and "Cleared to play" in ap and "Not cleared to play" not in ap and 'class="st st-bad">Not cleared' not in ap and "Needs:" not in ap, "confirm records the trial and shows a green Trial badge with days left")
@@ -344,7 +344,7 @@ found = eli.get("/admin?date=%s&q=Liam" % day).get_data(as_text=True)
 eli.post("/admin", data=dict(csrf=csrf(eli, "/admin"), member_id=ava, date=day, action="undo"))
 back = eli.get("/admin?date=%s" % day).get_data(as_text=True)
 ok(">Going <span class=t3>1</span>" in found and "Liam Carter" in found and "Mia Barnes" not in found and ">Everyone else <span class=t3>0</span>" in found and ">Checked in <span class=t3>0</span>" in found and back.index(">Going <") < back.index("Ava Evans") < back.index("Mia Barnes") < back.index(">Everyone else <") and "Ava Evans" not in back[back.index(">Checked in <"):], "search stays inside the sections and undo returns a going member to Going")
-yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+yesterday = (A.today_pt() - dt.timedelta(days=1)).isoformat()
 ren = A.app.test_client(); join(ren, "Ren", "Ew", "ren@example.com")
 rid = D.execute("SELECT id FROM members WHERE email='ren@example.com'").fetchone()[0]
 D.execute("UPDATE members SET usawp_status='verified', usawp_number='659226', usawp_valid_until=?, usawp_verified_by='Eli Joern', usawp_verified_at='2026-01-01T00:00' WHERE id=?", (yesterday, rid))
@@ -396,7 +396,7 @@ jane.post("/notifications", data={"csrf": csrf(jane, "/notifications"), "push": 
 eli.post("/api/messages", json={"body": "Another note"}, headers={"X-CSRF": csrf(eli, "/chat")})
 ok(not any(p[0] == janie for p in pushes), "team chat push respects the member toggle")
 emails.clear(); pushes.clear()
-day = (dt.date.today() + dt.timedelta(days=1)).isoformat()
+day = (A.today_pt() + dt.timedelta(days=1)).isoformat()
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=day, start="03:00", end="04:00", location="Notify Pool"))
 npid = D.execute("SELECT id FROM practices WHERE location='Notify Pool'").fetchone()[0]
 n_members = D.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system'").fetchone()[0]
@@ -410,7 +410,7 @@ eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=npid, action=
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=npid, action="cancel"))
 ok(len([e for e in emails if "Notify Pool" in e[2]]) == n_members * 2, "restoring a practice lets a later cancel notify again")
 pushes.clear()
-start = dt.datetime.combine(dt.date.today() + dt.timedelta(days=1), dt.time(3, 15))
+start = dt.datetime.combine(A.today_pt() + dt.timedelta(days=1), dt.time(3, 15))
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=start.date().isoformat(), start="03:15", end="04:15", location="Reminder Pool"))
 rpid = D.execute("SELECT id FROM practices WHERE location='Reminder Pool'").fetchone()[0]
 jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=rpid, action="going"))
@@ -422,15 +422,15 @@ finally:
     nd.close()
 ok(sum(1 for p in pushes if p[0] == janie and p[1]["title"] == "Practice reminder" and p[1]["url"] == "/practices#p%s" % rpid and "about 2 hours" in p[1]["body"]) == 1 and not any(p[0] == D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0] and "Reminder Pool" in p[1]["body"] for p in pushes), "a practice reminder goes once to members who RSVP'd going, about 3 hours before")
 pushes.clear(); emails.clear()
-soon = (dt.date.today() + dt.timedelta(days=7)).isoformat()
-tomorrow = (dt.date.today() + dt.timedelta(days=1)).isoformat()
+soon = (A.today_pt() + dt.timedelta(days=7)).isoformat()
+tomorrow = (A.today_pt() + dt.timedelta(days=1)).isoformat()
 D.execute("UPDATE members SET usawp_valid_until=?, email_reminders=1, usawp_status='verified' WHERE email='jane@example.com'", (soon,))
 D.execute("UPDATE members SET usawp_valid_until=?, email_reminders=0, usawp_status='verified' WHERE email='sue@example.com'", (soon,))
-D.execute("UPDATE members SET usawp_valid_until=? WHERE email='ren@example.com'", ((dt.date.today() + dt.timedelta(days=8)).isoformat(),))
+D.execute("UPDATE members SET usawp_valid_until=? WHERE email='ren@example.com'", ((A.today_pt() + dt.timedelta(days=8)).isoformat(),))
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (tomorrow, D.execute("SELECT id FROM members WHERE email='casey@example.com'").fetchone()[0], ssid))
 D.commit()
 tmember = A.app.test_client(); join(tmember, "Tess", "Trial", "tess.trial@example.com")
-D.execute("UPDATE members SET trial_acknowledged_at=?, usawp_status='unknown', usawp_valid_until=NULL WHERE email='tess.trial@example.com'", ((dt.date.today() - dt.timedelta(days=14)).isoformat() + "T08:00:00",))
+D.execute("UPDATE members SET trial_acknowledged_at=?, usawp_status='unknown', usawp_valid_until=NULL WHERE email='tess.trial@example.com'", ((A.today_pt() - dt.timedelta(days=14)).isoformat() + "T08:00:00",))
 D.commit()
 pushsub(tmember, "https://push.example/tess")
 sue_id = D.execute("SELECT id FROM members WHERE email='sue@example.com'").fetchone()[0]
@@ -478,7 +478,7 @@ ja, jo = jane.get("/api/unread").get_json(), john.get("/api/unread").get_json()
 cht = john.get("/chat").get_data(as_text=True)
 ok(jo["coaches"] == jb["coaches"] + 1 and ja["coaches"] == 0 and ja["total"] == jane_now["total"] and re.search(r'data-badge=coaches[^>]*>Coaches<span class=badge>\d+</span>', cht) and not re.search(r'data-badge=team[^>]*>Team<span class=badge>', cht), "coaches unread stays on the Coaches tab and off member totals")
 ok(john.get("/chat?c=coaches").status_code == 200 and john.get("/api/unread").get_json()["coaches"] == 0, "opening coaches chat clears it")
-dayb = (dt.date.today() + dt.timedelta(days=9)).isoformat()
+dayb = (A.today_pt() + dt.timedelta(days=9)).isoformat()
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=dayb, start="19:00", end="20:30", location="Badge Pool", note=""))
 bpid = D.execute("SELECT id FROM practices WHERE location='Badge Pool'").fetchone()[0]
 es, js = eli.get("/api/unread").get_json()["schedule"], jane.get("/api/unread").get_json()["schedule"]
@@ -500,3 +500,45 @@ jane.post("/api/practices/%d/seen" % bpid, headers={"X-CSRF": csrf(jane, "/pract
 pg = jane.get("/practices").get_data(as_text=True)
 chunk = pg.split("id=p%d data-pid=%d" % (bpid, bpid))[1].split("id=p")[0]
 ok(("data-seen=%d" % bpid) not in chunk and "Cancelled" in chunk and jane.get("/api/unread").get_json()["schedule"] == js, "opening the cancellation clears its bubble")
+
+# Pacific time. 5pm PDT is midnight UTC, which used to hide the same evening's practice.
+fri = "2026-10-23"
+D.execute("INSERT OR IGNORE INTO practices(date,start,end,location) VALUES(?,?,?,?)", (fri, "19:00", "20:30", "Westminster High School")); D.commit()
+row = D.execute("SELECT id, cancelled, end FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()
+ok(row is not None and row[1] == 0 and row[2] == "20:30", "Friday Oct 23 practice is stored and was not deleted")
+real_now = A.now_pt
+try:
+    A.now_pt = lambda: dt.datetime(2026, 10, 24, 0, 30, tzinfo=dt.timezone.utc)  # 5:30pm PDT
+    sched = jane.get("/practices").get_data(as_text=True)
+    home = jane.get("/home").get_data(as_text=True)
+    nxt = home[home.find("NEXT PRACTICE"):home.find("NEXT PRACTICE") + 220]
+    adm = eli.get("/admin").get_data(as_text=True)
+    ok("Fri Oct 23" in sched and "Fri Oct 23" in nxt and "7:00pm" in nxt and 'value="2026-10-23"' in adm, "at 5:30pm Pacific, Friday's practice is on the schedule and check-in uses that date")
+    ok(D.execute("SELECT COUNT(*) FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()[0] == 1, "opening the schedule does not delete Friday's practice")
+    A.now_pt = lambda: dt.datetime(2026, 10, 24, 3, 30, tzinfo=dt.timezone.utc)  # 8:30pm PDT
+    ok("Fri Oct 23" in jane.get("/practices").get_data(as_text=True), "the practice stays up through 8:30pm Pacific")
+    A.now_pt = lambda: dt.datetime(2026, 10, 24, 3, 31, tzinfo=dt.timezone.utc)  # 8:31pm PDT
+    late = jane.get("/practices").get_data(as_text=True)
+    late_home = jane.get("/home").get_data(as_text=True)
+    late_next = late_home[late_home.find("NEXT PRACTICE"):late_home.find("NEXT PRACTICE") + 220]
+    ok("Fri Oct 23" not in late and "Fri Oct 23" not in late_next and 'value="2026-10-23"' in eli.get("/admin").get_data(as_text=True) and D.execute("SELECT COUNT(*) FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()[0] == 1, "after 8:30pm Pacific the practice leaves the schedule and the row is still there")
+    eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=fri, start="19:00", end="20:30", location="Pacific Pool"))
+    pp = D.execute("SELECT id FROM practices WHERE location='Pacific Pool'").fetchone()[0]
+    jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=pp, action="going"))
+    pushes.clear()
+    A.now_pt = lambda: dt.datetime(2026, 10, 24, 0, 0, tzinfo=dt.timezone.utc)  # 5:00pm PDT, two hours before 7:00pm
+    nd = A.open_db()
+    try:
+        A.run_practice_reminders(nd); A.run_practice_reminders(nd)
+    finally:
+        nd.close()
+    ok(sum(1 for p in pushes if p[0] == janie and p[1]["title"] == "Practice reminder" and "Pacific Pool" in p[1]["body"] and "about 2 hours" in p[1]["body"]) == 1, "a 7pm Pacific practice reminds about two hours before, not on the UTC clock")
+    D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until='2026-10-23' WHERE email='john@example.com'"); D.commit()
+    A.now_pt = lambda: dt.datetime(2026, 10, 24, 0, 30, tzinfo=dt.timezone.utc)
+    eli.get("/members")
+    ok(D.execute("SELECT usawp_status FROM members WHERE email='john@example.com'").fetchone()[0] == "verified", "a membership dated today is still current at 5:30pm Pacific")
+    A.now_pt = lambda: dt.datetime(2026, 10, 24, 8, 0, tzinfo=dt.timezone.utc)  # 1:00am PDT
+    eli.get("/members")
+    ok(D.execute("SELECT usawp_status FROM members WHERE email='john@example.com'").fetchone()[0] == "expired", "that membership expires after midnight Pacific")
+finally:
+    A.now_pt = real_now

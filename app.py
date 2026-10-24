@@ -1,6 +1,7 @@
 """Grunions Water Polo team app prototype: member login, team chat, admin check-in tools. Flask + SQLite."""
 import csv, io, os, re, sqlite3, secrets, hashlib, datetime as dt, functools
 import json, urllib.request
+from zoneinfo import ZoneInfo
 import qrcode, qrcode.image.svg
 from markupsafe import Markup
 import ui
@@ -34,6 +35,31 @@ app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
 if os.environ.get("BEHIND_PROXY", "1" if PUBLIC_URL else "0") == "1":  # Render etc. terminate HTTPS in front of us
     from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+# The team is in California. Render's clock is UTC, so date.today() flips at 5pm PDT / 4pm PST
+# and hides that evening's practice. All calendar dates and practice times are Pacific wall time.
+PT = ZoneInfo("America/Los_Angeles")
+def now_pt():
+    return dt.datetime.now(PT)
+def as_pt(when=None):
+    """Pacific time. A naive input is a Pacific wall time; an aware input is converted."""
+    if when is None: when = now_pt()
+    if when.tzinfo is None: return when.replace(tzinfo=PT)
+    return when.astimezone(PT)
+def today_pt():
+    return as_pt().date()
+def wall_pt(when=None):
+    return as_pt(when).replace(tzinfo=None)
+def stamp_pt(timespec="seconds"):
+    return wall_pt().isoformat(timespec=timespec)
+def upcoming_bounds(now=None):
+    """A practice stays on the schedule through its end minute (7:00–8:30 stays up at 8:30)."""
+    n = wall_pt(now)
+    day = n.date().isoformat()
+    return (day, day, "%02d:%02d" % (n.hour, n.minute))
+def upcoming_where(alias=""):
+    p = (alias + ".") if alias else ""
+    return "(%sdate > ? OR (%sdate = ? AND COALESCE(%send, '20:30') >= ?))" % (p, p, p)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS members(id INTEGER PRIMARY KEY, first TEXT NOT NULL, last TEXT NOT NULL,
@@ -127,7 +153,7 @@ def safesport_req(d):
 def clearance(d, member):
     """Cleared to play = USAWP membership verified and current, and SafeSport current.
     An active 2-week trial counts as cleared until it ends or the membership is verified."""
-    today = dt.date.today().isoformat(); reasons = []; items = []
+    today = today_pt().isoformat(); reasons = []; items = []
     until = member["usawp_valid_until"] if member and "usawp_valid_until" in member.keys() else None
     membership_expired = bool(until and until < today)
     if membership_expired: reasons.append("Membership expired")
@@ -149,7 +175,7 @@ def clearance(d, member):
     return dict(ok=not reasons, reasons=reasons, checks=items)
 def expiry_notes(member, cl=None):
     """Lines for the home card once a membership or SafeSport date has passed."""
-    today = dt.date.today().isoformat()
+    today = today_pt().isoformat()
     until = None
     if member:
         try: keys = member.keys()
@@ -172,9 +198,9 @@ def expiry_notes(member, cl=None):
 app.jinja_env.globals.update(clearance=lambda m: clearance(db(), m), expiry_notes=expiry_notes)
 def expire_sweep(d):
     """Auto-flip: anyone whose expires_on (usawp_valid_until) has passed becomes expired."""
-    d.execute("UPDATE members SET usawp_status='expired', usawp_raw='Expired '||usawp_valid_until WHERE usawp_status IN ('verified','pending') AND usawp_valid_until IS NOT NULL AND usawp_valid_until < ?", (dt.date.today().isoformat(),)); d.commit()
+    d.execute("UPDATE members SET usawp_status='expired', usawp_raw='Expired '||usawp_valid_until WHERE usawp_status IN ('verified','pending') AND usawp_valid_until IS NOT NULL AND usawp_valid_until < ?", (today_pt().isoformat(),)); d.commit()
 def expiry_report(d, days=None):
-    days = days or EXPIRING_DAYS; today = dt.date.today()
+    days = days or EXPIRING_DAYS; today = today_pt()
     rows = d.execute("SELECT id, first, last, preferred_first, email, phone, usawp_status, usawp_valid_until FROM members WHERE usawp_valid_until IS NOT NULL ORDER BY usawp_valid_until").fetchall()
     rq = d.execute("""SELECT m.id, m.first, m.last, m.preferred_first, m.email, m.phone, 'verified' AS usawp_status, x.expires_on AS usawp_valid_until, q.name AS item
       FROM member_reqs x JOIN members m ON m.id=x.member_id JOIN requirements q ON q.id=x.req_id
@@ -188,7 +214,7 @@ def expiry_report(d, days=None):
         elif left <= days: out["within_%d" % days].append(item)
     return out
 def days_left(v):
-    return (dt.date.fromisoformat(v) - dt.date.today()).days if v else None
+    return (dt.date.fromisoformat(v) - today_pt()).days if v else None
 TRIAL_DAYS = 14
 TRIAL_JOIN_URL = "https://usawp.sport80.com/public/widget/1"  # official registration widget linked from usawaterpolo.org; trial is a membership type in that flow
 def fmt_md(iso):
@@ -204,7 +230,7 @@ def trial_window(m):
     try: start = dt.date.fromisoformat(str(raw)[:10])
     except ValueError: return None
     end = start + dt.timedelta(days=TRIAL_DAYS)
-    today = dt.date.today()
+    today = today_pt()
     left = (end - today).days
     return {"start": start.isoformat(), "end": end.isoformat(), "ends": fmt_md(end.isoformat()), "active": today <= end, "expired": today > end, "days_left": left}
 def trial_badge(tw):
@@ -415,7 +441,7 @@ def home():
         row = d.execute("SELECT usawp_number, usawp_status, trial_acknowledged_at FROM members WHERE id=?", (m["id"],)).fetchone()
         if (row["usawp_status"] or "") == "verified" or (row["usawp_number"] or "").strip() or (row["trial_acknowledged_at"] or "").strip():
             return redirect("/home")
-        now = dt.datetime.now().isoformat(timespec="seconds")
+        now = stamp_pt()
         d.execute("""UPDATE members SET trial_acknowledged_at=? WHERE id=?
             AND (trial_acknowledged_at IS NULL OR trial_acknowledged_at='')
             AND (usawp_number IS NULL OR trim(usawp_number)='')
@@ -424,7 +450,7 @@ def home():
         d.commit(); return redirect("/home")
     if request.method == "POST":
         until = m["usawp_valid_until"] or ""
-        if (m["usawp_status"] or "") == "verified" and not (until and until < dt.date.today().isoformat()):
+        if (m["usawp_status"] or "") == "verified" and not (until and until < today_pt().isoformat()):
             flash("Your USAWP number is already verified."); return redirect("/home")
         num = (request.form.get("usawp_number") or "").strip()
         if not re.fullmatch(r"[0-9]{4,10}", num):
@@ -438,9 +464,9 @@ def home():
         flash("Sent to Grunions for verification", "toast")
         return redirect("/home")
     hist = d.execute("SELECT practice_date, location FROM checkins WHERE member_id=? ORDER BY practice_date DESC", (m["id"],)).fetchall()
-    month = dt.date.today().strftime("%Y-%m")
+    month = today_pt().strftime("%Y-%m")
     ensure_schedule(d)
-    nextp = d.execute("SELECT * FROM practices WHERE date>=? AND cancelled=0 ORDER BY date LIMIT 1", (dt.date.today().isoformat(),)).fetchone()
+    nextp = d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where() + " ORDER BY date, start LIMIT 1", upcoming_bounds()).fetchone()
     nextp_n = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (nextp["id"],)).fetchone()[0] if nextp else 0
     nextp_mine = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (nextp["id"], m["id"])).fetchone() if nextp else None
     nextp_mine = nextp_mine[0] if nextp_mine else None
@@ -470,10 +496,9 @@ def chat_unread_n(d, mid, channel):
     if not row: return 0
     return d.execute("SELECT COUNT(*) FROM messages WHERE channel=? AND id>? AND member_id!=?", (channel, row["last_read"], mid)).fetchone()[0]
 def ensure_cancel_notices(d, mid):
-    """One unseen cancel row per upcoming cancelled practice. Existing seen_at values stay put."""
-    today = dt.date.today().isoformat()
+    """One unseen cancel row per practice still on the schedule. Existing seen_at values stay put."""
     d.execute("""INSERT OR IGNORE INTO practice_notices(practice_id, member_id, kind, seen_at)
-        SELECT id, ?, 'cancel', NULL FROM practices WHERE cancelled=1 AND date>=?""", (mid, today))
+        SELECT id, ?, 'cancel', NULL FROM practices WHERE cancelled=1 AND """ + upcoming_where(), (mid, *upcoming_bounds()))
     if d.execute("SELECT changes()").fetchone()[0]: d.commit()
 def flag_practice(d, pid, kind, actor_id):
     """Record a cancellation or edit. The person who made it has already seen it."""
@@ -492,10 +517,9 @@ def compute_unread(d, member):
     ensure_cancel_notices(d, mid)
     team = chat_unread_n(d, mid, "team")
     coaches = chat_unread_n(d, mid, "coaches") if staff else 0
-    today = dt.date.today().isoformat()
     rows = d.execute("""SELECT n.practice_id AS practice_id, COUNT(*) AS cnt FROM practice_notices n
         JOIN practices p ON p.id=n.practice_id
-        WHERE n.member_id=? AND n.seen_at IS NULL AND p.date>=? GROUP BY n.practice_id""", (mid, today)).fetchall()
+        WHERE n.member_id=? AND n.seen_at IS NULL AND """ + upcoming_where("p") + " GROUP BY n.practice_id", (mid, *upcoming_bounds())).fetchall()
     practices = {str(r["practice_id"]): r["cnt"] for r in rows}
     schedule = sum(practices.values())
     chat = team + coaches
@@ -606,7 +630,7 @@ def api_messages():
 # ---------- practices ----------
 RECURRING = {1: ("Marina High School", "19:00", "20:30"), 4: ("Westminster High School", "19:00", "20:30")}  # Tue, Fri
 def ensure_schedule(d, weeks=4):
-    today = dt.date.today()
+    today = today_pt()
     for i in range(weeks * 7):
         day = today + dt.timedelta(days=i)
         if day.weekday() in RECURRING:
@@ -653,7 +677,7 @@ def practices():
                 try: notify_practice_cancelled(d, p)
                 except Exception as e: app.logger.warning("cancel notify failed: %s", e)
         return redirect("/home" if "/home" in (request.referrer or "") else "/practices#p%s" % (pid or ""))
-    ps = d.execute("SELECT * FROM practices WHERE date>=? ORDER BY date, start LIMIT 16", (dt.date.today().isoformat(),)).fetchall()
+    ps = d.execute("SELECT * FROM practices WHERE " + upcoming_where() + " ORDER BY date, start LIMIT 16", upcoming_bounds()).fetchall()
     unseen = unread_for_me()["practices"]
     data = []
     for p in ps:
@@ -741,10 +765,10 @@ def api_verify_result(rid):
     r = d.execute("SELECT * FROM verify_requests WHERE id=?", (rid,)).fetchone()
     if not r: return jsonify(error="not found"), 404
     if r["status"] != "pending": return jsonify(error="already answered"), 409
-    now = dt.datetime.now().isoformat(timespec="minutes"); mid = r["member_id"]
+    now = stamp_pt("minutes"); mid = r["member_id"]
     exp = parse_date(j.get("membership_expires_on")); num = (str(j.get("member_number") or "").strip() or None)
     if j["verified"]:
-        st = "expired" if exp and exp < dt.date.today() else "verified"
+        st = "expired" if exp and exp < today_pt() else "verified"
         d.execute("""UPDATE members SET usawp_status=?, usawp_raw='Verified by Grunions bot', usawp_number=COALESCE(?,usawp_number),
           usawp_valid_until=COALESCE(?,usawp_valid_until), usawp_updated=?, usawp_verified_by='Grunions bot', usawp_verified_at=? WHERE id=?""",
           (st, num, exp and exp.isoformat(), now, now, mid))
@@ -757,7 +781,7 @@ def api_verify_result(rid):
         if not q or not e: unknown.append(item); continue
         d.execute("""INSERT INTO member_reqs VALUES(?,?,?,?,'bot','Grunions bot',?) ON CONFLICT(member_id,req_id) DO UPDATE SET
           expires_on=excluded.expires_on, completed_on=COALESCE(completed_on,excluded.completed_on), source='bot', by='Grunions bot', at=excluded.at""",
-          (mid, q["id"], dt.date.today().isoformat(), e.isoformat(), now)); applied.append(q["name"])
+          (mid, q["id"], today_pt().isoformat(), e.isoformat(), now)); applied.append(q["name"])
     note = (str(j.get("note") or "")[:500]) or None
     d.execute("UPDATE verify_requests SET status='done', answered=?, result=?, note=? WHERE id=?", (now, json.dumps(j), note, rid))
     expire_sweep(d)
@@ -788,14 +812,14 @@ def qr_page():
 @app.route("/admin", methods=["GET", "POST"])
 @staff_required
 def admin():
-    d = db(); date = request.values.get("date") or dt.date.today().isoformat()
+    d = db(); date = request.values.get("date") or today_pt().isoformat()
     if request.method == "POST":
         mid = int(request.form["member_id"])
         if request.form.get("action") in ("verify", "req", "role", "ask_bot", "preferred") and not me()["is_admin"]: abort(403)
         if request.form.get("action") == "verify":
             num = (request.form.get("number") or "").strip()[:20] or None
-            vu = parse_date(request.form.get("valid_until")); now = dt.datetime.now().isoformat(timespec="minutes")
-            if vu and vu < dt.date.today(): flash("That expiration date is in the past, so not marked verified.")
+            vu = parse_date(request.form.get("valid_until")); now = stamp_pt("minutes")
+            if vu and vu < today_pt(): flash("That expiration date is in the past, so not marked verified.")
             elif not vu and not request.form.get("no_date"): flash("Please enter the expiration date from Sport:80 (or tick 'no date').")
             else:
                 d.execute("""UPDATE members SET usawp_status='verified', usawp_raw='Manually verified', usawp_number=COALESCE(?,usawp_number),
@@ -868,7 +892,7 @@ def requirements_page():
 def api_expiring():
     ok = (me() and me()["is_admin"]) or (CRON_KEY and secrets.compare_digest(request.args.get("key", ""), CRON_KEY))
     if not ok: abort(403)
-    return jsonify(date=dt.date.today().isoformat(), window_days=request.args.get("days", EXPIRING_DAYS, type=int), **expiry_report(db(), request.args.get("days", EXPIRING_DAYS, type=int)))
+    return jsonify(date=today_pt().isoformat(), window_days=request.args.get("days", EXPIRING_DAYS, type=int), **expiry_report(db(), request.args.get("days", EXPIRING_DAYS, type=int)))
 
 def is_last_admin(d, mid):
     r = d.execute("SELECT is_admin FROM members WHERE id=?", (mid,)).fetchone()
@@ -945,7 +969,7 @@ def parse_date(v):
         except ValueError: pass
 def classify(raw, valid):
     s = norm(raw)
-    if valid and valid < dt.date.today(): return "expired"
+    if valid and valid < today_pt(): return "expired"
     if s in ("current", "active", "valid", "approved", "paid"): return "verified"
     if s in ("expired", "lapsed", "cancelled", "canceled", "inactive", "suspended", "revoked"): return "expired"
     if s in ("pendingapproval", "actionrequired", "pending"): return "pending"
@@ -974,7 +998,7 @@ def import_roster(fname, data):
             if not any(k and k in n for k in (q["keywords"] or "").split(",")): continue
             kind = "exp" if any(x in n for x in ("expir", "validthrough", "validuntil", "validto", "enddate")) else "done" if any(x in n for x in ("complet", "date", "signed")) else "status" if "status" in n else None
             if kind: reqcols.setdefault(q["id"], {}).setdefault(kind, i)
-    now = dt.datetime.now().isoformat(timespec="minutes")
+    now = stamp_pt("minutes")
     members = d.execute("SELECT id, first, last, email FROM members").fetchall()
     by_email = {m["email"]: m["id"] for m in members}
     by_name = {}
@@ -998,7 +1022,7 @@ def import_roster(fname, data):
         for rid, cols in reqcols.items():
             g_ = lambda k: r[cols[k]] if k in cols and cols[k] < len(r) else None
             exp, done, sraw = parse_date(g_("exp")), parse_date(g_("done")), norm(str(g_("status") or ""))
-            if not done and sraw in ("current", "complete", "completed", "valid", "passed", "approved", "yes", "signed"): done = dt.date.today()
+            if not done and sraw in ("current", "complete", "completed", "valid", "passed", "approved", "yes", "signed"): done = today_pt()
             if exp or done:
                 d.execute("""INSERT INTO member_reqs VALUES(?,?,?,?,'Sport:80 import','import',?) ON CONFLICT(member_id,req_id) DO UPDATE SET
                   completed_on=COALESCE(excluded.completed_on,completed_on), expires_on=COALESCE(excluded.expires_on,expires_on), source=excluded.source, at=excluded.at""",
@@ -1007,7 +1031,7 @@ def import_roster(fname, data):
         if cell(r, "contact"): d.execute("UPDATE members SET sport80_contact_id=? WHERE id=?", (str(cell(r, "contact")).strip(), mid))
         if "preferred" in hm and clean_preferred(cell(r, "preferred")): d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(cell(r, "preferred")), mid))
         st = classify(raw, valid)
-        if st == "unknown" and not raw and valid and valid >= dt.date.today(): st = "verified"  # no status column: future expiry = current
+        if st == "unknown" and not raw and valid and valid >= today_pt(): st = "verified"  # no status column: future expiry = current
         rank = {"verified": 3, "pending": 2, "expired": 1, "unknown": 0}[st]
         if mid not in best or rank > best[mid][0]:  # keep best status if someone appears twice
             best[mid] = (rank, st, raw, str(cell(r, "number") or ""), valid.isoformat() if valid else None)
@@ -1249,7 +1273,7 @@ def trial_end_date(m):
     try: return dt.date.fromisoformat(str(raw)[:10]) + dt.timedelta(days=TRIAL_DAYS)
     except ValueError: return None
 def run_expiry_notices(d, today=None):
-    today = today or dt.date.today()
+    today = today or today_pt()
     for m in d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system'"):
         if m["usawp_valid_until"]:
             try: left = (dt.date.fromisoformat(str(m["usawp_valid_until"])[:10]) - today).days
@@ -1267,7 +1291,7 @@ def run_expiry_notices(d, today=None):
         except ValueError: continue
         if left in (7, 1, 0): deliver_expiry(d, m, "safesport", str(m["ss_expires"])[:10], left)
 def run_practice_reminders(d, now=None):
-    now = now or dt.datetime.now()
+    now = wall_pt(now)
     lo = (now.date() - dt.timedelta(days=1)).isoformat(); hi = (now.date() + dt.timedelta(days=1)).isoformat()
     for p in d.execute("SELECT * FROM practices WHERE cancelled=0 AND date>=? AND date<=?", (lo, hi)):
         try: start = dt.datetime.fromisoformat(p["date"] + "T" + (p["start"] or "19:00"))

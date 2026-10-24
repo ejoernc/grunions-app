@@ -17,7 +17,7 @@ say("Eli","Starting in November, membership is $45/mo and covers all practices (
 say("John","Is the Friday practice still at Westminster?"); say("Eli","Yep, Fridays 7–8:30 at Westminster HS. Bring dark + white caps.")
 print("seeded")
 import sqlite3, datetime as dt
-D = sqlite3.connect(A.DB); today = dt.date.today()
+D = sqlite3.connect(A.DB); today = A.today_pt()
 D.execute("UPDATE members SET role='coach' WHERE first='Marcus'")
 D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until=?, usawp_number='2223334' WHERE first='Eli'", ((today+dt.timedelta(days=12)).isoformat(),))
 for mid, rid, done, exp in [(1,1,"2026-02-01","2027-02-01"),(1,3,"2026-09-01",None),(2,3,"2026-09-15",None),(5,1,"2026-03-01","2027-03-01"),(5,2,"2026-03-01","2028-03-01")]:

@@ -58,7 +58,7 @@ def test_unknown_email_no_send():
     SENT.clear(); c = A.app.test_client(); c.post("/login", data=dict(csrf=csrf(c, "/login"), email="nobody@x.com")); assert SENT == []
 def test_import_tolerant_columns():
     csv = ("Report title\n" "First Name,Last Name,Email Address,ID Number,Contact ID,Membership Expiry Date,SafeSport Expiry Date\n"
-           f"Mem,Three,MEM@example.com,659999,C-42,{(dt.date.today()+dt.timedelta(days=200)).isoformat()},2027-05-11\n").encode()
+           f"Mem,Three,MEM@example.com,659999,C-42,{(A.today_pt()+dt.timedelta(days=200)).isoformat()},2027-05-11\n").encode()
     import io
     t = boss.post("/import", data=dict(csrf=csrf(boss, "/import"), file=(io.BytesIO(csv), "x.csv")), content_type="multipart/form-data").get_data(as_text=True)
     r = sqlite3.connect(A.DB).execute("SELECT usawp_status, usawp_number, sport80_contact_id FROM members WHERE email='mem@example.com'").fetchone()
@@ -133,13 +133,13 @@ def test_preferred_first_display_and_legal_verify():
     boss.post("/api/messages", json={"body": "announcement from chief", "announcement": True}, headers={"X-CSRF": csrf(boss, "/chat")})
     assert "CHIEF" in c.get("/home").get_data(as_text=True)
     boss.post("/home", data=dict(csrf=csrf(boss, "/home"), action="preferred", preferred_first=""))
-    pid = sqlite3.connect(A.DB).execute("SELECT id FROM practices ORDER BY date LIMIT 1").fetchone()[0]
+    pid = sqlite3.connect(A.DB).execute("SELECT id FROM practices WHERE date>? ORDER BY date LIMIT 1", (A.today_pt().isoformat(),)).fetchone()[0]
     c.post("/practices", data=dict(csrf=csrf(c, "/practices"), pid=pid, action="going"))
     assert "Sam R." in c.get("/practices").get_data(as_text=True)
     SENT.clear(); login = A.app.test_client(); login.post("/login", data=dict(csrf=csrf(login, "/login"), email="samuel@example.com"))
     assert SENT[-1][2].startswith("Hi Sam,")
     mid = ids()["samuel@example.com"]
-    db = sqlite3.connect(A.DB); db.execute("UPDATE members SET usawp_valid_until=? WHERE id=?", ((dt.date.today() + dt.timedelta(days=3)).isoformat(), mid)); db.commit()
+    db = sqlite3.connect(A.DB); db.execute("UPDATE members SET usawp_valid_until=? WHERE id=?", ((A.today_pt() + dt.timedelta(days=3)).isoformat(), mid)); db.commit()
     with A.app.app_context():
         A.remind(A.db(), mid); A.db().commit()
     assert "Hi Sam," in c.get("/home").get_data(as_text=True)

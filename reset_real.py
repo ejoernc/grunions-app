@@ -24,7 +24,7 @@ def main():
         for t in ("reactions", "messages", "chat_reads", "practice_notices", "checkins", "rsvps", "verify_requests", "notices", "sent_notices", "push_subscriptions", "login_tokens", "usawp_submits", "member_reqs", "members"):
             d.execute(f"DELETE FROM {t}")
         d.execute("DELETE FROM practices WHERE location NOT IN (%s)" % ",".join("?" * len(REAL_LOCATIONS)), tuple(REAL_LOCATIONS))
-        now = dt.datetime.now().isoformat(timespec="minutes")
+        now = A.stamp_pt("minutes")
         mid = d.execute("""INSERT INTO members(first,last,email,phone,is_admin,role,usawp_status,usawp_raw,usawp_number,usawp_valid_until,
             usawp_updated,usawp_verified_by,usawp_verified_at) VALUES(?,?,?,'',1,'coach','verified','Current (Individual Membership, Coach)',?,?,?,'Sport:80 lookup',?)""",
             (ELLIOTT["first"], ELLIOTT["last"], ELLIOTT["email"], ELLIOTT["number"], ELLIOTT["membership"], now, now)).lastrowid
