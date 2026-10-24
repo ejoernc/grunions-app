@@ -20,6 +20,7 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:14px}.xs
 .li{display:flex;align-items:center;gap:12px;padding:14px 18px;min-height:60px;border-top:1px solid var(--line)}.li:first-child{border-top:0}
 .grow{flex:1;min-width:0}.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 label{display:block;font-size:13px;color:var(--t2);margin:0 0 14px}
+.checks{margin:0 0 14px}.checks label{display:flex;align-items:center;min-height:40px;margin:0;color:var(--t1);font-size:16px}
 input,select,textarea{display:block;width:100%;margin-top:6px;background:var(--surface2);border:1px solid var(--line);color:var(--t1);border-radius:10px;
 padding:0 14px;height:48px;font:inherit}textarea{padding:12px 14px}input[type=hidden]{display:none}input[type=checkbox]{display:inline-block;width:20px;height:20px;margin:0 8px 0 0;vertical-align:-4px;accent-color:var(--accent)}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
@@ -203,6 +204,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {% endif %}</div>
 {% if nextp %}<div class=card><div class="t3 xs">NEXT PRACTICE</div><div style="font-size:18px;font-weight:600;margin-top:2px">{{fmt_d(nextp.date)}}, {{fmt_t(nextp.start)}}</div>
 <div class=t2>{{nextp.location}} · {{nextp_n}} going</div>
+{% if next_coaches %}<div class=t2>Coaches: {{next_coaches}}</div>{% endif %}
 <form method=post action=/practices style="margin-top:14px">{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
 {% if nextp_mine == 1 %}<button class=full name=action value=clear>Going ✓</button>{% else %}<button class="primary full" name=action value=going>I'm going</button>{% endif %}</form></div>{% endif %}
 {% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}
@@ -319,7 +321,9 @@ poll().then(()=>scrollTo(0,document.body.scrollHeight));setInterval(poll,3000);
 T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">Tue · Marina HS &nbsp;·&nbsp; Fri · Westminster HS &nbsp;·&nbsp; 7–8:30 PM</p>
 {% for x in data %}{% set p = x.p %}<div class=card id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %}>
 <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><div><div class=pdate style="font-size:18px;font-weight:600">{{fmt_d(p.date)}}{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</div>
-<div class="t2 sm">{{fmt_t(p.start)}}–{{fmt_t(p.end)}} · {{p.location}}</div>{% if p.note %}<div class="t3 sm">{{p.note}}</div>{% endif %}</div>
+<div class="t2 sm">{{fmt_t(p.start)}}–{{fmt_t(p.end)}} · {{p.location}}</div>
+{% if x.coach_names %}<div class="t2 sm">Coaches: {{ x.coach_names|join(', ') }}</div>{% endif %}
+{% if p.note %}<div class="t3 sm">{{p.note}}</div>{% endif %}</div>
 <div>{% if p.cancelled %}{{ st('bad','Cancelled') }}{% else %}<button type=button class=gobtn aria-expanded=false aria-controls=who{{p.id}}
  onclick="const w=document.getElementById('who{{p.id}}');w.hidden=!w.hidden;this.setAttribute('aria-expanded',!w.hidden)">{{x.going|length}} going</button>{% endif %}</div></div>
 {% if not p.cancelled %}<div id=who{{p.id}} class="t2 sm" hidden style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
@@ -332,6 +336,9 @@ T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">T
 {% if me().is_admin %}<details style="margin:4px -18px -18px"><summary class="t3 sm">Edit practice</summary><form method=post style="padding:0 18px 18px">{{csrf_field()}}<input type=hidden name=pid value={{p.id}}>
 <div class=row><label>Start<input type=time name=start value={{p.start}}></label><label>End<input type=time name=end value={{p.end}}></label></div>
 <label>Location<input name=location value="{{p.location}}"></label><label>Note<input name=note value="{{p.note or ''}}"></label>
+<div class=checks><div class="t3 xs">Coaches</div>
+{% for c in coach_choices %}<label><input type=checkbox name=coach value="{{c.id}}" {% if c.id in x.coach_ids %}checked{% endif %}>{{display_first(c)}} {{c.last}}</label>
+{% else %}<p class="t3 sm">No coaches yet. Add them on Roles.</p>{% endfor %}</div>
 <div class=row><button name=action value=edit>Save</button>{% if p.cancelled %}<button name=action value=restore>Restore</button>{% else %}<button class=danger name=action value=cancel>Cancel practice</button>{% endif %}</div>
 <a class="btn quiet full" href="/admin?date={{p.date}}" style="margin-top:6px">Open check-in</a></form></details>{% endif %}</div>{% endfor %}
 {% if me().is_admin %}<details class=card><summary>Add a practice</summary><form method=post class=body>{{csrf_field()}}<label>Date<input type=date name=date required></label>

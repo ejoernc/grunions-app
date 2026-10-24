@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS member_reqs(member_id INTEGER, req_id INTEGER, comple
 CREATE TABLE IF NOT EXISTS practices(id INTEGER PRIMARY KEY, date TEXT NOT NULL, start TEXT DEFAULT '19:00', end TEXT DEFAULT '20:30',
   location TEXT, note TEXT, cancelled INTEGER DEFAULT 0, UNIQUE(date, location));
 CREATE TABLE IF NOT EXISTS rsvps(practice_id INTEGER, member_id INTEGER, going INTEGER, at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(practice_id, member_id));
+CREATE TABLE IF NOT EXISTS practice_coaches(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id));
 CREATE TABLE IF NOT EXISTS verify_requests(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), name TEXT, email TEXT,
   member_number TEXT, requested_by TEXT, status TEXT DEFAULT 'pending', created TEXT, answered TEXT, result TEXT, note TEXT, webhook TEXT);
 CREATE TABLE IF NOT EXISTS reactions(message_id INTEGER, member_id INTEGER, emoji TEXT, PRIMARY KEY(message_id, member_id, emoji));
@@ -474,11 +475,12 @@ def home():
     nextp_n = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (nextp["id"],)).fetchone()[0] if nextp else 0
     nextp_mine = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (nextp["id"], m["id"])).fetchone() if nextp else None
     nextp_mine = nextp_mine[0] if nextp_mine else None
+    next_coaches = ", ".join(coach_labels(practice_coach_rows(d, [nextp["id"]]).get(nextp["id"], []))) if nextp else ""
     notices = d.execute("SELECT * FROM notices WHERE member_id=? AND seen=0 ORDER BY id DESC", (m["id"],)).fetchall()
     d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (m["id"],)); d.commit()
     ann = d.execute("SELECT m.*, p.first, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id WHERE announcement=1 AND channel='team' AND COALESCE(m.deleted,0)=0 ORDER BY m.id DESC LIMIT 1").fetchone()
     vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
-    return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, vr_pending=vr_pending)
+    return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, vr_pending=vr_pending)
 
 # ---------- unread badges ----------
 def empty_unread():
@@ -681,6 +683,40 @@ def ensure_schedule(d, weeks=4):
 def fmt_t(t): h, m = map(int, t.split(":")); return f"{(h-1)%12+1}:{m:02d}{'pm' if h>=12 else 'am'}"
 def fmt_d(s):
     d = dt.date.fromisoformat(s); return d.strftime("%a %b ") + str(d.day)
+def coach_candidates(d):
+    """People who can be assigned to a practice: coaches, and admins (an admin's role is coach)."""
+    return d.execute("""SELECT id, first, last, preferred_first FROM members
+        WHERE COALESCE(role,'')!='system' AND (role='coach' OR is_admin=1)
+        ORDER BY lower(CASE WHEN trim(COALESCE(preferred_first,''))!='' THEN preferred_first ELSE first END), lower(last), id""").fetchall()
+def coach_labels(rows):
+    """First names for the schedule, A–Z. A shared first name keeps the last initial."""
+    rows = sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
+    folded = [display_first(r).casefold() for r in rows]
+    out = []
+    for r, fold in zip(rows, folded):
+        name = display_first(r)
+        if folded.count(fold) > 1 and r["last"]: name = "%s %s." % (name, r["last"][:1])
+        out.append(name)
+    return out
+def practice_coach_rows(d, pids):
+    out = {pid: [] for pid in pids}
+    if not pids: return out
+    marks = ",".join("?" * len(pids))
+    for r in d.execute("""SELECT pc.practice_id AS pid, m.id, m.first, m.last, m.preferred_first
+        FROM practice_coaches pc JOIN members m ON m.id=pc.member_id
+        WHERE pc.practice_id IN (%s) AND COALESCE(m.role,'')!='system' AND (m.role='coach' OR m.is_admin=1)""" % marks, tuple(pids)):
+        out[r["pid"]].append(r)
+    return out
+def save_practice_coaches(d, pid, raw):
+    """Replace the assigned coaches. Ids that are not a coach or admin are ignored."""
+    allowed = {r["id"] for r in coach_candidates(d)}
+    chosen = []
+    for x in raw or []:
+        try: i = int(x)
+        except (TypeError, ValueError): continue
+        if i in allowed and i not in chosen: chosen.append(i)
+    d.execute("DELETE FROM practice_coaches WHERE practice_id=?", (pid,))
+    if chosen: d.executemany("INSERT INTO practice_coaches(practice_id, member_id) VALUES(?,?)", [(pid, i) for i in chosen])
 app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d)
 @app.route("/practices", methods=["GET", "POST"])
 @login_required
@@ -699,6 +735,7 @@ def practices():
             old = d.execute("SELECT start, end, location, note FROM practices WHERE id=?", (pid,)).fetchone()
             start, end, loc, note = request.form["start"], request.form["end"], request.form["location"], request.form.get("note")
             d.execute("UPDATE practices SET start=?, end=?, location=?, note=? WHERE id=?", (start, end, loc, note, pid))
+            save_practice_coaches(d, pid, request.form.getlist("coach"))
             if old and (old["start"], old["end"], old["location"], old["note"] or "") != (start, end, loc, note or ""):
                 flag_practice(d, pid, "change", me()["id"])
         elif a in ("cancel", "restore") and pid:
@@ -720,12 +757,14 @@ def practices():
         return redirect("/home" if "/home" in (request.referrer or "") else "/practices#p%s" % (pid or ""))
     ps = d.execute("SELECT * FROM practices WHERE " + upcoming_where() + " ORDER BY date, start LIMIT 16", upcoming_bounds()).fetchall()
     unseen = unread_for_me()["practices"]
+    assigned = practice_coach_rows(d, [p["id"] for p in ps])
     data = []
     for p in ps:
         rv = d.execute("SELECT r.going, m.first, m.last, m.preferred_first, m.id FROM rsvps r JOIN members m ON m.id=r.member_id WHERE practice_id=? ORDER BY m.first", (p["id"],)).fetchall()
         mine = next((r["going"] for r in rv if r["id"] == me()["id"]), None)
-        data.append(dict(p=p, going=[r for r in rv if r["going"]], notgoing=[r for r in rv if not r["going"]], mine=mine, unseen=unseen.get(str(p["id"]), 0)))
-    return page(T["practices"], tab="practices", data=data)
+        coaches = assigned.get(p["id"], [])
+        data.append(dict(p=p, going=[r for r in rv if r["going"]], notgoing=[r for r in rv if not r["going"]], mine=mine, unseen=unseen.get(str(p["id"]), 0), coach_ids={c["id"] for c in coaches}, coach_names=coach_labels(coaches)))
+    return page(T["practices"], tab="practices", data=data, coach_choices=coach_candidates(d))
 @app.route("/api/unread")
 @login_required
 def api_unread():

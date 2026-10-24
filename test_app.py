@@ -650,3 +650,29 @@ cols2 = [r[1] for r in od.execute("PRAGMA table_info(messages)")]
 kept = od.execute("SELECT body, deleted FROM messages").fetchone()
 od.close(); os.remove(oldp)
 ok(cols == cols2 and set(("channel", "image", "edited_at", "deleted")) <= set(cols) and kept[0] == "kept" and kept[1] == 0, "migrate_messages adds chat columns once and keeps existing rows")
+
+# practice coaches: several checkboxes, shown to every member
+D.execute("UPDATE members SET preferred_first='Sam' WHERE email='john@example.com'"); D.commit()
+eli_id = D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0]
+john_id = D.execute("SELECT id FROM members WHERE email='john@example.com'").fetchone()[0]
+jane_id = D.execute("SELECT id FROM members WHERE email='jane@example.com'").fetchone()[0]
+prow = D.execute("SELECT id, start, end, location, COALESCE(note,'') FROM practices WHERE cancelled=0 AND " + A.upcoming_where() + " ORDER BY date, start LIMIT 1", A.upcoming_bounds()).fetchone()
+pid, pstart, pend, ploc, pnote = prow
+base = dict(csrf=csrf(eli, "/practices"), pid=pid, action="edit", start=pstart, end=pend, location=ploc, note=pnote)
+ok("Coaches:" not in jane.get("/practices").get_data(as_text=True) and "name=coach" not in jane.get("/practices").get_data(as_text=True), "a practice with no coaches has no coaches line, and members have no picker")
+eli.post("/practices", data=dict(base, coach=[str(eli_id), str(john_id), str(jane_id)]))
+sched, home, staff, coachpg = jane.get("/practices").get_data(as_text=True), jane.get("/home").get_data(as_text=True), eli.get("/practices").get_data(as_text=True), john.get("/practices").get_data(as_text=True)
+ok("Coaches: Eli, Sam" in sched and "Coaches: Eli, Sam" in home and "Coaches: Eli, Sam" in coachpg and "Coaches: Eli, Sam" in staff, "assigned coaches show on every schedule card and on home")
+ok(('name=coach value="%d" checked' % eli_id) in staff and ('name=coach value="%d" checked' % john_id) in staff and ('name=coach value="%d"' % jane_id) not in staff and "<select name=coach" not in staff and "name=coach" not in sched and "name=coach" not in coachpg, "edit practice is a checkbox per coach, and only an admin gets that list")
+ok(jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=pid, action="edit", start=pstart, end=pend, location=ploc, note=pnote, coach=str(jane_id))).status_code == 403 and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? ORDER BY member_id", (pid,)).fetchall() == [(eli_id,), (john_id,)], "a member cannot change practice coaches, and a non-coach is not stored")
+eli.post("/practices", data=dict(base, coach=[str(john_id)]))
+ok("Coaches: Sam" in jane.get("/practices").get_data(as_text=True) and "Coaches: Eli, Sam" not in jane.get("/practices").get_data(as_text=True) and "Coaches: Sam" in jane.get("/home").get_data(as_text=True), "unchecking a coach removes that name from the card")
+eli.post("/practices", data=base)
+ok("Coaches:" not in jane.get("/practices").get_data(as_text=True) and "Coaches:" not in jane.get("/home").get_data(as_text=True), "clearing every coach checkbox removes the line")
+oldp = tempfile.mktemp(suffix=".db")
+od = sqlite3.connect(oldp)
+od.execute("CREATE TABLE members(id INTEGER PRIMARY KEY, first TEXT)")
+od.commit(); od.executescript(A.SCHEMA); od.executescript(A.SCHEMA)
+ccols = [r[1] for r in od.execute("PRAGMA table_info(practice_coaches)")]
+od.close(); os.remove(oldp)
+ok(ccols == ["practice_id", "member_id"], "an existing database gains the practice coach table")
