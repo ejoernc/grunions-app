@@ -28,6 +28,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 cursor:pointer;text-decoration:none;background:var(--surface2);color:var(--t1)}.btn.primary,button.primary{background:var(--accent);color:#fff}
 .btn.quiet,button.quiet{background:none;color:var(--t2);padding:0 8px}.btn.danger,button.danger{background:none;color:var(--bad)}
 .btn.compact,button.compact{height:40px;padding:0 14px;font-size:15px}.full{width:100%}.row{display:flex;gap:10px}.row>*{flex:1}
+.coach-tag{display:inline-block;margin-left:6px;padding:0 7px;border-radius:999px;border:1px solid var(--line);color:var(--t2);font-size:12px;font-weight:600;line-height:20px;vertical-align:1px;white-space:nowrap}
 .st{display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--t2);white-space:nowrap}
 .st::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--t3)}.st-ok::before{background:var(--ok)}.st-bad::before{background:var(--bad)}.st-warn::before{background:var(--warn)}.st-trial::before{background:var(--ok)}
 .row.wrap{flex-wrap:wrap}
@@ -78,6 +79,7 @@ nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;fill:none;
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
+{% macro coach_tag(m) %}{% if usawp_coach_badge(m) %}<span class=coach-tag>USAWP coach</span>{% endif %}{% endmacro %}
 <header><a class=brand href=/>Grunions</a>{% if me() %}<a class=sub href=/logout>Log out</a>{% endif %}</header><main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
@@ -170,6 +172,7 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 {% elif cl.ok and tw and tw.active and m.usawp_status != 'verified' %}<div style="font-size:19px;font-weight:600">Cleared to play</div>{{ st('trial', trial_badge(tw)) }}
 {% elif cl.ok %}<div style="font-size:19px;font-weight:600">Cleared to play</div>{{ st('ok','Cleared') }}
 {% else %}<div style="font-size:19px;font-weight:600">Not cleared to play</div>{{ st('bad','Not cleared') }}{% endif %}</div>
+{% if usawp_coach_badge(m) %}<div style="margin-top:8px">{{ coach_tag(m) }}</div>{% endif %}
 {% if not cl.ok %}{% if not vr_pending %}{% for line in ex.lines %}<p class="sm" style="margin:8px 0 0">{{line}}</p>{% endfor %}{% elif ex.safesport %}<p class="sm" style="margin:8px 0 0">SafeSport expired {{ex.safesport}}</p>{% endif %}
 {% if ex.rest %}<p class="t2 sm" style="margin:8px 0 0">Needs: {{ex.rest|join(', ')}}</p>{% endif %}{% endif %}
 {% if tw and tw.active and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<p class="sm" style="margin:8px 0 0">Ends {{tw.ends}}</p>{% elif tw and tw.expired and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<p class="sm" style="margin:8px 0 0">Trial ended {{tw.ends}}</p>{% endif %}
@@ -338,7 +341,7 @@ T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">T
 <label>Location<input name=location value="{{p.location}}"></label><label>Note<input name=note value="{{p.note or ''}}"></label>
 <div class=checks><div class="t3 xs">Coaches</div>
 {% for c in coach_choices %}<label><input type=checkbox name=coach value="{{c.id}}" {% if c.id in x.coach_ids %}checked{% endif %}>{{display_first(c)}} {{c.last}}</label>
-{% else %}<p class="t3 sm">No coaches yet. Add them on Roles.</p>{% endfor %}</div>
+{% else %}<p class="t3 sm">No one on the coaching list yet. Add them on Roles.</p>{% endfor %}</div>
 <div class=row><button name=action value=edit>Save</button>{% if p.cancelled %}<button name=action value=restore>Restore</button>{% else %}<button class=danger name=action value=cancel>Cancel practice</button>{% endif %}</div>
 <a class="btn quiet full" href="/admin?date={{p.date}}" style="margin-top:6px">Open check-in</a></form></details>{% endif %}</div>{% endfor %}
 {% if me().is_admin %}<details class=card><summary>Add a practice</summary><form method=post class=body>{{csrf_field()}}<label>Date<input type=date name=date required></label>
@@ -350,7 +353,7 @@ T["admin"] = ADMIN_NAV + """
 <h1 style="margin:20px 0 4px">{{loc}}</h1><p class="t2 sm">{{fmt_d(date)}} · {{n}} checked in{% if pr %} · {{rsvp_n}} RSVP'd{% else %} · no practice scheduled{% endif %}</p>
 {% macro ci(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}
 <div class=li><button type=button class=ci-name onclick="this.closest('.li').nextElementSibling.toggleAttribute('hidden')">
-<div class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</div>
+<div style="display:flex;align-items:center;min-width:0;font-weight:500"><span class=ell>{{display_first(r)}} {{r.last}}</span>{{ coach_tag(r) }}</div>
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{{ st('trial', trial_badge(tw)) }}<div class="t3 xs">Ends {{tw.ends}}</div>
 {% elif not cl.ok %}{{ st('bad','Not cleared') }}{% elif dl is not none and dl <= EXPIRING_DAYS %}{{ st('warn','Expires in %dd' % dl) }}{% else %}{{ st('ok','Cleared') }}{% endif %}
 {% if tw and tw.expired and r.usawp_status != 'verified' %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}
@@ -406,7 +409,7 @@ T["export_page"] = ADMIN_NAV + """<h1>Export</h1>
 
 T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-between;align-items:baseline"><h1>Members</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
 <p class="t2 sm">{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}</p>
-<div class=list>{% for r in rows %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow><div class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</div>
+<div class=list>{% for r in rows %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow><div style="display:flex;align-items:center;min-width:0;font-weight:500"><span class=ell>{{display_first(r)}} {{r.last}}</span>{{ coach_tag(r) }}</div>
 <div class="t3 xs ell">{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices{% if r.usawp_verified_by %} · verified by {{r.usawp_verified_by}} {{r.usawp_verified_at[:10]}}{% endif %}</div></div>
 <div style="text-align:right">{{ usawp(r.usawp_status) }}{% if r.usawp_valid_until %}<div class="t3 xs">thru {{r.usawp_valid_until}}</div>{% endif %}
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">{{ st('trial', trial_badge(tw)) }}</div><div class="t3 xs">Ends {{tw.ends}}</div>{% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}</div></div>{% endfor %}</div>"""
@@ -439,16 +442,20 @@ T["import_page"] = ADMIN_NAV + """<h1>Sport:80 import</h1>
 <form method=post enctype=multipart/form-data>{{csrf_field()}}<input type=file name=file accept=".csv,.xlsx" style="padding:11px 14px"><button class="primary full" style="margin-top:12px">Import</button></form>
 {% if stats %}<div class=note style="margin-top:16px">Read {{stats.rows}} rows · updated {{stats.matched}} members · {{stats.req_updates or 0}} compliance items · {{stats.unmatched|length}} roster rows not in the app</div>
 {% if stats.unmatched %}<details class=card><summary>Not signed up in the app</summary><div class=body>{% for u in stats.unmatched %}<div class="kv t2">{{u}}</div>{% endfor %}</div></details>{% endif %}{% endif %}
-<p class="t3 xs" style="margin-top:16px">Matching uses email first, then exact legal first and last name. An optional Preferred First Name column is stored as the name shown in the app and is not used for matching.</p>"""
+<p class="t3 xs" style="margin-top:16px">Matching uses email first, then exact legal first and last name. An optional Preferred First Name column is stored as the name shown in the app and is not used for matching. A Membership Type or Member Type column adds USAWP coaches to the coaching list.</p>"""
 
 T["qr_page"] = ADMIN_NAV + """<div style="text-align:center"><h1>New to Grunions? Scan to join.</h1>
 <div style="background:#fff;border-radius:16px;padding:18px;display:inline-block"><img src=/qr.svg alt="Sign-up QR code" style="width:min(70vw,380px);display:block"></div>
 <p class="t3 sm" style="margin-top:12px">{{u}}</p><button class="primary noprint" onclick=print()>Print</button></div>"""
 
-T["admins"] = ADMIN_NAV + """<h1>Roles</h1><p class="t2 sm">{{n_admins}} admin{{'s' if n_admins!=1}} · admins manage everything; coaches get check-in and #coaches. There must always be at least one admin.</p>
-<div class=list>{% for r in rows %}<div class=li><div class=grow><div class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}{% if r.id==me().id %} <span class="t3 xs">(you)</span>{% endif %}</div>
-<div class="t3 xs ell">{{r.email}} · {{role_label(r)}}{% if r.email in boot %} · set by ADMIN_EMAIL{% endif %}</div></div>
+T["admins"] = ADMIN_NAV + """<h1>Roles</h1><p class="t2 sm">{{n_admins}} admin{{'s' if n_admins!=1}} · admins manage everything. Make coach gives check-in and coaches chat, and Remove coach takes them away. The coaching list is who can be assigned to a practice. It does not grant those tools. There must always be at least one admin.</p>
+<div class=list>{% for r in rows %}<div class=li style="flex-wrap:wrap;align-items:flex-start"><div class=grow><div style="font-weight:500">{{display_first(r)}} {{r.last}}{% if r.id==me().id %} <span class="t3 xs">(you)</span>{% endif %}{{ coach_tag(r) }}</div>
+<div class="t3 xs ell">{{r.email}} · {{role_label(r)}}{% if r.email in boot %} · set by ADMIN_EMAIL{% endif %}{% if r.id in listed %} · coaching list{% endif %}</div></div>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
 <form method=post class=row style="flex:0 0 auto;gap:6px;margin:0">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}>
 {% if r.role=='coach' %}<button class=compact name=action value=remove_coach>Remove coach</button>{% else %}<button class=compact name=action value=make_coach>Make coach</button>{% endif %}
 {% if r.is_admin %}<button class=compact name=action value=remove_admin {{'disabled title="Last admin"' if n_admins<=1 else ('disabled title="Set by ADMIN_EMAIL"' if r.email in boot else '')}}>Remove admin</button>{% else %}<button class="compact primary" name=action value=make_admin>Make admin</button>{% endif %}
-</form></div>{% endfor %}</div>"""
+</form>
+<form method=post style="margin:0">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}>
+{% if r.id in listed %}<button class=compact name=action value=remove_coaching>Remove from coaching list</button>{% else %}<button class=compact name=action value=add_coaching>Add to coaching list</button>{% endif %}
+</form></div></div>{% endfor %}</div>"""

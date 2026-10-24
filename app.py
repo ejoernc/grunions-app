@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS practices(id INTEGER PRIMARY KEY, date TEXT NOT NULL,
   location TEXT, note TEXT, cancelled INTEGER DEFAULT 0, UNIQUE(date, location));
 CREATE TABLE IF NOT EXISTS rsvps(practice_id INTEGER, member_id INTEGER, going INTEGER, at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(practice_id, member_id));
 CREATE TABLE IF NOT EXISTS practice_coaches(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id));
+CREATE TABLE IF NOT EXISTS coaching_list(member_id INTEGER PRIMARY KEY, source TEXT NOT NULL DEFAULT 'manual', at TEXT);
 CREATE TABLE IF NOT EXISTS verify_requests(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), name TEXT, email TEXT,
   member_number TEXT, requested_by TEXT, status TEXT DEFAULT 'pending', created TEXT, answered TEXT, result TEXT, note TEXT, webhook TEXT);
 CREATE TABLE IF NOT EXISTS reactions(message_id INTEGER, member_id INTEGER, emoji TEXT, PRIMARY KEY(message_id, member_id, emoji));
@@ -112,7 +113,7 @@ def migrate_members(d):
     for c, t in (("is_admin", "INTEGER DEFAULT 0"), ("role", "TEXT DEFAULT 'athlete'"), ("usawp_verified_by", "TEXT"),
                  ("usawp_verified_at", "TEXT"), ("sport80_contact_id", "TEXT"), ("preferred_first", "TEXT"),
                  ("trial_acknowledged_at", "TEXT"), ("notify_prefs", "TEXT"),
-                 ("email_reminders", "INTEGER DEFAULT 1")):
+                 ("email_reminders", "INTEGER DEFAULT 1"), ("membership_type", "TEXT")):
         if c not in cols: d.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
 def migrate_messages(d):
     """Add chat columns missing from a database created by an older version (production SQLite on DATA_DIR)."""
@@ -286,7 +287,33 @@ def admin_required(f):
 def is_staff(m=None):
     m = m or me(); return bool(m and (m["is_admin"] or m["role"] == "coach"))
 def role_label(m): return "admin" if m["is_admin"] else ("coach" if m["role"] == "coach" else "member")
-app.jinja_env.globals.update(is_staff=is_staff, role_label=role_label)
+_COACH_WORD = re.compile(r"\bcoach\b", re.IGNORECASE)
+def is_coach_membership(text):
+    """USAWP Coach membership. The word coach counts; coaches and coaching do not."""
+    return bool(text and _COACH_WORD.search(str(text)))
+def screenings_current(d, mid):
+    """Background screening and SafeSport are current when each expiry date is today or later."""
+    today = today_pt().isoformat(); found = {}
+    for name, keywords, exp in d.execute("""SELECT q.name, q.keywords, x.expires_on FROM member_reqs x
+            JOIN requirements q ON q.id=x.req_id WHERE x.member_id=?""", (mid,)):
+        if not exp: continue
+        blob = ((name or "") + " " + (keywords or "")).lower()
+        for key in ("safesport", "background"):
+            day = str(exp)[:10]
+            if key in blob and (key not in found or day > found[key]): found[key] = day
+    return bool(found.get("safesport") and found["safesport"] >= today and found.get("background") and found["background"] >= today)
+def usawp_coach_badge(m):
+    """On the coaching list from a USAWP coach membership, with both screenings current."""
+    if not m: return False
+    try: mid = m["id"]; keys = m.keys()
+    except (TypeError, KeyError, IndexError): return False
+    d = db()
+    row = d.execute("SELECT source FROM coaching_list WHERE member_id=?", (mid,)).fetchone()
+    if not row: return False
+    mtype = m["membership_type"] if "membership_type" in keys else None
+    if row["source"] != "usawp" and not is_coach_membership(mtype): return False
+    return screenings_current(d, mid)
+app.jinja_env.globals.update(is_staff=is_staff, role_label=role_label, usawp_coach_badge=usawp_coach_badge)
 def staff_required(f):
     @functools.wraps(f)
     def w(*a, **k):
@@ -683,11 +710,25 @@ def ensure_schedule(d, weeks=4):
 def fmt_t(t): h, m = map(int, t.split(":")); return f"{(h-1)%12+1}:{m:02d}{'pm' if h>=12 else 'am'}"
 def fmt_d(s):
     d = dt.date.fromisoformat(s); return d.strftime("%a %b ") + str(d.day)
+def add_coaching(d, mid, source):
+    d.execute("""INSERT INTO coaching_list(member_id, source, at) VALUES(?,?,?)
+        ON CONFLICT(member_id) DO UPDATE SET source=excluded.source, at=excluded.at""", (mid, source, stamp_pt("minutes")))
+def drop_usawp_coaching(d, mid):
+    d.execute("DELETE FROM coaching_list WHERE member_id=? AND source='usawp'", (mid,))
+def apply_membership_type(d, mid, membership_type, update_list):
+    """Store the USAWP membership type. Change the coaching list only when update_list is set."""
+    text = str(membership_type or "").strip()[:120]
+    if not text: return
+    d.execute("UPDATE members SET membership_type=? WHERE id=?", (text, mid))
+    if not update_list: return
+    if is_coach_membership(text): add_coaching(d, mid, "usawp")
+    else: drop_usawp_coaching(d, mid)
 def coach_candidates(d):
-    """People who can be assigned to a practice: coaches, and admins (an admin's role is coach)."""
-    return d.execute("""SELECT id, first, last, preferred_first FROM members
-        WHERE COALESCE(role,'')!='system' AND (role='coach' OR is_admin=1)
-        ORDER BY lower(CASE WHEN trim(COALESCE(preferred_first,''))!='' THEN preferred_first ELSE first END), lower(last), id""").fetchall()
+    """People who can be assigned to a practice: the coaching list, not coach access."""
+    return d.execute("""SELECT m.id, m.first, m.last, m.preferred_first FROM members m
+        JOIN coaching_list c ON c.member_id=m.id
+        WHERE COALESCE(m.role,'')!='system'
+        ORDER BY lower(CASE WHEN trim(COALESCE(m.preferred_first,''))!='' THEN m.preferred_first ELSE m.first END), lower(m.last), m.id""").fetchall()
 def coach_labels(rows):
     """First names for the schedule, A–Z. A shared first name keeps the last initial."""
     rows = sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
@@ -704,11 +745,12 @@ def practice_coach_rows(d, pids):
     marks = ",".join("?" * len(pids))
     for r in d.execute("""SELECT pc.practice_id AS pid, m.id, m.first, m.last, m.preferred_first
         FROM practice_coaches pc JOIN members m ON m.id=pc.member_id
-        WHERE pc.practice_id IN (%s) AND COALESCE(m.role,'')!='system' AND (m.role='coach' OR m.is_admin=1)""" % marks, tuple(pids)):
+        JOIN coaching_list c ON c.member_id=m.id
+        WHERE pc.practice_id IN (%s) AND COALESCE(m.role,'')!='system'""" % marks, tuple(pids)):
         out[r["pid"]].append(r)
     return out
 def save_practice_coaches(d, pid, raw):
-    """Replace the assigned coaches. Ids that are not a coach or admin are ignored."""
+    """Replace the assigned coaches. Ids that are not on the coaching list are ignored."""
     allowed = {r["id"] for r in coach_candidates(d)}
     chosen = []
     for x in raw or []:
@@ -862,6 +904,8 @@ def api_verify_result(rid):
         d.execute("""INSERT INTO member_reqs VALUES(?,?,?,?,'bot','Grunions bot',?) ON CONFLICT(member_id,req_id) DO UPDATE SET
           expires_on=excluded.expires_on, completed_on=COALESCE(completed_on,excluded.completed_on), source='bot', by='Grunions bot', at=excluded.at""",
           (mid, q["id"], today_pt().isoformat(), e.isoformat(), now)); applied.append(q["name"])
+    mtype = j.get("membership_type")
+    if isinstance(mtype, str) and mtype.strip(): apply_membership_type(d, mid, mtype, bool(j["verified"]))
     note = (str(j.get("note") or "")[:500]) or None
     d.execute("UPDATE verify_requests SET status='done', answered=?, result=?, note=? WHERE id=?", (now, json.dumps(j), note, rid))
     expire_sweep(d)
@@ -992,10 +1036,13 @@ def admins():
             d.execute("UPDATE members SET is_admin=0 WHERE id=?", (mid,))
         elif act == "make_coach": d.execute("UPDATE members SET role='coach' WHERE id=?", (mid,))
         elif act == "remove_coach": d.execute("UPDATE members SET role='athlete' WHERE id=?", (mid,))
+        elif act == "add_coaching": add_coaching(d, mid, "manual")
+        elif act == "remove_coaching": d.execute("DELETE FROM coaching_list WHERE member_id=?", (mid,))
         else: abort(400)
         d.commit(); flash(f"Updated {display_first(m)} {m['last']}."); return redirect("/admins")
     rows = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY is_admin DESC, role='coach' DESC, last, first").fetchall()
-    return page(T["admins"], tab="admin", rows=rows, n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS)
+    listed = {r[0] for r in d.execute("SELECT member_id FROM coaching_list")}
+    return page(T["admins"], tab="admin", rows=rows, n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS, listed=listed)
 
 @app.route("/members")
 @admin_required
@@ -1132,6 +1179,7 @@ ALIASES = {  # normalized header -> field. Sport:80 Smart List columns vary by c
     "number": ["idnumber", "usawpnumber", "membernumber", "membershipnumber", "membershipid", "memberid", "usawpid", "individualmembershipmembernumber"],
     "contact": ["contactid", "sportcontactid", "profileid"],
     "valid": ["validuntil", "membershipexpirydate", "membershipexpirationdate", "membershipvaliduntil", "expiry", "validthrough", "expirydate", "expirationdate", "expires", "enddate", "individualmembershipvaliduntil", "individualmembershipexpirydate"],
+    "mtype": ["membertype", "membershiptype", "individualmembershiptype", "membershiptypename"],
 }
 EXCLUDE_KW = [k for r in DEFAULT_REQS for k in r[2].split(",")]
 def map_headers(headers):
@@ -1196,6 +1244,7 @@ def import_roster(fname, data):
             first, last = parts[0], parts[-1] if len(parts) > 1 else ""
         email = str(cell(r, "email") or "").strip().lower()
         raw = str(cell(r, "status") or "").strip(); valid = parse_date(cell(r, "valid"))
+        mtype = str(cell(r, "mtype") or "").strip() if "mtype" in hm else ""
         mid = by_email.get(email) if email else None
         if not mid:
             ids = by_name.get(norm(first) + "|" + norm(last), [])
@@ -1216,10 +1265,11 @@ def import_roster(fname, data):
         if st == "unknown" and not raw and valid and valid >= today_pt(): st = "verified"  # no status column: future expiry = current
         rank = {"verified": 3, "pending": 2, "expired": 1, "unknown": 0}[st]
         if mid not in best or rank > best[mid][0]:  # keep best status if someone appears twice
-            best[mid] = (rank, st, raw, str(cell(r, "number") or ""), valid.isoformat() if valid else None)
-    for mid, (_, st, raw, num, valid) in best.items():
+            best[mid] = (rank, st, raw, str(cell(r, "number") or ""), valid.isoformat() if valid else None, mtype)
+    for mid, (_, st, raw, num, valid, mtype) in best.items():
         d.execute("UPDATE members SET usawp_status=?,usawp_raw=?,usawp_number=?,usawp_valid_until=COALESCE(?,usawp_valid_until),usawp_updated=? WHERE id=?", (st, raw, num, valid, now, mid))
         if st == "verified": d.execute("UPDATE members SET usawp_verified_by='Sport:80 import', usawp_verified_at=? WHERE id=?", (now, mid))
+        if mtype: apply_membership_type(d, mid, mtype, True)
     expire_sweep(d)
     d.commit(); stats["matched"] = len(best); return stats
 

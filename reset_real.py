@@ -21,13 +21,14 @@ def main():
         if input("Type RESET to continue: ").strip() != "RESET": print("Cancelled."); sys.exit(1)
     with A.app.app_context():
         d = A.db()
-        for t in ("reactions", "messages", "chat_reads", "practice_notices", "practice_coaches", "checkins", "rsvps", "verify_requests", "notices", "sent_notices", "push_subscriptions", "login_tokens", "usawp_submits", "member_reqs", "members"):
+        for t in ("reactions", "messages", "chat_reads", "practice_notices", "practice_coaches", "coaching_list", "checkins", "rsvps", "verify_requests", "notices", "sent_notices", "push_subscriptions", "login_tokens", "usawp_submits", "member_reqs", "members"):
             d.execute(f"DELETE FROM {t}")
         d.execute("DELETE FROM practices WHERE location NOT IN (%s)" % ",".join("?" * len(REAL_LOCATIONS)), tuple(REAL_LOCATIONS))
         now = A.stamp_pt("minutes")
         mid = d.execute("""INSERT INTO members(first,last,email,phone,is_admin,role,usawp_status,usawp_raw,usawp_number,usawp_valid_until,
-            usawp_updated,usawp_verified_by,usawp_verified_at) VALUES(?,?,?,'',1,'coach','verified','Current (Individual Membership, Coach)',?,?,?,'Sport:80 lookup',?)""",
+            usawp_updated,usawp_verified_by,usawp_verified_at,membership_type) VALUES(?,?,?,'',1,'coach','verified','Current (Individual Membership, Coach)',?,?,?,'Sport:80 lookup',?,'Individual Membership, Coach')""",
             (ELLIOTT["first"], ELLIOTT["last"], ELLIOTT["email"], ELLIOTT["number"], ELLIOTT["membership"], now, now)).lastrowid
+        d.execute("INSERT INTO coaching_list(member_id, source, at) VALUES(?, 'usawp', ?)", (mid, now))
         for q in d.execute("SELECT id, keywords FROM requirements").fetchall():
             for kw, exp in COMPLIANCE.items():
                 if kw in (q["keywords"] or ""):

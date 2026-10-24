@@ -77,6 +77,8 @@ def test_reset_real():
     assert db.execute("SELECT COUNT(*) FROM requirements WHERE lower(name) LIKE '%waiver%' OR lower(ifnull(keywords,'')) LIKE '%waiver%'").fetchone()[0] == 0
     reqs = dict(db.execute("SELECT q.name, x.expires_on FROM member_reqs x JOIN requirements q ON q.id=x.req_id").fetchall())
     assert reqs["SafeSport training"] == "2027-05-11" and reqs["Background screening"] == "2028-08-28"
+    assert db.execute("SELECT membership_type FROM members WHERE email='elliott.joern@gmail.com'").fetchone()[0] == "Individual Membership, Coach"
+    assert db.execute("SELECT source FROM coaching_list").fetchone()[0] == "usawp"
     locs = {r[0] for r in db.execute("SELECT location FROM practices")}; assert locs == {"Marina High School", "Westminster High School"}
     assert os.listdir(up) == []
 def test_reset_requires_confirmation():
