@@ -710,6 +710,37 @@ def ensure_schedule(d, weeks=4):
 def fmt_t(t): h, m = map(int, t.split(":")); return f"{(h-1)%12+1}:{m:02d}{'pm' if h>=12 else 'am'}"
 def fmt_d(s):
     d = dt.date.fromisoformat(s); return d.strftime("%a %b ") + str(d.day)
+_MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+def practice_days(d):
+    return [r["date"] for r in d.execute("SELECT DISTINCT date FROM practices WHERE cancelled=0 ORDER BY date").fetchall()]
+def default_checkin_date(days, today=None):
+    """Today's practice if there is one, otherwise the next one, otherwise the most recent."""
+    today = (today or today_pt()).isoformat()
+    if today in days: return today
+    for day in days:
+        if day > today: return day
+    return days[-1] if days else today
+def neighbor_practice(days, date, step):
+    if date in days:
+        i = days.index(date) + step
+        return days[i] if 0 <= i < len(days) else None
+    earlier = [x for x in days if x < date]
+    later = [x for x in days if x > date]
+    if step < 0: return earlier[-1] if earlier else None
+    return later[0] if later else None
+def checkin_month(date_iso, days):
+    """Sunday-first month grid. Cells are None (leading blank) or day dicts."""
+    try: cur = dt.date.fromisoformat(date_iso)
+    except ValueError: cur = today_pt()
+    first = cur.replace(day=1)
+    nxt = dt.date(first.year + 1, 1, 1) if first.month == 12 else dt.date(first.year, first.month + 1, 1)
+    have = set(days or [])
+    cells, day = [None] * ((first.weekday() + 1) % 7), first
+    while day < nxt:
+        iso = day.isoformat()
+        cells.append({"iso": iso, "day": day.day, "has": iso in have, "on": iso == date_iso})
+        day += dt.timedelta(days=1)
+    return {"label": _MONTHS[first.month - 1] + " " + str(first.year), "ym": "%04d-%02d" % (first.year, first.month), "cells": cells}
 def add_coaching(d, mid, source):
     d.execute("""INSERT INTO coaching_list(member_id, source, at) VALUES(?,?,?)
         ON CONFLICT(member_id) DO UPDATE SET source=excluded.source, at=excluded.at""", (mid, source, stamp_pt("minutes")))
@@ -938,8 +969,9 @@ def qr_page():
 @app.route("/admin", methods=["GET", "POST"])
 @staff_required
 def admin():
-    d = db(); date = request.values.get("date") or today_pt().isoformat()
+    d = db(); posted = request.values.get("date")
     if request.method == "POST":
+        date = posted or today_pt().isoformat()
         mid = int(request.form["member_id"])
         if request.form.get("action") in ("verify", "req", "role", "ask_bot", "preferred") and not me()["is_admin"]: abort(403)
         if request.form.get("action") == "verify":
@@ -973,6 +1005,9 @@ def admin():
         else:
             d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (mid, date, location_for(date)))
         d.commit(); return redirect(url_for("admin", date=date, q=request.form.get("q", "")))
+    ensure_schedule(d)
+    days = practice_days(d)
+    date = posted or default_checkin_date(days)
     q = request.args.get("q", "").strip()
     pr = d.execute("SELECT * FROM practices WHERE date=? AND cancelled=0 ORDER BY start LIMIT 1", (date,)).fetchone()
     rows = d.execute("""SELECT m.*, c.id AS cid, rv.going AS going,
@@ -986,7 +1021,8 @@ def admin():
     checked = sorted((r for r in rows if r["cid"]), key=by_name)
     n = len(checked)
     return page(T["admin"],
-        tab="admin", date=date, q=q, going=going, rest=rest, checked=checked, n=n, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=sum(1 for r in rows if r["going"] == 1))
+        tab="admin", date=date, q=q, going=going, rest=rest, checked=checked, n=n, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=sum(1 for r in rows if r["going"] == 1),
+        days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days))
 
 @app.route("/expiring", methods=["GET", "POST"])
 @admin_required

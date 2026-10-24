@@ -829,3 +829,25 @@ ok(len({nav_skeleton(h) for h in eli_pages}) == 1 and "href=/admin" in nav_skele
 ok(len({nav_skeleton(h) for h in jane_pages}) == 1 and "href=/admin" not in nav_skeleton(jane_pages[0]) and "href=/home" in nav_skeleton(jane_pages[0]), "member bottom nav markup matches and has no admin tab")
 ok("color-scheme:dark" in eli_pages[0][:600] and "content=dark" in eli_pages[0][:600] and "#0a0a0b" in eli_pages[0][:600] and '<body style="background:#0a0a0b' in eli_pages[0] and "color-scheme:dark" in login_html[:600] and "#0a0a0b" in login_html[:600], "dark background is in the first bytes, including the login page")
 ok("@view-transition{navigation:auto}" in eli_pages[0] and "view-transition-name:grunions-nav" in eli_pages[0] and "height:calc(64px + env(safe-area-inset-bottom))" in eli_pages[0] and 'width="24" height="24"' in eli_pages[0] and "function grunionsGo(" in eli_pages[0] and "function grunionsApply(" in eli_pages[0] and "rel=stylesheet" not in eli_pages[0] and "rel=stylesheet" not in login_html and "backdrop-filter" not in eli_pages[0], "nav is a fixed inline bar and tab clicks swap the page")
+
+dec = A.checkin_month("2026-12-04", ["2026-12-04"])
+ok(A.default_checkin_date(["2026-10-20", "2026-10-23"], dt.date(2026, 10, 23)) == "2026-10-23" and A.default_checkin_date(["2026-10-20", "2026-10-23"], dt.date(2026, 10, 19)) == "2026-10-20" and A.default_checkin_date(["2026-10-16"], dt.date(2026, 10, 23)) == "2026-10-16" and A.default_checkin_date([], dt.date(2026, 10, 23)) == "2026-10-23" and A.neighbor_practice(["2026-10-20", "2026-10-23"], "2026-10-21", -1) == "2026-10-20" and A.neighbor_practice(["2026-10-20", "2026-10-23"], "2026-10-21", 1) == "2026-10-23" and A.neighbor_practice(["2026-10-20", "2026-10-23"], "2026-10-23", 1) is None and dec["label"] == "December 2026" and dec["cells"][0] is None and dec["cells"][2]["day"] == 1 and dec["cells"][5]["on"] and dec["cells"][5]["has"], "check-in picks today's practice, otherwise the next one, and lays the month out from Sunday")
+real_now = A.now_pt
+try:
+    A.now_pt = lambda: dt.datetime(2026, 10, 19, 19, 0, tzinfo=dt.timezone.utc)  # Monday noon Pacific
+    D.execute("INSERT INTO practices(date,start,end,location,cancelled) VALUES('2026-10-16','19:00','20:30','Past Pool',0)")
+    D.execute("INSERT INTO practices(date,start,end,location,cancelled) VALUES('2026-10-21','19:00','20:30','Cancelled Only Pool',1)")
+    D.commit()
+    adm = eli.get("/admin").get_data(as_text=True)
+    days = [r[0] for r in D.execute("SELECT DISTINCT date FROM practices WHERE cancelled=0 ORDER BY date").fetchall()]
+    i = days.index("2026-10-20")
+    prev_d = days[i - 1] if i else None
+    next_d = days[i + 1] if i + 1 < len(days) else None
+    grid = adm.split("id=calGrid", 1)[1].split("</div>", 1)[0]
+    ok('value="2026-10-20"' in adm and "id=calPick" in adm and "id=calPop hidden" in adm and 'stroke="currentColor"' in adm and ".calpop{position:absolute" in adm and "span.calday{color:var(--t3)" in adm and not re.search(r"<input[^>]*type=date[^>]*name=date|<input[^>]*name=date[^>]*type=date", adm), "check-in opens a dark practice calendar on the next practice when today has none")
+    ok('aria-disabled=true>19</span>' in grid and 'aria-disabled=true>21</span>' in grid and 'class="calday on" href="/admin?date=2026-10-20"' in grid and 'href="/admin?date=2026-10-16"' in grid and "2026-10-21" not in grid and ('href="/admin?date=%s" aria-label="Previous practice"' % prev_d) in adm and ('href="/admin?date=%s" aria-label="Next practice"' % next_d) in adm, "only practice days are selectable, including past ones, and the arrows use those days")
+    kept = eli.get("/admin?date=2026-10-23&q=Jane").get_data(as_text=True)
+    odd = eli.get("/admin?date=2026-10-19").get_data(as_text=True)
+    ok('value="2026-10-23"' in kept and 'value="Jane"' in kept and "date=2026-10-20&amp;q=Jane" in kept and 'value="2026-10-19"' in odd and "no practice scheduled" in odd and "grunionsCalDoc" in odd, "a chosen date stays put, and practice links keep the search")
+finally:
+    A.now_pt = real_now

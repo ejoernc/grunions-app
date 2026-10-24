@@ -81,6 +81,22 @@ nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;flex:none;
 .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;z-index:20}.lightbox img{max-width:96vw;max-height:92vh;border-radius:8px}
 .gobtn{background:none;height:auto;padding:4px 0;color:var(--t2);font-weight:500;font-size:14px}.gobtn::after{content:" ›";color:var(--t3)}
 .ci-name{flex:1;min-width:0;height:auto;padding:0;background:none;display:block;text-align:left;font-weight:400}
+.calpick{position:relative;flex:1.6;min-width:0;display:flex;align-items:center;gap:4px}
+.calnav,.calmonth{flex:none;width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;background:none;color:var(--t1);text-decoration:none;border-radius:10px}
+.calnav{height:48px;width:40px}
+.calnav[aria-disabled=true]{color:var(--t3);opacity:.35;pointer-events:none}
+.calnav svg,.calmonth svg,.calbtn svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;display:block}
+.calbtn{flex:1;min-width:0;height:48px;margin:0;padding:0 10px;background:var(--surface2);border:1px solid var(--line);color:var(--t1);border-radius:10px;font:inherit;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+.calbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.calpop{position:absolute;z-index:12;top:calc(100% + 6px);left:0;width:min(300px,calc(100vw - 40px));background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 12px 32px rgba(0,0,0,.55);color:var(--t1)}
+.calhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.calhead .lbl{font-weight:600;color:var(--t1)}
+.calwd,.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.calwd{color:var(--t3);font-size:12px;margin-bottom:4px}
+.calday{display:flex;align-items:center;justify-content:center;height:36px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;color:var(--t1)}
+a.calday:hover{background:var(--surface2)}
+a.calday.on{background:var(--accent);color:#fff}
+span.calday{color:var(--t3);opacity:.4;font-weight:500}
 .panel{padding:4px 18px 18px;border-top:1px solid var(--line);background:var(--surface)}.panel h3{font-size:15px;font-weight:600;margin:18px 0 10px}
 @media print{header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{background:#fff}}
 </style></head><body style="background:#0a0a0b;color:#ececee;margin:0">
@@ -449,8 +465,20 @@ T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">T
 <div class=row><label>Start<input type=time name=start value=19:00></label><label>End<input type=time name=end value=20:30></label></div>
 <label>Location<input name=location required></label><label>Note<input name=note></label><button class="primary full" name=action value=add>Add practice</button></form></details>{% endif %}"""
 
+_CHEV_L = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+_CHEV_R = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+_CAL_I = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
 T["admin"] = ADMIN_NAV + """
-<form class="row noprint" style="margin-bottom:8px"><input type=date name=date value="{{date}}" onchange=this.form.submit() style="margin:0"><input name=q value="{{q}}" placeholder="Search" style="margin:0"></form>
+<form class="row noprint" method=get action=/admin style="margin-bottom:8px"><div class=calpick id=calPick data-date="{{date}}" data-q="{{q}}" data-dates='{{ days|tojson }}'>
+{% if prev_d %}<a class=calnav href="/admin?date={{prev_d}}{% if q %}&amp;q={{q|urlencode}}{% endif %}" aria-label="Previous practice">""" + _CHEV_L + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Previous practice">""" + _CHEV_L + """</span>{% endif %}
+<button type=button class=calbtn id=calOpen aria-haspopup=dialog aria-expanded=false aria-controls=calPop>""" + _CAL_I + """<span>{{fmt_d(date)}}</span></button>
+{% if next_d %}<a class=calnav href="/admin?date={{next_d}}{% if q %}&amp;q={{q|urlencode}}{% endif %}" aria-label="Next practice">""" + _CHEV_R + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Next practice">""" + _CHEV_R + """</span>{% endif %}
+<div class=calpop id=calPop hidden role=dialog aria-label="Choose a practice"><div class=calhead>
+<button type=button class=calmonth id=calPrevM aria-label="Previous month">""" + _CHEV_L + """</button><div class=lbl id=calLabel>{{month.label}}</div>
+<button type=button class=calmonth id=calNextM aria-label="Next month">""" + _CHEV_R + """</button></div>
+<div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+<div class=calgrid id=calGrid>{% for c in month.cells %}{% if c is none %}<span class=calday></span>{% elif c.has %}<a class="calday{{' on' if c.on}}" href="/admin?date={{c.iso}}{% if q %}&amp;q={{q|urlencode}}{% endif %}">{{c.day}}</a>{% else %}<span class=calday aria-disabled=true>{{c.day}}</span>{% endif %}{% endfor %}</div></div></div>
+<input type=hidden name=date value="{{date}}"><input name=q value="{{q}}" placeholder="Search" style="margin:0"></form>
 <h1 style="margin:20px 0 4px">{{loc}}</h1><p class="t2 sm">{{fmt_d(date)}} · {{n}} checked in{% if pr %} · {{rsvp_n}} RSVP'd{% else %} · no practice scheduled{% endif %}</p>
 {% macro ci(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}
 <div class=li><button type=button class=ci-name onclick="this.closest('.li').nextElementSibling.toggleAttribute('hidden')">
@@ -495,7 +523,55 @@ T["admin"] = ADMIN_NAV + """
 <div class=list>{% for r in rest %}{{ ci(r) }}{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 <details class=checkin><summary>Checked in <span class=t3>{{checked|length}}</span></summary>
 <div class=list>{% for r in checked %}{{ ci(r) }}{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div></details>
-<script>if(/^#m\\d+$/.test(location.hash)){const p=document.querySelector(location.hash);if(p){const d=p.closest('details');if(d)d.open=true;p.removeAttribute('hidden')}}</script>"""
+<script>if(/^#m\\d+$/.test(location.hash)){const p=document.querySelector(location.hash);if(p){const d=p.closest('details');if(d)d.open=true;p.removeAttribute('hidden')}}
+(function(){
+var root=document.getElementById('calPick'); if(!root) return;
+var pop=document.getElementById('calPop'), openBtn=document.getElementById('calOpen'), grid=document.getElementById('calGrid'), label=document.getElementById('calLabel');
+var dates=[]; try{dates=JSON.parse(root.getAttribute('data-dates')||'[]')}catch(err){dates=[]}
+var set={}; dates.forEach(function(d){set[d]=1});
+var q=root.getAttribute('data-q')||'', selected=root.getAttribute('data-date')||'', shown=selected.slice(0,7);
+function pad(n){return (n<10?'0':'')+n}
+function href(iso){return '/admin?date='+iso+(q?'&q='+encodeURIComponent(q):'')}
+var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function render(ym){
+ shown=ym; var parts=ym.split('-'), y=+parts[0], m=+parts[1];
+ label.textContent=months[m-1]+' '+y;
+ var blanks=new Date(y, m-1, 1).getDay(), last=new Date(y, m, 0).getDate(), html='', day, iso;
+ for(var i=0;i<blanks;i++) html+='<span class=calday></span>';
+ for(day=1; day<=last; day++){
+  iso=y+'-'+pad(m)+'-'+pad(day);
+  if(set[iso]) html+='<a class="calday'+(iso===selected?' on':'')+'" href="'+href(iso)+'">'+day+'</a>';
+  else html+='<span class=calday aria-disabled=true>'+day+'</span>';
+ }
+ grid.innerHTML=html;
+}
+function shift(delta){
+ var parts=shown.split('-'), y=+parts[0], m=+parts[1]+delta;
+ if(m<1){m=12;y--} if(m>12){m=1;y++}
+ render(y+'-'+pad(m));
+}
+document.getElementById('calPrevM').onclick=function(){shift(-1)};
+document.getElementById('calNextM').onclick=function(){shift(1)};
+openBtn.onclick=function(){
+ var show=pop.hidden; pop.hidden=!show; openBtn.setAttribute('aria-expanded', show?'true':'false');
+ if(show) render(selected.slice(0,7)||shown);
+};
+if(!window.grunionsCalDoc){
+ window.grunionsCalDoc=1;
+ document.addEventListener('click', function(e){
+  var box=document.getElementById('calPick'), panel=document.getElementById('calPop'), btn=document.getElementById('calOpen');
+  if(!box||!panel||panel.hidden) return;
+  if(!box.contains(e.target)){panel.hidden=true; if(btn) btn.setAttribute('aria-expanded','false')}
+ });
+ document.addEventListener('keydown', function(e){
+  if(e.key!=='Escape') return;
+  var panel=document.getElementById('calPop'), btn=document.getElementById('calOpen');
+  if(!panel||panel.hidden) return;
+  panel.hidden=true; if(btn){btn.setAttribute('aria-expanded','false'); btn.focus()}
+ });
+}
+})();
+</script>"""
 
 T["export_page"] = ADMIN_NAV + """<h1>Export</h1>
 <div class=card><h2 style="margin:0 0 8px">Members</h2>
