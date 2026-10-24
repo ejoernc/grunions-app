@@ -458,3 +458,45 @@ ok(any(p[0] == eli_id and p[1]["title"] == "New verification request" and p[1]["
 vr = D.execute("SELECT id FROM verify_requests WHERE member_id=? AND status='pending'", (vid,)).fetchone()[0]
 c0.post("/api/verify-requests/%d/result" % vr, headers=H, json={"verified": True, "member_number": "515151", "membership_expires_on": "2027-08-31"})
 ok(any(p[0] == vid and p[1]["title"] == "Verification result" and p[1]["url"] == "/home" and "verified" in p[1]["body"].lower() for p in pushes), "the verification result pushes the member")
+
+# unread badges: app icon, chat tabs, schedule changes and cancellations
+swb = jane.get("/sw.js").get_data(as_text=True)
+hb = jane.get("/home").get_data(as_text=True)
+ok("setAppBadge" in swb and "clearAppBadge" in swb and "data.badge" in swb and "navigator.setAppBadge" in hb and "clearAppBadge" in hb and "data-badge=chat" in hb and "data-badge=schedule" in hb and "background:var(--bad)" in hb, "app icon badge and red nav bubbles")
+ju, jnu, eu = jane.get("/api/unread").get_json(), john.get("/api/unread").get_json(), eli.get("/api/unread").get_json()
+pushes.clear()
+eli.post("/api/messages", json={"body": "Badge ping"}, headers={"X-CSRF": csrf(eli, "/chat")})
+ja, jo, el = jane.get("/api/unread").get_json(), john.get("/api/unread").get_json(), eli.get("/api/unread").get_json()
+jp = [p for p in pushes if p[0] == jid]
+ok(ja["team"] == ju["team"] + 1 and ja["chat"] == ju["chat"] + 1 and ja["coaches"] == 0 and ja["total"] == ja["chat"] + ja["schedule"] and jo["team"] == jnu["team"] + 1 and jo["chat"] == jnu["chat"] + 1 and el["team"] == eu["team"] and jp and jp[-1][1]["badge"] == jo["total"], "a team message badges other people, not the sender, and the push carries the total")
+jane.get("/chat")
+mx = D.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE channel='team'").fetchone()[0]
+ok(jane.get("/api/unread").get_json()["team"] == 0 and D.execute("SELECT last_read FROM chat_reads WHERE member_id=? AND channel='team'", (janie,)).fetchone()[0] == mx, "opening team chat stores last_read and clears it")
+jb, jane_now = john.get("/api/unread").get_json(), jane.get("/api/unread").get_json()
+eli.post("/api/messages?c=coaches", json={"body": "Badge coaches"}, headers={"X-CSRF": csrf(eli, "/chat?c=coaches")})
+ja, jo = jane.get("/api/unread").get_json(), john.get("/api/unread").get_json()
+cht = john.get("/chat").get_data(as_text=True)
+ok(jo["coaches"] == jb["coaches"] + 1 and ja["coaches"] == 0 and ja["total"] == jane_now["total"] and re.search(r'data-badge=coaches[^>]*>Coaches<span class=badge>\d+</span>', cht) and not re.search(r'data-badge=team[^>]*>Team<span class=badge>', cht), "coaches unread stays on the Coaches tab and off member totals")
+ok(john.get("/chat?c=coaches").status_code == 200 and john.get("/api/unread").get_json()["coaches"] == 0, "opening coaches chat clears it")
+dayb = (dt.date.today() + dt.timedelta(days=9)).isoformat()
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=dayb, start="19:00", end="20:30", location="Badge Pool", note=""))
+bpid = D.execute("SELECT id FROM practices WHERE location='Badge Pool'").fetchone()[0]
+es, js = eli.get("/api/unread").get_json()["schedule"], jane.get("/api/unread").get_json()["schedule"]
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=bpid, action="edit", start="18:00", end="20:30", location="Badge Pool", note="moved"))
+ok(jane.get("/api/unread").get_json()["schedule"] == js + 1 and eli.get("/api/unread").get_json()["schedule"] == es, "a practice change badges members and not the editor")
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=bpid, action="edit", start="18:00", end="20:30", location="Badge Pool", note="moved"))
+pg = jane.get("/practices").get_data(as_text=True)
+chunk = pg.split("id=p%d data-pid=%d" % (bpid, bpid))[1].split("id=p")[0]
+ok(jane.get("/api/unread").get_json()["schedule"] == js + 1 and ("data-seen=%d" % bpid) in chunk and "Cancelled" not in chunk, "the same edit does not badge again, and the list keeps the bubble")
+ok(jane.post("/api/practices/%d/seen" % bpid).status_code == 400 and jane.post("/api/practices/%d/seen" % bpid, headers={"X-CSRF": csrf(jane, "/home")}).status_code == 200, "marking a practice seen requires CSRF")
+D.commit()
+seen_at = D.execute("SELECT seen_at FROM practice_notices WHERE practice_id=? AND member_id=? AND kind='change'", (bpid, janie)).fetchone()[0]
+ok(bool(seen_at) and jane.get("/api/unread").get_json()["schedule"] == js, "seen_at clears the schedule count")
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=bpid, action="cancel"))
+pg = jane.get("/practices").get_data(as_text=True)
+chunk = pg.split("id=p%d data-pid=%d" % (bpid, bpid))[1].split("id=p")[0]
+ok(("data-seen=%d" % bpid) in chunk and "Cancelled" in chunk and jane.get("/api/unread").get_json()["schedule"] == js + 1, "a cancellation puts a red bubble on that practice")
+jane.post("/api/practices/%d/seen" % bpid, headers={"X-CSRF": csrf(jane, "/practices")})
+pg = jane.get("/practices").get_data(as_text=True)
+chunk = pg.split("id=p%d data-pid=%d" % (bpid, bpid))[1].split("id=p")[0]
+ok(("data-seen=%d" % bpid) not in chunk and "Cancelled" in chunk and jane.get("/api/unread").get_json()["schedule"] == js, "opening the cancellation clears its bubble")

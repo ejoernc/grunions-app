@@ -61,6 +61,8 @@ CREATE TABLE IF NOT EXISTS push_subscriptions(id INTEGER PRIMARY KEY, member_id 
   endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created TEXT);
 CREATE TABLE IF NOT EXISTS sent_notices(member_id INTEGER, kind TEXT, sent_at TEXT, PRIMARY KEY(member_id, kind));
 CREATE TABLE IF NOT EXISTS job_locks(name TEXT PRIMARY KEY, locked_at TEXT);
+CREATE TABLE IF NOT EXISTS chat_reads(member_id INTEGER NOT NULL, channel TEXT NOT NULL, last_read INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(member_id, channel));
+CREATE TABLE IF NOT EXISTS practice_notices(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, kind TEXT NOT NULL, seen_at TEXT, PRIMARY KEY(practice_id, member_id, kind));
 """
 def db():
     if "db" not in g:
@@ -73,6 +75,7 @@ def db():
         if "channel" not in mcols: g.db.execute("ALTER TABLE messages ADD COLUMN channel TEXT DEFAULT 'team'")
         if "image" not in mcols: g.db.execute("ALTER TABLE messages ADD COLUMN image TEXT")
         drop_bot_verify_messages(g.db)
+        seed_chat_reads(g.db)
         expire_sweep(g.db)
         for e in ADMIN_EMAILS: g.db.execute("UPDATE members SET is_admin=1 WHERE email=?", (e,))
         g.db.commit()
@@ -447,6 +450,65 @@ def home():
     vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
     return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, vr_pending=vr_pending)
 
+# ---------- unread badges ----------
+def empty_unread():
+    return {"team": 0, "coaches": 0, "chat": 0, "schedule": 0, "total": 0, "practices": {}}
+def seed_chat_reads(d):
+    """Baseline every member at the latest message so existing history is not a badge storm."""
+    for ch in ("team", "coaches"):
+        mx = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE channel=?", (ch,)).fetchone()[0]
+        d.execute("""INSERT OR IGNORE INTO chat_reads(member_id, channel, last_read)
+            SELECT id, ?, ? FROM members WHERE COALESCE(role,'')!='system'""", (ch, mx))
+def mark_chat_read(d, mid, channel):
+    mx = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE channel=?", (channel,)).fetchone()[0]
+    d.execute("""INSERT INTO chat_reads(member_id, channel, last_read) VALUES(?,?,?)
+        ON CONFLICT(member_id, channel) DO UPDATE SET last_read=MAX(chat_reads.last_read, excluded.last_read)""",
+        (mid, channel, mx))
+    d.commit()
+def chat_unread_n(d, mid, channel):
+    row = d.execute("SELECT last_read FROM chat_reads WHERE member_id=? AND channel=?", (mid, channel)).fetchone()
+    if not row: return 0
+    return d.execute("SELECT COUNT(*) FROM messages WHERE channel=? AND id>? AND member_id!=?", (channel, row["last_read"], mid)).fetchone()[0]
+def ensure_cancel_notices(d, mid):
+    """One unseen cancel row per upcoming cancelled practice. Existing seen_at values stay put."""
+    today = dt.date.today().isoformat()
+    d.execute("""INSERT OR IGNORE INTO practice_notices(practice_id, member_id, kind, seen_at)
+        SELECT id, ?, 'cancel', NULL FROM practices WHERE cancelled=1 AND date>=?""", (mid, today))
+    if d.execute("SELECT changes()").fetchone()[0]: d.commit()
+def flag_practice(d, pid, kind, actor_id):
+    """Record a cancellation or edit. The person who made it has already seen it."""
+    now = dt.datetime.now().isoformat(timespec="seconds")
+    for r in d.execute("SELECT id FROM members WHERE COALESCE(role,'')!='system'"):
+        seen = now if r["id"] == actor_id else None
+        d.execute("""INSERT INTO practice_notices(practice_id, member_id, kind, seen_at) VALUES(?,?,?,?)
+            ON CONFLICT(practice_id, member_id, kind) DO UPDATE SET seen_at=excluded.seen_at""",
+            (pid, r["id"], kind, seen))
+def mark_practice_seen(d, mid, pid):
+    now = dt.datetime.now().isoformat(timespec="seconds")
+    d.execute("UPDATE practice_notices SET seen_at=? WHERE member_id=? AND practice_id=? AND seen_at IS NULL", (now, mid, pid))
+def compute_unread(d, member):
+    mid = member["id"]
+    staff = bool(member["is_admin"] or member["role"] == "coach")
+    ensure_cancel_notices(d, mid)
+    team = chat_unread_n(d, mid, "team")
+    coaches = chat_unread_n(d, mid, "coaches") if staff else 0
+    today = dt.date.today().isoformat()
+    rows = d.execute("""SELECT n.practice_id AS practice_id, COUNT(*) AS cnt FROM practice_notices n
+        JOIN practices p ON p.id=n.practice_id
+        WHERE n.member_id=? AND n.seen_at IS NULL AND p.date>=? GROUP BY n.practice_id""", (mid, today)).fetchall()
+    practices = {str(r["practice_id"]): r["cnt"] for r in rows}
+    schedule = sum(practices.values())
+    chat = team + coaches
+    return {"team": team, "coaches": coaches, "chat": chat, "schedule": schedule, "total": chat + schedule, "practices": practices}
+def unread_for_me():
+    m = me()
+    if not m: return empty_unread()
+    if getattr(g, "_unread_mid", None) == m["id"]: return g._unread
+    g._unread = compute_unread(db(), m)
+    g._unread_mid = m["id"]
+    return g._unread
+app.jinja_env.globals.update(badges=unread_for_me)
+
 # ---------- chat ----------
 def msg_dict(r):
     return {"id": r["id"], "body": r["body"], "ann": bool(r["announcement"]), "at": r["at"] + "Z",
@@ -514,6 +576,7 @@ def chat():
     ch = request.args.get("c", "team")
     if ch == "coaches" and not is_staff(): abort(403)
     if ch not in ("team", "coaches"): ch = "team"
+    mark_chat_read(db(), me()["id"], ch)
     return page(T["chat"], tab="chat", ch=ch)
 @app.route("/api/messages", methods=["GET", "POST"])
 @login_required
@@ -534,6 +597,7 @@ def api_messages():
         try: notify_chat(d, ch, me(), body, bool(image))
         except Exception as e: app.logger.warning("chat push failed: %s", e)
         return jsonify(ok=True)
+    mark_chat_read(d, me()["id"], ch)
     after = request.args.get("after", 0, type=int)
     rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id
       WHERE m.id>? AND m.channel=? ORDER BY m.id DESC LIMIT 200""", (after, ch)).fetchall()
@@ -566,11 +630,22 @@ def practices():
         elif a == "add":
             try: d.execute("INSERT INTO practices(date,start,end,location,note) VALUES(?,?,?,?,?)", (request.form["date"], request.form.get("start") or "19:00", request.form.get("end") or "20:30", request.form.get("location") or "TBD", request.form.get("note")))
             except sqlite3.IntegrityError: flash("A practice already exists at that place on that date.")
-        elif a == "edit":
-            d.execute("UPDATE practices SET start=?, end=?, location=?, note=? WHERE id=?", (request.form["start"], request.form["end"], request.form["location"], request.form.get("note"), pid))
-        elif a in ("cancel", "restore"):
+        elif a == "edit" and pid:
+            old = d.execute("SELECT start, end, location, note FROM practices WHERE id=?", (pid,)).fetchone()
+            start, end, loc, note = request.form["start"], request.form["end"], request.form["location"], request.form.get("note")
+            d.execute("UPDATE practices SET start=?, end=?, location=?, note=? WHERE id=?", (start, end, loc, note, pid))
+            if old and (old["start"], old["end"], old["location"], old["note"] or "") != (start, end, loc, note or ""):
+                flag_practice(d, pid, "change", me()["id"])
+        elif a in ("cancel", "restore") and pid:
+            was = d.execute("SELECT cancelled FROM practices WHERE id=?", (pid,)).fetchone()
             d.execute("UPDATE practices SET cancelled=? WHERE id=?", (int(a == "cancel"), pid))
-            if a == "restore" and pid: d.execute("DELETE FROM sent_notices WHERE kind IN (?,?)", ("email:practice_cancelled:%s" % pid, "push:practice_cancelled:%s" % pid))
+            if a == "restore":
+                d.execute("DELETE FROM sent_notices WHERE kind IN (?,?)", ("email:practice_cancelled:%s" % pid, "push:practice_cancelled:%s" % pid))
+                d.execute("DELETE FROM practice_notices WHERE practice_id=? AND kind='cancel'", (pid,))
+                if was and was["cancelled"]: flag_practice(d, pid, "change", me()["id"])
+            elif not was or not was["cancelled"]:
+                flag_practice(d, pid, "cancel", me()["id"])
+        if pid and a in ("going", "notgoing", "clear"): mark_practice_seen(d, me()["id"], pid)
         d.commit()
         if a == "cancel" and pid:
             p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
@@ -579,12 +654,25 @@ def practices():
                 except Exception as e: app.logger.warning("cancel notify failed: %s", e)
         return redirect("/home" if "/home" in (request.referrer or "") else "/practices#p%s" % (pid or ""))
     ps = d.execute("SELECT * FROM practices WHERE date>=? ORDER BY date, start LIMIT 16", (dt.date.today().isoformat(),)).fetchall()
+    unseen = unread_for_me()["practices"]
     data = []
     for p in ps:
         rv = d.execute("SELECT r.going, m.first, m.last, m.preferred_first, m.id FROM rsvps r JOIN members m ON m.id=r.member_id WHERE practice_id=? ORDER BY m.first", (p["id"],)).fetchall()
         mine = next((r["going"] for r in rv if r["id"] == me()["id"]), None)
-        data.append(dict(p=p, going=[r for r in rv if r["going"]], notgoing=[r for r in rv if not r["going"]], mine=mine))
+        data.append(dict(p=p, going=[r for r in rv if r["going"]], notgoing=[r for r in rv if not r["going"]], mine=mine, unseen=unseen.get(str(p["id"]), 0)))
     return page(T["practices"], tab="practices", data=data)
+@app.route("/api/unread")
+@login_required
+def api_unread():
+    return jsonify(compute_unread(db(), me()))
+@app.route("/api/practices/<int:pid>/seen", methods=["POST"])
+@login_required
+def api_practice_seen(pid):
+    d = db()
+    if not d.execute("SELECT 1 FROM practices WHERE id=?", (pid,)).fetchone(): abort(404)
+    mark_practice_seen(d, me()["id"], pid); d.commit()
+    g._unread_mid = None
+    return jsonify(ok=True, unread=compute_unread(d, me()))
 
 # ---------- verification requests (bot) ----------
 BOT_EMAIL = "bot@grunions.local"
@@ -1026,7 +1114,11 @@ def app_base():
     return "http://localhost:%s" % os.environ.get("PORT", "5055")
 def open_db():
     d = sqlite3.connect(DB, timeout=30); d.row_factory = sqlite3.Row
-    d.executescript(SCHEMA); migrate_members(d); return d
+    d.executescript(SCHEMA); migrate_members(d)
+    mcols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
+    if "channel" not in mcols: d.execute("ALTER TABLE messages ADD COLUMN channel TEXT DEFAULT 'team'")
+    if "image" not in mcols: d.execute("ALTER TABLE messages ADD COLUMN image TEXT")
+    seed_chat_reads(d); d.commit(); return d
 def claim_notice(d, member_id, kind):
     cur = d.execute("INSERT OR IGNORE INTO sent_notices(member_id, kind, sent_at) VALUES(?,?,?)", (member_id, kind, dt.datetime.now().isoformat(timespec="seconds")))
     d.commit(); return cur.rowcount == 1
@@ -1057,10 +1149,14 @@ def push_member(d, member, kind, title, body, url):
         member = d.execute("SELECT * FROM members WHERE id=?", (member,)).fetchone()
     if not member or not wants_push(member, kind): return 0
     from pywebpush import WebPushException
+    try: badge = compute_unread(d, member)["total"]
+    except Exception as e:
+        app.logger.warning("unread badge failed: %s", e); badge = 0
+    payload = {"title": title, "body": body, "url": url, "badge": badge}
     n = 0
     for s in d.execute("SELECT * FROM push_subscriptions WHERE member_id=?", (member["id"],)):
         try:
-            send_push(s, {"title": title, "body": body, "url": url}); n += 1
+            send_push(s, payload); n += 1
         except WebPushException as e:
             if getattr(e, "status_code", None) in (404, 410):
                 d.execute("DELETE FROM push_subscriptions WHERE id=?", (s["id"],)); d.commit()
@@ -1213,9 +1309,16 @@ def start_scheduler():
 SW_JS = """self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
-  event.waitUntil(self.registration.showNotification(data.title || 'Grunions', {
+  var tasks = [self.registration.showNotification(data.title || 'Grunions', {
     body: data.body || '', icon: '/static/icons/icon-192.png', badge: '/static/icons/icon-192.png', data: {url: data.url || '/'}
-  }));
+  })];
+  if (typeof data.badge === 'number' && navigator.setAppBadge) {
+    try {
+      var badge = data.badge > 0 ? navigator.setAppBadge(data.badge) : (navigator.clearAppBadge && navigator.clearAppBadge());
+      if (badge && badge.then) tasks.push(badge.catch(function(){}));
+    } catch (e) {}
+  }
+  event.waitUntil(Promise.all(tasks));
 });
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();

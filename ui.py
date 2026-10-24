@@ -44,7 +44,9 @@ details.checkin{margin:4px 0 20px}details.checkin>summary{min-height:0;padding:1
 .seg a{flex:1;text-align:center;padding:9px 12px;border-radius:9px;color:var(--t2);text-decoration:none;font-size:14px;font-weight:500;white-space:nowrap}.seg a.on{background:var(--surface2);color:var(--t1)}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;background:rgba(10,10,11,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);
 display:flex;justify-content:center;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:9}
-nav.tabs a{flex:1;max-width:140px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;color:var(--t3);text-decoration:none;font-size:12px;font-weight:500}
+nav.tabs a{position:relative;flex:1;max-width:140px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;color:var(--t3);text-decoration:none;font-size:12px;font-weight:500}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bad);color:#fff;font-size:10px;font-weight:700;line-height:1}
+nav.tabs a .badge{position:absolute;top:0;left:50%;margin-left:8px}.pdate .badge{margin-left:8px}
 nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .chat{display:flex;flex-direction:column;gap:14px}.m .who{font-size:13px;color:var(--t3);margin-bottom:3px}.m .txt{background:var(--surface);border-radius:14px;padding:10px 14px;display:inline-block;max-width:85%;white-space:pre-wrap;word-wrap:break-word}
 .m.mine{text-align:right}.m.mine .txt{background:var(--surface2);text-align:left}.m.ann .txt{display:block;max-width:none;border:1px solid var(--line);background:var(--surface)}
@@ -67,6 +69,7 @@ nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;fill:none;
 @media print{header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{background:#fff}}
 </style>
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
+{% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
 <header><a class=brand href=/>Grunions</a>{% if me() %}<a class=sub href=/logout>Log out</a>{% endif %}</header><main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
@@ -86,10 +89,10 @@ ICONS = {
  "chat": '<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12z"/></svg>',
  "admin": '<svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>',
 }
-TABS = ("""</main>{% if me() %}<nav class="tabs noprint">
+TABS = ("""</main>{% if me() %}<nav class="tabs noprint" data-total="{{ badges().total }}">
 <a href=/home class="{{'on' if tab=='home'}}">""" + ICONS["home"] + """Home</a>
-<a href=/practices class="{{'on' if tab=='practices'}}">""" + ICONS["cal"] + """Schedule</a>
-<a href=/chat class="{{'on' if tab=='chat'}}">""" + ICONS["chat"] + """Chat</a>
+<a href=/practices class="{{'on' if tab=='practices'}}" data-badge=schedule>""" + ICONS["cal"] + """Schedule{{ bubble(badges().schedule) }}</a>
+<a href=/chat class="{{'on' if tab=='chat'}}" data-badge=chat>""" + ICONS["chat"] + """Chat{{ bubble(badges().chat) }}</a>
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
@@ -111,6 +114,18 @@ return navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.s
 return fetch('/api/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':PUSH_CSRF},body:JSON.stringify(sub)});
 }).then(function(){card.hidden=true;});}).catch(function(){btn.disabled=false;});};
 })();
+function grunionsAppBadge(n){try{if(!navigator.setAppBadge)return;if((n|0)>0)navigator.setAppBadge(n|0);else if(navigator.clearAppBadge)navigator.clearAppBadge();}catch(e){}}
+function grunionsBadges(u){if(!u)return;grunionsAppBadge(u.total);
+ document.querySelectorAll('[data-badge]').forEach(function(el){var n=u[el.getAttribute('data-badge')]|0;var b=el.querySelector('.badge');
+  if(!n){if(b)b.remove();return;}if(!b){b=document.createElement('span');b.className='badge';el.appendChild(b);}b.textContent=n>99?'99+':String(n);});
+ document.querySelectorAll('[data-pid]').forEach(function(card){var n=(u.practices&&u.practices[card.getAttribute('data-pid')])|0;var slot=card.querySelector('.pdate');if(!slot)return;
+  var b=slot.querySelector('.badge');if(!n){if(b)b.remove();return;}if(!b){b=document.createElement('span');b.className='badge';b.setAttribute('data-seen',card.getAttribute('data-pid'));slot.appendChild(b);}b.textContent=n>99?'99+':String(n);});}
+function grunionsRefresh(){fetch('/api/unread').then(function(r){return r.ok?r.json():null;}).then(grunionsBadges).catch(function(){});}
+var navBadges=document.querySelector('nav.tabs');if(navBadges){grunionsAppBadge(navBadges.getAttribute('data-total'));setInterval(grunionsRefresh,15000);
+ document.addEventListener('visibilitychange',function(){if(!document.hidden)grunionsRefresh();});}
+function grunionsSeen(id){return fetch('/api/practices/'+id+'/seen',{method:'POST',headers:{'X-CSRF':window.PUSH_CSRF},keepalive:true}).then(function(){grunionsRefresh();}).catch(function(){});}
+document.addEventListener('click',function(e){var card=e.target.closest&&e.target.closest('[data-pid]');if(card)grunionsSeen(card.getAttribute('data-pid'));});
+setTimeout(function(){var m=/^#p(\\d+)$/.exec(location.hash);if(m&&location.pathname==='/practices')grunionsSeen(m[1]);},0);
 </script>
 <script>var PUSH_CSRF="{{csrf_token()}}",VAPID_PUBLIC="{{vapid_public_key()}}";</script>""")
 
@@ -213,7 +228,7 @@ T["notifications"] = """<h1>Notifications</h1>
 <p class="t3 sm">These emails go out 7 days before, 1 day before, and on the day it expires. Practice cancellation emails always send.</p>
 <button class="primary full">Save</button></form>"""
 
-T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="{{'on' if ch=='team'}}">Team</a><a href="/chat?c=coaches" class="{{'on' if ch=='coaches'}}">Coaches</a></div>{% else %}<h1>Team</h1>{% endif %}
+T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="{{'on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="{{'on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% else %}<h1>Team</h1>{% endif %}
 <div class=chat id=chat></div><div style=height:90px></div>
 <div class="composer noprint"><div class=preview id=prev hidden><img id=prevImg alt=""><span id=prevName></span><button type=button class="quiet compact" id=prevX>Remove</button></div>
 <form id=f><input type=file id=file accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic" hidden>
@@ -231,7 +246,7 @@ function add(m){const d=document.createElement('div');d.className='m'+(m.mine?' 
  box.appendChild(d);last=Math.max(last,m.id)}
 function paintRx(map){document.querySelectorAll('.m').forEach(el=>{const id=el.id.slice(3),rx=el.querySelector('.rx');const h=rxHtml(id,map[id]);if(rx.dataset.h!==h){rx.innerHTML=h;rx.dataset.h=h}})}
 async function poll(){try{const r=await fetch('/api/messages?c='+CH+'&after='+last);const j=await r.json();const end=innerHeight+scrollY>=document.body.scrollHeight-120;
- j.forEach(add);paintRx(await (await fetch('/api/reactions?c='+CH)).json());if(j.length&&end)scrollTo(0,document.body.scrollHeight)}catch(e){}}
+ j.forEach(add);paintRx(await (await fetch('/api/reactions?c='+CH)).json());if(window.grunionsRefresh)grunionsRefresh();if(j.length&&end)scrollTo(0,document.body.scrollHeight)}catch(e){}}
 box.addEventListener('click',async e=>{const b=e.target.closest('button,a.img');if(!b)return;
  if(b.matches('a.img')){e.preventDefault();const lb=document.createElement('div');lb.className='lightbox';lb.innerHTML=`<img src="${b.dataset.full}" alt="">`;lb.onclick=()=>lb.remove();document.body.appendChild(lb);return}
  if(b.dataset.pick){const m=document.getElementById('msg'+b.dataset.pick);const old=m.querySelector('.picker');document.querySelectorAll('.picker').forEach(p=>p.remove());if(old)return;
@@ -254,8 +269,8 @@ poll().then(()=>scrollTo(0,document.body.scrollHeight));setInterval(poll,3000);
 </script>"""
 
 T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">Tue · Marina HS &nbsp;·&nbsp; Fri · Westminster HS &nbsp;·&nbsp; 7–8:30 PM</p>
-{% for x in data %}{% set p = x.p %}<div class=card id=p{{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %}>
-<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><div><div style="font-size:18px;font-weight:600">{{fmt_d(p.date)}}</div>
+{% for x in data %}{% set p = x.p %}<div class=card id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %}>
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><div><div class=pdate style="font-size:18px;font-weight:600">{{fmt_d(p.date)}}{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</div>
 <div class="t2 sm">{{fmt_t(p.start)}}–{{fmt_t(p.end)}} · {{p.location}}</div>{% if p.note %}<div class="t3 sm">{{p.note}}</div>{% endif %}</div>
 <div>{% if p.cancelled %}{{ st('bad','Cancelled') }}{% else %}<button type=button class=gobtn aria-expanded=false aria-controls=who{{p.id}}
  onclick="const w=document.getElementById('who{{p.id}}');w.hidden=!w.hidden;this.setAttribute('aria-expanded',!w.hidden)">{{x.going|length}} going</button>{% endif %}</div></div>
