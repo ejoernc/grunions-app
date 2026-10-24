@@ -565,7 +565,7 @@ text = raw.data.decode("utf-8-sig"); table = list(csvmod.reader(io_mod.StringIO(
 by_email = {r[3]: r for r in table[1:]}
 exar, tayr, penr = by_email["exa.export@example.com"], by_email["tay.trial2@example.com"], by_email["pen.ding@example.com"]
 ok(raw.data.startswith(b"\xef\xbb\xbf") and table[0] == A.MEMBERS_CSV_HEADER and ("grunions-members-%s.csv" % A.today_pt().isoformat()) in raw.headers["Content-Disposition"] and "bot@grunions.local" not in text, "members CSV is UTF-8 with a BOM, the column list, and today's filename")
-ok(exar == ["Exa", "Export", "Ex", "exa.export@example.com", "", "coach", "no", "4242421", "cleared", "2027-12-01", "2027-06-01", "2028-01-15", "2026-09-01", "2026-09-15", "2026-10-01", A.today_pt().isoformat(), "1"] and tayr[8] == "trial" and tayr[12] == A.today_pt().isoformat() and penr[7] == "999111" and penr[8] == "pending" and penr[4] == "555-0100", "members CSV has clearance, trial, compliance dates, and attendance")
+ok(exar == ["Exa", "Export", "Ex", "exa.export@example.com", "", "coach", "no", "4242421", "cleared", "2027-12-01", "2027-06-01", "2028-01-15", "2026-09-01", "2026-09-15", "2026-10-01", A.today_pt().isoformat(), "1", ""] and tayr[8] == "trial" and tayr[12] == A.today_pt().isoformat() and penr[7] == "999111" and penr[8] == "pending" and penr[4] == "555-0100", "members CSV has clearance, trial, compliance dates, and attendance")
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2026-12-01", start="18:00", end="19:30", location="Export Pool"))
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2026-12-02", start="19:00", end="20:30", location="Export Pool"))
 ppid = D.execute("SELECT id FROM practices WHERE date='2026-12-01' AND location='Export Pool'").fetchone()[0]
@@ -576,7 +576,7 @@ eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=offid, action
 psum = eli.get("/export/practices.csv?start=2026-12-02&end=2026-12-01")
 stable = list(csvmod.reader(io_mod.StringIO(psum.data.decode("utf-8-sig"))))
 smap = {r[0]: r for r in stable[1:]}
-ok(psum.data.startswith(b"\xef\xbb\xbf") and stable[0] == A.PRACTICE_CSV_HEADER and "grunions-practices-2026-12-01-to-2026-12-02.csv" in psum.headers["Content-Disposition"] and smap["2026-12-01"] == ["2026-12-01", "18:00-19:30", "Export Pool", "no", "1", "1", "", "0"] and smap["2026-12-02"] == ["2026-12-02", "19:00-20:30", "Export Pool", "yes", "0", "0", "", "0"], "practices CSV is one row per practice and the filename uses the date range")
+ok(psum.data.startswith(b"\xef\xbb\xbf") and stable[0] == A.PRACTICE_CSV_HEADER and "grunions-practices-2026-12-01-to-2026-12-02.csv" in psum.headers["Content-Disposition"] and smap["2026-12-01"] == ["2026-12-01", "18:00-19:30", "Export Pool", "no", "1", "1", "", "0", "0"] and smap["2026-12-02"] == ["2026-12-02", "19:00-20:30", "Export Pool", "yes", "0", "0", "", "0", "0"], "practices CSV is one row per practice and the filename uses the date range")
 pdet = eli.get("/export/practices.csv?start=2026-12-01&end=2026-12-01&detail=1")
 dtable = list(csvmod.reader(io_mod.StringIO(pdet.data.decode("utf-8-sig"))))
 dmap = {r[4]: r for r in dtable[1:]}
@@ -667,10 +667,10 @@ def list_act(mid, action):
     return eli.post("/admins", data=dict(csrf=csrf(eli, "/admins"), member_id=mid, action=action), follow_redirects=True)
 list_act(eli_id, "add_coaching"); list_act(john_id, "add_coaching")
 roles = eli.get("/admins").get_data(as_text=True)
-ok("Add to coaching list" in roles and "Remove from coaching list" in roles and "Make coach" in roles and "Remove coach" in roles and "USAWP coach" not in roles, "Roles keeps Make coach separate from the coaching list, and a manual add has no badge")
+ok("Add to coaching list" in roles and "Remove from coaching list" in roles and "Make coach" in roles and "Remove coach" in roles and "Make admin" in roles and 'class="st st-ok coach-elig"' not in roles, "Roles keeps Make coach separate from the coaching list, and a manual add has no badge")
 eli.post("/practices", data=dict(base, coach=[str(eli_id), str(john_id), str(jane_id)]))
 sched, home, staff, coachpg = jane.get("/practices").get_data(as_text=True), jane.get("/home").get_data(as_text=True), eli.get("/practices").get_data(as_text=True), john.get("/practices").get_data(as_text=True)
-ok("Coaches: Eli, Sam" in sched and "Coaches: Eli, Sam" in home and "Coaches: Eli, Sam" in coachpg and "Coaches: Eli, Sam" in staff and "USAWP coach" not in sched, "assigned coaches show on every schedule card and on home")
+ok("Coaches: Eli, Sam" in sched and "Coaches: Eli, Sam" in home and "Coaches: Eli, Sam" in coachpg and "Coaches: Eli, Sam" in staff and 'class="st st-ok coach-elig"' not in sched and "No assigned coach is coach-eligible" not in sched and "No assigned coach is coach-eligible" in staff and "No assigned coach is coach-eligible" not in coachpg, "assigned coaches show on every schedule card, and only an admin sees the eligibility warning")
 ok(('name=coach value="%d" checked' % eli_id) in staff and ('name=coach value="%d" checked' % john_id) in staff and ('name=coach value="%d"' % jane_id) not in staff and "<select name=coach" not in staff and "name=coach" not in sched and "name=coach" not in coachpg, "edit practice is a checkbox per coaching-list member, and only an admin gets that list")
 ok(jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=pid, action="edit", start=pstart, end=pend, location=ploc, note=pnote, coach=str(jane_id))).status_code == 403 and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? ORDER BY member_id", (pid,)).fetchall() == [(eli_id,), (john_id,)], "a member cannot change practice coaches, and someone off the coaching list is not stored")
 list_act(john_id, "remove_coaching")
@@ -719,24 +719,40 @@ def answer(verified, **extra):
     body = {"verified": verified}; body.update(extra)
     return c0.post("/api/verify-requests/%d/result" % vid, headers=H, json=body)
 answer(False, membership_type="Coach", note="not current")
-ok(D.execute("SELECT membership_type FROM members WHERE id=?", (riley_id,)).fetchone()[0] == "Coach" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone(), "a failed verification does not change the coaching list")
+ok(D.execute("SELECT membership_type FROM members WHERE id=?", (riley_id,)).fetchone()[0] == "Coach" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and 'class="st st-ok coach-elig"' not in riley.get("/home").get_data(as_text=True) and 'class="st st-bad coach-elig"' not in riley.get("/home").get_data(as_text=True), "a failed verification does not change the coaching list or show coach eligibility")
 answer(True, membership_type="coaching staff")
 ok(D.execute("SELECT membership_type FROM members WHERE id=?", (riley_id,)).fetchone()[0] == "coaching staff" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone(), "coaching is not a USAWP coach membership")
 answer(True, membership_type="Head Coach", compliance={"SafeSport training": future, "Background screening": future})
 ok(D.execute("SELECT role FROM members WHERE id=?", (riley_id,)).fetchone()[0] == "athlete" and D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "usawp" and riley.get("/admin").status_code == 403 and riley.get("/chat?c=coaches").status_code == 403, "a USAWP coach membership joins the list and grants no coach access")
 badge_pages = riley.get("/home").get_data(as_text=True) + eli.get("/members").get_data(as_text=True) + eli.get("/admin").get_data(as_text=True) + eli.get("/admins").get_data(as_text=True)
-ok(badge_pages.count("USAWP coach") >= 4 and "USAWP coach" not in jane.get("/practices").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) in eli.get("/practices").get_data(as_text=True), "USAWP coach badge shows on home, the roster, check-in, and Roles")
+ok(badge_pages.count('class="st st-ok coach-elig">Coach eligible') >= 4 and 'class="st st-ok coach-elig"' not in jane.get("/practices").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) in eli.get("/practices").get_data(as_text=True) and 'class="st st-ok coach-elig">Coach eligible' in eli.get("/practices").get_data(as_text=True), "Coach eligible shows on home, the roster, check-in, Roles, and the coach picker")
+filt = eli.get("/members?coach=eligible").get_data(as_text=True)
+ok("Riley Quinn" in filt and "Jane Doe" not in filt and "Eli Joern" not in filt and 'coach-elig">Coach eligible' in filt and ">Coach eligible</a>" in eli.get("/members").get_data(as_text=True), "Members has a Coach eligible filter")
+D.execute("UPDATE members SET usawp_valid_until=? WHERE id=?", (today, riley_id)); D.commit()
+ok('coach-elig">Coach eligible' in riley.get("/home").get_data(as_text=True), "a coach membership is still eligible on the day it expires")
+D.execute("UPDATE members SET usawp_valid_until='2027-08-31' WHERE id=?", (riley_id,)); D.commit()
+pdate = D.execute("SELECT date FROM practices WHERE id=?", (pid,)).fetchone()[0]
+eli.post("/practices", data=dict(base, coach=[str(riley_id)]))
+card = eli.get("/practices").get_data(as_text=True).split("id=p%d " % pid, 1)[1].split("id=p")[0]
+jane_card = jane.get("/practices").get_data(as_text=True).split("id=p%d " % pid, 1)[1].split("id=p")[0]
+ok("No assigned coach is coach-eligible" not in card and 'class="st st-ok coach-elig">Coach eligible' in card and 'class="st st-ok coach-elig"' not in jane_card and "No assigned coach is coach-eligible" not in jane_card and "No assigned coach is coach-eligible" in eli.get("/practices").get_data(as_text=True), "an eligible assigned coach clears that practice's warning for admins only")
+memcsv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
+prows = list(csvmod.reader(io_mod.StringIO(eli.get("/export/practices.csv?start=%s&end=%s" % (pdate, pdate)).data.decode("utf-8-sig"))))
+prow = next(r for r in prows[1:] if r[0] == pdate and r[2] == ploc)
+with A.app.app_context():
+    detail = [r for r in A.practice_sheet_tabs(A.db())[A.SHEET_PRACTICE_COACHES][1:] if r[0] == pdate and r[2] == ploc]
+ok(memcsv["riley@example.com"][-1] == "Coach eligible" and memcsv["jane@example.com"][-1] == "" and prow[6] == "Riley" and prow[7] == "1" and prow[8] == "1" and detail == [[pdate, "%s-%s" % (pstart, pend), ploc, "Riley Quinn", "riley@example.com", "Coach eligible"]], "Coach eligible is on the members CSV, the practices CSV, and the Practice Coaches sheet")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SELECT id FROM requirements WHERE keywords LIKE '%background%' LIMIT 1)", (past, riley_id)); D.commit()
-ok("USAWP coach" not in riley.get("/home").get_data(as_text=True) and D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone(), "an expired background screening hides the USAWP coach badge")
+ok('coach-elig">Coach eligible' not in riley.get("/home").get_data(as_text=True) and ("Coach eligibility expired " + past) in riley.get("/home").get_data(as_text=True) and ("Coach eligibility expired " + past) in eli.get("/members").get_data(as_text=True) and D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone(), "an expired background screening shows Coach eligibility expired and keeps the coaching list")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id IN (SELECT id FROM requirements WHERE keywords LIKE '%background%' OR keywords LIKE '%safesport%')", (today, riley_id)); D.commit()
-ok("USAWP coach" in riley.get("/home").get_data(as_text=True), "background and SafeSport are current on the expiry date itself")
+ok('coach-elig">Coach eligible' in riley.get("/home").get_data(as_text=True) and "Coach eligibility expired" not in riley.get("/home").get_data(as_text=True), "background and SafeSport are current on the expiry date itself")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SELECT id FROM requirements WHERE keywords LIKE '%safesport%' LIMIT 1)", (past, riley_id)); D.commit()
-ok("USAWP coach" not in riley.get("/home").get_data(as_text=True), "an expired SafeSport date hides the USAWP coach badge")
+ok('coach-elig">Coach eligible' not in riley.get("/home").get_data(as_text=True) and ("Coach eligibility expired " + past) in eli.get("/admin").get_data(as_text=True), "an expired SafeSport date shows Coach eligibility expired on check-in")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SELECT id FROM requirements WHERE keywords LIKE '%safesport%' LIMIT 1)", (future, riley_id)); D.commit()
 answer(True, membership_type="Athlete")
-ok(not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and "USAWP coach" not in riley.get("/home").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) not in eli.get("/practices").get_data(as_text=True), "a verified athlete membership removes the USAWP coaching-list row")
+ok(not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and 'class="st st-ok coach-elig"' not in riley.get("/home").get_data(as_text=True) and 'class="st st-bad coach-elig"' not in riley.get("/home").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) not in eli.get("/practices").get_data(as_text=True), "a verified athlete membership removes the USAWP coaching-list row")
 list_act(riley_id, "add_coaching")
-ok(('name=coach value="%d"' % riley_id) in eli.get("/practices").get_data(as_text=True) and "USAWP coach" not in riley.get("/home").get_data(as_text=True) and "USAWP coach" not in eli.get("/admins").get_data(as_text=True) and riley.get("/chat?c=coaches").status_code == 403, "a manual add is on the picker with no badge and no coach access")
+ok(('name=coach value="%d"' % riley_id) in eli.get("/practices").get_data(as_text=True) and 'class="st st-ok coach-elig"' not in riley.get("/home").get_data(as_text=True) and 'class="st st-bad coach-elig"' not in riley.get("/home").get_data(as_text=True) and 'class="st st-ok coach-elig"' not in eli.get("/admins").get_data(as_text=True) and riley.get("/chat?c=coaches").status_code == 403, "a manual add is on the picker with no badge and no coach access")
 answer(True, member_number="424242")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "manual", "a verification with no membership type leaves the coaching list alone")
 import io
@@ -745,11 +761,19 @@ eli.post("/import", data=dict(csrf=csrf(eli, "/import"), file=(io.BytesIO(athlet
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "manual" and D.execute("SELECT membership_type FROM members WHERE id=?", (riley_id,)).fetchone()[0] == "Athlete", "an athlete import does not remove a manual coaching-list row")
 coach_csv = ("First Name,Last Name,Email,Status,Valid Until,Member Type\nRiley,Quinn,riley@example.com,Current,2027-08-31,Head Coach\n").encode()
 eli.post("/import", data=dict(csrf=csrf(eli, "/import"), file=(io.BytesIO(coach_csv), "t.csv")), content_type="multipart/form-data")
-ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "usawp" and D.execute("SELECT membership_type FROM members WHERE id=?", (riley_id,)).fetchone()[0] == "Head Coach" and "USAWP coach" in riley.get("/home").get_data(as_text=True), "a coach membership import adds the USAWP coaching-list row and the badge")
+ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "usawp" and D.execute("SELECT membership_type FROM members WHERE id=?", (riley_id,)).fetchone()[0] == "Head Coach" and 'coach-elig">Coach eligible' in riley.get("/home").get_data(as_text=True), "a coach membership import adds the USAWP coaching-list row and the badge")
 list_act(riley_id, "remove_coaching")
 ok(not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and ('name=coach value="%d"' % riley_id) not in eli.get("/practices").get_data(as_text=True), "an admin can remove a USAWP coach from the coaching list")
 answer(True, membership_type="Individual Membership, Coach")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "usawp" and riley.get("/admin").status_code == 403, "the next coach verification puts them back on the list without coach access")
+una = A.app.test_client(); join(una, "Una", "Noverified", "una.noverified@example.com")
+D.commit(); una_id = D.execute("SELECT id FROM members WHERE email='una.noverified@example.com'").fetchone()[0]
+chunk = eli.get("/admins").get_data(as_text=True).split("una.noverified@example.com", 1)[1].split("<div class=li", 1)[0]
+ok(D.execute("SELECT usawp_status FROM members WHERE id=?", (una_id,)).fetchone()[0] == "unknown" and "Make coach" in chunk and "Make admin" in chunk and "disabled" not in chunk, "Roles offers Make coach and Make admin before USAWP is verified")
+list_act(una_id, "make_coach"); list_act(una_id, "make_admin")
+ok(D.execute("SELECT role, is_admin, usawp_status FROM members WHERE id=?", (una_id,)).fetchone() == ("coach", 1, "unknown") and una.get("/admin").status_code == 200 and una.get("/chat?c=coaches").status_code == 200 and una.get("/members").status_code == 200, "Make coach and Make admin work for a member who is not USAWP verified")
+list_act(una_id, "remove_admin"); list_act(una_id, "remove_coach")
+ok(D.execute("SELECT role, is_admin, usawp_status FROM members WHERE id=?", (una_id,)).fetchone() == ("athlete", 0, "unknown") and una.get("/admin").status_code == 403 and una.get("/chat?c=coaches").status_code == 403, "Remove admin and Remove coach do not depend on USAWP status")
 
 # assigned coaches in the practices CSV and the Google Sheet tabs
 D.execute("INSERT INTO coaching_list(member_id, source, at) VALUES(?, 'manual', '2026-10-01') ON CONFLICT(member_id) DO UPDATE SET source='manual'", (eli_id,))
@@ -767,12 +791,12 @@ sheet = pushed[-1]
 srow = next(r for r in sheet["Practices"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool")
 detail = [r for r in sheet["Practice Coaches"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool"]
 csv_row = {r[0]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/export/practices.csv?start=2026-12-01&end=2026-12-01").data.decode("utf-8-sig"))))[1:]}["2026-12-01"]
-ok(sheet["Practices"][0] == A.PRACTICE_CSV_HEADER and srow[6] == "Eli, Sam" and srow[7] == 2 and csv_row[6:] == ["Eli, Sam", "2"] and "Jane" not in srow[6], "Practices tab and CSV list the assigned coaches and the count")
-ok(sheet["Practice Coaches"][0] == A.PRACTICE_COACHES_HEADER and detail == [["2026-12-01", "18:00-19:30", "Export Pool", "Eli Joern", "eli@example.com"], ["2026-12-01", "18:00-19:30", "Export Pool", "Sam Smith", "john@example.com"]], "Practice Coaches is one row per coach with name and email")
+ok(sheet["Practices"][0] == A.PRACTICE_CSV_HEADER and srow[6] == "Eli, Sam" and srow[7] == 2 and srow[8] == 0 and csv_row[6:8] == ["Eli, Sam", "2"] and csv_row[8] == "0" and "Jane" not in srow[6], "Practices tab and CSV list the assigned coaches and the count")
+ok(sheet["Practice Coaches"][0] == A.PRACTICE_COACHES_HEADER and detail == [["2026-12-01", "18:00-19:30", "Export Pool", "Eli Joern", "eli@example.com", ""], ["2026-12-01", "18:00-19:30", "Export Pool", "Sam Smith", "john@example.com", ""]], "Practice Coaches is one row per coach with name and email")
 export_edit([str(john_id)])
 changed = next(r for r in pushed[-1]["Practices"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool")
 changed_detail = [r for r in pushed[-1]["Practice Coaches"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool"]
-ok(changed[6] == "Sam" and changed[7] == 1 and changed_detail == [["2026-12-01", "18:00-19:30", "Export Pool", "Sam Smith", "john@example.com"]], "changing the assigned coaches rewrites the sheet")
+ok(changed[6] == "Sam" and changed[7] == 1 and changed_detail == [["2026-12-01", "18:00-19:30", "Export Pool", "Sam Smith", "john@example.com", ""]], "changing the assigned coaches rewrites the sheet")
 before = len(pushed)
 list_act(john_id, "remove_coaching")
 dropped = next(r for r in pushed[-1]["Practices"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool")

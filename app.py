@@ -291,9 +291,9 @@ _COACH_WORD = re.compile(r"\bcoach\b", re.IGNORECASE)
 def is_coach_membership(text):
     """USAWP Coach membership. The word coach counts; coaches and coaching do not."""
     return bool(text and _COACH_WORD.search(str(text)))
-def screenings_current(d, mid):
-    """Background screening and SafeSport are current when each expiry date is today or later."""
-    today = today_pt().isoformat(); found = {}
+def screening_dates(d, mid):
+    """Latest SafeSport and background expiry on file for one member."""
+    found = {}
     for name, keywords, exp in d.execute("""SELECT q.name, q.keywords, x.expires_on FROM member_reqs x
             JOIN requirements q ON q.id=x.req_id WHERE x.member_id=?""", (mid,)):
         if not exp: continue
@@ -301,19 +301,35 @@ def screenings_current(d, mid):
         for key in ("safesport", "background"):
             day = str(exp)[:10]
             if key in blob and (key not in found or day > found[key]): found[key] = day
+    return found
+def screenings_current(d, mid):
+    """Background screening and SafeSport are current when each expiry date is today or later."""
+    today = today_pt().isoformat(); found = screening_dates(d, mid)
     return bool(found.get("safesport") and found["safesport"] >= today and found.get("background") and found["background"] >= today)
+def coach_eligibility(d, member):
+    """Verified current USAWP coach membership, plus current background and SafeSport.
+    Make admin and Make coach do not depend on this. A past date on a verified coach membership
+    is reported as Coach eligibility expired <date>."""
+    empty = {"eligible": False, "expired": None, "text": ""}
+    if not member: return empty
+    try: mid = member["id"]; keys = member.keys()
+    except (TypeError, KeyError, IndexError): return empty
+    if not is_coach_membership(member["membership_type"] if "membership_type" in keys else None): return empty
+    status = (member["usawp_status"] if "usawp_status" in keys else "") or ""
+    until = str(member["usawp_valid_until"])[:10] if ("usawp_valid_until" in keys and member["usawp_valid_until"]) else ""
+    today = today_pt().isoformat(); dates = screening_dates(d, mid)
+    ss, bg = dates.get("safesport") or "", dates.get("background") or ""
+    membership_ok = status == "verified" and (not until or until >= today)
+    if membership_ok and ss and ss >= today and bg and bg >= today:
+        return {"eligible": True, "expired": None, "text": "Coach eligible"}
+    past = [day for day in (until, ss, bg) if day and day < today]
+    if (status == "verified" or (status == "expired" and until)) and past:
+        day = min(past)
+        return {"eligible": False, "expired": day, "text": "Coach eligibility expired " + day}
+    return empty
 def usawp_coach_badge(m):
-    """On the coaching list from a USAWP coach membership, with both screenings current."""
-    if not m: return False
-    try: mid = m["id"]; keys = m.keys()
-    except (TypeError, KeyError, IndexError): return False
-    d = db()
-    row = d.execute("SELECT source FROM coaching_list WHERE member_id=?", (mid,)).fetchone()
-    if not row: return False
-    mtype = m["membership_type"] if "membership_type" in keys else None
-    if row["source"] != "usawp" and not is_coach_membership(mtype): return False
-    return screenings_current(d, mid)
-app.jinja_env.globals.update(is_staff=is_staff, role_label=role_label, usawp_coach_badge=usawp_coach_badge)
+    return coach_eligibility(db(), m)["eligible"]
+app.jinja_env.globals.update(is_staff=is_staff, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m))
 def staff_required(f):
     @functools.wraps(f)
     def w(*a, **k):
@@ -502,12 +518,14 @@ def home():
     nextp_n = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (nextp["id"],)).fetchone()[0] if nextp else 0
     nextp_mine = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (nextp["id"], m["id"])).fetchone() if nextp else None
     nextp_mine = nextp_mine[0] if nextp_mine else None
-    next_coaches = ", ".join(coach_labels(practice_coach_rows(d, [nextp["id"]]).get(nextp["id"], []))) if nextp else ""
+    next_rows = practice_coach_rows(d, [nextp["id"]]).get(nextp["id"], []) if nextp else []
+    next_coaches = ", ".join(coach_labels(next_rows))
+    next_any = any(coach_eligibility(d, c)["eligible"] for c in next_rows)
     notices = d.execute("SELECT * FROM notices WHERE member_id=? AND seen=0 ORDER BY id DESC", (m["id"],)).fetchall()
     d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (m["id"],)); d.commit()
     ann = d.execute("SELECT m.*, p.first, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id WHERE announcement=1 AND channel='team' AND COALESCE(m.deleted,0)=0 ORDER BY m.id DESC LIMIT 1").fetchone()
     vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
-    return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, vr_pending=vr_pending)
+    return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_rows=next_rows, next_any=next_any, vr_pending=vr_pending)
 
 # ---------- unread badges ----------
 def empty_unread():
@@ -756,7 +774,7 @@ def apply_membership_type(d, mid, membership_type, update_list):
     else: drop_usawp_coaching(d, mid)
 def coach_candidates(d):
     """People who can be assigned to a practice: the coaching list, not coach access."""
-    return d.execute("""SELECT m.id, m.first, m.last, m.preferred_first FROM members m
+    return d.execute("""SELECT m.id, m.first, m.last, m.preferred_first, m.membership_type, m.usawp_status, m.usawp_valid_until FROM members m
         JOIN coaching_list c ON c.member_id=m.id
         WHERE COALESCE(m.role,'')!='system'
         ORDER BY lower(CASE WHEN trim(COALESCE(m.preferred_first,''))!='' THEN m.preferred_first ELSE m.first END), lower(m.last), m.id""").fetchall()
@@ -774,7 +792,8 @@ def practice_coach_rows(d, pids):
     out = {pid: [] for pid in pids}
     if not pids: return out
     marks = ",".join("?" * len(pids))
-    for r in d.execute("""SELECT pc.practice_id AS pid, m.id, m.first, m.last, m.preferred_first, m.email
+    for r in d.execute("""SELECT pc.practice_id AS pid, m.id, m.first, m.last, m.preferred_first, m.email,
+        m.membership_type, m.usawp_status, m.usawp_valid_until
         FROM practice_coaches pc JOIN members m ON m.id=pc.member_id
         JOIN coaching_list c ON c.member_id=m.id
         WHERE pc.practice_id IN (%s) AND COALESCE(m.role,'')!='system'""" % marks, tuple(pids)):
@@ -837,7 +856,7 @@ def practices():
         rv = d.execute("SELECT r.going, m.first, m.last, m.preferred_first, m.id FROM rsvps r JOIN members m ON m.id=r.member_id WHERE practice_id=? ORDER BY m.first", (p["id"],)).fetchall()
         mine = next((r["going"] for r in rv if r["id"] == me()["id"]), None)
         coaches = assigned.get(p["id"], [])
-        data.append(dict(p=p, going=[r for r in rv if r["going"]], notgoing=[r for r in rv if not r["going"]], mine=mine, unseen=unseen.get(str(p["id"]), 0), coach_ids={c["id"] for c in coaches}, coach_names=coach_labels(coaches)))
+        data.append(dict(p=p, going=[r for r in rv if r["going"]], notgoing=[r for r in rv if not r["going"]], mine=mine, unseen=unseen.get(str(p["id"]), 0), coach_ids={c["id"] for c in coaches}, coach_names=coach_labels(coaches), coaches=coaches, any_eligible=any(coach_eligibility(d, c)["eligible"] for c in coaches)))
     return page(T["practices"], tab="practices", data=data, coach_choices=coach_candidates(d))
 @app.route("/api/unread")
 @login_required
@@ -1004,7 +1023,9 @@ def admin():
             d.execute("DELETE FROM checkins WHERE member_id=? AND practice_date=?", (mid, date))
         else:
             d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (mid, date, location_for(date)))
-        d.commit(); return redirect(url_for("admin", date=date, q=request.form.get("q", "")))
+        d.commit()
+        if request.form.get("action") in ("verify", "req"): sync_practice_sheets(d)
+        return redirect(url_for("admin", date=date, q=request.form.get("q", "")))
     ensure_schedule(d)
     days = practice_days(d)
     date = posted or default_checkin_date(days)
@@ -1020,9 +1041,11 @@ def admin():
     rest = sorted((r for r in rows if not r["cid"] and r["going"] != 1), key=by_name)
     checked = sorted((r for r in rows if r["cid"]), key=by_name)
     n = len(checked)
+    assigned = practice_coach_rows(d, [pr["id"]]).get(pr["id"], []) if pr else []
+    coach_warn = bool(pr) and not any(coach_eligibility(d, c)["eligible"] for c in assigned)
     return page(T["admin"],
         tab="admin", date=date, q=q, going=going, rest=rest, checked=checked, n=n, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=sum(1 for r in rows if r["going"] == 1),
-        days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days))
+        days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days), coach_warn=coach_warn)
 
 @app.route("/expiring", methods=["GET", "POST"])
 @admin_required
@@ -1087,11 +1110,15 @@ def admins():
 @app.route("/members")
 @admin_required
 def members():
-    rows = db().execute("""SELECT m.*, (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits,
+    d = db()
+    rows = d.execute("""SELECT m.*, (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits,
       (SELECT MAX(practice_date) FROM checkins WHERE member_id=m.id) AS lastp FROM members m WHERE COALESCE(role,'')!='system' ORDER BY last, first""").fetchall()
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
+    only = request.args.get("coach") == "eligible"
+    eligible_ids = {r["id"] for r in rows if coach_eligibility(d, r)["eligible"]}
+    shown = [r for r in rows if r["id"] in eligible_ids] if only else rows
     return page(T["members"],
-        tab="admin", rows=rows, c=c)
+        tab="admin", rows=shown, c=c, coach_filter=only, n_eligible=len(eligible_ids))
 def csv_attachment(filename, header, rows):
     """UTF-8 with a BOM so Excel opens names and punctuation correctly."""
     buf = io.StringIO(); buf.write("\ufeff"); w = csv.writer(buf); w.writerow(header)
@@ -1134,7 +1161,7 @@ def requirement_expiries(d):
     return out
 MEMBERS_CSV_HEADER = ["Legal first", "Legal last", "Preferred first", "Email", "Phone", "Role", "Admin", "USAWP #", "Status",
                       "Membership expires", "SafeSport expires", "Background screening expires", "Trial start", "Trial end",
-                      "Verified date", "Joined date", "Total attendance"]
+                      "Verified date", "Joined date", "Total attendance", "Coach eligible"]
 @app.route("/members.csv")
 @admin_required
 def members_csv():
@@ -1149,7 +1176,7 @@ def members_csv():
         rows.append([m["first"], m["last"], m["preferred_first"] or "", m["email"], (m["phone"] or "").strip(),
                      role_label(m), "yes" if m["is_admin"] else "no", m["usawp_number"] or "", export_status(d, m, pending),
                      m["usawp_valid_until"] or "", expiries.get((m["id"], "safesport"), ""), expiries.get((m["id"], "background"), ""),
-                     trial_start, trial_end, verified, utc_to_pt(m["created"]), m["visits"]])
+                     trial_start, trial_end, verified, utc_to_pt(m["created"]), m["visits"], coach_eligibility(d, m)["text"]])
     return csv_attachment("grunions-members-%s.csv" % today_pt().isoformat(), MEMBERS_CSV_HEADER, rows)
 def export_default_range():
     today = today_pt(); return today - dt.timedelta(days=28), today + dt.timedelta(days=28)
@@ -1160,9 +1187,9 @@ def export_range():
     if not start or not end: return None
     if end < start: start, end = end, start
     return start, end
-PRACTICE_CSV_HEADER = ["Date", "Time", "Location", "Cancelled", "RSVP going", "Checked in", "Coaches", "Coach count"]
+PRACTICE_CSV_HEADER = ["Date", "Time", "Location", "Cancelled", "RSVP going", "Checked in", "Coaches", "Coach count", "Eligible coaches"]
 ATTENDANCE_CSV_HEADER = ["Date", "Time", "Location", "Cancelled", "Name", "USAWP #", "RSVP", "Checked in", "Check-in time"]
-PRACTICE_COACHES_HEADER = ["Date", "Time", "Location", "Coach name", "Coach email"]
+PRACTICE_COACHES_HEADER = ["Date", "Time", "Location", "Coach name", "Coach email", "Coach eligible"]
 SHEET_PRACTICES = "Practices"
 SHEET_PRACTICE_COACHES = "Practice Coaches"
 def practice_time(p):
@@ -1182,19 +1209,20 @@ def practice_export_bundle(d, practices):
         for mid, day, at in d.execute("SELECT member_id, practice_date, at FROM checkins WHERE practice_date IN (%s)" % qmarks, dates):
             checkins[(mid, day)] = at
     return rsvps, checkins, practice_coach_rows(d, ids)
-def practice_summary_row(p, rsvps, checkins, coaches):
+def practice_summary_row(d, p, rsvps, checkins, coaches):
     going_n = sum(1 for (pid, _), g in rsvps.items() if pid == p["id"] and g == 1)
     checked_n = sum(1 for (_, day) in checkins if day == p["date"])
     names = coach_labels(coaches)
-    return [p["date"], practice_time(p), p["location"] or "", "yes" if p["cancelled"] else "no", going_n, checked_n, ", ".join(names), len(names)]
+    eligible_n = sum(1 for c in coaches if coach_eligibility(d, c)["eligible"])
+    return [p["date"], practice_time(p), p["location"] or "", "yes" if p["cancelled"] else "no", going_n, checked_n, ", ".join(names), len(names), eligible_n]
 def practice_coach_name(c):
     return ("%s %s" % (display_first(c), c["last"] or "")).strip()
-def practice_coach_detail_rows(practices, assigned):
+def practice_coach_detail_rows(d, practices, assigned):
     rows = []
     for p in practices:
         coaches = sorted(assigned.get(p["id"], []), key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
         for c in coaches:
-            rows.append([p["date"], practice_time(p), p["location"] or "", practice_coach_name(c), c["email"] or ""])
+            rows.append([p["date"], practice_time(p), p["location"] or "", practice_coach_name(c), c["email"] or "", coach_eligibility(d, c)["text"]])
     return rows
 def practice_sheet_tabs(d, practices=None):
     """Practices, one row each, and Practice Coaches, one row per assigned coach."""
@@ -1202,8 +1230,8 @@ def practice_sheet_tabs(d, practices=None):
         practices = d.execute("SELECT * FROM practices ORDER BY date, start, id").fetchall()
     rsvps, checkins, assigned = practice_export_bundle(d, practices)
     summary = [PRACTICE_CSV_HEADER]
-    for p in practices: summary.append(practice_summary_row(p, rsvps, checkins, assigned.get(p["id"], [])))
-    detail = [PRACTICE_COACHES_HEADER] + practice_coach_detail_rows(practices, assigned)
+    for p in practices: summary.append(practice_summary_row(d, p, rsvps, checkins, assigned.get(p["id"], [])))
+    detail = [PRACTICE_COACHES_HEADER] + practice_coach_detail_rows(d, practices, assigned)
     return {SHEET_PRACTICES: summary, SHEET_PRACTICE_COACHES: detail}
 _sheet_token = {"email": "", "value": "", "exp": 0}
 def _b64url(raw):
@@ -1310,7 +1338,7 @@ def practices_csv():
                              m["usawp_number"] or "", rsvp, "yes" if (m["id"], p["date"]) in checkins else "no",
                              utc_to_pt(at, with_time=True) if at else ""])
         return csv_attachment("grunions-attendance-%s.csv" % span, ATTENDANCE_CSV_HEADER, rows)
-    rows = [practice_summary_row(p, rsvps, checkins, assigned.get(p["id"], [])) for p in practices]
+    rows = [practice_summary_row(d, p, rsvps, checkins, assigned.get(p["id"], [])) for p in practices]
     return csv_attachment("grunions-practices-%s.csv" % span, PRACTICE_CSV_HEADER, rows)
 
 # ---- USAWP (Sport:80 Smart List export) import ----
