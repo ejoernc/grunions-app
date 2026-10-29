@@ -66,6 +66,12 @@ dialog.modal .sheet{background:var(--surface);border:1px solid var(--line);borde
 details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;min-height:56px;padding:0 18px;color:var(--t1)}
 details>summary::-webkit-details-marker{display:none}details>summary::after{content:"›";color:var(--t3);font-size:22px;transition:transform .15s}
 details[open]>summary::after{transform:rotate(90deg)}details.card{padding:0}details.card>.body{padding:0 18px 16px}
+details.playcard>summary{gap:8px;flex-wrap:nowrap;padding-left:16px;padding-right:14px;container-type:inline-size;container-name:playline}
+details.playcard>summary .playtitle{display:flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0;font-size:15px;font-weight:600;line-height:1.2;white-space:nowrap}
+details.playcard>summary .playnum{flex:none;margin-left:auto;color:var(--t2);font-size:13px;font-weight:500;white-space:nowrap}
+details.playcard>summary::after{flex:none;font-size:16px;margin-left:2px}
+@container playline (max-width:420px){details.playcard>summary{gap:6px}details.playcard>summary .playtitle{font-size:14px;letter-spacing:-.15px;gap:6px}details.playcard>summary .playnum{font-size:12.5px}}
+@container playline (max-width:300px){details.playcard>summary::after{content:none}}
 details.checkin{margin:4px 0 20px}details.checkin>summary{min-height:0;padding:18px 0 8px;font-size:17px;font-weight:600;justify-content:flex-start;gap:8px}
 .kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}.kv:first-child{border-top:0}.kv span:first-child{color:var(--t2)}
 .seg{display:flex;gap:4px;background:var(--surface);border-radius:12px;padding:4px;margin:0 0 20px;overflow-x:auto}
@@ -379,17 +385,22 @@ T["login"] = """<h1>Log in</h1>
 T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 {{ push_card() }}
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
-{% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set ex = expiry_notes(m, cl) %}
-<div class=card><div style="display:flex;align-items:center;justify-content:space-between">
-{% if vr_pending %}<div style="font-size:19px;font-weight:600">Verification pending</div>{{ st('warn','Pending') }}
-{% elif cl.ok and tw and tw.active and m.usawp_status != 'verified' %}<div style="font-size:19px;font-weight:600">Cleared to play</div>{{ st('trial', trial_badge(tw)) }}
-{% elif cl.ok %}<div style="font-size:19px;font-weight:600">Cleared to play</div>{{ st('ok','Cleared') }}
-{% else %}<div style="font-size:19px;font-weight:600">Not cleared to play</div>{{ st('bad','Not cleared') }}{% endif %}</div>
-{% set cc = coach_clearance(m) %}{% if cc %}<div style="margin-top:8px">{{ st('ok' if cc.ok else 'bad', cc.text) }}</div>{% endif %}
+{% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set ex = expiry_notes(m, cl) %}{% set cc = coach_clearance(m) %}
+{% if vr_pending %}{% set play_title = 'Verification pending' %}{% set play_dot = 'warn' %}
+{% elif cl.ok %}{% set play_title = 'Cleared to play water polo' %}{% set play_dot = 'ok' %}
+{% else %}{% set play_title = 'Not cleared to play water polo' %}{% set play_dot = 'bad' %}{% endif %}
+<details class="card playcard"><summary><span class=playtitle>{{play_title}}<span class="dot {{play_dot}}" aria-hidden=true></span></span><span class=playnum>USAWP # {{m.usawp_number or '—'}}</span></summary><div class=body>
+<div class=kv><span>USA Water Polo</span>{{ usawp(m.usawp_status) }}</div>
+<div class=kv><span>Member #</span><span>{{m.usawp_number or '—'}}</span></div><div class=kv><span>Expires</span><span>{{m.usawp_valid_until or '—'}}</span></div>
+{% if m.usawp_verified_at %}<div class=kv><span>Verified</span><span>{{m.usawp_verified_at[:10]}}</span></div>{% endif %}
+{% for it in cl.checks %}<div class=kv><span>{{it.req.name}}</span>{{ st({'ok':'ok','no date':'warn'}.get(it.status,'bad'),
+ (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status!='expired' else 'expired') }}</div>{% endfor %}
+{% if background_view(m) %}<div class=kv>{{ bg_line(m) }}</div>{% endif %}
+{% if cc %}<div class=kv><span>Coaching</span>{{ st('ok' if cc.ok else 'bad', cc.text) }}</div>{% endif %}
 {% if coach_eligibility(m).text %}<div style="margin-top:8px">{{ coach_tag(m) }}</div>{% endif %}
+{% if tw and tw.active and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<div style="margin-top:8px">{{ st('trial', trial_badge(tw)) }}</div><p class="sm" style="margin:8px 0 0">Ends {{tw.ends}}</p>{% elif tw and tw.expired and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<p class="sm" style="margin:8px 0 0">Trial ended {{tw.ends}}</p>{% endif %}
 {% if not cl.ok %}{% if not vr_pending %}{% for line in ex.lines %}<p class="sm" style="margin:8px 0 0">{{line}}</p>{% endfor %}{% elif ex.safesport %}<p class="sm" style="margin:8px 0 0">SafeSport expired {{ex.safesport}}</p>{% endif %}
 {% if ex.rest %}<p class="t2 sm" style="margin:8px 0 0">Needs: {{ex.rest|join(', ')}}</p>{% endif %}{% endif %}
-{% if tw and tw.active and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<p class="sm" style="margin:8px 0 0">Ends {{tw.ends}}</p>{% elif tw and tw.expired and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<p class="sm" style="margin:8px 0 0">Trial ended {{tw.ends}}</p>{% endif %}
 {% if m.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %}<p class="sm" style="margin:8px 0 0"><span class="st st-warn"></span> Your membership expires in <b>{{dl}} days</b> ({{m.usawp_valid_until}}). <a href=https://usawp.sport80.com>Renew</a></p>{% endif %}
 {% if m.usawp_status != 'verified' %}<p class="t2 sm" style="margin:8px 0 0">Register or renew at <a href=https://usawp.sport80.com>usawp.sport80.com</a> with {{m.email}} and choose Grunions as your club.</p>{% endif %}
 {% if ex.membership and not vr_pending %}
@@ -400,7 +411,6 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 <button class=primary style="flex:0 0 auto">Send</button></div></form>
 <script>document.getElementById('reverifyOpen').onclick=function(){var f=document.getElementById('reverifyForm');f.hidden=false;this.hidden=true;f.querySelector('input[name=usawp_number]').focus()};</script>
 {% elif m.usawp_status == 'verified' %}
-{% if m.usawp_number %}<p class="sm" style="margin:12px 0 0">USAWP # {{m.usawp_number}}</p>{% endif %}
 {% set bg = background_view(m) %}{% if bg and bg.required and bg.kind == 'bad' and not vr_pending %}
 <form method=post action=/home style="margin-top:14px">{{csrf_field()}}<input type=hidden name=action value=reverify_background>
 <button class="primary full">Reverify background screening</button></form>{% endif %}
@@ -422,7 +432,7 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 </div></dialog>
 <script>document.getElementById('trialOpen').onclick=function(){document.getElementById('trialDialog').showModal()};
 document.getElementById('trialDialog').addEventListener('click',function(e){if(e.target===this)this.close()});</script>{% endif %}
-{% endif %}</div>
+{% endif %}</div></details>
 {% if nextp %}<div class=card><div class="t3 xs">NEXT PRACTICE</div><div style="font-size:18px;font-weight:600;margin-top:2px">{{fmt_d(nextp.date)}}, {{fmt_t(nextp.start)}}</div>
 <div class=t2>{{nextp.location}} · {{nextp_n}} going</div>
 {% if next_coaches %}<div class=t2>Coaches: {{next_coaches}}</div>{% endif %}
@@ -431,14 +441,6 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <form method=post action=/practices style="margin-top:14px">{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
 {% if nextp_mine == 1 %}<button class=full name=action value=clear>Going ✓</button>{% else %}<button class="primary full" name=action value=going>I'm going</button>{% endif %}</form></div>{% endif %}
 {% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}
-<details class=card><summary>Membership &amp; requirements</summary><div class=body>
-<div class=kv><span>USA Water Polo</span>{{ usawp(m.usawp_status) }}</div>
-<div class=kv><span>Member #</span><span>{{m.usawp_number or '—'}}</span></div><div class=kv><span>Expires</span><span>{{m.usawp_valid_until or '—'}}</span></div>
-{% if m.usawp_verified_at %}<div class=kv><span>Verified</span><span>{{m.usawp_verified_at[:10]}}</span></div>{% endif %}
-{% for it in cl.checks %}<div class=kv><span>{{it.req.name}}</span>{{ st({'ok':'ok','no date':'warn'}.get(it.status,'bad'),
- (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status!='expired' else 'expired') }}</div>{% endfor %}
-{% if background_view(m) %}<div class=kv>{{ bg_line(m) }}</div>{% endif %}
-</div></details>
 <details class=card><summary>Attendance <span class="t3 sm" style="margin-left:auto;margin-right:10px">{{hist|length}} total · {{nmonth}} this month</span></summary><div class=body>
 {% for h in hist[:20] %}<div class=kv><span>{{fmt_d(h.practice_date)}}</span><span class=t2>{{h.location}}</span></div>{% else %}<p class=t3>No practices yet.</p>{% endfor %}</div></details>
 <details class=card><summary>Profile</summary><div class=body>
