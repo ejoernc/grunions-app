@@ -830,7 +830,7 @@ ned_row = made[ned_li:made.find("<div class=li", ned_at)]
 ned_menu = made[ned_li:ned_at]
 eli_at = made.find("eli@example.com")
 eli_row = made[made.rfind("<div class=li", 0, eli_at):made.find("<div class=li", eli_at)]
-ok('class="toast noprint" role=status>Ned List is now a coach.' in made and D.execute("SELECT role FROM members WHERE id=?", (ned_id,)).fetchone()[0] == "coach" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ned_id,)).fetchone() and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices").get_data(as_text=True) and "class=coach-tag>Coach<" in ned_row and "class=coach-tag>Coaching list" not in ned_row and "Remove coach" in ned_menu and "Make coach" not in ned_menu and ("name=coach value=\"%d\"" % eli_id) in eli.get("/practices").get_data(as_text=True) and "class=coach-tag>Coaching list" in eli_row and "class=coach-tag>Coach<" in eli_row and ned.get("/chat?c=coaches").status_code == 200 and ned.get("/admin").status_code == 200, "Make coach grants access without the coaching list, and an admin stays assignable")
+ok('class="toast noprint" role=status>Ned List is now a coach.' in made and D.execute("SELECT role FROM members WHERE id=?", (ned_id,)).fetchone()[0] == "coach" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ned_id,)).fetchone() and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices").get_data(as_text=True) and "class=coach-tag>Coach<" in ned_row and "class=coach-tag>Coaching list" not in ned_row and "Remove coach" in ned_row and "Make coach" not in ned_row and ("name=coach value=\"%d\"" % eli_id) in eli.get("/practices").get_data(as_text=True) and "class=coach-tag>Coaching list" in eli_row and "class=coach-tag>Coach<" in eli_row and ned.get("/chat?c=coaches").status_code == 200 and ned.get("/admin").status_code == 200, "Make coach grants access without the coaching list, and an admin stays assignable")
 
 # assigned coaches in the practices CSV and the Google Sheet tabs
 D.execute("INSERT INTO coaching_list(member_id, source, at) VALUES(?, 'manual', '2026-10-01') ON CONFLICT(member_id) DO UPDATE SET source='manual'", (eli_id,))
@@ -987,9 +987,9 @@ ada = A.app.test_client(); join(ada, "Ada", "Role", "ada.role@example.com")
 ada_id = D.execute("SELECT id FROM members WHERE email='ada.role@example.com'").fetchone()[0]
 menu_page = eli.get("/members").get_data(as_text=True)
 ada_at = menu_page.find("ada.role@example.com")
-ada_menu = menu_page[menu_page.rfind("<div class=li", 0, ada_at):ada_at]
+ada_menu = menu_page[menu_page.rfind("<div class=li", 0, ada_at):menu_page.find("<div class=li", ada_at)]
 eli_at = menu_page.find("eli@example.com")
-eli_menu = menu_page[menu_page.rfind("<div class=li", 0, eli_at):eli_at]
+eli_menu = menu_page[menu_page.rfind("<div class=li", 0, eli_at):menu_page.find("<div class=li", eli_at)]
 ok('class=morebtn' in ada_menu and ">⋯</button>" in ada_menu and "Make admin" in ada_menu and "Make coach" in ada_menu and "Add to coaching list" in ada_menu and "Remove admin" not in ada_menu and "Remove coach" not in ada_menu and ">Remove admin</button>" in eli_menu and "disabled" in eli_menu, "each member has a three-dots menu with the actions that apply")
 promoted = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ada_id, action="make_admin"), follow_redirects=True).get_data(as_text=True)
 ok('class="toast noprint" role=status>Ada Role is now an admin.' in promoted and D.execute("SELECT is_admin FROM members WHERE id=?", (ada_id,)).fetchone()[0] == 1, "Make admin from the members menu confirms with a toast")
@@ -1037,8 +1037,9 @@ mem_panel = eli.get("/members").get_data(as_text=True)
 adm_panel = eli.get("/admin").get_data(as_text=True)
 ok("Member # / expires" in mem_panel and "Member # / expires" in adm_panel and "Preferred first name (optional)" in mem_panel and "Preferred first name (optional)" in adm_panel and mem_panel.count('class=panel id=m') == adm_panel.count('class=panel id=m') and "nextElementSibling.toggleAttribute('hidden')" in mem_panel and "bot answered" in adm_panel and ">Cleared<" in adm_panel, "the members list opens the same detail panel as check-in")
 ana_at = mem_panel.find("ana@example.com")
-ana_row = mem_panel[mem_panel.rfind("<div class=li", 0, ana_at):mem_panel.find("practices", ana_at)]
-ok(ana_row.find(">Ana Lopez<") < ana_row.find('class="st ') and 'class="st st-ok">USAWP verified' in ana_row and "thru " in ana_row and ana_row.find("thru ") < ana_at - mem_panel.rfind("<div class=li", 0, ana_at) and "class=morebtn" in ana_row[:ana_row.find('class="st ')], "the members row keeps the name alone and starts the next line with the status dot")
+ana_li = mem_panel.rfind("<div class=li", 0, ana_at)
+ana_row = mem_panel[ana_li:mem_panel.find("<div class=panel", ana_at)]
+ok(ana_row.find('class="dot ok"') < ana_row.find(">Ana Lopez<") and "thru " in ana_row and ana_row.find("class=morebtn") > ana_row.find("ana@example.com") and ">Require background</button>" not in mem_panel and ">Require background screening</button>" in ana_row, "the status dot sits in front of the name and the menu is at the right of the row")
 renamed = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=jane_id, action="preferred", preferred_first="Jay"), follow_redirects=True).get_data(as_text=True)
 ok("Jay" in renamed and "Legal name" in renamed and D.execute("SELECT preferred_first FROM members WHERE id=?", (jane_id,)).fetchone()[0] == "Jay" and 'value="Jay"' in eli.get("/admin").get_data(as_text=True), "a preferred name saved on the members list shows on check-in")
 kay = A.app.test_client(); join(kay, "Kay", "Recheck", "kay.recheck@example.com")

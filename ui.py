@@ -50,6 +50,8 @@ cursor:pointer;text-decoration:none;background:var(--surface2);color:var(--t1)}.
 .memline{display:flex;flex-wrap:wrap;align-items:center;gap:2px 0;margin-top:2px;color:var(--t3);font-size:13px;line-height:1.4}
 .st{display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--t2);white-space:nowrap}
 .st::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--t3)}.st-ok::before{background:var(--ok)}.st-bad::before{background:var(--bad)}.st-warn::before{background:var(--warn)}.st-trial::before{background:var(--ok)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--t3);flex:none;display:inline-block}.dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}.dot.warn{background:var(--warn)}
+.list .menu{left:auto;right:0;min-width:280px}
 .row.wrap{flex-wrap:wrap}
 dialog.modal{border:0;padding:0;background:transparent;color:var(--t1);width:min(440px,calc(100vw - 32px))}
 dialog.modal::backdrop{background:rgba(0,0,0,.72)}
@@ -124,22 +126,23 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{{ st('trial', trial_badge(tw)) }}<div class="t3 xs">Ends {{tw.ends}}</div>{% elif not cl.ok %}{{ st('bad','Not cleared') }}{% elif dl is not none and dl <= EXPIRING_DAYS %}{{ st('warn','Expires in %dd' % dl) }}{% else %}{{ st('ok','Cleared') }}{% endif %}
 {% if tw and tw.expired and r.usawp_status != 'verified' %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}
 {% if r.vr_status == 'pending' %}<span class="t3 xs"> · verification requested</span>{% elif r.vr_status == 'done' %}<span class="t3 xs"> · bot answered</span>{% endif %}{% endmacro %}
-{% macro member_panel(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}
+{% macro status_dot(s) %}{% set kind = {'verified':'ok','expired':'bad','pending':'warn'}.get(s, '') %}<span class="dot{% if kind %} {{kind}}{% endif %}" aria-hidden=true></span>{% endmacro %}
+{% macro member_panel(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}{% set cred = credential_dates(r) %}
 <div class=panel id=m{{r.id}} hidden>
 <div class=kv><span>RSVP</span><span>{% if r.going==1 %}RSVP ✓{% elif r.going==0 %}Not going{% else %}—{% endif %}</span></div>
 <div class=kv><span>Membership</span><span>{{ usawp(r.usawp_status) }}{% if r.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %} · {{dl}}d left{% endif %}</span></div>
-{% if r.usawp_number or r.usawp_valid_until %}<div class=kv><span>Member # / expires</span><span>{{r.usawp_number or '—'}} / {{r.usawp_valid_until or '—'}}</span></div>{% endif %}
-{% if tw and r.usawp_status != 'verified' %}<div class=kv><span>USAWP trial</span><span>{% if tw.active %}{{ trial_badge(tw) }} · Ends {{tw.ends}}{% else %}Trial ended {{tw.ends}}{% endif %}</span></div>{% endif %}
+<div class=kv><span>Member # / expires</span><span>{{r.usawp_number or '—'}} / {{r.usawp_valid_until or '—'}}</span></div>
+{% if tw %}<div class=kv><span>Trial</span><span>{% if tw.active and r.usawp_status != 'verified' %}{{ trial_badge(tw) }} · Ends {{tw.ends}}{% elif tw.expired %}Trial ended {{tw.ends}}{% else %}—{% endif %}</span></div>{% endif %}
+<div class=kv><span>SafeSport</span><span>{% if cred.safesport %}expires {{cred.safesport}}{% else %}missing{% endif %}</span></div>
+<div class=kv><span>Background screening</span><span>{% if background_view(r) %}{{ bg_line(r) }}{% else %}Not on file{% endif %}</span></div>
+<div class=kv><span>Eligibility</span><span>{% if coach_eligibility(r).text or referee_eligibility(r).text %}{{ coach_tag(r) }} {{ referee_tag(r) }}{% else %}—{% endif %}</span></div>
 {% if not cl.ok %}<div class=kv><span>Not cleared</span><span style="text-align:right">{{cl.reasons|join(', ')}}</span></div>{% endif %}
-{% if background_view(r) %}<div class=kv>{{ bg_line(r) }}</div>{% endif %}
 {% if me().is_admin %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <label>Background screening expires<input name=expires_on type=date value="{{ background_view(r).date if background_view(r) else '' }}"></label>
-<button class=full name=action value=background>Save background screening</button></form>
-{% if not r.is_admin and r.role != 'coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
-<button class=full name=action value=require_background>{% if r.require_background %}Don't require background{% else %}Require background{% endif %}</button></form>{% endif %}{% endif %}
+<button class=full name=action value=background>Save background screening</button></form>{% endif %}
 {% if r.usawp_verified_by %}<div class=kv><span>Verified</span><span>{{r.usawp_verified_by}}, {{r.usawp_verified_at.replace('T',' ')}}</span></div>{% endif %}
 {% if r.vr_status %}<div class=kv><span>Bot request</span><span>{{r.vr_status}}{% if r.vr_note %} · {{r.vr_note}}{% endif %}</span></div>{% endif %}
-{% if me().is_admin %}{% set cred = credential_dates(r) %}<details class=recheck {% if r.vr_status == 'pending' %}open{% endif %}><summary>Recheck membership</summary>
+{% if me().is_admin %}<details class=recheck {% if r.vr_status == 'pending' %}open{% endif %}><summary>Recheck membership</summary>
 <form method=post class=body>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <p class="t3 sm">Look this member up on Sport:80 and enter what you find. Grunions does not contact Sport:80.{% if r.vr_status == 'pending' %} Saving answers the pending verification request.{% endif %}</p>
 <label>Verified<select name=verified><option value=yes {{'selected' if r.usawp_status=='verified'}}>Yes</option><option value=no {{'selected' if r.usawp_status!='verified'}}>No</option></select></label>
@@ -635,19 +638,19 @@ T["export_page"] = ADMIN_NAV + """<h1>Export</h1>
 T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-between;align-items:baseline"><h1>Members</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
 <div class=seg><a href=/members {% if not coach_filter and not referee_filter %}class=on{% endif %}>All</a><a href="/members?coach=eligible" {% if coach_filter %}class=on{% endif %}>Coach eligible</a><a href="/members?referee=eligible" {% if referee_filter %}class=on{% endif %}>Referee eligible</a></div>
 <p class="t2 sm">{% if referee_filter %}{{rows|length}} referee eligible{% elif coach_filter %}{{rows|length}} coach eligible{% else %}{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}{% endif %}</p>
-<div class="list loose">{% for r in rows %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li style="flex-wrap:wrap;align-items:flex-start"><div class=grow onclick="if(event.target.closest('.more,button,a,form,input,select'))return;this.closest('.li').nextElementSibling.toggleAttribute('hidden')" style="cursor:pointer;flex:1 1 100%"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0"><span class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</span>
+<div class="list loose">{% for r in rows %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow onclick="if(event.target.closest('button,a,form,input,select'))return;this.closest('.li').nextElementSibling.toggleAttribute('hidden')" style="cursor:pointer"><div style="display:flex;align-items:center;gap:8px;min-width:0">{{ status_dot(r.usawp_status) }}<span class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</span></div>
+<div class="t3 xs" style="margin-top:2px">{% if r.usawp_valid_until %}thru {{r.usawp_valid_until}} · {% endif %}{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices</div>
+{% if r.is_admin or r.id in listed or r.role=='coach' or coach_eligibility(r).text or referee_eligibility(r).text %}<div class=eligs>{% if r.is_admin or r.id in listed %}<span class=coach-tag>Coaching list</span>{% endif %}{% if r.is_admin or r.role=='coach' %}<span class=coach-tag>Coach</span>{% endif %}{% if usawp_coach_badge(r) %}<span class=coach-tag>USAWP coach</span>{% else %}{{ coach_tag(r) }}{% endif %}{{ referee_tag(r) }}</div>{% endif %}
+{% if background_view(r) %}<div class="xs" style="margin-top:4px">{{ bg_line(r) }}</div>{% endif %}
+{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">{{ st('trial', trial_badge(tw)) }}<span class="t3 xs"> · Ends {{tw.ends}}</span></div>{% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}
+</div>
 <span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false>⋯</button>
 <div class=menu hidden role=menu>
 {% if r.is_admin %}{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_admin>Remove admin</button></form>{% endif %}{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=make_admin>Make admin</button></form>{% endif %}
 {% if r.role=='coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_coach>Remove coach</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=make_coach>Make coach</button></form>{% endif %}
 {% if not r.is_admin %}{% if r.id in listed %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_coaching>Remove from coaching list</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=add_coaching>Add to coaching list</button></form>{% endif %}{% endif %}
-</div></span></div>
-<div class=memline>{{ usawp(r.usawp_status) }}<span>{% if r.usawp_valid_until %} · thru {{r.usawp_valid_until}}{% endif %} · {{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices</span></div>
-{% if r.is_admin or r.id in listed or r.role=='coach' or coach_eligibility(r).text or referee_eligibility(r).text %}<div class=eligs>{% if r.is_admin or r.id in listed %}<span class=coach-tag>Coaching list</span>{% endif %}{% if r.is_admin or r.role=='coach' %}<span class=coach-tag>Coach</span>{% endif %}{% if usawp_coach_badge(r) %}<span class=coach-tag>USAWP coach</span>{% else %}{{ coach_tag(r) }}{% endif %}{{ referee_tag(r) }}</div>{% endif %}
-{% if background_view(r) %}<div class="xs" style="margin-top:4px">{{ bg_line(r) }}</div>{% endif %}
-{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">{{ st('trial', trial_badge(tw)) }}<span class="t3 xs"> · Ends {{tw.ends}}</span></div>{% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}
-{% if not r.is_admin and r.role != 'coach' %}<form method=post style="margin-top:8px">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}"><button class=compact name=action value=require_background>{% if r.require_background %}Don't require background{% else %}Require background{% endif %}</button></form>{% endif %}
-</div></div>{{ member_panel(r) }}{% endfor %}</div>
+{% if not r.is_admin and r.role != 'coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}"><button name=action value=require_background>{% if r.require_background %}Don't require background screening{% else %}Require background screening{% endif %}</button></form>{% endif %}
+</div></span></div>{{ member_panel(r) }}{% endfor %}</div>
 <script>
 (function(){
  function closeAll(){document.querySelectorAll('.menu').forEach(function(m){m.hidden=true; var b=m.parentNode.querySelector('.morebtn'); if(b) b.setAttribute('aria-expanded','false')})}
