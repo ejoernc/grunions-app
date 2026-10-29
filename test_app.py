@@ -995,3 +995,24 @@ blocked = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=e
 ok('class="toast noprint" role=status>The last admin cannot be removed.' in blocked and D.execute("SELECT is_admin FROM members WHERE id=?", (eli_id,)).fetchone()[0] == 1, "the last admin cannot remove their own admin role")
 for oid in others: D.execute("UPDATE members SET is_admin=1 WHERE id=?", (oid,))
 D.commit()
+
+# Referee eligible badge on the members list. Same dates as Coach eligible. Other pages come later.
+ok(A.is_referee_membership("Referee") and A.is_referee_membership("Individual Membership, Referee") and A.is_referee_membership("Head Referee") and not A.is_referee_membership("referees") and not A.is_referee_membership("Coach") and not A.is_referee_membership(""), "referee membership matches the word referee only")
+rae = A.app.test_client(); join(rae, "Rae", "Fern", "rae.fern@example.com")
+rae_id = D.execute("SELECT id FROM members WHERE email='rae.fern@example.com'").fetchone()[0]
+ref_future = (A.today_pt() + dt.timedelta(days=40)).isoformat()
+ref_past = (A.today_pt() - dt.timedelta(days=1)).isoformat()
+bgid = D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '%background%'").fetchone()[0]
+D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until=?, membership_type='Referee', usawp_number='9090909' WHERE id=?", (ref_future, rae_id))
+D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,?,'test','test','2026-01-01')", (rae_id, ssid, ref_future))
+D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,?,'test','test','2026-01-01')", (rae_id, bgid, ref_future))
+D.commit()
+ref_members = eli.get("/members").get_data(as_text=True)
+rae_at = ref_members.find("rae.fern@example.com")
+rae_row = ref_members[ref_members.rfind("<div class=li", 0, rae_at):ref_members.find("<div class=li", rae_at)]
+ok('class="st st-ok ref-elig">Referee eligible' in rae_row and "Coach eligible" not in rae_row and "Referee eligible" not in rae.get("/home").get_data(as_text=True) and "Referee eligible" not in eli.get("/members.csv").get_data(as_text=True) and 'ref-elig">Referee eligible' not in ref_members[ref_members.rfind("<div class=li", 0, ref_members.find("riley@example.com")):ref_members.find("riley@example.com")], "Referee eligible shows on the members list only")
+D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (ref_past, rae_id, bgid)); D.commit()
+expired_row = eli.get("/members").get_data(as_text=True)
+rae_exp = expired_row.find("rae.fern@example.com")
+rae_exp_row = expired_row[expired_row.rfind("<div class=li", 0, rae_exp):expired_row.find("<div class=li", rae_exp)]
+ok(('class="st st-bad ref-elig">Referee eligibility expired ' + ref_past) in rae_exp_row and 'class="st st-ok ref-elig"' not in rae_exp_row and ("Referee eligibility expired " + ref_past) not in rae.get("/home").get_data(as_text=True), "an expired background screening shows Referee eligibility expired on the members list")

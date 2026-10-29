@@ -43,7 +43,8 @@ cursor:pointer;text-decoration:none;background:var(--surface2);color:var(--t1)}.
 .btn.quiet,button.quiet{background:none;color:var(--t2);padding:0 8px}.btn.danger,button.danger{background:none;color:var(--bad)}
 .btn.compact,button.compact{height:40px;padding:0 14px;font-size:15px}.full{width:100%}.row{display:flex;gap:10px}.row>*{flex:1}
 .coach-tag{display:inline-block;margin-left:6px;padding:0 7px;border-radius:999px;border:1px solid var(--line);color:var(--t2);font-size:12px;font-weight:600;line-height:20px;vertical-align:1px;white-space:nowrap}
-.coach-elig{margin-left:8px;font-weight:650;font-size:15px}
+.coach-elig,.ref-elig{margin-left:8px;font-weight:650;font-size:15px}
+.eligs{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px}.eligs .coach-elig,.eligs .ref-elig{margin-left:0}.eligs .st{white-space:normal}
 .st{display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--t2);white-space:nowrap}
 .st::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--t3)}.st-ok::before{background:var(--ok)}.st-bad::before{background:var(--bad)}.st-warn::before{background:var(--warn)}.st-trial::before{background:var(--ok)}
 .row.wrap{flex-wrap:wrap}
@@ -114,6 +115,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
 {% macro coach_tag(m) %}{% set ce = coach_eligibility(m) %}{% if ce.eligible %}<span class="st st-ok coach-elig">Coach eligible</span>{% elif ce.text %}<span class="st st-bad coach-elig">{{ce.text}}</span>{% endif %}{% endmacro %}
+{% macro referee_tag(m) %}{% set rf = referee_eligibility(m) %}{% if rf.eligible %}<span class="st st-ok ref-elig">Referee eligible</span>{% elif rf.text %}<span class="st st-bad ref-elig">{{rf.text}}</span>{% endif %}{% endmacro %}
 {% macro bg_line(m) %}{% set bg = background_view(m) %}{% if bg %}{{ st(bg.kind, bg.text) }}{% endif %}{% endmacro %}
 <header><a class=brand href=/>Grunions</a>{% if me() %}<a class=sub href=/logout>Log out</a>{% endif %}</header><main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
@@ -620,13 +622,14 @@ T["export_page"] = ADMIN_NAV + """<h1>Export</h1>
 T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-between;align-items:baseline"><h1>Members</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
 <div class=seg><a href=/members {% if not coach_filter %}class=on{% endif %}>All</a><a href="/members?coach=eligible" {% if coach_filter %}class=on{% endif %}>Coach eligible</a></div>
 <p class="t2 sm">{% if coach_filter %}{{rows|length}} coach eligible{% else %}{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}{% endif %}</p>
-<div class="list loose">{% for r in rows %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow><div style="display:flex;align-items:center;min-width:0;font-weight:500"><span class=ell>{{display_first(r)}} {{r.last}}</span>{{ coach_tag(r) }}
+<div class="list loose">{% for r in rows %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow><div style="display:flex;align-items:center;min-width:0;font-weight:500"><span class=ell>{{display_first(r)}} {{r.last}}</span>
 <span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false>⋯</button>
 <div class=menu hidden role=menu>
 {% if r.is_admin %}{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_admin>Remove admin</button></form>{% endif %}{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=make_admin>Make admin</button></form>{% endif %}
 {% if r.role=='coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_coach>Remove coach</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=make_coach>Make coach</button></form>{% endif %}
 {% if r.id in listed %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_coaching>Remove from coaching list</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=add_coaching>Add to coaching list</button></form>{% endif %}
 </div></span></div>
+{% if coach_eligibility(r).text or referee_eligibility(r).text %}<div class=eligs>{{ coach_tag(r) }}{{ referee_tag(r) }}</div>{% endif %}
 <div class="t3 xs ell">{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices{% if r.usawp_verified_by %} · verified by {{r.usawp_verified_by}} {{r.usawp_verified_at[:10]}}{% endif %}</div>
 {% if background_view(r) %}<div class="xs" style="margin-top:4px">{{ bg_line(r) }}</div>{% endif %}</div>
 <div style="text-align:right">{{ usawp(r.usawp_status) }}{% if r.usawp_valid_until %}<div class="t3 xs">thru {{r.usawp_valid_until}}</div>{% endif %}

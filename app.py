@@ -367,9 +367,13 @@ def is_staff(m=None):
     m = m or me(); return bool(m and (m["is_admin"] or m["role"] == "coach"))
 def role_label(m): return "admin" if m["is_admin"] else ("coach" if m["role"] == "coach" else "member")
 _COACH_WORD = re.compile(r"\bcoach\b", re.IGNORECASE)
+_REFEREE_WORD = re.compile(r"\breferee\b", re.IGNORECASE)
 def is_coach_membership(text):
     """USAWP Coach membership. The word coach counts; coaches and coaching do not."""
     return bool(text and _COACH_WORD.search(str(text)))
+def is_referee_membership(text):
+    """USAWP Referee membership. The word referee counts; referees does not."""
+    return bool(text and _REFEREE_WORD.search(str(text)))
 def screening_dates(d, mid):
     """Latest SafeSport and background expiry on file for one member."""
     found = {}
@@ -406,9 +410,29 @@ def coach_eligibility(d, member):
         day = min(past)
         return {"eligible": False, "expired": day, "text": "Coach eligibility expired " + day}
     return empty
+def referee_eligibility(d, member):
+    """Verified current USAWP referee membership, plus current background and SafeSport.
+    A past date on a verified referee membership is Referee eligibility expired <date>."""
+    empty = {"eligible": False, "expired": None, "text": ""}
+    if not member: return empty
+    try: mid = member["id"]; keys = member.keys()
+    except (TypeError, KeyError, IndexError): return empty
+    if not is_referee_membership(member["membership_type"] if "membership_type" in keys else None): return empty
+    status = (member["usawp_status"] if "usawp_status" in keys else "") or ""
+    until = str(member["usawp_valid_until"])[:10] if ("usawp_valid_until" in keys and member["usawp_valid_until"]) else ""
+    today = today_pt().isoformat(); dates = screening_dates(d, mid)
+    ss, bg = dates.get("safesport") or "", dates.get("background") or ""
+    membership_ok = status == "verified" and (not until or until >= today)
+    if membership_ok and ss and ss >= today and bg and bg >= today:
+        return {"eligible": True, "expired": None, "text": "Referee eligible"}
+    past = [day for day in (until, ss, bg) if day and day < today]
+    if (status == "verified" or (status == "expired" and until)) and past:
+        day = min(past)
+        return {"eligible": False, "expired": day, "text": "Referee eligibility expired " + day}
+    return empty
 def usawp_coach_badge(m):
     return coach_eligibility(db(), m)["eligible"]
-app.jinja_env.globals.update(is_staff=is_staff, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m))
+app.jinja_env.globals.update(is_staff=is_staff, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m), referee_eligibility=lambda m: referee_eligibility(db(), m))
 def staff_required(f):
     @functools.wraps(f)
     def w(*a, **k):
