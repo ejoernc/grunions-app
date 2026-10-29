@@ -138,6 +138,16 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <button class=full name=action value=require_background>{% if r.require_background %}Don't require background{% else %}Require background{% endif %}</button></form>{% endif %}{% endif %}
 {% if r.usawp_verified_by %}<div class=kv><span>Verified</span><span>{{r.usawp_verified_by}}, {{r.usawp_verified_at.replace('T',' ')}}</span></div>{% endif %}
 {% if r.vr_status %}<div class=kv><span>Bot request</span><span>{{r.vr_status}}{% if r.vr_note %} · {{r.vr_note}}{% endif %}</span></div>{% endif %}
+{% if me().is_admin %}{% set cred = credential_dates(r) %}<details class=recheck {% if r.vr_status == 'pending' %}open{% endif %}><summary>Recheck membership</summary>
+<form method=post class=body>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
+<p class="t3 sm">Look this member up on Sport:80 and enter what you find. Grunions does not contact Sport:80.{% if r.vr_status == 'pending' %} Saving answers the pending verification request.{% endif %}</p>
+<label>Verified<select name=verified><option value=yes {{'selected' if r.usawp_status=='verified'}}>Yes</option><option value=no {{'selected' if r.usawp_status!='verified'}}>No</option></select></label>
+<label>Membership type<input name=membership_type value="{{r.membership_type or ''}}" placeholder="Individual Membership, Coach"></label>
+<label>Membership expires<input type=date name=valid_until value="{{r.usawp_valid_until or ''}}"></label>
+<label>SafeSport expires<input type=date name=safesport_expires value="{{cred.safesport or ''}}"></label>
+<label>Background screening expires<input type=date name=background_expires value="{{cred.background or ''}}"></label>
+<label>Referee certification expires<input type=date name=referee_expires value="{{cred.referee or ''}}"></label>
+<button class="primary full" name=action value=recheck>Save Sport:80 result</button></form></details>{% endif %}
 {% if r.preferred_first and r.preferred_first.strip() %}<div class=kv><span>Legal name</span><span>{{r.first}} {{r.last}}</span></div>{% endif %}
 {% if me().is_admin %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <label>Preferred first name (optional)<input name=preferred_first value="{{r.preferred_first or ''}}" placeholder="Leave blank to use legal first name"></label>
@@ -147,10 +157,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <div class=row><a class="btn" target=_blank rel=noopener href="https://usawp.sport80.com/" onclick="navigator.clipboard&&navigator.clipboard.writeText('{{r.first}} {{r.last}}')">Open Sport:80</a>
 <form method=post style="flex:1">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <button class=full name=action value=ask_bot {% if r.vr_status=='pending' %}disabled{% endif %}>{{'Requested' if r.vr_status=='pending' else 'Ask Grunions to verify'}}</button></form></div>
-<p class="t3 xs" style="margin-top:6px">Opening Sport:80 copies the name. Search the Grunions club members list and confirm membership is Current.</p>
-<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
-<div class=row><label>Member #<input name=number inputmode=numeric value="{{r.usawp_number or ''}}"></label><label>Expires on<input name=valid_until type=date></label></div>
-<label><input type=checkbox name=no_date>Sport:80 shows no date</label><button class="primary full" name=action value=verify>Mark membership verified</button></form>
+<p class="t3 xs" style="margin-top:6px">Opening Sport:80 copies the name. Search the Grunions club members list and confirm membership is Current. Enter what you find with Recheck membership.</p>
 <h3>Compliance item</h3><form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <label>Item<select name=req_id>{% for it in cl.checks|sort(attribute='status') %}<option value={{it.req.id}}>{{it.req.name}} ({{it.status}})</option>{% endfor %}</select></label>
 <div class=row><label>Completed<input name=completed_on type=date></label><label>Expires on<input name=expires_on type=date></label></div>

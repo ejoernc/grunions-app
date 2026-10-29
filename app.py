@@ -109,6 +109,7 @@ def db():
         if not g.db.execute("SELECT 1 FROM requirements").fetchone():
             g.db.executemany("INSERT INTO requirements(name,applies_to,keywords,expires) VALUES(?,?,?,?)", DEFAULT_REQS); g.db.commit()
         drop_club_waiver(g.db)
+        ensure_referee_req(g.db)
         migrate_messages(g.db)
         drop_bot_verify_messages(g.db)
         seed_chat_reads(g.db)
@@ -181,6 +182,17 @@ def background_req(d):
         kws = [k.strip().lower() for k in (q["keywords"] or "").split(",") if k.strip()]
         if "background" in kws or "background" in name: return q
     return None
+def referee_req(d):
+    for q in d.execute("SELECT * FROM requirements WHERE active=1 ORDER BY id"):
+        blob = ((q["name"] or "") + " " + (q["keywords"] or "")).lower()
+        if "referee certification" in blob or "refereecert" in blob: return q
+    return None
+def ensure_referee_req(d):
+    """Older databases gain a place to store a referee certification expiry."""
+    if referee_req(d): return
+    d.execute("INSERT INTO requirements(name,applies_to,keywords,expires) VALUES(?,?,?,?)",
+              ("Referee certification", "all", "refereecert", 1))
+    d.commit()
 def _member_flag(member, key):
     if not member: return None
     try:
@@ -381,9 +393,10 @@ def screening_dates(d, mid):
             JOIN requirements q ON q.id=x.req_id WHERE x.member_id=?""", (mid,)):
         if not exp: continue
         blob = ((name or "") + " " + (keywords or "")).lower()
-        for key in ("safesport", "background"):
+        for key in ("safesport", "background", "referee"):
             day = str(exp)[:10]
-            if key in blob and (key not in found or day > found[key]): found[key] = day
+            hit = ("referee certification" in blob or "refereecert" in blob) if key == "referee" else key in blob
+            if hit and (key not in found or day > found[key]): found[key] = day
     return found
 def screenings_current(d, mid):
     """Background screening and SafeSport are current when each expiry date is today or later."""
@@ -417,22 +430,30 @@ def referee_eligibility(d, member):
     if not member: return empty
     try: mid = member["id"]; keys = member.keys()
     except (TypeError, KeyError, IndexError): return empty
-    if not is_referee_membership(member["membership_type"] if "membership_type" in keys else None): return empty
+    today = today_pt().isoformat(); dates = screening_dates(d, mid)
+    cert = dates.get("referee") or ""
+    if not is_referee_membership(member["membership_type"] if "membership_type" in keys else None) and not cert: return empty
     status = (member["usawp_status"] if "usawp_status" in keys else "") or ""
     until = str(member["usawp_valid_until"])[:10] if ("usawp_valid_until" in keys and member["usawp_valid_until"]) else ""
-    today = today_pt().isoformat(); dates = screening_dates(d, mid)
     ss, bg = dates.get("safesport") or "", dates.get("background") or ""
     membership_ok = status == "verified" and (not until or until >= today)
-    if membership_ok and ss and ss >= today and bg and bg >= today:
+    cert_ok = not cert or cert >= today
+    if membership_ok and ss and ss >= today and bg and bg >= today and cert_ok:
         return {"eligible": True, "expired": None, "text": "Referee eligible"}
-    past = [day for day in (until, ss, bg) if day and day < today]
+    past = [day for day in (until, ss, bg, cert) if day and day < today]
     if (status == "verified" or (status == "expired" and until)) and past:
         day = min(past)
         return {"eligible": False, "expired": day, "text": "Referee eligibility expired " + day}
     return empty
 def usawp_coach_badge(m):
     return coach_eligibility(db(), m)["eligible"]
-app.jinja_env.globals.update(is_staff=is_staff, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m), referee_eligibility=lambda m: referee_eligibility(db(), m))
+def credential_dates(m):
+    """SafeSport, background, and referee certification expiries for the recheck form."""
+    if not m: return {}
+    try: mid = m["id"]
+    except (TypeError, KeyError, IndexError): return {}
+    return screening_dates(db(), mid)
+app.jinja_env.globals.update(is_staff=is_staff, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m), referee_eligibility=lambda m: referee_eligibility(db(), m), credential_dates=credential_dates)
 def staff_required(f):
     @functools.wraps(f)
     def w(*a, **k):
@@ -1094,7 +1115,36 @@ def qr_svg():
 def qr_page():
     return page(T["qr_page"], tab="admin", u=signup_url())
 
-DETAIL_ACTIONS = ("verify", "req", "role", "ask_bot", "preferred", "background", "require_background")
+DETAIL_ACTIONS = ("verify", "req", "role", "ask_bot", "preferred", "background", "require_background", "recheck")
+def save_req_expiry(d, mid, req, exp, by):
+    if not req or not exp: return
+    now = stamp_pt("minutes")
+    day = exp.isoformat() if hasattr(exp, "isoformat") else str(exp)[:10]
+    d.execute("""INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,?,?,'manual',?,?)
+        ON CONFLICT(member_id,req_id) DO UPDATE SET expires_on=excluded.expires_on,
+        completed_on=COALESCE(member_reqs.completed_on, excluded.completed_on), source='manual', by=excluded.by, at=excluded.at""",
+        (mid, req["id"], today_pt().isoformat(), day, by, now))
+def save_sport80_recheck(d, mid):
+    """Manual Sport:80 result. Coach membership joins the coaching list and does not grant coach access."""
+    verified = request.form.get("verified") == "yes"
+    now = stamp_pt("minutes")
+    who = "%s %s" % (me()["first"], me()["last"])
+    vu = parse_date(request.form.get("valid_until"))
+    mtype = (request.form.get("membership_type") or "").strip()[:120]
+    status = "expired" if (verified and vu and vu < today_pt()) or not verified else "verified"
+    d.execute("""UPDATE members SET usawp_status=?, usawp_raw=?, usawp_valid_until=COALESCE(?, usawp_valid_until),
+        usawp_updated=?, usawp_verified_by=?, usawp_verified_at=? WHERE id=?""",
+        (status, "Recorded from Sport:80", vu.isoformat() if vu else None, now, who, now, mid))
+    if mtype: apply_membership_type(d, mid, mtype, verified)
+    if not verified: drop_usawp_coaching(d, mid)
+    for field, req in (("safesport_expires", safesport_req(d)), ("background_expires", background_req(d)), ("referee_expires", referee_req(d))):
+        save_req_expiry(d, mid, req, parse_date(request.form.get(field)), who)
+    pending = d.execute("SELECT id FROM verify_requests WHERE member_id=? AND status='pending' ORDER BY id DESC LIMIT 1", (mid,)).fetchone()
+    if pending:
+        d.execute("UPDATE verify_requests SET status='done', answered=?, result=?, note=? WHERE id=?",
+                  (now, json.dumps({"verified": verified, "membership_type": mtype, "membership_expires_on": vu.isoformat() if vu else ""}),
+                   "Recorded by hand from Sport:80", pending["id"]))
+    flash("Saved the Sport:80 result.")
 def handle_member_detail(d, mid):
     """Check-in and the members list share these edits. 'ok' saves, 'halt' leaves the row unchanged."""
     act = request.form.get("action")
@@ -1136,6 +1186,8 @@ def handle_member_detail(d, mid):
         row = d.execute("SELECT role, is_admin, require_background FROM members WHERE id=?", (mid,)).fetchone()
         if row and not row["is_admin"] and (row["role"] or "") != "coach":
             d.execute("UPDATE members SET require_background=? WHERE id=?", (0 if row["require_background"] else 1, mid))
+    elif act == "recheck":
+        save_sport80_recheck(d, mid)
     return "ok"
 def members_back():
     args = {}
@@ -1157,7 +1209,7 @@ def admin():
             else:
                 d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (mid, date, location_for(date)))
         d.commit()
-        if request.form.get("action") in ("verify", "req", "background", "require_background", "preferred", "role", "undo") or not request.form.get("action"): sync_practice_sheets(d)
+        if request.form.get("action") in ("verify", "req", "background", "require_background", "preferred", "role", "recheck", "undo") or not request.form.get("action"): sync_practice_sheets(d)
         return redirect(url_for("admin", date=date, q=request.form.get("q", "")))
     ensure_schedule(d)
     days = practice_days(d)
@@ -1259,7 +1311,7 @@ def members():
             if detail == "halt": return members_back()
             if detail == "ok":
                 d.commit()
-                if act in ("verify", "req", "background", "preferred", "role"): sync_practice_sheets(d)
+                if act in ("verify", "req", "background", "preferred", "role", "recheck"): sync_practice_sheets(d)
                 return members_back()
         if act == "make_admin":
             d.execute("UPDATE members SET is_admin=1 WHERE id=?", (mid,))
