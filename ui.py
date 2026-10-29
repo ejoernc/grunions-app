@@ -22,6 +22,14 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:14px}.xs
 .card{background:var(--surface);border-radius:var(--r);padding:18px;margin:0 0 12px}
 .usawp-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
 .list{background:var(--surface);border-radius:var(--r);margin:0 0 12px;overflow:hidden}
+.list.loose{overflow:visible}
+.more{position:relative;flex:0 0 auto;margin-left:2px}
+button.morebtn{width:32px;height:32px;padding:0;background:transparent;color:var(--t3);font-size:22px;line-height:1;border-radius:8px}
+button.morebtn[aria-expanded=true]{background:var(--surface2);color:var(--t1)}
+.menu{position:absolute;left:0;top:36px;z-index:20;min-width:232px;padding:6px;background:#151517;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.45)}
+.menu form{margin:0}
+.menu button{width:100%;height:40px;padding:0 12px;justify-content:flex-start;background:transparent;color:var(--t1);font-weight:500;font-size:15px;border-radius:8px}
+.menu button:disabled{color:var(--t3)}
 .li{display:flex;align-items:center;gap:12px;padding:14px 18px;min-height:60px;border-top:1px solid var(--line)}.li:first-child{border-top:0}
 .grow{flex:1;min-width:0}.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 label{display:block;font-size:13px;color:var(--t2);margin:0 0 14px}
@@ -608,13 +616,30 @@ T["export_page"] = ADMIN_NAV + """<h1>Export</h1>
 T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-between;align-items:baseline"><h1>Members</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
 <div class=seg><a href=/members {% if not coach_filter %}class=on{% endif %}>All</a><a href="/members?coach=eligible" {% if coach_filter %}class=on{% endif %}>Coach eligible</a></div>
 <p class="t2 sm">{% if coach_filter %}{{rows|length}} coach eligible{% else %}{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}{% endif %}</p>
-<div class=list>{% for r in rows %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow><div style="display:flex;align-items:center;min-width:0;font-weight:500"><span class=ell>{{display_first(r)}} {{r.last}}</span>{{ coach_tag(r) }}</div>
+<div class="list loose">{% for r in rows %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow><div style="display:flex;align-items:center;min-width:0;font-weight:500"><span class=ell>{{display_first(r)}} {{r.last}}</span>{{ coach_tag(r) }}
+<span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false>⋯</button>
+<div class=menu hidden role=menu>
+{% if r.is_admin %}{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_admin>Remove admin</button></form>{% endif %}{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=make_admin>Make admin</button></form>{% endif %}
+{% if r.role=='coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_coach>Remove coach</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=make_coach>Make coach</button></form>{% endif %}
+{% if r.id in listed %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_coaching>Remove from coaching list</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=add_coaching>Add to coaching list</button></form>{% endif %}
+</div></span></div>
 <div class="t3 xs ell">{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices{% if r.usawp_verified_by %} · verified by {{r.usawp_verified_by}} {{r.usawp_verified_at[:10]}}{% endif %}</div>
 {% if background_view(r) %}<div class="xs" style="margin-top:4px">{{ bg_line(r) }}</div>{% endif %}</div>
 <div style="text-align:right">{{ usawp(r.usawp_status) }}{% if r.usawp_valid_until %}<div class="t3 xs">thru {{r.usawp_valid_until}}</div>{% endif %}
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">{{ st('trial', trial_badge(tw)) }}</div><div class="t3 xs">Ends {{tw.ends}}</div>{% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}
-{% if r.role != 'coach' %}<form method=post style="margin-top:8px">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button class=compact name=action value=make_coach>Make coach</button></form>{% endif %}
-{% if not r.is_admin and r.role != 'coach' %}<form method=post style="margin-top:8px">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button class=compact name=action value=require_background>{% if r.require_background %}Don't require background{% else %}Require background{% endif %}</button></form>{% endif %}</div></div>{% endfor %}</div>"""
+{% if not r.is_admin and r.role != 'coach' %}<form method=post style="margin-top:8px">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button class=compact name=action value=require_background>{% if r.require_background %}Don't require background{% else %}Require background{% endif %}</button></form>{% endif %}</div></div>{% endfor %}</div>
+<script>
+(function(){
+ function closeAll(){document.querySelectorAll('.menu').forEach(function(m){m.hidden=true; var b=m.parentNode.querySelector('.morebtn'); if(b) b.setAttribute('aria-expanded','false')})}
+ document.querySelectorAll('.morebtn').forEach(function(btn){
+  btn.onclick=function(e){e.stopPropagation(); var menu=btn.parentNode.querySelector('.menu'); var open=menu.hidden; closeAll(); if(open){menu.hidden=false; btn.setAttribute('aria-expanded','true')}};
+ });
+ if(!window.grunionsMore){window.grunionsMore=1;
+  document.addEventListener('click', closeAll);
+  document.addEventListener('keydown', function(e){if(e.key==='Escape') closeAll()});
+ }
+})();
+</script>"""
 
 T["expiring"] = ADMIN_NAV + """<h1>Expiring</h1>
 <form class="row noprint" style="align-items:center;margin-bottom:8px"><span class="t2 sm" style="flex:0 0 auto">Window (days)</span><input name=days type=number value={{days}} onchange=this.form.submit() style="margin:0"></form>

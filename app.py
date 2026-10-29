@@ -1201,16 +1201,41 @@ def members():
         m = d.execute("SELECT * FROM members WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone()
         if not m: abort(404)
         act = request.form.get("action")
-        if act == "make_coach":
+        name = "%s %s" % (display_first(m), m["last"])
+        if act == "make_admin":
+            d.execute("UPDATE members SET is_admin=1 WHERE id=?", (mid,))
+            d.commit(); sync_practice_sheets(d)
+            flash("%s is now an admin." % name, "toast")
+        elif act == "remove_admin":
+            if is_last_admin(d, mid): flash("The last admin cannot be removed.", "toast")
+            elif m["email"] in ADMIN_EMAILS: flash("%s is set as admin by ADMIN_EMAIL." % display_first(m), "toast")
+            else:
+                d.execute("UPDATE members SET is_admin=0 WHERE id=?", (mid,))
+                d.commit(); sync_practice_sheets(d)
+                flash("%s is no longer an admin." % name, "toast")
+        elif act == "make_coach":
             if (m["role"] or "") != "coach":
                 d.execute("UPDATE members SET role='coach' WHERE id=?", (mid,))
                 d.commit(); sync_practice_sheets(d)
-                flash("Updated %s %s." % (display_first(m), m["last"]))
+            flash("%s is now a coach." % name, "toast")
+        elif act == "remove_coach":
+            if (m["role"] or "") == "coach":
+                d.execute("UPDATE members SET role='athlete' WHERE id=?", (mid,))
+                d.commit(); sync_practice_sheets(d)
+            flash("%s is no longer a coach." % name, "toast")
+        elif act == "add_coaching":
+            add_coaching(d, mid, "manual")
+            d.commit(); sync_practice_sheets(d)
+            flash("%s was added to the coaching list." % name, "toast")
+        elif act == "remove_coaching":
+            d.execute("DELETE FROM coaching_list WHERE member_id=?", (mid,))
+            d.commit(); sync_practice_sheets(d)
+            flash("%s was removed from the coaching list." % name, "toast")
         elif act == "require_background":
             if not m["is_admin"] and (m["role"] or "") != "coach":
                 d.execute("UPDATE members SET require_background=? WHERE id=?", (0 if m["require_background"] else 1, mid))
                 d.commit(); sync_practice_sheets(d)
-                flash("Updated %s %s." % (display_first(m), m["last"]))
+                flash("Updated %s." % name, "toast")
         else: abort(400)
         return redirect("/members")
     rows = d.execute("""SELECT m.*, (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits,
@@ -1219,8 +1244,10 @@ def members():
     only = request.args.get("coach") == "eligible"
     eligible_ids = {r["id"] for r in rows if coach_eligibility(d, r)["eligible"]}
     shown = [r for r in rows if r["id"] in eligible_ids] if only else rows
+    listed = {r[0] for r in d.execute("SELECT member_id FROM coaching_list")}
     return page(T["members"],
-        tab="admin", rows=shown, c=c, coach_filter=only, n_eligible=len(eligible_ids))
+        tab="admin", rows=shown, c=c, coach_filter=only, n_eligible=len(eligible_ids),
+        listed=listed, n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS)
 def csv_attachment(filename, header, rows):
     """UTF-8 with a BOM so Excel opens names and punctuation correctly."""
     buf = io.StringIO(); buf.write("\ufeff"); w = csv.writer(buf); w.writerow(header)

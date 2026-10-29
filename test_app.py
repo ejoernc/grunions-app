@@ -812,9 +812,10 @@ ok(D.execute("SELECT role, is_admin, usawp_status FROM members WHERE id=?", (una
 ned = A.app.test_client(); join(ned, "Ned", "List", "ned.list@example.com")
 D.commit(); ned_id = D.execute("SELECT id FROM members WHERE email='ned.list@example.com'").fetchone()[0]
 ok("Make coach" in eli.get("/members").get_data(as_text=True) and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices").get_data(as_text=True) and ned.post("/members", data=dict(csrf=csrf(ned, "/home"), member_id=ned_id, action="make_coach")).status_code == 403, "Members offers Make coach, and that person is not assignable yet")
-eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ned_id, action="make_coach"), follow_redirects=True)
-ned_row = eli.get("/members").get_data(as_text=True).split("ned.list@example.com", 1)[1].split("<div class=li", 1)[0]
-ok(D.execute("SELECT role FROM members WHERE id=?", (ned_id,)).fetchone()[0] == "coach" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ned_id,)).fetchone() and ("name=coach value=\"%d\"" % ned_id) in eli.get("/practices").get_data(as_text=True) and "Make coach" not in ned_row and ("name=coach value=\"%d\"" % eli_id) in eli.get("/practices").get_data(as_text=True), "Make coach on Members adds that person to the practice picker, and an admin stays on it")
+made = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ned_id, action="make_coach"), follow_redirects=True).get_data(as_text=True)
+ned_at = made.find("ned.list@example.com")
+ned_menu = made[made.rfind("<div class=li", 0, ned_at):ned_at]
+ok('class="toast noprint" role=status>Ned List is now a coach.' in made and D.execute("SELECT role FROM members WHERE id=?", (ned_id,)).fetchone()[0] == "coach" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ned_id,)).fetchone() and ("name=coach value=\"%d\"" % ned_id) in eli.get("/practices").get_data(as_text=True) and "Remove coach" in ned_menu and "Make coach" not in ned_menu and ("name=coach value=\"%d\"" % eli_id) in eli.get("/practices").get_data(as_text=True), "Make coach on Members adds that person to the practice picker, and an admin stays on it")
 
 # assigned coaches in the practices CSV and the Google Sheet tabs
 D.execute("INSERT INTO coaching_list(member_id, source, at) VALUES(?, 'manual', '2026-10-01') ON CONFLICT(member_id) DO UPDATE SET source='manual'", (eli_id,))
@@ -948,3 +949,27 @@ try:
     ok('value="2026-10-23"' in kept and 'value="Jane"' in kept and "date=2026-10-20&amp;q=Jane" in kept and 'value="2026-10-19"' in odd and "no practice scheduled" in odd and "grunionsCalDoc" in odd, "a chosen date stays put, and practice links keep the search")
 finally:
     A.now_pt = real_now
+
+# members list role menu
+ada = A.app.test_client(); join(ada, "Ada", "Role", "ada.role@example.com")
+ada_id = D.execute("SELECT id FROM members WHERE email='ada.role@example.com'").fetchone()[0]
+menu_page = eli.get("/members").get_data(as_text=True)
+ada_at = menu_page.find("ada.role@example.com")
+ada_menu = menu_page[menu_page.rfind("<div class=li", 0, ada_at):ada_at]
+eli_at = menu_page.find("eli@example.com")
+eli_menu = menu_page[menu_page.rfind("<div class=li", 0, eli_at):eli_at]
+ok('class=morebtn' in ada_menu and ">⋯</button>" in ada_menu and "Make admin" in ada_menu and "Make coach" in ada_menu and "Add to coaching list" in ada_menu and "Remove admin" not in ada_menu and "Remove coach" not in ada_menu and ">Remove admin</button>" in eli_menu and "disabled" in eli_menu, "each member has a three-dots menu with the actions that apply")
+promoted = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ada_id, action="make_admin"), follow_redirects=True).get_data(as_text=True)
+ok('class="toast noprint" role=status>Ada Role is now an admin.' in promoted and D.execute("SELECT is_admin FROM members WHERE id=?", (ada_id,)).fetchone()[0] == 1, "Make admin from the members menu confirms with a toast")
+listed = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ada_id, action="add_coaching"), follow_redirects=True).get_data(as_text=True)
+ok('class="toast noprint" role=status>Ada Role was added to the coaching list.' in listed and D.execute("SELECT source FROM coaching_list WHERE member_id=?", (ada_id,)).fetchone()[0] == "manual", "Add to coaching list from the members menu confirms with a toast")
+unlisted = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ada_id, action="remove_coaching"), follow_redirects=True).get_data(as_text=True)
+ok('class="toast noprint" role=status>Ada Role was removed from the coaching list.' in unlisted and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ada_id,)).fetchone(), "Remove from coaching list from the members menu confirms with a toast")
+demoted = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ada_id, action="remove_admin"), follow_redirects=True).get_data(as_text=True)
+ok('class="toast noprint" role=status>Ada Role is no longer an admin.' in demoted and D.execute("SELECT is_admin FROM members WHERE id=?", (ada_id,)).fetchone()[0] == 0, "Remove admin works when another admin remains")
+others = [r[0] for r in D.execute("SELECT id FROM members WHERE is_admin=1 AND id!=?", (eli_id,)).fetchall()]
+D.execute("UPDATE members SET is_admin=0 WHERE id!=?", (eli_id,)); D.commit()
+blocked = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=eli_id, action="remove_admin"), follow_redirects=True).get_data(as_text=True)
+ok('class="toast noprint" role=status>The last admin cannot be removed.' in blocked and D.execute("SELECT is_admin FROM members WHERE id=?", (eli_id,)).fetchone()[0] == 1, "the last admin cannot remove their own admin role")
+for oid in others: D.execute("UPDATE members SET is_admin=1 WHERE id=?", (oid,))
+D.commit()
