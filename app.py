@@ -65,7 +65,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS members(id INTEGER PRIMARY KEY, first TEXT NOT NULL, last TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE, phone TEXT, created TEXT DEFAULT CURRENT_TIMESTAMP, is_admin INTEGER DEFAULT 0,
   usawp_status TEXT DEFAULT 'unknown', usawp_raw TEXT, usawp_number TEXT, usawp_valid_until TEXT, usawp_updated TEXT,
-  preferred_first TEXT, trial_acknowledged_at TEXT, joined INTEGER DEFAULT 0);
+  preferred_first TEXT, trial_acknowledged_at TEXT, joined INTEGER DEFAULT 0, require_background INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS checkins(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id),
   practice_date TEXT NOT NULL, location TEXT, at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(member_id, practice_date));
 CREATE TABLE IF NOT EXISTS login_tokens(token_hash TEXT PRIMARY KEY, member_id INTEGER, expires TEXT, used INTEGER DEFAULT 0);
@@ -118,7 +118,8 @@ def migrate_members(d):
     for c, t in (("is_admin", "INTEGER DEFAULT 0"), ("role", "TEXT DEFAULT 'athlete'"), ("usawp_verified_by", "TEXT"),
                  ("usawp_verified_at", "TEXT"), ("sport80_contact_id", "TEXT"), ("preferred_first", "TEXT"),
                  ("trial_acknowledged_at", "TEXT"), ("notify_prefs", "TEXT"),
-                 ("email_reminders", "INTEGER DEFAULT 1"), ("membership_type", "TEXT"), ("joined", "INTEGER DEFAULT 0")):
+                 ("email_reminders", "INTEGER DEFAULT 1"), ("membership_type", "TEXT"), ("joined", "INTEGER DEFAULT 0"),
+                 ("require_background", "INTEGER DEFAULT 0")):
         if c not in cols: d.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
     # /join always stores a phone. Existing registrations keep Google sign-in; a blank phone is not one.
     cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
@@ -166,9 +167,61 @@ def safesport_req(d):
         kws = [k.strip().lower() for k in (q["keywords"] or "").split(",") if k.strip()]
         if "safesport" in kws or "safesport" in name: return q
     return None
+def background_req(d):
+    for q in d.execute("SELECT * FROM requirements WHERE active=1 ORDER BY id"):
+        name = (q["name"] or "").lower()
+        kws = [k.strip().lower() for k in (q["keywords"] or "").split(",") if k.strip()]
+        if "background" in kws or "background" in name: return q
+    return None
+def _member_flag(member, key):
+    if not member: return None
+    try:
+        if key in member.keys(): return member[key]
+    except (AttributeError, TypeError):
+        return None
+    return None
+def is_coach_or_admin(member):
+    if not member: return False
+    if _member_flag(member, "is_admin"): return True
+    return (_member_flag(member, "role") or "") == "coach"
+def background_required(member):
+    """Coaches and admins always need background screening. Players need it only when an admin turns it on."""
+    if is_coach_or_admin(member): return True
+    return bool(_member_flag(member, "require_background"))
+def background_view(d, member):
+    """Dated background screening line. None when a player has no date and it is not required."""
+    if not member: return None
+    q = background_req(d)
+    if not q: return None
+    mr = d.execute("SELECT * FROM member_reqs WHERE member_id=? AND req_id=?", (member["id"], q["id"])).fetchone()
+    date = str(mr["expires_on"])[:10] if mr and mr["expires_on"] else ""
+    required = background_required(member)
+    if not date and not required: return None
+    if not date:
+        return dict(date="", kind="bad", text="Background screening missing", required=required, req_id=q["id"])
+    left = days_left(date)
+    if left is None or left < 0: kind = "bad"
+    elif left <= EXPIRING_DAYS: kind = "warn"
+    else: kind = "ok"
+    return dict(date=date, kind=kind, text="Background screening expires " + date, required=required, req_id=q["id"])
+def coach_clearance(d, member):
+    """Cleared to coach requires a current background screening. Players do not get this status."""
+    if not is_coach_or_admin(member): return None
+    bg = background_view(d, member)
+    ok = bool(bg and bg["date"] and bg["kind"] != "bad")
+    return dict(ok=ok, text="Cleared to coach" if ok else "Not cleared to coach")
+def save_background_expiry(d, mid, exp, by):
+    q = background_req(d)
+    if not q or not exp: return
+    now = stamp_pt("minutes")
+    d.execute("""INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,?,?,'manual',?,?)
+        ON CONFLICT(member_id,req_id) DO UPDATE SET expires_on=excluded.expires_on,
+        completed_on=COALESCE(member_reqs.completed_on, excluded.completed_on), source='manual', by=excluded.by, at=excluded.at""",
+        (mid, q["id"], today_pt().isoformat(), exp.isoformat() if hasattr(exp, "isoformat") else str(exp)[:10], by, now))
 def clearance(d, member):
     """Cleared to play = USAWP membership verified and current, and SafeSport current.
-    An active 2-week trial counts as cleared until it ends or the membership is verified."""
+    An active 2-week trial counts as cleared until it ends or the membership is verified.
+    Background screening blocks play only when an admin requires it for that player."""
     today = today_pt().isoformat(); reasons = []; items = []
     until = member["usawp_valid_until"] if member and "usawp_valid_until" in member.keys() else None
     membership_expired = bool(until and until < today)
@@ -185,8 +238,14 @@ def clearance(d, member):
         else: st = "ok"
         items.append(dict(req=q, mr=mr, status=st, days_left=days_left(mr["expires_on"]) if mr else None))
         if st in ("missing", "expired"): reasons.append(f"{q['name']} {st}")
+    bg_block = False
+    if _member_flag(member, "require_background") and not is_coach_or_admin(member):
+        bg = background_view(d, member)
+        if not bg or not bg["date"] or bg["kind"] == "bad":
+            reasons.append("Background screening expired" if bg and bg["date"] else "Background screening missing")
+            bg_block = True
     tw = trial_window(member)
-    if tw and tw["active"] and (member["usawp_status"] or "") != "verified" and not membership_expired:
+    if tw and tw["active"] and (member["usawp_status"] or "") != "verified" and not membership_expired and not bg_block:
         return dict(ok=True, reasons=[], checks=items)
     return dict(ok=not reasons, reasons=reasons, checks=items)
 def expiry_notes(member, cl=None):
@@ -211,7 +270,8 @@ def expiry_notes(member, cl=None):
     if safesport: skip.add("SafeSport training expired")
     rest = [r for r in (cl or {}).get("reasons") or [] if r not in skip]
     return {"membership": membership, "safesport": safesport, "lines": lines, "rest": rest}
-app.jinja_env.globals.update(clearance=lambda m: clearance(db(), m), expiry_notes=expiry_notes)
+app.jinja_env.globals.update(clearance=lambda m: clearance(db(), m), expiry_notes=expiry_notes,
+    background_view=lambda m: background_view(db(), m), coach_clearance=lambda m: coach_clearance(db(), m))
 def expire_sweep(d):
     """Auto-flip: anyone whose expires_on (usawp_valid_until) has passed becomes expired."""
     d.execute("UPDATE members SET usawp_status='expired', usawp_raw='Expired '||usawp_valid_until WHERE usawp_status IN ('verified','pending') AND usawp_valid_until IS NOT NULL AND usawp_valid_until < ?", (today_pt().isoformat(),)); d.commit()
@@ -220,7 +280,8 @@ def expiry_report(d, days=None):
     rows = d.execute("SELECT id, first, last, preferred_first, email, phone, usawp_status, usawp_valid_until FROM members WHERE usawp_valid_until IS NOT NULL ORDER BY usawp_valid_until").fetchall()
     rq = d.execute("""SELECT m.id, m.first, m.last, m.preferred_first, m.email, m.phone, 'verified' AS usawp_status, x.expires_on AS usawp_valid_until, q.name AS item
       FROM member_reqs x JOIN members m ON m.id=x.member_id JOIN requirements q ON q.id=x.req_id
-      WHERE q.active=1 AND (q.applies_to='all' OR q.applies_to=m.role) AND x.expires_on IS NOT NULL""").fetchall()
+      WHERE q.active=1 AND x.expires_on IS NOT NULL AND (q.applies_to='all' OR q.applies_to=m.role
+        OR lower(q.name) LIKE '%background%' OR lower(ifnull(q.keywords,'')) LIKE '%background%')""").fetchall()
     out = {"expired": [], "within_7": [], "within_%d" % days: []}
     for r in sorted([dict(r, item="USAWP membership") for r in rows] + [dict(r) for r in rq], key=lambda x: x["usawp_valid_until"]):
         left = (dt.date.fromisoformat(r["usawp_valid_until"]) - today).days
@@ -492,6 +553,8 @@ def logout(): session.clear(); return redirect("/login")
 @login_required
 def home():
     m = me(); d = db()
+    if request.method == "POST" and request.form.get("action") == "reverify_background":
+        flash(create_verify_request(d, m["id"], update_pending=True)); return redirect("/home")
     if request.method == "POST" and request.form.get("action") == "preferred":
         d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), m["id"]))
         d.commit(); flash("Preferred name saved."); return redirect("/home")
@@ -518,7 +581,10 @@ def home():
             flash("You can only submit a membership number 3 times per hour."); return redirect("/home")
         d.execute("UPDATE members SET usawp_number=? WHERE id=?", (num, m["id"]))
         d.execute("INSERT INTO usawp_submits(member_id, at) VALUES(?,?)", (m["id"], dt.datetime.now().isoformat(timespec="seconds")))
+        bg_exp = parse_date(request.form.get("background_expires"))
+        if bg_exp: save_background_expiry(d, m["id"], bg_exp, display_first(m) + " " + (m["last"] or ""))
         create_verify_request(d, m["id"], update_pending=True)
+        if bg_exp: sync_practice_sheets(d)
         flash("Sent to Grunions for verification", "toast")
         return redirect("/home")
     hist = d.execute("SELECT practice_date, location FROM checkins WHERE member_id=? ORDER BY practice_date DESC", (m["id"],)).fetchall()
@@ -1003,7 +1069,7 @@ def admin():
     if request.method == "POST":
         date = posted or today_pt().isoformat()
         mid = int(request.form["member_id"])
-        if request.form.get("action") in ("verify", "req", "role", "ask_bot", "preferred") and not me()["is_admin"]: abort(403)
+        if request.form.get("action") in ("verify", "req", "role", "ask_bot", "preferred", "background", "require_background") and not me()["is_admin"]: abort(403)
         if request.form.get("action") == "verify":
             num = (request.form.get("number") or "").strip()[:20] or None
             vu = parse_date(request.form.get("valid_until")); now = stamp_pt("minutes")
@@ -1030,12 +1096,20 @@ def admin():
             d.execute("UPDATE members SET role=?, is_admin=? WHERE id=?", ("coach" if role in ("coach", "admin") else "athlete", 1 if role == "admin" else 0, mid))
         elif request.form.get("action") == "preferred":
             d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), mid))
+        elif request.form.get("action") == "background":
+            exp = parse_date(request.form.get("expires_on"))
+            if not exp: flash("Enter the background screening expiration date.")
+            else: save_background_expiry(d, mid, exp, f"{me()['first']} {me()['last']}")
+        elif request.form.get("action") == "require_background":
+            row = d.execute("SELECT role, is_admin, require_background FROM members WHERE id=?", (mid,)).fetchone()
+            if row and not row["is_admin"] and (row["role"] or "") != "coach":
+                d.execute("UPDATE members SET require_background=? WHERE id=?", (0 if row["require_background"] else 1, mid))
         elif request.form.get("action") == "undo":
             d.execute("DELETE FROM checkins WHERE member_id=? AND practice_date=?", (mid, date))
         else:
             d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (mid, date, location_for(date)))
         d.commit()
-        if request.form.get("action") in ("verify", "req"): sync_practice_sheets(d)
+        if request.form.get("action") in ("verify", "req", "background", "require_background"): sync_practice_sheets(d)
         return redirect(url_for("admin", date=date, q=request.form.get("q", "")))
     ensure_schedule(d)
     days = practice_days(d)
@@ -1126,11 +1200,18 @@ def members():
         mid = int(request.form.get("member_id") or 0)
         m = d.execute("SELECT * FROM members WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone()
         if not m: abort(404)
-        if request.form.get("action") != "make_coach": abort(400)
-        if (m["role"] or "") != "coach":
-            d.execute("UPDATE members SET role='coach' WHERE id=?", (mid,))
-            d.commit(); sync_practice_sheets(d)
-            flash("Updated %s %s." % (display_first(m), m["last"]))
+        act = request.form.get("action")
+        if act == "make_coach":
+            if (m["role"] or "") != "coach":
+                d.execute("UPDATE members SET role='coach' WHERE id=?", (mid,))
+                d.commit(); sync_practice_sheets(d)
+                flash("Updated %s %s." % (display_first(m), m["last"]))
+        elif act == "require_background":
+            if not m["is_admin"] and (m["role"] or "") != "coach":
+                d.execute("UPDATE members SET require_background=? WHERE id=?", (0 if m["require_background"] else 1, mid))
+                d.commit(); sync_practice_sheets(d)
+                flash("Updated %s %s." % (display_first(m), m["last"]))
+        else: abort(400)
         return redirect("/members")
     rows = d.execute("""SELECT m.*, (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits,
       (SELECT MAX(practice_date) FROM checkins WHERE member_id=m.id) AS lastp FROM members m WHERE COALESCE(role,'')!='system' ORDER BY last, first""").fetchall()
@@ -1182,23 +1263,12 @@ def requirement_expiries(d):
     return out
 MEMBERS_CSV_HEADER = ["Legal first", "Legal last", "Preferred first", "Email", "Phone", "Role", "Admin", "USAWP #", "Status",
                       "Membership expires", "SafeSport expires", "Background screening expires", "Trial start", "Trial end",
-                      "Verified date", "Joined date", "Total attendance", "Coach eligible"]
+                      "Verified date", "Joined date", "Total attendance", "Coach eligible", "Background screening"]
 @app.route("/members.csv")
 @admin_required
 def members_csv():
-    d = db()
-    pending = {r[0] for r in d.execute("SELECT DISTINCT member_id FROM verify_requests WHERE status='pending'")}
-    expiries = requirement_expiries(d)
-    rows = []
-    for m in d.execute("""SELECT m.*, (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits FROM members m
-            WHERE COALESCE(role,'')!='system' ORDER BY last, first, id"""):
-        trial_start, trial_end = trial_dates(m)
-        verified = str(m["usawp_verified_at"] or "")[:10]
-        rows.append([m["first"], m["last"], m["preferred_first"] or "", m["email"], (m["phone"] or "").strip(),
-                     role_label(m), "yes" if m["is_admin"] else "no", m["usawp_number"] or "", export_status(d, m, pending),
-                     m["usawp_valid_until"] or "", expiries.get((m["id"], "safesport"), ""), expiries.get((m["id"], "background"), ""),
-                     trial_start, trial_end, verified, utc_to_pt(m["created"]), m["visits"], coach_eligibility(d, m)["text"]])
-    return csv_attachment("grunions-members-%s.csv" % today_pt().isoformat(), MEMBERS_CSV_HEADER, rows)
+    rows = member_sheet_rows(db())
+    return csv_attachment("grunions-members-%s.csv" % today_pt().isoformat(), rows[0], rows[1:])
 def export_default_range():
     today = today_pt(); return today - dt.timedelta(days=28), today + dt.timedelta(days=28)
 def export_range():
@@ -1213,6 +1283,7 @@ ATTENDANCE_CSV_HEADER = ["Date", "Time", "Location", "Cancelled", "Name", "USAWP
 PRACTICE_COACHES_HEADER = ["Date", "Time", "Location", "Coach name", "Coach email", "Coach eligible"]
 SHEET_PRACTICES = "Practices"
 SHEET_PRACTICE_COACHES = "Practice Coaches"
+SHEET_MEMBERS = "Members"
 def practice_time(p):
     return "%s-%s" % (p["start"] or "", p["end"] or "")
 def practice_export_bundle(d, practices):
@@ -1245,15 +1316,30 @@ def practice_coach_detail_rows(d, practices, assigned):
         for c in coaches:
             rows.append([p["date"], practice_time(p), p["location"] or "", practice_coach_name(c), c["email"] or "", coach_eligibility(d, c)["text"]])
     return rows
+def member_sheet_rows(d):
+    """Same columns as the members CSV, including the background screening line."""
+    pending = {r[0] for r in d.execute("SELECT DISTINCT member_id FROM verify_requests WHERE status='pending'")}
+    expiries = requirement_expiries(d)
+    rows = [MEMBERS_CSV_HEADER]
+    for m in d.execute("""SELECT m.*, (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits FROM members m
+            WHERE COALESCE(role,'')!='system' ORDER BY last, first, id"""):
+        trial_start, trial_end = trial_dates(m)
+        verified = str(m["usawp_verified_at"] or "")[:10]
+        rows.append([m["first"], m["last"], m["preferred_first"] or "", m["email"], (m["phone"] or "").strip(),
+                     role_label(m), "yes" if m["is_admin"] else "no", m["usawp_number"] or "", export_status(d, m, pending),
+                     m["usawp_valid_until"] or "", expiries.get((m["id"], "safesport"), ""), expiries.get((m["id"], "background"), ""),
+                     trial_start, trial_end, verified, utc_to_pt(m["created"]), m["visits"], coach_eligibility(d, m)["text"],
+                     (background_view(d, m) or {}).get("text", "")])
+    return rows
 def practice_sheet_tabs(d, practices=None):
-    """Practices, one row each, and Practice Coaches, one row per assigned coach."""
+    """Practices, Practice Coaches, and Members."""
     if practices is None:
         practices = d.execute("SELECT * FROM practices ORDER BY date, start, id").fetchall()
     rsvps, checkins, assigned = practice_export_bundle(d, practices)
     summary = [PRACTICE_CSV_HEADER]
     for p in practices: summary.append(practice_summary_row(d, p, rsvps, checkins, assigned.get(p["id"], [])))
     detail = [PRACTICE_COACHES_HEADER] + practice_coach_detail_rows(d, practices, assigned)
-    return {SHEET_PRACTICES: summary, SHEET_PRACTICE_COACHES: detail}
+    return {SHEET_PRACTICES: summary, SHEET_PRACTICE_COACHES: detail, SHEET_MEMBERS: member_sheet_rows(d)}
 _sheet_token = {"email": "", "value": "", "exp": 0}
 def _b64url(raw):
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
@@ -1489,7 +1575,7 @@ NOTIFY_PUSH = (
     ("practice_reminder", "Practice reminder (~3 hours before)", "all"),
     ("verification_result", "Verification result", "all"),
     ("practice_cancelled", "Practice cancelled", "all"),
-    ("expiry", "Trial, membership, and SafeSport expiring or expired", "all"),
+    ("expiry", "Trial, membership, SafeSport, and background screening expiring or expired", "all"),
     ("verify_request", "New verification requests", "admin"),
 )
 VAPID = None
@@ -1667,6 +1753,13 @@ def expiry_text(kind, date_iso, left):
     elif kind == "safesport":
         sentence = "Your SafeSport training expires %s." % when
         title = "SafeSport expires today" if left == 0 else "SafeSport expiring"
+    elif kind == "background":
+        if left < 0:
+            sentence = "Your background screening expired on %s." % date_iso
+            title = "Background screening expired"
+        else:
+            sentence = "Your background screening expires %s." % when
+            title = "Background screening expires today" if left == 0 else "Background screening expiring"
     else:
         sentence = "Your 2-week USAWP trial ends %s." % when
         title = "Trial ends today" if left == 0 else "Trial ending"
@@ -1708,13 +1801,15 @@ def run_expiry_notices(d, today=None):
         if end and (m["usawp_status"] or "") != "verified":
             left = (end - today).days
             if left in (7, 1, 0): deliver_expiry(d, m, "trial", end.isoformat(), left)
-    q = safesport_req(d)
-    if not q: return
-    for m in d.execute("""SELECT m.*, x.expires_on AS ss_expires FROM member_reqs x JOIN members m ON m.id=x.member_id
-            WHERE x.req_id=? AND x.expires_on IS NOT NULL AND COALESCE(m.role,'')!='system'""", (q["id"],)):
-        try: left = (dt.date.fromisoformat(str(m["ss_expires"])[:10]) - today).days
-        except ValueError: continue
-        if left in (7, 1, 0): deliver_expiry(d, m, "safesport", str(m["ss_expires"])[:10], left)
+    for kind, finder in (("safesport", safesport_req), ("background", background_req)):
+        q = finder(d)
+        if not q: continue
+        for m in d.execute("""SELECT m.*, x.expires_on AS item_expires FROM member_reqs x JOIN members m ON m.id=x.member_id
+                WHERE x.req_id=? AND x.expires_on IS NOT NULL AND COALESCE(m.role,'')!='system'""", (q["id"],)):
+            try: left = (dt.date.fromisoformat(str(m["item_expires"])[:10]) - today).days
+            except ValueError: continue
+            due = left in (7, 1, 0) or (kind == "background" and left == -1)
+            if due: deliver_expiry(d, m, kind, str(m["item_expires"])[:10], left)
 def run_practice_reminders(d, now=None):
     now = wall_pt(now)
     lo = (now.date() - dt.timedelta(days=1)).isoformat(); hi = (now.date() + dt.timedelta(days=1)).isoformat()

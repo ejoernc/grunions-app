@@ -105,6 +105,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
 {% macro coach_tag(m) %}{% set ce = coach_eligibility(m) %}{% if ce.eligible %}<span class="st st-ok coach-elig">Coach eligible</span>{% elif ce.text %}<span class="st st-bad coach-elig">{{ce.text}}</span>{% endif %}{% endmacro %}
+{% macro bg_line(m) %}{% set bg = background_view(m) %}{% if bg %}{{ st(bg.kind, bg.text) }}{% endif %}{% endmacro %}
 <header><a class=brand href=/>Grunions</a>{% if me() %}<a class=sub href=/logout>Log out</a>{% endif %}</header><main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
@@ -290,6 +291,7 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 {% elif cl.ok and tw and tw.active and m.usawp_status != 'verified' %}<div style="font-size:19px;font-weight:600">Cleared to play</div>{{ st('trial', trial_badge(tw)) }}
 {% elif cl.ok %}<div style="font-size:19px;font-weight:600">Cleared to play</div>{{ st('ok','Cleared') }}
 {% else %}<div style="font-size:19px;font-weight:600">Not cleared to play</div>{{ st('bad','Not cleared') }}{% endif %}</div>
+{% set cc = coach_clearance(m) %}{% if cc %}<div style="margin-top:8px">{{ st('ok' if cc.ok else 'bad', cc.text) }}</div>{% endif %}
 {% if coach_eligibility(m).text %}<div style="margin-top:8px">{{ coach_tag(m) }}</div>{% endif %}
 {% if not cl.ok %}{% if not vr_pending %}{% for line in ex.lines %}<p class="sm" style="margin:8px 0 0">{{line}}</p>{% endfor %}{% elif ex.safesport %}<p class="sm" style="margin:8px 0 0">SafeSport expired {{ex.safesport}}</p>{% endif %}
 {% if ex.rest %}<p class="t2 sm" style="margin:8px 0 0">Needs: {{ex.rest|join(', ')}}</p>{% endif %}{% endif %}
@@ -300,10 +302,14 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 <button type=button class="primary full" id=reverifyOpen style="margin-top:14px">Reverify membership</button>
 <form id=reverifyForm hidden method=post action=/home style="margin-top:14px">{{csrf_field()}}
 <div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="{{m.usawp_number or ''}}" autocomplete=off></label>
+<label style="margin:0">Background screening expires<input name=background_expires type=date value="{{ (background_view(m).date if background_view(m) else '') }}"></label>
 <button class=primary style="flex:0 0 auto">Send</button></div></form>
 <script>document.getElementById('reverifyOpen').onclick=function(){var f=document.getElementById('reverifyForm');f.hidden=false;this.hidden=true;f.querySelector('input[name=usawp_number]').focus()};</script>
 {% elif m.usawp_status == 'verified' %}
 {% if m.usawp_number %}<p class="sm" style="margin:12px 0 0">USAWP # {{m.usawp_number}}</p>{% endif %}
+{% set bg = background_view(m) %}{% if bg and bg.kind == 'bad' and not vr_pending %}
+<form method=post action=/home style="margin-top:14px">{{csrf_field()}}<input type=hidden name=action value=reverify_background>
+<button class="primary full">Reverify background screening</button></form>{% endif %}
 {% elif m.usawp_number %}
 <div class=usawp-line><span>USAWP # {{m.usawp_number}}</span><button type=button class=compact id=usawpEdit>Edit</button></div>
 <form id=usawpForm hidden method=post action=/home>{{csrf_field()}}
@@ -337,6 +343,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {% if m.usawp_verified_at %}<div class=kv><span>Verified</span><span>{{m.usawp_verified_at[:10]}}</span></div>{% endif %}
 {% for it in cl.checks %}<div class=kv><span>{{it.req.name}}</span>{{ st({'ok':'ok','no date':'warn'}.get(it.status,'bad'),
  (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status!='expired' else 'expired') }}</div>{% endfor %}
+{% if background_view(m) %}<div class=kv>{{ bg_line(m) }}</div>{% endif %}
 </div></details>
 <details class=card><summary>Attendance <span class="t3 sm" style="margin-left:auto;margin-right:10px">{{hist|length}} total · {{nmonth}} this month</span></summary><div class=body>
 {% for h in hist[:20] %}<div class=kv><span>{{fmt_d(h.practice_date)}}</span><span class=t2>{{h.location}}</span></div>{% else %}<p class=t3>No practices yet.</p>{% endfor %}</div></details>
@@ -490,6 +497,7 @@ T["admin"] = ADMIN_NAV + """
 {% macro ci(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}
 <div class=li><button type=button class=ci-name onclick="this.closest('.li').nextElementSibling.toggleAttribute('hidden')">
 <div style="display:flex;align-items:center;min-width:0;font-weight:500"><span class=ell>{{display_first(r)}} {{r.last}}</span>{{ coach_tag(r) }}</div>
+{% if background_view(r) %}<div class="xs" style="margin-top:4px">{{ bg_line(r) }}</div>{% endif %}
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{{ st('trial', trial_badge(tw)) }}<div class="t3 xs">Ends {{tw.ends}}</div>
 {% elif not cl.ok %}{{ st('bad','Not cleared') }}{% elif dl is not none and dl <= EXPIRING_DAYS %}{{ st('warn','Expires in %dd' % dl) }}{% else %}{{ st('ok','Cleared') }}{% endif %}
 {% if tw and tw.expired and r.usawp_status != 'verified' %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}
@@ -502,6 +510,12 @@ T["admin"] = ADMIN_NAV + """
 {% if r.usawp_number or r.usawp_valid_until %}<div class=kv><span>Member # / expires</span><span>{{r.usawp_number or '—'}} / {{r.usawp_valid_until or '—'}}</span></div>{% endif %}
 {% if tw and r.usawp_status != 'verified' %}<div class=kv><span>USAWP trial</span><span>{% if tw.active %}{{ trial_badge(tw) }} · Ends {{tw.ends}}{% else %}Trial ended {{tw.ends}}{% endif %}</span></div>{% endif %}
 {% if not cl.ok %}<div class=kv><span>Not cleared</span><span style="text-align:right">{{cl.reasons|join(', ')}}</span></div>{% endif %}
+{% if background_view(r) %}<div class=kv>{{ bg_line(r) }}</div>{% endif %}
+{% if me().is_admin %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}">
+<label>Background screening expires<input name=expires_on type=date value="{{ background_view(r).date if background_view(r) else '' }}"></label>
+<button class=full name=action value=background>Save background screening</button></form>
+{% if not r.is_admin and r.role != 'coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}">
+<button class=full name=action value=require_background>{% if r.require_background %}Don't require background{% else %}Require background{% endif %}</button></form>{% endif %}{% endif %}
 {% if r.usawp_verified_by %}<div class=kv><span>Verified</span><span>{{r.usawp_verified_by}}, {{r.usawp_verified_at.replace('T',' ')}}</span></div>{% endif %}
 {% if r.vr_status %}<div class=kv><span>Bot request</span><span>{{r.vr_status}}{% if r.vr_note %} · {{r.vr_note}}{% endif %}</span></div>{% endif %}
 {% if r.preferred_first and r.preferred_first.strip() %}<div class=kv><span>Legal name</span><span>{{r.first}} {{r.last}}</span></div>{% endif %}
@@ -589,16 +603,18 @@ T["export_page"] = ADMIN_NAV + """<h1>Export</h1>
 <div class=row><label>Start<input type=date name=start value="{{start}}" required></label><label>End<input type=date name=end value="{{end}}" required></label></div>
 <button class="primary full" name=detail value=0>Download practices CSV</button>
 <button class=full style="margin-top:10px" name=detail value=1>Download detailed attendance CSV</button></form>
-<p class="t3 sm" style="margin:12px 0 0">Practices is one row per practice, with the assigned coaches, a coach count, and how many of those coaches are coach-eligible. Detailed attendance is one row per member per practice, with RSVP and check-in. A configured Google Sheet keeps a Practices tab and a Practice Coaches tab, including coach eligibility, and updates them when the coaches change.</p></div>"""
+<p class="t3 sm" style="margin:12px 0 0">Practices is one row per practice, with the assigned coaches, a coach count, and how many of those coaches are coach-eligible. Detailed attendance is one row per member per practice, with RSVP and check-in. A configured Google Sheet keeps a Practices tab, a Practice Coaches tab, and a Members tab with background screening, and updates them when those records change.</p></div>"""
 
 T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-between;align-items:baseline"><h1>Members</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
 <div class=seg><a href=/members {% if not coach_filter %}class=on{% endif %}>All</a><a href="/members?coach=eligible" {% if coach_filter %}class=on{% endif %}>Coach eligible</a></div>
 <p class="t2 sm">{% if coach_filter %}{{rows|length}} coach eligible{% else %}{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}{% endif %}</p>
 <div class=list>{% for r in rows %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow><div style="display:flex;align-items:center;min-width:0;font-weight:500"><span class=ell>{{display_first(r)}} {{r.last}}</span>{{ coach_tag(r) }}</div>
-<div class="t3 xs ell">{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices{% if r.usawp_verified_by %} · verified by {{r.usawp_verified_by}} {{r.usawp_verified_at[:10]}}{% endif %}</div></div>
+<div class="t3 xs ell">{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices{% if r.usawp_verified_by %} · verified by {{r.usawp_verified_by}} {{r.usawp_verified_at[:10]}}{% endif %}</div>
+{% if background_view(r) %}<div class="xs" style="margin-top:4px">{{ bg_line(r) }}</div>{% endif %}</div>
 <div style="text-align:right">{{ usawp(r.usawp_status) }}{% if r.usawp_valid_until %}<div class="t3 xs">thru {{r.usawp_valid_until}}</div>{% endif %}
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">{{ st('trial', trial_badge(tw)) }}</div><div class="t3 xs">Ends {{tw.ends}}</div>{% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}
-{% if r.role != 'coach' %}<form method=post style="margin-top:8px">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button class=compact name=action value=make_coach>Make coach</button></form>{% endif %}</div></div>{% endfor %}</div>"""
+{% if r.role != 'coach' %}<form method=post style="margin-top:8px">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button class=compact name=action value=make_coach>Make coach</button></form>{% endif %}
+{% if not r.is_admin and r.role != 'coach' %}<form method=post style="margin-top:8px">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button class=compact name=action value=require_background>{% if r.require_background %}Don't require background{% else %}Require background{% endif %}</button></form>{% endif %}</div></div>{% endfor %}</div>"""
 
 T["expiring"] = ADMIN_NAV + """<h1>Expiring</h1>
 <form class="row noprint" style="align-items:center;margin-bottom:8px"><span class="t2 sm" style="flex:0 0 auto">Window (days)</span><input name=days type=number value={{days}} onchange=this.form.submit() style="margin:0"></form>
