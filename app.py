@@ -1694,11 +1694,27 @@ def run_daily_sheet_sync():
     finally:
         d.close()
     run_sheet_sync()
+def render_transfer(stats=None):
+    start, end = export_default_range()
+    return page(T["transfer"], tab="admin", start=start.isoformat(), end=end.isoformat(), sheet_on=sheet_configured(), sheet_status=sheet_status(), stats=stats)
+def take_import():
+    """Read an uploaded Sport:80 file. None when nothing was saved."""
+    f = request.files.get("file")
+    if not f or not f.filename:
+        flash("Choose a file.")
+        return None
+    stats = import_roster(f.filename, f.read())
+    if stats is None: flash("Couldn't find name/email and status columns in that file.")
+    return stats
+@app.route("/transfer", methods=["GET", "POST"])
+@admin_required
+def transfer_page():
+    stats = take_import() if request.method == "POST" else None
+    return render_transfer(stats)
 @app.route("/export")
 @admin_required
 def export_page():
-    start, end = export_default_range()
-    return page(T["export_page"], tab="admin", start=start.isoformat(), end=end.isoformat(), sheet_on=sheet_configured(), sheet_status=sheet_status())
+    return redirect("/transfer")
 @app.route("/export/sheet", methods=["POST"])
 @admin_required
 def export_sheet_now():
@@ -1707,13 +1723,13 @@ def export_sheet_now():
     st = sheet_status()
     if st and st.get("ok"): flash("Google Sheet synced.", "toast")
     else: flash("Google Sheet sync failed. The error was logged.", "toast")
-    return redirect("/export")
+    return redirect("/transfer")
 @app.route("/export/practices.csv")
 @admin_required
 def practices_csv():
     bounds = export_range()
     if not bounds:
-        flash("Choose a start and end date."); return redirect("/export")
+        flash("Choose a start and end date."); return redirect("/transfer")
     start, end = bounds
     d = db()
     practices = d.execute("SELECT * FROM practices WHERE date>=? AND date<=? ORDER BY date, start, id", (start.isoformat(), end.isoformat())).fetchall()
@@ -1834,14 +1850,8 @@ def import_roster(fname, data):
 @app.route("/import", methods=["GET", "POST"])
 @admin_required
 def import_page():
-    stats = None
-    if request.method == "POST":
-        f = request.files.get("file")
-        if not f or not f.filename: flash("Choose a file.")
-        else:
-            stats = import_roster(f.filename, f.read())
-            if stats is None: flash("Couldn't find name/email and status columns in that file.")
-    return page(T["import_page"], tab="admin", stats=stats)
+    if request.method == "POST": return render_transfer(take_import())
+    return redirect("/transfer")
 
 # ---------- notifications (web push + email) ----------
 import base64, threading

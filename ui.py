@@ -352,8 +352,8 @@ if(document.querySelector('nav.tabs')){
 </body></html>""")
 
 ADMIN_NAV = """<div class="seg noprint">{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="{{'on' if ep=='admin'}}">Check-in</a>{% endif %}
-{% if me().is_admin %}<a href=/members class="{{'on' if ep=='members'}}">People</a><a href=/export class="{{'on' if ep=='export_page'}}">Export</a><a href=/expiring class="{{'on' if ep=='expiring'}}">Expiring</a>
-<a href=/import class="{{'on' if ep=='import_page'}}">Import</a><a href=/requirements class="{{'on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="{{'on' if ep=='qr_page'}}">QR</a>{% endif %}</div>
+{% if me().is_admin %}<a href=/members class="{{'on' if ep=='members'}}">People</a><a href=/transfer class="{{'on' if ep=='transfer_page'}}">Transfer</a><a href=/expiring class="{{'on' if ep=='expiring'}}">Expiring</a>
+<a href=/requirements class="{{'on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="{{'on' if ep=='qr_page'}}">QR</a>{% endif %}</div>
 {% set al = admin_alert() %}{% if al %}<a href=/expiring class="note noprint" style="display:block;text-decoration:none"><span class="st st-warn"></span> USAWP: <b>{{al[0]}}</b> expired · <b>{{al[1]}}</b> expiring within {{EXPIRING_DAYS}} days</a>{% endif %}
 {% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% endfor %}"""
 
@@ -701,7 +701,17 @@ if(!window.grunionsCalDoc){
 })();
 </script>"""
 
-T["export_page"] = ADMIN_NAV + """<h1>Export</h1>
+T["transfer"] = ADMIN_NAV + """<h1>Transfer</h1>
+<h2>Import</h2>
+<div class=card><ol class="t2 sm" style="margin:0;padding-left:18px;line-height:1.7">
+<li>Log in at <a href=https://usawp.sport80.com>usawp.sport80.com</a> and switch to the Grunions club profile.</li>
+<li>Members → Smart Lists → Edit Columns: name, email, membership status, member number, valid until, plus SafeSport / background columns.</li>
+<li>Actions → Export Report, then upload the emailed file here.</li></ol>
+<form method=post action=/transfer enctype=multipart/form-data style="margin-top:14px">{{csrf_field()}}<input type=file name=file accept=".csv,.xlsx" style="padding:11px 14px"><button class="primary full" style="margin-top:12px">Import</button></form>
+{% if stats %}<div class=note style="margin-top:16px">Read {{stats.rows}} rows · updated {{stats.matched}} members · {{stats.req_updates or 0}} compliance items · {{stats.unmatched|length}} roster rows not in the app</div>
+{% if stats.unmatched %}<details style="margin-top:12px"><summary>Not signed up in the app</summary><div class=body>{% for u in stats.unmatched %}<div class="kv t2">{{u}}</div>{% endfor %}</div></details>{% endif %}{% endif %}
+<p class="t3 xs" style="margin:12px 0 0">Matching uses email first, then exact legal first and last name. An optional Preferred First Name column is stored as the name shown in the app and is not used for matching. A Membership Type or Member Type column adds USAWP coaches to the coaching list.</p></div>
+<h2>Export</h2>
 <div class=card><h2 style="margin:0 0 8px">Members</h2>
 <p class="t2 sm">Legal name, preferred name, phone, role, clearance, USAWP number, membership, SafeSport, background screening, trial dates, and attendance.</p>
 <a class="btn primary" href=/members.csv>Download members CSV</a></div>
@@ -792,16 +802,6 @@ T["requirements_page"] = ADMIN_NAV + """<h1>Requirements</h1><p class="t2 sm">Cl
 <details class=card><summary>Add requirement</summary><form method=post class=body>{{csrf_field()}}<label>Name<input name=name placeholder="CPR / First Aid"></label>
 <div class=row><label>Applies to<select name=applies_to><option>all</option><option>athlete</option><option>coach</option></select></label><label>Keywords<input name=keywords placeholder="cpr,firstaid"></label></div>
 <label><input type=checkbox name=expires checked>Has an expiration date</label><button class="primary full" name=action value=add>Add</button></form></details>"""
-
-T["import_page"] = ADMIN_NAV + """<h1>Sport:80 import</h1>
-<div class=card><ol class="t2 sm" style="margin:0;padding-left:18px;line-height:1.7">
-<li>Log in at <a href=https://usawp.sport80.com>usawp.sport80.com</a> and switch to the Grunions club profile.</li>
-<li>Members → Smart Lists → Edit Columns: name, email, membership status, member number, valid until, plus SafeSport / background columns.</li>
-<li>Actions → Export Report, then upload the emailed file here.</li></ol></div>
-<form method=post enctype=multipart/form-data>{{csrf_field()}}<input type=file name=file accept=".csv,.xlsx" style="padding:11px 14px"><button class="primary full" style="margin-top:12px">Import</button></form>
-{% if stats %}<div class=note style="margin-top:16px">Read {{stats.rows}} rows · updated {{stats.matched}} members · {{stats.req_updates or 0}} compliance items · {{stats.unmatched|length}} roster rows not in the app</div>
-{% if stats.unmatched %}<details class=card><summary>Not signed up in the app</summary><div class=body>{% for u in stats.unmatched %}<div class="kv t2">{{u}}</div>{% endfor %}</div></details>{% endif %}{% endif %}
-<p class="t3 xs" style="margin-top:16px">Matching uses email first, then exact legal first and last name. An optional Preferred First Name column is stored as the name shown in the app and is not used for matching. A Membership Type or Member Type column adds USAWP coaches to the coaching list.</p>"""
 
 T["qr_page"] = ADMIN_NAV + """<div style="text-align:center"><h1>New to Grunions? Scan to join.</h1>
 <div style="background:#fff;border-radius:16px;padding:18px;display:inline-block"><img src=/qr.svg alt="Sign-up QR code" style="width:min(70vw,380px);display:block"></div>

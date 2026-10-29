@@ -37,7 +37,7 @@ ok(jane.post("/api/messages", json={"body": "x"}).status_code == 400, "chat POST
 ok("$45/mo" in jane.get("/home").get_data(as_text=True), "announcement shown on member home")
 # admin import + checkin
 with open("sample_sport80_export.csv", "rb") as f:
-    t = eli.post("/import", data=dict(csrf=csrf(eli, "/import"), file=(f, "x.csv")), content_type="multipart/form-data").get_data(as_text=True)
+    t = eli.post("/import", data=dict(csrf=csrf(eli, "/transfer"), file=(f, "x.csv")), content_type="multipart/form-data").get_data(as_text=True)
 ok("updated 2 members" in t, "Sport:80 import")
 eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date="2026-10-27")); eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date="2026-10-23"))
 h = x.get("/home").get_data(as_text=True)
@@ -571,8 +571,9 @@ finally:
 
 # admin CSV exports
 import csv as csvmod, io as io_mod
-exp = eli.get("/export").get_data(as_text=True)
-ok("Download members CSV" in exp and "Download practices CSV" in exp and "Download detailed attendance CSV" in exp and 'name=start' in exp and 'name=end' in exp and ('value="%s"' % (A.today_pt() - dt.timedelta(days=28)).isoformat()) in exp and ('value="%s"' % (A.today_pt() + dt.timedelta(days=28)).isoformat()) in exp and ">Export<" in eli.get("/members").get_data(as_text=True), "Export page offers members and a practice date range")
+gone = eli.get("/export"); old_import = eli.get("/import")
+exp = eli.get("/transfer").get_data(as_text=True)
+ok(gone.status_code == 302 and "/transfer" in gone.headers["Location"] and old_import.status_code == 302 and "/transfer" in old_import.headers["Location"] and ">Transfer<" in eli.get("/members").get_data(as_text=True) and ">Import<" not in eli.get("/members").get_data(as_text=True) and exp.find(">Import<") < exp.find(">Export<") and "Download members CSV" in exp and "Download practices CSV" in exp and "Download detailed attendance CSV" in exp and 'name=start' in exp and 'name=end' in exp and ('value="%s"' % (A.today_pt() - dt.timedelta(days=28)).isoformat()) in exp and ('value="%s"' % (A.today_pt() + dt.timedelta(days=28)).isoformat()) in exp, "Transfer puts import above export, and the old tabs redirect there")
 ok(jane.get("/export").status_code == 403 and jane.get("/members.csv").status_code == 403 and jane.get("/export/practices.csv").status_code == 403 and john.get("/export").status_code == 403 and A.app.test_client().get("/export").status_code == 302, "member, coach, and signed-out visitors cannot export")
 exa = A.app.test_client(); join(exa, "Exa", "Export", "exa.export@example.com")
 eid = D.execute("SELECT id FROM members WHERE email='exa.export@example.com'").fetchone()[0]
@@ -807,10 +808,10 @@ answer(True, member_number="424242")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "manual", "a verification with no membership type leaves the coaching list alone")
 import io
 athlete = ("First Name,Last Name,Email,Status,Valid Until,Membership Type\nRiley,Quinn,riley@example.com,Current,2027-08-31,Athlete\n").encode()
-eli.post("/import", data=dict(csrf=csrf(eli, "/import"), file=(io.BytesIO(athlete), "t.csv")), content_type="multipart/form-data")
+eli.post("/import", data=dict(csrf=csrf(eli, "/transfer"), file=(io.BytesIO(athlete), "t.csv")), content_type="multipart/form-data")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "manual" and D.execute("SELECT membership_type FROM members WHERE id=?", (riley_id,)).fetchone()[0] == "Athlete", "an athlete import does not remove a manual coaching-list row")
 coach_csv = ("First Name,Last Name,Email,Status,Valid Until,Member Type\nRiley,Quinn,riley@example.com,Current,2027-08-31,Head Coach\n").encode()
-eli.post("/import", data=dict(csrf=csrf(eli, "/import"), file=(io.BytesIO(coach_csv), "t.csv")), content_type="multipart/form-data")
+eli.post("/import", data=dict(csrf=csrf(eli, "/transfer"), file=(io.BytesIO(coach_csv), "t.csv")), content_type="multipart/form-data")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "usawp" and D.execute("SELECT membership_type FROM members WHERE id=?", (riley_id,)).fetchone()[0] == "Head Coach" and 'coach-elig">Coach eligible' in riley.get("/home").get_data(as_text=True), "a coach membership import adds the USAWP coaching-list row and the badge")
 list_act(riley_id, "remove_coaching")
 ok(not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and ('name=coach value="%d"' % riley_id) not in eli.get("/practices").get_data(as_text=True), "an admin can remove a USAWP coach from the coaching list")
@@ -875,7 +876,7 @@ A.push_sheet_tabs = boom
 saved = export_edit([str(eli_id)])
 ok(saved.status_code == 302 and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=?", (epid,)).fetchall() == [(eli_id,)], "a Google Sheet error still saves the coach assignment")
 A.push_sheet_tabs = real_push
-ok(A.push_sheet_tabs({A.SHEET_PRACTICES: [["Date"]]}) is False and "Sync to Google Sheet now" not in eli.get("/export").get_data(as_text=True), "sheet sync and the admin button stay hidden until GOOGLE_SA_JSON and GOOGLE_SHEET_ID are set")
+ok(A.push_sheet_tabs({A.SHEET_PRACTICES: [["Date"]]}) is False and "Sync to Google Sheet now" not in eli.get("/transfer").get_data(as_text=True), "sheet sync and the admin button stay hidden until GOOGLE_SA_JSON and GOOGLE_SHEET_ID are set")
 class FakeSheet:
     def __init__(self, title):
         self.title = title; self.cleared = 0; self.values = None
@@ -896,10 +897,10 @@ A.open_spreadsheet = lambda: book
 try:
     wrote = A.push_sheet_tabs({A.SHEET_PRACTICES: [A.PRACTICE_CSV_HEADER, ["2026-12-01", "18:00-19:30", "Export Pool", "no", 1, 1, "Eli, Sam", 2]], A.SHEET_ATTENDANCE: [A.ATTENDANCE_CSV_HEADER, ["2026-12-01", "18:00-19:30", "Export Pool", "no", "Ex Export", "1", "going", "yes", ""]]})
     D.execute("DELETE FROM sheet_sync"); D.commit()
-    page = eli.get("/export").get_data(as_text=True)
+    page = eli.get("/transfer").get_data(as_text=True)
     ok(wrote is True and book.by["Practices"].cleared == 1 and book.by["Practices"].values[0] == A.PRACTICE_CSV_HEADER and book.by["Attendance"].title == "Attendance" and "Sync to Google Sheet now" in page and "Not synced yet" in page, "gspread creates a missing Attendance tab and the admin sync card appears")
     A.run_sheet_sync = lambda: A.save_sheet_status(True, "Synced")
-    done = eli.post("/export/sheet", data=dict(csrf=csrf(eli, "/export")), follow_redirects=True).get_data(as_text=True)
+    done = eli.post("/export/sheet", data=dict(csrf=csrf(eli, "/transfer")), follow_redirects=True).get_data(as_text=True)
     ok('class="toast noprint" role=status>Google Sheet synced.' in done and "Last sync" in done and "Synced" in done, "Sync to Google Sheet now records the time and status")
 finally:
     A.open_spreadsheet = real_open

@@ -63,7 +63,7 @@ def test_import_tolerant_columns():
     csv = ("Report title\n" "First Name,Last Name,Email Address,ID Number,Contact ID,Membership Expiry Date,SafeSport Expiry Date\n"
            f"Mem,Three,MEM@example.com,659999,C-42,{(A.today_pt()+dt.timedelta(days=200)).isoformat()},2027-05-11\n").encode()
     import io
-    t = boss.post("/import", data=dict(csrf=csrf(boss, "/import"), file=(io.BytesIO(csv), "x.csv")), content_type="multipart/form-data").get_data(as_text=True)
+    t = boss.post("/import", data=dict(csrf=csrf(boss, "/transfer"), file=(io.BytesIO(csv), "x.csv")), content_type="multipart/form-data").get_data(as_text=True)
     r = sqlite3.connect(A.DB).execute("SELECT usawp_status, usawp_number, sport80_contact_id FROM members WHERE email='mem@example.com'").fetchone()
     assert r == ("verified", "659999", "C-42"), (r, t)
 def test_reset_real():
@@ -173,7 +173,7 @@ def test_preferred_first_display_and_legal_verify():
     assert sqlite3.connect(A.DB).execute("SELECT name FROM verify_requests WHERE member_id=?", (mid,)).fetchone()[0] == "Samuel River"
     import io
     csv_bytes = ("First Name,Last Name,Email Address,Preferred First Name,Membership Status\nSamuel,River,samuel@example.com,Samwell,Current\n").encode()
-    boss.post("/import", data=dict(csrf=csrf(boss, "/import"), file=(io.BytesIO(csv_bytes), "x.csv")), content_type="multipart/form-data")
+    boss.post("/import", data=dict(csrf=csrf(boss, "/transfer"), file=(io.BytesIO(csv_bytes), "x.csv")), content_type="multipart/form-data")
     assert sqlite3.connect(A.DB).execute("SELECT first, preferred_first FROM members WHERE email='samuel@example.com'").fetchone() == ("Samuel", "Samwell")
     c.post("/home", data=dict(csrf=csrf(c, "/home"), action="preferred", preferred_first="   "))
     assert sqlite3.connect(A.DB).execute("SELECT preferred_first FROM members WHERE id=?", (mid,)).fetchone()[0] is None
