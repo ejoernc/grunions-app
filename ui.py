@@ -611,7 +611,11 @@ T["export_page"] = ADMIN_NAV + """<h1>Export</h1>
 <div class=row><label>Start<input type=date name=start value="{{start}}" required></label><label>End<input type=date name=end value="{{end}}" required></label></div>
 <button class="primary full" name=detail value=0>Download practices CSV</button>
 <button class=full style="margin-top:10px" name=detail value=1>Download detailed attendance CSV</button></form>
-<p class="t3 sm" style="margin:12px 0 0">Practices is one row per practice, with the assigned coaches, a coach count, and how many of those coaches are coach-eligible. Detailed attendance is one row per member per practice, with RSVP and check-in. A configured Google Sheet keeps a Practices tab, a Practice Coaches tab, and a Members tab with background screening, and updates them when those records change.</p></div>"""
+<p class="t3 sm" style="margin:12px 0 0">Practices is one row per practice, with the assigned coaches, a coach count, and how many of those coaches are coach-eligible. Detailed attendance is one row per member per practice, with RSVP and check-in.</p></div>
+{% if sheet_on %}<div class=card><h2 style="margin:0 0 8px">Google Sheet</h2>
+<p class="t2 sm">{% if sheet_status.at %}Last sync {{sheet_status.at}} PT · {{sheet_status.label}}{% else %}Not synced yet{% endif %}{% if sheet_status.detail and not sheet_status.ok %} · {{sheet_status.detail}}{% endif %}</p>
+<p class="t3 sm">Members, Practices, and Attendance stay in sync after changes. A full rewrite also runs daily.</p>
+<form method=post action=/export/sheet>{{csrf_field()}}<button class="primary full">Sync to Google Sheet now</button></form></div>{% endif %}"""
 
 T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-between;align-items:baseline"><h1>Members</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
 <div class=seg><a href=/members {% if not coach_filter %}class=on{% endif %}>All</a><a href="/members?coach=eligible" {% if coach_filter %}class=on{% endif %}>Coach eligible</a></div>

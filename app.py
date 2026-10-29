@@ -1,6 +1,8 @@
 """Grunions Water Polo team app prototype: member login, team chat, admin check-in tools. Flask + SQLite."""
-import csv, io, os, re, sqlite3, secrets, hashlib, datetime as dt, functools, base64
+import csv, io, os, re, sqlite3, secrets, hashlib, datetime as dt, functools, base64, threading
 import json, urllib.request, urllib.parse, urllib.error
+import gspread
+from google.oauth2.service_account import Credentials
 from zoneinfo import ZoneInfo
 import qrcode, qrcode.image.svg
 from markupsafe import Markup, escape
@@ -90,6 +92,7 @@ CREATE TABLE IF NOT EXISTS push_subscriptions(id INTEGER PRIMARY KEY, member_id 
   endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created TEXT);
 CREATE TABLE IF NOT EXISTS sent_notices(member_id INTEGER, kind TEXT, sent_at TEXT, PRIMARY KEY(member_id, kind));
 CREATE TABLE IF NOT EXISTS job_locks(name TEXT PRIMARY KEY, locked_at TEXT);
+CREATE TABLE IF NOT EXISTS sheet_sync(id INTEGER PRIMARY KEY, at TEXT, ok INTEGER, detail TEXT);
 CREATE TABLE IF NOT EXISTS chat_reads(member_id INTEGER NOT NULL, channel TEXT NOT NULL, last_read INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(member_id, channel));
 CREATE TABLE IF NOT EXISTS practice_notices(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, kind TEXT NOT NULL, seen_at TEXT, PRIMARY KEY(practice_id, member_id, kind));
 """
@@ -455,7 +458,7 @@ def join():
             return send_link(email)
         cur = d.execute("INSERT INTO members(first,last,email,phone,is_admin,preferred_first,joined) VALUES(?,?,?,?,?,?,1)",
                         (f["first"], f["last"], email, f["phone"], int(email in ADMIN_EMAILS), pref))
-        d.commit(); start_session(cur.lastrowid)
+        d.commit(); sync_practice_sheets(d); start_session(cur.lastrowid)
         flash(f"Welcome to the Grunions, {pref or f['first']}! Find a coach on deck to get checked in.")
         return redirect("/home")
     return page(T["join"])
@@ -557,7 +560,7 @@ def home():
         flash(create_verify_request(d, m["id"], update_pending=True)); return redirect("/home")
     if request.method == "POST" and request.form.get("action") == "preferred":
         d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), m["id"]))
-        d.commit(); flash("Preferred name saved."); return redirect("/home")
+        d.commit(); sync_practice_sheets(d); flash("Preferred name saved."); return redirect("/home")
     if request.method == "POST" and request.form.get("action") == "trial":
         row = d.execute("SELECT usawp_number, usawp_status, trial_acknowledged_at FROM members WHERE id=?", (m["id"],)).fetchone()
         if (row["usawp_status"] or "") == "verified" or (row["usawp_number"] or "").strip() or (row["trial_acknowledged_at"] or "").strip():
@@ -568,7 +571,7 @@ def home():
             AND (usawp_number IS NULL OR trim(usawp_number)='')
             AND COALESCE(usawp_status,'')!='verified'""", (now, m["id"]))
         if d.execute("SELECT changes()").fetchone()[0]: flash("2-week USAWP trial started", "toast")
-        d.commit(); return redirect("/home")
+        d.commit(); sync_practice_sheets(d); return redirect("/home")
     if request.method == "POST":
         until = m["usawp_valid_until"] or ""
         if (m["usawp_status"] or "") == "verified" and not (until and until < today_pt().isoformat()):
@@ -584,7 +587,7 @@ def home():
         bg_exp = parse_date(request.form.get("background_expires"))
         if bg_exp: save_background_expiry(d, m["id"], bg_exp, display_first(m) + " " + (m["last"] or ""))
         create_verify_request(d, m["id"], update_pending=True)
-        if bg_exp: sync_practice_sheets(d)
+        sync_practice_sheets(d)
         flash("Sent to Grunions for verification", "toast")
         return redirect("/home")
     hist = d.execute("SELECT practice_date, location FROM checkins WHERE member_id=? ORDER BY practice_date DESC", (m["id"],)).fetchall()
@@ -918,7 +921,7 @@ def practices():
                 flag_practice(d, pid, "cancel", me()["id"])
         if pid and a in ("going", "notgoing", "clear"): mark_practice_seen(d, me()["id"], pid)
         d.commit()
-        if a in ("edit", "add", "cancel", "restore"): sync_practice_sheets(d)
+        if a in ("going", "notgoing", "clear", "edit", "add", "cancel", "restore"): sync_practice_sheets(d)
         if a == "cancel" and pid:
             p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
             if p and p["cancelled"]:
@@ -1045,7 +1048,7 @@ def api_verify_result(rid):
     if note: text += f". Note: {note}"
     for a in d.execute("SELECT id FROM members WHERE is_admin=1").fetchall(): d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (a["id"], text))
     d.commit()
-    if isinstance(mtype, str) and mtype.strip() and j["verified"]: sync_practice_sheets(d)
+    sync_practice_sheets(d)
     try: notify_verification_result(d, mid, bool(j["verified"]), exp)
     except Exception as e: app.logger.warning("verification push failed: %s", e)
     return jsonify(ok=True, request_id=rid, member_id=mid, applied_compliance=applied, ignored_compliance=unknown)
@@ -1109,7 +1112,7 @@ def admin():
         else:
             d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (mid, date, location_for(date)))
         d.commit()
-        if request.form.get("action") in ("verify", "req", "background", "require_background"): sync_practice_sheets(d)
+        if request.form.get("action") in ("verify", "req", "background", "require_background", "preferred", "role", "undo") or not request.form.get("action"): sync_practice_sheets(d)
         return redirect(url_for("admin", date=date, q=request.form.get("q", "")))
     ensure_schedule(d)
     days = practice_days(d)
@@ -1311,6 +1314,9 @@ PRACTICE_COACHES_HEADER = ["Date", "Time", "Location", "Coach name", "Coach emai
 SHEET_PRACTICES = "Practices"
 SHEET_PRACTICE_COACHES = "Practice Coaches"
 SHEET_MEMBERS = "Members"
+SHEET_ATTENDANCE = "Attendance"
+SHEET_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SHEET_DEBOUNCE_SEC = 2.0
 def practice_time(p):
     return "%s-%s" % (p["start"] or "", p["end"] or "")
 def practice_export_bundle(d, practices):
@@ -1343,6 +1349,21 @@ def practice_coach_detail_rows(d, practices, assigned):
         for c in coaches:
             rows.append([p["date"], practice_time(p), p["location"] or "", practice_coach_name(c), c["email"] or "", coach_eligibility(d, c)["text"]])
     return rows
+def attendance_rows(d, practices):
+    """One row per member per practice: RSVP and check-in. Header is not included."""
+    rsvps, checkins, _assigned = practice_export_bundle(d, practices)
+    members = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first, id").fetchall()
+    rows = []
+    for p in practices:
+        when = practice_time(p); cancelled = "yes" if p["cancelled"] else "no"
+        for m in members:
+            going = rsvps.get((p["id"], m["id"]))
+            rsvp = "going" if going == 1 else ("not going" if going == 0 else "")
+            at = checkins.get((m["id"], p["date"]))
+            rows.append([p["date"], when, p["location"] or "", cancelled, "%s %s" % (display_first(m), m["last"]),
+                         m["usawp_number"] or "", rsvp, "yes" if (m["id"], p["date"]) in checkins else "no",
+                         utc_to_pt(at, with_time=True) if at else ""])
+    return rows
 def member_sheet_rows(d):
     """Same columns as the members CSV, including the background screening line."""
     pending = {r[0] for r in d.execute("SELECT DISTINCT member_id FROM verify_requests WHERE status='pending'")}
@@ -1359,95 +1380,128 @@ def member_sheet_rows(d):
                      (background_view(d, m) or {}).get("text", "")])
     return rows
 def practice_sheet_tabs(d, practices=None):
-    """Practices, Practice Coaches, and Members."""
+    """Members, Practices, Attendance, and Practice Coaches."""
     if practices is None:
         practices = d.execute("SELECT * FROM practices ORDER BY date, start, id").fetchall()
     rsvps, checkins, assigned = practice_export_bundle(d, practices)
     summary = [PRACTICE_CSV_HEADER]
     for p in practices: summary.append(practice_summary_row(d, p, rsvps, checkins, assigned.get(p["id"], [])))
     detail = [PRACTICE_COACHES_HEADER] + practice_coach_detail_rows(d, practices, assigned)
-    return {SHEET_PRACTICES: summary, SHEET_PRACTICE_COACHES: detail, SHEET_MEMBERS: member_sheet_rows(d)}
-_sheet_token = {"email": "", "value": "", "exp": 0}
-def _b64url(raw):
-    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
-def service_account():
-    """Service account JSON from GOOGLE_SERVICE_ACCOUNT_JSON (the JSON itself, or a path) or GOOGLE_APPLICATION_CREDENTIALS."""
-    raw = (os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON") or "").strip()
-    path = (os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or "").strip()
-    info = None
-    try:
-        if raw.startswith("{"): info = json.loads(raw)
-        elif raw and os.path.isfile(raw): info = json.load(open(raw))
-        elif path and os.path.isfile(path): info = json.load(open(path))
-    except (OSError, ValueError):
-        app.logger.warning("Google service account JSON could not be read")
-        return None
-    if not info or not info.get("client_email") or not info.get("private_key"): return None
-    return info
+    return {SHEET_MEMBERS: member_sheet_rows(d), SHEET_PRACTICES: summary,
+            SHEET_ATTENDANCE: [ATTENDANCE_CSV_HEADER] + attendance_rows(d, practices),
+            SHEET_PRACTICE_COACHES: detail}
 def sheet_id():
     return (os.environ.get("GOOGLE_SHEET_ID") or "").strip()
+def service_account_info():
+    """GOOGLE_SA_JSON is the full service-account JSON. Missing or unreadable JSON disables the sheet."""
+    raw = (os.environ.get("GOOGLE_SA_JSON") or "").strip()
+    if not raw.startswith("{"): return None
+    try: info = json.loads(raw)
+    except ValueError:
+        app.logger.warning("GOOGLE_SA_JSON is not valid JSON")
+        return None
+    if not info.get("client_email") or not info.get("private_key"): return None
+    return info
 def sheet_configured():
-    return bool(sheet_id() and service_account())
-def sheet_request(method, url, body=None, token=None, form=False):
-    if body is None: data = None
-    elif form: data = urllib.parse.urlencode(body).encode()
-    else: data = json.dumps(body).encode()
-    req = urllib.request.Request(url, data=data, method=method)
-    if body is not None: req.add_header("Content-Type", "application/x-www-form-urlencoded" if form else "application/json")
-    if token: req.add_header("Authorization", "Bearer " + token)
-    try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            raw = resp.read().decode()
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode(errors="replace")[:500]
-        raise RuntimeError("Google Sheets HTTP %s %s" % (e.code, detail)) from e
-    return json.loads(raw) if raw else {}
-def sheets_access_token(info):
-    now = int(dt.datetime.now(dt.timezone.utc).timestamp())
-    if _sheet_token["email"] == info.get("client_email") and _sheet_token["value"] and _sheet_token["exp"] > now + 60:
-        return _sheet_token["value"]
-    header = {"alg": "RS256", "typ": "JWT"}
-    claim = {"iss": info["client_email"], "scope": "https://www.googleapis.com/auth/spreadsheets",
-             "aud": "https://oauth2.googleapis.com/token", "iat": now, "exp": now + 3600}
-    signing = _b64url(json.dumps(header, separators=(",", ":")).encode()) + "." + _b64url(json.dumps(claim, separators=(",", ":")).encode())
-    from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.asymmetric import padding
-    key = serialization.load_pem_private_key(info["private_key"].encode(), password=None)
-    sig = key.sign(signing.encode(), padding.PKCS1v15(), hashes.SHA256())
-    assertion = signing + "." + _b64url(sig)
-    tok = sheet_request("POST", info.get("token_uri") or "https://oauth2.googleapis.com/token",
-                        {"grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer", "assertion": assertion}, form=True)
-    _sheet_token.update(email=info["client_email"], value=tok["access_token"], exp=now + int(tok.get("expires_in") or 3600))
-    return _sheet_token["value"]
-def _sheet_range(title, cells=""):
-    safe = "'" + title.replace("'", "''") + "'"
-    return safe + cells
+    return bool(sheet_id() and service_account_info())
+def open_spreadsheet():
+    info = service_account_info()
+    creds = Credentials.from_service_account_info(info, scopes=SHEET_SCOPES)
+    return gspread.authorize(creds).open_by_key(sheet_id())
 def push_sheet_tabs(tabs):
-    """Replace the Practices and Practice Coaches tabs. Returns False when no sheet is configured."""
-    sid, info = sheet_id(), service_account()
-    if not sid or not info or not tabs: return False
-    token = sheets_access_token(info)
-    base = "https://sheets.googleapis.com/v4/spreadsheets/" + urllib.parse.quote(sid, safe="")
-    meta = sheet_request("GET", base + "?fields=sheets.properties.title", token=token)
-    have = {s.get("properties", {}).get("title") for s in meta.get("sheets", [])}
-    missing = [title for title in tabs if title not in have]
-    if missing:
-        sheet_request("POST", base + ":batchUpdate", {"requests": [{"addSheet": {"properties": {"title": title}}} for title in missing]}, token)
-    sheet_request("POST", base + "/values:batchClear", {"ranges": [_sheet_range(title) for title in tabs]}, token)
-    sheet_request("POST", base + "/values:batchUpdate", {"valueInputOption": "RAW", "data": [
-        {"range": _sheet_range(title, "!A1"), "values": rows} for title, rows in tabs.items()]}, token)
+    """Replace Members, Practices, Attendance, and Practice Coaches. False when the sheet is not configured."""
+    if not sheet_configured() or not tabs: return False
+    sh = open_spreadsheet()
+    for title, rows in tabs.items():
+        try: ws = sh.worksheet(title)
+        except gspread.WorksheetNotFound:
+            cols = max((len(r) for r in rows), default=1)
+            ws = sh.add_worksheet(title=title, rows=max(len(rows), 1), cols=max(cols, 1))
+        ws.clear()
+        if rows: ws.update(rows, range_name="A1", value_input_option="RAW")
     return True
-def sync_practice_sheets(d):
-    """Rewrite the practice tabs from the database. A Sheets failure is logged and does not block the save."""
-    try: return push_sheet_tabs(practice_sheet_tabs(d))
+def _sheet_conn():
+    """Use the request connection when a page is saving. A background sync opens its own."""
+    try:
+        if "db" in g: return g.db, False
+    except RuntimeError:
+        pass
+    d = sqlite3.connect(DB, timeout=5); d.row_factory = sqlite3.Row
+    return d, True
+def save_sheet_status(ok, detail):
+    d, owned = _sheet_conn()
+    try:
+        d.execute("""INSERT INTO sheet_sync(id, at, ok, detail) VALUES(1,?,?,?)
+            ON CONFLICT(id) DO UPDATE SET at=excluded.at, ok=excluded.ok, detail=excluded.detail""",
+            (stamp_pt("minutes"), 1 if ok else 0, (detail or "")[:300]))
+        d.commit()
+    finally:
+        if owned: d.close()
+def sheet_status():
+    """Last sync for the admin page. None when the sheet is not configured."""
+    if not sheet_configured(): return None
+    d = db()
+    row = d.execute("SELECT at, ok, detail FROM sheet_sync WHERE id=1").fetchone()
+    if not row: return {"at": "", "ok": None, "label": "Not synced yet", "detail": ""}
+    return {"at": row["at"] or "", "ok": row["ok"], "label": "Synced" if row["ok"] else "Failed", "detail": row["detail"] or ""}
+def run_sheet_sync():
+    """Full rewrite of the sheet. Logs errors and never raises."""
+    try:
+        d, owned = _sheet_conn()
+        try: tabs = practice_sheet_tabs(d)
+        finally:
+            if owned: d.close()
+        ok = push_sheet_tabs(tabs)
+        if ok: save_sheet_status(True, "Synced")
+        elif sheet_configured(): save_sheet_status(False, "Google Sheet did not update")
+    except Exception as e:
+        app.logger.exception("Google Sheet sync failed")
+        try: save_sheet_status(False, str(e).split("\n")[0][:160])
+        except Exception: app.logger.exception("could not store Google Sheet status")
+_sheet_lock = threading.Lock()
+_sheet_timer = None
+def schedule_sheet_sync():
+    """Debounce a full sync onto a background thread. Inline mode runs it before returning."""
+    global _sheet_timer
+    try:
+        if os.environ.get("GRUNIONS_SHEET_SYNC") == "inline":
+            run_sheet_sync(); return
+        if not sheet_configured(): return
+        with _sheet_lock:
+            if _sheet_timer is not None: _sheet_timer.cancel()
+            _sheet_timer = threading.Timer(SHEET_DEBOUNCE_SEC, run_sheet_sync)
+            _sheet_timer.daemon = True
+            _sheet_timer.start()
     except Exception:
-        app.logger.exception("practice sheet sync failed")
-        return False
+        app.logger.exception("could not schedule Google Sheet sync")
+def sync_practice_sheets(d=None):
+    """Queue a sheet rewrite. A failure is logged and does not affect the request."""
+    schedule_sheet_sync()
+def run_daily_sheet_sync():
+    if not sheet_configured(): return
+    d = open_db()
+    try:
+        if not claim_job(d, "sheet_daily", 20 * 3600): return
+    except Exception:
+        app.logger.exception("Google Sheet daily lock failed")
+        return
+    finally:
+        d.close()
+    run_sheet_sync()
 @app.route("/export")
 @admin_required
 def export_page():
     start, end = export_default_range()
-    return page(T["export_page"], tab="admin", start=start.isoformat(), end=end.isoformat())
+    return page(T["export_page"], tab="admin", start=start.isoformat(), end=end.isoformat(), sheet_on=sheet_configured(), sheet_status=sheet_status())
+@app.route("/export/sheet", methods=["POST"])
+@admin_required
+def export_sheet_now():
+    if not sheet_configured(): abort(404)
+    run_sheet_sync()
+    st = sheet_status()
+    if st and st.get("ok"): flash("Google Sheet synced.", "toast")
+    else: flash("Google Sheet sync failed. The error was logged.", "toast")
+    return redirect("/export")
 @app.route("/export/practices.csv")
 @admin_required
 def practices_csv():
@@ -1460,18 +1514,7 @@ def practices_csv():
     rsvps, checkins, assigned = practice_export_bundle(d, practices)
     span = "%s-to-%s" % (start.isoformat(), end.isoformat())
     if request.args.get("detail") in ("1", "true", "yes"):
-        members = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first, id").fetchall()
-        rows = []
-        for p in practices:
-            when = practice_time(p); cancelled = "yes" if p["cancelled"] else "no"
-            for m in members:
-                going = rsvps.get((p["id"], m["id"]))
-                rsvp = "going" if going == 1 else ("not going" if going == 0 else "")
-                at = checkins.get((m["id"], p["date"]))
-                rows.append([p["date"], when, p["location"] or "", cancelled, "%s %s" % (display_first(m), m["last"]),
-                             m["usawp_number"] or "", rsvp, "yes" if (m["id"], p["date"]) in checkins else "no",
-                             utc_to_pt(at, with_time=True) if at else ""])
-        return csv_attachment("grunions-attendance-%s.csv" % span, ATTENDANCE_CSV_HEADER, rows)
+        return csv_attachment("grunions-attendance-%s.csv" % span, ATTENDANCE_CSV_HEADER, attendance_rows(d, practices))
     rows = [practice_summary_row(d, p, rsvps, checkins, assigned.get(p["id"], [])) for p in practices]
     return csv_attachment("grunions-practices-%s.csv" % span, PRACTICE_CSV_HEADER, rows)
 
@@ -1863,7 +1906,6 @@ def run_notify_jobs():
     try:
         if not claim_job(d, "notify_scan", 90): return
         run_practice_reminders(d); run_expiry_notices(d)
-        if sheet_configured(): sync_practice_sheets(d)
     except Exception:
         app.logger.exception("notification job failed")
     finally:
@@ -1876,6 +1918,8 @@ def start_scheduler():
     _scheduler = BackgroundScheduler(daemon=True)
     _scheduler.add_job(run_notify_jobs, "interval", minutes=15, start_date=dt.datetime.now() + dt.timedelta(minutes=15),
                        id="notify", max_instances=1, coalesce=True, misfire_grace_time=120)
+    _scheduler.add_job(run_daily_sheet_sync, "cron", hour=3, minute=15, timezone=PT,
+                       id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
 SW_JS = """self.addEventListener('push', function(event) {

@@ -1,5 +1,5 @@
 import os, re, tempfile
-os.environ["GRUNIONS_DB"] = tempfile.mktemp(suffix=".db"); os.environ["ADMIN_EMAIL"] = "eli@example.com"; os.environ["DEV_SHOW_LINKS"] = "1"
+os.environ["GRUNIONS_DB"] = tempfile.mktemp(suffix=".db"); os.environ["ADMIN_EMAIL"] = "eli@example.com"; os.environ["DEV_SHOW_LINKS"] = "1"; os.environ["GRUNIONS_SHEET_SYNC"] = "inline"
 import app as A
 def client():
     c = A.app.test_client(); return c
@@ -837,6 +837,8 @@ ok(sheet["Practices"][0] == A.PRACTICE_CSV_HEADER and srow[6] == "Eli, Sam" and 
 ok(sheet["Practice Coaches"][0] == A.PRACTICE_COACHES_HEADER and detail == [["2026-12-01", "18:00-19:30", "Export Pool", "Eli Joern", "eli@example.com", ""], ["2026-12-01", "18:00-19:30", "Export Pool", "Sam Smith", "john@example.com", ""]], "Practice Coaches is one row per coach with name and email")
 mrow = next(r for r in sheet["Members"][1:] if r[3] == "exa.export@example.com")
 ok(sheet["Members"][0] == A.MEMBERS_CSV_HEADER and mrow[11] == "2028-01-15" and mrow[-1] == "Background screening expires 2028-01-15", "Members sheet includes the background screening date and line")
+att = next(r for r in sheet["Attendance"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool" and r[4] == "Ex Export")
+ok(sheet["Attendance"][0] == A.ATTENDANCE_CSV_HEADER and att[6] == "going" and att[7] == "yes", "Attendance sheet is one row per member per practice")
 export_edit([str(john_id)])
 changed = next(r for r in pushed[-1]["Practices"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool")
 changed_detail = [r for r in pushed[-1]["Practice Coaches"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool"]
@@ -852,38 +854,52 @@ A.push_sheet_tabs = boom
 saved = export_edit([str(eli_id)])
 ok(saved.status_code == 302 and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=?", (epid,)).fetchall() == [(eli_id,)], "a Google Sheet error still saves the coach assignment")
 A.push_sheet_tabs = real_push
-ok(A.push_sheet_tabs({A.SHEET_PRACTICES: [["Date"]]}) is False, "sheet sync does nothing until a spreadsheet and service account are set")
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
-pem = rsa.generate_private_key(public_exponent=65537, key_size=2048).private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
-posted = []
-def fake_sheet(method, url, body=None, token=None, form=False):
-    posted.append((method, url, body, token, form))
-    if method == "POST" and form: return {"access_token": "ya29.test", "expires_in": 3600}
-    if method == "GET": return {"sheets": [{"properties": {"title": "Practices"}}]}
-    return {}
-real_request, real_account, real_token = A.sheet_request, A.service_account, A.sheets_access_token
-A.sheet_request = fake_sheet
-A._sheet_token.update(email="", value="", exp=0)
-info = {"client_email": "sheet@test.iam.gserviceaccount.com", "private_key": pem}
+ok(A.push_sheet_tabs({A.SHEET_PRACTICES: [["Date"]]}) is False and "Sync to Google Sheet now" not in eli.get("/export").get_data(as_text=True), "sheet sync and the admin button stay hidden until GOOGLE_SA_JSON and GOOGLE_SHEET_ID are set")
+class FakeSheet:
+    def __init__(self, title):
+        self.title = title; self.cleared = 0; self.values = None
+    def clear(self): self.cleared += 1
+    def update(self, values, range_name=None, value_input_option=None): self.values = values
+class FakeBook:
+    def __init__(self): self.by = {"Practices": FakeSheet("Practices")}
+    def worksheet(self, title):
+        if title not in self.by: raise A.gspread.WorksheetNotFound(title)
+        return self.by[title]
+    def add_worksheet(self, title, rows=1, cols=1):
+        self.by[title] = FakeSheet(title); return self.by[title]
+book = FakeBook()
+os.environ["GOOGLE_SHEET_ID"] = "sheet123"
+os.environ["GOOGLE_SA_JSON"] = A.json.dumps({"type": "service_account", "client_email": "sheet@test.iam.gserviceaccount.com", "private_key": "not-used", "token_uri": "https://oauth2.googleapis.com/token"})
+real_open = A.open_spreadsheet
+A.open_spreadsheet = lambda: book
 try:
-    tok = A.sheets_access_token(info)
-    again = A.sheets_access_token(info)
-    part = posted[0][2]["assertion"].split(".")[1]
-    claim = A.json.loads(A.base64.urlsafe_b64decode(part + "=" * ((-len(part)) % 4)))
-    os.environ["GOOGLE_SHEET_ID"] = "sheet123"
-    A.service_account = lambda: info
-    A.sheets_access_token = lambda account: "tok"
-    wrote = A.push_sheet_tabs({A.SHEET_PRACTICES: [A.PRACTICE_CSV_HEADER, ["2026-12-01", "18:00-19:30", "Export Pool", "no", 1, 1, "Eli, Sam", 2]], A.SHEET_PRACTICE_COACHES: [A.PRACTICE_COACHES_HEADER, ["2026-12-01", "18:00-19:30", "Export Pool", "Eli Joern", "eli@example.com"]]})
+    wrote = A.push_sheet_tabs({A.SHEET_PRACTICES: [A.PRACTICE_CSV_HEADER, ["2026-12-01", "18:00-19:30", "Export Pool", "no", 1, 1, "Eli, Sam", 2]], A.SHEET_ATTENDANCE: [A.ATTENDANCE_CSV_HEADER, ["2026-12-01", "18:00-19:30", "Export Pool", "no", "Ex Export", "1", "going", "yes", ""]]})
+    D.execute("DELETE FROM sheet_sync"); D.commit()
+    page = eli.get("/export").get_data(as_text=True)
+    ok(wrote is True and book.by["Practices"].cleared == 1 and book.by["Practices"].values[0] == A.PRACTICE_CSV_HEADER and book.by["Attendance"].title == "Attendance" and "Sync to Google Sheet now" in page and "Not synced yet" in page, "gspread creates a missing Attendance tab and the admin sync card appears")
+    A.run_sheet_sync = lambda: A.save_sheet_status(True, "Synced")
+    done = eli.post("/export/sheet", data=dict(csrf=csrf(eli, "/export")), follow_redirects=True).get_data(as_text=True)
+    ok('class="toast noprint" role=status>Google Sheet synced.' in done and "Last sync" in done and "Synced" in done, "Sync to Google Sheet now records the time and status")
 finally:
-    A.sheet_request, A.service_account, A.sheets_access_token = real_request, real_account, real_token
-    os.environ.pop("GOOGLE_SHEET_ID", None)
-    A._sheet_token.update(email="", value="", exp=0)
-adds = [c for c in posted if c[0] == "POST" and str(c[1]).endswith(":batchUpdate")]
-clears = [c for c in posted if "values:batchClear" in str(c[1])]
-updates = [c for c in posted if "values:batchUpdate" in str(c[1])]
-ok(tok == "ya29.test" and again == "ya29.test" and len([c for c in posted if c[4]]) == 1 and claim["iss"] == info["client_email"] and claim["scope"] == "https://www.googleapis.com/auth/spreadsheets", "the sheet token is a signed service-account JWT and it is reused")
-ok(wrote is True and adds and adds[0][2]["requests"][0]["addSheet"]["properties"]["title"] == "Practice Coaches" and clears and updates and updates[0][2]["data"][0]["values"][0] == A.PRACTICE_CSV_HEADER and updates[0][2]["data"][1]["range"].startswith("'Practice Coaches'"), "the sheet writer adds a missing Practice Coaches tab and replaces both tabs")
+    A.open_spreadsheet = real_open
+    os.environ.pop("GOOGLE_SHEET_ID", None); os.environ.pop("GOOGLE_SA_JSON", None)
+hits = []
+real_run = A.run_sheet_sync
+A.run_sheet_sync = lambda: hits.append(1)
+A.SHEET_DEBOUNCE_SEC = 0.05
+os.environ["GRUNIONS_SHEET_SYNC"] = "debounce"
+os.environ["GOOGLE_SHEET_ID"] = "sheet123"
+os.environ["GOOGLE_SA_JSON"] = A.json.dumps({"client_email": "sheet@test.iam.gserviceaccount.com", "private_key": "x"})
+try:
+    A.schedule_sheet_sync(); A.schedule_sheet_sync()
+    import time as time_mod; time_mod.sleep(0.25)
+    ok(hits == [1] and any(j.id == "sheet_daily" for j in A._scheduler.get_jobs()), "sheet updates are debounced, and a daily resync is scheduled")
+finally:
+    A.run_sheet_sync = real_run
+    A.SHEET_DEBOUNCE_SEC = 2.0
+    os.environ["GRUNIONS_SHEET_SYNC"] = "inline"
+    os.environ.pop("GOOGLE_SHEET_ID", None); os.environ.pop("GOOGLE_SA_JSON", None)
+    if A._sheet_timer is not None: A._sheet_timer.cancel()
 
 bea = A.app.test_client(); join(bea, "Bea", "Player", "bea.player@example.com")
 bea_id = D.execute("SELECT id FROM members WHERE email='bea.player@example.com'").fetchone()[0]
