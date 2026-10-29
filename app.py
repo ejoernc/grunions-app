@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS practices(id INTEGER PRIMARY KEY, date TEXT NOT NULL,
 CREATE TABLE IF NOT EXISTS rsvps(practice_id INTEGER, member_id INTEGER, going INTEGER, at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(practice_id, member_id));
 CREATE TABLE IF NOT EXISTS practice_coaches(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id));
 CREATE TABLE IF NOT EXISTS coaching_list(member_id INTEGER PRIMARY KEY, source TEXT NOT NULL DEFAULT 'manual', at TEXT);
+CREATE TABLE IF NOT EXISTS referee_list(member_id INTEGER PRIMARY KEY, source TEXT NOT NULL DEFAULT 'manual', at TEXT);
 CREATE TABLE IF NOT EXISTS verify_requests(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), name TEXT, email TEXT,
   member_number TEXT, requested_by TEXT, member_submitted INTEGER DEFAULT 0, status TEXT DEFAULT 'pending', created TEXT, answered TEXT, result TEXT, note TEXT, webhook TEXT);
 CREATE TABLE IF NOT EXISTS reactions(message_id INTEGER, member_id INTEGER, emoji TEXT, PRIMARY KEY(message_id, member_id, emoji));
@@ -107,6 +108,7 @@ def db():
         migrate_members(g.db)
         migrate_practice_coaches(g.db)
         migrate_practices(g.db)
+        migrate_referee_list(g.db)
         migrate_verify_requests(g.db)
         if not g.db.execute("SELECT 1 FROM requirements").fetchone():
             g.db.executemany("INSERT INTO requirements(name,applies_to,keywords,expires) VALUES(?,?,?,?)", DEFAULT_REQS); g.db.commit()
@@ -124,6 +126,10 @@ def migrate_verify_requests(d):
     cols = [r[1] for r in d.execute("PRAGMA table_info(verify_requests)")]
     if "member_submitted" not in cols:
         d.execute("ALTER TABLE verify_requests ADD COLUMN member_submitted INTEGER DEFAULT 0")
+def migrate_referee_list(d):
+    """Referee list mirrors the coaching list. Existing members are not added."""
+    d.execute("""CREATE TABLE IF NOT EXISTS referee_list(
+        member_id INTEGER PRIMARY KEY, source TEXT NOT NULL DEFAULT 'manual', at TEXT)""")
 def migrate_practices(d):
     """Store a cancellation reason. Existing practices stay unchanged."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(practices)")]
@@ -379,8 +385,13 @@ def admin_required(f):
         if not me()["is_admin"]: abort(403)
         return f(*a, **k)
     return w
+def is_active_coach(m=None):
+    """Coach access from Make active coach. Being an admin does not count."""
+    m = m or me()
+    return bool(m and (m["role"] or "") == "coach")
 def is_staff(m=None):
-    m = m or me(); return bool(m and (m["is_admin"] or m["role"] == "coach"))
+    """Check-in and coaches chat. Only active coaches."""
+    return is_active_coach(m)
 def role_label(m): return "admin" if m["is_admin"] else ("coach" if m["role"] == "coach" else "member")
 _COACH_WORD = re.compile(r"\bcoach\b", re.IGNORECASE)
 _REFEREE_WORD = re.compile(r"\breferee\b", re.IGNORECASE)
@@ -895,6 +906,9 @@ def checkin_month(date_iso, days):
 def add_coaching(d, mid, source):
     d.execute("""INSERT INTO coaching_list(member_id, source, at) VALUES(?,?,?)
         ON CONFLICT(member_id) DO UPDATE SET source=excluded.source, at=excluded.at""", (mid, source, stamp_pt("minutes")))
+def add_referee(d, mid, source="manual"):
+    d.execute("""INSERT INTO referee_list(member_id, source, at) VALUES(?,?,?)
+        ON CONFLICT(member_id) DO UPDATE SET source=excluded.source, at=excluded.at""", (mid, source, stamp_pt("minutes")))
 def drop_usawp_coaching(d, mid):
     d.execute("DELETE FROM coaching_list WHERE member_id=? AND source='usawp'", (mid,))
 def apply_membership_type(d, mid, membership_type, update_list):
@@ -906,11 +920,11 @@ def apply_membership_type(d, mid, membership_type, update_list):
     if is_coach_membership(text): add_coaching(d, mid, "usawp")
     else: drop_usawp_coaching(d, mid)
 def coach_candidates(d):
-    """Assignable to a practice: the coaching list, and every admin. Coach access is separate."""
+    """Assignable to a practice: the coaching list. Active coach access is separate."""
     return d.execute("""SELECT m.id, m.first, m.last, m.preferred_first, m.role, m.is_admin, m.membership_type, m.usawp_status, m.usawp_valid_until
         FROM members m
         WHERE COALESCE(m.role,'')!='system'
-          AND (m.is_admin=1 OR m.id IN (SELECT member_id FROM coaching_list))
+          AND m.id IN (SELECT member_id FROM coaching_list)
         ORDER BY lower(CASE WHEN trim(COALESCE(m.preferred_first,''))!='' THEN m.preferred_first ELSE m.first END), lower(m.last), m.id""").fetchall()
 def coach_labels(rows):
     """First names for the schedule, A–Z. A shared first name keeps the last initial."""
@@ -930,7 +944,7 @@ def practice_coach_rows(d, pids):
         m.membership_type, m.usawp_status, m.usawp_valid_until
         FROM practice_coaches pc JOIN members m ON m.id=pc.member_id
         WHERE pc.practice_id IN (%s) AND COALESCE(m.role,'')!='system'
-          AND (m.is_admin=1 OR m.id IN (SELECT member_id FROM coaching_list))""" % marks, tuple(pids)):
+          AND m.id IN (SELECT member_id FROM coaching_list)""" % marks, tuple(pids)):
         out[r["pid"]].append(r)
     return out
 def save_practice_coaches(d, pid, raw):
@@ -1245,7 +1259,12 @@ def handle_member_detail(d, mid):
         if role != "admin" and is_last_admin(d, mid):
             flash("Can't remove the last admin.")
             return "halt"
-        d.execute("UPDATE members SET role=?, is_admin=? WHERE id=?", ("coach" if role in ("coach", "admin") else "athlete", 1 if role == "admin" else 0, mid))
+        if role == "admin":
+            d.execute("UPDATE members SET is_admin=1 WHERE id=?", (mid,))
+        elif role == "coach":
+            d.execute("UPDATE members SET role='coach' WHERE id=?", (mid,))
+        else:
+            d.execute("UPDATE members SET role='athlete', is_admin=0 WHERE id=?", (mid,))
     elif act == "preferred":
         d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), mid))
     elif act == "background":
@@ -1256,10 +1275,11 @@ def handle_member_detail(d, mid):
         save_sport80_recheck(d, mid)
     return "ok"
 def members_back():
-    args = {}
-    if request.form.get("list_coach") == "eligible": args["coach"] = "eligible"
-    if request.form.get("list_referee") == "eligible": args["referee"] = "eligible"
-    return redirect(url_for("members", **args))
+    view = request.form.get("list_view") or ""
+    if request.form.get("list_coach") == "eligible": view = view or "coaches"
+    if request.form.get("list_referee") == "eligible": view = view or "referees"
+    if view in ("coaches", "admins", "referees"): return redirect(url_for("members", view=view))
+    return redirect(url_for("members"))
 @app.route("/admin", methods=["GET", "POST"])
 @staff_required
 def admin():
@@ -1336,6 +1356,7 @@ def is_last_admin(d, mid):
 @app.route("/admins", methods=["GET", "POST"])
 @admin_required
 def admins():
+    if request.method == "GET": return redirect("/members?view=admins")
     d = db()
     if request.method == "POST":
         mid = int(request.form.get("member_id") or 0); act = request.form.get("action")
@@ -1350,17 +1371,13 @@ def admins():
         elif act == "remove_coach": d.execute("UPDATE members SET role='athlete' WHERE id=?", (mid,))
         elif act == "add_coaching": add_coaching(d, mid, "manual")
         elif act == "remove_coaching":
-            if m["is_admin"]:
-                flash("%s stays on the coaching list." % (display_first(m) + " " + m["last"]))
-                return redirect("/admins")
             d.execute("DELETE FROM coaching_list WHERE member_id=?", (mid,))
+        elif act == "add_referee": add_referee(d, mid)
+        elif act == "remove_referee": d.execute("DELETE FROM referee_list WHERE member_id=?", (mid,))
         else: abort(400)
         d.commit()
-        if act in ("add_coaching", "remove_coaching", "make_coach", "remove_coach", "make_admin", "remove_admin"): sync_practice_sheets(d)
-        flash(f"Updated {display_first(m)} {m['last']}."); return redirect("/admins")
-    rows = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY is_admin DESC, role='coach' DESC, last, first").fetchall()
-    listed = {r[0] for r in d.execute("SELECT member_id FROM coaching_list")}
-    return page(T["admins"], tab="admin", rows=rows, n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS, listed=listed)
+        if act in ("add_coaching", "remove_coaching", "add_referee", "remove_referee", "make_coach", "remove_coach", "make_admin", "remove_admin"): sync_practice_sheets(d)
+        flash(f"Updated {display_first(m)} {m['last']}."); return redirect("/members?view=admins")
 
 @app.route("/members", methods=["GET", "POST"])
 @admin_required
@@ -1393,23 +1410,28 @@ def members():
             if (m["role"] or "") != "coach":
                 d.execute("UPDATE members SET role='coach' WHERE id=?", (mid,))
                 d.commit(); sync_practice_sheets(d)
-            flash("%s is now a coach." % name, "toast")
+            flash("%s is now an active coach." % name, "toast")
         elif act == "remove_coach":
             if (m["role"] or "") == "coach":
                 d.execute("UPDATE members SET role='athlete' WHERE id=?", (mid,))
                 d.commit(); sync_practice_sheets(d)
-            flash("%s is no longer a coach." % name, "toast")
+            flash("%s is no longer an active coach." % name, "toast")
         elif act == "add_coaching":
             add_coaching(d, mid, "manual")
             d.commit(); sync_practice_sheets(d)
-            flash("%s was added to the coaching list." % name, "toast")
+            flash("%s was added to coaches." % name, "toast")
         elif act == "remove_coaching":
-            if m["is_admin"]:
-                flash("%s stays on the coaching list." % name, "toast")
-            else:
-                d.execute("DELETE FROM coaching_list WHERE member_id=?", (mid,))
-                d.commit(); sync_practice_sheets(d)
-                flash("%s was removed from the coaching list." % name, "toast")
+            d.execute("DELETE FROM coaching_list WHERE member_id=?", (mid,))
+            d.commit(); sync_practice_sheets(d)
+            flash("%s was removed from coaches." % name, "toast")
+        elif act == "add_referee":
+            add_referee(d, mid)
+            d.commit(); sync_practice_sheets(d)
+            flash("%s was added to referees." % name, "toast")
+        elif act == "remove_referee":
+            d.execute("DELETE FROM referee_list WHERE member_id=?", (mid,))
+            d.commit(); sync_practice_sheets(d)
+            flash("%s was removed from referees." % name, "toast")
         else: abort(400)
         return members_back()
     days = practice_days(d)
@@ -1422,18 +1444,18 @@ def members():
       (SELECT going FROM rsvps WHERE member_id=m.id AND practice_id=?) AS going
       FROM members m WHERE COALESCE(role,'')!='system' ORDER BY last, first""", (pr["id"] if pr else -1,)).fetchall()
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
-    coach_only = request.args.get("coach") == "eligible"
-    ref_only = request.args.get("referee") == "eligible"
+    view = request.args.get("view") or "members"
+    if request.args.get("coach") == "eligible": view = "coaches"
+    if request.args.get("referee") == "eligible": view = "referees"
+    if view not in ("members", "coaches", "admins", "referees"): view = "members"
     coach_ids = {r["id"] for r in rows if coach_eligibility(d, r)["eligible"]}
     ref_ids = {r["id"] for r in rows if referee_eligibility(d, r)["eligible"]}
-    if ref_only: shown = [r for r in rows if r["id"] in ref_ids]
-    elif coach_only: shown = [r for r in rows if r["id"] in coach_ids]
-    else: shown = rows
     listed = {r[0] for r in d.execute("SELECT member_id FROM coaching_list")}
+    referees = {r[0] for r in d.execute("SELECT member_id FROM referee_list")}
     return page(T["members"],
-        tab="admin", rows=shown, c=c, coach_filter=coach_only, referee_filter=ref_only,
-        n_eligible=len(coach_ids), n_referees=len(ref_ids), date=focus, q="",
-        listed=listed, n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS)
+        tab="admin", rows=rows, c=c, view=view, date=focus, q="",
+        listed=listed, referees=referees, coach_ids=coach_ids, ref_ids=ref_ids,
+        n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS)
 def csv_attachment(filename, header, rows):
     """UTF-8 with a BOM so Excel opens names and punctuation correctly."""
     buf = io.StringIO(); buf.write("\ufeff"); w = csv.writer(buf); w.writerow(header)
@@ -1892,7 +1914,7 @@ def wants_email_reminders(m):
     return True
 def notify_types_for(m):
     out = []
-    staff = bool(m and (m["is_admin"] or m["role"] == "coach")); admin = bool(m and m["is_admin"])
+    staff = is_active_coach(m); admin = bool(m and m["is_admin"])
     for key, label, who in NOTIFY_PUSH:
         if who == "staff" and not staff: continue
         if who == "admin" and not admin: continue
@@ -1964,7 +1986,7 @@ def notify_chat(d, channel, sender, body, has_image):
     url = "/chat?c=coaches" if channel == "coaches" else "/chat"
     line = "%s %s.: %s" % (display_first(sender), (sender["last"] or "")[:1], text)
     for m in d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' AND id!=?", (sender["id"],)):
-        if channel == "coaches" and not (m["is_admin"] or m["role"] == "coach"): continue
+        if channel == "coaches" and not is_active_coach(m): continue
         push_member(d, m, kind, title, line, url)
 def notify_practice_cancelled(d, p):
     when = "%s, %s-%s" % (fmt_d(p["date"]), fmt_t(p["start"]), fmt_t(p["end"]))

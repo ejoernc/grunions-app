@@ -142,13 +142,13 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <div class=kv><span>Background screening</span><span>{% if background_view(r) %}{{ bg_line(r) }}{% else %}Not on file{% endif %}</span></div>
 <div class=kv><span>Eligibility</span><span>{% if coach_eligibility(r).text or referee_eligibility(r).text %}{{ coach_tag(r) }} {{ referee_tag(r) }}{% else %}—{% endif %}</span></div>
 {% if not cl.ok %}<div class=kv><span>Not cleared</span><span style="text-align:right">{{cl.reasons|join(', ')}}</span></div>{% endif %}
-{% if me().is_admin %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
+{% if me().is_admin %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <label>Background screening expires<input name=expires_on type=date value="{{ background_view(r).date if background_view(r) else '' }}"></label>
 <button class=full name=action value=background>Save background screening</button></form>{% endif %}
 {% if r.usawp_verified_by %}<div class=kv><span>Verified</span><span>{{r.usawp_verified_by}}, {{r.usawp_verified_at.replace('T',' ')}}</span></div>{% endif %}
 {% if r.vr_status %}<div class=kv><span>Bot request</span><span>{{r.vr_status}}{% if r.vr_note %} · {{r.vr_note}}{% endif %}</span></div>{% endif %}
 {% if me().is_admin %}<details class=recheck {% if r.vr_status == 'pending' %}open{% endif %}><summary>Recheck membership</summary>
-<form method=post class=body>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
+<form method=post class=body>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <p class="t3 sm">Look this member up on Sport:80 and enter what you find. Grunions does not contact Sport:80.{% if r.vr_status == 'pending' %} Saving answers the pending verification request.{% endif %}</p>
 <label>Verified<select name=verified><option value=yes {{'selected' if r.usawp_status=='verified'}}>Yes</option><option value=no {{'selected' if r.usawp_status!='verified'}}>No</option></select></label>
 <label>Membership type<input name=membership_type value="{{r.membership_type or ''}}" placeholder="Individual Membership, Coach"></label>
@@ -157,21 +157,21 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <label>Background screening expires<input type=date name=background_expires value="{{cred.background or ''}}"></label>
 <label>Referee certification expires<input type=date name=referee_expires value="{{cred.referee or ''}}"></label>
 <button class="primary full" name=action value=recheck>Save Sport:80 result</button></form>
-<form method=post class=body style="margin-top:10px">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
+<form method=post class=body style="margin-top:10px">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <button class=full name=action value=ask_bot {% if r.vr_status=='pending' %}disabled{% endif %}>{{'Requested' if r.vr_status=='pending' else 'Ask Grunions to verify'}}</button></form></details>{% endif %}
 {% if r.preferred_first and r.preferred_first.strip() %}<div class=kv><span>Legal name</span><span>{{r.first}} {{r.last}}</span></div>{% endif %}
-{% if me().is_admin %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
+{% if me().is_admin %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <label>Preferred first name (optional)<input name=preferred_first value="{{r.preferred_first or ''}}" placeholder="Leave blank to use legal first name"></label>
 <button class=full name=action value=preferred>Save preferred name</button></form>{% endif %}
 {% if me().is_admin and (not cl.ok or r.usawp_status != 'verified') %}
 <h3>Verify {{r.first}} on Sport:80</h3>
 <div class=row><a class="btn" target=_blank rel=noopener href="https://usawp.sport80.com/" onclick="navigator.clipboard&&navigator.clipboard.writeText('{{r.first}} {{r.last}}')">Open Sport:80</a></div>
 <p class="t3 xs" style="margin-top:6px">Opening Sport:80 copies the name. Search the Grunions club members list and confirm membership is Current. Enter what you find with Recheck membership.</p>
-<h3>Compliance item</h3><form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
+<h3>Compliance item</h3><form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <label>Item<select name=req_id>{% for it in cl.checks|sort(attribute='status') %}<option value={{it.req.id}}>{{it.req.name}} ({{it.status}})</option>{% endfor %}</select></label>
 <div class=row><label>Completed<input name=completed_on type=date></label><label>Expires on<input name=expires_on type=date></label></div>
 <button class=full name=action value=req>Save item</button></form>
-<h3>Role</h3><form method=post class=row>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}">{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
+<h3>Role</h3><form method=post class=row>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <select name=role style="margin:0">{% for o in ['member','coach','admin'] %}<option {{'selected' if role_label(r)==o}}>{{o}}</option>{% endfor %}</select><button name=action value=role style="flex:0 0 auto">Save</button></form>
 {% endif %}</div>{% endmacro %}
 {% macro practice_more(p, coach_ids, back) %}
@@ -189,7 +189,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <dialog class=modal id=assign{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Assign coaches</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 <div class=checks role=group aria-label="Coaches">{% for c in coach_choices %}<label><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
-{% else %}<p class="t3 sm">No coaches yet. Mark a member as a coach on Members.</p>{% endfor %}</div>
+{% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
 <div class=row><button class=primary name=action value=assign>Save</button><button type=button onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 <dialog class=modal id=cancel{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Send cancellation</h2>
 <p class="t2 sm">Members get an email and a push that include this reason.</p>
@@ -223,7 +223,7 @@ TABS = ("""</main>{% if me() %}<nav class="tabs noprint" data-total="{{ badges()
 <a href=/home class="{{'on' if tab=='home'}}">""" + ICONS["home"] + """Home</a>
 <a href=/practices class="{{'on' if tab=='practices'}}" data-badge=schedule>""" + ICONS["cal"] + """Schedule{{ bubble(badges().schedule) }}</a>
 <a href=/chat class="{{'on' if tab=='chat'}}" data-badge=chat>""" + ICONS["chat"] + """Chat{{ bubble(badges().chat) }}</a>
-{% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
+{% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
@@ -351,8 +351,8 @@ if(document.querySelector('nav.tabs')){
 <script>var PUSH_CSRF="{{csrf_token()}}",VAPID_PUBLIC="{{vapid_public_key()}}";</script>
 </body></html>""")
 
-ADMIN_NAV = """<div class="seg noprint">{% set ep = request.endpoint %}<a href=/admin class="{{'on' if ep=='admin'}}">Check-in</a>
-{% if me().is_admin %}<a href=/members class="{{'on' if ep=='members'}}">Members</a><a href=/export class="{{'on' if ep=='export_page'}}">Export</a><a href=/admins class="{{'on' if ep=='admins'}}">Roles</a><a href=/expiring class="{{'on' if ep=='expiring'}}">Expiring</a>
+ADMIN_NAV = """<div class="seg noprint">{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="{{'on' if ep=='admin'}}">Check-in</a>{% endif %}
+{% if me().is_admin %}<a href=/members class="{{'on' if ep=='members'}}">People</a><a href=/export class="{{'on' if ep=='export_page'}}">Export</a><a href=/expiring class="{{'on' if ep=='expiring'}}">Expiring</a>
 <a href=/import class="{{'on' if ep=='import_page'}}">Import</a><a href=/requirements class="{{'on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="{{'on' if ep=='qr_page'}}">QR</a>{% endif %}</div>
 {% set al = admin_alert() %}{% if al %}<a href=/expiring class="note noprint" style="display:block;text-decoration:none"><span class="st st-warn"></span> USAWP: <b>{{al[0]}}</b> expired · <b>{{al[1]}}</b> expiring within {{EXPIRING_DAYS}} days</a>{% endif %}
 {% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% endfor %}"""
@@ -599,7 +599,7 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 <label>Notes<textarea name=note>{{ p.note or '' }}</textarea></label>
 <div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>
 {% for c in coach_choices %}<label><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in x.coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
-{% else %}<p class="t3 sm">No coaches yet. Mark a member as a coach on Members.</p>{% endfor %}</div>
+{% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
 <div class=row><button class=primary name=action value=edit>Save</button><a class=btn href="/practices/{{ p.id }}">Cancel</a></div></form>
 {% else %}
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=row style="margin-top:16px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
@@ -716,20 +716,50 @@ T["export_page"] = ADMIN_NAV + """<h1>Export</h1>
 <p class="t3 sm">Members, Practices, and Attendance stay in sync after changes. A full rewrite also runs daily.</p>
 <form method=post action=/export/sheet>{{csrf_field()}}<button class="primary full">Sync to Google Sheet now</button></form></div>{% endif %}"""
 
-T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-between;align-items:baseline"><h1>Members</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
-<div class=seg><a href=/members {% if not coach_filter and not referee_filter %}class=on{% endif %}>All</a><a href="/members?coach=eligible" {% if coach_filter %}class=on{% endif %}>Coach eligible</a><a href="/members?referee=eligible" {% if referee_filter %}class=on{% endif %}>Referee eligible</a></div>
-<p class="t2 sm">{% if referee_filter %}{{rows|length}} referee eligible{% elif coach_filter %}{{rows|length}} coach eligible{% else %}{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}{% endif %}</p>
-<div class="list loose">{% for r in rows %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow onclick="if(event.target.closest('button,a,form,input,select'))return;this.closest('.li').nextElementSibling.toggleAttribute('hidden')" style="cursor:pointer"><div style="display:flex;align-items:center;gap:8px;min-width:0">{{ status_dot(r.usawp_status) }}<span class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</span></div>
-<div class="t3 xs" style="margin-top:2px">{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}Ends {{tw.ends}} · {% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}Trial ended {{tw.ends}} · {% elif r.usawp_valid_until %}thru {{r.usawp_valid_until}} · {% endif %}{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices</div>
-{% if r.is_admin or r.id in listed or r.role=='coach' or coach_eligibility(r).text or referee_eligibility(r).text %}<div class=eligs>{% if r.is_admin or r.id in listed %}<span class=coach-tag>Coaching list</span>{% endif %}{% if r.is_admin or r.role=='coach' %}<span class=coach-tag>Coach</span>{% endif %}{% if usawp_coach_badge(r) %}<span class=coach-tag>USAWP coach</span>{% else %}{{ coach_tag(r) }}{% endif %}{{ referee_tag(r) }}</div>{% endif %}
+T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-between;align-items:baseline"><h1>People</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
+<div class=seg><a href=/members {% if view=='members' %}class=on{% endif %}>Members</a><a href="/members?view=coaches" {% if view=='coaches' %}class=on{% endif %}>Coaches</a><a href="/members?view=admins" {% if view=='admins' %}class=on{% endif %}>Admins</a><a href="/members?view=referees" {% if view=='referees' %}class=on{% endif %}>Referees</a></div>
+{% macro prow(r, kind) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow onclick="if(event.target.closest('button,a,form,input,select'))return;this.closest('.li').nextElementSibling.toggleAttribute('hidden')" style="cursor:pointer"><div style="display:flex;align-items:center;gap:8px;min-width:0">{{ status_dot(r.usawp_status) }}<span class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</span></div>
+<div class="t3 xs" style="margin-top:2px">{% if kind=='admins' %}{% if r.role=='coach' %}Active coach{% else %}Not an active coach{% endif %} · {% endif %}{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}Ends {{tw.ends}} · {% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}Trial ended {{tw.ends}} · {% elif r.usawp_valid_until %}thru {{r.usawp_valid_until}} · {% endif %}{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices</div>
+<div class=eligs>{% if r.role=='coach' %}<span class=coach-tag>Active coach</span>{% endif %}{% if r.id in listed %}<span class=coach-tag>Coach</span>{% endif %}{% if r.id in referees %}<span class=coach-tag>Referee</span>{% endif %}{% if usawp_coach_badge(r) %}<span class="st st-ok coach-elig">Coach eligible</span>{% elif coach_eligibility(r).text %}{{ coach_tag(r) }}{% endif %}{{ referee_tag(r) }}</div>
 {% if background_view(r) %}<div class="xs" style="margin-top:4px">{{ bg_line(r) }}</div>{% endif %}
 </div>
 <span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false>⋯</button>
 <div class=menu hidden role=menu>
-{% if r.is_admin %}{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_admin>Remove admin</button></form>{% endif %}{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=make_admin>Make admin</button></form>{% endif %}
-{% if r.role=='coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_coach>Remove coach</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=make_coach>Make coach</button></form>{% endif %}
-{% if not r.is_admin %}{% if r.id in listed %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_coaching>Remove from coaching list</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=add_coaching>Add to coaching list</button></form>{% endif %}{% endif %}
-</div></span></div>{{ member_panel(r) }}{% endfor %}</div>
+{% if kind == 'members' %}
+{% if r.is_admin %}{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=members><button name=action value=remove_admin>Remove admin</button></form>{% endif %}{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=members><button name=action value=make_admin>Make admin</button></form>{% endif %}
+{% if r.id in listed %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=members><button name=action value=remove_coaching>Remove from coaches</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=members><button name=action value=add_coaching>Add to coaches</button></form>{% endif %}
+{% if r.id in referees %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=members><button name=action value=remove_referee>Remove from referees</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=members><button name=action value=add_referee>Add to referees</button></form>{% endif %}
+{% elif kind == 'coaches' %}
+{% if r.role=='coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><button name=action value=remove_coach>Remove active coach</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><button name=action value=make_coach>Make active coach</button></form>{% endif %}
+<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><button name=action value=remove_coaching>Remove from coaches</button></form>
+{% elif kind == 'eligible' %}
+<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><button name=action value=add_coaching>Add to coaches</button></form>
+{% if r.role=='coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><button name=action value=remove_coach>Remove active coach</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><button name=action value=make_coach>Make active coach</button></form>{% endif %}
+{% elif kind == 'admins' %}
+{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=admins><button name=action value=remove_admin>Remove admin</button></form>{% endif %}
+{% elif kind == 'referees' %}
+<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=referees><button name=action value=remove_referee>Remove from referees</button></form>
+{% elif kind == 'ref_eligible' %}
+<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=referees><button name=action value=add_referee>Add to referees</button></form>
+{% endif %}
+</div></span></div>{{ member_panel(r) }}{% endmacro %}
+{% if view == 'coaches' %}
+<h2>Coaches <span class=t3>{{ rows|selectattr('id','in',listed)|list|length }}</span></h2>
+<div class="list loose">{% for r in rows if r.id in listed %}{{ prow(r, 'coaches') }}{% else %}<div class=li><span class=t3>No one on the coaching list yet.</span></div>{% endfor %}</div>
+<h2>Coach eligible <span class=t3>{{ rows|selectattr('id','in',coach_ids)|rejectattr('id','in',listed)|list|length }}</span></h2>
+<div class="list loose">{% for r in rows if r.id in coach_ids and r.id not in listed %}{{ prow(r, 'eligible') }}{% else %}<div class=li><span class=t3>No one waiting.</span></div>{% endfor %}</div>
+{% elif view == 'referees' %}
+<h2>Referees <span class=t3>{{ rows|selectattr('id','in',referees)|list|length }}</span></h2>
+<div class="list loose">{% for r in rows if r.id in referees %}{{ prow(r, 'referees') }}{% else %}<div class=li><span class=t3>No one on the referee list yet.</span></div>{% endfor %}</div>
+<h2>Referee eligible <span class=t3>{{ rows|selectattr('id','in',ref_ids)|rejectattr('id','in',referees)|list|length }}</span></h2>
+<div class="list loose">{% for r in rows if r.id in ref_ids and r.id not in referees %}{{ prow(r, 'ref_eligible') }}{% else %}<div class=li><span class=t3>No one waiting.</span></div>{% endfor %}</div>
+{% elif view == 'admins' %}
+<p class="t2 sm">{{ n_admins }} admin{{ 's' if n_admins != 1 }}</p>
+<div class="list loose">{% for r in rows if r.is_admin %}{{ prow(r, 'admins') }}{% endfor %}</div>
+{% else %}
+<p class="t2 sm">{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}</p>
+<div class="list loose">{% for r in rows %}{{ prow(r, 'members') }}{% endfor %}</div>
+{% endif %}
 <script>
 (function(){
  function closeAll(){document.querySelectorAll('.menu').forEach(function(m){m.hidden=true; var b=m.parentNode.querySelector('.morebtn'); if(b) b.setAttribute('aria-expanded','false')})}
@@ -776,15 +806,3 @@ T["import_page"] = ADMIN_NAV + """<h1>Sport:80 import</h1>
 T["qr_page"] = ADMIN_NAV + """<div style="text-align:center"><h1>New to Grunions? Scan to join.</h1>
 <div style="background:#fff;border-radius:16px;padding:18px;display:inline-block"><img src=/qr.svg alt="Sign-up QR code" style="width:min(70vw,380px);display:block"></div>
 <p class="t3 sm" style="margin-top:12px">{{u}}</p><button class="primary noprint" onclick=print()>Print</button></div>"""
-
-T["admins"] = ADMIN_NAV + """<h1>Roles</h1><p class="t2 sm">{{n_admins}} admin{{'s' if n_admins!=1}} · admins manage everything. Make admin and Make coach work for any member, whether or not USA Water Polo has verified them. Remove admin and Remove coach take that access away. Make coach opens check-in and coaches chat. It does not add someone to the coaching list. The coaching list is who can be assigned to a practice, besides admins, who are always on it. There must always be at least one admin.</p>
-<div class=list>{% for r in rows %}<div class=li style="flex-wrap:wrap;align-items:flex-start"><div class=grow><div style="font-weight:500">{{display_first(r)}} {{r.last}}{% if r.id==me().id %} <span class="t3 xs">(you)</span>{% endif %}{{ coach_tag(r) }}</div>
-<div class="t3 xs ell">{{r.email}} · {{role_label(r)}}{% if r.email in boot %} · set by ADMIN_EMAIL{% endif %}{% if r.is_admin or r.id in listed %} · coaching list{% endif %}</div></div>
-<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-<form method=post class=row style="flex:0 0 auto;gap:6px;margin:0">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}>
-{% if r.role=='coach' %}<button class=compact name=action value=remove_coach>Remove coach</button>{% else %}<button class=compact name=action value=make_coach>Make coach</button>{% endif %}
-{% if r.is_admin %}<button class=compact name=action value=remove_admin {{'disabled title="Last admin"' if n_admins<=1 else ('disabled title="Set by ADMIN_EMAIL"' if r.email in boot else '')}}>Remove admin</button>{% else %}<button class="compact primary" name=action value=make_admin>Make admin</button>{% endif %}
-</form>
-{% if not r.is_admin %}<form method=post style="margin:0">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}>
-{% if r.id in listed %}<button class=compact name=action value=remove_coaching>Remove from coaching list</button>{% else %}<button class=compact name=action value=add_coaching>Add to coaching list</button>{% endif %}
-</form>{% endif %}</div></div>{% endfor %}</div>"""

@@ -12,15 +12,18 @@ def csrf(c, p): return re.search(r'(?:name=csrf value=|const CSRF=)"([^"]+)"', c
 def join(first, last, email):
     c = A.app.test_client(); c.post("/join", data=dict(csrf=csrf(c, "/join"), first=first, last=last, email=email, phone="1")); return c
 boss = join("Boss", "One", "boss@example.com"); sec = join("Sec", "Two", "second@example.com"); mem = join("Mem", "Three", "mem@example.com")
+sqlite3.connect(A.DB).execute("UPDATE members SET role='coach' WHERE email='boss@example.com'").connection.commit()
 def ids(): return {r[0]: r[1] for r in sqlite3.connect(A.DB).execute("SELECT email,id FROM members")}
 def is_admin(e): return sqlite3.connect(A.DB).execute("SELECT is_admin FROM members WHERE email=?", (e,)).fetchone()[0]
-def act(c, mid, a): return c.post("/admins", data=dict(csrf=csrf(c, "/admins"), member_id=mid, action=a), follow_redirects=True)
+def act(c, mid, a): return c.post("/admins", data=dict(csrf=csrf(c, "/members"), member_id=mid, action=a), follow_redirects=True)
 
 def test_data_dir_used(): assert A.DB == os.path.join(D, "grunions.db") and A.UPLOADS == os.path.join(D, "uploads") and os.path.exists(A.DB)
 def test_multi_admin_bootstrap(): assert is_admin("boss@example.com") and is_admin("second@example.com") and not is_admin("mem@example.com")
 def test_roles_page_admin_only():
-    assert mem.get("/admins").status_code == 403 and boss.get("/admins").status_code == 200
-    assert "mem@example.com" in boss.get("/admins").get_data(as_text=True)
+    assert mem.get("/members").status_code == 403 and mem.get("/admins").status_code == 403
+    page = boss.get("/members").get_data(as_text=True)
+    assert "mem@example.com" in page and ">People<" in page and ">Roles<" not in page
+    assert boss.get("/admins", follow_redirects=True).status_code == 200
     assert mem.post("/admins", data=dict(csrf=csrf(mem, "/home"), member_id=1, action="make_admin")).status_code == 403
 def test_promote_demote_and_coach():
     m = ids()["mem@example.com"]; act(boss, m, "make_admin"); assert is_admin("mem@example.com")

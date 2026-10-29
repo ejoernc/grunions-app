@@ -10,6 +10,8 @@ def join(c, first, last, email):
 ok = lambda cond, name: print(("PASS " if cond else "FAIL ") + name) or cond
 eli, jane, x = client(), client(), client()
 ok("Welcome" in join(eli, "Eli", "Joern", "eli@example.com").get_data(as_text=True), "QR signup creates account + logs in")
+import sqlite3 as _sq
+_ec = _sq.connect(os.environ["GRUNIONS_DB"]); _ec.execute("UPDATE members SET role='coach' WHERE email='eli@example.com'"); _ec.commit(); _ec.close()
 join(jane, "Jane", "Doe", "jane@example.com"); join(client(), "John", "Smith", "john@example.com")
 ok(x.post("/join", data=dict(first="a", last="b", email="c@d.co", phone="1")).status_code == 400, "POST without CSRF rejected")
 ok(x.get("/home").status_code == 302, "anon -> login redirect")
@@ -209,8 +211,8 @@ ssid = D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '%safes
 D.execute("UPDATE members SET role='coach', usawp_status='verified', usawp_valid_until='2027-06-07', usawp_number='659226' WHERE id=?", (cid,))
 D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,'2027-05-11','test','test','2026-10-23T00:00')", (cid, ssid)); D.commit()
 chome = casey.get("/home").get_data(as_text=True)
-eli_home_early = eli.get("/home").get_data(as_text=True)
-ok("Cleared to play" in chome and "Needs:" not in chome and "Club waiver" not in chome and "Concussion" not in chome and "SafeSport training" in chome and "Not cleared to coach" in chome and 'class="st st-bad">Background screening missing' in chome and "Not cleared to coach" not in eli_home_early and "Cleared to coach" not in eli_home_early and "Background screening missing" not in eli_home_early and "Club waiver" not in eli.get("/requirements").get_data(as_text=True) and "Club waiver" not in eli.get("/admin").get_data(as_text=True), "a coach needs background screening, and an admin who was not made a coach does not")
+plain_home = jane.get("/home").get_data(as_text=True)
+ok("Cleared to play" in chome and "Needs:" not in chome and "Club waiver" not in chome and "Concussion" not in chome and "SafeSport training" in chome and "Not cleared to coach" in chome and 'class="st st-bad">Background screening missing' in chome and "Not cleared to coach" not in plain_home and "Cleared to coach" not in plain_home and "Background screening missing" not in plain_home and "Club waiver" not in eli.get("/requirements").get_data(as_text=True) and "Club waiver" not in eli.get("/admin").get_data(as_text=True), "an active coach needs background screening, and a member who is not an active coach does not")
 bgid_casey = D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '%background%'").fetchone()[0]
 far_bg = (A.today_pt() + dt.timedelta(days=400)).isoformat()
 soon_bg = (A.today_pt() + dt.timedelta(days=5)).isoformat()
@@ -589,7 +591,7 @@ text = raw.data.decode("utf-8-sig"); table = list(csvmod.reader(io_mod.StringIO(
 by_email = {r[3]: r for r in table[1:]}
 exar, tayr, penr = by_email["exa.export@example.com"], by_email["tay.trial2@example.com"], by_email["pen.ding@example.com"]
 ok(raw.data.startswith(b"\xef\xbb\xbf") and table[0] == A.MEMBERS_CSV_HEADER and ("grunions-members-%s.csv" % A.today_pt().isoformat()) in raw.headers["Content-Disposition"] and "bot@grunions.local" not in text, "members CSV is UTF-8 with a BOM, the column list, and today's filename")
-ok(exar == ["Exa", "Export", "Ex", "exa.export@example.com", "", "coach", "no", "4242421", "cleared", "2027-12-01", "2027-06-01", "2028-01-15", "2026-09-01", "2026-09-15", "2026-10-01", A.today_pt().isoformat(), "1", "", "", "Background screening expires 2028-01-15"] and tayr[8] == "trial" and tayr[12] == A.today_pt().isoformat() and tayr[-1] == "" and penr[7] == "999111" and penr[8] == "pending" and penr[4] == "555-0100" and by_email["eli@example.com"][-1] == "" and by_email["john@example.com"][-1] == "Background screening expires 2027-03-01", "members CSV has clearance, trial, compliance dates, attendance, and the background screening line for coaches")
+ok(exar == ["Exa", "Export", "Ex", "exa.export@example.com", "", "coach", "no", "4242421", "cleared", "2027-12-01", "2027-06-01", "2028-01-15", "2026-09-01", "2026-09-15", "2026-10-01", A.today_pt().isoformat(), "1", "", "", "Background screening expires 2028-01-15"] and tayr[8] == "trial" and tayr[12] == A.today_pt().isoformat() and tayr[-1] == "" and penr[7] == "999111" and penr[8] == "pending" and penr[4] == "555-0100" and by_email["eli@example.com"][-1] == "Background screening missing" and by_email["john@example.com"][-1] == "Background screening expires 2027-03-01", "members CSV has clearance, trial, compliance dates, attendance, and the background screening line for coaches")
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2026-12-01", start="18:00", end="19:30", location="Export Pool"))
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2026-12-02", start="19:00", end="20:30", location="Export Pool"))
 ppid = D.execute("SELECT id FROM practices WHERE date='2026-12-01' AND location='Export Pool'").fetchone()[0]
@@ -685,13 +687,14 @@ prow = D.execute("SELECT id, start, end, location, COALESCE(note,'') FROM practi
 pid, pstart, pend, ploc, pnote = prow
 base = dict(csrf=csrf(eli, "/practices"), pid=pid, action="edit", start=pstart, end=pend, location=ploc, note=pnote)
 staff0 = eli.get("/practices").get_data(as_text=True)
-ok(("name=coach value=\"%d\"" % eli_id) in staff0 and ("name=coach value=\"%d\"" % john_id) not in staff0 and ("name=coach value=\"%d\"" % jane_id) not in staff0 and "No coaches yet." not in staff0 and john.get("/admin").status_code == 200 and john.get("/chat?c=coaches").status_code == 200, "an admin is assignable before anyone is added to the coaching list, and coach access is not")
+ok(("name=coach value=\"%d\"" % eli_id) not in staff0 and ("name=coach value=\"%d\"" % john_id) not in staff0 and "No coaches yet." in staff0 and john.get("/admin").status_code == 200 and john.get("/chat?c=coaches").status_code == 200 and eli.get("/admin").status_code == 200, "only people on the coaching list can be assigned, and active coaches can check in")
 ok("Coaches:" not in jane.get("/practices").get_data(as_text=True) and "name=coach" not in jane.get("/practices").get_data(as_text=True), "a practice with no coaches has no coaches line, and members have no picker")
 def list_act(mid, action):
-    return eli.post("/admins", data=dict(csrf=csrf(eli, "/admins"), member_id=mid, action=action), follow_redirects=True)
+    return eli.post("/admins", data=dict(csrf=csrf(eli, "/members"), member_id=mid, action=action), follow_redirects=True)
 list_act(eli_id, "add_coaching"); list_act(john_id, "add_coaching")
-roles = eli.get("/admins").get_data(as_text=True)
-ok("Add to coaching list" in roles and "Remove from coaching list" in roles and "Make coach" in roles and "Remove coach" in roles and "Make admin" in roles and 'class="st st-ok coach-elig"' not in roles, "Roles keeps Make coach separate from the coaching list, and a manual add has no badge")
+roles = eli.get("/members?view=admins").get_data(as_text=True)
+coaches_page = eli.get("/members?view=coaches").get_data(as_text=True)
+ok(">People<" in roles and ">Roles<" not in roles and "Remove admin" in roles and "Remove active coach" in coaches_page and "Remove from coaches" in coaches_page and "Add to coaching list" not in coaches_page, "People replaces Roles, and active coach is separate from the coaching list")
 eli.post("/practices", data=dict(base, coach=[str(eli_id), str(john_id), str(jane_id)]))
 sched, home, staff, coachpg = jane.get("/practices").get_data(as_text=True), jane.get("/home").get_data(as_text=True), eli.get("/practices").get_data(as_text=True), john.get("/practices").get_data(as_text=True)
 pdate = D.execute("SELECT date FROM practices WHERE id=?", (pid,)).fetchone()[0]
@@ -720,9 +723,9 @@ list_act(jane_id, "make_coach")
 ok(jane.get("/admin").status_code == 200 and jane.get("/chat?c=coaches").status_code == 200, "Make coach grants check-in and coaches chat")
 list_act(jane_id, "remove_coach")
 ok(jane.get("/admin").status_code == 403 and jane.get("/chat?c=coaches").status_code == 403 and D.execute("SELECT source FROM coaching_list WHERE member_id=?", (jane_id,)).fetchone()[0] == "manual", "Remove coach revokes access and leaves the coaching list")
-list_act(eli_id, "remove_coaching")
-kept = eli.post("/admins", data=dict(csrf=csrf(eli, "/admins"), member_id=eli_id, action="remove_coaching"), follow_redirects=True).get_data(as_text=True)
-ok("stays on the coaching list" in kept and D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (eli_id,)).fetchone() and ("name=coach value=\"%d\"" % eli_id) in eli.get("/practices").get_data(as_text=True) and eli.get("/admin").status_code == 200 and eli.get("/chat?c=coaches").status_code == 200, "an admin stays on the coaching list and keeps coach access")
+kept = list_act(eli_id, "remove_coaching").get_data(as_text=True)
+ok("Updated Eli Joern." in kept and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (eli_id,)).fetchone() and ("name=coach value=\"%d\"" % eli_id) not in eli.get("/practices").get_data(as_text=True) and eli.get("/admin").status_code == 200 and eli.get("/chat?c=coaches").status_code == 200, "an admin can leave the coaching list and keep active coach access")
+list_act(eli_id, "add_coaching")
 oldp = tempfile.mktemp(suffix=".db")
 od = sqlite3.connect(oldp)
 od.execute("CREATE TABLE members(id INTEGER PRIMARY KEY, first TEXT)")
@@ -772,9 +775,9 @@ badge_pages = riley.get("/home").get_data(as_text=True) + eli.get("/members").ge
 members_html = eli.get("/members").get_data(as_text=True)
 riley_at = members_html.find("riley@example.com")
 riley_row = members_html[members_html.rfind("<div class=li", 0, riley_at):members_html.find("<div class=li", riley_at)]
-ok(badge_pages.count('class="st st-ok coach-elig">Coach eligible') >= 3 and 'class="st st-ok coach-elig"' not in jane.get("/practices").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) in eli.get("/practices").get_data(as_text=True) and 'class="st st-ok coach-elig">Coach eligible' in eli.get("/practices").get_data(as_text=True) and "class=coach-tag>USAWP coach" in riley_row and "class=coach-tag>Coaching list" in riley_row and "class=coach-tag>Coach<" not in riley_row, "Coach eligible shows on home, check-in, Roles, and the coach picker, and Members shows USAWP coach")
+ok(badge_pages.count('class="st st-ok coach-elig">Coach eligible') >= 3 and 'class="st st-ok coach-elig"' not in jane.get("/practices").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) in eli.get("/practices").get_data(as_text=True) and 'class="st st-ok coach-elig">Coach eligible' in eli.get("/practices").get_data(as_text=True) and 'class="st st-ok coach-elig">Coach eligible' in riley_row and "class=coach-tag>Coach<" in riley_row and "Active coach" not in riley_row, "Coach eligible shows on home, check-in, and People, and the coaching list shows a Coach tag")
 filt = eli.get("/members?coach=eligible").get_data(as_text=True)
-ok("Riley Quinn" in filt and "Jane Doe" not in filt and "Eli Joern" not in filt and "class=coach-tag>USAWP coach" in filt and ">Coach eligible</a>" in eli.get("/members").get_data(as_text=True), "Members has a Coach eligible filter")
+ok("Riley Quinn" in filt and ">Coach eligible<" in filt and 'class="st st-ok coach-elig">Coach eligible' in filt and ">Coaches</a>" in eli.get("/members").get_data(as_text=True), "People has Coaches and Coach eligible sections")
 D.execute("UPDATE members SET usawp_valid_until=? WHERE id=?", (today, riley_id)); D.commit()
 ok('coach-elig">Coach eligible' in riley.get("/home").get_data(as_text=True), "a coach membership is still eligible on the day it expires")
 D.execute("UPDATE members SET usawp_valid_until='2027-08-31' WHERE id=?", (riley_id,)); D.commit()
@@ -815,15 +818,15 @@ answer(True, membership_type="Individual Membership, Coach")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "usawp" and riley.get("/admin").status_code == 403, "the next coach verification puts them back on the list without coach access")
 una = A.app.test_client(); join(una, "Una", "Noverified", "una.noverified@example.com")
 D.commit(); una_id = D.execute("SELECT id FROM members WHERE email='una.noverified@example.com'").fetchone()[0]
-chunk = eli.get("/admins").get_data(as_text=True).split("una.noverified@example.com", 1)[1].split("<div class=li", 1)[0]
-ok(D.execute("SELECT usawp_status FROM members WHERE id=?", (una_id,)).fetchone()[0] == "unknown" and "Make coach" in chunk and "Make admin" in chunk and "disabled" not in chunk, "Roles offers Make coach and Make admin before USAWP is verified")
+chunk = eli.get("/members").get_data(as_text=True).split("una.noverified@example.com", 1)[1].split("<div class=li", 1)[0]
+ok(D.execute("SELECT usawp_status FROM members WHERE id=?", (una_id,)).fetchone()[0] == "unknown" and "Add to coaches" in chunk and "Make admin" in chunk and "Add to referees" in chunk, "People offers coaches, referees, and admin actions before USAWP is verified")
 list_act(una_id, "make_coach"); list_act(una_id, "make_admin")
 ok(D.execute("SELECT role, is_admin, usawp_status FROM members WHERE id=?", (una_id,)).fetchone() == ("coach", 1, "unknown") and una.get("/admin").status_code == 200 and una.get("/chat?c=coaches").status_code == 200 and una.get("/members").status_code == 200, "Make coach and Make admin work for a member who is not USAWP verified")
 list_act(una_id, "remove_admin"); list_act(una_id, "remove_coach")
 ok(D.execute("SELECT role, is_admin, usawp_status FROM members WHERE id=?", (una_id,)).fetchone() == ("athlete", 0, "unknown") and una.get("/admin").status_code == 403 and una.get("/chat?c=coaches").status_code == 403, "Remove admin and Remove coach do not depend on USAWP status")
 ned = A.app.test_client(); join(ned, "Ned", "List", "ned.list@example.com")
 D.commit(); ned_id = D.execute("SELECT id FROM members WHERE email='ned.list@example.com'").fetchone()[0]
-ok("Make coach" in eli.get("/members").get_data(as_text=True) and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices").get_data(as_text=True) and ned.post("/members", data=dict(csrf=csrf(ned, "/home"), member_id=ned_id, action="make_coach")).status_code == 403, "Members offers Make coach, and that person is not assignable yet")
+ok("Add to coaches" in eli.get("/members").get_data(as_text=True) and "Make active coach" in eli.get("/members?view=coaches").get_data(as_text=True) and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices").get_data(as_text=True) and ned.post("/members", data=dict(csrf=csrf(ned, "/home"), member_id=ned_id, action="make_coach")).status_code == 403, "People offers Add to coaches, and that person is not assignable yet")
 made = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ned_id, action="make_coach"), follow_redirects=True).get_data(as_text=True)
 ned_at = made.find("ned.list@example.com")
 ned_li = made.rfind("<div class=li", 0, ned_at)
@@ -831,7 +834,7 @@ ned_row = made[ned_li:made.find("<div class=li", ned_at)]
 ned_menu = made[ned_li:ned_at]
 eli_at = made.find("eli@example.com")
 eli_row = made[made.rfind("<div class=li", 0, eli_at):made.find("<div class=li", eli_at)]
-ok('class="toast noprint" role=status>Ned List is now a coach.' in made and D.execute("SELECT role FROM members WHERE id=?", (ned_id,)).fetchone()[0] == "coach" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ned_id,)).fetchone() and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices").get_data(as_text=True) and "class=coach-tag>Coach<" in ned_row and "class=coach-tag>Coaching list" not in ned_row and "Remove coach" in ned_row and "Make coach" not in ned_row and ("name=coach value=\"%d\"" % eli_id) in eli.get("/practices").get_data(as_text=True) and "class=coach-tag>Coaching list" in eli_row and "class=coach-tag>Coach<" in eli_row and ned.get("/chat?c=coaches").status_code == 200 and ned.get("/admin").status_code == 200, "Make coach grants access without the coaching list, and an admin stays assignable")
+ok('class="toast noprint" role=status>Ned List is now an active coach.' in made and D.execute("SELECT role FROM members WHERE id=?", (ned_id,)).fetchone()[0] == "coach" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ned_id,)).fetchone() and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices").get_data(as_text=True) and "Active coach" in ned_row and "Remove active coach" in eli.get("/members?view=coaches").get_data(as_text=True) and ("name=coach value=\"%d\"" % eli_id) in eli.get("/practices").get_data(as_text=True) and ned.get("/chat?c=coaches").status_code == 200 and ned.get("/admin").status_code == 200, "Make active coach grants access without the coaching list")
 
 # assigned coaches in the practices CSV and the Google Sheet tabs
 D.execute("INSERT INTO coaching_list(member_id, source, at) VALUES(?, 'manual', '2026-10-01') ON CONFLICT(member_id) DO UPDATE SET source='manual'", (eli_id,))
@@ -854,7 +857,7 @@ ok(sheet["Practice Coaches"][0] == A.PRACTICE_COACHES_HEADER and detail == [["20
 mrow = next(r for r in sheet["Members"][1:] if r[3] == "exa.export@example.com")
 eli_sheet = next(r for r in sheet["Members"][1:] if r[3] == "eli@example.com")
 john_sheet = next(r for r in sheet["Members"][1:] if r[3] == "john@example.com")
-ok(sheet["Members"][0] == A.MEMBERS_CSV_HEADER and mrow[11] == "2028-01-15" and mrow[-1] == "Background screening expires 2028-01-15" and eli_sheet[-1] == "" and john_sheet[-1] == "Background screening expires 2027-03-01", "Members sheet includes a coach's background screening line and leaves an admin blank")
+ok(sheet["Members"][0] == A.MEMBERS_CSV_HEADER and mrow[11] == "2028-01-15" and mrow[-1] == "Background screening expires 2028-01-15" and eli_sheet[-1] == "Background screening missing" and john_sheet[-1] == "Background screening expires 2027-03-01", "Members sheet includes a coach's background screening line, and an active coach with no date shows missing")
 att = next(r for r in sheet["Attendance"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool" and r[4] == "Ex Export")
 ok(sheet["Attendance"][0] == A.ATTENDANCE_CSV_HEADER and att[6] == "going" and att[7] == "yes", "Attendance sheet is one row per member per practice")
 export_edit([str(john_id)])
@@ -1010,17 +1013,18 @@ ada_at = menu_page.find("ada.role@example.com")
 ada_menu = menu_page[menu_page.rfind("<div class=li", 0, ada_at):menu_page.find("<div class=li", ada_at)]
 eli_at = menu_page.find("eli@example.com")
 eli_menu = menu_page[menu_page.rfind("<div class=li", 0, eli_at):menu_page.find("<div class=li", eli_at)]
-ok('class=morebtn' in ada_menu and ">⋯</button>" in ada_menu and "Make admin" in ada_menu and "Make coach" in ada_menu and "Add to coaching list" in ada_menu and "Remove admin" not in ada_menu and "Remove coach" not in ada_menu and ">Remove admin</button>" in eli_menu and "disabled" in eli_menu, "each member has a three-dots menu with the actions that apply")
+ok('class=morebtn' in ada_menu and ">⋯</button>" in ada_menu and "Make admin" in ada_menu and "Add to coaches" in ada_menu and "Add to referees" in ada_menu and "Make active coach" not in ada_menu and "Remove admin" not in ada_menu and ">Remove admin</button>" in eli_menu and "disabled" in eli_menu, "each member has a three-dots menu with admin, coaches, and referees")
 promoted = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ada_id, action="make_admin"), follow_redirects=True).get_data(as_text=True)
 ok('class="toast noprint" role=status>Ada Role is now an admin.' in promoted and D.execute("SELECT is_admin FROM members WHERE id=?", (ada_id,)).fetchone()[0] == 1, "Make admin from the members menu confirms with a toast")
 listed = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ada_id, action="add_coaching"), follow_redirects=True).get_data(as_text=True)
-ok('class="toast noprint" role=status>Ada Role was added to the coaching list.' in listed and D.execute("SELECT source FROM coaching_list WHERE member_id=?", (ada_id,)).fetchone()[0] == "manual", "Add to coaching list from the members menu confirms with a toast")
+ok('class="toast noprint" role=status>Ada Role was added to coaches.' in listed and D.execute("SELECT source FROM coaching_list WHERE member_id=?", (ada_id,)).fetchone()[0] == "manual", "Add to coaches from the members menu confirms with a toast")
 stays = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ada_id, action="remove_coaching"), follow_redirects=True).get_data(as_text=True)
-ok('class="toast noprint" role=status>Ada Role stays on the coaching list.' in stays and D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ada_id,)).fetchone(), "an admin stays on the coaching list")
+ok('class="toast noprint" role=status>Ada Role was removed from coaches.' in stays and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ada_id,)).fetchone(), "an admin can be removed from coaches")
 demoted = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ada_id, action="remove_admin"), follow_redirects=True).get_data(as_text=True)
 ok('class="toast noprint" role=status>Ada Role is no longer an admin.' in demoted and D.execute("SELECT is_admin FROM members WHERE id=?", (ada_id,)).fetchone()[0] == 0, "Remove admin works when another admin remains")
+eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ada_id, action="add_coaching"))
 unlisted = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ada_id, action="remove_coaching"), follow_redirects=True).get_data(as_text=True)
-ok('class="toast noprint" role=status>Ada Role was removed from the coaching list.' in unlisted and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ada_id,)).fetchone(), "Remove from coaching list from the members menu confirms with a toast")
+ok('class="toast noprint" role=status>Ada Role was removed from coaches.' in unlisted and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ada_id,)).fetchone(), "Remove from coaches from the members menu confirms with a toast")
 others = [r[0] for r in D.execute("SELECT id FROM members WHERE is_admin=1 AND id!=?", (eli_id,)).fetchall()]
 D.execute("UPDATE members SET is_admin=0 WHERE id!=?", (eli_id,)); D.commit()
 blocked = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=eli_id, action="remove_admin"), follow_redirects=True).get_data(as_text=True)
@@ -1045,7 +1049,7 @@ rae_row = ref_members[ref_members.rfind("<div class=li", 0, rae_at):ref_members.
 ref_filt = eli.get("/members?referee=eligible").get_data(as_text=True)
 ref_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
 checkin_ref = eli.get("/admin").get_data(as_text=True)
-ok('class="st st-ok ref-elig">Referee eligible' in rae_row and "Coach eligible" not in rae_row and "Rae Fern" in ref_filt and "Jane Doe" not in ref_filt and "Riley Quinn" not in ref_filt and ">Referee eligible</a>" in ref_members and 'class="st st-ok ref-elig">Referee eligible' in checkin_ref and ref_csv["rae.fern@example.com"][-2] == "Referee eligible" and ref_csv["jane@example.com"][-2] == "" and "Referee eligible" not in rae.get("/home").get_data(as_text=True), "a referee verification shows Referee eligible on Members, the filter, check-in, and the sheet")
+ok('class="st st-ok ref-elig">Referee eligible' in rae_row and "Coach eligible" not in rae_row and "Rae Fern" in ref_filt and "Jane Doe" not in ref_filt and "Riley Quinn" not in ref_filt and ">Referees</a>" in ref_members and 'class="st st-ok ref-elig">Referee eligible' in checkin_ref and ref_csv["rae.fern@example.com"][-2] == "Referee eligible" and ref_csv["jane@example.com"][-2] == "" and "Referee eligible" not in rae.get("/home").get_data(as_text=True), "a referee verification shows Referee eligible on Members, the filter, check-in, and the sheet")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (ref_past, rae_id, bgid)); D.commit()
 expired_row = eli.get("/members").get_data(as_text=True)
 rae_exp = expired_row.find("rae.fern@example.com")
@@ -1094,7 +1098,7 @@ D.execute("DELETE FROM verify_requests WHERE member_id=? AND status='pending'", 
 ahead = (A.today_pt() + dt.timedelta(days=50)).isoformat()
 eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=kay_id, action="recheck", verified="yes", membership_type="Individual Membership, Coach", valid_until=ahead, safesport_expires=ahead, background_expires=ahead))
 who = D.execute("SELECT usawp_status, usawp_verified_by, usawp_verified_at, role, membership_type FROM members WHERE id=?", (kay_id,)).fetchone()
-ok(who[0] == "verified" and who[1] == "Eli Joern" and who[2].startswith(A.today_pt().isoformat()) and who[3] == "athlete" and who[4] == "Individual Membership, Coach" and D.execute("SELECT source FROM coaching_list WHERE member_id=?", (kay_id,)).fetchone()[0] == "usawp" and kay.get("/admin").status_code == 403 and kay.get("/chat?c=coaches").status_code == 403 and 'class="st st-ok coach-elig">Coach eligible' in kay.get("/home").get_data(as_text=True) and "class=coach-tag>USAWP coach" in eli.get("/members").get_data(as_text=True), "a Coach membership recorded from Sport:80 adds the coaching list and the badge without coach access")
+ok(who[0] == "verified" and who[1] == "Eli Joern" and who[2].startswith(A.today_pt().isoformat()) and who[3] == "athlete" and who[4] == "Individual Membership, Coach" and D.execute("SELECT source FROM coaching_list WHERE member_id=?", (kay_id,)).fetchone()[0] == "usawp" and kay.get("/admin").status_code == 403 and kay.get("/chat?c=coaches").status_code == 403 and 'class="st st-ok coach-elig">Coach eligible' in kay.get("/home").get_data(as_text=True) and 'class="st st-ok coach-elig">Coach eligible' in eli.get("/members").get_data(as_text=True) and "class=coach-tag>Coach<" in eli.get("/members").get_data(as_text=True), "a Coach membership recorded from Sport:80 adds the coaching list and the badge without coach access")
 D.execute("INSERT INTO verify_requests(member_id,name,email,status,created) VALUES(?,?,?,'pending',?)", (kay_id, "Kay Recheck", "kay.recheck@example.com", A.today_pt().isoformat()))
 D.commit()
 pending_html = eli.get("/members").get_data(as_text=True)
@@ -1148,3 +1152,5 @@ ok(("Copied to %s." % A.fmt_d(copy_day)) in copied.get_data(as_text=True) and D.
 eli.post("/practices/%d" % copy_id, data=dict(csrf=csrf(eli, "/practices/%d" % copy_id), pid=copy_id, action="delete"))
 eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="delete"))
 ok(not D.execute("SELECT 1 FROM practices WHERE location='Detail Pool'").fetchone() and "Detail Pool" not in eli.get("/export/practices.csv?start=%s&end=%s" % (pday, copy_day)).get_data(as_text=True), "deleting a practice removes it from the schedule and the sheet export")
+ref_added = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=jane_id, action="add_referee", list_view="referees"), follow_redirects=True).get_data(as_text=True)
+ok("was added to referees." in ref_added and "Jay Doe" in ref_added and "Remove from referees" in ref_added and ">Referees</a>" in ref_added and D.execute("SELECT 1 FROM referee_list WHERE member_id=?", (jane_id,)).fetchone() and jane.get("/members").status_code == 403, "Add to referees puts someone on the referee list, and only an admin can open People")

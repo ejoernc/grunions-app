@@ -7,6 +7,10 @@ people = [("Eli","Joern","eli@example.com"),("Jane","Doe","jane@example.com"),("
 cl = {}
 for f,l,e in people:
     x = A.app.test_client(); x.post("/join", data=dict(csrf=tok(x,"/join"), first=f, last=l, email=e, phone="714-555-0100")); cl[f]=x
+import sqlite3
+con = sqlite3.connect(A.DB)
+con.execute("UPDATE members SET role='coach' WHERE email='eli@example.com'")
+con.commit(); con.close()
 E = cl["Eli"]; t = tok(E, "/admin")
 with open("sample_sport80_export.csv","rb") as fh: E.post("/import", data=dict(csrf=t, file=(fh,"s.csv")), content_type="multipart/form-data")
 for mid in (1,2,4,5): E.post("/admin", data=dict(csrf=t, member_id=mid, date="2026-10-20"))

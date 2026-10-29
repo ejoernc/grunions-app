@@ -46,7 +46,7 @@ def test_joined_admin_can_sign_in():
     c = A.app.test_client(); c.post("/join", data=dict(csrf=csrf(c, "/join"), first="Big", last="Boss", email="Boss@Example.com", phone="1"))
     assert q("SELECT first,last,is_admin,joined FROM members WHERE email='boss@example.com'") == [("Big", "Boss", 1, 1)]
     c2, t = cb({"email": "BOSS@example.com", "email_verified": True, "name": "Ignored Name"})
-    assert "Hi, Big" in t and c2.get("/admins").status_code == 200
+    assert "Hi, Big" in t and c2.get("/admins", follow_redirects=True).status_code == 200 and ">People<" in c2.get("/members").get_data(as_text=True)
     assert q("SELECT COUNT(*) FROM members WHERE lower(email)='boss@example.com'")[0][0] == 1
 def test_existing_admin_without_join_can_sign_in():
     sqlite3.connect(A.DB).execute("INSERT INTO members(first,last,email,phone,is_admin,role,joined) VALUES('Elliott','Joern','elliott.joern@gmail.com','',1,'coach',0)").connection.commit()
