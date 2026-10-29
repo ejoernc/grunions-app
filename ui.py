@@ -8,6 +8,7 @@ BASE = """<!doctype html><html lang=en style="background:#0a0a0b;color-scheme:da
 <title>Grunions</title>
 <style>html,body{background:#0a0a0b;color:#ececee}html{color-scheme:dark}
 @view-transition{navigation:auto}
+::view-transition-old(root),::view-transition-new(root){animation-duration:0s;mix-blend-mode:normal}
 ::view-transition-group(grunions-nav),::view-transition-old(grunions-nav),::view-transition-new(grunions-nav){animation:none;mix-blend-mode:normal}
 [hidden]{display:none!important}
 :root{--bg:#0a0a0b;--surface:#151517;--surface2:#1d1d20;--line:#26262a;--t1:#ececee;--t2:#a0a0a8;--t3:#6c6c74;--accent:#3b82f6;
@@ -58,7 +59,7 @@ details.checkin{margin:4px 0 20px}details.checkin>summary{min-height:0;padding:1
 .kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}.kv:first-child{border-top:0}.kv span:first-child{color:var(--t2)}
 .seg{display:flex;gap:4px;background:var(--surface);border-radius:12px;padding:4px;margin:0 0 20px;overflow-x:auto}
 .seg a{flex:1;text-align:center;padding:9px 12px;border-radius:9px;color:var(--t2);text-decoration:none;font-size:14px;font-weight:500;white-space:nowrap}.seg a.on{background:var(--surface2);color:var(--t1)}
-nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:9;box-sizing:border-box;contain:layout paint;
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:9;box-sizing:border-box;
 height:calc(64px + env(safe-area-inset-bottom));padding:0 0 env(safe-area-inset-bottom);background:#0a0a0b;
 border-top:1px solid var(--line);display:flex;justify-content:center;view-transition-name:grunions-nav}
 nav.tabs a{position:relative;flex:1;max-width:140px;height:64px;min-height:64px;box-sizing:border-box;
@@ -206,8 +207,7 @@ function grunionsApply(html,url,pop){
  var scripts=[].slice.call(newMain.querySelectorAll('script'));
  scripts.forEach(function(s){if(s.parentNode) s.parentNode.removeChild(s);});
  var main=document.querySelector('main');
- while(main.firstChild) main.removeChild(main.firstChild);
- while(newMain.firstChild) main.appendChild(newMain.firstChild);
+ main.replaceChildren.apply(main, [].slice.call(newMain.childNodes));
  grunionsSyncNav(newNav);
  document.title=doc.title||document.title;
  if(!pop) history.pushState({grunions:1},'',url);
