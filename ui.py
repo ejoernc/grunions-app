@@ -461,9 +461,9 @@ T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">T
 {% if me().is_admin %}<details style="margin:4px -18px -18px"><summary class="t3 sm">Edit practice</summary><form method=post style="padding:0 18px 18px">{{csrf_field()}}<input type=hidden name=pid value={{p.id}}>
 <div class=row><label>Start<input type=time name=start value={{p.start}}></label><label>End<input type=time name=end value={{p.end}}></label></div>
 <label>Location<input name=location value="{{p.location}}"></label><label>Note<input name=note value="{{p.note or ''}}"></label>
-<div class=checks><div class="t3 xs">Coaches</div>
+<div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>
 {% for c in coach_choices %}<label><input type=checkbox name=coach value="{{c.id}}" {% if c.id in x.coach_ids %}checked{% endif %}>{{display_first(c)}} {{c.last}} {{ coach_tag(c) }}</label>
-{% else %}<p class="t3 sm">No one on the coaching list yet. Add them on Roles.</p>{% endfor %}</div>
+{% else %}<p class="t3 sm">No coaches yet. Mark a member as a coach on Members.</p>{% endfor %}</div>
 <div class=row><button name=action value=edit>Save</button>{% if p.cancelled %}<button name=action value=restore>Restore</button>{% else %}<button class=danger name=action value=cancel>Cancel practice</button>{% endif %}</div>
 <a class="btn quiet full" href="/admin?date={{p.date}}" style="margin-top:6px">Open check-in</a></form></details>{% endif %}</div>{% endfor %}
 {% if me().is_admin %}<details class=card><summary>Add a practice</summary><form method=post class=body>{{csrf_field()}}<label>Date<input type=date name=date required></label>
@@ -485,6 +485,7 @@ T["admin"] = ADMIN_NAV + """
 <div class=calgrid id=calGrid>{% for c in month.cells %}{% if c is none %}<span class=calday></span>{% elif c.has %}<a class="calday{{' on' if c.on}}" href="/admin?date={{c.iso}}{% if q %}&amp;q={{q|urlencode}}{% endif %}">{{c.day}}</a>{% else %}<span class=calday aria-disabled=true>{{c.day}}</span>{% endif %}{% endfor %}</div></div></div>
 <input type=hidden name=date value="{{date}}"><input name=q value="{{q}}" placeholder="Search" style="margin:0"></form>
 <h1 style="margin:20px 0 4px">{{loc}}</h1><p class="t2 sm">{{fmt_d(date)}} · {{n}} checked in{% if pr %} · {{rsvp_n}} RSVP'd{% else %} · no practice scheduled{% endif %}</p>
+{% if coach_names %}<p class="t2 sm" style="margin-top:0">Coaches: {{ coach_names|join(', ') }}</p>{% endif %}
 {% if coach_warn %}<p class="sm" style="margin-top:0">{{ st('warn', 'No assigned coach is coach-eligible') }}</p>{% endif %}
 {% macro ci(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}
 <div class=li><button type=button class=ci-name onclick="this.closest('.li').nextElementSibling.toggleAttribute('hidden')">
@@ -596,7 +597,8 @@ T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-bet
 <div class=list>{% for r in rows %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow><div style="display:flex;align-items:center;min-width:0;font-weight:500"><span class=ell>{{display_first(r)}} {{r.last}}</span>{{ coach_tag(r) }}</div>
 <div class="t3 xs ell">{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices{% if r.usawp_verified_by %} · verified by {{r.usawp_verified_by}} {{r.usawp_verified_at[:10]}}{% endif %}</div></div>
 <div style="text-align:right">{{ usawp(r.usawp_status) }}{% if r.usawp_valid_until %}<div class="t3 xs">thru {{r.usawp_valid_until}}</div>{% endif %}
-{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">{{ st('trial', trial_badge(tw)) }}</div><div class="t3 xs">Ends {{tw.ends}}</div>{% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}</div></div>{% endfor %}</div>"""
+{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">{{ st('trial', trial_badge(tw)) }}</div><div class="t3 xs">Ends {{tw.ends}}</div>{% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}
+{% if r.role != 'coach' %}<form method=post style="margin-top:8px">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button class=compact name=action value=make_coach>Make coach</button></form>{% endif %}</div></div>{% endfor %}</div>"""
 
 T["expiring"] = ADMIN_NAV + """<h1>Expiring</h1>
 <form class="row noprint" style="align-items:center;margin-bottom:8px"><span class="t2 sm" style="flex:0 0 auto">Window (days)</span><input name=days type=number value={{days}} onchange=this.form.submit() style="margin:0"></form>
@@ -632,7 +634,7 @@ T["qr_page"] = ADMIN_NAV + """<div style="text-align:center"><h1>New to Grunions
 <div style="background:#fff;border-radius:16px;padding:18px;display:inline-block"><img src=/qr.svg alt="Sign-up QR code" style="width:min(70vw,380px);display:block"></div>
 <p class="t3 sm" style="margin-top:12px">{{u}}</p><button class="primary noprint" onclick=print()>Print</button></div>"""
 
-T["admins"] = ADMIN_NAV + """<h1>Roles</h1><p class="t2 sm">{{n_admins}} admin{{'s' if n_admins!=1}} · admins manage everything. Make admin and Make coach work for any member, whether or not USA Water Polo has verified them. Remove admin and Remove coach take that access away. Coach eligible is separate: a verified USAWP coach membership with current background screening and SafeSport. The coaching list is who can be assigned to a practice. It does not grant those tools. There must always be at least one admin.</p>
+T["admins"] = ADMIN_NAV + """<h1>Roles</h1><p class="t2 sm">{{n_admins}} admin{{'s' if n_admins!=1}} · admins manage everything. Make admin and Make coach work for any member, whether or not USA Water Polo has verified them. Remove admin and Remove coach take that access away. Admins and members with the coach role can be assigned to a practice. The coaching list adds other people. It does not grant check-in or coaches chat. Coach eligible is separate: a verified USAWP coach membership with current background screening and SafeSport. There must always be at least one admin.</p>
 <div class=list>{% for r in rows %}<div class=li style="flex-wrap:wrap;align-items:flex-start"><div class=grow><div style="font-weight:500">{{display_first(r)}} {{r.last}}{% if r.id==me().id %} <span class="t3 xs">(you)</span>{% endif %}{{ coach_tag(r) }}</div>
 <div class="t3 xs ell">{{r.email}} · {{role_label(r)}}{% if r.email in boot %} · set by ADMIN_EMAIL{% endif %}{% if r.id in listed %} · coaching list{% endif %}</div></div>
 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">

@@ -97,6 +97,7 @@ def db():
     if "db" not in g:
         g.db = sqlite3.connect(DB); g.db.row_factory = sqlite3.Row; g.db.executescript(SCHEMA)
         migrate_members(g.db)
+        migrate_practice_coaches(g.db)
         if not g.db.execute("SELECT 1 FROM requirements").fetchone():
             g.db.executemany("INSERT INTO requirements(name,applies_to,keywords,expires) VALUES(?,?,?,?)", DEFAULT_REQS); g.db.commit()
         drop_club_waiver(g.db)
@@ -107,6 +108,10 @@ def db():
         for e in ADMIN_EMAILS: g.db.execute("UPDATE members SET is_admin=1 WHERE email=?", (e,))
         g.db.commit()
     return g.db
+def migrate_practice_coaches(d):
+    """Create practice coach assignments on an older database under DATA_DIR. Existing rows stay."""
+    d.execute("""CREATE TABLE IF NOT EXISTS practice_coaches(
+        practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id))""")
 def migrate_members(d):
     """Add columns missing from a database created by an older version (production SQLite on /data)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
@@ -778,10 +783,11 @@ def apply_membership_type(d, mid, membership_type, update_list):
     if is_coach_membership(text): add_coaching(d, mid, "usawp")
     else: drop_usawp_coaching(d, mid)
 def coach_candidates(d):
-    """People who can be assigned to a practice: the coaching list, not coach access."""
-    return d.execute("""SELECT m.id, m.first, m.last, m.preferred_first, m.membership_type, m.usawp_status, m.usawp_valid_until FROM members m
-        JOIN coaching_list c ON c.member_id=m.id
+    """People who can be assigned to a practice: admins, the coach role, and the coaching list."""
+    return d.execute("""SELECT m.id, m.first, m.last, m.preferred_first, m.role, m.is_admin, m.membership_type, m.usawp_status, m.usawp_valid_until
+        FROM members m
         WHERE COALESCE(m.role,'')!='system'
+          AND (m.is_admin=1 OR m.role='coach' OR m.id IN (SELECT member_id FROM coaching_list))
         ORDER BY lower(CASE WHEN trim(COALESCE(m.preferred_first,''))!='' THEN m.preferred_first ELSE m.first END), lower(m.last), m.id""").fetchall()
 def coach_labels(rows):
     """First names for the schedule, A–Z. A shared first name keeps the last initial."""
@@ -800,12 +806,12 @@ def practice_coach_rows(d, pids):
     for r in d.execute("""SELECT pc.practice_id AS pid, m.id, m.first, m.last, m.preferred_first, m.email,
         m.membership_type, m.usawp_status, m.usawp_valid_until
         FROM practice_coaches pc JOIN members m ON m.id=pc.member_id
-        JOIN coaching_list c ON c.member_id=m.id
-        WHERE pc.practice_id IN (%s) AND COALESCE(m.role,'')!='system'""" % marks, tuple(pids)):
+        WHERE pc.practice_id IN (%s) AND COALESCE(m.role,'')!='system'
+          AND (m.is_admin=1 OR m.role='coach' OR m.id IN (SELECT member_id FROM coaching_list))""" % marks, tuple(pids)):
         out[r["pid"]].append(r)
     return out
 def save_practice_coaches(d, pid, raw):
-    """Replace the assigned coaches. Ids that are not on the coaching list are ignored."""
+    """Replace the assigned coaches. Ids outside the coach list are ignored."""
     allowed = {r["id"] for r in coach_candidates(d)}
     chosen = []
     for x in raw or []:
@@ -1050,7 +1056,7 @@ def admin():
     coach_warn = bool(pr) and not any(coach_eligibility(d, c)["eligible"] for c in assigned)
     return page(T["admin"],
         tab="admin", date=date, q=q, going=going, rest=rest, checked=checked, n=n, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=sum(1 for r in rows if r["going"] == 1),
-        days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days), coach_warn=coach_warn)
+        days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days), coach_warn=coach_warn, coach_names=coach_labels(assigned))
 
 @app.route("/expiring", methods=["GET", "POST"])
 @admin_required
@@ -1106,16 +1112,26 @@ def admins():
         elif act == "remove_coaching": d.execute("DELETE FROM coaching_list WHERE member_id=?", (mid,))
         else: abort(400)
         d.commit()
-        if act in ("add_coaching", "remove_coaching"): sync_practice_sheets(d)
+        if act in ("add_coaching", "remove_coaching", "make_coach", "remove_coach", "make_admin", "remove_admin"): sync_practice_sheets(d)
         flash(f"Updated {display_first(m)} {m['last']}."); return redirect("/admins")
     rows = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY is_admin DESC, role='coach' DESC, last, first").fetchall()
     listed = {r[0] for r in d.execute("SELECT member_id FROM coaching_list")}
     return page(T["admins"], tab="admin", rows=rows, n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS, listed=listed)
 
-@app.route("/members")
+@app.route("/members", methods=["GET", "POST"])
 @admin_required
 def members():
     d = db()
+    if request.method == "POST":
+        mid = int(request.form.get("member_id") or 0)
+        m = d.execute("SELECT * FROM members WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone()
+        if not m: abort(404)
+        if request.form.get("action") != "make_coach": abort(400)
+        if (m["role"] or "") != "coach":
+            d.execute("UPDATE members SET role='coach' WHERE id=?", (mid,))
+            d.commit(); sync_practice_sheets(d)
+            flash("Updated %s %s." % (display_first(m), m["last"]))
+        return redirect("/members")
     rows = d.execute("""SELECT m.*, (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits,
       (SELECT MAX(practice_date) FROM checkins WHERE member_id=m.id) AS lastp FROM members m WHERE COALESCE(role,'')!='system' ORDER BY last, first""").fetchall()
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}

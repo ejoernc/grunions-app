@@ -84,6 +84,7 @@ tj2 = csrf(jane, "/practices"); jane.post("/practices", data=dict(csrf=tj2, pid=
 john.post("/practices", data=dict(csrf=tj, pid=pid[0], action="notgoing"))
 ok("1 going" in jane.get("/practices").get_data(as_text=True), "RSVP headcount")
 ok(jane.post("/practices", data=dict(csrf=tj2, pid=pid[0], action="cancel")).status_code == 403, "members cannot cancel practices")
+eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date=pid[1]))
 c = eli.get("/admin?date=%s" % pid[1]).get_data(as_text=True)
 ok("1 RSVP'd" in c and c.find(">Going <") < c.find(">Everyone else <") < c.find(">Checked in <") and c.find("Eli Joern") < c.find(">Checked in <") < c.find("Jane Doe") and "RSVP ✓" in c and "Not cleared" in c, "check-in groups going, then everyone else, then checked in")
 eli.post("/practices", data=dict(csrf=tok_e, pid=pid[0], action="edit", start="19:30", end="21:00", location="Marina High School", note="Pool B"))
@@ -661,7 +662,7 @@ prow = D.execute("SELECT id, start, end, location, COALESCE(note,'') FROM practi
 pid, pstart, pend, ploc, pnote = prow
 base = dict(csrf=csrf(eli, "/practices"), pid=pid, action="edit", start=pstart, end=pend, location=ploc, note=pnote)
 staff0 = eli.get("/practices").get_data(as_text=True)
-ok("No one on the coaching list yet." in staff0 and ("name=coach value=\"%d\"" % eli_id) not in staff0 and ("name=coach value=\"%d\"" % john_id) not in staff0, "an admin or a coach is not on the coaching list until added")
+ok(("name=coach value=\"%d\"" % eli_id) in staff0 and ("name=coach value=\"%d\"" % john_id) in staff0 and ("name=coach value=\"%d\"" % jane_id) not in staff0 and "No coaches yet." not in staff0, "admins and coaches are on the practice coach list before anyone is added to the coaching list")
 ok("Coaches:" not in jane.get("/practices").get_data(as_text=True) and "name=coach" not in jane.get("/practices").get_data(as_text=True), "a practice with no coaches has no coaches line, and members have no picker")
 def list_act(mid, action):
     return eli.post("/admins", data=dict(csrf=csrf(eli, "/admins"), member_id=mid, action=action), follow_redirects=True)
@@ -670,18 +671,26 @@ roles = eli.get("/admins").get_data(as_text=True)
 ok("Add to coaching list" in roles and "Remove from coaching list" in roles and "Make coach" in roles and "Remove coach" in roles and "Make admin" in roles and 'class="st st-ok coach-elig"' not in roles, "Roles keeps Make coach separate from the coaching list, and a manual add has no badge")
 eli.post("/practices", data=dict(base, coach=[str(eli_id), str(john_id), str(jane_id)]))
 sched, home, staff, coachpg = jane.get("/practices").get_data(as_text=True), jane.get("/home").get_data(as_text=True), eli.get("/practices").get_data(as_text=True), john.get("/practices").get_data(as_text=True)
-ok("Coaches: Eli, Sam" in sched and "Coaches: Eli, Sam" in home and "Coaches: Eli, Sam" in coachpg and "Coaches: Eli, Sam" in staff and 'class="st st-ok coach-elig"' not in sched and "No assigned coach is coach-eligible" not in sched and "No assigned coach is coach-eligible" in staff and "No assigned coach is coach-eligible" not in coachpg, "assigned coaches show on every schedule card, and only an admin sees the eligibility warning")
+pdate = D.execute("SELECT date FROM practices WHERE id=?", (pid,)).fetchone()[0]
+checkin = eli.get("/admin?date=%s" % pdate).get_data(as_text=True)
+ok("Coaches: Eli, Sam" in sched and "Coaches: Eli, Sam" in home and "Coaches: Eli, Sam" in coachpg and "Coaches: Eli, Sam" in staff and "Coaches: Eli, Sam" in checkin and 'class="st st-ok coach-elig"' not in sched and "No assigned coach is coach-eligible" not in sched and "No assigned coach is coach-eligible" in staff and "No assigned coach is coach-eligible" not in coachpg, "assigned coaches show on every schedule card and on check-in, and only an admin sees the eligibility warning")
 ok(('name=coach value="%d" checked' % eli_id) in staff and ('name=coach value="%d" checked' % john_id) in staff and ('name=coach value="%d"' % jane_id) not in staff and "<select name=coach" not in staff and "name=coach" not in sched and "name=coach" not in coachpg, "edit practice is a checkbox per coaching-list member, and only an admin gets that list")
 ok(jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=pid, action="edit", start=pstart, end=pend, location=ploc, note=pnote, coach=str(jane_id))).status_code == 403 and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? ORDER BY member_id", (pid,)).fetchall() == [(eli_id,), (john_id,)], "a member cannot change practice coaches, and someone off the coaching list is not stored")
 list_act(john_id, "remove_coaching")
 hid = jane.get("/practices").get_data(as_text=True)
-ok("Coaches: Eli" in hid and "Coaches: Eli, Sam" not in hid and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? AND member_id=?", (pid, john_id)).fetchone(), "leaving the coaching list hides that name even if the practice still has the row")
+ok("Coaches: Eli, Sam" in hid and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? AND member_id=?", (pid, john_id)).fetchone(), "a coach stays on the practice after leaving the coaching list")
 list_act(john_id, "add_coaching")
 ok("Coaches: Eli, Sam" in jane.get("/practices").get_data(as_text=True), "returning to the coaching list shows the assigned name again")
 eli.post("/practices", data=dict(base, coach=[str(john_id)]))
 ok("Coaches: Sam" in jane.get("/practices").get_data(as_text=True) and "Coaches: Eli, Sam" not in jane.get("/practices").get_data(as_text=True) and "Coaches: Sam" in jane.get("/home").get_data(as_text=True), "unchecking a coach removes that name from the card")
 eli.post("/practices", data=base)
 ok("Coaches:" not in jane.get("/practices").get_data(as_text=True) and "Coaches:" not in jane.get("/home").get_data(as_text=True), "clearing every coach checkbox removes the line")
+list_act(jane_id, "add_coaching")
+eli.post("/practices", data=dict(base, coach=[str(jane_id)]))
+ok("Coaches: Jane" in jane.get("/practices").get_data(as_text=True), "an athlete on the coaching list can be assigned")
+list_act(jane_id, "remove_coaching")
+ok("Coaches: Jane" not in jane.get("/practices").get_data(as_text=True) and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? AND member_id=?", (pid, jane_id)).fetchone(), "leaving the coaching list hides an athlete who is not an admin or a coach")
+eli.post("/practices", data=base)
 list_act(jane_id, "add_coaching")
 ok(jane.get("/admin").status_code == 403 and jane.get("/chat?c=coaches").status_code == 403, "the coaching list does not grant check-in or coaches chat")
 list_act(jane_id, "make_coach")
@@ -699,7 +708,18 @@ ccols = [r[1] for r in od.execute("PRAGMA table_info(practice_coaches)")]
 mcols = [r[1] for r in od.execute("PRAGMA table_info(members)")]
 clist = od.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='coaching_list'").fetchone()
 od.close(); os.remove(oldp)
-ok(ccols == ["practice_id", "member_id"] and "membership_type" in mcols and clist, "an existing database gains the coaching list and membership type")
+barep = tempfile.mktemp(suffix=".db")
+bare = sqlite3.connect(barep)
+bare.execute("CREATE TABLE members(id INTEGER PRIMARY KEY, first TEXT)")
+bare.execute("INSERT INTO members(first) VALUES('Kept')")
+A.migrate_practice_coaches(bare); A.migrate_practice_coaches(bare)
+kept = bare.execute("SELECT first FROM members").fetchone()[0]
+grew = [r[1] for r in bare.execute("PRAGMA table_info(practice_coaches)")]
+bare.execute("INSERT INTO practice_coaches(practice_id, member_id) VALUES(1, 1)")
+A.migrate_practice_coaches(bare)
+still = bare.execute("SELECT member_id FROM practice_coaches").fetchone()[0]
+bare.close(); os.remove(barep)
+ok(ccols == ["practice_id", "member_id"] and "membership_type" in mcols and clist and kept == "Kept" and grew == ["practice_id", "member_id"] and still == 1, "an existing database gains the coaching list, membership type, and practice coaches without dropping rows")
 
 # USAWP coach membership fills the coaching list and can show the badge
 riley = A.app.test_client(); join(riley, "Riley", "Quinn", "riley@example.com")
@@ -774,6 +794,12 @@ list_act(una_id, "make_coach"); list_act(una_id, "make_admin")
 ok(D.execute("SELECT role, is_admin, usawp_status FROM members WHERE id=?", (una_id,)).fetchone() == ("coach", 1, "unknown") and una.get("/admin").status_code == 200 and una.get("/chat?c=coaches").status_code == 200 and una.get("/members").status_code == 200, "Make coach and Make admin work for a member who is not USAWP verified")
 list_act(una_id, "remove_admin"); list_act(una_id, "remove_coach")
 ok(D.execute("SELECT role, is_admin, usawp_status FROM members WHERE id=?", (una_id,)).fetchone() == ("athlete", 0, "unknown") and una.get("/admin").status_code == 403 and una.get("/chat?c=coaches").status_code == 403, "Remove admin and Remove coach do not depend on USAWP status")
+ned = A.app.test_client(); join(ned, "Ned", "List", "ned.list@example.com")
+D.commit(); ned_id = D.execute("SELECT id FROM members WHERE email='ned.list@example.com'").fetchone()[0]
+ok("Make coach" in eli.get("/members").get_data(as_text=True) and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices").get_data(as_text=True) and ned.post("/members", data=dict(csrf=csrf(ned, "/home"), member_id=ned_id, action="make_coach")).status_code == 403, "Members offers Make coach, and that person is not assignable yet")
+eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ned_id, action="make_coach"), follow_redirects=True)
+ned_row = eli.get("/members").get_data(as_text=True).split("ned.list@example.com", 1)[1].split("<div class=li", 1)[0]
+ok(D.execute("SELECT role FROM members WHERE id=?", (ned_id,)).fetchone()[0] == "coach" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ned_id,)).fetchone() and ("name=coach value=\"%d\"" % ned_id) in eli.get("/practices").get_data(as_text=True) and "Make coach" not in ned_row and ("name=coach value=\"%d\"" % eli_id) in eli.get("/practices").get_data(as_text=True), "Make coach on Members adds that person to the practice picker, and an admin stays on it")
 
 # assigned coaches in the practices CSV and the Google Sheet tabs
 D.execute("INSERT INTO coaching_list(member_id, source, at) VALUES(?, 'manual', '2026-10-01') ON CONFLICT(member_id) DO UPDATE SET source='manual'", (eli_id,))
@@ -798,6 +824,7 @@ changed = next(r for r in pushed[-1]["Practices"][1:] if r[0] == "2026-12-01" an
 changed_detail = [r for r in pushed[-1]["Practice Coaches"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool"]
 ok(changed[6] == "Sam" and changed[7] == 1 and changed_detail == [["2026-12-01", "18:00-19:30", "Export Pool", "Sam Smith", "john@example.com", ""]], "changing the assigned coaches rewrites the sheet")
 before = len(pushed)
+D.execute("UPDATE members SET role='athlete' WHERE id=?", (john_id,)); D.commit()
 list_act(john_id, "remove_coaching")
 dropped = next(r for r in pushed[-1]["Practices"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool")
 ok(len(pushed) > before and dropped[6] == "" and dropped[7] == 0 and not any(r[0] == "2026-12-01" and r[2] == "Export Pool" for r in pushed[-1]["Practice Coaches"][1:]) and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? AND member_id=?", (epid, john_id)).fetchone(), "leaving the coaching list resyncs the sheet and drops that coach")
