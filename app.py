@@ -877,7 +877,8 @@ def practice_coach_rows(d, pids):
         out[r["pid"]].append(r)
     return out
 def save_practice_coaches(d, pid, raw):
-    """Replace the assigned coaches. Ids outside the coach list are ignored."""
+    """Replace the assigned coaches. Only an admin may do this. Ids outside the coach list are ignored."""
+    if not me() or not me()["is_admin"]: abort(403)
     allowed = {r["id"] for r in coach_candidates(d)}
     chosen = []
     for x in raw or []:
@@ -901,6 +902,7 @@ def practices():
             try: d.execute("INSERT INTO practices(date,start,end,location,note) VALUES(?,?,?,?,?)", (request.form["date"], request.form.get("start") or "19:00", request.form.get("end") or "20:30", request.form.get("location") or "TBD", request.form.get("note")))
             except sqlite3.IntegrityError: flash("A practice already exists at that place on that date.")
         elif a == "edit" and pid:
+            if not me()["is_admin"]: abort(403)
             old = d.execute("SELECT start, end, location, note FROM practices WHERE id=?", (pid,)).fetchone()
             start, end, loc, note = request.form["start"], request.form["end"], request.form["location"], request.form.get("note")
             d.execute("UPDATE practices SET start=?, end=?, location=?, note=? WHERE id=?", (start, end, loc, note, pid))
@@ -934,7 +936,7 @@ def practices():
         mine = next((r["going"] for r in rv if r["id"] == me()["id"]), None)
         coaches = assigned.get(p["id"], [])
         data.append(dict(p=p, going=[r for r in rv if r["going"]], notgoing=[r for r in rv if not r["going"]], mine=mine, unseen=unseen.get(str(p["id"]), 0), coach_ids={c["id"] for c in coaches}, coach_names=coach_labels(coaches), coaches=coaches, any_eligible=any(coach_eligibility(d, c)["eligible"] for c in coaches)))
-    return page(T["practices"], tab="practices", data=data, coach_choices=coach_candidates(d))
+    return page(T["practices"], tab="practices", data=data, coach_choices=coach_candidates(d) if me()["is_admin"] else [])
 @app.route("/api/unread")
 @login_required
 def api_unread():
