@@ -1062,3 +1062,10 @@ lapsed_ref = "Referee eligibility expired " + (A.today_pt() - dt.timedelta(days=
 ok(lapsed_ref in eli.get("/members").get_data(as_text=True) and "Kay Recheck" not in eli.get("/members?referee=eligible").get_data(as_text=True), "a past referee certification is marked expired")
 eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=kay_id, action="recheck", verified="no", membership_type="Head Coach", valid_until=ahead))
 ok(D.execute("SELECT usawp_status, role FROM members WHERE id=?", (kay_id,)).fetchone() == ("expired", "athlete") and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=? AND source='usawp'", (kay_id,)).fetchone(), "a not-verified recheck does not add a coach membership to the coaching list")
+D.execute("UPDATE members SET trial_acknowledged_at=?, usawp_status='unknown', usawp_valid_until=NULL WHERE id=?", (A.today_pt().isoformat(), jane_id))
+D.commit()
+trial_page = eli.get("/members").get_data(as_text=True)
+jat = trial_page.find("jane@example.com")
+jchunk = trial_page[trial_page.rfind("<div class=li", 0, jat):trial_page.find("<div class=panel", jat)]
+jpre = jchunk[:jchunk.find("jane@example.com")]
+ok(jpre.rstrip().endswith("Ends " + A.fmt_md((A.today_pt() + dt.timedelta(days=14)).isoformat()) + " ·") and jchunk.count("Ends ") == 1 and "practices" in jchunk[jchunk.find("jane@example.com"):], "the members second line leads with the trial end date, then email and practice count")
