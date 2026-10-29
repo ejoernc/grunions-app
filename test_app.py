@@ -119,7 +119,7 @@ A.PUBLIC_URL = "https://grunions.example"
 A.VERIFY_WEBHOOK_URL = "http://127.0.0.1:%d/hook" % srv.server_port
 r = eli.post("/admin", data=dict(csrf=tok_e, member_id=4, date="2026-10-27", action="ask_bot"), follow_redirects=True).get_data(as_text=True)
 body = hits[0]["json"] if hits else {}
-ok("Webhook sent" in r and body == {"request_id": body.get("request_id"), "member_id": 4, "name": "Ana Lopez", "preferred_first": None, "email": "ana@example.com", "member_number": None, "requested_by": "Eli Joern", "app_url": "https://grunions.example"} and hits[0]["authorization"] is None and hits[0]["content_type"] == "application/json", "Ask Grunions creates request + POSTs webhook")
+ok("Webhook sent" in r and body == {"request_id": body.get("request_id"), "member_id": 4, "name": "Ana Lopez", "preferred_first": None, "email": "ana@example.com", "member_number": None, "requested_by": "Eli Joern", "member_submitted": False, "app_url": "https://grunions.example"} and hits[0]["authorization"] is None and hits[0]["content_type"] == "application/json", "Ask Grunions creates request + POSTs webhook")
 ok("already pending" in eli.post("/admin", data=dict(csrf=tok_e, member_id=4, date="2026-10-27", action="ask_bot"), follow_redirects=True).get_data(as_text=True), "no duplicate pending request")
 ok(jane.post("/admin", data=dict(csrf=tj2, member_id=4, action="ask_bot")).status_code == 403, "members cannot request verification")
 ok("verification requested" in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "pending state on member row")
@@ -254,12 +254,12 @@ vr = D.execute("SELECT id, member_number, status, requested_by, name, email FROM
 body = hits[-1]["json"]
 sp = page.get_data(as_text=True)
 ok(page.status_code == 200 and 'class="toast noprint" role=status>Sent to Grunions for verification' in sp and "setTimeout" in sp and "3000" in sp and "Verification pending" in sp and 'class="st st-warn">Pending' in sp and 'class="st st-bad">Not cleared' not in sp and "USAWP # 4321" in sp and ">Edit<" in sp and "id=usawpForm hidden" in sp and "id=trialOpen" not in sp and "name=usawp_number" not in sp.split("id=usawpForm")[0] and D.execute("SELECT usawp_number FROM members WHERE id=?", (sid,)).fetchone()[0] == "4321" and vr[1] == "4321" and vr[2] == "pending", "submit saves number, hides the input, toasts, and shows Pending")
-ok(_spy.timeout == 5 and len(hits) == before + 1 and body == {"request_id": vr[0], "member_id": sid, "name": "Sam River", "preferred_first": None, "email": "sam@example.com", "member_number": "4321", "requested_by": "Sam River", "app_url": "https://grunions.example"}, "member submit POSTs the webhook payload with a 5s timeout")
+ok(_spy.timeout == 5 and len(hits) == before + 1 and body == {"request_id": vr[0], "member_id": sid, "name": "Sam River", "preferred_first": None, "email": "sam@example.com", "member_number": "4321", "requested_by": "Sam River", "member_submitted": True, "app_url": "https://grunions.example"}, "member submit POSTs the webhook payload with a 5s timeout")
 ok("verification requested" in eli.get("/admin").get_data(as_text=True) and any(x["id"] == vr[0] and x["member_number"] == "4321" and x["status"] == "pending" for x in c0.get("/api/verify-requests?status=pending", headers=H).get_json()), "request shows in admin and on the bot API")
 quiet = sam.get("/home").get_data(as_text=True)
 ok("class=\"toast" not in quiet and "Sent to Grunions for verification" not in quiet and "Verification pending" in quiet and 'class="st st-warn">Pending' in quiet and "USAWP # 4321" in quiet and ">Edit<" in quiet, "reload keeps the pending card without repeating the toast")
 edit = sam_post("55555")
-ok(tuple(D.execute("SELECT COUNT(*), MAX(member_number) FROM verify_requests WHERE member_id=? AND status='pending'", (sid,)).fetchone()) == (1, "55555") and len(hits) == before + 2 and hits[-1]["json"]["request_id"] == vr[0] and hits[-1]["json"]["member_number"] == "55555" and 'class="toast noprint" role=status>Sent to Grunions for verification' in edit.get_data(as_text=True) and "USAWP # 55555" in edit.get_data(as_text=True) and D.execute("SELECT requested_by FROM verify_requests WHERE id=?", (vr[0],)).fetchone()[0] == "Sam River", "edit save updates the pending number, re-sends the webhook, and toasts again")
+ok(tuple(D.execute("SELECT COUNT(*), MAX(member_number) FROM verify_requests WHERE member_id=? AND status='pending'", (sid,)).fetchone()) == (1, "55555") and len(hits) == before + 2 and hits[-1]["json"]["request_id"] == vr[0] and hits[-1]["json"]["member_number"] == "55555" and hits[-1]["json"]["member_submitted"] is True and hits[-1]["json"]["requested_by"] == "Sam River" and 'class="toast noprint" role=status>Sent to Grunions for verification' in edit.get_data(as_text=True) and "USAWP # 55555" in edit.get_data(as_text=True) and D.execute("SELECT requested_by FROM verify_requests WHERE id=?", (vr[0],)).fetchone()[0] == "Sam River", "edit save updates the pending number, re-sends the webhook, and toasts again")
 sam_post("666666")
 blocked = sam_post("7777777").get_data(as_text=True)
 ok("3 times per hour" in blocked and D.execute("SELECT usawp_number FROM members WHERE id=?", (sid,)).fetchone()[0] == "666666" and D.execute("SELECT member_number FROM verify_requests WHERE id=?", (vr[0],)).fetchone()[0] == "666666", "rate limit is 3 submissions per member per hour")
@@ -1068,6 +1068,29 @@ D.execute("UPDATE members SET usawp_status='verified', usawp_number='303030', us
 D.commit()
 shown = eli.get("/members").get_data(as_text=True) + eli.get("/admin").get_data(as_text=True)
 ok(shown.count(">Recheck membership<") >= 2 and "name=membership_type" in shown and "name=referee_expires" in shown and "name=safesport_expires" in shown and "name=background_expires" in shown and kay.post("/members", data=dict(csrf=csrf(kay, "/home"), member_id=kay_id, action="recheck", verified="yes")).status_code == 403, "Recheck membership is on the member panel for an admin, and a member cannot save it")
+kay_page = eli.get("/members").get_data(as_text=True)
+kay_panel = kay_page[kay_page.find('<div class=panel id=m%d' % kay_id):]
+kay_next = kay_panel.find("<div class=li")
+if kay_next >= 0: kay_panel = kay_panel[:kay_next]
+kay_form = kay_panel[kay_panel.find("Recheck membership"):kay_panel.find("</details>")]
+ask_hits = []
+class _AskResp:
+    status = 204
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+def _ask_spy(req, timeout=None, **k):
+    ask_hits.append(json.loads(req.data.decode())); return _AskResp()
+_ask_orig = __import__("urllib.request", fromlist=["urlopen"]).urlopen
+_ask_url = A.VERIFY_WEBHOOK_URL
+A.VERIFY_WEBHOOK_URL = "http://hooks.example/recheck"
+__import__("urllib.request", fromlist=["urlopen"]).urlopen = _ask_spy
+try:
+    asked = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=kay_id, action="ask_bot"), follow_redirects=True)
+finally:
+    __import__("urllib.request", fromlist=["urlopen"]).urlopen = _ask_orig
+    A.VERIFY_WEBHOOK_URL = _ask_url
+ok(">Ask Grunions to verify</button>" in kay_form and "Save Sport:80 result" in kay_form and asked.status_code == 200 and ask_hits and ask_hits[0]["requested_by"] == "Eli Joern" and ask_hits[0]["member_submitted"] is False and ask_hits[0]["member_id"] == kay_id and ask_hits[0]["name"] == "Kay Recheck" and D.execute("SELECT status, member_submitted, requested_by FROM verify_requests WHERE member_id=? ORDER BY id DESC LIMIT 1", (kay_id,)).fetchone() == ("pending", 0, "Eli Joern") and kay.post("/members", data=dict(csrf=csrf(kay, "/home"), member_id=kay_id, action="ask_bot")).status_code == 403, "Ask Grunions sits with Recheck membership and still asks the bot for a verified member")
+D.execute("DELETE FROM verify_requests WHERE member_id=? AND status='pending'", (kay_id,)); D.commit()
 ahead = (A.today_pt() + dt.timedelta(days=50)).isoformat()
 eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=kay_id, action="recheck", verified="yes", membership_type="Individual Membership, Coach", valid_until=ahead, safesport_expires=ahead, background_expires=ahead))
 who = D.execute("SELECT usawp_status, usawp_verified_by, usawp_verified_at, role, membership_type FROM members WHERE id=?", (kay_id,)).fetchone()

@@ -166,7 +166,7 @@ def test_preferred_first_display_and_legal_verify():
     try: boss.post("/admin", data=dict(csrf=csrf(boss, "/admin"), member_id=mid, action="ask_bot"))
     finally:
         urllib.request.urlopen = orig; A.VERIFY_WEBHOOK_URL = None
-    assert captured[0]["name"] == "Samuel River" and captured[0]["preferred_first"] == "Sammy" and captured[0]["requested_by"] == "Boss One"
+    assert captured[0]["name"] == "Samuel River" and captured[0]["preferred_first"] == "Sammy" and captured[0]["requested_by"] == "Boss One" and captured[0]["member_submitted"] is False
     assert sqlite3.connect(A.DB).execute("SELECT name FROM verify_requests WHERE member_id=?", (mid,)).fetchone()[0] == "Samuel River"
     import io
     csv_bytes = ("First Name,Last Name,Email Address,Preferred First Name,Membership Status\nSamuel,River,samuel@example.com,Samwell,Current\n").encode()

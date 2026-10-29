@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS rsvps(practice_id INTEGER, member_id INTEGER, going I
 CREATE TABLE IF NOT EXISTS practice_coaches(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id));
 CREATE TABLE IF NOT EXISTS coaching_list(member_id INTEGER PRIMARY KEY, source TEXT NOT NULL DEFAULT 'manual', at TEXT);
 CREATE TABLE IF NOT EXISTS verify_requests(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), name TEXT, email TEXT,
-  member_number TEXT, requested_by TEXT, status TEXT DEFAULT 'pending', created TEXT, answered TEXT, result TEXT, note TEXT, webhook TEXT);
+  member_number TEXT, requested_by TEXT, member_submitted INTEGER DEFAULT 0, status TEXT DEFAULT 'pending', created TEXT, answered TEXT, result TEXT, note TEXT, webhook TEXT);
 CREATE TABLE IF NOT EXISTS reactions(message_id INTEGER, member_id INTEGER, emoji TEXT, PRIMARY KEY(message_id, member_id, emoji));
 CREATE TABLE IF NOT EXISTS notices(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), body TEXT, at TEXT DEFAULT CURRENT_TIMESTAMP, seen INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS usawp_submits(id INTEGER PRIMARY KEY, member_id INTEGER, at TEXT);
@@ -106,6 +106,7 @@ def db():
         g.db = sqlite3.connect(DB); g.db.row_factory = sqlite3.Row; g.db.executescript(SCHEMA)
         migrate_members(g.db)
         migrate_practice_coaches(g.db)
+        migrate_verify_requests(g.db)
         if not g.db.execute("SELECT 1 FROM requirements").fetchone():
             g.db.executemany("INSERT INTO requirements(name,applies_to,keywords,expires) VALUES(?,?,?,?)", DEFAULT_REQS); g.db.commit()
         drop_club_waiver(g.db)
@@ -117,6 +118,11 @@ def db():
         for e in ADMIN_EMAILS: g.db.execute("UPDATE members SET is_admin=1 WHERE email=?", (e,))
         g.db.commit()
     return g.db
+def migrate_verify_requests(d):
+    """Remember whether the member submitted the request. Existing rows stay admin-requested."""
+    cols = [r[1] for r in d.execute("PRAGMA table_info(verify_requests)")]
+    if "member_submitted" not in cols:
+        d.execute("ALTER TABLE verify_requests ADD COLUMN member_submitted INTEGER DEFAULT 0")
 def migrate_practice_coaches(d):
     """Create practice coach assignments on an older database under DATA_DIR. Existing rows stay."""
     d.execute("""CREATE TABLE IF NOT EXISTS practice_coaches(
@@ -1010,7 +1016,7 @@ def drop_bot_verify_messages(d):
     d.execute("DELETE FROM messages WHERE id IN (%s)" % marks, ids)
     d.commit()
 def vr_dict(r):
-    return {k: r[k] for k in ("id", "member_id", "name", "email", "member_number", "requested_by", "status", "created", "answered", "note")} | {"result": json.loads(r["result"]) if r["result"] else None}
+    return {k: r[k] for k in ("id", "member_id", "name", "email", "member_number", "requested_by", "status", "created", "answered", "note")} | {"member_submitted": bool(r["member_submitted"]), "result": json.loads(r["result"]) if r["result"] else None}
 def webhook_headers():
     h = {"Content-Type": "application/json"}
     if VERIFY_WEBHOOK_KEY:
@@ -1020,7 +1026,8 @@ def post_verify_webhook(row, preferred_first=None):
     """POST a verify request. Failures are logged and never raised."""
     if not VERIFY_WEBHOOK_URL: return "skipped (no VERIFY_WEBHOOK_URL)"
     payload = {"request_id": row["id"], "member_id": row["member_id"], "name": row["name"], "preferred_first": clean_preferred(preferred_first),
-               "email": row["email"], "member_number": row["member_number"], "requested_by": row["requested_by"], "app_url": PUBLIC_URL}
+               "email": row["email"], "member_number": row["member_number"], "requested_by": row["requested_by"],
+               "member_submitted": bool(row["member_submitted"]), "app_url": PUBLIC_URL}
     try:
         req = urllib.request.Request(VERIFY_WEBHOOK_URL, data=json.dumps(payload).encode(), headers=webhook_headers(), method="POST")
         with urllib.request.urlopen(req, timeout=5) as resp: return f"sent ({resp.status})"
@@ -1038,8 +1045,9 @@ def create_verify_request(d, mid, update_pending=False):
         d.execute("UPDATE verify_requests SET webhook=? WHERE id=?", (wh, pending["id"])); d.commit()
         return f"Updated the pending verification request for {m['first']} {m['last']}. Webhook {wh}."
     now = dt.datetime.now().isoformat(timespec="seconds")
-    rid = d.execute("INSERT INTO verify_requests(member_id,name,email,member_number,requested_by,created) VALUES(?,?,?,?,?,?)",
-                    (mid, f"{m['first']} {m['last']}", m["email"], m["usawp_number"], f"{me()['first']} {me()['last']}", now)).lastrowid
+    submitted = 1 if me()["id"] == mid else 0
+    rid = d.execute("INSERT INTO verify_requests(member_id,name,email,member_number,requested_by,member_submitted,created) VALUES(?,?,?,?,?,?,?)",
+                    (mid, f"{m['first']} {m['last']}", m["email"], m["usawp_number"], f"{me()['first']} {me()['last']}", submitted, now)).lastrowid
     d.commit(); r = d.execute("SELECT * FROM verify_requests WHERE id=?", (rid,)).fetchone(); wh = post_verify_webhook(r, m["preferred_first"])
     d.execute("UPDATE verify_requests SET webhook=? WHERE id=?", (wh, rid)); d.commit()
     try: notify_new_verify_request(d, m)
