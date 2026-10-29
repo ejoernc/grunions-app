@@ -200,16 +200,14 @@ def _member_flag(member, key):
     except (AttributeError, TypeError):
         return None
     return None
-def is_coach_or_admin(member):
-    if not member: return False
-    if _member_flag(member, "is_admin"): return True
-    return (_member_flag(member, "role") or "") == "coach"
+def is_role_coach(member):
+    """True after Make coach. An admin who was not made a coach stays false."""
+    return bool(member) and (_member_flag(member, "role") or "") == "coach"
 def background_required(member):
-    """Coaches and admins always need background screening. Players need it only when an admin turns it on."""
-    if is_coach_or_admin(member): return True
-    return bool(_member_flag(member, "require_background"))
+    """Background screening is required only for members promoted with Make coach."""
+    return is_role_coach(member)
 def background_view(d, member):
-    """Dated background screening line. None when a player has no date and it is not required."""
+    """Dated background screening line. Missing only when a coach has no date. None when someone else has no date."""
     if not member: return None
     q = background_req(d)
     if not q: return None
@@ -225,8 +223,8 @@ def background_view(d, member):
     else: kind = "ok"
     return dict(date=date, kind=kind, text="Background screening expires " + date, required=required, req_id=q["id"])
 def coach_clearance(d, member):
-    """Cleared to coach requires a current background screening. Players do not get this status."""
-    if not is_coach_or_admin(member): return None
+    """Cleared to coach requires a current background screening. Only Make coach members get this status."""
+    if not is_role_coach(member): return None
     bg = background_view(d, member)
     ok = bool(bg and bg["date"] and bg["kind"] != "bad")
     return dict(ok=ok, text="Cleared to coach" if ok else "Not cleared to coach")
@@ -241,7 +239,7 @@ def save_background_expiry(d, mid, exp, by):
 def clearance(d, member):
     """Cleared to play = USAWP membership verified and current, and SafeSport current.
     An active 2-week trial counts as cleared until it ends or the membership is verified.
-    Background screening blocks play only when an admin requires it for that player."""
+    Background screening never blocks play."""
     today = today_pt().isoformat(); reasons = []; items = []
     until = member["usawp_valid_until"] if member and "usawp_valid_until" in member.keys() else None
     membership_expired = bool(until and until < today)
@@ -258,14 +256,8 @@ def clearance(d, member):
         else: st = "ok"
         items.append(dict(req=q, mr=mr, status=st, days_left=days_left(mr["expires_on"]) if mr else None))
         if st in ("missing", "expired"): reasons.append(f"{q['name']} {st}")
-    bg_block = False
-    if _member_flag(member, "require_background") and not is_coach_or_admin(member):
-        bg = background_view(d, member)
-        if not bg or not bg["date"] or bg["kind"] == "bad":
-            reasons.append("Background screening expired" if bg and bg["date"] else "Background screening missing")
-            bg_block = True
     tw = trial_window(member)
-    if tw and tw["active"] and (member["usawp_status"] or "") != "verified" and not membership_expired and not bg_block:
+    if tw and tw["active"] and (member["usawp_status"] or "") != "verified" and not membership_expired:
         return dict(ok=True, reasons=[], checks=items)
     return dict(ok=not reasons, reasons=reasons, checks=items)
 def expiry_notes(member, cl=None):
@@ -1115,7 +1107,7 @@ def qr_svg():
 def qr_page():
     return page(T["qr_page"], tab="admin", u=signup_url())
 
-DETAIL_ACTIONS = ("verify", "req", "role", "ask_bot", "preferred", "background", "require_background", "recheck")
+DETAIL_ACTIONS = ("verify", "req", "role", "ask_bot", "preferred", "background", "recheck")
 def save_req_expiry(d, mid, req, exp, by):
     if not req or not exp: return
     now = stamp_pt("minutes")
@@ -1182,10 +1174,6 @@ def handle_member_detail(d, mid):
         exp = parse_date(request.form.get("expires_on"))
         if not exp: flash("Enter the background screening expiration date.")
         else: save_background_expiry(d, mid, exp, f"{me()['first']} {me()['last']}")
-    elif act == "require_background":
-        row = d.execute("SELECT role, is_admin, require_background FROM members WHERE id=?", (mid,)).fetchone()
-        if row and not row["is_admin"] and (row["role"] or "") != "coach":
-            d.execute("UPDATE members SET require_background=? WHERE id=?", (0 if row["require_background"] else 1, mid))
     elif act == "recheck":
         save_sport80_recheck(d, mid)
     return "ok"
@@ -1209,7 +1197,7 @@ def admin():
             else:
                 d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (mid, date, location_for(date)))
         d.commit()
-        if request.form.get("action") in ("verify", "req", "background", "require_background", "preferred", "role", "recheck", "undo") or not request.form.get("action"): sync_practice_sheets(d)
+        if request.form.get("action") in ("verify", "req", "background", "preferred", "role", "recheck", "undo") or not request.form.get("action"): sync_practice_sheets(d)
         return redirect(url_for("admin", date=date, q=request.form.get("q", "")))
     ensure_schedule(d)
     days = practice_days(d)
@@ -1306,13 +1294,12 @@ def members():
         if not m: abort(404)
         act = request.form.get("action")
         name = "%s %s" % (display_first(m), m["last"])
-        if act != "require_background":
-            detail = handle_member_detail(d, mid)
-            if detail == "halt": return members_back()
-            if detail == "ok":
-                d.commit()
-                if act in ("verify", "req", "background", "preferred", "role", "recheck"): sync_practice_sheets(d)
-                return members_back()
+        detail = handle_member_detail(d, mid)
+        if detail == "halt": return members_back()
+        if detail == "ok":
+            d.commit()
+            if act in ("verify", "req", "background", "preferred", "role", "recheck"): sync_practice_sheets(d)
+            return members_back()
         if act == "make_admin":
             d.execute("UPDATE members SET is_admin=1 WHERE id=?", (mid,))
             d.commit(); sync_practice_sheets(d)
@@ -1345,11 +1332,6 @@ def members():
                 d.execute("DELETE FROM coaching_list WHERE member_id=?", (mid,))
                 d.commit(); sync_practice_sheets(d)
                 flash("%s was removed from the coaching list." % name, "toast")
-        elif act == "require_background":
-            if not m["is_admin"] and (m["role"] or "") != "coach":
-                d.execute("UPDATE members SET require_background=? WHERE id=?", (0 if m["require_background"] else 1, mid))
-                d.commit(); sync_practice_sheets(d)
-                flash("Updated %s." % name, "toast")
         else: abort(400)
         return members_back()
     days = practice_days(d)
@@ -1999,6 +1981,7 @@ def run_expiry_notices(d, today=None):
         if not q: continue
         for m in d.execute("""SELECT m.*, x.expires_on AS item_expires FROM member_reqs x JOIN members m ON m.id=x.member_id
                 WHERE x.req_id=? AND x.expires_on IS NOT NULL AND COALESCE(m.role,'')!='system'""", (q["id"],)):
+            if kind == "background" and (m["role"] or "") != "coach": continue
             try: left = (dt.date.fromisoformat(str(m["item_expires"])[:10]) - today).days
             except ValueError: continue
             due = left in (7, 1, 0) or (kind == "background" and left == -1)

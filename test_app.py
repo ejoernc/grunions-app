@@ -209,7 +209,8 @@ ssid = D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '%safes
 D.execute("UPDATE members SET role='coach', usawp_status='verified', usawp_valid_until='2027-06-07', usawp_number='659226' WHERE id=?", (cid,))
 D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,'2027-05-11','test','test','2026-10-23T00:00')", (cid, ssid)); D.commit()
 chome = casey.get("/home").get_data(as_text=True)
-ok("Cleared to play" in chome and "Needs:" not in chome and "Club waiver" not in chome and "Concussion" not in chome and "SafeSport training" in chome and "Not cleared to coach" in chome and 'class="st st-bad">Background screening missing' in chome and "Club waiver" not in eli.get("/requirements").get_data(as_text=True) and "Club waiver" not in eli.get("/admin").get_data(as_text=True), "verified member with current SafeSport is cleared to play; a coach still needs background screening")
+eli_home_early = eli.get("/home").get_data(as_text=True)
+ok("Cleared to play" in chome and "Needs:" not in chome and "Club waiver" not in chome and "Concussion" not in chome and "SafeSport training" in chome and "Not cleared to coach" in chome and 'class="st st-bad">Background screening missing' in chome and "Not cleared to coach" not in eli_home_early and "Cleared to coach" not in eli_home_early and "Background screening missing" not in eli_home_early and "Club waiver" not in eli.get("/requirements").get_data(as_text=True) and "Club waiver" not in eli.get("/admin").get_data(as_text=True), "a coach needs background screening, and an admin who was not made a coach does not")
 bgid_casey = D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '%background%'").fetchone()[0]
 far_bg = (A.today_pt() + dt.timedelta(days=400)).isoformat()
 soon_bg = (A.today_pt() + dt.timedelta(days=5)).isoformat()
@@ -588,7 +589,7 @@ text = raw.data.decode("utf-8-sig"); table = list(csvmod.reader(io_mod.StringIO(
 by_email = {r[3]: r for r in table[1:]}
 exar, tayr, penr = by_email["exa.export@example.com"], by_email["tay.trial2@example.com"], by_email["pen.ding@example.com"]
 ok(raw.data.startswith(b"\xef\xbb\xbf") and table[0] == A.MEMBERS_CSV_HEADER and ("grunions-members-%s.csv" % A.today_pt().isoformat()) in raw.headers["Content-Disposition"] and "bot@grunions.local" not in text, "members CSV is UTF-8 with a BOM, the column list, and today's filename")
-ok(exar == ["Exa", "Export", "Ex", "exa.export@example.com", "", "coach", "no", "4242421", "cleared", "2027-12-01", "2027-06-01", "2028-01-15", "2026-09-01", "2026-09-15", "2026-10-01", A.today_pt().isoformat(), "1", "", "", "Background screening expires 2028-01-15"] and tayr[8] == "trial" and tayr[12] == A.today_pt().isoformat() and tayr[-1] == "" and penr[7] == "999111" and penr[8] == "pending" and penr[4] == "555-0100", "members CSV has clearance, trial, compliance dates, attendance, and the background screening line")
+ok(exar == ["Exa", "Export", "Ex", "exa.export@example.com", "", "coach", "no", "4242421", "cleared", "2027-12-01", "2027-06-01", "2028-01-15", "2026-09-01", "2026-09-15", "2026-10-01", A.today_pt().isoformat(), "1", "", "", "Background screening expires 2028-01-15"] and tayr[8] == "trial" and tayr[12] == A.today_pt().isoformat() and tayr[-1] == "" and penr[7] == "999111" and penr[8] == "pending" and penr[4] == "555-0100" and by_email["eli@example.com"][-1] == "" and by_email["john@example.com"][-1] == "Background screening expires 2027-03-01", "members CSV has clearance, trial, compliance dates, attendance, and the background screening line for coaches")
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2026-12-01", start="18:00", end="19:30", location="Export Pool"))
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2026-12-02", start="19:00", end="20:30", location="Export Pool"))
 ppid = D.execute("SELECT id FROM practices WHERE date='2026-12-01' AND location='Export Pool'").fetchone()[0]
@@ -851,7 +852,9 @@ csv_row = {r[0]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/export/
 ok(sheet["Practices"][0] == A.PRACTICE_CSV_HEADER and srow[6] == "Eli, Sam" and srow[7] == 2 and srow[8] == 0 and csv_row[6:8] == ["Eli, Sam", "2"] and csv_row[8] == "0" and "Jane" not in srow[6], "Practices tab and CSV list the assigned coaches and the count")
 ok(sheet["Practice Coaches"][0] == A.PRACTICE_COACHES_HEADER and detail == [["2026-12-01", "18:00-19:30", "Export Pool", "Eli Joern", "eli@example.com", ""], ["2026-12-01", "18:00-19:30", "Export Pool", "Sam Smith", "john@example.com", ""]], "Practice Coaches is one row per coach with name and email")
 mrow = next(r for r in sheet["Members"][1:] if r[3] == "exa.export@example.com")
-ok(sheet["Members"][0] == A.MEMBERS_CSV_HEADER and mrow[11] == "2028-01-15" and mrow[-1] == "Background screening expires 2028-01-15", "Members sheet includes the background screening date and line")
+eli_sheet = next(r for r in sheet["Members"][1:] if r[3] == "eli@example.com")
+john_sheet = next(r for r in sheet["Members"][1:] if r[3] == "john@example.com")
+ok(sheet["Members"][0] == A.MEMBERS_CSV_HEADER and mrow[11] == "2028-01-15" and mrow[-1] == "Background screening expires 2028-01-15" and eli_sheet[-1] == "" and john_sheet[-1] == "Background screening expires 2027-03-01", "Members sheet includes a coach's background screening line and leaves an admin blank")
 att = next(r for r in sheet["Attendance"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool" and r[4] == "Ex Export")
 ok(sheet["Attendance"][0] == A.ATTENDANCE_CSV_HEADER and att[6] == "going" and att[7] == "yes", "Attendance sheet is one row per member per practice")
 export_edit([str(john_id)])
@@ -921,29 +924,46 @@ bea_id = D.execute("SELECT id FROM members WHERE email='bea.player@example.com'"
 D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until=?, usawp_number='7771001' WHERE id=?", ((A.today_pt() + dt.timedelta(days=200)).isoformat(), bea_id))
 D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,?,'test','test','2026-01-01')", (bea_id, ssid, (A.today_pt() + dt.timedelta(days=200)).isoformat()))
 D.commit()
+D.execute("UPDATE members SET require_background=1 WHERE id=?", (bea_id,)); D.commit()
 bea_home = bea.get("/home").get_data(as_text=True)
-ok("Cleared to play" in bea_home and "Background screening" not in bea_home and "Not cleared to coach" not in bea_home and "Require background" in eli.get("/members").get_data(as_text=True), "a player is cleared without background screening")
-eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=bea_id, action="require_background"), follow_redirects=True)
-ok("Not cleared to play" in bea.get("/home").get_data(as_text=True) and "Background screening missing" in bea.get("/home").get_data(as_text=True) and "Don't require background" in eli.get("/members").get_data(as_text=True), "an admin can require background screening for one player")
-eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=bea_id, action="require_background"), follow_redirects=True)
-ok("Cleared to play" in bea.get("/home").get_data(as_text=True) and "Background screening" not in bea.get("/home").get_data(as_text=True), "turning the requirement off clears that player again")
+members_html = eli.get("/members").get_data(as_text=True)
+ok("Cleared to play" in bea_home and "Background screening" not in bea_home and "Not cleared to coach" not in bea_home and "Require background" not in members_html and "Don't require background" not in members_html, "a player is cleared without background screening, and the members menu has no Require background item")
+denied = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=bea_id, action="require_background"), follow_redirects=True)
+ok(denied.status_code == 400 and "Cleared to play" in bea.get("/home").get_data(as_text=True) and D.execute("SELECT require_background FROM members WHERE id=?", (bea_id,)).fetchone()[0] == 1, "Require background is not an action and leaves the stored flag unused")
+made_coach = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=bea_id, action="make_coach"), follow_redirects=True).get_data(as_text=True)
+bea_at = made_coach.find("bea.player@example.com")
+bea_row = made_coach[made_coach.rfind("<div class=li", 0, bea_at):made_coach.find("<div class=panel", bea_at)]
+as_coach = bea.get("/home").get_data(as_text=True)
+coach_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
+eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=bea_id, action="remove_coach"), follow_redirects=True)
+as_player = bea.get("/home").get_data(as_text=True)
+player_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
+ok("Cleared to play" in as_coach and "Not cleared to coach" in as_coach and "Background screening missing" in as_coach and "Background screening missing" in bea_row and coach_csv["bea.player@example.com"][-1] == "Background screening missing" and "Not cleared to coach" not in as_player and "Background screening" not in as_player and "Cleared to play" in as_player and player_csv["bea.player@example.com"][-1] == "", "Make coach requires background screening, and Remove coach drops that requirement")
 week = (A.today_pt() + dt.timedelta(days=7)).isoformat()
-D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,?,'test','test','2026-01-01')", (bea_id, D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '%background%'").fetchone()[0], week))
-D.execute("UPDATE members SET email_reminders=1 WHERE id=?", (bea_id,)); D.commit()
-pushsub(bea, "https://push.example/bea")
+bg_req = D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '%background%'").fetchone()[0]
+casey_mid = D.execute("SELECT id FROM members WHERE email='casey@example.com'").fetchone()[0]
+D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,?,'test','test','2026-01-01')", (bea_id, bg_req, week))
+D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (week, casey_mid, bg_req))
+D.execute("UPDATE members SET email_reminders=1 WHERE id IN (?,?)", (bea_id, casey_mid)); D.commit()
+pushsub(bea, "https://push.example/bea"); pushsub(casey, "https://push.example/casey")
 emails.clear(); pushes.clear()
 nd = A.open_db()
 try: A.run_expiry_notices(nd)
 finally: nd.close()
-bg_mail = [e for e in emails if e[0] == "bea.player@example.com" and "background" in e[1].lower()]
-ok(len(bg_mail) == 1 and "in 7 days" in bg_mail[0][2] and "/home" in bg_mail[0][2] and any(p[1]["url"] == "/home" and "background screening" in p[1]["body"].lower() for p in pushes), "background screening sends the 7-day email and push")
-D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SELECT id FROM requirements WHERE lower(keywords) LIKE '%background%' LIMIT 1)", ((A.today_pt() - dt.timedelta(days=1)).isoformat(), bea_id)); D.commit()
+bg_player = [e for e in emails if e[0] == "bea.player@example.com" and "background" in e[1].lower()]
+bg_coach = [e for e in emails if e[0] == "casey@example.com" and "background" in e[1].lower()]
+casey_id_push = D.execute("SELECT id FROM members WHERE email='casey@example.com'").fetchone()[0]
+ok(bg_player == [] and len(bg_coach) == 1 and "in 7 days" in bg_coach[0][2] and "/home" in bg_coach[0][2] and any(p[0] == casey_id_push and p[1]["url"] == "/home" and "background screening" in p[1]["body"].lower() for p in pushes) and not any(p[0] == bea_id and "background" in (p[1].get("body") or "").lower() for p in pushes), "background screening sends the 7-day email and push to a coach only")
+past_day = (A.today_pt() - dt.timedelta(days=1)).isoformat()
+D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (past_day, bea_id, bg_req))
+D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (past_day, casey_mid, bg_req)); D.commit()
 emails.clear(); pushes.clear()
 nd = A.open_db()
 try: A.run_expiry_notices(nd); A.run_expiry_notices(nd)
 finally: nd.close()
-expired_mail = [e for e in emails if e[0] == "bea.player@example.com" and e[1] == "Background screening expired"]
-ok(len(expired_mail) == 1 and "expired on" in expired_mail[0][2] and len([e for e in emails if e[0] == "bea.player@example.com"]) == 1, "an expired background screening sends one email and does not repeat")
+expired_mail = [e for e in emails if e[0] == "casey@example.com" and e[1] == "Background screening expired"]
+ok(len(expired_mail) == 1 and "expired on" in expired_mail[0][2] and not any(e[0] == "bea.player@example.com" and "background" in e[1].lower() for e in emails), "an expired background screening emails the coach once and does not email a player")
+D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (far_bg, casey_mid, bg_req)); D.commit()
 
 def nav_skeleton(html):
     nav = re.search(r'<nav class="tabs noprint".*?</nav>', html, re.S).group(0)
@@ -1039,7 +1059,7 @@ ok("Member # / expires" in mem_panel and "Member # / expires" in adm_panel and "
 ana_at = mem_panel.find("ana@example.com")
 ana_li = mem_panel.rfind("<div class=li", 0, ana_at)
 ana_row = mem_panel[ana_li:mem_panel.find("<div class=panel", ana_at)]
-ok(ana_row.find('class="dot ok"') < ana_row.find(">Ana Lopez<") and "thru " in ana_row and ana_row.find("class=morebtn") > ana_row.find("ana@example.com") and ">Require background</button>" not in mem_panel and ">Require background screening</button>" in ana_row, "the status dot sits in front of the name and the menu is at the right of the row")
+ok(ana_row.find('class="dot ok"') < ana_row.find(">Ana Lopez<") and "thru " in ana_row and ana_row.find("class=morebtn") > ana_row.find("ana@example.com") and ">Require background</button>" not in mem_panel and "Require background screening" not in mem_panel and "Don't require background" not in mem_panel, "the status dot sits in front of the name, the menu is at the right of the row, and Require background is gone")
 renamed = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=jane_id, action="preferred", preferred_first="Jay"), follow_redirects=True).get_data(as_text=True)
 ok("Jay" in renamed and "Legal name" in renamed and D.execute("SELECT preferred_first FROM members WHERE id=?", (jane_id,)).fetchone()[0] == "Jay" and 'value="Jay"' in eli.get("/admin").get_data(as_text=True), "a preferred name saved on the members list shows on check-in")
 kay = A.app.test_client(); join(kay, "Kay", "Recheck", "kay.recheck@example.com")

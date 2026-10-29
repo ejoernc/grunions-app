@@ -369,7 +369,7 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 <script>document.getElementById('reverifyOpen').onclick=function(){var f=document.getElementById('reverifyForm');f.hidden=false;this.hidden=true;f.querySelector('input[name=usawp_number]').focus()};</script>
 {% elif m.usawp_status == 'verified' %}
 {% if m.usawp_number %}<p class="sm" style="margin:12px 0 0">USAWP # {{m.usawp_number}}</p>{% endif %}
-{% set bg = background_view(m) %}{% if bg and bg.kind == 'bad' and not vr_pending %}
+{% set bg = background_view(m) %}{% if bg and bg.required and bg.kind == 'bad' and not vr_pending %}
 <form method=post action=/home style="margin-top:14px">{{csrf_field()}}<input type=hidden name=action value=reverify_background>
 <button class="primary full">Reverify background screening</button></form>{% endif %}
 {% elif m.usawp_number %}
@@ -648,7 +648,6 @@ T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-bet
 {% if r.is_admin %}{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_admin>Remove admin</button></form>{% endif %}{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=make_admin>Make admin</button></form>{% endif %}
 {% if r.role=='coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_coach>Remove coach</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=make_coach>Make coach</button></form>{% endif %}
 {% if not r.is_admin %}{% if r.id in listed %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_coaching>Remove from coaching list</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=add_coaching>Add to coaching list</button></form>{% endif %}{% endif %}
-{% if not r.is_admin and r.role != 'coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}"><button name=action value=require_background>{% if r.require_background %}Don't require background screening{% else %}Require background screening{% endif %}</button></form>{% endif %}
 </div></span></div>{{ member_panel(r) }}{% endfor %}</div>
 <script>
 (function(){
