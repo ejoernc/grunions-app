@@ -518,6 +518,12 @@ chunk = pg.split("id=p%d data-pid=%d" % (bpid, bpid))[1].split("id=p")[0]
 ok(("data-seen=%d" % bpid) not in chunk and "Cancelled" in chunk and jane.get("/api/unread").get_json()["schedule"] == js, "opening the cancellation clears its bubble")
 
 # Pacific time. 5pm PDT is midnight UTC, which used to hide the same evening's practice.
+from zoneinfo import ZoneInfo as _ZoneInfo
+try:
+    _ZoneInfo("America/Los_Angeles"); _tz_ok = True
+except Exception:
+    _tz_ok = False
+ok(_tz_ok and A.today_pt().isoformat() == dt.datetime.now(A.PT).date().isoformat(), "Pacific timezone data loads so tonight's practice is not judged on UTC")
 fri = "2026-10-23"
 D.execute("INSERT OR IGNORE INTO practices(date,start,end,location) VALUES(?,?,?,?)", (fri, "19:00", "20:30", "Westminster High School")); D.commit()
 row = D.execute("SELECT id, cancelled, end FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()

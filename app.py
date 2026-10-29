@@ -40,7 +40,12 @@ if os.environ.get("BEHIND_PROXY", "1" if PUBLIC_URL else "0") == "1":  # Render 
 
 # The team is in California. Render's clock is UTC, so date.today() flips at 5pm PDT / 4pm PST
 # and hides that evening's practice. All calendar dates and practice times are Pacific wall time.
-PT = ZoneInfo("America/Los_Angeles")
+# tzdata (the package) supplies America/Los_Angeles when the slim image has no system zoneinfo.
+try:
+    PT = ZoneInfo("America/Los_Angeles")
+except Exception:
+    import tzdata  # noqa: F401  registers the PyPI fallback
+    PT = ZoneInfo("America/Los_Angeles")
 def now_pt():
     return dt.datetime.now(PT)
 def as_pt(when=None):
