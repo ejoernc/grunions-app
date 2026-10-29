@@ -1030,3 +1030,8 @@ rae_exp_row = expired_row[expired_row.rfind("<div class=li", 0, rae_exp):expired
 lapsed = "Referee eligibility expired " + ref_past
 lapsed_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
 ok(('class="st st-bad ref-elig">' + lapsed) in rae_exp_row and 'class="st st-ok ref-elig"' not in rae_exp_row and lapsed in eli.get("/admin").get_data(as_text=True) and lapsed_csv["rae.fern@example.com"][-2] == lapsed and "Rae Fern" not in eli.get("/members?referee=eligible").get_data(as_text=True), "a lapsed referee certification is marked on Members, check-in, and the sheet")
+mem_panel = eli.get("/members").get_data(as_text=True)
+adm_panel = eli.get("/admin").get_data(as_text=True)
+ok("Member # / expires" in mem_panel and "Member # / expires" in adm_panel and "Preferred first name (optional)" in mem_panel and "Preferred first name (optional)" in adm_panel and mem_panel.count('class=panel id=m') == adm_panel.count('class=panel id=m') and "nextElementSibling.toggleAttribute('hidden')" in mem_panel and "bot answered" in mem_panel and ">Cleared<" in mem_panel, "the members list opens the same detail panel as check-in")
+renamed = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=jane_id, action="preferred", preferred_first="Jay"), follow_redirects=True).get_data(as_text=True)
+ok("Jay" in renamed and "Legal name" in renamed and D.execute("SELECT preferred_first FROM members WHERE id=?", (jane_id,)).fetchone()[0] == "Jay" and 'value="Jay"' in eli.get("/admin").get_data(as_text=True), "a preferred name saved on the members list shows on check-in")

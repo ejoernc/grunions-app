@@ -1094,6 +1094,54 @@ def qr_svg():
 def qr_page():
     return page(T["qr_page"], tab="admin", u=signup_url())
 
+DETAIL_ACTIONS = ("verify", "req", "role", "ask_bot", "preferred", "background", "require_background")
+def handle_member_detail(d, mid):
+    """Check-in and the members list share these edits. 'ok' saves, 'halt' leaves the row unchanged."""
+    act = request.form.get("action")
+    if act not in DETAIL_ACTIONS: return None
+    if not me()["is_admin"]: abort(403)
+    if act == "verify":
+        num = (request.form.get("number") or "").strip()[:20] or None
+        vu = parse_date(request.form.get("valid_until")); now = stamp_pt("minutes")
+        if vu and vu < today_pt(): flash("That expiration date is in the past, so not marked verified.")
+        elif not vu and not request.form.get("no_date"): flash("Please enter the expiration date from Sport:80 (or tick 'no date').")
+        else:
+            d.execute("""UPDATE members SET usawp_status='verified', usawp_raw='Manually verified', usawp_number=COALESCE(?,usawp_number),
+              usawp_valid_until=COALESCE(?,usawp_valid_until), usawp_updated=?, usawp_verified_by=?, usawp_verified_at=? WHERE id=?""",
+              (num, vu.isoformat() if vu else None, now, f"{me()['first']} {me()['last']}", now, mid))
+    elif act == "ask_bot":
+        flash(create_verify_request(d, mid))
+    elif act == "req":
+        rid = int(request.form["req_id"]); done = parse_date(request.form.get("completed_on")); exp = parse_date(request.form.get("expires_on"))
+        q = d.execute("SELECT * FROM requirements WHERE id=?", (rid,)).fetchone()
+        if q and q["expires"] and not exp: flash(f"Please enter the expiration date for {q['name']}.")
+        elif not (done or exp): flash("Enter a completed or expiration date.")
+        else:
+            d.execute("""INSERT INTO member_reqs VALUES(?,?,?,?,'manual',?,?) ON CONFLICT(member_id,req_id) DO UPDATE SET completed_on=excluded.completed_on,
+              expires_on=excluded.expires_on, source='manual', by=excluded.by, at=excluded.at""", (mid, rid, done and done.isoformat(), exp and exp.isoformat(),
+              f"{me()['first']} {me()['last']}", dt.datetime.now().isoformat(timespec="minutes")))
+    elif act == "role":
+        role = request.form.get("role")
+        if role != "admin" and is_last_admin(d, mid):
+            flash("Can't remove the last admin.")
+            return "halt"
+        d.execute("UPDATE members SET role=?, is_admin=? WHERE id=?", ("coach" if role in ("coach", "admin") else "athlete", 1 if role == "admin" else 0, mid))
+    elif act == "preferred":
+        d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), mid))
+    elif act == "background":
+        exp = parse_date(request.form.get("expires_on"))
+        if not exp: flash("Enter the background screening expiration date.")
+        else: save_background_expiry(d, mid, exp, f"{me()['first']} {me()['last']}")
+    elif act == "require_background":
+        row = d.execute("SELECT role, is_admin, require_background FROM members WHERE id=?", (mid,)).fetchone()
+        if row and not row["is_admin"] and (row["role"] or "") != "coach":
+            d.execute("UPDATE members SET require_background=? WHERE id=?", (0 if row["require_background"] else 1, mid))
+    return "ok"
+def members_back():
+    args = {}
+    if request.form.get("list_coach") == "eligible": args["coach"] = "eligible"
+    if request.form.get("list_referee") == "eligible": args["referee"] = "eligible"
+    return redirect(url_for("members", **args))
 @app.route("/admin", methods=["GET", "POST"])
 @staff_required
 def admin():
@@ -1101,45 +1149,13 @@ def admin():
     if request.method == "POST":
         date = posted or today_pt().isoformat()
         mid = int(request.form["member_id"])
-        if request.form.get("action") in ("verify", "req", "role", "ask_bot", "preferred", "background", "require_background") and not me()["is_admin"]: abort(403)
-        if request.form.get("action") == "verify":
-            num = (request.form.get("number") or "").strip()[:20] or None
-            vu = parse_date(request.form.get("valid_until")); now = stamp_pt("minutes")
-            if vu and vu < today_pt(): flash("That expiration date is in the past, so not marked verified.")
-            elif not vu and not request.form.get("no_date"): flash("Please enter the expiration date from Sport:80 (or tick 'no date').")
+        detail = handle_member_detail(d, mid)
+        if detail == "halt": return redirect(request.full_path)
+        if detail is None:
+            if request.form.get("action") == "undo":
+                d.execute("DELETE FROM checkins WHERE member_id=? AND practice_date=?", (mid, date))
             else:
-                d.execute("""UPDATE members SET usawp_status='verified', usawp_raw='Manually verified', usawp_number=COALESCE(?,usawp_number),
-                  usawp_valid_until=COALESCE(?,usawp_valid_until), usawp_updated=?, usawp_verified_by=?, usawp_verified_at=? WHERE id=?""",
-                  (num, vu.isoformat() if vu else None, now, f"{me()['first']} {me()['last']}", now, mid))
-        elif request.form.get("action") == "ask_bot":
-            flash(create_verify_request(d, mid))
-        elif request.form.get("action") == "req":
-            rid = int(request.form["req_id"]); done = parse_date(request.form.get("completed_on")); exp = parse_date(request.form.get("expires_on"))
-            q = d.execute("SELECT * FROM requirements WHERE id=?", (rid,)).fetchone()
-            if q and q["expires"] and not exp: flash(f"Please enter the expiration date for {q['name']}.")
-            elif not (done or exp): flash("Enter a completed or expiration date.")
-            else:
-                d.execute("""INSERT INTO member_reqs VALUES(?,?,?,?,'manual',?,?) ON CONFLICT(member_id,req_id) DO UPDATE SET completed_on=excluded.completed_on,
-                  expires_on=excluded.expires_on, source='manual', by=excluded.by, at=excluded.at""", (mid, rid, done and done.isoformat(), exp and exp.isoformat(),
-                  f"{me()['first']} {me()['last']}", dt.datetime.now().isoformat(timespec="minutes")))
-        elif request.form.get("action") == "role":
-            role = request.form.get("role")
-            if role != "admin" and is_last_admin(d, mid): flash("Can't remove the last admin."); return redirect(request.full_path)
-            d.execute("UPDATE members SET role=?, is_admin=? WHERE id=?", ("coach" if role in ("coach", "admin") else "athlete", 1 if role == "admin" else 0, mid))
-        elif request.form.get("action") == "preferred":
-            d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), mid))
-        elif request.form.get("action") == "background":
-            exp = parse_date(request.form.get("expires_on"))
-            if not exp: flash("Enter the background screening expiration date.")
-            else: save_background_expiry(d, mid, exp, f"{me()['first']} {me()['last']}")
-        elif request.form.get("action") == "require_background":
-            row = d.execute("SELECT role, is_admin, require_background FROM members WHERE id=?", (mid,)).fetchone()
-            if row and not row["is_admin"] and (row["role"] or "") != "coach":
-                d.execute("UPDATE members SET require_background=? WHERE id=?", (0 if row["require_background"] else 1, mid))
-        elif request.form.get("action") == "undo":
-            d.execute("DELETE FROM checkins WHERE member_id=? AND practice_date=?", (mid, date))
-        else:
-            d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (mid, date, location_for(date)))
+                d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (mid, date, location_for(date)))
         d.commit()
         if request.form.get("action") in ("verify", "req", "background", "require_background", "preferred", "role", "undo") or not request.form.get("action"): sync_practice_sheets(d)
         return redirect(url_for("admin", date=date, q=request.form.get("q", "")))
@@ -1238,6 +1254,13 @@ def members():
         if not m: abort(404)
         act = request.form.get("action")
         name = "%s %s" % (display_first(m), m["last"])
+        if act != "require_background":
+            detail = handle_member_detail(d, mid)
+            if detail == "halt": return members_back()
+            if detail == "ok":
+                d.commit()
+                if act in ("verify", "req", "background", "preferred", "role"): sync_practice_sheets(d)
+                return members_back()
         if act == "make_admin":
             d.execute("UPDATE members SET is_admin=1 WHERE id=?", (mid,))
             d.commit(); sync_practice_sheets(d)
@@ -1276,9 +1299,16 @@ def members():
                 d.commit(); sync_practice_sheets(d)
                 flash("Updated %s." % name, "toast")
         else: abort(400)
-        return redirect("/members")
+        return members_back()
+    days = practice_days(d)
+    focus = default_checkin_date(days)
+    pr = d.execute("SELECT id FROM practices WHERE date=? AND cancelled=0 ORDER BY start LIMIT 1", (focus,)).fetchone()
     rows = d.execute("""SELECT m.*, (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits,
-      (SELECT MAX(practice_date) FROM checkins WHERE member_id=m.id) AS lastp FROM members m WHERE COALESCE(role,'')!='system' ORDER BY last, first""").fetchall()
+      (SELECT MAX(practice_date) FROM checkins WHERE member_id=m.id) AS lastp,
+      (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status,
+      (SELECT note FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_note,
+      (SELECT going FROM rsvps WHERE member_id=m.id AND practice_id=?) AS going
+      FROM members m WHERE COALESCE(role,'')!='system' ORDER BY last, first""", (pr["id"] if pr else -1,)).fetchall()
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
     coach_only = request.args.get("coach") == "eligible"
     ref_only = request.args.get("referee") == "eligible"
@@ -1290,7 +1320,7 @@ def members():
     listed = {r[0] for r in d.execute("SELECT member_id FROM coaching_list")}
     return page(T["members"],
         tab="admin", rows=shown, c=c, coach_filter=coach_only, referee_filter=ref_only,
-        n_eligible=len(coach_ids), n_referees=len(ref_ids),
+        n_eligible=len(coach_ids), n_referees=len(ref_ids), date=focus, q="",
         listed=listed, n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS)
 def csv_attachment(filename, header, rows):
     """UTF-8 with a BOM so Excel opens names and punctuation correctly."""
