@@ -881,11 +881,11 @@ def apply_membership_type(d, mid, membership_type, update_list):
     if is_coach_membership(text): add_coaching(d, mid, "usawp")
     else: drop_usawp_coaching(d, mid)
 def coach_candidates(d):
-    """People who can be assigned to a practice: admins, the coach role, and the coaching list."""
+    """Assignable to a practice: the coaching list, and every admin. Coach access is separate."""
     return d.execute("""SELECT m.id, m.first, m.last, m.preferred_first, m.role, m.is_admin, m.membership_type, m.usawp_status, m.usawp_valid_until
         FROM members m
         WHERE COALESCE(m.role,'')!='system'
-          AND (m.is_admin=1 OR m.role='coach' OR m.id IN (SELECT member_id FROM coaching_list))
+          AND (m.is_admin=1 OR m.id IN (SELECT member_id FROM coaching_list))
         ORDER BY lower(CASE WHEN trim(COALESCE(m.preferred_first,''))!='' THEN m.preferred_first ELSE m.first END), lower(m.last), m.id""").fetchall()
 def coach_labels(rows):
     """First names for the schedule, A–Z. A shared first name keeps the last initial."""
@@ -905,7 +905,7 @@ def practice_coach_rows(d, pids):
         m.membership_type, m.usawp_status, m.usawp_valid_until
         FROM practice_coaches pc JOIN members m ON m.id=pc.member_id
         WHERE pc.practice_id IN (%s) AND COALESCE(m.role,'')!='system'
-          AND (m.is_admin=1 OR m.role='coach' OR m.id IN (SELECT member_id FROM coaching_list))""" % marks, tuple(pids)):
+          AND (m.is_admin=1 OR m.id IN (SELECT member_id FROM coaching_list))""" % marks, tuple(pids)):
         out[r["pid"]].append(r)
     return out
 def save_practice_coaches(d, pid, raw):
@@ -1215,7 +1215,11 @@ def admins():
         elif act == "make_coach": d.execute("UPDATE members SET role='coach' WHERE id=?", (mid,))
         elif act == "remove_coach": d.execute("UPDATE members SET role='athlete' WHERE id=?", (mid,))
         elif act == "add_coaching": add_coaching(d, mid, "manual")
-        elif act == "remove_coaching": d.execute("DELETE FROM coaching_list WHERE member_id=?", (mid,))
+        elif act == "remove_coaching":
+            if m["is_admin"]:
+                flash("%s stays on the coaching list." % (display_first(m) + " " + m["last"]))
+                return redirect("/admins")
+            d.execute("DELETE FROM coaching_list WHERE member_id=?", (mid,))
         else: abort(400)
         d.commit()
         if act in ("add_coaching", "remove_coaching", "make_coach", "remove_coach", "make_admin", "remove_admin"): sync_practice_sheets(d)
@@ -1260,9 +1264,12 @@ def members():
             d.commit(); sync_practice_sheets(d)
             flash("%s was added to the coaching list." % name, "toast")
         elif act == "remove_coaching":
-            d.execute("DELETE FROM coaching_list WHERE member_id=?", (mid,))
-            d.commit(); sync_practice_sheets(d)
-            flash("%s was removed from the coaching list." % name, "toast")
+            if m["is_admin"]:
+                flash("%s stays on the coaching list." % name, "toast")
+            else:
+                d.execute("DELETE FROM coaching_list WHERE member_id=?", (mid,))
+                d.commit(); sync_practice_sheets(d)
+                flash("%s was removed from the coaching list." % name, "toast")
         elif act == "require_background":
             if not m["is_admin"] and (m["role"] or "") != "coach":
                 d.execute("UPDATE members SET require_background=? WHERE id=?", (0 if m["require_background"] else 1, mid))

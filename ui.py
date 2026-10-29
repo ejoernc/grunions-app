@@ -44,7 +44,7 @@ cursor:pointer;text-decoration:none;background:var(--surface2);color:var(--t1)}.
 .btn.compact,button.compact{height:40px;padding:0 14px;font-size:15px}.full{width:100%}.row{display:flex;gap:10px}.row>*{flex:1}
 .coach-tag{display:inline-block;margin-left:6px;padding:0 7px;border-radius:999px;border:1px solid var(--line);color:var(--t2);font-size:12px;font-weight:600;line-height:20px;vertical-align:1px;white-space:nowrap}
 .coach-elig,.ref-elig{margin-left:8px;font-weight:650;font-size:15px}
-.eligs{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px}.eligs .coach-elig,.eligs .ref-elig{margin-left:0}.eligs .st{white-space:normal}
+.eligs{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px}.eligs .coach-elig,.eligs .ref-elig,.eligs .coach-tag{margin-left:0}.eligs .st{white-space:normal}
 .st{display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--t2);white-space:nowrap}
 .st::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--t3)}.st-ok::before{background:var(--ok)}.st-bad::before{background:var(--bad)}.st-warn::before{background:var(--warn)}.st-trial::before{background:var(--ok)}
 .row.wrap{flex-wrap:wrap}
@@ -627,9 +627,9 @@ T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-bet
 <div class=menu hidden role=menu>
 {% if r.is_admin %}{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_admin>Remove admin</button></form>{% endif %}{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=make_admin>Make admin</button></form>{% endif %}
 {% if r.role=='coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_coach>Remove coach</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=make_coach>Make coach</button></form>{% endif %}
-{% if r.id in listed %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_coaching>Remove from coaching list</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=add_coaching>Add to coaching list</button></form>{% endif %}
+{% if not r.is_admin %}{% if r.id in listed %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=remove_coaching>Remove from coaching list</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button name=action value=add_coaching>Add to coaching list</button></form>{% endif %}{% endif %}
 </div></span></div>
-{% if coach_eligibility(r).text or referee_eligibility(r).text %}<div class=eligs>{{ coach_tag(r) }}{{ referee_tag(r) }}</div>{% endif %}
+{% if r.is_admin or r.id in listed or r.role=='coach' or coach_eligibility(r).text or referee_eligibility(r).text %}<div class=eligs>{% if r.is_admin or r.id in listed %}<span class=coach-tag>Coaching list</span>{% endif %}{% if r.is_admin or r.role=='coach' %}<span class=coach-tag>Coach</span>{% endif %}{% if usawp_coach_badge(r) %}<span class=coach-tag>USAWP coach</span>{% else %}{{ coach_tag(r) }}{% endif %}{{ referee_tag(r) }}</div>{% endif %}
 <div class="t3 xs ell">{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices{% if r.usawp_verified_by %} · verified by {{r.usawp_verified_by}} {{r.usawp_verified_at[:10]}}{% endif %}</div>
 {% if background_view(r) %}<div class="xs" style="margin-top:4px">{{ bg_line(r) }}</div>{% endif %}</div>
 <div style="text-align:right">{{ usawp(r.usawp_status) }}{% if r.usawp_valid_until %}<div class="t3 xs">thru {{r.usawp_valid_until}}</div>{% endif %}
@@ -682,14 +682,14 @@ T["qr_page"] = ADMIN_NAV + """<div style="text-align:center"><h1>New to Grunions
 <div style="background:#fff;border-radius:16px;padding:18px;display:inline-block"><img src=/qr.svg alt="Sign-up QR code" style="width:min(70vw,380px);display:block"></div>
 <p class="t3 sm" style="margin-top:12px">{{u}}</p><button class="primary noprint" onclick=print()>Print</button></div>"""
 
-T["admins"] = ADMIN_NAV + """<h1>Roles</h1><p class="t2 sm">{{n_admins}} admin{{'s' if n_admins!=1}} · admins manage everything. Make admin and Make coach work for any member, whether or not USA Water Polo has verified them. Remove admin and Remove coach take that access away. Admins and members with the coach role can be assigned to a practice. The coaching list adds other people. It does not grant check-in or coaches chat. Coach eligible is separate: a verified USAWP coach membership with current background screening and SafeSport. There must always be at least one admin.</p>
+T["admins"] = ADMIN_NAV + """<h1>Roles</h1><p class="t2 sm">{{n_admins}} admin{{'s' if n_admins!=1}} · admins manage everything. Make admin and Make coach work for any member, whether or not USA Water Polo has verified them. Remove admin and Remove coach take that access away. Make coach opens check-in and coaches chat. It does not add someone to the coaching list. The coaching list is who can be assigned to a practice, besides admins, who are always on it. There must always be at least one admin.</p>
 <div class=list>{% for r in rows %}<div class=li style="flex-wrap:wrap;align-items:flex-start"><div class=grow><div style="font-weight:500">{{display_first(r)}} {{r.last}}{% if r.id==me().id %} <span class="t3 xs">(you)</span>{% endif %}{{ coach_tag(r) }}</div>
-<div class="t3 xs ell">{{r.email}} · {{role_label(r)}}{% if r.email in boot %} · set by ADMIN_EMAIL{% endif %}{% if r.id in listed %} · coaching list{% endif %}</div></div>
+<div class="t3 xs ell">{{r.email}} · {{role_label(r)}}{% if r.email in boot %} · set by ADMIN_EMAIL{% endif %}{% if r.is_admin or r.id in listed %} · coaching list{% endif %}</div></div>
 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
 <form method=post class=row style="flex:0 0 auto;gap:6px;margin:0">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}>
 {% if r.role=='coach' %}<button class=compact name=action value=remove_coach>Remove coach</button>{% else %}<button class=compact name=action value=make_coach>Make coach</button>{% endif %}
 {% if r.is_admin %}<button class=compact name=action value=remove_admin {{'disabled title="Last admin"' if n_admins<=1 else ('disabled title="Set by ADMIN_EMAIL"' if r.email in boot else '')}}>Remove admin</button>{% else %}<button class="compact primary" name=action value=make_admin>Make admin</button>{% endif %}
 </form>
-<form method=post style="margin:0">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}>
+{% if not r.is_admin %}<form method=post style="margin:0">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}>
 {% if r.id in listed %}<button class=compact name=action value=remove_coaching>Remove from coaching list</button>{% else %}<button class=compact name=action value=add_coaching>Add to coaching list</button>{% endif %}
-</form></div></div>{% endfor %}</div>"""
+</form>{% endif %}</div></div>{% endfor %}</div>"""
