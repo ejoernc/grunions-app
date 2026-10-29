@@ -1280,12 +1280,17 @@ def members():
     rows = d.execute("""SELECT m.*, (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits,
       (SELECT MAX(practice_date) FROM checkins WHERE member_id=m.id) AS lastp FROM members m WHERE COALESCE(role,'')!='system' ORDER BY last, first""").fetchall()
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
-    only = request.args.get("coach") == "eligible"
-    eligible_ids = {r["id"] for r in rows if coach_eligibility(d, r)["eligible"]}
-    shown = [r for r in rows if r["id"] in eligible_ids] if only else rows
+    coach_only = request.args.get("coach") == "eligible"
+    ref_only = request.args.get("referee") == "eligible"
+    coach_ids = {r["id"] for r in rows if coach_eligibility(d, r)["eligible"]}
+    ref_ids = {r["id"] for r in rows if referee_eligibility(d, r)["eligible"]}
+    if ref_only: shown = [r for r in rows if r["id"] in ref_ids]
+    elif coach_only: shown = [r for r in rows if r["id"] in coach_ids]
+    else: shown = rows
     listed = {r[0] for r in d.execute("SELECT member_id FROM coaching_list")}
     return page(T["members"],
-        tab="admin", rows=shown, c=c, coach_filter=only, n_eligible=len(eligible_ids),
+        tab="admin", rows=shown, c=c, coach_filter=coach_only, referee_filter=ref_only,
+        n_eligible=len(coach_ids), n_referees=len(ref_ids),
         listed=listed, n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS)
 def csv_attachment(filename, header, rows):
     """UTF-8 with a BOM so Excel opens names and punctuation correctly."""
@@ -1329,7 +1334,7 @@ def requirement_expiries(d):
     return out
 MEMBERS_CSV_HEADER = ["Legal first", "Legal last", "Preferred first", "Email", "Phone", "Role", "Admin", "USAWP #", "Status",
                       "Membership expires", "SafeSport expires", "Background screening expires", "Trial start", "Trial end",
-                      "Verified date", "Joined date", "Total attendance", "Coach eligible", "Background screening"]
+                      "Verified date", "Joined date", "Total attendance", "Coach eligible", "Referee eligible", "Background screening"]
 @app.route("/members.csv")
 @admin_required
 def members_csv():
@@ -1413,7 +1418,7 @@ def member_sheet_rows(d):
                      role_label(m), "yes" if m["is_admin"] else "no", m["usawp_number"] or "", export_status(d, m, pending),
                      m["usawp_valid_until"] or "", expiries.get((m["id"], "safesport"), ""), expiries.get((m["id"], "background"), ""),
                      trial_start, trial_end, verified, utc_to_pt(m["created"]), m["visits"], coach_eligibility(d, m)["text"],
-                     (background_view(d, m) or {}).get("text", "")])
+                     referee_eligibility(d, m)["text"], (background_view(d, m) or {}).get("text", "")])
     return rows
 def practice_sheet_tabs(d, practices=None):
     """Members, Practices, Attendance, and Practice Coaches."""

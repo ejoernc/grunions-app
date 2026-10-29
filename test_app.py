@@ -587,7 +587,7 @@ text = raw.data.decode("utf-8-sig"); table = list(csvmod.reader(io_mod.StringIO(
 by_email = {r[3]: r for r in table[1:]}
 exar, tayr, penr = by_email["exa.export@example.com"], by_email["tay.trial2@example.com"], by_email["pen.ding@example.com"]
 ok(raw.data.startswith(b"\xef\xbb\xbf") and table[0] == A.MEMBERS_CSV_HEADER and ("grunions-members-%s.csv" % A.today_pt().isoformat()) in raw.headers["Content-Disposition"] and "bot@grunions.local" not in text, "members CSV is UTF-8 with a BOM, the column list, and today's filename")
-ok(exar == ["Exa", "Export", "Ex", "exa.export@example.com", "", "coach", "no", "4242421", "cleared", "2027-12-01", "2027-06-01", "2028-01-15", "2026-09-01", "2026-09-15", "2026-10-01", A.today_pt().isoformat(), "1", "", "Background screening expires 2028-01-15"] and tayr[8] == "trial" and tayr[12] == A.today_pt().isoformat() and tayr[-1] == "" and penr[7] == "999111" and penr[8] == "pending" and penr[4] == "555-0100", "members CSV has clearance, trial, compliance dates, attendance, and the background screening line")
+ok(exar == ["Exa", "Export", "Ex", "exa.export@example.com", "", "coach", "no", "4242421", "cleared", "2027-12-01", "2027-06-01", "2028-01-15", "2026-09-01", "2026-09-15", "2026-10-01", A.today_pt().isoformat(), "1", "", "", "Background screening expires 2028-01-15"] and tayr[8] == "trial" and tayr[12] == A.today_pt().isoformat() and tayr[-1] == "" and penr[7] == "999111" and penr[8] == "pending" and penr[4] == "555-0100", "members CSV has clearance, trial, compliance dates, attendance, and the background screening line")
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2026-12-01", start="18:00", end="19:30", location="Export Pool"))
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2026-12-02", start="19:00", end="20:30", location="Export Pool"))
 ppid = D.execute("SELECT id FROM practices WHERE date='2026-12-01' AND location='Export Pool'").fetchone()[0]
@@ -786,7 +786,7 @@ prows = list(csvmod.reader(io_mod.StringIO(eli.get("/export/practices.csv?start=
 prow = next(r for r in prows[1:] if r[0] == pdate and r[2] == ploc)
 with A.app.app_context():
     detail = [r for r in A.practice_sheet_tabs(A.db())[A.SHEET_PRACTICE_COACHES][1:] if r[0] == pdate and r[2] == ploc]
-ok(memcsv["riley@example.com"][-2] == "Coach eligible" and memcsv["riley@example.com"][-1].startswith("Background screening expires ") and memcsv["jane@example.com"][-2] == "" and memcsv["jane@example.com"][-1] == "" and prow[6] == "Riley" and prow[7] == "1" and prow[8] == "1" and detail == [[pdate, "%s-%s" % (pstart, pend), ploc, "Riley Quinn", "riley@example.com", "Coach eligible"]], "Coach eligible and background screening are on the members CSV, and coach eligibility is on the practices CSV and sheet")
+ok(memcsv["riley@example.com"][-3] == "Coach eligible" and memcsv["riley@example.com"][-2] == "" and memcsv["riley@example.com"][-1].startswith("Background screening expires ") and memcsv["jane@example.com"][-3] == "" and memcsv["jane@example.com"][-2] == "" and memcsv["jane@example.com"][-1] == "" and prow[6] == "Riley" and prow[7] == "1" and prow[8] == "1" and detail == [[pdate, "%s-%s" % (pstart, pend), ploc, "Riley Quinn", "riley@example.com", "Coach eligible"]], "Coach eligible and background screening are on the members CSV, and coach eligibility is on the practices CSV and sheet")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SELECT id FROM requirements WHERE keywords LIKE '%background%' LIMIT 1)", (past, riley_id)); D.commit()
 ok('coach-elig">Coach eligible' not in riley.get("/home").get_data(as_text=True) and ("Coach eligibility expired " + past) in riley.get("/home").get_data(as_text=True) and ("Coach eligibility expired " + past) in eli.get("/members").get_data(as_text=True) and D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone(), "an expired background screening shows Coach eligibility expired and keeps the coaching list")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id IN (SELECT id FROM requirements WHERE keywords LIKE '%background%' OR keywords LIKE '%safesport%')", (today, riley_id)); D.commit()
@@ -1005,23 +1005,28 @@ ok('class="toast noprint" role=status>The last admin cannot be removed.' in bloc
 for oid in others: D.execute("UPDATE members SET is_admin=1 WHERE id=?", (oid,))
 D.commit()
 
-# Referee eligible badge on the members list. Same dates as Coach eligible. Other pages come later.
+# Referee eligible follows Coach eligible: verification sets it, and it shows on Members, check-in, and the sheet.
 ok(A.is_referee_membership("Referee") and A.is_referee_membership("Individual Membership, Referee") and A.is_referee_membership("Head Referee") and not A.is_referee_membership("referees") and not A.is_referee_membership("Coach") and not A.is_referee_membership(""), "referee membership matches the word referee only")
 rae = A.app.test_client(); join(rae, "Rae", "Fern", "rae.fern@example.com")
 rae_id = D.execute("SELECT id FROM members WHERE email='rae.fern@example.com'").fetchone()[0]
 ref_future = (A.today_pt() + dt.timedelta(days=40)).isoformat()
 ref_past = (A.today_pt() - dt.timedelta(days=1)).isoformat()
 bgid = D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '%background%'").fetchone()[0]
-D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until=?, membership_type='Referee', usawp_number='9090909' WHERE id=?", (ref_future, rae_id))
-D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,?,'test','test','2026-01-01')", (rae_id, ssid, ref_future))
-D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,?,'test','test','2026-01-01')", (rae_id, bgid, ref_future))
+D.execute("INSERT INTO verify_requests(member_id,name,email,status,created) VALUES(?,?,?,'pending',?)", (rae_id, "Rae Fern", "rae.fern@example.com", A.today_pt().isoformat()))
 D.commit()
+ref_vid = D.execute("SELECT id FROM verify_requests WHERE member_id=? AND status='pending' ORDER BY id DESC LIMIT 1", (rae_id,)).fetchone()[0]
+c0.post("/api/verify-requests/%d/result" % ref_vid, headers=H, json={"verified": True, "member_number": "9090909", "membership_type": "Referee", "membership_expires_on": ref_future, "compliance": {"SafeSport training": ref_future, "Background screening": ref_future}})
 ref_members = eli.get("/members").get_data(as_text=True)
 rae_at = ref_members.find("rae.fern@example.com")
 rae_row = ref_members[ref_members.rfind("<div class=li", 0, rae_at):ref_members.find("<div class=li", rae_at)]
-ok('class="st st-ok ref-elig">Referee eligible' in rae_row and "Coach eligible" not in rae_row and "Referee eligible" not in rae.get("/home").get_data(as_text=True) and "Referee eligible" not in eli.get("/members.csv").get_data(as_text=True) and 'ref-elig">Referee eligible' not in ref_members[ref_members.rfind("<div class=li", 0, ref_members.find("riley@example.com")):ref_members.find("riley@example.com")], "Referee eligible shows on the members list only")
+ref_filt = eli.get("/members?referee=eligible").get_data(as_text=True)
+ref_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
+checkin_ref = eli.get("/admin").get_data(as_text=True)
+ok('class="st st-ok ref-elig">Referee eligible' in rae_row and "Coach eligible" not in rae_row and "Rae Fern" in ref_filt and "Jane Doe" not in ref_filt and "Riley Quinn" not in ref_filt and ">Referee eligible</a>" in ref_members and 'class="st st-ok ref-elig">Referee eligible' in checkin_ref and ref_csv["rae.fern@example.com"][-2] == "Referee eligible" and ref_csv["jane@example.com"][-2] == "" and "Referee eligible" not in rae.get("/home").get_data(as_text=True), "a referee verification shows Referee eligible on Members, the filter, check-in, and the sheet")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (ref_past, rae_id, bgid)); D.commit()
 expired_row = eli.get("/members").get_data(as_text=True)
 rae_exp = expired_row.find("rae.fern@example.com")
 rae_exp_row = expired_row[expired_row.rfind("<div class=li", 0, rae_exp):expired_row.find("<div class=li", rae_exp)]
-ok(('class="st st-bad ref-elig">Referee eligibility expired ' + ref_past) in rae_exp_row and 'class="st st-ok ref-elig"' not in rae_exp_row and ("Referee eligibility expired " + ref_past) not in rae.get("/home").get_data(as_text=True), "an expired background screening shows Referee eligibility expired on the members list")
+lapsed = "Referee eligibility expired " + ref_past
+lapsed_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
+ok(('class="st st-bad ref-elig">' + lapsed) in rae_exp_row and 'class="st st-ok ref-elig"' not in rae_exp_row and lapsed in eli.get("/admin").get_data(as_text=True) and lapsed_csv["rae.fern@example.com"][-2] == lapsed and "Rae Fern" not in eli.get("/members?referee=eligible").get_data(as_text=True), "a lapsed referee certification is marked on Members, check-in, and the sheet")
