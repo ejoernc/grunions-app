@@ -387,8 +387,8 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
 {% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set ex = expiry_notes(m, cl) %}{% set cc = coach_clearance(m) %}
 {% if vr_pending %}{% set play_title = 'Verification pending' %}{% set play_dot = 'warn' %}
-{% elif cl.ok %}{% set play_title = 'Cleared to play water polo' %}{% set play_dot = 'ok' %}
-{% else %}{% set play_title = 'Not cleared to play water polo' %}{% set play_dot = 'bad' %}{% endif %}
+{% elif cl.ok %}{% set play_title = 'Cleared for water polo' %}{% set play_dot = 'ok' %}
+{% else %}{% set play_title = 'Not cleared for water polo' %}{% set play_dot = 'bad' %}{% endif %}
 <details class="card playcard"><summary><span class=playtitle>{{play_title}}<span class="dot {{play_dot}}" aria-hidden=true></span></span><span class=playnum>USAWP # {{m.usawp_number or '—'}}</span></summary><div class=body>
 <div class=kv><span>USA Water Polo</span>{{ usawp(m.usawp_status) }}</div>
 <div class=kv><span>Member #</span><span>{{m.usawp_number or '—'}}</span></div><div class=kv><span>Expires</span><span>{{m.usawp_valid_until or '—'}}</span></div>
