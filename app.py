@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS requirements(id INTEGER PRIMARY KEY, name TEXT NOT NU
 CREATE TABLE IF NOT EXISTS member_reqs(member_id INTEGER, req_id INTEGER, completed_on TEXT, expires_on TEXT, source TEXT, by TEXT, at TEXT,
   PRIMARY KEY(member_id, req_id));
 CREATE TABLE IF NOT EXISTS practices(id INTEGER PRIMARY KEY, date TEXT NOT NULL, start TEXT DEFAULT '19:00', end TEXT DEFAULT '20:30',
-  location TEXT, note TEXT, cancelled INTEGER DEFAULT 0, UNIQUE(date, location));
+  location TEXT, note TEXT, cancelled INTEGER DEFAULT 0, cancel_reason TEXT, UNIQUE(date, location));
 CREATE TABLE IF NOT EXISTS rsvps(practice_id INTEGER, member_id INTEGER, going INTEGER, at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(practice_id, member_id));
 CREATE TABLE IF NOT EXISTS practice_coaches(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id));
 CREATE TABLE IF NOT EXISTS coaching_list(member_id INTEGER PRIMARY KEY, source TEXT NOT NULL DEFAULT 'manual', at TEXT);
@@ -106,6 +106,7 @@ def db():
         g.db = sqlite3.connect(DB); g.db.row_factory = sqlite3.Row; g.db.executescript(SCHEMA)
         migrate_members(g.db)
         migrate_practice_coaches(g.db)
+        migrate_practices(g.db)
         migrate_verify_requests(g.db)
         if not g.db.execute("SELECT 1 FROM requirements").fetchone():
             g.db.executemany("INSERT INTO requirements(name,applies_to,keywords,expires) VALUES(?,?,?,?)", DEFAULT_REQS); g.db.commit()
@@ -123,6 +124,11 @@ def migrate_verify_requests(d):
     cols = [r[1] for r in d.execute("PRAGMA table_info(verify_requests)")]
     if "member_submitted" not in cols:
         d.execute("ALTER TABLE verify_requests ADD COLUMN member_submitted INTEGER DEFAULT 0")
+def migrate_practices(d):
+    """Store a cancellation reason. Existing practices stay unchanged."""
+    cols = [r[1] for r in d.execute("PRAGMA table_info(practices)")]
+    if "cancel_reason" not in cols:
+        d.execute("ALTER TABLE practices ADD COLUMN cancel_reason TEXT")
 def migrate_practice_coaches(d):
     """Create practice coach assignments on an older database under DATA_DIR. Existing rows stay."""
     d.execute("""CREATE TABLE IF NOT EXISTS practice_coaches(
@@ -938,54 +944,118 @@ def save_practice_coaches(d, pid, raw):
     d.execute("DELETE FROM practice_coaches WHERE practice_id=?", (pid,))
     if chosen: d.executemany("INSERT INTO practice_coaches(practice_id, member_id) VALUES(?,?)", [(pid, i) for i in chosen])
 app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d)
+def practice_people(rows):
+    return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
+def redirect_practice(pid, action):
+    ref = request.referrer or ""
+    if action in ("going", "notgoing", "clear") and "/home" in ref: return redirect("/home")
+    if action == "delete" or not pid: return redirect("/practices")
+    if request.form.get("back") == "page": return redirect("/practices/%s" % pid)
+    return redirect("/practices#p%s" % pid)
+def handle_practice_post(d):
+    """RSVP and admin actions for a practice. Returns the redirect."""
+    a = request.form.get("action"); pid = request.form.get("pid", type=int)
+    if pid and not d.execute("SELECT 1 FROM practices WHERE id=?", (pid,)).fetchone() and a != "add": abort(404)
+    new_id = None
+    if a in ("going", "notgoing", "clear"):
+        if a == "clear": d.execute("DELETE FROM rsvps WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
+        else: d.execute("INSERT INTO rsvps(practice_id,member_id,going) VALUES(?,?,?) ON CONFLICT DO UPDATE SET going=excluded.going, at=CURRENT_TIMESTAMP", (pid, me()["id"], int(a == "going")))
+    elif not me()["is_admin"]: abort(403)
+    elif a == "add":
+        try: d.execute("INSERT INTO practices(date,start,end,location,note) VALUES(?,?,?,?,?)", (request.form["date"], request.form.get("start") or "19:00", request.form.get("end") or "20:30", request.form.get("location") or "TBD", request.form.get("note")))
+        except sqlite3.IntegrityError: flash("A practice already exists at that place on that date.")
+    elif a == "edit" and pid:
+        old = d.execute("SELECT date, start, end, location, note FROM practices WHERE id=?", (pid,)).fetchone()
+        raw_date = request.form.get("date")
+        date = old["date"] if raw_date is None else (parse_date(raw_date).isoformat() if parse_date(raw_date) else "")
+        start, end, loc, note = request.form.get("start") or old["start"], request.form.get("end") or old["end"], request.form.get("location") or old["location"], request.form.get("note")
+        if note is None: note = old["note"]
+        if not date: flash("Enter the practice date.")
+        else:
+            try:
+                d.execute("UPDATE practices SET date=?, start=?, end=?, location=?, note=? WHERE id=?", (date, start, end, loc, note, pid))
+                save_practice_coaches(d, pid, request.form.getlist("coach"))
+                if old and (old["date"], old["start"], old["end"], old["location"], old["note"] or "") != (date, start, end, loc, note or ""):
+                    flag_practice(d, pid, "change", me()["id"])
+            except sqlite3.IntegrityError:
+                flash("A practice already exists at that place on that date.")
+                d.rollback()
+                return redirect("/practices/%s?edit=1" % pid if request.form.get("back") == "page" else "/practices#p%s" % pid)
+    elif a == "assign" and pid:
+        save_practice_coaches(d, pid, request.form.getlist("coach"))
+    elif a in ("cancel", "restore") and pid:
+        was = d.execute("SELECT cancelled FROM practices WHERE id=?", (pid,)).fetchone()
+        reason = " ".join((request.form.get("reason") or "").split())[:300]
+        if a == "cancel": d.execute("UPDATE practices SET cancelled=1, cancel_reason=? WHERE id=?", (reason, pid))
+        else: d.execute("UPDATE practices SET cancelled=0, cancel_reason='' WHERE id=?", (pid,))
+        if a == "restore":
+            d.execute("DELETE FROM sent_notices WHERE kind IN (?,?)", ("email:practice_cancelled:%s" % pid, "push:practice_cancelled:%s" % pid))
+            d.execute("DELETE FROM practice_notices WHERE practice_id=? AND kind='cancel'", (pid,))
+            if was and was["cancelled"]: flag_practice(d, pid, "change", me()["id"])
+        elif not was or not was["cancelled"]:
+            flag_practice(d, pid, "cancel", me()["id"])
+    elif a == "duplicate" and pid:
+        src = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+        new_date = (dt.date.fromisoformat(src["date"]) + dt.timedelta(days=7)).isoformat()
+        try:
+            cur = d.execute("INSERT INTO practices(date,start,end,location,note,cancelled) VALUES(?,?,?,?,?,0)", (new_date, src["start"], src["end"], src["location"], src["note"]))
+            new_id = cur.lastrowid
+            save_practice_coaches(d, new_id, [r[0] for r in d.execute("SELECT member_id FROM practice_coaches WHERE practice_id=?", (pid,))])
+            flash("Copied to %s." % fmt_d(new_date))
+        except sqlite3.IntegrityError:
+            flash("A practice is already on the schedule a week later at that place.")
+    elif a == "delete" and pid:
+        d.execute("DELETE FROM practice_coaches WHERE practice_id=?", (pid,))
+        d.execute("DELETE FROM rsvps WHERE practice_id=?", (pid,))
+        d.execute("DELETE FROM practice_notices WHERE practice_id=?", (pid,))
+        d.execute("DELETE FROM practices WHERE id=?", (pid,))
+        pid = None
+    if pid and a in ("going", "notgoing", "clear"): mark_practice_seen(d, me()["id"], pid)
+    d.commit()
+    if a in ("going", "notgoing", "clear", "edit", "add", "cancel", "restore", "assign", "duplicate", "delete"): sync_practice_sheets(d)
+    if a == "cancel" and pid:
+        p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+        if p and p["cancelled"]:
+            try: notify_practice_cancelled(d, p)
+            except Exception as e: app.logger.warning("cancel notify failed: %s", e)
+    if a == "duplicate" and new_id: return redirect("/practices/%s" % new_id)
+    return redirect_practice(pid, a)
+def practice_bundle(d, p):
+    """RSVP lists, check-ins, and assigned coaches for one practice page or card."""
+    rv = d.execute("SELECT r.going, m.first, m.last, m.preferred_first, m.id FROM rsvps r JOIN members m ON m.id=r.member_id WHERE practice_id=?", (p["id"],)).fetchall()
+    mine = next((r["going"] for r in rv if r["id"] == me()["id"]), None)
+    coaches = practice_coach_rows(d, [p["id"]]).get(p["id"], [])
+    checked = d.execute("""SELECT m.id, m.first, m.last, m.preferred_first FROM checkins c JOIN members m ON m.id=c.member_id
+        WHERE c.practice_date=? AND COALESCE(m.role,'')!='system'""", (p["date"],)).fetchall()
+    return dict(p=p, going=practice_people([r for r in rv if r["going"]]), notgoing=practice_people([r for r in rv if not r["going"]]),
+                checked=practice_people(checked), mine=mine, coach_ids={c["id"] for c in coaches}, coach_names=coach_labels(coaches),
+                coaches=practice_people(coaches), any_eligible=any(coach_eligibility(d, c)["eligible"] for c in coaches))
 @app.route("/practices", methods=["GET", "POST"])
 @login_required
 def practices():
     d = db(); ensure_schedule(d)
-    if request.method == "POST":
-        a = request.form.get("action"); pid = request.form.get("pid", type=int)
-        if a in ("going", "notgoing", "clear"):
-            if a == "clear": d.execute("DELETE FROM rsvps WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
-            else: d.execute("INSERT INTO rsvps(practice_id,member_id,going) VALUES(?,?,?) ON CONFLICT DO UPDATE SET going=excluded.going, at=CURRENT_TIMESTAMP", (pid, me()["id"], int(a == "going")))
-        elif not me()["is_admin"]: abort(403)
-        elif a == "add":
-            try: d.execute("INSERT INTO practices(date,start,end,location,note) VALUES(?,?,?,?,?)", (request.form["date"], request.form.get("start") or "19:00", request.form.get("end") or "20:30", request.form.get("location") or "TBD", request.form.get("note")))
-            except sqlite3.IntegrityError: flash("A practice already exists at that place on that date.")
-        elif a == "edit" and pid:
-            old = d.execute("SELECT start, end, location, note FROM practices WHERE id=?", (pid,)).fetchone()
-            start, end, loc, note = request.form["start"], request.form["end"], request.form["location"], request.form.get("note")
-            d.execute("UPDATE practices SET start=?, end=?, location=?, note=? WHERE id=?", (start, end, loc, note, pid))
-            save_practice_coaches(d, pid, request.form.getlist("coach"))
-            if old and (old["start"], old["end"], old["location"], old["note"] or "") != (start, end, loc, note or ""):
-                flag_practice(d, pid, "change", me()["id"])
-        elif a in ("cancel", "restore") and pid:
-            was = d.execute("SELECT cancelled FROM practices WHERE id=?", (pid,)).fetchone()
-            d.execute("UPDATE practices SET cancelled=? WHERE id=?", (int(a == "cancel"), pid))
-            if a == "restore":
-                d.execute("DELETE FROM sent_notices WHERE kind IN (?,?)", ("email:practice_cancelled:%s" % pid, "push:practice_cancelled:%s" % pid))
-                d.execute("DELETE FROM practice_notices WHERE practice_id=? AND kind='cancel'", (pid,))
-                if was and was["cancelled"]: flag_practice(d, pid, "change", me()["id"])
-            elif not was or not was["cancelled"]:
-                flag_practice(d, pid, "cancel", me()["id"])
-        if pid and a in ("going", "notgoing", "clear"): mark_practice_seen(d, me()["id"], pid)
-        d.commit()
-        if a in ("going", "notgoing", "clear", "edit", "add", "cancel", "restore"): sync_practice_sheets(d)
-        if a == "cancel" and pid:
-            p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
-            if p and p["cancelled"]:
-                try: notify_practice_cancelled(d, p)
-                except Exception as e: app.logger.warning("cancel notify failed: %s", e)
-        return redirect("/home" if "/home" in (request.referrer or "") else "/practices#p%s" % (pid or ""))
+    if request.method == "POST": return handle_practice_post(d)
     ps = d.execute("SELECT * FROM practices WHERE " + upcoming_where() + " ORDER BY date, start LIMIT 16", upcoming_bounds()).fetchall()
     unseen = unread_for_me()["practices"]
-    assigned = practice_coach_rows(d, [p["id"] for p in ps])
     data = []
     for p in ps:
-        rv = d.execute("SELECT r.going, m.first, m.last, m.preferred_first, m.id FROM rsvps r JOIN members m ON m.id=r.member_id WHERE practice_id=? ORDER BY m.first", (p["id"],)).fetchall()
-        mine = next((r["going"] for r in rv if r["id"] == me()["id"]), None)
-        coaches = assigned.get(p["id"], [])
-        data.append(dict(p=p, going=[r for r in rv if r["going"]], notgoing=[r for r in rv if not r["going"]], mine=mine, unseen=unseen.get(str(p["id"]), 0), coach_ids={c["id"] for c in coaches}, coach_names=coach_labels(coaches), coaches=coaches, any_eligible=any(coach_eligibility(d, c)["eligible"] for c in coaches)))
+        row = practice_bundle(d, p)
+        row["unseen"] = unseen.get(str(p["id"]), 0)
+        data.append(row)
     return page(T["practices"], tab="practices", data=data, coach_choices=coach_candidates(d))
+@app.route("/practices/<int:pid>", methods=["GET", "POST"])
+@login_required
+def practice_page(pid):
+    d = db(); ensure_schedule(d)
+    if request.method == "POST":
+        if request.form.get("pid", type=int) != pid: abort(400)
+        return handle_practice_post(d)
+    p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+    if not p: abort(404)
+    mark_practice_seen(d, me()["id"], pid); d.commit()
+    g._unread_mid = None
+    editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
+    return page(T["practice"], tab="practices", x=practice_bundle(d, p), editing=editing, coach_choices=coach_candidates(d) if me()["is_admin"] else [])
 @app.route("/api/unread")
 @login_required
 def api_unread():
@@ -1421,7 +1491,7 @@ def export_range():
     if not start or not end: return None
     if end < start: start, end = end, start
     return start, end
-PRACTICE_CSV_HEADER = ["Date", "Time", "Location", "Cancelled", "RSVP going", "Checked in", "Coaches", "Coach count", "Eligible coaches"]
+PRACTICE_CSV_HEADER = ["Date", "Time", "Location", "Cancelled", "RSVP going", "Checked in", "Coaches", "Coach count", "Eligible coaches", "Cancel reason"]
 ATTENDANCE_CSV_HEADER = ["Date", "Time", "Location", "Cancelled", "Name", "USAWP #", "RSVP", "Checked in", "Check-in time"]
 PRACTICE_COACHES_HEADER = ["Date", "Time", "Location", "Coach name", "Coach email", "Coach eligible"]
 SHEET_PRACTICES = "Practices"
@@ -1452,7 +1522,8 @@ def practice_summary_row(d, p, rsvps, checkins, coaches):
     checked_n = sum(1 for (_, day) in checkins if day == p["date"])
     names = coach_labels(coaches)
     eligible_n = sum(1 for c in coaches if coach_eligibility(d, c)["eligible"])
-    return [p["date"], practice_time(p), p["location"] or "", "yes" if p["cancelled"] else "no", going_n, checked_n, ", ".join(names), len(names), eligible_n]
+    reason = (p["cancel_reason"] or "") if p["cancelled"] else ""
+    return [p["date"], practice_time(p), p["location"] or "", "yes" if p["cancelled"] else "no", going_n, checked_n, ", ".join(names), len(names), eligible_n, reason]
 def practice_coach_name(c):
     return ("%s %s" % (display_first(c), c["last"] or "")).strip()
 def practice_coach_detail_rows(d, practices, assigned):
@@ -1833,6 +1904,7 @@ def app_base():
         if request: return request.host_url.rstrip("/")
     except RuntimeError: pass
     return "http://localhost:%s" % os.environ.get("PORT", "5055")
+app.jinja_env.globals.update(app_base=app_base)
 def open_db():
     d = sqlite3.connect(DB, timeout=30); d.row_factory = sqlite3.Row
     d.executescript(SCHEMA); migrate_members(d); migrate_messages(d)
@@ -1897,16 +1969,20 @@ def notify_chat(d, channel, sender, body, has_image):
 def notify_practice_cancelled(d, p):
     when = "%s, %s-%s" % (fmt_d(p["date"]), fmt_t(p["start"]), fmt_t(p["end"]))
     loc = p["location"] or ""
-    url = "/practices#p%s" % p["id"]
+    reason = " ".join(str(p["cancel_reason"] or "").split())
+    url = "/practices/%s" % p["id"]
     subject = "Practice cancelled: %s" % fmt_d(p["date"])
     title = "Practice cancelled"
     body = ("%s at %s" % (when, loc)) if loc else when
+    if reason: body = "%s. %s" % (body, reason)
     for m in d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system'"):
         ek, pk = "email:practice_cancelled:%s" % p["id"], "push:practice_cancelled:%s" % p["id"]
         if m["email"] and claim_notice(d, m["id"], ek):
             if not smtp_ready(): release_notice(d, m["id"], ek)
             else:
-                text = "Hi %s,\n\nPractice is cancelled.\n\n%s\n%s\n\nGrunions Water Polo\n" % (display_first(m), when, loc)
+                text = "Hi %s,\n\nPractice is cancelled.\n\n%s\n%s\n" % (display_first(m), when, loc)
+                if reason: text += "\n%s\n" % reason
+                text += "\nGrunions Water Polo\n"
                 try: send_email(m["email"], subject, text)
                 except Exception as e:
                     app.logger.error("cancel email to %s failed: %s", m["email"], e); release_notice(d, m["id"], ek)
@@ -2007,7 +2083,7 @@ def run_practice_reminders(d, now=None):
         elif rounded == 1: soon = "in about 1 hour"
         else: soon = "in about %d hours" % rounded
         body = "%s, %s at %s is %s." % (fmt_d(p["date"]), fmt_t(p["start"]), p["location"] or "practice", soon)
-        url = "/practices#p%s" % p["id"]
+        url = "/practices/%s" % p["id"]
         going = d.execute("""SELECT m.* FROM rsvps r JOIN members m ON m.id=r.member_id
             WHERE r.practice_id=? AND r.going=1 AND COALESCE(m.role,'')!='system'""", (p["id"],))
         for m in going:

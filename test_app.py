@@ -191,7 +191,7 @@ eli.post("/api/messages?c=coaches", data={"body": "lineup", "image": (img_bytes(
 cm = eli.get("/api/messages?c=coaches").get_json()[-1]
 ok(eli.get(cm["image"]["thumb"]).status_code == 200 and jane.get(cm["image"]["full"]).status_code == 403 and jane.get(cm["image"]["thumb"]).status_code == 403, "#coaches images private")
 pg = jane.get("/practices").get_data(as_text=True)
-ok('class=gobtn aria-expanded=false' in pg and re.search(r'id=who\d+ class="t2 sm" hidden', pg), "schedule 'N going' toggles hidden list")
+ok('href="/practices/' in pg and " going</a>" in pg and "Edit practice" not in pg and "Assign coaches" not in pg and 'class=morebtn' not in pg, "a practice card links to its page, and a member has no More menu")
 ch = jane.get("/chat").get_data(as_text=True)
 ca = eli.get("/chat").get_data(as_text=True)
 cc = eli.get("/chat?c=coaches").get_data(as_text=True)
@@ -420,7 +420,7 @@ npid = D.execute("SELECT id FROM practices WHERE location='Notify Pool'").fetcho
 n_members = D.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system'").fetchone()[0]
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=npid, action="cancel"))
 cancel_mail = [e for e in emails if "Notify Pool" in e[2]]
-ok(len(cancel_mail) == n_members and all(A.fmt_d(day) in e[2] and "3:00am" in e[2] and "4:00" in e[2] and "Notify Pool" in e[2] for e in cancel_mail) and any(e[0] == "jane@example.com" for e in cancel_mail) and any(p[0] == jid and p[1]["url"] == "/practices#p%s" % npid and p[1]["title"] == "Practice cancelled" for p in pushes), "cancelling a practice emails every member and pushes subscribers")
+ok(len(cancel_mail) == n_members and all(A.fmt_d(day) in e[2] and "3:00am" in e[2] and "4:00" in e[2] and "Notify Pool" in e[2] for e in cancel_mail) and any(e[0] == "jane@example.com" for e in cancel_mail) and any(p[0] == jid and p[1]["url"] == "/practices/%s" % npid and p[1]["title"] == "Practice cancelled" for p in pushes), "cancelling a practice emails every member and pushes subscribers")
 n_mail = len(emails)
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=npid, action="cancel"))
 ok(len(emails) == n_mail, "cancelling the same practice again does not send another email")
@@ -438,7 +438,7 @@ try:
     A.run_practice_reminders(nd, start - dt.timedelta(hours=2)); A.run_practice_reminders(nd, start - dt.timedelta(hours=2))
 finally:
     nd.close()
-ok(sum(1 for p in pushes if p[0] == janie and p[1]["title"] == "Practice reminder" and p[1]["url"] == "/practices#p%s" % rpid and "about 2 hours" in p[1]["body"]) == 1 and not any(p[0] == D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0] and "Reminder Pool" in p[1]["body"] for p in pushes), "a practice reminder goes once to members who RSVP'd going, about 3 hours before")
+ok(sum(1 for p in pushes if p[0] == janie and p[1]["title"] == "Practice reminder" and p[1]["url"] == "/practices/%s" % rpid and "about 2 hours" in p[1]["body"]) == 1 and not any(p[0] == D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0] and "Reminder Pool" in p[1]["body"] for p in pushes), "a practice reminder goes once to members who RSVP'd going, about 3 hours before")
 pushes.clear(); emails.clear()
 soon = (A.today_pt() + dt.timedelta(days=7)).isoformat()
 tomorrow = (A.today_pt() + dt.timedelta(days=1)).isoformat()
@@ -600,7 +600,7 @@ eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=offid, action
 psum = eli.get("/export/practices.csv?start=2026-12-02&end=2026-12-01")
 stable = list(csvmod.reader(io_mod.StringIO(psum.data.decode("utf-8-sig"))))
 smap = {r[0]: r for r in stable[1:]}
-ok(psum.data.startswith(b"\xef\xbb\xbf") and stable[0] == A.PRACTICE_CSV_HEADER and "grunions-practices-2026-12-01-to-2026-12-02.csv" in psum.headers["Content-Disposition"] and smap["2026-12-01"] == ["2026-12-01", "18:00-19:30", "Export Pool", "no", "1", "1", "", "0", "0"] and smap["2026-12-02"] == ["2026-12-02", "19:00-20:30", "Export Pool", "yes", "0", "0", "", "0", "0"], "practices CSV is one row per practice and the filename uses the date range")
+ok(psum.data.startswith(b"\xef\xbb\xbf") and stable[0] == A.PRACTICE_CSV_HEADER and "grunions-practices-2026-12-01-to-2026-12-02.csv" in psum.headers["Content-Disposition"] and smap["2026-12-01"] == ["2026-12-01", "18:00-19:30", "Export Pool", "no", "1", "1", "", "0", "0", ""] and smap["2026-12-02"] == ["2026-12-02", "19:00-20:30", "Export Pool", "yes", "0", "0", "", "0", "0", ""], "practices CSV is one row per practice and the filename uses the date range")
 pdet = eli.get("/export/practices.csv?start=2026-12-01&end=2026-12-01&detail=1")
 dtable = list(csvmod.reader(io_mod.StringIO(pdet.data.decode("utf-8-sig"))))
 dmap = {r[4]: r for r in dtable[1:]}
@@ -1112,3 +1112,39 @@ jat = trial_page.find("jane@example.com")
 jchunk = trial_page[trial_page.rfind("<div class=li", 0, jat):trial_page.find("<div class=panel", jat)]
 jpre = jchunk[:jchunk.find("jane@example.com")]
 ok(jpre.rstrip().endswith("Ends " + A.fmt_md((A.today_pt() + dt.timedelta(days=14)).isoformat()) + " ·") and jchunk.count("Ends ") == 1 and "practices" in jchunk[jchunk.find("jane@example.com"):], "the members second line leads with the trial end date, then email and practice count")
+
+# practice detail page
+pday = (A.today_pt() + dt.timedelta(days=9)).isoformat()
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=pday, start="19:00", end="20:30", location="Detail Pool", note="Bring caps"))
+dpid = D.execute("SELECT id FROM practices WHERE location='Detail Pool'").fetchone()[0]
+jane.post("/practices/%d" % dpid, data=dict(csrf=csrf(jane, "/practices"), pid=dpid, action="going", back="page"))
+eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices"), pid=dpid, action="notgoing", back="page"))
+D.execute("INSERT INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (D.execute("SELECT id FROM members WHERE email='jane@example.com'").fetchone()[0], pday, "Detail Pool")); D.commit()
+sched_j = jane.get("/practices").get_data(as_text=True)
+sched_e = eli.get("/practices").get_data(as_text=True)
+card_e = sched_e.split("id=p%d " % dpid, 1)[1].split("id=p")[0]
+ok(('href="/practices/%d"' % dpid) in sched_j and "Edit practice" not in card_e.split("Assign coaches")[0] and "Assign coaches" in card_e and "Send cancellation" in card_e and "Check in" in card_e and "Duplicate practice" in card_e and "Copy link" in card_e and "Delete practice" in card_e and ("/admin?date=%s" % pday) in card_e and ('data-copy="' in card_e) and ("/practices/%d" % dpid) in card_e and card_e.find(" going</a>") < card_e.find("aria-label=\"More for"), "the schedule card opens the practice, with the count beside the admin More menu")
+page_j = jane.get("/practices/%d" % dpid).get_data(as_text=True)
+page_e = eli.get("/practices/%d" % dpid).get_data(as_text=True)
+ok(jane.get("/practices/999999").status_code == 404 and "Detail Pool" in page_j and "Bring caps" in page_j and "Jay Doe" in page_j and "Eli Joern" in page_j and "Checked in" in page_j and "Can't make it" in page_j and "maps.google.com/maps?q=" in page_j and "Detail" in page_j and ">Directions</a>" in page_j and "Scheduled" in page_j and ">Edit</a>" not in page_j and "Assign coaches" not in page_j and "No assigned coach is coach-eligible" not in page_j and "No assigned coach is coach-eligible" in page_e and ">Edit</a>" in page_e, "the practice page shows who's coming, the map, and an admin-only edit button and coach warning")
+editp = eli.get("/practices/%d?edit=1" % dpid).get_data(as_text=True)
+ok('name=date' in editp and 'name=start' in editp and 'name=location' in editp and "name=note" in editp and ">Save</button>" in editp and ">Cancel</a>" in editp and 'name=date' not in jane.get("/practices/%d?edit=1" % dpid).get_data(as_text=True), "admins edit the practice on the page, and members stay in read mode")
+eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="edit", back="page", date=pday, start="18:30", end="20:00", location="Detail Pool", note="Caps and fins"))
+saved = D.execute("SELECT start, note FROM practices WHERE id=?", (dpid,)).fetchone()
+ok(saved == ("18:30", "Caps and fins") and "Caps and fins" in eli.get("/practices/%d" % dpid).get_data(as_text=True) and jane.post("/practices/%d" % dpid, data=dict(csrf=csrf(jane, "/home"), pid=dpid, action="edit", date=pday, start="18:30", end="20:00", location="Detail Pool", note="nope")).status_code == 403, "saving the practice page stores the new time and note")
+emails.clear(); pushes.clear()
+eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="cancel", reason="Pool closed", back="page"))
+cancelled = eli.get("/practices/%d" % dpid).get_data(as_text=True)
+card_c = eli.get("/practices").get_data(as_text=True).split("id=p%d " % dpid, 1)[1].split("id=p")[0]
+reason_mail = [e for e in emails if e[0] == "jane@example.com" and "Pool closed" in e[2]]
+ok("Cancelled" in cancelled and "Pool closed" in cancelled and "Pool closed" in card_c and "Undo cancel" in cancelled and len(reason_mail) == 1 and "Detail Pool" in reason_mail[0][2] and any(p[1]["url"] == "/practices/%d" % dpid and "Pool closed" in p[1]["body"] for p in pushes), "sending a cancellation stores the reason, shows it, and emails and pushes it")
+eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="restore", back="page"))
+ok(D.execute("SELECT cancelled, COALESCE(cancel_reason,'') FROM practices WHERE id=?", (dpid,)).fetchone() == (0, "") and "Pool closed" not in eli.get("/practices/%d" % dpid).get_data(as_text=True), "undo cancel clears the cancellation and the reason")
+eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="assign", back="page", coach=str(D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0])))
+copied = eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="duplicate", back="page"), follow_redirects=True)
+copy_day = (dt.date.fromisoformat(pday) + dt.timedelta(days=7)).isoformat()
+copy_id = D.execute("SELECT id FROM practices WHERE date=? AND location='Detail Pool'", (copy_day,)).fetchone()[0]
+ok(("Copied to %s." % A.fmt_d(copy_day)) in copied.get_data(as_text=True) and D.execute("SELECT COUNT(*) FROM practice_coaches WHERE practice_id=?", (copy_id,)).fetchone()[0] == 1 and jane.post("/practices/%d" % copy_id, data=dict(csrf=csrf(jane, "/home"), pid=copy_id, action="delete")).status_code == 403, "duplicate copies the practice a week later, and a member cannot delete it")
+eli.post("/practices/%d" % copy_id, data=dict(csrf=csrf(eli, "/practices/%d" % copy_id), pid=copy_id, action="delete"))
+eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="delete"))
+ok(not D.execute("SELECT 1 FROM practices WHERE location='Detail Pool'").fetchone() and "Detail Pool" not in eli.get("/export/practices.csv?start=%s&end=%s" % (pday, copy_day)).get_data(as_text=True), "deleting a practice removes it from the schedule and the sheet export")

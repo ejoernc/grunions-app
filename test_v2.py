@@ -137,7 +137,7 @@ def test_preferred_first_display_and_legal_verify():
     boss.post("/home", data=dict(csrf=csrf(boss, "/home"), action="preferred", preferred_first=""))
     pid = sqlite3.connect(A.DB).execute("SELECT id FROM practices WHERE date>? ORDER BY date LIMIT 1", (A.today_pt().isoformat(),)).fetchone()[0]
     c.post("/practices", data=dict(csrf=csrf(c, "/practices"), pid=pid, action="going"))
-    assert "Sam R." in c.get("/practices").get_data(as_text=True)
+    assert "Sam River" in c.get("/practices/%d" % pid).get_data(as_text=True)
     SENT.clear(); login = A.app.test_client(); login.post("/login", data=dict(csrf=csrf(login, "/login"), email="samuel@example.com"))
     assert SENT[-1][2].startswith("Hi Sam,")
     mid = ids()["samuel@example.com"]
