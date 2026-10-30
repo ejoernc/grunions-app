@@ -907,7 +907,6 @@ def fmt_stamp(s):
     try: return "%s, %s" % (fmt_d(day[:10]), fmt_t(clock[:5]))
     except (ValueError, IndexError): return ""
 SOCIAL_KINDS = ("Dinner", "Drinks", "Social", "Coffee", "Dessert", "Activities", "Potluck", "Other")
-SOCIAL_MARK = {"Dinner": "🍽️", "Drinks": "🍻", "Social": "🎉", "Coffee": "☕", "Dessert": "🍨", "Activities": "🎳", "Potluck": "🥘", "Other": "✨"}
 def _field(row, key):
     try:
         if hasattr(row, "keys") and key in row.keys(): return row[key]
@@ -933,14 +932,14 @@ def social_line(p):
     place = " ".join(str(_field(p, "social_place") or "").split())
     if not kinds or not place: return ""
     names = [kinds[0]] + [k.lower() for k in kinds[1:]]
-    return "%s %s after at %s" % ("".join(SOCIAL_MARK[k] for k in kinds), " & ".join(names), place)
+    return "%s after at %s" % (" & ".join(names), place)
 def social_home(p):
-    """Home card social row: icons, 'Dinner & drinks after', and the place. None when unset."""
+    """Home card social row: 'Dinner & drinks after' and the place. None when unset."""
     kinds = social_kinds_of(_field(p, "social_kind"))
     place = " ".join(str(_field(p, "social_place") or "").split())
     if not kinds or not place: return None
     names = [kinds[0]] + [k.lower() for k in kinds[1:]]
-    return {"icons": "".join(SOCIAL_MARK[k] for k in kinds), "title": " & ".join(names) + " after", "place": place}
+    return {"title": " & ".join(names) + " after", "place": place}
 def clean_social(form):
     raw = form.getlist("social_kind") if hasattr(form, "getlist") else [form.get("social_kind") or ""]
     kind = ",".join(k for k in SOCIAL_KINDS if k in raw)

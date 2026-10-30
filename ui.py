@@ -35,7 +35,8 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:14px}.xs
 .pills button.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
 .nxdiv{height:1px;background:var(--line);margin:14px 0}
 .nxsocial{display:flex;align-items:center;gap:12px}
-.nxicon{width:40px;height:40px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;font-size:18px}
+.nxicon{width:40px;height:40px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;color:#C8CDD3}
+.nxicon svg{display:block}
 .joinpill{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600;flex:none}
 .joinpill.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
 .menu a{display:flex;align-items:center;width:100%;height:40px;padding:0 12px;box-sizing:border-box;color:var(--t1);font-weight:500;font-size:15px;text-decoration:none;border-radius:8px}
@@ -196,6 +197,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <h3>Role</h3><form method=post class=row>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <select name=role style="margin:0">{% for o in ['member','coach','admin'] %}<option {{'selected' if role_label(r)==o}}>{{o}}</option>{% endfor %}</select><button name=action value=role style="flex:0 0 auto">Save</button></form>
 {% endif %}</div>{% endmacro %}
+{% macro social_icon() %}<span class=nxicon aria-hidden=true><svg viewBox="0 0 32 32" width="32" height="32"><path fill="currentColor" d="M9 2.4h8.4a1.4 1.4 0 0 1 0 2.8H11.6V13H9V3.8A1.4 1.4 0 0 1 10.4 2.4H9z"/><path fill="currentColor" d="M4.2 13.6h11.4l-1.25 13.1c-.1 1-.95 1.75-1.95 1.75H7.4c-1 0-1.85-.75-1.95-1.75L4.2 13.6z"/><path fill="currentColor" d="M17.6 16.2c.2-3.5 2.35-5.7 5.7-5.7s5.5 2.2 5.7 5.7H17.6z"/><path fill="currentColor" d="M17.3 17h11.6c.35 0 .65.3.65.65v2.15c0 .35-.3.65-.65.65H17.3a.65.65 0 0 1-.65-.65v-2.15c0-.35.3-.65.65-.65z"/><path fill="currentColor" d="M17.7 21h10.8c0 2.15-2.4 3.7-5.4 3.7s-5.4-1.55-5.4-3.7z"/></svg></span>{% endmacro %}
 {% macro social_fields(p) %}
 <div class="t3 xs">Type</div>
 <div class=checks role=group aria-label="Type"><input type=hidden name=social_kind value="">
@@ -494,7 +496,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
 <button {% if nextp_mine==1 %}class=on {% endif %}name=action value="{{ 'clear' if nextp_mine==1 else 'going' }}">I'm going{% if nextp_mine==1 %} ✓{% endif %}</button>
 <button {% if nextp_mine==0 %}class=on {% endif %}name=action value="{{ 'clear' if nextp_mine==0 else 'notgoing' }}">I'm not going{% if nextp_mine==0 %} ✓{% endif %}</button></form>
-{% if sh %}<div class=nxdiv></div><div class=nxsocial><a class=cardlink href="/practices/{{nextp.id}}" style="display:flex;align-items:center;gap:12px"><span class=nxicon>{{ sh.icons }}</span>
+{% if sh %}<div class=nxdiv></div><div class=nxsocial><a class=cardlink href="/practices/{{nextp.id}}" style="display:flex;align-items:center;gap:12px">{{ social_icon() }}
 <div class=grow><div class=nxtitle>{{ sh.title }}</div><div class="t2 sm">{{ sh.place }}</div></div></a>
 <form method=post action=/practices>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
 <button class="joinpill{{ ' on' if next_joined }}" name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}Joined ✓{% else %}Join{% endif %}</button></form></div>{% endif %}
@@ -637,7 +639,7 @@ T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">T
 {% for c in x.coaches %}{% if coach_eligibility(c).text %}<div class="sm" style="margin-top:4px">{{ coach_tag(c) }}</div>{% endif %}{% endfor %}{% endif %}
 {% if p.cancelled %}{{ st('bad','Cancelled') }}{% if p.cancel_reason %}<div class="t3 sm">{{ p.cancel_reason }}</div>{% endif %}{% endif %}
 {% if p.note %}<div class="t3 sm">{{p.note}}</div>{% endif %}
-{% if social_line(p) %}<div class="sm">{{ social_line(p) }}</div>{% endif %}
+{% if social_line(p) %}<div class="sm nxsocial" style="margin-top:8px">{{ social_icon() }}<span>{{ social_line(p) }}</span></div>{% endif %}
 {% if p.coach_note %}<div class="sm">{{ p.coach_note }} <span class=t3>· {{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</span></div>{% endif %}</a>
 <div style="display:flex;align-items:center;gap:4px;flex:none"><a class="goingcount t2 sm" href="/practices/{{p.id}}">{{x.going|length}} going</a></div></div>
 {% if not p.cancelled %}<form method=post action="/practices/{{p.id}}" class=row style="margin-top:14px">{{csrf_field()}}<input type=hidden name=pid value={{p.id}}><input type=hidden name=back value=schedule>
@@ -673,7 +675,7 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 {% if x.mine == 1 %}<button name=action value=clear>Going ✓</button>{% else %}<button class=primary name=action value=going>Going</button>{% endif %}
 {% if x.mine == 0 %}<button name=action value=clear>Can't make it ✓</button>{% else %}<button name=action value=notgoing>Can't make it</button>{% endif %}</form>{% endif %}
 {% if social_line(p) or me().is_admin or is_staff() %}<h2>After-practice social</h2>
-<div class=list><div class=li><div class=grow>
+<div class=list><div class=li>{% if social_line(p) %}{{ social_icon() }}{% endif %}<div class=grow>
 {% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
 <div class="t3 sm">{{ x.social_n }} joining</div>
 {% if p.social_note %}<div class="t2 sm">{{ p.social_note }}</div>{% endif %}
