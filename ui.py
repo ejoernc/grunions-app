@@ -651,8 +651,6 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=row style="margin-top:16px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 {% if x.mine == 1 %}<button name=action value=clear>Going ✓</button>{% else %}<button class=primary name=action value=going>Going</button>{% endif %}
 {% if x.mine == 0 %}<button name=action value=clear>Can't make it ✓</button>{% else %}<button name=action value=notgoing>Can't make it</button>{% endif %}</form>{% endif %}
-<h2>Coaches</h2>
-<div class=list>{% for c in x.coaches %}<div class=li><div class=grow>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</div></div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}</div>
 {% if social_line(p) or me().is_admin or is_staff() %}<h2>After-practice social</h2>
 <div class=list><div class=li><div class=grow>
 {% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
@@ -660,6 +658,8 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 {% if p.social_address %}{% if p.social_address.lower().startswith('http://') or p.social_address.lower().startswith('https://') %}<div class="sm"><a href="{{ p.social_address }}" target=_blank rel=noopener>Map</a></div>{% else %}<div class="t2 sm">{{ p.social_address }} · <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ p.social_address|urlencode }}" target=_blank rel=noopener>Map</a></div>{% endif %}{% endif %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
 </div>{% if me().is_admin or is_staff() %}<button type=button class=compact data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>{% endif %}
+<h2>Coaches</h2>
+<div class=list>{% for c in x.coaches %}<div class=li><div class=grow>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</div></div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}</div>
 <h2>Going <span class=t3>{{ x.going|length }}</span></h2>
 <div class=list>{% for r in x.going %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 <h2>Can't make it <span class=t3>{{ x.notgoing|length }}</span></h2>
