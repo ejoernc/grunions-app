@@ -193,7 +193,7 @@ eli.post("/api/messages?c=coaches", data={"body": "lineup", "image": (img_bytes(
 cm = eli.get("/api/messages?c=coaches").get_json()[-1]
 ok(eli.get(cm["image"]["thumb"]).status_code == 200 and jane.get(cm["image"]["full"]).status_code == 403 and jane.get(cm["image"]["thumb"]).status_code == 403, "#coaches images private")
 pg = jane.get("/practices").get_data(as_text=True)
-ok('href="/practices/' in pg and " going</span>" in pg and "class=datetile" in pg and "I'm going" in pg and "Edit practice" not in pg and "Assign coaches" not in pg and 'class=morebtn' not in pg, "a practice card links to its page, and a member has no More menu")
+ok('href="/practices/' in pg and " going</div>" in pg and "class=nxhead" not in pg and "class=datetile" in pg and "I'm going" in pg and "Edit practice" not in pg and "Assign coaches" not in pg and 'class=morebtn' not in pg, "a practice card links to its page, and a member has no More menu")
 ch = jane.get("/chat").get_data(as_text=True)
 ca = eli.get("/chat").get_data(as_text=True)
 cc = eli.get("/chat?c=coaches").get_data(as_text=True)
@@ -540,7 +540,7 @@ try:
     A.now_pt = lambda: dt.datetime(2026, 10, 24, 0, 30, tzinfo=dt.timezone.utc)  # 5:30pm PDT
     sched = jane.get("/practices").get_data(as_text=True)
     home = jane.get("/home").get_data(as_text=True)
-    nxt = home[home.find("NEXT PRACTICE"):]
+    nxt = home[home.find('class="card tap nextcard"'):]
     nxt = nxt[:nxt.find("I'm going")]
     adm = eli.get("/admin").get_data(as_text=True)
     ok("class=dn>23<" in sched and "7:00 PM" in sched and "Westminster HS" in sched and "FRI" in nxt and ">23<" in nxt and "7:00 PM" in nxt and "Westminster HS" in nxt and 'value="2026-10-23"' in adm, "at 5:30pm Pacific, Friday's practice is on the schedule and check-in uses that date")
@@ -550,8 +550,9 @@ try:
     A.now_pt = lambda: dt.datetime(2026, 10, 24, 3, 31, tzinfo=dt.timezone.utc)  # 8:31pm PDT
     late = jane.get("/practices").get_data(as_text=True)
     late_home = jane.get("/home").get_data(as_text=True)
-    late_next = late_home[late_home.find("NEXT PRACTICE"):]
-    late_next = late_next[:late_next.find("I'm going")] if "I'm going" in late_next else late_next[:500]
+    late_i = late_home.find('class="card tap nextcard"')
+    late_j = late_home.find("I'm going", late_i) if late_i >= 0 else -1
+    late_next = late_home[late_i:late_j] if late_j >= 0 else (late_home[late_i:late_i + 500] if late_i >= 0 else "")
     ok("class=dn>23<" not in late and "Westminster HS" not in late_next and 'value="2026-10-23"' in eli.get("/admin").get_data(as_text=True) and D.execute("SELECT COUNT(*) FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()[0] == 1, "after 8:30pm Pacific the practice leaves the schedule and the row is still there")
     eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=fri, start="19:00", end="20:30", location="Pacific Pool"))
     pp = D.execute("SELECT id FROM practices WHERE location='Pacific Pool'").fetchone()[0]
@@ -705,7 +706,7 @@ eli.post("/practices", data=dict(base, coach=[str(eli_id), str(john_id), str(jan
 sched, home, staff, coachpg = jane.get("/practices").get_data(as_text=True), jane.get("/home").get_data(as_text=True), eli.get("/practices").get_data(as_text=True), john.get("/practices").get_data(as_text=True)
 pdate = D.execute("SELECT date FROM practices WHERE id=?", (pid,)).fetchone()[0]
 checkin = eli.get("/admin?date=%s" % pdate).get_data(as_text=True)
-ok("Coaches: Eli, Sam" in sched and "Coaches: Eli, Sam" in home and "Coaches: Eli, Sam" in coachpg and "Coaches: Eli, Sam" in staff and "Coaches: Eli, Sam" in checkin and 'class="st st-ok coach-elig"' not in sched and 'class="st st-ok coach-elig"' not in staff and "No assigned coach is coach-eligible" not in sched and "No assigned coach is coach-eligible" not in staff and "No assigned coach is coach-eligible" in eli.get("/practices/%d" % pid).get_data(as_text=True) and "No assigned coach is coach-eligible" not in coachpg and "No assigned coach is coach-eligible" not in eli.get("/home").get_data(as_text=True), "assigned coaches show on every schedule card and on check-in, and the eligibility warning stays on the practice page")
+ok(" going · Coaches: Eli, Sam" in sched and " going · Coaches: Eli, Sam" in home and "Coaches: Eli, Sam" in coachpg and "Coaches: Eli, Sam" in staff and "Coaches: Eli, Sam" in checkin and 'class="st st-ok coach-elig"' not in sched and 'class="st st-ok coach-elig"' not in staff and "No assigned coach is coach-eligible" not in sched and "No assigned coach is coach-eligible" not in staff and "No assigned coach is coach-eligible" in eli.get("/practices/%d" % pid).get_data(as_text=True) and "No assigned coach is coach-eligible" not in coachpg and "No assigned coach is coach-eligible" not in eli.get("/home").get_data(as_text=True), "assigned coaches show on every schedule card and on check-in, and the eligibility warning stays on the practice page")
 picker = eli.get("/practices/%d" % pid).get_data(as_text=True)
 ok(('name=coach value="%d" checked' % eli_id) in picker and ('name=coach value="%d" checked' % john_id) in picker and ('name=coach value="%d"' % jane_id) not in picker and "<select name=coach" not in picker and "name=coach" not in sched and "name=coach" not in coachpg, "edit practice is a checkbox per coaching-list member, and only an admin gets that list")
 ok(jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=pid, action="edit", start=pstart, end=pend, location=ploc, note=pnote, coach=str(jane_id))).status_code == 403 and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? ORDER BY member_id", (pid,)).fetchall() == [(eli_id,), (john_id,)], "a member cannot change practice coaches, and someone off the coaching list is not stored")
@@ -1143,7 +1144,7 @@ D.execute("INSERT INTO checkins(member_id,practice_date,location) VALUES(?,?,?)"
 sched_j = jane.get("/practices").get_data(as_text=True)
 sched_e = eli.get("/practices").get_data(as_text=True)
 card_e = sched_e.split("id=p%d " % dpid, 1)[1].split("id=p")[0]
-ok(('href="/practices/%d"' % dpid) in sched_j and " going</span>" in card_e and "class=datetile" in card_e and "class=pills" in card_e and "I'm going" in card_e and "I'm not going" in card_e and "class=nxchev" in card_e and "class=morebtn" not in card_e and "Assign coaches" not in card_e and "Delete practice" not in card_e and "class=morebtn" not in sched_e and "class=morebtn" not in sched_j, "a schedule card matches the next-practice layout and has no More menu")
+ok(('href="/practices/%d"' % dpid) in sched_j and " going</div>" in card_e and "class=nxhead" not in card_e and "class=datetile" in card_e and "class=pills" in card_e and "I'm going" in card_e and "I'm not going" in card_e and "class=nxchev" in card_e and "class=morebtn" not in card_e and "Assign coaches" not in card_e and "Delete practice" not in card_e and "class=morebtn" not in sched_e and "class=morebtn" not in sched_j, "a schedule card matches the next-practice layout and has no More menu")
 page_j = jane.get("/practices/%d" % dpid).get_data(as_text=True)
 page_e = eli.get("/practices/%d" % dpid).get_data(as_text=True)
 ok(jane.get("/practices/999999").status_code == 404 and "Detail Pool" in page_j and "Bring caps" in page_j and "Jay Doe" in page_j and "Eli Joern" in page_j and "Checked in" in page_j and "Can't make it" in page_j and "maps.google.com/maps?q=" in page_j and "Detail" in page_j and ">Directions</a>" in page_j and "Scheduled" in page_j and ">Edit</a>" not in page_j and "Assign coaches" not in page_j and "class=morebtn" not in page_j and "No assigned coach is coach-eligible" not in page_j and "No assigned coach is coach-eligible" in page_e and ">Edit</a>" in page_e and "class=morebtn" in page_e and "Assign coaches" in page_e and "Delete practice" in page_e, "the practice page shows who's coming, the map, and an admin-only edit button, More menu, and coach warning")
@@ -1175,9 +1176,8 @@ ok("was added to referees." in ref_added and "Jay Doe" in ref_added and "Remove 
 pat = A.app.test_client(); join(pat, "Pat", "Host", "pat.host@example.com")
 D.execute("UPDATE members SET role='coach', is_admin=0 WHERE email='pat.host@example.com'"); D.commit()
 home0 = jane.get("/home").get_data(as_text=True)
-nstart = home0.find("NEXT PRACTICE")
-card_at = home0.rfind('class="card tap nextcard"', 0, nstart)
-nchunk = home0[card_at:home0.find("</form>", nstart)]
+card_at = home0.find('class="card tap nextcard"')
+nchunk = home0[card_at:home0.find("</form>", card_at)]
 nid = int(re.search(r'href="/practices/(\d+)"', nchunk).group(1))
 nrow = D.execute("SELECT date, start, end, location, COALESCE(note,'') FROM practices WHERE id=?", (nid,)).fetchone()
 ok("I'm going" in nchunk and "I'm not going" in nchunk and ('href="/practices/%d"' % nid) in nchunk and "card tap" in nchunk and "🍻" not in nchunk and "After-practice social" not in jane.get("/practices").get_data(as_text=True), "the next practice card links to the practice and offers I'm going and I'm not going")

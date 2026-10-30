@@ -23,7 +23,7 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:14px}.xs
 .card{background:var(--surface);border-radius:var(--r);padding:18px;margin:0 0 12px}
 .card.tap{cursor:pointer}a.cardlink,a.goingcount{color:inherit;text-decoration:none}a.cardlink{display:block;flex:1;min-width:0}
 .nxhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.nxmain{display:flex;align-items:center;gap:12px;margin-top:12px}
+.nxmain{display:flex;align-items:center;gap:12px}
 .datetile{width:54px;height:54px;border-radius:14px;background:var(--surface2);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
 .datetile .wd{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--t3);line-height:1}
 .datetile .dn{font-size:22px;font-weight:650;line-height:1.15;margin-top:2px}
@@ -102,7 +102,7 @@ nav.tabs a{position:relative;flex:1;max-width:140px;height:64px;min-height:64px;
 display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0;margin:0;
 color:var(--t3);text-decoration:none;font:500 12px/14px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif}
 .badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bad);color:#fff;font-size:10px;font-weight:700;line-height:1}
-nav.tabs a .badge{position:absolute;top:4px;left:50%;margin-left:8px}.pdate .badge{margin-left:8px}
+nav.tabs a .badge{position:absolute;top:4px;left:50%;margin-left:8px}.datetile{position:relative}.datetile .pdate{position:absolute;top:0;right:0}.datetile .pdate .badge{position:absolute;top:-4px;right:-4px;margin:0}
 nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;flex:none;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .chat{display:flex;flex-direction:column;gap:14px}.m{position:relative;-webkit-touch-callout:none}.m .who{font-size:13px;color:var(--t3);margin-bottom:3px}.m .txt{background:var(--surface);border-radius:14px;padding:10px 14px;display:inline-block;max-width:85%;white-space:pre-wrap;word-wrap:break-word}
 .m.mine{text-align:right}.m.mine .txt{background:var(--surface2);text-align:left}.m.ann .txt{display:block;max-width:none;border:1px solid var(--line);background:var(--surface)}
@@ -490,10 +490,9 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 document.getElementById('trialDialog').addEventListener('click',function(e){if(e.target===this)this.close()});</script>{% endif %}
 {% endif %}</div></details>
 {% if nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'"><a class=cardlink href="/practices/{{nextp.id}}">
-<div class=nxhead><span class="t3 xs">NEXT PRACTICE</span><span class="t3 xs">{{nextp_n}} going</span></div>
 <div class=nxmain><div class=datetile><span class=wd>{{ weekday_abbr(nextp.date) }}</span><span class=dn>{{ day_num(nextp.date) }}</span></div>
 <div class=grow><div class=nxtitle>{{ fmt_clock(nextp.start) }} · {{ short_place(nextp.location) }}</div>
-{% if next_coaches %}<div class="t2 sm">Coaches: {{next_coaches}}</div>{% endif %}</div>
+<div class="t2 sm">{{ nextp_n }} going{% if next_coaches %} · Coaches: {{ next_coaches }}{% endif %}</div></div>
 <span class=nxchev aria-hidden=true>›</span></div>
 {% if nextp.coach_note %}<div class=nxnote>{{ nextp.coach_note }} · {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</div>{% endif %}</a>
 <form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
@@ -635,10 +634,10 @@ _PRACTICE_JS = """<script>
 
 T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">Tue · Marina HS &nbsp;·&nbsp; Fri · Westminster HS &nbsp;·&nbsp; 7–8:30 PM</p>
 {% for x in data %}{% set p = x.p %}<div class="card tap" id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
-<a class=cardlink href="/practices/{{p.id}}"><div class=nxhead><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class="t3 xs">{{x.going|length}} going</span></div>
-<div class=nxmain><div class=datetile><span class=wd>{{ weekday_abbr(p.date) }}</span><span class=dn>{{ day_num(p.date) }}</span></div>
+<a class=cardlink href="/practices/{{p.id}}">
+<div class=nxmain><div class=datetile><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class=wd>{{ weekday_abbr(p.date) }}</span><span class=dn>{{ day_num(p.date) }}</span></div>
 <div class=grow><div class=nxtitle>{{ fmt_clock(p.start) }} · {{ short_place(p.location) }}</div>
-{% if x.coach_names %}<div class="t2 sm">Coaches: {{ x.coach_names|join(', ') }}</div>{% endif %}</div>
+<div class="t2 sm">{{ x.going|length }} going{% if x.coach_names %} · Coaches: {{ x.coach_names|join(', ') }}{% endif %}</div></div>
 <span class=nxchev aria-hidden=true>›</span></div>
 {% if p.cancelled %}{{ st('bad','Cancelled') }}{% if p.cancel_reason %}<div class="t3 sm">{{ p.cancel_reason }}</div>{% endif %}{% endif %}
 {% if p.note %}<div class=nxnote>{{p.note}}</div>{% endif %}
