@@ -86,6 +86,7 @@ details[open]>summary::after{transform:rotate(90deg)}details.card{padding:0}deta
 details.playcard>summary{gap:8px;flex-wrap:nowrap;padding-left:16px;padding-right:14px;container-type:inline-size;container-name:playline}
 details.playcard>summary .playtitle{display:flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0;font-size:15px;font-weight:600;line-height:1.2;white-space:nowrap}
 details.playcard>summary .playnum{flex:none;margin-left:auto;color:var(--t2);font-size:13px;font-weight:500;white-space:nowrap}
+details.playcard[open]>summary .playnum{display:none}
 details.playcard>summary::after{flex:none;font-size:16px;margin-left:2px}
 @container playline (max-width:420px){details.playcard>summary{gap:6px}details.playcard>summary .playtitle{font-size:14px;letter-spacing:-.15px;gap:6px}details.playcard>summary .playnum{font-size:12.5px}}
 @container playline (max-width:300px){details.playcard>summary::after{content:none}}
