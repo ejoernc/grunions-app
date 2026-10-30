@@ -151,6 +151,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 {% macro referee_tag(m) %}{% set rf = referee_eligibility(m) %}{% if rf.eligible %}<span class="st st-ok ref-elig">Referee eligible</span>{% elif rf.text %}<span class="st st-bad ref-elig">{{rf.text}}</span>{% endif %}{% endmacro %}
 {% macro bg_line(m) %}{% set bg = background_view(m) %}{% if bg %}{{ st(bg.kind, bg.text) }}{% endif %}{% endmacro %}
 {% macro bg_status(m) %}{% set bg = background_view(m) %}{% if bg %}{{ st(bg.kind, ('expires ' ~ bg.date) if bg.date else 'missing') }}{% endif %}{% endmacro %}
+{% macro member_expiry(m) %}{% set left = days_left(m.usawp_valid_until) %}{% if not m.usawp_valid_until %}{{ st('bad', 'missing') }}{% elif left < 0 %}{{ st('bad', 'expires ' ~ m.usawp_valid_until) }}{% elif left <= EXPIRING_DAYS %}{{ st('warn', 'expires ' ~ m.usawp_valid_until) }}{% else %}{{ st('ok', 'expires ' ~ m.usawp_valid_until) }}{% endif %}{% endmacro %}
 {% macro member_status(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{{ st('trial', trial_badge(tw)) }}<div class="t3 xs">Ends {{tw.ends}}</div>{% elif not cl.ok %}{{ st('bad','Not cleared') }}{% elif dl is not none and dl <= EXPIRING_DAYS %}{{ st('warn','Expires in %dd' % dl) }}{% else %}{{ st('ok','Cleared') }}{% endif %}
 {% if tw and tw.expired and r.usawp_status != 'verified' %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}
@@ -160,7 +161,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <div class=panel id=m{{r.id}} hidden>
 <div class=kv><span>RSVP</span><span>{% if r.going==1 %}RSVP ✓{% elif r.going==0 %}Not going{% else %}—{% endif %}</span></div>
 <div class=kv><span>Membership</span><span>{{ usawp(r.usawp_status) }}{% if r.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %} · {{dl}}d left{% endif %}</span></div>
-<div class=kv><span>Member # / expires</span><span>{{r.usawp_number or '—'}} / {{r.usawp_valid_until or '—'}}</span></div>
+<div class=kv><span>Member # {{r.usawp_number or '—'}}</span>{{ member_expiry(r) }}</div>
 {% if tw %}<div class=kv><span>Trial</span><span>{% if tw.active and r.usawp_status != 'verified' %}{{ trial_badge(tw) }} · Ends {{tw.ends}}{% elif tw.expired %}Trial ended {{tw.ends}}{% else %}—{% endif %}</span></div>{% endif %}
 <div class=kv><span>SafeSport</span><span>{% if cred.safesport %}expires {{cred.safesport}}{% else %}missing{% endif %}</span></div>
 <div class=kv><span>Background screening</span>{% if background_view(r) %}{{ bg_status(r) }}{% else %}<span>Not on file</span>{% endif %}</div>
@@ -445,7 +446,7 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 {% else %}{% set play_title = 'Not cleared for water polo' %}{% set play_dot = 'bad' %}{% endif %}
 <details class="card playcard"><summary><span class=playtitle>{{play_title}}<span class="dot {{play_dot}}" aria-hidden=true></span></span><span class=playnum>USAWP # {{m.usawp_number or '—'}}</span></summary><div class=body>
 <div class=kv><span>USA Water Polo</span>{{ usawp(m.usawp_status) }}</div>
-<div class=kv><span>Member #</span><span>{{m.usawp_number or '—'}}</span></div><div class=kv><span>Expires</span><span>{{m.usawp_valid_until or '—'}}</span></div>
+<div class=kv><span>Member # {{m.usawp_number or '—'}}</span>{{ member_expiry(m) }}</div>
 {% if m.usawp_verified_at %}<div class=kv><span>Verified</span><span>{{m.usawp_verified_at[:10]}}</span></div>{% endif %}
 {% for it in cl.checks %}<div class=kv><span>{{it.req.name}}</span>{{ st({'ok':'ok','no date':'warn'}.get(it.status,'bad'),
  (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status!='expired' else 'expired') }}</div>{% endfor %}
