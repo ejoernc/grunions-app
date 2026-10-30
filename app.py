@@ -131,10 +131,13 @@ def migrate_referee_list(d):
     d.execute("""CREATE TABLE IF NOT EXISTS referee_list(
         member_id INTEGER PRIMARY KEY, source TEXT NOT NULL DEFAULT 'manual', at TEXT)""")
 def migrate_practices(d):
-    """Store a cancellation reason. Existing practices stay unchanged."""
+    """Store a cancellation reason, an optional social, and a coach message. Existing practices stay unchanged."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(practices)")]
-    if "cancel_reason" not in cols:
-        d.execute("ALTER TABLE practices ADD COLUMN cancel_reason TEXT")
+    for c, t in (("cancel_reason", "TEXT"), ("social_kind", "TEXT"), ("social_place", "TEXT"),
+                 ("social_address", "TEXT"), ("social_time", "TEXT"), ("social_note", "TEXT"),
+                 ("coach_note", "TEXT"), ("coach_note_by", "TEXT"), ("coach_note_at", "TEXT")):
+        if c not in cols:
+            d.execute("ALTER TABLE practices ADD COLUMN %s %s" % (c, t))
 def migrate_practice_coaches(d):
     """Create practice coach assignments on an older database under DATA_DIR. Existing rows stay."""
     d.execute("""CREATE TABLE IF NOT EXISTS practice_coaches(
@@ -392,6 +395,10 @@ def is_active_coach(m=None):
 def is_staff(m=None):
     """Check-in and coaches chat. Only active coaches."""
     return is_active_coach(m)
+def can_host_practice(m=None):
+    """Admins and active coaches can set a social and a coach message."""
+    m = m or me()
+    return bool(m and (m["is_admin"] or is_active_coach(m)))
 def role_label(m): return "admin" if m["is_admin"] else ("coach" if m["role"] == "coach" else "member")
 _COACH_WORD = re.compile(r"\bcoach\b", re.IGNORECASE)
 _REFEREE_WORD = re.compile(r"\breferee\b", re.IGNORECASE)
@@ -872,6 +879,57 @@ def ensure_schedule(d, weeks=4):
 def fmt_t(t): h, m = map(int, t.split(":")); return f"{(h-1)%12+1}:{m:02d}{'pm' if h>=12 else 'am'}"
 def fmt_d(s):
     d = dt.date.fromisoformat(s); return d.strftime("%a %b ") + str(d.day)
+def fmt_stamp(s):
+    """Pacific stamp from stamp_pt, shown as Fri Oct 30, 1:19pm."""
+    if not s or "T" not in str(s): return ""
+    day, clock = str(s).split("T", 1)
+    try: return "%s, %s" % (fmt_d(day[:10]), fmt_t(clock[:5]))
+    except (ValueError, IndexError): return ""
+SOCIAL_KINDS = ("Dinner", "Drinks", "Social")
+SOCIAL_MARK = {"Dinner": "🍽️", "Drinks": "🍻", "Social": "🎉"}
+def _field(row, key):
+    try:
+        if hasattr(row, "keys") and key in row.keys(): return row[key]
+    except (AttributeError, TypeError):
+        pass
+    return None
+def social_line(p):
+    """Short card line, or blank when the practice has no social."""
+    kind = (_field(p, "social_kind") or "").strip()
+    place = " ".join(str(_field(p, "social_place") or "").split())
+    if kind not in SOCIAL_MARK or not place: return ""
+    return "%s %s after at %s" % (SOCIAL_MARK[kind], kind, place)
+def clean_social(form):
+    kind = (form.get("social_kind") or "").strip()
+    if kind not in SOCIAL_KINDS: kind = ""
+    place = " ".join((form.get("social_place") or "").split())[:80]
+    address = " ".join((form.get("social_address") or "").split())[:300]
+    note = " ".join((form.get("social_note") or "").split())[:200]
+    raw = (form.get("social_time") or "").strip()
+    social_time = ""
+    if raw:
+        try:
+            hh, mm = raw.split(":", 1)
+            h, mnt = int(hh), int(mm[:2])
+            if 0 <= h <= 23 and 0 <= mnt <= 59: social_time = "%02d:%02d" % (h, mnt)
+        except ValueError:
+            social_time = ""
+    if not kind: return "", "", "", "", ""
+    return kind, place, address, social_time, note
+def save_social(d, pid, form):
+    kind, place, address, social_time, note = clean_social(form)
+    if kind and not place: return False
+    d.execute("""UPDATE practices SET social_kind=?, social_place=?, social_address=?, social_time=?, social_note=? WHERE id=?""",
+              (kind, place, address, social_time, note, pid))
+    return True
+def save_coach_note(d, pid, text):
+    text = " ".join((text or "").split())[:280]
+    old = d.execute("SELECT coach_note FROM practices WHERE id=?", (pid,)).fetchone()
+    if not text:
+        d.execute("UPDATE practices SET coach_note='', coach_note_by='', coach_note_at='' WHERE id=?", (pid,))
+    elif not old or (old["coach_note"] or "") != text:
+        who = (display_first(me()) + " " + (me()["last"] or "")).strip()
+        d.execute("UPDATE practices SET coach_note=?, coach_note_by=?, coach_note_at=? WHERE id=?", (text, who, stamp_pt("minutes"), pid))
 _MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
 def practice_days(d):
     return [r["date"] for r in d.execute("SELECT DISTINCT date FROM practices WHERE cancelled=0 ORDER BY date").fetchall()]
@@ -957,7 +1015,7 @@ def save_practice_coaches(d, pid, raw):
         if i in allowed and i not in chosen: chosen.append(i)
     d.execute("DELETE FROM practice_coaches WHERE practice_id=?", (pid,))
     if chosen: d.executemany("INSERT INTO practice_coaches(practice_id, member_id) VALUES(?,?)", [(pid, i) for i in chosen])
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_stamp=fmt_stamp, social_line=social_line)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
@@ -974,6 +1032,12 @@ def handle_practice_post(d):
     if a in ("going", "notgoing", "clear"):
         if a == "clear": d.execute("DELETE FROM rsvps WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
         else: d.execute("INSERT INTO rsvps(practice_id,member_id,going) VALUES(?,?,?) ON CONFLICT DO UPDATE SET going=excluded.going, at=CURRENT_TIMESTAMP", (pid, me()["id"], int(a == "going")))
+    elif a == "social" and pid:
+        if not can_host_practice(): abort(403)
+        if not save_social(d, pid, request.form): flash("Add a place for the social.")
+    elif a == "message" and pid:
+        if not can_host_practice(): abort(403)
+        save_coach_note(d, pid, request.form.get("message"))
     elif not me()["is_admin"]: abort(403)
     elif a == "add":
         try: d.execute("INSERT INTO practices(date,start,end,location,note) VALUES(?,?,?,?,?)", (request.form["date"], request.form.get("start") or "19:00", request.form.get("end") or "20:30", request.form.get("location") or "TBD", request.form.get("note")))
@@ -984,11 +1048,16 @@ def handle_practice_post(d):
         date = old["date"] if raw_date is None else (parse_date(raw_date).isoformat() if parse_date(raw_date) else "")
         start, end, loc, note = request.form.get("start") or old["start"], request.form.get("end") or old["end"], request.form.get("location") or old["location"], request.form.get("note")
         if note is None: note = old["note"]
+        if "social_kind" in request.form and clean_social(request.form)[0] and not clean_social(request.form)[1]:
+            flash("Add a place for the social.")
+            return redirect("/practices/%s?edit=1" % pid if request.form.get("back") == "page" else "/practices#p%s" % pid)
         if not date: flash("Enter the practice date.")
         else:
             try:
                 d.execute("UPDATE practices SET date=?, start=?, end=?, location=?, note=? WHERE id=?", (date, start, end, loc, note, pid))
                 save_practice_coaches(d, pid, request.form.getlist("coach"))
+                if "social_kind" in request.form: save_social(d, pid, request.form)
+                if "message" in request.form: save_coach_note(d, pid, request.form.get("message"))
                 if old and (old["date"], old["start"], old["end"], old["location"], old["note"] or "") != (date, start, end, loc, note or ""):
                     flag_practice(d, pid, "change", me()["id"])
             except sqlite3.IntegrityError:
@@ -1012,7 +1081,9 @@ def handle_practice_post(d):
         src = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
         new_date = (dt.date.fromisoformat(src["date"]) + dt.timedelta(days=7)).isoformat()
         try:
-            cur = d.execute("INSERT INTO practices(date,start,end,location,note,cancelled) VALUES(?,?,?,?,?,0)", (new_date, src["start"], src["end"], src["location"], src["note"]))
+            cur = d.execute("""INSERT INTO practices(date,start,end,location,note,cancelled,social_kind,social_place,social_address,social_time,social_note)
+                VALUES(?,?,?,?,?,0,?,?,?,?,?)""", (new_date, src["start"], src["end"], src["location"], src["note"],
+                src["social_kind"], src["social_place"], src["social_address"], src["social_time"], src["social_note"]))
             new_id = cur.lastrowid
             save_practice_coaches(d, new_id, [r[0] for r in d.execute("SELECT member_id FROM practice_coaches WHERE practice_id=?", (pid,))])
             flash("Copied to %s." % fmt_d(new_date))

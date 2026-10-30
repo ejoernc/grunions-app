@@ -1156,3 +1156,39 @@ eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid
 ok(not D.execute("SELECT 1 FROM practices WHERE location='Detail Pool'").fetchone() and "Detail Pool" not in eli.get("/export/practices.csv?start=%s&end=%s" % (pday, copy_day)).get_data(as_text=True), "deleting a practice removes it from the schedule and the sheet export")
 ref_added = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=jane_id, action="add_referee", list_view="referees"), follow_redirects=True).get_data(as_text=True)
 ok("was added to referees." in ref_added and "Jay Doe" in ref_added and "Remove from referees" in ref_added and ">Referees</a>" in ref_added and D.execute("SELECT 1 FROM referee_list WHERE member_id=?", (jane_id,)).fetchone() and jane.get("/members").status_code == 403, "Add to referees puts someone on the referee list, and only an admin can open People")
+
+# after-practice social, coach message, and the home next-practice RSVP
+pat = A.app.test_client(); join(pat, "Pat", "Host", "pat.host@example.com")
+D.execute("UPDATE members SET role='coach', is_admin=0 WHERE email='pat.host@example.com'"); D.commit()
+home0 = jane.get("/home").get_data(as_text=True)
+nstart = home0.find("NEXT PRACTICE")
+card_at = home0.rfind('class="card tap"', 0, nstart)
+nchunk = home0[card_at:home0.find("</form>", nstart)]
+nid = int(re.search(r'href="/practices/(\d+)"', nchunk).group(1))
+nrow = D.execute("SELECT date, start, end, location, COALESCE(note,'') FROM practices WHERE id=?", (nid,)).fetchone()
+ok("I'm going" in nchunk and "I'm not going" in nchunk and ('href="/practices/%d"' % nid) in nchunk and "card tap" in nchunk and "🍻" not in nchunk and "After-practice social" not in jane.get("/practices").get_data(as_text=True), "the next practice card links to the practice and offers I'm going and I'm not going")
+ok(jane.post("/practices/%d" % nid, data=dict(csrf=csrf(jane, "/home"), pid=nid, action="social", social_kind="Drinks", social_place="The Harp")).status_code == 403 and jane.post("/practices/%d" % nid, data=dict(csrf=csrf(jane, "/home"), pid=nid, action="message", message="hi")).status_code == 403, "a member cannot set a social or a coach message")
+missing = eli.post("/practices/%d" % nid, data=dict(csrf=csrf(eli, "/practices"), pid=nid, action="social", back="page", social_kind="Dinner", social_place=""), follow_redirects=True).get_data(as_text=True)
+ok("Add a place for the social." in missing and "🍽️" not in jane.get("/practices/%d" % nid).get_data(as_text=True), "a social needs a place")
+pat.post("/practices/%d" % nid, data=dict(csrf=csrf(pat, "/practices"), pid=nid, action="social", back="schedule", social_kind="Drinks", social_place="The Harp", social_address="https://maps.example/harp", social_time="20:30", social_note="Cash bar"))
+pat.post("/practices/%d" % nid, data=dict(csrf=csrf(pat, "/practices"), pid=nid, action="message", back="page", message="Bring dark caps"))
+noted = D.execute("SELECT coach_note_by, coach_note_at FROM practices WHERE id=?", (nid,)).fetchone()
+stamp = A.fmt_stamp(noted[1])
+line = "🍻 Drinks after at The Harp"
+page_s = jane.get("/practices/%d" % nid).get_data(as_text=True)
+sched_s = jane.get("/practices").get_data(as_text=True)
+card_s = sched_s.split("id=p%d " % nid, 1)[1].split("id=p")[0]
+home_s = jane.get("/home").get_data(as_text=True)
+pat_card = pat.get("/practices").get_data(as_text=True).split("id=p%d " % nid, 1)[1].split("id=p")[0]
+eli_card = eli.get("/practices").get_data(as_text=True).split("id=p%d " % nid, 1)[1].split("id=p")[0]
+ok((line + " · 8:30pm") in page_s and "Cash bar" in page_s and 'href="https://maps.example/harp"' in page_s and line in card_s and "Cash bar" not in card_s and "Bring dark caps" in card_s and noted[0] == "Pat Host" and stamp in card_s and line in home_s and "Bring dark caps" in home_s and stamp in home_s and "After-practice social" in pat_card and "Coach message" in pat_card and "Delete practice" not in pat_card and "After-practice social" in eli_card and "Delete practice" in eli_card and "name=date" not in pat.get("/practices/%d?edit=1" % nid).get_data(as_text=True), "a social and a coach message show on the practice, the schedule, and home, and a coach gets only those menu items")
+jane.post("/practices", data=dict(csrf=csrf(jane, "/home"), pid=nid, action="notgoing"))
+ok(">I'm not going ✓<" in jane.get("/home").get_data(as_text=True) and ">Can't make it ✓<" in jane.get("/practices/%d" % nid).get_data(as_text=True) and ">Not going ✓<" in jane.get("/practices").get_data(as_text=True).split("id=p%d " % nid, 1)[1].split("id=p")[0], "I'm not going on home is the same RSVP as the practice page and the schedule")
+jane.post("/practices/%d" % nid, data=dict(csrf=csrf(jane, "/practices/%d" % nid), pid=nid, action="going", back="page"))
+ok(">I'm going ✓<" in jane.get("/home").get_data(as_text=True) and ">Going ✓<" in jane.get("/practices/%d" % nid).get_data(as_text=True) and ">Going ✓<" in jane.get("/practices").get_data(as_text=True).split("id=p%d " % nid, 1)[1].split("id=p")[0], "I'm going on the practice page shows on home and the schedule")
+eli.post("/practices/%d" % nid, data=dict(csrf=csrf(eli, "/practices/%d" % nid), pid=nid, action="edit", back="page", date=nrow[0], start=nrow[1], end=nrow[2], location=nrow[3], note=nrow[4], social_kind="Social", social_place="Clubhouse", social_address="", social_time="", social_note="", message="Warmup laps"))
+ok("🎉 Social after at Clubhouse" in jane.get("/home").get_data(as_text=True) and "Warmup laps" in jane.get("/practices/%d" % nid).get_data(as_text=True) and "Eli Joern" in jane.get("/practices/%d" % nid).get_data(as_text=True) and line not in jane.get("/home").get_data(as_text=True), "edit mode saves the social and the coach message")
+eli.post("/practices/%d" % nid, data=dict(csrf=csrf(eli, "/practices"), pid=nid, action="social", social_kind=""))
+eli.post("/practices/%d" % nid, data=dict(csrf=csrf(eli, "/practices"), pid=nid, action="message", message=""))
+cleared = jane.get("/home").get_data(as_text=True) + jane.get("/practices/%d" % nid).get_data(as_text=True)
+ok("Social after at" not in cleared and "Warmup laps" not in cleared and "Drinks after at" not in cleared, "clearing the social and the coach message hides both")

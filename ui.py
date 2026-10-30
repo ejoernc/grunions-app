@@ -180,9 +180,43 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <h3>Role</h3><form method=post class=row>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <select name=role style="margin:0">{% for o in ['member','coach','admin'] %}<option {{'selected' if role_label(r)==o}}>{{o}}</option>{% endfor %}</select><button name=action value=role style="flex:0 0 auto">Save</button></form>
 {% endif %}</div>{% endmacro %}
+{% macro social_fields(p) %}
+<label>Type<select name=social_kind>
+<option value="" {{ 'selected' if not p.social_kind }}>None</option>
+{% for kind in ['Dinner','Drinks','Social'] %}<option value="{{ kind }}" {{ 'selected' if p.social_kind==kind }}>{{ kind }}</option>{% endfor %}
+</select></label>
+<label>Place<input name=social_place value="{{ p.social_place or '' }}" autocomplete=off></label>
+<label>Address or map link (optional)<input name=social_address value="{{ p.social_address or '' }}" autocomplete=off></label>
+<label>Time (optional)<input type=time name=social_time value="{{ p.social_time or '' }}"></label>
+<label>Note (optional)<input name=social_note value="{{ p.social_note or '' }}" autocomplete=off></label>
+{% endmacro %}
+{% macro message_fields(p) %}
+<label>Coach message<textarea name=message maxlength=280>{{ p.coach_note or '' }}</textarea></label>
+<p class="t3 sm">Leave blank to clear it.{% if p.coach_note_by %} Last set by {{ p.coach_note_by }}{% if p.coach_note_at %} · {{ fmt_stamp(p.coach_note_at) }}{% endif %}.{% endif %}</p>
+{% endmacro %}
+{% macro practice_extra_dialogs(p, back) %}
+<dialog class=modal id=social{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">After-practice social</h2>
+<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
+{{ social_fields(p) }}
+<button class="primary full" name=action value=social>Save</button></form></div></dialog>
+<dialog class=modal id=message{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Coach message</h2>
+<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
+{{ message_fields(p) }}
+<button class="primary full" name=action value=message>Save</button></form></div></dialog>
+{% endmacro %}
+{% macro practice_host_more(p, back) %}
+<span class=more><button type=button class=morebtn aria-label="More for {{ fmt_d(p.date) }}" aria-haspopup=menu aria-expanded=false>⋯</button>
+<div class=menu hidden role=menu>
+<button type=button data-open="social{{ p.id }}">After-practice social</button>
+<button type=button data-open="message{{ p.id }}">Coach message</button>
+</div></span>
+{{ practice_extra_dialogs(p, back) }}
+{% endmacro %}
 {% macro practice_more(p, coach_ids, back) %}
 <span class=more><button type=button class=morebtn aria-label="More for {{ fmt_d(p.date) }}" aria-haspopup=menu aria-expanded=false>⋯</button>
 <div class=menu hidden role=menu>
+<button type=button data-open="social{{ p.id }}">After-practice social</button>
+<button type=button data-open="message{{ p.id }}">Coach message</button>
 <button type=button data-open="assign{{ p.id }}">Assign coaches</button>
 <a href="/admin?date={{ p.date }}">Check in</a>
 <a href="/practices/{{ p.id }}?edit=1">Edit practice</a>
@@ -192,6 +226,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <button type=button data-copy="{{ app_base() }}/practices/{{ p.id }}">Copy link</button>
 <button type=button data-open="delete{{ p.id }}">Delete practice</button>
 </div></span>
+{{ practice_extra_dialogs(p, back) }}
 <dialog class=modal id=assign{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Assign coaches</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 <div class=checks role=group aria-label="Coaches">{% for c in coach_choices %}<label><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
@@ -433,13 +468,16 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 <script>document.getElementById('trialOpen').onclick=function(){document.getElementById('trialDialog').showModal()};
 document.getElementById('trialDialog').addEventListener('click',function(e){if(e.target===this)this.close()});</script>{% endif %}
 {% endif %}</div></details>
-{% if nextp %}<div class=card><div class="t3 xs">NEXT PRACTICE</div><div style="font-size:18px;font-weight:600;margin-top:2px">{{fmt_d(nextp.date)}}, {{fmt_t(nextp.start)}}</div>
+{% if nextp %}<div class="card tap" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'"><a class=cardlink href="/practices/{{nextp.id}}"><div class="t3 xs">NEXT PRACTICE</div><div style="font-size:18px;font-weight:600;margin-top:2px">{{fmt_d(nextp.date)}}, {{fmt_t(nextp.start)}}</div>
 <div class=t2>{{nextp.location}} · {{nextp_n}} going</div>
 {% if next_coaches %}<div class=t2>Coaches: {{next_coaches}}</div>{% endif %}
+{% if social_line(nextp) %}<div class="sm">{{ social_line(nextp) }}</div>{% endif %}
+{% if nextp.coach_note %}<div class="sm">{{ nextp.coach_note }} <span class=t3>· {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</span></div>{% endif %}
 {% if me().is_admin %}{% if not next_any %}<div class="sm" style="margin-top:6px">{{ st('warn', 'No assigned coach is coach-eligible') }}</div>{% endif %}
-{% for c in next_rows %}{% if coach_eligibility(c).text %}<div class="sm" style="margin-top:4px">{{ coach_tag(c) }}</div>{% endif %}{% endfor %}{% endif %}
-<form method=post action=/practices style="margin-top:14px">{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
-{% if nextp_mine == 1 %}<button class=full name=action value=clear>Going ✓</button>{% else %}<button class="primary full" name=action value=going>I'm going</button>{% endif %}</form></div>{% endif %}
+{% for c in next_rows %}{% if coach_eligibility(c).text %}<div class="sm" style="margin-top:4px">{{ coach_tag(c) }}</div>{% endif %}{% endfor %}{% endif %}</a>
+<form method=post action=/practices class=row style="margin-top:14px">{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
+{% if nextp_mine == 1 %}<button name=action value=clear>I'm going ✓</button>{% else %}<button class=primary name=action value=going>I'm going</button>{% endif %}
+{% if nextp_mine == 0 %}<button name=action value=clear>I'm not going ✓</button>{% else %}<button class=quiet name=action value=notgoing>I'm not going</button>{% endif %}</form></div>{% endif %}
 {% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}
 <details class=card><summary>Attendance <span class="t3 sm" style="margin-left:auto;margin-right:10px">{{hist|length}} total · {{nmonth}} this month</span></summary><div class=body>
 {% for h in hist[:20] %}<div class=kv><span>{{fmt_d(h.practice_date)}}</span><span class=t2>{{h.location}}</span></div>{% else %}<p class=t3>No practices yet.</p>{% endfor %}</div></details>
@@ -577,8 +615,10 @@ T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">T
 {% if me().is_admin and not p.cancelled %}{% if not x.any_eligible %}<div class="sm" style="margin-top:6px">{{ st('warn', 'No assigned coach is coach-eligible') }}</div>{% endif %}
 {% for c in x.coaches %}{% if coach_eligibility(c).text %}<div class="sm" style="margin-top:4px">{{ coach_tag(c) }}</div>{% endif %}{% endfor %}{% endif %}
 {% if p.cancelled %}{{ st('bad','Cancelled') }}{% if p.cancel_reason %}<div class="t3 sm">{{ p.cancel_reason }}</div>{% endif %}{% endif %}
-{% if p.note %}<div class="t3 sm">{{p.note}}</div>{% endif %}</a>
-<div style="display:flex;align-items:center;gap:4px;flex:none"><a class="goingcount t2 sm" href="/practices/{{p.id}}">{{x.going|length}} going</a>{% if me().is_admin %}{{ practice_more(p, x.coach_ids, 'schedule') }}{% endif %}</div></div>
+{% if p.note %}<div class="t3 sm">{{p.note}}</div>{% endif %}
+{% if social_line(p) %}<div class="sm">{{ social_line(p) }}</div>{% endif %}
+{% if p.coach_note %}<div class="sm">{{ p.coach_note }} <span class=t3>· {{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</span></div>{% endif %}</a>
+<div style="display:flex;align-items:center;gap:4px;flex:none"><a class="goingcount t2 sm" href="/practices/{{p.id}}">{{x.going|length}} going</a>{% if me().is_admin %}{{ practice_more(p, x.coach_ids, 'schedule') }}{% elif is_staff() %}{{ practice_host_more(p, 'schedule') }}{% endif %}</div></div>
 {% if not p.cancelled %}<form method=post action="/practices/{{p.id}}" class=row style="margin-top:14px">{{csrf_field()}}<input type=hidden name=pid value={{p.id}}><input type=hidden name=back value=schedule>
 {% if x.mine == 1 %}<button name=action value=clear>Going ✓</button>{% else %}<button class=primary name=action value=going>Going</button>{% endif %}
 {% if x.mine == 0 %}<button name=action value=clear>Not going ✓</button>{% else %}<button class=quiet name=action value=notgoing style="flex:0 0 auto">Can't make it</button>{% endif %}</form>
@@ -592,13 +632,23 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 <div class="t2">{{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} · {{ p.location }}</div>
 <div style="margin-top:8px">{% if p.cancelled %}{{ st('bad','Cancelled') }}{% else %}{{ st('ok','Scheduled') }}{% endif %}</div>
 {% if p.cancelled and p.cancel_reason %}<p style="margin:8px 0 0">{{ p.cancel_reason }}</p>{% endif %}
-{% if me().is_admin and not p.cancelled and not x.any_eligible %}<div class="sm" style="margin-top:8px">{{ st('warn', 'No assigned coach is coach-eligible') }}</div>{% endif %}</div>
-{% if me().is_admin %}<div style="display:flex;align-items:center;gap:8px">{% if not editing %}<a class=btn href="/practices/{{ p.id }}?edit=1">Edit</a>{% endif %}{{ practice_more(p, x.coach_ids, 'page') }}</div>{% endif %}</div>
+{% if me().is_admin and not p.cancelled and not x.any_eligible %}<div class="sm" style="margin-top:8px">{{ st('warn', 'No assigned coach is coach-eligible') }}</div>{% endif %}
+{% if not editing %}
+{% if social_line(p) %}<p class="sm" style="margin:8px 0 0">{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</p>
+{% if p.social_note %}<p class="t2 sm" style="margin:4px 0 0">{{ p.social_note }}</p>{% endif %}
+{% if p.social_address %}{% if p.social_address.lower().startswith('http://') or p.social_address.lower().startswith('https://') %}<p class="sm" style="margin:4px 0 0"><a href="{{ p.social_address }}" target=_blank rel=noopener>Map</a></p>{% else %}<p class="t2 sm" style="margin:4px 0 0">{{ p.social_address }} · <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ p.social_address|urlencode }}" target=_blank rel=noopener>Map</a></p>{% endif %}{% endif %}
+{% endif %}
+{% if p.coach_note %}<p style="margin:12px 0 0">{{ p.coach_note }}</p><p class="t3 sm">{{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</p>{% endif %}
+{% endif %}</div>
+{% if me().is_admin %}<div style="display:flex;align-items:center;gap:8px">{% if not editing %}<a class=btn href="/practices/{{ p.id }}?edit=1">Edit</a>{% endif %}{{ practice_more(p, x.coach_ids, 'page') }}</div>{% elif is_staff() %}{{ practice_host_more(p, 'page') }}{% endif %}</div>
 {% if editing %}<form method=post action="/practices/{{ p.id }}" class=card style="margin-top:16px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <label>Date<input type=date name=date value="{{ p.date }}" required></label>
 <div class=row><label>Start<input type=time name=start value="{{ p.start }}" required></label><label>End<input type=time name=end value="{{ p.end }}" required></label></div>
 <label>Location / address<input name=location value="{{ p.location or '' }}" required></label>
 <label>Notes<textarea name=note>{{ p.note or '' }}</textarea></label>
+<div class="t3 xs" style="margin:4px 0 8px">After-practice social</div>
+{{ social_fields(p) }}
+{{ message_fields(p) }}
 <div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>
 {% for c in coach_choices %}<label><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in x.coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
 {% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
