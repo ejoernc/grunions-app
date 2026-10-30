@@ -138,6 +138,7 @@ def migrate_practices(d):
                  ("coach_note", "TEXT"), ("coach_note_by", "TEXT"), ("coach_note_at", "TEXT")):
         if c not in cols:
             d.execute("ALTER TABLE practices ADD COLUMN %s %s" % (c, t))
+    migrate_social_kinds(d)
 def migrate_practice_coaches(d):
     """Create practice coach assignments on an older database under DATA_DIR. Existing rows stay."""
     d.execute("""CREATE TABLE IF NOT EXISTS practice_coaches(
@@ -893,15 +894,29 @@ def _field(row, key):
     except (AttributeError, TypeError):
         pass
     return None
+def social_kinds_of(raw):
+    """Canonical Dinner, Drinks, Social order. A stored single value stays valid."""
+    parts = [p.strip().lower() for p in str(raw or "").split(",") if p.strip()]
+    return [kind for kind in SOCIAL_KINDS if kind.lower() in parts]
+def migrate_social_kinds(d):
+    """Rewrite older single types and out-of-order combinations into Dinner,Drinks,Social."""
+    cols = [r[1] for r in d.execute("PRAGMA table_info(practices)")]
+    if "social_kind" not in cols: return
+    for row in d.execute("SELECT id, social_kind FROM practices WHERE social_kind IS NOT NULL AND social_kind != ''"):
+        pid, raw = (row["id"], row["social_kind"]) if hasattr(row, "keys") else (row[0], row[1])
+        canon = ",".join(social_kinds_of(raw))
+        if canon != (raw or ""):
+            d.execute("UPDATE practices SET social_kind=? WHERE id=?", (canon, pid))
 def social_line(p):
     """Short card line, or blank when the practice has no social."""
-    kind = (_field(p, "social_kind") or "").strip()
+    kinds = social_kinds_of(_field(p, "social_kind"))
     place = " ".join(str(_field(p, "social_place") or "").split())
-    if kind not in SOCIAL_MARK or not place: return ""
-    return "%s %s after at %s" % (SOCIAL_MARK[kind], kind, place)
+    if not kinds or not place: return ""
+    names = [kinds[0]] + [k.lower() for k in kinds[1:]]
+    return "%s %s after at %s" % ("".join(SOCIAL_MARK[k] for k in kinds), " & ".join(names), place)
 def clean_social(form):
-    kind = (form.get("social_kind") or "").strip()
-    if kind not in SOCIAL_KINDS: kind = ""
+    raw = form.getlist("social_kind") if hasattr(form, "getlist") else [form.get("social_kind") or ""]
+    kind = ",".join(k for k in SOCIAL_KINDS if k in raw)
     place = " ".join((form.get("social_place") or "").split())[:80]
     address = " ".join((form.get("social_address") or "").split())[:300]
     note = " ".join((form.get("social_note") or "").split())[:200]

@@ -181,10 +181,10 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <select name=role style="margin:0">{% for o in ['member','coach','admin'] %}<option {{'selected' if role_label(r)==o}}>{{o}}</option>{% endfor %}</select><button name=action value=role style="flex:0 0 auto">Save</button></form>
 {% endif %}</div>{% endmacro %}
 {% macro social_fields(p) %}
-<label>Type<select name=social_kind>
-<option value="" {{ 'selected' if not p.social_kind }}>None</option>
-{% for kind in ['Dinner','Drinks','Social'] %}<option value="{{ kind }}" {{ 'selected' if p.social_kind==kind }}>{{ kind }}</option>{% endfor %}
-</select></label>
+<div class="t3 xs">Type</div>
+<div class=checks role=group aria-label="Type"><input type=hidden name=social_kind value="">
+{% for kind in ['Dinner','Drinks','Social'] %}<label><input type=checkbox name=social_kind value="{{ kind }}" {% if kind in (p.social_kind or '').split(',') %}checked{% endif %}>{{ kind }}</label>{% endfor %}
+</div>
 <label>Place<input name=social_place value="{{ p.social_place or '' }}" autocomplete=off></label>
 <label>Address or map link (optional)<input name=social_address value="{{ p.social_address or '' }}" autocomplete=off></label>
 <label>Time (optional)<input type=time name=social_time value="{{ p.social_time or '' }}"></label>
@@ -633,13 +633,7 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 <div style="margin-top:8px">{% if p.cancelled %}{{ st('bad','Cancelled') }}{% else %}{{ st('ok','Scheduled') }}{% endif %}</div>
 {% if p.cancelled and p.cancel_reason %}<p style="margin:8px 0 0">{{ p.cancel_reason }}</p>{% endif %}
 {% if me().is_admin and not p.cancelled and not x.any_eligible %}<div class="sm" style="margin-top:8px">{{ st('warn', 'No assigned coach is coach-eligible') }}</div>{% endif %}
-{% if not editing %}
-{% if social_line(p) %}<p class="sm" style="margin:8px 0 0">{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</p>
-{% if p.social_note %}<p class="t2 sm" style="margin:4px 0 0">{{ p.social_note }}</p>{% endif %}
-{% if p.social_address %}{% if p.social_address.lower().startswith('http://') or p.social_address.lower().startswith('https://') %}<p class="sm" style="margin:4px 0 0"><a href="{{ p.social_address }}" target=_blank rel=noopener>Map</a></p>{% else %}<p class="t2 sm" style="margin:4px 0 0">{{ p.social_address }} · <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ p.social_address|urlencode }}" target=_blank rel=noopener>Map</a></p>{% endif %}{% endif %}
-{% endif %}
-{% if p.coach_note %}<p style="margin:12px 0 0">{{ p.coach_note }}</p><p class="t3 sm">{{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</p>{% endif %}
-{% endif %}</div>
+{% if not editing and p.coach_note %}<p style="margin:12px 0 0">{{ p.coach_note }}</p><p class="t3 sm">{{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</p>{% endif %}</div>
 {% if me().is_admin %}<div style="display:flex;align-items:center;gap:8px">{% if not editing %}<a class=btn href="/practices/{{ p.id }}?edit=1">Edit</a>{% endif %}{{ practice_more(p, x.coach_ids, 'page') }}</div>{% elif is_staff() %}{{ practice_host_more(p, 'page') }}{% endif %}</div>
 {% if editing %}<form method=post action="/practices/{{ p.id }}" class=card style="margin-top:16px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <label>Date<input type=date name=date value="{{ p.date }}" required></label>
@@ -659,6 +653,13 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 {% if x.mine == 0 %}<button name=action value=clear>Can't make it ✓</button>{% else %}<button name=action value=notgoing>Can't make it</button>{% endif %}</form>{% endif %}
 <h2>Coaches</h2>
 <div class=list>{% for c in x.coaches %}<div class=li><div class=grow>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</div></div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}</div>
+{% if social_line(p) or me().is_admin or is_staff() %}<h2>After-practice social</h2>
+<div class=list><div class=li><div class=grow>
+{% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
+{% if p.social_note %}<div class="t2 sm">{{ p.social_note }}</div>{% endif %}
+{% if p.social_address %}{% if p.social_address.lower().startswith('http://') or p.social_address.lower().startswith('https://') %}<div class="sm"><a href="{{ p.social_address }}" target=_blank rel=noopener>Map</a></div>{% else %}<div class="t2 sm">{{ p.social_address }} · <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ p.social_address|urlencode }}" target=_blank rel=noopener>Map</a></div>{% endif %}{% endif %}
+{% else %}<span class=t3>None yet.</span>{% endif %}
+</div>{% if me().is_admin or is_staff() %}<button type=button class=compact data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>{% endif %}
 <h2>Going <span class=t3>{{ x.going|length }}</span></h2>
 <div class=list>{% for r in x.going %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 <h2>Can't make it <span class=t3>{{ x.notgoing|length }}</span></h2>
