@@ -476,13 +476,26 @@ def referee_eligibility(d, member):
     return empty
 def usawp_coach_badge(m):
     return coach_eligibility(db(), m)["eligible"]
+def coach_row_expiry(d, member):
+    """Earliest membership, SafeSport, or background date for the Coaches list chip."""
+    until = ""
+    try:
+        keys = member.keys()
+        if "usawp_valid_until" in keys and member["usawp_valid_until"]:
+            until = str(member["usawp_valid_until"])[:10]
+        mid = member["id"]
+    except (TypeError, KeyError, IndexError):
+        return {"eligible": False, "date": ""}
+    dates = screening_dates(d, mid)
+    days = [day for day in (until, dates.get("safesport") or "", dates.get("background") or "") if day]
+    return {"eligible": coach_eligibility(d, member)["eligible"], "date": min(days) if days else ""}
 def credential_dates(m):
     """SafeSport, background, and referee certification expiries for the recheck form."""
     if not m: return {}
     try: mid = m["id"]
     except (TypeError, KeyError, IndexError): return {}
     return screening_dates(db(), mid)
-app.jinja_env.globals.update(is_staff=is_staff, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m), referee_eligibility=lambda m: referee_eligibility(db(), m), credential_dates=credential_dates)
+app.jinja_env.globals.update(is_staff=is_staff, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m), referee_eligibility=lambda m: referee_eligibility(db(), m), credential_dates=credential_dates, coach_row_expiry=lambda m: coach_row_expiry(db(), m))
 def staff_required(f):
     @functools.wraps(f)
     def w(*a, **k):
