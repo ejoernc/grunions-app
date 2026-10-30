@@ -150,6 +150,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 {% macro coach_tag(m) %}{% set ce = coach_eligibility(m) %}{% if ce.eligible %}<span class="st st-ok coach-elig">Coach eligible</span>{% elif ce.text %}<span class="st st-bad coach-elig">{{ce.text}}</span>{% endif %}{% endmacro %}
 {% macro referee_tag(m) %}{% set rf = referee_eligibility(m) %}{% if rf.eligible %}<span class="st st-ok ref-elig">Referee eligible</span>{% elif rf.text %}<span class="st st-bad ref-elig">{{rf.text}}</span>{% endif %}{% endmacro %}
 {% macro bg_line(m) %}{% set bg = background_view(m) %}{% if bg %}{{ st(bg.kind, bg.text) }}{% endif %}{% endmacro %}
+{% macro bg_status(m) %}{% set bg = background_view(m) %}{% if bg %}{{ st(bg.kind, ('expires ' ~ bg.date) if bg.date else 'missing') }}{% endif %}{% endmacro %}
 {% macro member_status(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{{ st('trial', trial_badge(tw)) }}<div class="t3 xs">Ends {{tw.ends}}</div>{% elif not cl.ok %}{{ st('bad','Not cleared') }}{% elif dl is not none and dl <= EXPIRING_DAYS %}{{ st('warn','Expires in %dd' % dl) }}{% else %}{{ st('ok','Cleared') }}{% endif %}
 {% if tw and tw.expired and r.usawp_status != 'verified' %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}
@@ -162,7 +163,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <div class=kv><span>Member # / expires</span><span>{{r.usawp_number or '—'}} / {{r.usawp_valid_until or '—'}}</span></div>
 {% if tw %}<div class=kv><span>Trial</span><span>{% if tw.active and r.usawp_status != 'verified' %}{{ trial_badge(tw) }} · Ends {{tw.ends}}{% elif tw.expired %}Trial ended {{tw.ends}}{% else %}—{% endif %}</span></div>{% endif %}
 <div class=kv><span>SafeSport</span><span>{% if cred.safesport %}expires {{cred.safesport}}{% else %}missing{% endif %}</span></div>
-<div class=kv><span>Background screening</span><span>{% if background_view(r) %}{{ bg_line(r) }}{% else %}Not on file{% endif %}</span></div>
+<div class=kv><span>Background screening</span>{% if background_view(r) %}{{ bg_status(r) }}{% else %}<span>Not on file</span>{% endif %}</div>
 <div class=kv><span>Eligibility</span><span>{% if coach_eligibility(r).text or referee_eligibility(r).text %}{{ coach_tag(r) }} {{ referee_tag(r) }}{% else %}—{% endif %}</span></div>
 {% if not cl.ok %}<div class=kv><span>Not cleared</span><span style="text-align:right">{{cl.reasons|join(', ')}}</span></div>{% endif %}
 {% if me().is_admin %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
@@ -448,7 +449,7 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 {% if m.usawp_verified_at %}<div class=kv><span>Verified</span><span>{{m.usawp_verified_at[:10]}}</span></div>{% endif %}
 {% for it in cl.checks %}<div class=kv><span>{{it.req.name}}</span>{{ st({'ok':'ok','no date':'warn'}.get(it.status,'bad'),
  (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status!='expired' else 'expired') }}</div>{% endfor %}
-{% if background_view(m) %}<div class=kv>{{ bg_line(m) }}</div>{% endif %}
+{% if background_view(m) %}<div class=kv><span>Background screening</span>{{ bg_status(m) }}</div>{% endif %}
 {% if cc %}<div class=kv><span>Coaching</span>{{ st('ok' if cc.ok else 'bad', cc.text) }}</div>{% endif %}
 {% if coach_eligibility(m).text %}<div style="margin-top:8px">{{ coach_tag(m) }}</div>{% endif %}
 {% if tw and tw.active and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<div style="margin-top:8px">{{ st('trial', trial_badge(tw)) }}</div><p class="sm" style="margin:8px 0 0">Ends {{tw.ends}}</p>{% elif tw and tw.expired and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<p class="sm" style="margin:8px 0 0">Trial ended {{tw.ends}}</p>{% endif %}
