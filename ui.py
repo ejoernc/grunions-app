@@ -632,19 +632,17 @@ _PRACTICE_JS = """<script>
 
 T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">Tue · Marina HS &nbsp;·&nbsp; Fri · Westminster HS &nbsp;·&nbsp; 7–8:30 PM</p>
 {% for x in data %}{% set p = x.p %}<div class="card tap" id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
-<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px"><a class=cardlink href="/practices/{{p.id}}"><div class=pdate style="font-size:18px;font-weight:600">{{fmt_d(p.date)}}{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</div>
-<div class="t2 sm">{{fmt_t(p.start)}}–{{fmt_t(p.end)}} · {{p.location}}</div>
-{% if x.coach_names %}<div class="t2 sm">Coaches: {{ x.coach_names|join(', ') }}</div>{% endif %}
-{% if me().is_admin and not p.cancelled %}{% if not x.any_eligible %}<div class="sm" style="margin-top:6px">{{ st('warn', 'No assigned coach is coach-eligible') }}</div>{% endif %}
-{% for c in x.coaches %}{% if coach_eligibility(c).text %}<div class="sm" style="margin-top:4px">{{ coach_tag(c) }}</div>{% endif %}{% endfor %}{% endif %}
+<a class=cardlink href="/practices/{{p.id}}"><div class=nxhead><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class="t3 xs">{{x.going|length}} going</span></div>
+<div class=nxmain><div class=datetile><span class=wd>{{ weekday_abbr(p.date) }}</span><span class=dn>{{ day_num(p.date) }}</span></div>
+<div class=grow><div class=nxtitle>{{ fmt_clock(p.start) }} · {{ short_place(p.location) }}</div>
+{% if x.coach_names %}<div class="t2 sm">Coaches: {{ x.coach_names|join(', ') }}</div>{% endif %}</div>
+<span class=nxchev aria-hidden=true>›</span></div>
 {% if p.cancelled %}{{ st('bad','Cancelled') }}{% if p.cancel_reason %}<div class="t3 sm">{{ p.cancel_reason }}</div>{% endif %}{% endif %}
-{% if p.note %}<div class="t3 sm">{{p.note}}</div>{% endif %}
-{% if social_line(p) %}<div class="sm nxsocial" style="margin-top:8px">{{ social_icon() }}<span>{{ social_line(p) }}</span></div>{% endif %}
-{% if p.coach_note %}<div class="sm">{{ p.coach_note }} <span class=t3>· {{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</span></div>{% endif %}</a>
-<div style="display:flex;align-items:center;gap:4px;flex:none"><a class="goingcount t2 sm" href="/practices/{{p.id}}">{{x.going|length}} going</a></div></div>
-{% if not p.cancelled %}<form method=post action="/practices/{{p.id}}" class=row style="margin-top:14px">{{csrf_field()}}<input type=hidden name=pid value={{p.id}}><input type=hidden name=back value=schedule>
-{% if x.mine == 1 %}<button name=action value=clear>Going ✓</button>{% else %}<button class=primary name=action value=going>Going</button>{% endif %}
-{% if x.mine == 0 %}<button name=action value=clear>Not going ✓</button>{% else %}<button class=quiet name=action value=notgoing style="flex:0 0 auto">Can't make it</button>{% endif %}</form>
+{% if p.note %}<div class=nxnote>{{p.note}}</div>{% endif %}
+{% if p.coach_note %}<div class=nxnote>{{ p.coach_note }} · {{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</div>{% endif %}</a>
+{% if not p.cancelled %}<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{p.id}}>
+<button {% if x.mine == 1 %}class=on {% endif %}name=action value="{{ 'clear' if x.mine==1 else 'going' }}">I'm going{% if x.mine==1 %} ✓{% endif %}</button>
+<button {% if x.mine == 0 %}class=on {% endif %}name=action value="{{ 'clear' if x.mine==0 else 'notgoing' }}">I'm not going{% if x.mine==0 %} ✓{% endif %}</button></form>
 {% endif %}</div>{% endfor %}
 {% if me().is_admin %}<details class=card><summary>Add a practice</summary><form method=post class=body>{{csrf_field()}}<label>Date<input type=date name=date required></label>
 <div class=row><label>Start<input type=time name=start value=19:00></label><label>End<input type=time name=end value=20:30></label></div>
