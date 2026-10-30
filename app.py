@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS practices(id INTEGER PRIMARY KEY, date TEXT NOT NULL,
   location TEXT, note TEXT, cancelled INTEGER DEFAULT 0, cancel_reason TEXT, UNIQUE(date, location));
 CREATE TABLE IF NOT EXISTS rsvps(practice_id INTEGER, member_id INTEGER, going INTEGER, at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(practice_id, member_id));
 CREATE TABLE IF NOT EXISTS practice_coaches(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id));
+CREATE TABLE IF NOT EXISTS social_joins(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id));
 CREATE TABLE IF NOT EXISTS coaching_list(member_id INTEGER PRIMARY KEY, source TEXT NOT NULL DEFAULT 'manual', at TEXT);
 CREATE TABLE IF NOT EXISTS referee_list(member_id INTEGER PRIMARY KEY, source TEXT NOT NULL DEFAULT 'manual', at TEXT);
 CREATE TABLE IF NOT EXISTS verify_requests(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), name TEXT, email TEXT,
@@ -108,6 +109,7 @@ def db():
         migrate_members(g.db)
         migrate_practice_coaches(g.db)
         migrate_practices(g.db)
+        migrate_social_joins(g.db)
         migrate_referee_list(g.db)
         migrate_verify_requests(g.db)
         if not g.db.execute("SELECT 1 FROM requirements").fetchone():
@@ -139,6 +141,10 @@ def migrate_practices(d):
         if c not in cols:
             d.execute("ALTER TABLE practices ADD COLUMN %s %s" % (c, t))
     migrate_social_kinds(d)
+def migrate_social_joins(d):
+    """Who is joining the after-practice social. Existing practices start with nobody."""
+    d.execute("""CREATE TABLE IF NOT EXISTS social_joins(
+        practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id))""")
 def migrate_practice_coaches(d):
     """Create practice coach assignments on an older database under DATA_DIR. Existing rows stay."""
     d.execute("""CREATE TABLE IF NOT EXISTS practice_coaches(
@@ -672,12 +678,12 @@ def home():
     nextp_mine = nextp_mine[0] if nextp_mine else None
     next_rows = practice_coach_rows(d, [nextp["id"]]).get(nextp["id"], []) if nextp else []
     next_coaches = ", ".join(coach_labels(next_rows))
-    next_any = any(coach_eligibility(d, c)["eligible"] for c in next_rows)
+    next_joined = bool(nextp and d.execute("SELECT 1 FROM social_joins WHERE practice_id=? AND member_id=?", (nextp["id"], m["id"])).fetchone())
     notices = d.execute("SELECT * FROM notices WHERE member_id=? AND seen=0 ORDER BY id DESC", (m["id"],)).fetchall()
     d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (m["id"],)); d.commit()
     ann = d.execute("SELECT m.*, p.first, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id WHERE announcement=1 AND channel='team' AND COALESCE(m.deleted,0)=0 ORDER BY m.id DESC LIMIT 1").fetchone()
     vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
-    return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_rows=next_rows, next_any=next_any, vr_pending=vr_pending)
+    return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined, vr_pending=vr_pending)
 
 # ---------- unread badges ----------
 def empty_unread():
@@ -878,6 +884,20 @@ def ensure_schedule(d, weeks=4):
             d.execute("INSERT OR IGNORE INTO practices(date,start,end,location) VALUES(?,?,?,?)", (day.isoformat(), a, b, loc))
     d.commit()
 def fmt_t(t): h, m = map(int, t.split(":")); return f"{(h-1)%12+1}:{m:02d}{'pm' if h>=12 else 'am'}"
+def fmt_clock(t):
+    """7:00 PM, for the Home next-practice title."""
+    h, m = map(int, str(t).split(":")[:2])
+    return f"{(h-1)%12+1}:{m:02d} {'PM' if h >= 12 else 'AM'}"
+def weekday_abbr(s):
+    return dt.date.fromisoformat(str(s)[:10]).strftime("%a").upper()
+def day_num(s):
+    return dt.date.fromisoformat(str(s)[:10]).day
+def short_place(name):
+    """Westminster High School becomes Westminster HS."""
+    name = " ".join(str(name or "").split())
+    for long, short in (("High School", "HS"), ("Middle School", "MS"), ("Elementary School", "ES")):
+        if name.endswith(long): return (name[:-len(long)].strip() + " " + short).strip()
+    return name
 def fmt_d(s):
     d = dt.date.fromisoformat(s); return d.strftime("%a %b ") + str(d.day)
 def fmt_stamp(s):
@@ -914,6 +934,13 @@ def social_line(p):
     if not kinds or not place: return ""
     names = [kinds[0]] + [k.lower() for k in kinds[1:]]
     return "%s %s after at %s" % ("".join(SOCIAL_MARK[k] for k in kinds), " & ".join(names), place)
+def social_home(p):
+    """Home card social row: icons, 'Dinner & drinks after', and the place. None when unset."""
+    kinds = social_kinds_of(_field(p, "social_kind"))
+    place = " ".join(str(_field(p, "social_place") or "").split())
+    if not kinds or not place: return None
+    names = [kinds[0]] + [k.lower() for k in kinds[1:]]
+    return {"icons": "".join(SOCIAL_MARK[k] for k in kinds), "title": " & ".join(names) + " after", "place": place}
 def clean_social(form):
     raw = form.getlist("social_kind") if hasattr(form, "getlist") else [form.get("social_kind") or ""]
     kind = ",".join(k for k in SOCIAL_KINDS if k in raw)
@@ -1030,12 +1057,12 @@ def save_practice_coaches(d, pid, raw):
         if i in allowed and i not in chosen: chosen.append(i)
     d.execute("DELETE FROM practice_coaches WHERE practice_id=?", (pid,))
     if chosen: d.executemany("INSERT INTO practice_coaches(practice_id, member_id) VALUES(?,?)", [(pid, i) for i in chosen])
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_stamp=fmt_stamp, social_line=social_line, SOCIAL_KINDS=SOCIAL_KINDS)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_clock=fmt_clock, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
     ref = request.referrer or ""
-    if action in ("going", "notgoing", "clear") and "/home" in ref: return redirect("/home")
+    if action in ("going", "notgoing", "clear", "social_join", "social_leave") and "/home" in ref: return redirect("/home")
     if action == "delete" or not pid: return redirect("/practices")
     if request.form.get("back") == "page": return redirect("/practices/%s" % pid)
     return redirect("/practices#p%s" % pid)
@@ -1047,6 +1074,9 @@ def handle_practice_post(d):
     if a in ("going", "notgoing", "clear"):
         if a == "clear": d.execute("DELETE FROM rsvps WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
         else: d.execute("INSERT INTO rsvps(practice_id,member_id,going) VALUES(?,?,?) ON CONFLICT DO UPDATE SET going=excluded.going, at=CURRENT_TIMESTAMP", (pid, me()["id"], int(a == "going")))
+    elif a in ("social_join", "social_leave") and pid:
+        if a == "social_leave": d.execute("DELETE FROM social_joins WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
+        else: d.execute("INSERT OR IGNORE INTO social_joins(practice_id, member_id) VALUES(?,?)", (pid, me()["id"]))
     elif a == "social" and pid:
         if not can_host_practice(): abort(403)
         if not save_social(d, pid, request.form): flash("Add a place for the social.")
@@ -1107,6 +1137,7 @@ def handle_practice_post(d):
     elif a == "delete" and pid:
         d.execute("DELETE FROM practice_coaches WHERE practice_id=?", (pid,))
         d.execute("DELETE FROM rsvps WHERE practice_id=?", (pid,))
+        d.execute("DELETE FROM social_joins WHERE practice_id=?", (pid,))
         d.execute("DELETE FROM practice_notices WHERE practice_id=?", (pid,))
         d.execute("DELETE FROM practices WHERE id=?", (pid,))
         pid = None
@@ -1127,9 +1158,10 @@ def practice_bundle(d, p):
     coaches = practice_coach_rows(d, [p["id"]]).get(p["id"], [])
     checked = d.execute("""SELECT m.id, m.first, m.last, m.preferred_first FROM checkins c JOIN members m ON m.id=c.member_id
         WHERE c.practice_date=? AND COALESCE(m.role,'')!='system'""", (p["date"],)).fetchall()
+    social_n = d.execute("SELECT COUNT(*) FROM social_joins WHERE practice_id=?", (p["id"],)).fetchone()[0]
     return dict(p=p, going=practice_people([r for r in rv if r["going"]]), notgoing=practice_people([r for r in rv if not r["going"]]),
                 checked=practice_people(checked), mine=mine, coach_ids={c["id"] for c in coaches}, coach_names=coach_labels(coaches),
-                coaches=practice_people(coaches), any_eligible=any(coach_eligibility(d, c)["eligible"] for c in coaches))
+                coaches=practice_people(coaches), any_eligible=any(coach_eligibility(d, c)["eligible"] for c in coaches), social_n=social_n)
 @app.route("/practices", methods=["GET", "POST"])
 @login_required
 def practices():

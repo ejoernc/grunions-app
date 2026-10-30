@@ -538,17 +538,19 @@ try:
     A.now_pt = lambda: dt.datetime(2026, 10, 24, 0, 30, tzinfo=dt.timezone.utc)  # 5:30pm PDT
     sched = jane.get("/practices").get_data(as_text=True)
     home = jane.get("/home").get_data(as_text=True)
-    nxt = home[home.find("NEXT PRACTICE"):home.find("NEXT PRACTICE") + 220]
+    nxt = home[home.find("NEXT PRACTICE"):]
+    nxt = nxt[:nxt.find("I'm going")]
     adm = eli.get("/admin").get_data(as_text=True)
-    ok("Fri Oct 23" in sched and "Fri Oct 23" in nxt and "7:00pm" in nxt and 'value="2026-10-23"' in adm, "at 5:30pm Pacific, Friday's practice is on the schedule and check-in uses that date")
+    ok("Fri Oct 23" in sched and "FRI" in nxt and ">23<" in nxt and "7:00 PM" in nxt and "Westminster HS" in nxt and 'value="2026-10-23"' in adm, "at 5:30pm Pacific, Friday's practice is on the schedule and check-in uses that date")
     ok(D.execute("SELECT COUNT(*) FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()[0] == 1, "opening the schedule does not delete Friday's practice")
     A.now_pt = lambda: dt.datetime(2026, 10, 24, 3, 30, tzinfo=dt.timezone.utc)  # 8:30pm PDT
     ok("Fri Oct 23" in jane.get("/practices").get_data(as_text=True), "the practice stays up through 8:30pm Pacific")
     A.now_pt = lambda: dt.datetime(2026, 10, 24, 3, 31, tzinfo=dt.timezone.utc)  # 8:31pm PDT
     late = jane.get("/practices").get_data(as_text=True)
     late_home = jane.get("/home").get_data(as_text=True)
-    late_next = late_home[late_home.find("NEXT PRACTICE"):late_home.find("NEXT PRACTICE") + 220]
-    ok("Fri Oct 23" not in late and "Fri Oct 23" not in late_next and 'value="2026-10-23"' in eli.get("/admin").get_data(as_text=True) and D.execute("SELECT COUNT(*) FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()[0] == 1, "after 8:30pm Pacific the practice leaves the schedule and the row is still there")
+    late_next = late_home[late_home.find("NEXT PRACTICE"):]
+    late_next = late_next[:late_next.find("I'm going")] if "I'm going" in late_next else late_next[:500]
+    ok("Fri Oct 23" not in late and "Westminster HS" not in late_next and 'value="2026-10-23"' in eli.get("/admin").get_data(as_text=True) and D.execute("SELECT COUNT(*) FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()[0] == 1, "after 8:30pm Pacific the practice leaves the schedule and the row is still there")
     eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=fri, start="19:00", end="20:30", location="Pacific Pool"))
     pp = D.execute("SELECT id FROM practices WHERE location='Pacific Pool'").fetchone()[0]
     jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=pp, action="going"))
@@ -701,7 +703,7 @@ eli.post("/practices", data=dict(base, coach=[str(eli_id), str(john_id), str(jan
 sched, home, staff, coachpg = jane.get("/practices").get_data(as_text=True), jane.get("/home").get_data(as_text=True), eli.get("/practices").get_data(as_text=True), john.get("/practices").get_data(as_text=True)
 pdate = D.execute("SELECT date FROM practices WHERE id=?", (pid,)).fetchone()[0]
 checkin = eli.get("/admin?date=%s" % pdate).get_data(as_text=True)
-ok("Coaches: Eli, Sam" in sched and "Coaches: Eli, Sam" in home and "Coaches: Eli, Sam" in coachpg and "Coaches: Eli, Sam" in staff and "Coaches: Eli, Sam" in checkin and 'class="st st-ok coach-elig"' not in sched and "No assigned coach is coach-eligible" not in sched and "No assigned coach is coach-eligible" in staff and "No assigned coach is coach-eligible" not in coachpg, "assigned coaches show on every schedule card and on check-in, and only an admin sees the eligibility warning")
+ok("Coaches: Eli, Sam" in sched and "Coaches: Eli, Sam" in home and "Coaches: Eli, Sam" in coachpg and "Coaches: Eli, Sam" in staff and "Coaches: Eli, Sam" in checkin and 'class="st st-ok coach-elig"' not in sched and "No assigned coach is coach-eligible" not in sched and "No assigned coach is coach-eligible" in staff and "No assigned coach is coach-eligible" not in coachpg and "No assigned coach is coach-eligible" not in eli.get("/home").get_data(as_text=True), "assigned coaches show on every schedule card and on check-in, and only an admin sees the eligibility warning")
 picker = eli.get("/practices/%d" % pid).get_data(as_text=True)
 ok(('name=coach value="%d" checked' % eli_id) in picker and ('name=coach value="%d" checked' % john_id) in picker and ('name=coach value="%d"' % jane_id) not in picker and "<select name=coach" not in picker and "name=coach" not in sched and "name=coach" not in coachpg, "edit practice is a checkbox per coaching-list member, and only an admin gets that list")
 ok(jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=pid, action="edit", start=pstart, end=pend, location=ploc, note=pnote, coach=str(jane_id))).status_code == 403 and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? ORDER BY member_id", (pid,)).fetchall() == [(eli_id,), (john_id,)], "a member cannot change practice coaches, and someone off the coaching list is not stored")
@@ -1164,7 +1166,7 @@ pat = A.app.test_client(); join(pat, "Pat", "Host", "pat.host@example.com")
 D.execute("UPDATE members SET role='coach', is_admin=0 WHERE email='pat.host@example.com'"); D.commit()
 home0 = jane.get("/home").get_data(as_text=True)
 nstart = home0.find("NEXT PRACTICE")
-card_at = home0.rfind('class="card tap"', 0, nstart)
+card_at = home0.rfind('class="card tap nextcard"', 0, nstart)
 nchunk = home0[card_at:home0.find("</form>", nstart)]
 nid = int(re.search(r'href="/practices/(\d+)"', nchunk).group(1))
 nrow = D.execute("SELECT date, start, end, location, COALESCE(note,'') FROM practices WHERE id=?", (nid,)).fetchone()
@@ -1186,7 +1188,7 @@ pat_card = pat.get("/practices").get_data(as_text=True).split("id=p%d " % nid, 1
 eli_card = eli.get("/practices").get_data(as_text=True).split("id=p%d " % nid, 1)[1].split("id=p")[0]
 pat_page = pat.get("/practices/%d" % nid).get_data(as_text=True)
 eli_page = eli.get("/practices/%d" % nid).get_data(as_text=True)
-ok((line + " · 8:30pm") in page_s and "Cash bar" in page_s and 'href="https://maps.example/harp"' in page_s and line in card_s and "Cash bar" not in card_s and "Bring dark caps" in card_s and noted[0] == "Pat Host" and stamp in card_s and line in home_s and "Bring dark caps" in home_s and stamp in home_s and "class=morebtn" not in pat_card and "class=morebtn" not in eli_card and "After-practice social" in pat_page and "Coach message" in pat_page and "Delete practice" not in pat_page and "After-practice social" in eli_page and "Delete practice" in eli_page and "name=date" not in pat.get("/practices/%d?edit=1" % nid).get_data(as_text=True), "a social and a coach message show on the practice, the schedule, and home, and a coach gets only those menu items on the practice page")
+ok((line + " · 8:30pm") in page_s and "Cash bar" in page_s and 'href="https://maps.example/harp"' in page_s and line in card_s and "Cash bar" not in card_s and "Bring dark caps" in card_s and noted[0] == "Pat Host" and stamp in card_s and "Drinks after" in home_s and "The Harp" in home_s and "Bring dark caps" in home_s and stamp in home_s and "class=morebtn" not in pat_card and "class=morebtn" not in eli_card and "After-practice social" in pat_page and "Coach message" in pat_page and "Delete practice" not in pat_page and "After-practice social" in eli_page and "Delete practice" in eli_page and "name=date" not in pat.get("/practices/%d?edit=1" % nid).get_data(as_text=True), "a social and a coach message show on the practice, the schedule, and home, and a coach gets only those menu items on the practice page")
 jane.post("/practices", data=dict(csrf=csrf(jane, "/home"), pid=nid, action="notgoing"))
 ok(">I'm not going ✓<" in jane.get("/home").get_data(as_text=True) and ">Can't make it ✓<" in jane.get("/practices/%d" % nid).get_data(as_text=True) and ">Not going ✓<" in jane.get("/practices").get_data(as_text=True).split("id=p%d " % nid, 1)[1].split("id=p")[0], "I'm not going on home is the same RSVP as the practice page and the schedule")
 jane.post("/practices/%d" % nid, data=dict(csrf=csrf(jane, "/practices/%d" % nid), pid=nid, action="going", back="page"))
@@ -1195,16 +1197,20 @@ pat.post("/practices/%d" % nid, data=dict(csrf=csrf(pat, "/practices"), pid=nid,
 combo = "🍽️🍻 Dinner &amp; drinks after at The Harp"
 member_page = jane.get("/practices/%d" % nid).get_data(as_text=True)
 host_page = pat.get("/practices/%d" % nid).get_data(as_text=True)
-ok(D.execute("SELECT social_kind FROM practices WHERE id=?", (nid,)).fetchone()[0] == "Dinner,Drinks" and combo in member_page and combo in jane.get("/home").get_data(as_text=True) and combo in jane.get("/practices").get_data(as_text=True) and member_page.find("<h2>After-practice social</h2>") < member_page.find("<h2>Coaches</h2>") < member_page.find("<h2>Going") and ">Edit<" not in member_page and ">Add<" not in member_page and ">Edit<" in host_page and 'type=checkbox name=social_kind value="Dinner" checked' in host_page and 'type=checkbox name=social_kind value="Drinks" checked' in host_page and "None</option>" not in host_page, "types combine on the practice section, schedule, and home, and a host edits them")
+ok(D.execute("SELECT social_kind FROM practices WHERE id=?", (nid,)).fetchone()[0] == "Dinner,Drinks" and combo in member_page and "Dinner &amp; drinks after" in jane.get("/home").get_data(as_text=True) and "The Harp" in jane.get("/home").get_data(as_text=True) and combo in jane.get("/practices").get_data(as_text=True) and member_page.find("<h2>After-practice social</h2>") < member_page.find("<h2>Coaches</h2>") < member_page.find("<h2>Going") and ">Edit<" not in member_page and ">Add<" not in member_page and ">Edit<" in host_page and 'type=checkbox name=social_kind value="Dinner" checked' in host_page and 'type=checkbox name=social_kind value="Drinks" checked' in host_page and "None</option>" not in host_page, "types combine on the practice section, schedule, and home, and a host edits them")
 D.execute("UPDATE practices SET social_kind='Social,Dinner' WHERE id=?", (nid,)); D.commit()
 A.migrate_social_kinds(D); D.commit()
-ok(D.execute("SELECT social_kind FROM practices WHERE id=?", (nid,)).fetchone()[0] == "Dinner,Social" and "🍽️🎉 Dinner &amp; social after at The Harp" in jane.get("/home").get_data(as_text=True), "an older combination is stored as Dinner, then Drinks, then Social")
+ok(D.execute("SELECT social_kind FROM practices WHERE id=?", (nid,)).fetchone()[0] == "Dinner,Social" and "🍽️🎉 Dinner &amp; social after at The Harp" in jane.get("/practices").get_data(as_text=True) and "Dinner &amp; social after" in jane.get("/home").get_data(as_text=True), "an older combination is stored as Dinner, then Drinks, then Social")
 pat.post("/practices/%d" % nid, data=dict(csrf=csrf(pat, "/practices"), pid=nid, action="social", back="page", social_kind=["Dessert", "Coffee", "Other"], social_place="The Harp"))
 kind_box = pat.get("/practices/%d" % nid).get_data(as_text=True)
 kind_order = [kind_box.find('value="%s"' % k) for k in A.SOCIAL_KINDS]
-ok(D.execute("SELECT social_kind FROM practices WHERE id=?", (nid,)).fetchone()[0] == "Coffee,Dessert,Other" and "☕🍨✨ Coffee &amp; dessert &amp; other after at The Harp" in jane.get("/home").get_data(as_text=True) and kind_order == sorted(kind_order) and all(i > 0 for i in kind_order) and tuple(A.SOCIAL_KINDS) == ("Dinner", "Drinks", "Social", "Coffee", "Dessert", "Activities", "Potluck", "Other"), "social types include coffee, dessert, activities, potluck, and other, in that order")
+ok(D.execute("SELECT social_kind FROM practices WHERE id=?", (nid,)).fetchone()[0] == "Coffee,Dessert,Other" and "☕🍨✨ Coffee &amp; dessert &amp; other after at The Harp" in jane.get("/practices").get_data(as_text=True) and "Coffee &amp; dessert &amp; other after" in jane.get("/home").get_data(as_text=True) and kind_order == sorted(kind_order) and all(i > 0 for i in kind_order) and tuple(A.SOCIAL_KINDS) == ("Dinner", "Drinks", "Social", "Coffee", "Dessert", "Activities", "Potluck", "Other"), "social types include coffee, dessert, activities, potluck, and other, in that order")
 eli.post("/practices/%d" % nid, data=dict(csrf=csrf(eli, "/practices/%d" % nid), pid=nid, action="edit", back="page", date=nrow[0], start=nrow[1], end=nrow[2], location=nrow[3], note=nrow[4], social_kind="Social", social_place="Clubhouse", social_address="", social_time="", social_note="", message="Warmup laps"))
-ok("🎉 Social after at Clubhouse" in jane.get("/home").get_data(as_text=True) and "Warmup laps" in jane.get("/practices/%d" % nid).get_data(as_text=True) and "Eli Joern" in jane.get("/practices/%d" % nid).get_data(as_text=True) and line not in jane.get("/home").get_data(as_text=True), "edit mode saves the social and the coach message")
+ok("Social after" in jane.get("/home").get_data(as_text=True) and "Clubhouse" in jane.get("/home").get_data(as_text=True) and "Warmup laps" in jane.get("/practices/%d" % nid).get_data(as_text=True) and "Eli Joern" in jane.get("/practices/%d" % nid).get_data(as_text=True) and line not in jane.get("/home").get_data(as_text=True), "edit mode saves the social and the coach message")
+jane.post("/practices/%d" % nid, data=dict(csrf=csrf(jane, "/home"), pid=nid, action="social_join"))
+ok(">Joined ✓<" in jane.get("/home").get_data(as_text=True) and ">1 joining<" in jane.get("/practices/%d" % nid).get_data(as_text=True), "joining a social marks the Home pill and counts on the practice page")
+jane.post("/practices/%d" % nid, data=dict(csrf=csrf(jane, "/home"), pid=nid, action="social_leave"))
+ok(">Join<" in jane.get("/home").get_data(as_text=True) and ">Joined ✓<" not in jane.get("/home").get_data(as_text=True) and ">0 joining<" in jane.get("/practices/%d" % nid).get_data(as_text=True), "leaving a social clears the pill and the count")
 eli.post("/practices/%d" % nid, data=dict(csrf=csrf(eli, "/practices"), pid=nid, action="social", social_kind=""))
 eli.post("/practices/%d" % nid, data=dict(csrf=csrf(eli, "/practices"), pid=nid, action="message", message=""))
 cleared = jane.get("/home").get_data(as_text=True) + jane.get("/practices/%d" % nid).get_data(as_text=True)

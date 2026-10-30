@@ -22,6 +22,22 @@ h1{font-size:28px;font-weight:650;letter-spacing:-.3px;margin:4px 0 20px}h2{font
 p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:14px}.xs{font-size:13px}
 .card{background:var(--surface);border-radius:var(--r);padding:18px;margin:0 0 12px}
 .card.tap{cursor:pointer}a.cardlink,a.goingcount{color:inherit;text-decoration:none}a.cardlink{display:block;flex:1;min-width:0}
+.nxhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.nxmain{display:flex;align-items:center;gap:12px;margin-top:12px}
+.datetile{width:54px;height:54px;border-radius:14px;background:var(--surface2);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
+.datetile .wd{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--t3);line-height:1}
+.datetile .dn{font-size:22px;font-weight:650;line-height:1.15;margin-top:2px}
+.nxtitle{font-size:16px;font-weight:650;line-height:1.3}
+.nxchev{color:var(--t3);font-size:22px;line-height:1;flex:none}
+.nxnote{margin-top:10px;color:var(--t3);font-size:13px;line-height:1.4}
+.pills{display:flex;gap:10px;margin-top:14px}
+.pills button{flex:1;height:44px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600}
+.pills button.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
+.nxdiv{height:1px;background:var(--line);margin:14px 0}
+.nxsocial{display:flex;align-items:center;gap:12px}
+.nxicon{width:40px;height:40px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;font-size:18px}
+.joinpill{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600;flex:none}
+.joinpill.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
 .menu a{display:flex;align-items:center;width:100%;height:40px;padding:0 12px;box-sizing:border-box;color:var(--t1);font-weight:500;font-size:15px;text-decoration:none;border-radius:8px}
 .card .menu,.pagehead .menu{left:auto;right:0;min-width:220px}
 .mapframe{display:block;width:100%;height:220px;border:0;border-radius:12px;background:var(--surface2)}
@@ -468,16 +484,21 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 <script>document.getElementById('trialOpen').onclick=function(){document.getElementById('trialDialog').showModal()};
 document.getElementById('trialDialog').addEventListener('click',function(e){if(e.target===this)this.close()});</script>{% endif %}
 {% endif %}</div></details>
-{% if nextp %}<div class="card tap" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'"><a class=cardlink href="/practices/{{nextp.id}}"><div class="t3 xs">NEXT PRACTICE</div><div style="font-size:18px;font-weight:600;margin-top:2px">{{fmt_d(nextp.date)}}, {{fmt_t(nextp.start)}}</div>
-<div class=t2>{{nextp.location}} · {{nextp_n}} going</div>
-{% if next_coaches %}<div class=t2>Coaches: {{next_coaches}}</div>{% endif %}
-{% if social_line(nextp) %}<div class="sm">{{ social_line(nextp) }}</div>{% endif %}
-{% if nextp.coach_note %}<div class="sm">{{ nextp.coach_note }} <span class=t3>· {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</span></div>{% endif %}
-{% if me().is_admin %}{% if not next_any %}<div class="sm" style="margin-top:6px">{{ st('warn', 'No assigned coach is coach-eligible') }}</div>{% endif %}
-{% for c in next_rows %}{% if coach_eligibility(c).text %}<div class="sm" style="margin-top:4px">{{ coach_tag(c) }}</div>{% endif %}{% endfor %}{% endif %}</a>
-<form method=post action=/practices class=row style="margin-top:14px">{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
-{% if nextp_mine == 1 %}<button name=action value=clear>I'm going ✓</button>{% else %}<button class=primary name=action value=going>I'm going</button>{% endif %}
-{% if nextp_mine == 0 %}<button name=action value=clear>I'm not going ✓</button>{% else %}<button class=quiet name=action value=notgoing>I'm not going</button>{% endif %}</form></div>{% endif %}
+{% if nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'"><a class=cardlink href="/practices/{{nextp.id}}">
+<div class=nxhead><span class="t3 xs">NEXT PRACTICE</span><span class="t3 xs">{{nextp_n}} going</span></div>
+<div class=nxmain><div class=datetile><span class=wd>{{ weekday_abbr(nextp.date) }}</span><span class=dn>{{ day_num(nextp.date) }}</span></div>
+<div class=grow><div class=nxtitle>{{ fmt_clock(nextp.start) }} · {{ short_place(nextp.location) }}</div>
+{% if next_coaches %}<div class="t2 sm">Coaches: {{next_coaches}}</div>{% endif %}</div>
+<span class=nxchev aria-hidden=true>›</span></div>
+{% if nextp.coach_note %}<div class=nxnote>{{ nextp.coach_note }} · {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</div>{% endif %}</a>
+<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
+<button {% if nextp_mine==1 %}class=on {% endif %}name=action value="{{ 'clear' if nextp_mine==1 else 'going' }}">I'm going{% if nextp_mine==1 %} ✓{% endif %}</button>
+<button {% if nextp_mine==0 %}class=on {% endif %}name=action value="{{ 'clear' if nextp_mine==0 else 'notgoing' }}">I'm not going{% if nextp_mine==0 %} ✓{% endif %}</button></form>
+{% if sh %}<div class=nxdiv></div><div class=nxsocial><a class=cardlink href="/practices/{{nextp.id}}" style="display:flex;align-items:center;gap:12px"><span class=nxicon>{{ sh.icons }}</span>
+<div class=grow><div class=nxtitle>{{ sh.title }}</div><div class="t2 sm">{{ sh.place }}</div></div></a>
+<form method=post action=/practices>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
+<button class="joinpill{{ ' on' if next_joined }}" name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}Joined ✓{% else %}Join{% endif %}</button></form></div>{% endif %}
+</div>{% endif %}
 {% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}
 <details class=card><summary>Attendance <span class="t3 sm" style="margin-left:auto;margin-right:10px">{{hist|length}} total · {{nmonth}} this month</span></summary><div class=body>
 {% for h in hist[:20] %}<div class=kv><span>{{fmt_d(h.practice_date)}}</span><span class=t2>{{h.location}}</span></div>{% else %}<p class=t3>No practices yet.</p>{% endfor %}</div></details>
@@ -654,6 +675,7 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 {% if social_line(p) or me().is_admin or is_staff() %}<h2>After-practice social</h2>
 <div class=list><div class=li><div class=grow>
 {% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
+<div class="t3 sm">{{ x.social_n }} joining</div>
 {% if p.social_note %}<div class="t2 sm">{{ p.social_note }}</div>{% endif %}
 {% if p.social_address %}{% if p.social_address.lower().startswith('http://') or p.social_address.lower().startswith('https://') %}<div class="sm"><a href="{{ p.social_address }}" target=_blank rel=noopener>Map</a></div>{% else %}<div class="t2 sm">{{ p.social_address }} · <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ p.social_address|urlencode }}" target=_blank rel=noopener>Map</a></div>{% endif %}{% endif %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
