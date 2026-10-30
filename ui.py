@@ -671,9 +671,9 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 {% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
 <div class=row><button class=primary name=action value=edit>Save</button><a class=btn href="/practices/{{ p.id }}">Cancel</a></div></form>
 {% else %}
-{% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=row style="margin-top:16px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
-{% if x.mine == 1 %}<button name=action value=clear>Going ✓</button>{% else %}<button class=primary name=action value=going>Going</button>{% endif %}
-{% if x.mine == 0 %}<button name=action value=clear>Can't make it ✓</button>{% else %}<button name=action value=notgoing>Can't make it</button>{% endif %}</form>{% endif %}
+{% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=pills style="margin-top:16px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+<button {% if x.mine == 1 %}class=on {% endif %}name=action value="{{ 'clear' if x.mine==1 else 'going' }}">I'm going{% if x.mine==1 %} ✓{% endif %}</button>
+<button {% if x.mine == 0 %}class=on {% endif %}name=action value="{{ 'clear' if x.mine==0 else 'notgoing' }}">I'm not going{% if x.mine==0 %} ✓{% endif %}</button></form>{% endif %}
 {% if social_line(p) or me().is_admin or is_staff() %}<h2>After-practice social</h2>
 <div class=list><div class=li>{% if social_line(p) %}{{ social_icon() }}{% endif %}<div class=grow>
 {% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
