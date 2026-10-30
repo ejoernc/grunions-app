@@ -218,9 +218,10 @@ bgid_casey = D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '
 far_bg = (A.today_pt() + dt.timedelta(days=400)).isoformat()
 soon_bg = (A.today_pt() + dt.timedelta(days=5)).isoformat()
 past_bg = (A.today_pt() - dt.timedelta(days=2)).isoformat()
-D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,?,'test','test','2026-01-01')", (cid, bgid_casey, far_bg)); D.commit()
+D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,?,'test','test','2026-01-01')", (cid, bgid_casey, far_bg))
+D.execute("UPDATE members SET membership_type='Head Coach' WHERE id=?", (cid,)); D.commit()
 bg_row = '<span>Background screening</span><span class="st st-ok">expires ' + far_bg + '</span>'
-ok("Cleared to coach" in casey.get("/home").get_data(as_text=True) and bg_row in casey.get("/home").get_data(as_text=True) and bg_row in eli.get("/members").get_data(as_text=True) and bg_row in eli.get("/admin").get_data(as_text=True) and ('class="st st-ok">Background screening expires ' + far_bg) in eli.get("/members").get_data(as_text=True) and ('class="st st-ok">Background screening expires ' + far_bg) in eli.get("/admin").get_data(as_text=True), "a current background screening is a dated row on home, the member details, and check-in")
+ok("Cleared to coach" in casey.get("/home").get_data(as_text=True) and "Coach eligible" not in casey.get("/home").get_data(as_text=True) and bg_row in casey.get("/home").get_data(as_text=True) and bg_row in eli.get("/members").get_data(as_text=True) and bg_row in eli.get("/admin").get_data(as_text=True) and ('class="st st-ok">Background screening expires ' + far_bg) in eli.get("/members").get_data(as_text=True) and ('class="st st-ok">Background screening expires ' + far_bg) in eli.get("/admin").get_data(as_text=True), "a current background screening is a dated row on home, the member details, and check-in, and the Coaching row replaces Coach eligible")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (soon_bg, cid, bgid_casey)); D.commit()
 ok(('<span>Background screening</span><span class="st st-warn">expires ' + soon_bg + '</span>') in casey.get("/home").get_data(as_text=True), "background screening is amber inside the expiring window")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (past_bg, cid, bgid_casey)); D.commit()
