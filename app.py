@@ -886,8 +886,8 @@ def fmt_stamp(s):
     day, clock = str(s).split("T", 1)
     try: return "%s, %s" % (fmt_d(day[:10]), fmt_t(clock[:5]))
     except (ValueError, IndexError): return ""
-SOCIAL_KINDS = ("Dinner", "Drinks", "Social")
-SOCIAL_MARK = {"Dinner": "🍽️", "Drinks": "🍻", "Social": "🎉"}
+SOCIAL_KINDS = ("Dinner", "Drinks", "Social", "Coffee", "Dessert", "Activities", "Potluck", "Other")
+SOCIAL_MARK = {"Dinner": "🍽️", "Drinks": "🍻", "Social": "🎉", "Coffee": "☕", "Dessert": "🍨", "Activities": "🎳", "Potluck": "🥘", "Other": "✨"}
 def _field(row, key):
     try:
         if hasattr(row, "keys") and key in row.keys(): return row[key]
@@ -895,11 +895,11 @@ def _field(row, key):
         pass
     return None
 def social_kinds_of(raw):
-    """Canonical Dinner, Drinks, Social order. A stored single value stays valid."""
+    """Canonical type order. A stored single value stays valid."""
     parts = [p.strip().lower() for p in str(raw or "").split(",") if p.strip()]
     return [kind for kind in SOCIAL_KINDS if kind.lower() in parts]
 def migrate_social_kinds(d):
-    """Rewrite older single types and out-of-order combinations into Dinner,Drinks,Social."""
+    """Rewrite stored types into Dinner, Drinks, Social, Coffee, Dessert, Activities, Potluck, Other."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(practices)")]
     if "social_kind" not in cols: return
     for row in d.execute("SELECT id, social_kind FROM practices WHERE social_kind IS NOT NULL AND social_kind != ''"):
@@ -1030,7 +1030,7 @@ def save_practice_coaches(d, pid, raw):
         if i in allowed and i not in chosen: chosen.append(i)
     d.execute("DELETE FROM practice_coaches WHERE practice_id=?", (pid,))
     if chosen: d.executemany("INSERT INTO practice_coaches(practice_id, member_id) VALUES(?,?)", [(pid, i) for i in chosen])
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_stamp=fmt_stamp, social_line=social_line)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_stamp=fmt_stamp, social_line=social_line, SOCIAL_KINDS=SOCIAL_KINDS)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):

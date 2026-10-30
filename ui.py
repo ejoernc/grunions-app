@@ -183,7 +183,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 {% macro social_fields(p) %}
 <div class="t3 xs">Type</div>
 <div class=checks role=group aria-label="Type"><input type=hidden name=social_kind value="">
-{% for kind in ['Dinner','Drinks','Social'] %}<label><input type=checkbox name=social_kind value="{{ kind }}" {% if kind in (p.social_kind or '').split(',') %}checked{% endif %}>{{ kind }}</label>{% endfor %}
+{% for kind in SOCIAL_KINDS %}<label><input type=checkbox name=social_kind value="{{ kind }}" {% if kind in (p.social_kind or '').split(',') %}checked{% endif %}>{{ kind }}</label>{% endfor %}
 </div>
 <label>Place<input name=social_place value="{{ p.social_place or '' }}" autocomplete=off></label>
 <label>Address or map link (optional)<input name=social_address value="{{ p.social_address or '' }}" autocomplete=off></label>

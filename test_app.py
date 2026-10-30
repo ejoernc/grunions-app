@@ -1199,6 +1199,10 @@ ok(D.execute("SELECT social_kind FROM practices WHERE id=?", (nid,)).fetchone()[
 D.execute("UPDATE practices SET social_kind='Social,Dinner' WHERE id=?", (nid,)); D.commit()
 A.migrate_social_kinds(D); D.commit()
 ok(D.execute("SELECT social_kind FROM practices WHERE id=?", (nid,)).fetchone()[0] == "Dinner,Social" and "🍽️🎉 Dinner &amp; social after at The Harp" in jane.get("/home").get_data(as_text=True), "an older combination is stored as Dinner, then Drinks, then Social")
+pat.post("/practices/%d" % nid, data=dict(csrf=csrf(pat, "/practices"), pid=nid, action="social", back="page", social_kind=["Dessert", "Coffee", "Other"], social_place="The Harp"))
+kind_box = pat.get("/practices/%d" % nid).get_data(as_text=True)
+kind_order = [kind_box.find('value="%s"' % k) for k in A.SOCIAL_KINDS]
+ok(D.execute("SELECT social_kind FROM practices WHERE id=?", (nid,)).fetchone()[0] == "Coffee,Dessert,Other" and "☕🍨✨ Coffee &amp; dessert &amp; other after at The Harp" in jane.get("/home").get_data(as_text=True) and kind_order == sorted(kind_order) and all(i > 0 for i in kind_order) and tuple(A.SOCIAL_KINDS) == ("Dinner", "Drinks", "Social", "Coffee", "Dessert", "Activities", "Potluck", "Other"), "social types include coffee, dessert, activities, potluck, and other, in that order")
 eli.post("/practices/%d" % nid, data=dict(csrf=csrf(eli, "/practices/%d" % nid), pid=nid, action="edit", back="page", date=nrow[0], start=nrow[1], end=nrow[2], location=nrow[3], note=nrow[4], social_kind="Social", social_place="Clubhouse", social_address="", social_time="", social_note="", message="Warmup laps"))
 ok("🎉 Social after at Clubhouse" in jane.get("/home").get_data(as_text=True) and "Warmup laps" in jane.get("/practices/%d" % nid).get_data(as_text=True) and "Eli Joern" in jane.get("/practices/%d" % nid).get_data(as_text=True) and line not in jane.get("/home").get_data(as_text=True), "edit mode saves the social and the coach message")
 eli.post("/practices/%d" % nid, data=dict(csrf=csrf(eli, "/practices"), pid=nid, action="social", social_kind=""))
