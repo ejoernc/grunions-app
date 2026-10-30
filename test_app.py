@@ -688,7 +688,7 @@ jane_id = D.execute("SELECT id FROM members WHERE email='jane@example.com'").fet
 prow = D.execute("SELECT id, start, end, location, COALESCE(note,'') FROM practices WHERE cancelled=0 AND " + A.upcoming_where() + " ORDER BY date, start LIMIT 1", A.upcoming_bounds()).fetchone()
 pid, pstart, pend, ploc, pnote = prow
 base = dict(csrf=csrf(eli, "/practices"), pid=pid, action="edit", start=pstart, end=pend, location=ploc, note=pnote)
-staff0 = eli.get("/practices").get_data(as_text=True)
+staff0 = eli.get("/practices/%d" % pid).get_data(as_text=True)
 ok(("name=coach value=\"%d\"" % eli_id) not in staff0 and ("name=coach value=\"%d\"" % john_id) not in staff0 and "No coaches yet." in staff0 and john.get("/admin").status_code == 200 and john.get("/chat?c=coaches").status_code == 200 and eli.get("/admin").status_code == 200, "only people on the coaching list can be assigned, and active coaches can check in")
 ok("Coaches:" not in jane.get("/practices").get_data(as_text=True) and "name=coach" not in jane.get("/practices").get_data(as_text=True), "a practice with no coaches has no coaches line, and members have no picker")
 def list_act(mid, action):
@@ -702,7 +702,8 @@ sched, home, staff, coachpg = jane.get("/practices").get_data(as_text=True), jan
 pdate = D.execute("SELECT date FROM practices WHERE id=?", (pid,)).fetchone()[0]
 checkin = eli.get("/admin?date=%s" % pdate).get_data(as_text=True)
 ok("Coaches: Eli, Sam" in sched and "Coaches: Eli, Sam" in home and "Coaches: Eli, Sam" in coachpg and "Coaches: Eli, Sam" in staff and "Coaches: Eli, Sam" in checkin and 'class="st st-ok coach-elig"' not in sched and "No assigned coach is coach-eligible" not in sched and "No assigned coach is coach-eligible" in staff and "No assigned coach is coach-eligible" not in coachpg, "assigned coaches show on every schedule card and on check-in, and only an admin sees the eligibility warning")
-ok(('name=coach value="%d" checked' % eli_id) in staff and ('name=coach value="%d" checked' % john_id) in staff and ('name=coach value="%d"' % jane_id) not in staff and "<select name=coach" not in staff and "name=coach" not in sched and "name=coach" not in coachpg, "edit practice is a checkbox per coaching-list member, and only an admin gets that list")
+picker = eli.get("/practices/%d" % pid).get_data(as_text=True)
+ok(('name=coach value="%d" checked' % eli_id) in picker and ('name=coach value="%d" checked' % john_id) in picker and ('name=coach value="%d"' % jane_id) not in picker and "<select name=coach" not in picker and "name=coach" not in sched and "name=coach" not in coachpg, "edit practice is a checkbox per coaching-list member, and only an admin gets that list")
 ok(jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=pid, action="edit", start=pstart, end=pend, location=ploc, note=pnote, coach=str(jane_id))).status_code == 403 and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? ORDER BY member_id", (pid,)).fetchall() == [(eli_id,), (john_id,)], "a member cannot change practice coaches, and someone off the coaching list is not stored")
 list_act(john_id, "remove_coaching")
 hid = jane.get("/practices").get_data(as_text=True)
@@ -726,7 +727,7 @@ ok(jane.get("/admin").status_code == 200 and jane.get("/chat?c=coaches").status_
 list_act(jane_id, "remove_coach")
 ok(jane.get("/admin").status_code == 403 and jane.get("/chat?c=coaches").status_code == 403 and D.execute("SELECT source FROM coaching_list WHERE member_id=?", (jane_id,)).fetchone()[0] == "manual", "Remove coach revokes access and leaves the coaching list")
 kept = list_act(eli_id, "remove_coaching").get_data(as_text=True)
-ok("Updated Eli Joern." in kept and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (eli_id,)).fetchone() and ("name=coach value=\"%d\"" % eli_id) not in eli.get("/practices").get_data(as_text=True) and eli.get("/admin").status_code == 200 and eli.get("/chat?c=coaches").status_code == 200, "an admin can leave the coaching list and keep active coach access")
+ok("Updated Eli Joern." in kept and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (eli_id,)).fetchone() and ("name=coach value=\"%d\"" % eli_id) not in eli.get("/practices/%d" % pid).get_data(as_text=True) and eli.get("/admin").status_code == 200 and eli.get("/chat?c=coaches").status_code == 200, "an admin can leave the coaching list and keep active coach access")
 list_act(eli_id, "add_coaching")
 oldp = tempfile.mktemp(suffix=".db")
 od = sqlite3.connect(oldp)
@@ -777,7 +778,8 @@ badge_pages = riley.get("/home").get_data(as_text=True) + eli.get("/members").ge
 members_html = eli.get("/members").get_data(as_text=True)
 riley_at = members_html.find("riley@example.com")
 riley_row = members_html[members_html.rfind("<div class=li", 0, riley_at):members_html.find("<div class=li", riley_at)]
-ok(badge_pages.count('class="st st-ok coach-elig">Coach eligible') >= 3 and 'class="st st-ok coach-elig"' not in jane.get("/practices").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) in eli.get("/practices").get_data(as_text=True) and 'class="st st-ok coach-elig">Coach eligible' in eli.get("/practices").get_data(as_text=True) and 'class="st st-ok coach-elig">Coach eligible' in riley_row and "class=coach-tag>Coach<" in riley_row and "Active coach" not in riley_row, "Coach eligible shows on home, check-in, and People, and the coaching list shows a Coach tag")
+eli_pick = eli.get("/practices/%d" % pid).get_data(as_text=True)
+ok(badge_pages.count('class="st st-ok coach-elig">Coach eligible') >= 3 and 'class="st st-ok coach-elig"' not in jane.get("/practices").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) in eli_pick and 'class="st st-ok coach-elig">Coach eligible' in eli_pick and 'class="st st-ok coach-elig">Coach eligible' in riley_row and "class=coach-tag>Coach<" in riley_row and "Active coach" not in riley_row, "Coach eligible shows on home, check-in, and People, and the coaching list shows a Coach tag")
 filt = eli.get("/members?coach=eligible").get_data(as_text=True)
 ok("Riley Quinn" in filt and ">Coach eligible<" in filt and 'class="st st-ok coach-elig">Coach eligible' in filt and ">Coaches</a>" in eli.get("/members").get_data(as_text=True), "People has Coaches and Coach eligible sections")
 D.execute("UPDATE members SET usawp_valid_until=? WHERE id=?", (today, riley_id)); D.commit()
@@ -802,9 +804,9 @@ D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SEL
 ok('coach-elig">Coach eligible' not in riley.get("/home").get_data(as_text=True) and ("Coach eligibility expired " + past) in eli.get("/admin").get_data(as_text=True), "an expired SafeSport date shows Coach eligibility expired on check-in")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SELECT id FROM requirements WHERE keywords LIKE '%safesport%' LIMIT 1)", (future, riley_id)); D.commit()
 answer(True, membership_type="Athlete")
-ok(not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and 'class="st st-ok coach-elig"' not in riley.get("/home").get_data(as_text=True) and 'class="st st-bad coach-elig"' not in riley.get("/home").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) not in eli.get("/practices").get_data(as_text=True), "a verified athlete membership removes the USAWP coaching-list row")
+ok(not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and 'class="st st-ok coach-elig"' not in riley.get("/home").get_data(as_text=True) and 'class="st st-bad coach-elig"' not in riley.get("/home").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) not in eli.get("/practices/%d" % pid).get_data(as_text=True), "a verified athlete membership removes the USAWP coaching-list row")
 list_act(riley_id, "add_coaching")
-ok(('name=coach value="%d"' % riley_id) in eli.get("/practices").get_data(as_text=True) and 'class="st st-ok coach-elig"' not in riley.get("/home").get_data(as_text=True) and 'class="st st-bad coach-elig"' not in riley.get("/home").get_data(as_text=True) and 'class="st st-ok coach-elig"' not in eli.get("/admins").get_data(as_text=True) and riley.get("/chat?c=coaches").status_code == 403, "a manual add is on the picker with no badge and no coach access")
+ok(('name=coach value="%d"' % riley_id) in eli.get("/practices/%d" % pid).get_data(as_text=True) and 'class="st st-ok coach-elig"' not in riley.get("/home").get_data(as_text=True) and 'class="st st-bad coach-elig"' not in riley.get("/home").get_data(as_text=True) and 'class="st st-ok coach-elig"' not in eli.get("/admins").get_data(as_text=True) and riley.get("/chat?c=coaches").status_code == 403, "a manual add is on the picker with no badge and no coach access")
 answer(True, member_number="424242")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "manual", "a verification with no membership type leaves the coaching list alone")
 import io
@@ -815,7 +817,7 @@ coach_csv = ("First Name,Last Name,Email,Status,Valid Until,Member Type\nRiley,Q
 eli.post("/import", data=dict(csrf=csrf(eli, "/transfer"), file=(io.BytesIO(coach_csv), "t.csv")), content_type="multipart/form-data")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "usawp" and D.execute("SELECT membership_type FROM members WHERE id=?", (riley_id,)).fetchone()[0] == "Head Coach" and 'coach-elig">Coach eligible' in riley.get("/home").get_data(as_text=True), "a coach membership import adds the USAWP coaching-list row and the badge")
 list_act(riley_id, "remove_coaching")
-ok(not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and ('name=coach value="%d"' % riley_id) not in eli.get("/practices").get_data(as_text=True), "an admin can remove a USAWP coach from the coaching list")
+ok(not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and ('name=coach value="%d"' % riley_id) not in eli.get("/practices/%d" % pid).get_data(as_text=True), "an admin can remove a USAWP coach from the coaching list")
 answer(True, membership_type="Individual Membership, Coach")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "usawp" and riley.get("/admin").status_code == 403, "the next coach verification puts them back on the list without coach access")
 una = A.app.test_client(); join(una, "Una", "Noverified", "una.noverified@example.com")
@@ -828,7 +830,7 @@ list_act(una_id, "remove_admin"); list_act(una_id, "remove_coach")
 ok(D.execute("SELECT role, is_admin, usawp_status FROM members WHERE id=?", (una_id,)).fetchone() == ("athlete", 0, "unknown") and una.get("/admin").status_code == 403 and una.get("/chat?c=coaches").status_code == 403, "Remove admin and Remove coach do not depend on USAWP status")
 ned = A.app.test_client(); join(ned, "Ned", "List", "ned.list@example.com")
 D.commit(); ned_id = D.execute("SELECT id FROM members WHERE email='ned.list@example.com'").fetchone()[0]
-ok("Add to coaches" in eli.get("/members").get_data(as_text=True) and "Make active coach" in eli.get("/members?view=coaches").get_data(as_text=True) and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices").get_data(as_text=True) and ned.post("/members", data=dict(csrf=csrf(ned, "/home"), member_id=ned_id, action="make_coach")).status_code == 403, "People offers Add to coaches, and that person is not assignable yet")
+ok("Add to coaches" in eli.get("/members").get_data(as_text=True) and "Make active coach" in eli.get("/members?view=coaches").get_data(as_text=True) and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices/%d" % pid).get_data(as_text=True) and ned.post("/members", data=dict(csrf=csrf(ned, "/home"), member_id=ned_id, action="make_coach")).status_code == 403, "People offers Add to coaches, and that person is not assignable yet")
 made = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ned_id, action="make_coach"), follow_redirects=True).get_data(as_text=True)
 ned_at = made.find("ned.list@example.com")
 ned_li = made.rfind("<div class=li", 0, ned_at)
@@ -836,7 +838,7 @@ ned_row = made[ned_li:made.find("<div class=li", ned_at)]
 ned_menu = made[ned_li:ned_at]
 eli_at = made.find("eli@example.com")
 eli_row = made[made.rfind("<div class=li", 0, eli_at):made.find("<div class=li", eli_at)]
-ok('class="toast noprint" role=status>Ned List is now an active coach.' in made and D.execute("SELECT role FROM members WHERE id=?", (ned_id,)).fetchone()[0] == "coach" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ned_id,)).fetchone() and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices").get_data(as_text=True) and "Active coach" in ned_row and "Remove active coach" in eli.get("/members?view=coaches").get_data(as_text=True) and ("name=coach value=\"%d\"" % eli_id) in eli.get("/practices").get_data(as_text=True) and ned.get("/chat?c=coaches").status_code == 200 and ned.get("/admin").status_code == 200, "Make active coach grants access without the coaching list")
+ok('class="toast noprint" role=status>Ned List is now an active coach.' in made and D.execute("SELECT role FROM members WHERE id=?", (ned_id,)).fetchone()[0] == "coach" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ned_id,)).fetchone() and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices/%d" % pid).get_data(as_text=True) and "Active coach" in ned_row and "Remove active coach" in eli.get("/members?view=coaches").get_data(as_text=True) and ("name=coach value=\"%d\"" % eli_id) in eli.get("/practices/%d" % pid).get_data(as_text=True) and ned.get("/chat?c=coaches").status_code == 200 and ned.get("/admin").status_code == 200, "Make active coach grants access without the coaching list")
 
 # assigned coaches in the practices CSV and the Google Sheet tabs
 D.execute("INSERT INTO coaching_list(member_id, source, at) VALUES(?, 'manual', '2026-10-01') ON CONFLICT(member_id) DO UPDATE SET source='manual'", (eli_id,))
@@ -1129,10 +1131,10 @@ D.execute("INSERT INTO checkins(member_id,practice_date,location) VALUES(?,?,?)"
 sched_j = jane.get("/practices").get_data(as_text=True)
 sched_e = eli.get("/practices").get_data(as_text=True)
 card_e = sched_e.split("id=p%d " % dpid, 1)[1].split("id=p")[0]
-ok(('href="/practices/%d"' % dpid) in sched_j and "Edit practice" not in card_e.split("Assign coaches")[0] and "Assign coaches" in card_e and "Send cancellation" in card_e and "Check in" in card_e and "Duplicate practice" in card_e and "Copy link" in card_e and "Delete practice" in card_e and ("/admin?date=%s" % pday) in card_e and ('data-copy="' in card_e) and ("/practices/%d" % dpid) in card_e and card_e.find(" going</a>") < card_e.find("aria-label=\"More for"), "the schedule card opens the practice, with the count beside the admin More menu")
+ok(('href="/practices/%d"' % dpid) in sched_j and " going</a>" in card_e and "class=morebtn" not in card_e and "Assign coaches" not in card_e and "Delete practice" not in card_e and "class=morebtn" not in sched_e and "class=morebtn" not in sched_j, "a schedule card keeps the going count and has no More menu for anyone")
 page_j = jane.get("/practices/%d" % dpid).get_data(as_text=True)
 page_e = eli.get("/practices/%d" % dpid).get_data(as_text=True)
-ok(jane.get("/practices/999999").status_code == 404 and "Detail Pool" in page_j and "Bring caps" in page_j and "Jay Doe" in page_j and "Eli Joern" in page_j and "Checked in" in page_j and "Can't make it" in page_j and "maps.google.com/maps?q=" in page_j and "Detail" in page_j and ">Directions</a>" in page_j and "Scheduled" in page_j and ">Edit</a>" not in page_j and "Assign coaches" not in page_j and "No assigned coach is coach-eligible" not in page_j and "No assigned coach is coach-eligible" in page_e and ">Edit</a>" in page_e, "the practice page shows who's coming, the map, and an admin-only edit button and coach warning")
+ok(jane.get("/practices/999999").status_code == 404 and "Detail Pool" in page_j and "Bring caps" in page_j and "Jay Doe" in page_j and "Eli Joern" in page_j and "Checked in" in page_j and "Can't make it" in page_j and "maps.google.com/maps?q=" in page_j and "Detail" in page_j and ">Directions</a>" in page_j and "Scheduled" in page_j and ">Edit</a>" not in page_j and "Assign coaches" not in page_j and "class=morebtn" not in page_j and "No assigned coach is coach-eligible" not in page_j and "No assigned coach is coach-eligible" in page_e and ">Edit</a>" in page_e and "class=morebtn" in page_e and "Assign coaches" in page_e and "Delete practice" in page_e, "the practice page shows who's coming, the map, and an admin-only edit button, More menu, and coach warning")
 editp = eli.get("/practices/%d?edit=1" % dpid).get_data(as_text=True)
 ok('name=date' in editp and 'name=start' in editp and 'name=location' in editp and "name=note" in editp and ">Save</button>" in editp and ">Cancel</a>" in editp and 'name=date' not in jane.get("/practices/%d?edit=1" % dpid).get_data(as_text=True), "admins edit the practice on the page, and members stay in read mode")
 eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="edit", back="page", date=pday, start="18:30", end="20:00", location="Detail Pool", note="Caps and fins"))
@@ -1182,7 +1184,9 @@ card_s = sched_s.split("id=p%d " % nid, 1)[1].split("id=p")[0]
 home_s = jane.get("/home").get_data(as_text=True)
 pat_card = pat.get("/practices").get_data(as_text=True).split("id=p%d " % nid, 1)[1].split("id=p")[0]
 eli_card = eli.get("/practices").get_data(as_text=True).split("id=p%d " % nid, 1)[1].split("id=p")[0]
-ok((line + " · 8:30pm") in page_s and "Cash bar" in page_s and 'href="https://maps.example/harp"' in page_s and line in card_s and "Cash bar" not in card_s and "Bring dark caps" in card_s and noted[0] == "Pat Host" and stamp in card_s and line in home_s and "Bring dark caps" in home_s and stamp in home_s and "After-practice social" in pat_card and "Coach message" in pat_card and "Delete practice" not in pat_card and "After-practice social" in eli_card and "Delete practice" in eli_card and "name=date" not in pat.get("/practices/%d?edit=1" % nid).get_data(as_text=True), "a social and a coach message show on the practice, the schedule, and home, and a coach gets only those menu items")
+pat_page = pat.get("/practices/%d" % nid).get_data(as_text=True)
+eli_page = eli.get("/practices/%d" % nid).get_data(as_text=True)
+ok((line + " · 8:30pm") in page_s and "Cash bar" in page_s and 'href="https://maps.example/harp"' in page_s and line in card_s and "Cash bar" not in card_s and "Bring dark caps" in card_s and noted[0] == "Pat Host" and stamp in card_s and line in home_s and "Bring dark caps" in home_s and stamp in home_s and "class=morebtn" not in pat_card and "class=morebtn" not in eli_card and "After-practice social" in pat_page and "Coach message" in pat_page and "Delete practice" not in pat_page and "After-practice social" in eli_page and "Delete practice" in eli_page and "name=date" not in pat.get("/practices/%d?edit=1" % nid).get_data(as_text=True), "a social and a coach message show on the practice, the schedule, and home, and a coach gets only those menu items on the practice page")
 jane.post("/practices", data=dict(csrf=csrf(jane, "/home"), pid=nid, action="notgoing"))
 ok(">I'm not going ✓<" in jane.get("/home").get_data(as_text=True) and ">Can't make it ✓<" in jane.get("/practices/%d" % nid).get_data(as_text=True) and ">Not going ✓<" in jane.get("/practices").get_data(as_text=True).split("id=p%d " % nid, 1)[1].split("id=p")[0], "I'm not going on home is the same RSVP as the practice page and the schedule")
 jane.post("/practices/%d" % nid, data=dict(csrf=csrf(jane, "/practices/%d" % nid), pid=nid, action="going", back="page"))

@@ -618,7 +618,7 @@ T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">T
 {% if p.note %}<div class="t3 sm">{{p.note}}</div>{% endif %}
 {% if social_line(p) %}<div class="sm">{{ social_line(p) }}</div>{% endif %}
 {% if p.coach_note %}<div class="sm">{{ p.coach_note }} <span class=t3>· {{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</span></div>{% endif %}</a>
-<div style="display:flex;align-items:center;gap:4px;flex:none"><a class="goingcount t2 sm" href="/practices/{{p.id}}">{{x.going|length}} going</a>{% if me().is_admin %}{{ practice_more(p, x.coach_ids, 'schedule') }}{% elif is_staff() %}{{ practice_host_more(p, 'schedule') }}{% endif %}</div></div>
+<div style="display:flex;align-items:center;gap:4px;flex:none"><a class="goingcount t2 sm" href="/practices/{{p.id}}">{{x.going|length}} going</a></div></div>
 {% if not p.cancelled %}<form method=post action="/practices/{{p.id}}" class=row style="margin-top:14px">{{csrf_field()}}<input type=hidden name=pid value={{p.id}}><input type=hidden name=back value=schedule>
 {% if x.mine == 1 %}<button name=action value=clear>Going ✓</button>{% else %}<button class=primary name=action value=going>Going</button>{% endif %}
 {% if x.mine == 0 %}<button name=action value=clear>Not going ✓</button>{% else %}<button class=quiet name=action value=notgoing style="flex:0 0 auto">Can't make it</button>{% endif %}</form>
