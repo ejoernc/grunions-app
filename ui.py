@@ -513,18 +513,34 @@ T["home"] = """{% if pins %}
   bounds.push([p.lat,p.lng]);
  });
  function place(){
+  if(!el.clientHeight) return;
   var dock=document.querySelector('.homedock');
-  var cover=dock?Math.ceil(dock.getBoundingClientRect().height)+28:280;
+  var cover=dock?Math.ceil(dock.getBoundingClientRect().height)+16:280;
   var pool=null;
   pins.forEach(function(p){ if(p.kind==='pool') pool=p; });
   if(!pool && pins.length) pool=pins[0];
-  if(bounds.length>1) map.fitBounds(bounds,{paddingTopLeft:[40,88],paddingBottomRight:[40,cover],maxZoom:14});
-  else if(bounds.length) map.setView(bounds[0],15);
-  if(!pool || !el.clientHeight) return;
-  var pt=map.latLngToContainerPoint([pool.lat, pool.lng]);
-  var openBottom=el.clientHeight-cover;
-  var target=Math.max(110, openBottom*0.46);
-  if(pt.y>openBottom-12) map.panBy([0, pt.y-target],{animate:false});
+  if(!pool) return;
+  var regional=12;
+  var top=el.getBoundingClientRect().top;
+  var openBottom=el.clientHeight-cover-8;
+  var desired=window.innerHeight*0.35-top;
+  if(desired>openBottom-24) desired=Math.max(80, openBottom*0.45);
+  function frame(z){
+    map.setView([pool.lat, pool.lng], z, {animate:false});
+    var pt=map.latLngToContainerPoint([pool.lat, pool.lng]);
+    map.panBy([0, pt.y-desired], {animate:false});
+  }
+  function fits(){
+    var pad=24, head=72;
+    for(var i=0;i<bounds.length;i++){
+      var q=map.latLngToContainerPoint(bounds[i]);
+      if(q.x<pad||q.y<head||q.x>el.clientWidth-pad||q.y>openBottom) return false;
+    }
+    return true;
+  }
+  var z=regional;
+  frame(z);
+  if(bounds.length>1){ while(z>8 && !fits()){ z-=1; frame(z); } }
  }
  setTimeout(function(){map.invalidateSize();place();},0);
  setTimeout(function(){map.invalidateSize();place();},250);
