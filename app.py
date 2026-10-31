@@ -813,24 +813,7 @@ def home():
         sync_practice_sheets(d)
         flash("Sent to Grunions for verification", "toast")
         return redirect("/home")
-    hist = d.execute("SELECT practice_date, location FROM checkins WHERE member_id=? ORDER BY practice_date DESC", (m["id"],)).fetchall()
-    month = today_pt().strftime("%Y-%m")
-    ensure_schedule(d)
-    nextp = d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where() + " ORDER BY date, start LIMIT 1", upcoming_bounds()).fetchone()
-    if nextp: nextp = ensure_map_coords(d, nextp)
-    nextp_n = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (nextp["id"],)).fetchone()[0] if nextp else 0
-    nextp_mine = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (nextp["id"], m["id"])).fetchone() if nextp else None
-    nextp_mine = nextp_mine[0] if nextp_mine else None
-    next_rows = practice_coach_rows(d, [nextp["id"]]).get(nextp["id"], []) if nextp else []
-    next_coaches = ", ".join(coach_labels(next_rows))
-    nextp = hide_coaching_plan(nextp)
-    next_joined = bool(nextp and d.execute("SELECT 1 FROM social_joins WHERE practice_id=? AND member_id=?", (nextp["id"], m["id"])).fetchone())
-    notices = d.execute("SELECT * FROM notices WHERE member_id=? AND seen=0 ORDER BY id DESC", (m["id"],)).fetchall()
-    d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (m["id"],)); d.commit()
-    ann = d.execute("SELECT m.*, p.first, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id WHERE announcement=1 AND channel='team' AND COALESCE(m.deleted,0)=0 ORDER BY m.id DESC LIMIT 1").fetchone()
-    vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
-    pins = map_pins(nextp)
-    return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined, vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins)
+    return combined_view("home")
 
 @app.route("/profile", methods=["GET", "POST"])
 @login_required
@@ -1654,19 +1637,48 @@ def practice_bundle(d, p):
                 checked=practice_people(checked), mine=mine, coach_ids={c["id"] for c in coaches}, coach_names=coach_labels(raw_coaches),
                 coaches=coaches, social_n=social_n, lead_id=next((c["id"] for c in raw_coaches if row_lead(c)), None),
                 focuses={c["id"]: (c["focus"] or "") for c in coaches})
+def upcoming_schedule(d, skip_id=None):
+    """Schedule cards after the featured next practice. The featured one stays in the home card."""
+    ps = d.execute("SELECT * FROM practices WHERE " + upcoming_where() + " ORDER BY date, start LIMIT 16", upcoming_bounds()).fetchall()
+    unseen = unread_for_me()["practices"]
+    data = []
+    for p in ps:
+        if skip_id and p["id"] == skip_id: continue
+        row = practice_bundle(d, p)
+        row["unseen"] = unseen.get(str(p["id"]), 0)
+        data.append(row)
+    return data
+def combined_view(entry):
+    """Home and Schedule are one scrolling page. Schedule opens it already scrolled."""
+    m = me(); d = db()
+    hist = d.execute("SELECT practice_date, location FROM checkins WHERE member_id=? ORDER BY practice_date DESC", (m["id"],)).fetchall()
+    month = today_pt().strftime("%Y-%m")
+    ensure_schedule(d)
+    nextp = d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where() + " ORDER BY date, start LIMIT 1", upcoming_bounds()).fetchone()
+    if nextp: nextp = ensure_map_coords(d, nextp)
+    nextp_n = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (nextp["id"],)).fetchone()[0] if nextp else 0
+    nextp_mine = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (nextp["id"], m["id"])).fetchone() if nextp else None
+    nextp_mine = nextp_mine[0] if nextp_mine else None
+    next_rows = practice_coach_rows(d, [nextp["id"]]).get(nextp["id"], []) if nextp else []
+    next_coaches = ", ".join(coach_labels(next_rows))
+    nextp = hide_coaching_plan(nextp)
+    next_joined = bool(nextp and d.execute("SELECT 1 FROM social_joins WHERE practice_id=? AND member_id=?", (nextp["id"], m["id"])).fetchone())
+    notices = d.execute("SELECT * FROM notices WHERE member_id=? AND seen=0 ORDER BY id DESC", (m["id"],)).fetchall()
+    d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (m["id"],)); d.commit()
+    ann = d.execute("SELECT m.*, p.first, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id WHERE announcement=1 AND channel='team' AND COALESCE(m.deleted,0)=0 ORDER BY m.id DESC LIMIT 1").fetchone()
+    vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
+    pins = map_pins(nextp)
+    data = upcoming_schedule(d)
+    return page(T["home"], tab="practices" if entry == "practices" else "home",
+        m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices,
+        nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined,
+        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, data=data)
 @app.route("/practices", methods=["GET", "POST"])
 @login_required
 def practices():
     d = db(); ensure_schedule(d)
     if request.method == "POST": return handle_practice_post(d)
-    ps = d.execute("SELECT * FROM practices WHERE " + upcoming_where() + " ORDER BY date, start LIMIT 16", upcoming_bounds()).fetchall()
-    unseen = unread_for_me()["practices"]
-    data = []
-    for p in ps:
-        row = practice_bundle(d, p)
-        row["unseen"] = unseen.get(str(p["id"]), 0)
-        data.append(row)
-    return page(T["practices"], tab="practices", data=data, coach_choices=coach_candidates(d))
+    return combined_view("practices")
 @app.route("/practices/<int:pid>", methods=["GET", "POST"])
 @login_required
 def practice_page(pid):
@@ -3012,7 +3024,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-19 */
+SW_JS = """/* grunions-sw-20 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

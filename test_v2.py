@@ -124,13 +124,13 @@ def test_preferred_first_display_and_legal_verify():
     blank = A.app.test_client()
     blank.post("/join", data=dict(csrf=csrf(blank, "/join"), first="Zoe", last="Blank", email="zoe@example.com", phone="1", preferred_first="   "))
     assert sqlite3.connect(A.DB).execute("SELECT preferred_first FROM members WHERE email='zoe@example.com'").fetchone()[0] is None
-    assert "<h1>Hi, Zoe</h1>" in blank.get("/home").get_data(as_text=True)
+    assert "Hi, Zoe</h1>" in blank.get("/home").get_data(as_text=True)
     c = A.app.test_client()
     c.post("/join", data=dict(csrf=csrf(c, "/join"), first="Samuel", last="River", email="samuel@example.com", phone="1", preferred_first="  Sam  "), follow_redirects=True)
     assert sqlite3.connect(A.DB).execute("SELECT first, preferred_first FROM members WHERE email='samuel@example.com'").fetchone() == ("Samuel", "Sam")
     home = c.get("/home").get_data(as_text=True)
     prof = c.get("/profile").get_data(as_text=True)
-    assert "<h1>Hi, Sam</h1>" in home and "Samuel River" in prof and 'value="Sam"' in prof
+    assert "Hi, Sam</h1>" in home and "Samuel River" in prof and 'value="Sam"' in prof
     c.post("/api/messages", json={"body": "hey team"}, headers={"X-CSRF": csrf(c, "/chat")})
     assert c.get("/api/messages").get_json()[-1]["who"].startswith("Sam ")
     boss.post("/home", data=dict(csrf=csrf(boss, "/home"), action="preferred", preferred_first="Chief"))
@@ -179,4 +179,4 @@ def test_preferred_first_display_and_legal_verify():
     assert sqlite3.connect(A.DB).execute("SELECT first, preferred_first FROM members WHERE email='samuel@example.com'").fetchone() == ("Samuel", "Samwell")
     c.post("/home", data=dict(csrf=csrf(c, "/home"), action="preferred", preferred_first="   "))
     assert sqlite3.connect(A.DB).execute("SELECT preferred_first FROM members WHERE id=?", (mid,)).fetchone()[0] is None
-    assert "<h1>Hi, Samuel</h1>" in c.get("/home").get_data(as_text=True)
+    assert "Hi, Samuel</h1>" in c.get("/home").get_data(as_text=True)
