@@ -663,7 +663,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=10" in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=11" in chui, "chat page has the press-and-hold action sheet")
 tj = csrf(jane, "/chat"); te = csrf(eli, "/chat"); tjohn = csrf(john, "/chat")
 ok(jane.post("/api/messages", json={"body": "Edit me please"}, headers={"X-CSRF": tj}).status_code == 200, "author can post a message to edit")
 mid = [m for m in jane.get("/api/messages").get_json() if m["body"] == "Edit me please"][-1]["id"]
@@ -806,7 +806,7 @@ bare.execute("INSERT INTO practice_coaches(practice_id, member_id) VALUES(1, 1)"
 A.migrate_practice_coaches(bare)
 still = bare.execute("SELECT member_id FROM practice_coaches").fetchone()[0]
 bare.close(); os.remove(barep)
-ok(ccols == ["practice_id", "member_id"] and "membership_type" in mcols and clist and kept == "Kept" and grew == ["practice_id", "member_id"] and still == 1, "an existing database gains the coaching list, membership type, and practice coaches without dropping rows")
+ok(ccols == ["practice_id", "member_id"] and "membership_type" in mcols and clist and kept == "Kept" and grew == ["practice_id", "member_id", "is_lead", "focus"] and still == 1, "an existing database gains the coaching list, membership type, practice coaches, and the lead and focus columns without dropping rows")
 
 # USAWP coach membership fills the coaching list and can show the badge
 riley = A.app.test_client(); join(riley, "Riley", "Quinn", "riley@example.com")
@@ -1210,6 +1210,33 @@ ok('name=date' in editp and 'name=start' in editp and 'name=location' in editp a
 eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="edit", back="page", date=pday, start="18:30", end="20:00", location="Detail Pool", note="Caps and fins"))
 saved = D.execute("SELECT start, note FROM practices WHERE id=?", (dpid,)).fetchone()
 ok(saved == ("18:30", "Caps and fins") and "Caps and fins" in eli.get("/practices/%d" % dpid).get_data(as_text=True) and jane.post("/practices/%d" % dpid, data=dict(csrf=csrf(jane, "/home"), pid=dpid, action="edit", date=pday, start="18:30", end="20:00", location="Detail Pool", note="nope")).status_code == 403, "saving the practice page stores the new time and note")
+dean = A.app.test_client(); join(dean, "Dean", "Lead", "dean.lead@example.com")
+dean_id = D.execute("SELECT id FROM members WHERE email='dean.lead@example.com'").fetchone()[0]
+D.execute("UPDATE members SET role='coach', is_admin=0 WHERE id=?", (dean_id,)); D.commit()
+list_act(dean_id, "add_coaching"); list_act(eli_id, "add_coaching")
+plan_day = (A.today_pt() + dt.timedelta(days=11)).isoformat()
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=plan_day, start="19:00", end="20:30", location="Plan Pool"))
+ppid = D.execute("SELECT id FROM practices WHERE location='Plan Pool'").fetchone()[0]
+secret = "Secret drill\nfor goalies"
+eli.post("/practices/%d" % ppid, data={"csrf": csrf(eli, "/practices/%d" % ppid), "pid": ppid, "action": "edit", "back": "page", "date": plan_day, "start": "19:00", "end": "20:30", "location": "Plan Pool", "note": "", "coach": [str(dean_id), str(eli_id)], "lead": str(dean_id), "plan_fields": "1", "coaching_plan": secret, "focus-%d" % dean_id: "Beginners", "focus-%d" % eli_id: "Goalies"})
+plan_card = jane.get("/practices").get_data(as_text=True).split("id=p%d " % ppid, 1)[1].split("id=p")[0]
+plan_home = jane.get("/home").get_data(as_text=True)
+plan_mem = jane.get("/practices/%d" % ppid).get_data(as_text=True)
+plan_adm = eli.get("/practices/%d" % ppid).get_data(as_text=True)
+plan_coa = dean.get("/practices/%d" % ppid).get_data(as_text=True)
+plan_edit = dean.get("/practices/%d?edit=1" % ppid).get_data(as_text=True)
+ok("Coaches: Dean (lead), Eli" in plan_card and "Secret drill" not in plan_card and "Beginners" not in plan_card and "Secret drill" not in plan_home and "for goalies" not in plan_home and ">Lead</span>" in plan_mem and "Today's plan" not in plan_mem and "Coaches only" not in plan_mem and "Secret drill" not in plan_mem and "Beginners" not in plan_mem and "Goalies" not in plan_mem and "Today's plan" in plan_adm and "Coaches only" in plan_adm and "Secret drill" in plan_adm and "for goalies" in plan_adm and plan_adm.count("Beginners") >= 2 and "Goalies" in plan_adm and ">Lead</span>" in plan_coa and plan_coa.count("Beginners") >= 2 and "name=date" not in plan_edit and "Today's plan" in plan_edit and "name=coaching_plan" in plan_edit, "the lead shows for everyone, and the plan and focus groups stay with coaches")
+ok(jane.post("/practices/%d" % ppid, data={"csrf": csrf(jane, "/home"), "pid": ppid, "action": "plan", "coaching_plan": "stolen", "lead": str(eli_id), "focus-%d" % dean_id: "Nope"}).status_code == 403 and D.execute("SELECT coaching_plan FROM practices WHERE id=?", (ppid,)).fetchone()[0] == secret and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? AND is_lead=1", (ppid,)).fetchone()[0] == dean_id, "a member cannot save or read the coaching plan")
+dean.post("/practices/%d" % ppid, data={"csrf": csrf(dean, "/practices/%d" % ppid), "pid": ppid, "action": "plan", "back": "page", "coaching_plan": "Updated drill\nline two", "lead": str(eli_id), "focus-%d" % eli_id: "Advanced", "focus-%d" % dean_id: "Goalies"})
+moved = dean.get("/practices").get_data(as_text=True).split("id=p%d " % ppid, 1)[1].split("id=p")[0]
+moved_mem = jane.get("/practices/%d" % ppid).get_data(as_text=True)
+ok("Coaches: Eli (lead), Dean" in moved and "Updated drill" not in moved and D.execute("SELECT coaching_plan FROM practices WHERE id=?", (ppid,)).fetchone()[0] == "Updated drill\nline two" and D.execute("SELECT focus FROM practice_coaches WHERE practice_id=? AND member_id=?", (ppid, eli_id)).fetchone()[0] == "Advanced" and "Advanced" in eli.get("/practices/%d" % ppid).get_data(as_text=True) and "Updated drill" not in moved_mem and "Advanced" not in moved_mem and ">Lead</span>" in moved_mem, "a coach can change the lead, the plan, and a focus group")
+eli.post("/practices/%d" % ppid, data=dict(csrf=csrf(eli, "/practices/%d" % ppid), pid=ppid, action="duplicate", back="page"))
+copy_plan = (dt.date.fromisoformat(plan_day) + dt.timedelta(days=7)).isoformat()
+copy_plan_id = D.execute("SELECT id FROM practices WHERE date=? AND location='Plan Pool'", (copy_plan,)).fetchone()[0]
+ok(D.execute("SELECT coaching_plan FROM practices WHERE id=?", (copy_plan_id,)).fetchone()[0] == "Updated drill\nline two" and D.execute("SELECT member_id, focus FROM practice_coaches WHERE practice_id=? AND is_lead=1", (copy_plan_id,)).fetchone() == (eli_id, "Advanced"), "duplicating a practice copies the plan, the lead, and the focus group")
+eli.post("/practices/%d" % copy_plan_id, data=dict(csrf=csrf(eli, "/practices/%d" % copy_plan_id), pid=copy_plan_id, action="delete"))
+eli.post("/practices/%d" % ppid, data=dict(csrf=csrf(eli, "/practices/%d" % ppid), pid=ppid, action="delete"))
 emails.clear(); pushes.clear()
 eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="cancel", reason="Pool closed", back="page"))
 cancelled = eli.get("/practices/%d" % dpid).get_data(as_text=True)

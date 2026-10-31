@@ -140,7 +140,7 @@ def migrate_practices(d):
                  ("social_address", "TEXT"), ("social_time", "TEXT"), ("social_note", "TEXT"),
                  ("coach_note", "TEXT"), ("coach_note_by", "TEXT"), ("coach_note_at", "TEXT"),
                  ("image", "TEXT"), ("lat", "REAL"), ("lng", "REAL"), ("social_lat", "REAL"), ("social_lng", "REAL"),
-                 ("address", "TEXT")):
+                 ("address", "TEXT"), ("coaching_plan", "TEXT")):
         if c not in cols:
             d.execute("ALTER TABLE practices ADD COLUMN %s %s" % (c, t))
     migrate_social_kinds(d)
@@ -153,6 +153,11 @@ def migrate_practice_coaches(d):
     """Create practice coach assignments on an older database under DATA_DIR. Existing rows stay."""
     d.execute("""CREATE TABLE IF NOT EXISTS practice_coaches(
         practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id))""")
+    cols = [r[1] for r in d.execute("PRAGMA table_info(practice_coaches)")]
+    if "is_lead" not in cols:
+        d.execute("ALTER TABLE practice_coaches ADD COLUMN is_lead INTEGER NOT NULL DEFAULT 0")
+    if "focus" not in cols:
+        d.execute("ALTER TABLE practice_coaches ADD COLUMN focus TEXT")
 def migrate_members(d):
     """Add columns missing from a database created by an older version (production SQLite on /data)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
@@ -598,7 +603,7 @@ def on_coaching_list(member):
     try: mid = member["id"]
     except (TypeError, KeyError, IndexError): return False
     return db().execute("SELECT 1 FROM coaching_list WHERE member_id=?", (mid,)).fetchone() is not None
-app.jinja_env.globals.update(is_staff=is_staff, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m), referee_eligibility=lambda m: referee_eligibility(db(), m), credential_dates=credential_dates, coach_row_expiry=lambda m: coach_row_expiry(db(), m), fmt_long=fmt_long, fmt_when=fmt_when, date_dot=date_dot, panel_status=panel_status, on_coaching_list=on_coaching_list)
+app.jinja_env.globals.update(is_staff=is_staff, can_host_practice=can_host_practice, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m), referee_eligibility=lambda m: referee_eligibility(db(), m), credential_dates=credential_dates, coach_row_expiry=lambda m: coach_row_expiry(db(), m), fmt_long=fmt_long, fmt_when=fmt_when, date_dot=date_dot, panel_status=panel_status, on_coaching_list=on_coaching_list)
 def staff_required(f):
     @functools.wraps(f)
     def w(*a, **k):
@@ -814,6 +819,7 @@ def home():
     nextp_mine = nextp_mine[0] if nextp_mine else None
     next_rows = practice_coach_rows(d, [nextp["id"]]).get(nextp["id"], []) if nextp else []
     next_coaches = ", ".join(coach_labels(next_rows))
+    nextp = hide_coaching_plan(nextp)
     next_joined = bool(nextp and d.execute("SELECT 1 FROM social_joins WHERE practice_id=? AND member_id=?", (nextp["id"], m["id"])).fetchone())
     notices = d.execute("SELECT * FROM notices WHERE member_id=? AND seen=0 ORDER BY id DESC", (m["id"],)).fetchall()
     d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (m["id"],)); d.commit()
@@ -1430,37 +1436,87 @@ def coach_candidates(d):
         WHERE COALESCE(m.role,'')!='system'
           AND m.id IN (SELECT member_id FROM coaching_list)
         ORDER BY lower(CASE WHEN trim(COALESCE(m.preferred_first,''))!='' THEN m.preferred_first ELSE m.first END), lower(m.last), m.id""").fetchall()
+def row_lead(r):
+    try: return 1 if int(r["is_lead"] or 0) else 0
+    except (KeyError, IndexError, TypeError, ValueError): return 0
 def coach_labels(rows):
-    """First names for the schedule, A–Z. A shared first name keeps the last initial."""
-    rows = sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
+    """First names for the schedule. The lead coach is first, then A–Z. A shared first name keeps the last initial."""
+    rows = sorted(rows, key=lambda r: (0 if row_lead(r) else 1, display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
     folded = [display_first(r).casefold() for r in rows]
     out = []
     for r, fold in zip(rows, folded):
         name = display_first(r)
         if folded.count(fold) > 1 and r["last"]: name = "%s %s." % (name, r["last"][:1])
+        if row_lead(r): name += " (lead)"
         out.append(name)
     return out
 def practice_coach_rows(d, pids):
     out = {pid: [] for pid in pids}
     if not pids: return out
     marks = ",".join("?" * len(pids))
-    for r in d.execute("""SELECT pc.practice_id AS pid, m.id, m.first, m.last, m.preferred_first, m.email,
+    for r in d.execute("""SELECT pc.practice_id AS pid, pc.is_lead, pc.focus, m.id, m.first, m.last, m.preferred_first, m.email,
         m.membership_type, m.usawp_status, m.usawp_valid_until
         FROM practice_coaches pc JOIN members m ON m.id=pc.member_id
         WHERE pc.practice_id IN (%s) AND COALESCE(m.role,'')!='system'
           AND m.id IN (SELECT member_id FROM coaching_list)""" % marks, tuple(pids)):
         out[r["pid"]].append(r)
     return out
-def save_practice_coaches(d, pid, raw):
-    """Replace the assigned coaches. Ids outside the coach list are ignored."""
+def clean_focus(text):
+    return " ".join((text or "").split())[:80]
+def clean_plan(text):
+    return (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()[:2000]
+def focus_map_from_form():
+    out = {}
+    for key in request.form:
+        if not str(key).startswith("focus-"): continue
+        try: out[int(str(key).split("-", 1)[1])] = clean_focus(request.form.get(key))
+        except ValueError: continue
+    return out
+def save_coaching_plan(d, pid, text):
+    d.execute("UPDATE practices SET coaching_plan=? WHERE id=?", (clean_plan(text), pid))
+def save_practice_coaches(d, pid, raw, lead=None, focuses=None):
+    """Replace the assigned coaches. Ids outside the coach list are ignored.
+    When focuses is omitted, a coach who stays keeps their lead flag and focus group."""
     allowed = {r["id"] for r in coach_candidates(d)}
     chosen = []
     for x in raw or []:
         try: i = int(x)
         except (TypeError, ValueError): continue
         if i in allowed and i not in chosen: chosen.append(i)
+    prev = {}
+    for r in d.execute("SELECT member_id, is_lead, focus FROM practice_coaches WHERE practice_id=?", (pid,)):
+        prev[r["member_id"]] = (1 if r["is_lead"] else 0, r["focus"] or "")
+    explicit = focuses is not None
+    lead_id = None
+    if explicit and lead:
+        try: lead_id = int(lead)
+        except (TypeError, ValueError): lead_id = None
+        if lead_id not in chosen: lead_id = None
     d.execute("DELETE FROM practice_coaches WHERE practice_id=?", (pid,))
-    if chosen: d.executemany("INSERT INTO practice_coaches(practice_id, member_id) VALUES(?,?)", [(pid, i) for i in chosen])
+    rows = []
+    for i in chosen:
+        if explicit:
+            flag, text = (1 if i == lead_id else 0), clean_focus((focuses or {}).get(i, ""))
+        else:
+            flag, text = prev.get(i, (0, ""))
+        rows.append((pid, i, flag, text))
+    if rows:
+        d.executemany("INSERT INTO practice_coaches(practice_id, member_id, is_lead, focus) VALUES(?,?,?,?)", rows)
+def save_assigned_plan(d, pid, lead, focuses):
+    """Update the lead and focus groups without changing who is assigned."""
+    ids = [r["member_id"] for r in d.execute("SELECT member_id FROM practice_coaches WHERE practice_id=?", (pid,))]
+    try: lead_id = int(lead) if lead else None
+    except (TypeError, ValueError): lead_id = None
+    if lead_id not in ids: lead_id = None
+    for i in ids:
+        d.execute("UPDATE practice_coaches SET is_lead=?, focus=? WHERE practice_id=? AND member_id=?",
+                  (1 if i == lead_id else 0, clean_focus((focuses or {}).get(i, "")), pid, i))
+def hide_coaching_plan(p):
+    """Members do not receive the coaches-only plan, even as an empty field on the row."""
+    if not p or can_host_practice(): return p
+    data = dict(p)
+    data["coaching_plan"] = ""
+    return data
 app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
@@ -1487,6 +1543,10 @@ def handle_practice_post(d):
     elif a == "message" and pid:
         if not can_host_practice(): abort(403)
         save_coach_note(d, pid, request.form.get("message"))
+    elif a == "plan" and pid:
+        if not can_host_practice(): abort(403)
+        save_assigned_plan(d, pid, request.form.get("lead"), focus_map_from_form())
+        save_coaching_plan(d, pid, request.form.get("coaching_plan"))
     elif a == "image" and pid:
         if not can_host_practice(): abort(403)
         try:
@@ -1511,7 +1571,11 @@ def handle_practice_post(d):
             try:
                 moved = (loc or "") != (old["location"] or "")
                 d.execute("UPDATE practices SET date=?, start=?, end=?, location=?, note=?" + (", lat=NULL, lng=NULL" if moved else "") + " WHERE id=?", (date, start, end, loc, note, pid))
-                save_practice_coaches(d, pid, request.form.getlist("coach"))
+                if request.form.get("plan_fields"):
+                    save_practice_coaches(d, pid, request.form.getlist("coach"), lead=request.form.get("lead"), focuses=focus_map_from_form())
+                    save_coaching_plan(d, pid, request.form.get("coaching_plan"))
+                else:
+                    save_practice_coaches(d, pid, request.form.getlist("coach"))
                 if "social_kind" in request.form: save_social(d, pid, request.form)
                 if "message" in request.form: save_coach_note(d, pid, request.form.get("message"))
                 try: apply_practice_image(d, pid)
@@ -1539,12 +1603,14 @@ def handle_practice_post(d):
         src = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
         new_date = (dt.date.fromisoformat(src["date"]) + dt.timedelta(days=7)).isoformat()
         try:
-            cur = d.execute("""INSERT INTO practices(date,start,end,location,address,note,cancelled,social_kind,social_place,social_address,social_time,social_note,image,lat,lng,social_lat,social_lng)
-                VALUES(?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,?)""", (new_date, src["start"], src["end"], src["location"], src["address"], src["note"],
+            cur = d.execute("""INSERT INTO practices(date,start,end,location,address,note,cancelled,social_kind,social_place,social_address,social_time,social_note,image,lat,lng,social_lat,social_lng,coaching_plan)
+                VALUES(?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,?,?)""", (new_date, src["start"], src["end"], src["location"], src["address"], src["note"],
                 src["social_kind"], src["social_place"], src["social_address"], src["social_time"], src["social_note"],
-                src["image"], src["lat"], src["lng"], src["social_lat"], src["social_lng"]))
+                src["image"], src["lat"], src["lng"], src["social_lat"], src["social_lng"], src["coaching_plan"] if "coaching_plan" in src.keys() else ""))
             new_id = cur.lastrowid
-            save_practice_coaches(d, new_id, [r[0] for r in d.execute("SELECT member_id FROM practice_coaches WHERE practice_id=?", (pid,))])
+            copied = d.execute("SELECT member_id, is_lead, focus FROM practice_coaches WHERE practice_id=?", (pid,)).fetchall()
+            lead = next((r["member_id"] for r in copied if r["is_lead"]), None)
+            save_practice_coaches(d, new_id, [r["member_id"] for r in copied], lead=lead, focuses={r["member_id"]: (r["focus"] or "") for r in copied})
             flash("Copied to %s." % fmt_d(new_date))
         except sqlite3.IntegrityError:
             flash("A practice is already on the schedule a week later at that place.")
@@ -1569,13 +1635,21 @@ def practice_bundle(d, p):
     """RSVP lists, check-ins, and assigned coaches for one practice page or card."""
     rv = d.execute("SELECT r.going, m.first, m.last, m.preferred_first, m.id FROM rsvps r JOIN members m ON m.id=r.member_id WHERE practice_id=?", (p["id"],)).fetchall()
     mine = next((r["going"] for r in rv if r["id"] == me()["id"]), None)
-    coaches = practice_coach_rows(d, [p["id"]]).get(p["id"], [])
+    raw_coaches = practice_coach_rows(d, [p["id"]]).get(p["id"], [])
+    host = can_host_practice()
+    coaches = []
+    for c in practice_people(raw_coaches):
+        item = dict(c)
+        if not host: item["focus"] = ""
+        coaches.append(item)
+    shown = hide_coaching_plan(p)
     checked = d.execute("""SELECT m.id, m.first, m.last, m.preferred_first FROM checkins c JOIN members m ON m.id=c.member_id
         WHERE c.practice_date=? AND COALESCE(m.role,'')!='system'""", (p["date"],)).fetchall()
     social_n = d.execute("SELECT COUNT(*) FROM social_joins WHERE practice_id=?", (p["id"],)).fetchone()[0]
-    return dict(p=p, going=practice_people([r for r in rv if r["going"]]), notgoing=practice_people([r for r in rv if not r["going"]]),
-                checked=practice_people(checked), mine=mine, coach_ids={c["id"] for c in coaches}, coach_names=coach_labels(coaches),
-                coaches=practice_people(coaches), social_n=social_n)
+    return dict(p=shown, going=practice_people([r for r in rv if r["going"]]), notgoing=practice_people([r for r in rv if not r["going"]]),
+                checked=practice_people(checked), mine=mine, coach_ids={c["id"] for c in coaches}, coach_names=coach_labels(raw_coaches),
+                coaches=coaches, social_n=social_n, lead_id=next((c["id"] for c in raw_coaches if row_lead(c)), None),
+                focuses={c["id"]: (c["focus"] or "") for c in coaches})
 @app.route("/practices", methods=["GET", "POST"])
 @login_required
 def practices():
@@ -1601,8 +1675,10 @@ def practice_page(pid):
     p = ensure_map_coords(d, p)
     mark_practice_seen(d, me()["id"], pid); d.commit()
     g._unread_mid = None
+    host = can_host_practice()
     editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
-    return page(T["practice"], tab="practice", x=practice_bundle(d, p), editing=editing, pins=map_pins(p), coach_choices=coach_candidates(d) if (me()["is_admin"] or is_staff()) else [])
+    plan_editing = request.args.get("edit") == "1" and host and not me()["is_admin"]
+    return page(T["practice"], tab="practice", x=practice_bundle(d, p), editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [])
 @app.route("/api/unread")
 @login_required
 def api_unread():
@@ -2761,7 +2837,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-10 */
+SW_JS = """/* grunions-sw-11 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
