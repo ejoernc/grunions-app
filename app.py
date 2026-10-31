@@ -1740,8 +1740,11 @@ def members_back():
     view = request.form.get("list_view") or ""
     if request.form.get("list_coach") == "eligible": view = view or "coaches"
     if request.form.get("list_referee") == "eligible": view = view or "referees"
-    if view in ("coaches", "admins", "referees"): return redirect(url_for("members", view=view))
-    return redirect(url_for("members"))
+    q = (request.form.get("q") or "").strip()
+    kwargs = {}
+    if view in ("coaches", "admins", "referees", "expiring", "uncleared"): kwargs["view"] = view
+    if q: kwargs["q"] = q
+    return redirect(url_for("members", **kwargs))
 @app.route("/admin", methods=["GET", "POST"])
 @staff_required
 def admin():
@@ -1923,17 +1926,29 @@ def members():
       (SELECT note FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_note,
       (SELECT going FROM rsvps WHERE member_id=m.id AND practice_id=?) AS going
       FROM members m WHERE COALESCE(role,'')!='system' ORDER BY last, first""", (pr["id"] if pr else -1,)).fetchall()
-    c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
+    q = (request.args.get("q") or "").strip()
     view = request.args.get("view") or "members"
     if request.args.get("coach") == "eligible": view = "coaches"
     if request.args.get("referee") == "eligible": view = "referees"
-    if view not in ("members", "coaches", "admins", "referees"): view = "members"
+    if view not in ("members", "coaches", "admins", "referees", "expiring", "uncleared"): view = "members"
+    if q:
+        needle = q.casefold()
+        rows = [r for r in rows if needle in " ".join(x for x in (r["first"], r["preferred_first"], r["last"], r["email"]) if x).casefold()]
+    if view == "expiring":
+        rep = expiry_report(d)
+        ids = {item["id"] for bucket in rep.values() for item in bucket}
+        rows = [r for r in rows if r["id"] in ids]
+    elif view == "uncleared":
+        rows = [r for r in rows if not clearance(d, r)["ok"]]
+    elif view == "admins":
+        rows = [r for r in rows if r["is_admin"]]
+    c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
     coach_ids = {r["id"] for r in rows if coach_eligibility(d, r)["eligible"]}
     ref_ids = {r["id"] for r in rows if referee_eligibility(d, r)["eligible"]}
     listed = {r[0] for r in d.execute("SELECT member_id FROM coaching_list")}
     referees = {r[0] for r in d.execute("SELECT member_id FROM referee_list")}
     return page(T["members"],
-        tab="admin", rows=rows, c=c, view=view, date=focus, q="",
+        tab="admin", rows=rows, c=c, view=view, date=focus, q=q,
         listed=listed, referees=referees, coach_ids=coach_ids, ref_ids=ref_ids,
         n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS)
 def csv_attachment(filename, header, rows):

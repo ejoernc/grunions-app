@@ -51,6 +51,7 @@ ok(jane.post("/admin", data=dict(csrf=tok, member_id=3, action="verify")).status
 eli.post("/admin", data=dict(csrf=tok_e, member_id=3, date="2026-10-27", action="verify", number="7654321", valid_until="2027-08-31"))
 t = eli.get("/members").get_data(as_text=True); raw = eli.get("/members.csv").data; r = raw.decode("utf-8-sig")
 ok(raw.startswith(b"\xef\xbb\xbf") and "John,Smith," in r and "7654321" in r and "2027-08-31" in r, "manual verify records number, date, admin, time")
+ok(">All</a>" in t and ">Coaches</a>" in t and ">Admins</a>" in t and ">Expiring</a>" in t and ">Not cleared</a>" in t and ">Referees</a>" in t and "Search people..." in t and "class=alpha" in t and ">Members</a>" not in t, "People has search, letter headers, and filter chips")
 eli.post("/admin", data=dict(csrf=tok_e, member_id=1, date="2026-10-27", action="verify", valid_until="2020-01-01"))
 ok("Eli,Joern," in eli.get("/members.csv").data.decode("utf-8-sig") and "2020-01-01" not in eli.get("/members.csv").data.decode("utf-8-sig"), "past valid-until rejected")
 # expiry

@@ -159,6 +159,16 @@ details.checkin{margin:4px 0 20px}details.checkin>summary{min-height:0;padding:1
 .admintabs::-webkit-scrollbar{display:none}
 .admintabs a{flex:none;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);color:var(--t2);text-decoration:none;font-size:14px;font-weight:600;display:inline-flex;align-items:center}
 .admintabs a.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
+.pagetitle{display:flex;justify-content:space-between;align-items:baseline;gap:12px}.pagetitle h1{margin-bottom:12px}
+.peoplebar{position:sticky;top:0;z-index:6;background:#0a0a0b;margin:0 -20px 8px;padding:0 20px 10px}
+.peoplebar input{height:48px;margin:0}
+.pchips{display:flex;gap:8px;margin:10px 0 0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.pchips::-webkit-scrollbar{display:none}
+.pchips a{flex:none;height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);color:var(--t2);text-decoration:none;font-size:14px;font-weight:600;display:inline-flex;align-items:center;white-space:nowrap}
+.pchips a.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
+.people h2,h3.alpha{position:sticky;top:var(--peoplepin,0px);z-index:4;background:#0a0a0b;padding:8px 0}
+.people h2{margin-top:12px}
+h3.alpha{margin:12px 0 6px;font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--t3)}
 .seg{display:flex;gap:4px;background:var(--surface);border-radius:12px;padding:4px;margin:0 0 20px;overflow-x:auto}
 .seg a{flex:1;text-align:center;padding:9px 12px;border-radius:9px;color:var(--t2);text-decoration:none;font-size:14px;font-weight:500;white-space:nowrap}.seg a.on{background:var(--surface2);color:var(--t1)}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:9;box-sizing:border-box;
@@ -1175,49 +1185,64 @@ T["transfer"] = ADMIN_NAV + """<h1>Transfer</h1>
 <p class="t3 sm">Members, Practices, and Attendance stay in sync after changes. A full rewrite also runs daily.</p>
 <form method=post action=/export/sheet>{{csrf_field()}}<button class="primary full">Sync to Google Sheet now</button></form></div>{% endif %}"""
 
-T["members"] = ADMIN_NAV + """<div style="display:flex;justify-content:space-between;align-items:baseline"><h1>People</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
-<div class=seg><a href=/members {% if view=='members' %}class=on{% endif %}>Members</a><a href="/members?view=coaches" {% if view=='coaches' %}class=on{% endif %}>Coaches</a><a href="/members?view=admins" {% if view=='admins' %}class=on{% endif %}>Admins</a><a href="/members?view=referees" {% if view=='referees' %}class=on{% endif %}>Referees</a></div>
+T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
+<div class=peoplebar>
+<form method=get action=/members><input name=q value="{{q}}" placeholder="Search people..." autocomplete=off>{% if view != 'members' %}<input type=hidden name=view value="{{view}}">{% endif %}</form>
+<div class=pchips>
+<a href="/members{% if q %}?q={{ q|urlencode }}{% endif %}" {% if view=='members' %}class=on{% endif %}>All</a>
+<a href="/members?view=coaches{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if view=='coaches' %}class=on{% endif %}>Coaches</a>
+<a href="/members?view=admins{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if view=='admins' %}class=on{% endif %}>Admins</a>
+<a href="/members?view=expiring{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if view=='expiring' %}class=on{% endif %}>Expiring</a>
+<a href="/members?view=uncleared{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if view=='uncleared' %}class=on{% endif %}>Not cleared</a>
+<a href="/members?view=referees{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if view=='referees' %}class=on{% endif %}>Referees</a>
+</div></div>
 {% macro prow(r, kind) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow onclick="if(event.target.closest('button,a,form,input,select'))return;this.closest('.li').nextElementSibling.toggleAttribute('hidden')" style="cursor:pointer"><div style="display:flex;align-items:center;gap:8px;min-width:0">{{ status_dot(r.usawp_status) }}<span class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</span></div>
-<div class="t3 xs" style="margin-top:2px">{% if kind=='admins' %}{% if r.role=='coach' %}Active coach{% else %}Not an active coach{% endif %} · {% endif %}{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}Ends {{tw.ends}} · {% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}Trial ended {{tw.ends}} · {% elif r.usawp_valid_until %}thru {{r.usawp_valid_until}} · {% endif %}{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices</div>
+<div class="t3 xs" style="margin-top:2px">{% if kind=='admins' %}{% if r.role=='coach' %}Active coach{% else %}Not an active coach{% endif %} · {% endif %}{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}Ends {{tw.ends}} · {% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}Trial ended {{tw.ends}} · {% elif r.usawp_valid_until %}thru {{ fmt_long(r.usawp_valid_until) }} · {% endif %}{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices</div>
 <div class=eligs>{% if r.is_admin %}<span class=coach-tag>Admin</span>{% endif %}{% set chip = coach_row_expiry(r) %}{% set ce = coach_eligibility(r) %}{% if r.role=='coach' or r.id in listed or ce.eligible or ce.text %}<span class="coach-tag{{ ' ' ~ chip.tone if chip.tone else '' }}">Coach{% if chip.date %} · expires {{ chip.date }}{% endif %}</span>{% endif %}{% if r.id in referees %}<span class=coach-tag>Referee</span>{% endif %}{{ referee_tag(r) }}</div>
 </div>
 <span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false>⋯</button>
 <div class=menu hidden role=menu>
 {% if kind == 'members' %}
-{% if r.is_admin %}{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=members><button name=action value=remove_admin>Remove admin</button></form>{% endif %}{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=members><button name=action value=make_admin>Make admin</button></form>{% endif %}
-{% if r.id in listed %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=members><button name=action value=remove_coaching>Remove from coaches</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=members><button name=action value=add_coaching>Add to coaches</button></form>{% endif %}
-{% if r.id in referees %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=members><button name=action value=remove_referee>Remove from referees</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=members><button name=action value=add_referee>Add to referees</button></form>{% endif %}
+{% if r.is_admin %}{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><button name=action value=remove_admin>Remove admin</button></form>{% endif %}{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><button name=action value=make_admin>Make admin</button></form>{% endif %}
+{% if r.id in listed %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><button name=action value=remove_coaching>Remove from coaches</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><button name=action value=add_coaching>Add to coaches</button></form>{% endif %}
+{% if r.id in referees %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><button name=action value=remove_referee>Remove from referees</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><button name=action value=add_referee>Add to referees</button></form>{% endif %}
 {% elif kind == 'coaches' %}
-{% if r.role=='coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><button name=action value=remove_coach>Remove active coach</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><button name=action value=make_coach>Make active coach</button></form>{% endif %}
-<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><button name=action value=remove_coaching>Remove from coaches</button></form>
+{% if r.role=='coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><input type=hidden name=q value="{{q}}"><button name=action value=remove_coach>Remove active coach</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><input type=hidden name=q value="{{q}}"><button name=action value=make_coach>Make active coach</button></form>{% endif %}
+<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><input type=hidden name=q value="{{q}}"><button name=action value=remove_coaching>Remove from coaches</button></form>
 {% elif kind == 'eligible' %}
-<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><button name=action value=add_coaching>Add to coaches</button></form>
-{% if r.role=='coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><button name=action value=remove_coach>Remove active coach</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><button name=action value=make_coach>Make active coach</button></form>{% endif %}
+<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><input type=hidden name=q value="{{q}}"><button name=action value=add_coaching>Add to coaches</button></form>
+{% if r.role=='coach' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><input type=hidden name=q value="{{q}}"><button name=action value=remove_coach>Remove active coach</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=coaches><input type=hidden name=q value="{{q}}"><button name=action value=make_coach>Make active coach</button></form>{% endif %}
 {% elif kind == 'admins' %}
-{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=admins><button name=action value=remove_admin>Remove admin</button></form>{% endif %}
+{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=admins><input type=hidden name=q value="{{q}}"><button name=action value=remove_admin>Remove admin</button></form>{% endif %}
 {% elif kind == 'referees' %}
-<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=referees><button name=action value=remove_referee>Remove from referees</button></form>
+<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=referees><input type=hidden name=q value="{{q}}"><button name=action value=remove_referee>Remove from referees</button></form>
 {% elif kind == 'ref_eligible' %}
-<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=referees><button name=action value=add_referee>Add to referees</button></form>
+<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=referees><input type=hidden name=q value="{{q}}"><button name=action value=add_referee>Add to referees</button></form>
 {% endif %}
 </div></span></div>{{ member_panel(r) }}{% endmacro %}
+<div class=people>
+{% macro lettered(kind) %}{% set ns = namespace(letter='') %}<div class="list loose">{% for r in rows %}{% set letter = ((r.last or '?')[:1])|upper %}{% if letter != ns.letter %}<h3 class=alpha>{{ letter }}</h3>{% set ns.letter = letter %}{% endif %}{{ prow(r, kind) }}{% else %}<div class=li><span class=t3>{% if q %}No people match “{{ q }}”.{% else %}No one here.{% endif %}</span></div>{% endfor %}</div>{% endmacro %}
 {% if view == 'coaches' %}
 <h2>Coaches <span class=t3>{{ rows|selectattr('id','in',listed)|list|length }}</span></h2>
-<div class="list loose">{% for r in rows if r.id in listed %}{{ prow(r, 'coaches') }}{% else %}<div class=li><span class=t3>No one on the coaching list yet.</span></div>{% endfor %}</div>
+<div class="list loose">{% for r in rows if r.id in listed %}{{ prow(r, 'coaches') }}{% else %}<div class=li><span class=t3>{% if q %}No people match “{{ q }}”.{% else %}No one on the coaching list yet.{% endif %}</span></div>{% endfor %}</div>
 <h2>Coach eligible <span class=t3>{{ rows|selectattr('id','in',coach_ids)|rejectattr('id','in',listed)|list|length }}</span></h2>
-<div class="list loose">{% for r in rows if r.id in coach_ids and r.id not in listed %}{{ prow(r, 'eligible') }}{% else %}<div class=li><span class=t3>No one waiting.</span></div>{% endfor %}</div>
+<div class="list loose">{% for r in rows if r.id in coach_ids and r.id not in listed %}{{ prow(r, 'eligible') }}{% else %}<div class=li><span class=t3>{% if q %}No people match “{{ q }}”.{% else %}No one waiting.{% endif %}</span></div>{% endfor %}</div>
 {% elif view == 'referees' %}
 <h2>Referees <span class=t3>{{ rows|selectattr('id','in',referees)|list|length }}</span></h2>
-<div class="list loose">{% for r in rows if r.id in referees %}{{ prow(r, 'referees') }}{% else %}<div class=li><span class=t3>No one on the referee list yet.</span></div>{% endfor %}</div>
+<div class="list loose">{% for r in rows if r.id in referees %}{{ prow(r, 'referees') }}{% else %}<div class=li><span class=t3>{% if q %}No people match “{{ q }}”.{% else %}No one on the referee list yet.{% endif %}</span></div>{% endfor %}</div>
 <h2>Referee eligible <span class=t3>{{ rows|selectattr('id','in',ref_ids)|rejectattr('id','in',referees)|list|length }}</span></h2>
-<div class="list loose">{% for r in rows if r.id in ref_ids and r.id not in referees %}{{ prow(r, 'ref_eligible') }}{% else %}<div class=li><span class=t3>No one waiting.</span></div>{% endfor %}</div>
+<div class="list loose">{% for r in rows if r.id in ref_ids and r.id not in referees %}{{ prow(r, 'ref_eligible') }}{% else %}<div class=li><span class=t3>{% if q %}No people match “{{ q }}”.{% else %}No one waiting.{% endif %}</span></div>{% endfor %}</div>
 {% elif view == 'admins' %}
 <p class="t2 sm">{{ n_admins }} admin{{ 's' if n_admins != 1 }}</p>
-<div class="list loose">{% for r in rows if r.is_admin %}{{ prow(r, 'admins') }}{% endfor %}</div>
+{{ lettered('admins') }}
 {% else %}
-<p class="t2 sm">{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}</p>
-<div class="list loose">{% for r in rows %}{{ prow(r, 'members') }}{% endfor %}</div>
+<p class="t2 sm">{% if view=='expiring' %}Expiring or expired{% elif view=='uncleared' %}Not cleared to play{% else %}{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}{% endif %}</p>
+{{ lettered('members') }}
 {% endif %}
+</div>
+<script>
+(function(){var bar=document.querySelector('.peoplebar'); function pin(){ if(bar) document.documentElement.style.setProperty('--peoplepin', bar.offsetHeight+'px'); } pin(); window.addEventListener('resize', pin);})();
+</script>
 <script>
 (function(){
  function closeAll(){document.querySelectorAll('.menu').forEach(function(m){m.hidden=true; var b=m.parentNode.querySelector('.morebtn'); if(b) b.setAttribute('aria-expanded','false')})}
