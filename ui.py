@@ -757,8 +757,8 @@ T["home"] = """{% if pins %}
 <div class=homedock>
 {% if nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'"><a class=cardlink href="/practices/{{nextp.id}}">
 {% if nextp.image %}<div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div>{% endif %}
-<div class=nxbody><div class=nxtitle>{{ fmt_d(nextp.date) }}</div>
-<div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_clock(nextp.start) }} – {{ fmt_clock(nextp.end) }}</span></div>
+<div class=nxbody><div class=nxtitle>{{ practice_title(nextp) }}</div>
+<div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_card_date(nextp.date) }} · {{ fmt_clock(nextp.start) }} – {{ fmt_clock(nextp.end) }}</span></div>
 <div class=nxrow>{{ glyph_pin() }}<span>{{ short_place(nextp.location) }}</span></div>
 <div class=nxrow>{{ glyph_people() }}<span>{{ nextp_n }} going{% if next_coaches %} · Coaches: {{ next_coaches }}{% endif %}</span></div>
 {% if nextp.coach_note %}<div class=nxnote>{{ nextp.coach_note }} · {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</div>{% endif %}</div></a>

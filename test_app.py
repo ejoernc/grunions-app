@@ -577,7 +577,7 @@ try:
     nxt = home[home.find('class="card tap nextcard"'):]
     nxt = nxt[:nxt.find("I'm going")]
     adm = eli.get("/admin").get_data(as_text=True)
-    ok("class=dn>23<" in sched and "class=mo>OCT<" in sched and "7:00 – 8:30 PM" in sched and "Westminster High School" in sched and "Fri Oct 23" in nxt and "7:00 PM" in nxt and "Westminster HS" in nxt and "class=datetile" not in nxt and 'value="2026-10-23"' in adm, "at 5:30pm Pacific, Friday's practice is on the schedule and check-in uses that date")
+    ok("class=dn>23<" in sched and "class=mo>OCT<" in sched and "7:00 – 8:30 PM" in sched and "Westminster High School" in sched and "Water Polo Practice" in nxt and "Fri, Oct 23 · 7:00 PM" in nxt and "7:00 PM" in nxt and "Westminster HS" in nxt and "class=datetile" not in nxt and 'value="2026-10-23"' in adm, "at 5:30pm Pacific, Friday's practice is on the schedule and check-in uses that date")
     ok(D.execute("SELECT COUNT(*) FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()[0] == 1, "opening the schedule does not delete Friday's practice")
     A.now_pt = lambda: dt.datetime(2026, 10, 24, 3, 30, tzinfo=dt.timezone.utc)  # 8:30pm PDT
     ok("class=dn>23<" in jane.get("/practices").get_data(as_text=True), "the practice stays up through 8:30pm Pacific")

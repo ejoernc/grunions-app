@@ -1182,6 +1182,18 @@ def short_place(name):
     return name
 def fmt_d(s):
     d = dt.date.fromisoformat(s); return d.strftime("%a %b ") + str(d.day)
+def fmt_card_date(s):
+    """Tue, Nov 3. The comma sits on the Home time row."""
+    d = dt.date.fromisoformat(str(s)[:10]); return d.strftime("%a, %b ") + str(d.day)
+def practice_title(p):
+    """Home card title. A stored practice title wins; otherwise Water Polo Practice."""
+    if not p: return "Water Polo Practice"
+    try: keys = p.keys()
+    except AttributeError: keys = ()
+    if "title" in keys:
+        name = " ".join(str(p["title"] or "").split())
+        if name: return name
+    return "Water Polo Practice"
 def fmt_stamp(s):
     """Pacific stamp from stamp_pt, shown as Fri Oct 30, 1:19pm."""
     if not s or "T" not in str(s): return ""
@@ -1393,7 +1405,7 @@ def save_practice_coaches(d, pid, raw):
         if i in allowed and i not in chosen: chosen.append(i)
     d.execute("DELETE FROM practice_coaches WHERE practice_id=?", (pid,))
     if chosen: d.executemany("INSERT INTO practice_coaches(practice_id, member_id) VALUES(?,?)", [(pid, i) for i in chosen])
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
