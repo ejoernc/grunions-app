@@ -132,6 +132,10 @@ a.rowbtn,button.rowbtn{width:100%;height:auto;min-height:60px;padding:14px 18px;
 .stattile b{display:block;font-size:22px;font-weight:650;line-height:1.2}
 .stattile span{color:var(--t2);font-size:12px}
 .seclabel{margin:22px 4px 8px;color:var(--t3);font-size:13px;font-weight:600}
+.sechead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:22px 4px 8px}
+.sechead .seclabel{margin:0}
+.verifiedwhen{margin:0;color:var(--t3);font-size:13px;font-weight:400;font-family:inherit;line-height:1.5;text-align:right;flex:none}
+.rowtitle{display:inline-flex;align-items:center;gap:8px;min-width:0}
 .prow{justify-content:space-between;gap:12px}
 .prow .k{color:var(--t2)}
 .prow .v{text-align:right}
@@ -348,17 +352,18 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro bg_line(m) %}{% set bg = background_view(m) %}{% if bg %}{{ st(bg.kind, bg.text) }}{% endif %}{% endmacro %}
 {% macro bg_status(m) %}{% set bg = background_view(m) %}{% if bg %}{{ st(bg.kind, ('expires ' ~ bg.date) if bg.date else 'missing') }}{% endif %}{% endmacro %}
 {% macro member_expiry(m) %}{% set left = days_left(m.usawp_valid_until) %}{% if not m.usawp_valid_until %}{{ st('bad', 'missing') }}{% elif left < 0 %}{{ st('bad', 'expires ' ~ m.usawp_valid_until) }}{% elif left <= EXPIRING_DAYS %}{{ st('warn', 'expires ' ~ m.usawp_valid_until) }}{% else %}{{ st('ok', 'expires ' ~ m.usawp_valid_until) }}{% endif %}{% endmacro %}
+{% macro expiry_kind(m) %}{% set left = days_left(m.usawp_valid_until) %}{% if not m.usawp_valid_until %}bad{% elif left < 0 %}bad{% elif left <= EXPIRING_DAYS %}warn{% else %}ok{% endif %}{% endmacro %}
+{% macro expiry_text(m) %}{% if not m.usawp_valid_until %}missing{% else %}expires {{ m.usawp_valid_until }}{% endif %}{% endmacro %}
+{% macro titledot(kind, title) %}<span class=rowtitle><span class="dot{% if kind %} {{ kind }}{% endif %}" aria-hidden=true></span>{{ title }}</span>{% endmacro %}
+{% macro memhead(m) %}<div class=sechead id=membership><div class=seclabel>Water Polo Membership</div>{% if m.usawp_verified_at %}<div class=verifiedwhen>Verified {{ m.usawp_verified_at[:10] }}</div>{% endif %}</div>{% endmacro %}
 {% macro membership_section(m, vr_pending) %}{% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set ex = expiry_notes(m, cl) %}{% set cc = coach_clearance(m) %}{% set left = days_left(m.usawp_valid_until) %}{% set locked = m.usawp_status == 'verified' and not (left is not none and left < 0) %}
-<div class=seclabel id=membership>Membership</div>
+{{ memhead(m) }}
 <div class=list>
-<div class="li prow"><span>USAWP #{{ m.usawp_number or '—' }}</span>{{ member_expiry(m) }}</div>
+<div class="li prow">{{ titledot(expiry_kind(m)|trim, 'USAWP #' ~ (m.usawp_number or '—')) }}<span class=v>{{ expiry_text(m)|trim }}</span></div>
 {% if not locked %}<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">USAWP number<input form=profileForm id=usawpNumber name=usawp_number inputmode=numeric autocomplete=off value="{{ m.usawp_number or '' }}" data-original="{{ m.usawp_number or '' }}"></label></div>{% endif %}
-<div class="li prow"><span class=k>Status</span><span class=v>{% if vr_pending %}{{ st('warn','Verification pending') }}{% elif cl.ok and dl is not none and dl <= EXPIRING_DAYS %}{{ st('warn','Expiring soon') }}{% elif cl.ok %}{{ st('ok','Cleared') }}{% else %}{{ st('bad','Not cleared') }}{% endif %}</span></div>
-{% if m.usawp_verified_at %}<div class="li prow"><span>Verified {{ m.usawp_verified_at[:10] }}</span></div>{% endif %}
-{% for it in cl.checks %}<div class="li prow"><span>{{it.req.name}}</span>{{ st({'ok':'ok','no date':'warn'}.get(it.status,'bad'),
- (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status!='expired' else 'expired') }}</div>{% endfor %}
-{% if background_view(m) %}<div class="li prow"><span>Background screening</span>{{ bg_status(m) }}</div>{% endif %}
-{% if cc %}<div class="li prow"><span>Coaching</span>{{ st('ok' if cc.ok else 'bad', 'cleared' if cc.ok else cc.text) }}</div>{% elif coach_eligibility(m).text %}<div class="li prow">{{ coach_tag(m) }}</div>{% endif %}
+{% for it in cl.checks %}{% set sk = {'ok':'ok','no date':'warn'}.get(it.status,'bad') %}{% set side = (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status != 'expired' else 'expired' %}<div class="li prow">{{ titledot(sk, it.req.name) }}<span class=v>{{ side }}</span></div>{% endfor %}
+{% if background_view(m) %}{% set bg = background_view(m) %}<div class="li prow">{{ titledot(bg.kind, 'Background screening') }}<span class=v>{{ ('expires ' ~ bg.date) if bg.date else 'missing' }}</span></div>{% endif %}
+{% if cc %}<div class="li prow">{{ titledot('ok' if cc.ok else 'bad', 'Coaching') }}<span class=v>{{ 'cleared' if cc.ok else cc.text }}</span></div>{% elif coach_eligibility(m).text %}{% set ce = coach_eligibility(m) %}<div class="li prow">{{ titledot('ok' if ce.eligible else 'bad', 'Coaching') }}<span class=v>{{ ce.text }}</span></div>{% endif %}
 </div>
 {% if tw and tw.active and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<div style="margin-top:8px">{{ st('trial', trial_badge(tw)) }}</div><p class="sm" style="margin:8px 0 0">Ends {{tw.ends}}</p>{% elif tw and tw.expired and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<p class="sm" style="margin:8px 0 0">Trial ended {{tw.ends}}</p>{% endif %}
 {% if not cl.ok %}{% if not vr_pending %}{% for line in ex.lines %}<p class="sm" style="margin:8px 0 0">{{line}}</p>{% endfor %}{% elif ex.safesport %}<p class="sm" style="margin:8px 0 0">SafeSport expired {{ex.safesport}}</p>{% endif %}
@@ -496,7 +501,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=23');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=24');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -970,15 +975,13 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 <p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p>
 <div class=stats><div class=stattile><b>{{ hist|length }}</b><span>Attended</span></div><div class=stattile><b>{{ nmonth }}</b><span>This month</span></div></div>
 </div>
-<div class=seclabel id=membership>Membership</div>
+{{ memhead(m) }}
 <div class=list>
-<div class="li prow viewonly"><span>USAWP # {{ m.usawp_number or '—' }}</span>{{ cred_side(m.usawp_valid_until) }}</div>
-<div class="li prow viewonly"><span class=k>Status</span><span class=v>{% if m.vr_status == 'pending' %}{{ st('warn','Verification pending') }}{% elif cl.ok and ps.dot == 'warn' %}{{ st('warn', ps.label) }}{% elif cl.ok %}{{ st('ok','Cleared') }}{% else %}{{ st('bad','Not cleared') }}{% endif %}</span></div>
-{% if m.usawp_verified_at or m.usawp_verified_by %}<div class="li prow viewonly"><span>Verified by {{ m.usawp_verified_by or '—' }}{% if fmt_when(m.usawp_verified_at) %} · {{ fmt_when(m.usawp_verified_at) }}{% elif m.usawp_verified_at %} · {{ m.usawp_verified_at[:10] }}{% endif %}</span></div>{% endif %}
-<div class="li prow viewonly"><span>SafeSport</span>{{ cred_side(cred.safesport) }}</div>
-<div class="li prow viewonly"><span>Background screening</span>{{ cred_side(cred.background) }}</div>
-<div class="li prow viewonly"><span>Referee</span><span class=v>{% set rf = referee_eligibility(m) %}{{ cred_side(cred.referee) }}{% if rf.eligible %} {{ referee_tag(m) }}{% elif rf.expired %}<span class="st st-bad ref-elig">Referee eligibility expired {{ fmt_long(rf.expired) }}</span>{% elif rf.text %} {{ referee_tag(m) }}{% endif %}</span></div>
-{% if cc or ce.eligible or ce.text %}<div class="li prow viewonly"><span>Coach clearance</span><span class=v>{% if cc %}{{ st('ok' if cc.ok else 'bad', 'Cleared' if cc.ok else cc.text) }}{% elif ce.eligible %}{{ coach_tag(m) }}{% else %}<span class="st st-warn coach-elig">{{ ce.text or 'Not eligible' }}</span>{% endif %}</span></div>{% endif %}
+<div class="li prow viewonly">{{ titledot(date_dot(m.usawp_valid_until), 'USAWP # ' ~ (m.usawp_number or '—')) }}<span class=v>{% if m.usawp_valid_until %}{{ fmt_long(m.usawp_valid_until) }}{% else %}Not on file{% endif %}</span></div>
+<div class="li prow viewonly">{{ titledot(date_dot(cred.safesport), 'SafeSport training') }}<span class=v>{% if cred.safesport %}{{ fmt_long(cred.safesport) }}{% else %}Not on file{% endif %}</span></div>
+<div class="li prow viewonly">{{ titledot(date_dot(cred.background), 'Background screening') }}<span class=v>{% if cred.background %}{{ fmt_long(cred.background) }}{% else %}Not on file{% endif %}</span></div>
+<div class="li prow viewonly">{% set rf = referee_eligibility(m) %}{{ titledot(date_dot(cred.referee), 'Referee') }}<span class=v>{% if cred.referee %}{{ fmt_long(cred.referee) }}{% else %}Not on file{% endif %}{% if rf.eligible %} {{ referee_tag(m) }}{% elif rf.expired %}<span class="st st-bad ref-elig">Referee eligibility expired {{ fmt_long(rf.expired) }}</span>{% elif rf.text %} {{ referee_tag(m) }}{% endif %}</span></div>
+{% if cc or ce.eligible or ce.text %}<div class="li prow viewonly">{% if cc %}{{ titledot('ok' if cc.ok else 'bad', 'Coaching') }}<span class=v>{{ 'cleared' if cc.ok else cc.text }}</span>{% elif ce.eligible %}{{ titledot('ok', 'Coaching') }}<span class=v>Coach eligible</span>{% else %}{{ titledot('bad' if ce.expired else 'warn', 'Coaching') }}<span class=v>{{ ce.text or 'Not eligible' }}</span>{% endif %}</div>{% endif %}
 {% if me().is_admin %}
 <div class="li editonly"><p class="t3 sm" style="margin:0">Look this member up on Sport:80 and enter what you find. Grunions does not contact Sport:80.{% if m.vr_status == 'pending' %} Saving answers the pending verification request.{% endif %}</p></div>
 <div class="li editonly"><label class=prefedit style="width:100%;margin:0">USAWP number<input name=number inputmode=numeric autocomplete=off value="{{ m.usawp_number or '' }}"></label></div>
