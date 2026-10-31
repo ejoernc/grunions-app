@@ -306,6 +306,7 @@ a.schedlink .schedchev svg{display:block}
 button.dock,a.dock{background:var(--accent);color:#fff}
 a.quietcheck,button.quietcheck{background:var(--surface2);color:#fff;border:0;border-radius:12px}
 .emptyfind{color:var(--t2);margin:8px 0 16px}
+details.lineuppast{margin-top:8px}details.lineuppast>summary{min-height:44px;padding:8px 0;font-size:17px;font-weight:600;justify-content:flex-start}
 .growthcard{position:relative;padding:14px 14px 8px;margin:0 0 12px}
 .growthhead{font-size:15px;font-weight:650;line-height:1.3;margin:0 0 6px}
 .growthcard svg{width:100%;height:auto;display:block;touch-action:none}
@@ -480,7 +481,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>{% endif %}</div><h1>Practice</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><h1 class=hititle>Hi, {{ display_first(me()) }}</h1>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>{% endif %}</div><h1>Practice</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><h1 class=hititle>Hi, {{ display_first(me()) }}</h1>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -495,17 +496,18 @@ dialog.memberedit .help a{color:var(--t1)}
 ICONS = {
  "home": '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
  "cal": '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+ "lineup": '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7h11M9 12h11M9 17h11"/><circle cx="5.5" cy="7" r="1.2"/><circle cx="5.5" cy="12" r="1.2"/><circle cx="5.5" cy="17" r="1.2"/></svg>',
  "chat": '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12z"/></svg>',
  "admin": '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>',
 }
 TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav class="tabs noprint" data-total="{{ badges().total }}">
-<a href=/home class="{{'on' if tab=='home'}}">""" + ICONS["home"] + """Home</a>
-<a href="/practices#schedule" class="{{'on' if tab=='practices' or tab=='practice'}}" data-badge=schedule>""" + ICONS["cal"] + """Schedule{{ bubble(badges().schedule) }}</a>
+<a href=/home class="{{'on' if tab=='home' or tab=='practices' or tab=='practice'}}" data-badge=schedule>""" + ICONS["home"] + """Home{{ bubble(badges().schedule) }}</a>
+<a href=/lineup class="{{'on' if tab=='lineup' or tab=='lineup_edit'}}">""" + ICONS["lineup"] + """Lineup</a>
 <a href=/chat class="{{'on' if tab=='chat'}}" data-badge=chat>""" + ICONS["chat"] + """Chat{{ bubble(badges().chat) }}</a>
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=29');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=30');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1315,6 +1317,30 @@ _PRACTICE_JS = """<script>
 })();
 </script>"""
 
+T["lineup"] = """{% macro lineup_card(e) %}<div class=card><div class=nxcardhead><div class=nxtitle>{{ e.title }}</div><span class=chip-info>{{ e.kind }}</span></div>
+<div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_d(e.date) }}{% if e.start %} · {{ fmt_clock(e.start) }}{% endif %}</span></div>
+{% if e.location %}<div class=nxrow>{{ glyph_pin() }}<a href="{{ e.map_href }}" target=_blank rel="noopener noreferrer">{{ e.location }}</a></div>{% endif %}
+{% if e.description %}<div class=nxnote>{{ e.description }}</div>{% endif %}
+{% if e.link %}<div class=nxnote><a href="{{ e.link }}" target=_blank rel="noopener noreferrer">{{ e.link }}</a></div>{% endif %}
+<div class="t3 sm" style="margin-top:8px">{{ e.going_n }} going</div>
+<form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>
+<button class="btn {{ 'btn-primary' if e.mine == 1 else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 1 else 'going' }}">I'm going{% if e.mine == 1 %} ✓{% endif %}</button>
+<button class="btn {{ 'btn-primary' if e.mine == 0 else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 0 else 'notgoing' }}">I'm not going{% if e.mine == 0 %} ✓{% endif %}</button></form>
+{% if me().is_admin %}<a class="btn btn-secondary full" style="margin-top:10px" href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div>{% endmacro %}
+{% macro lineup_months(groups) %}{% for g in groups %}<h2 class=lineupmonth>{{ g.label }}</h2>{% for e in g.events %}{{ lineup_card(e) }}{% endfor %}{% endfor %}{% endmacro %}
+{% if me().is_admin %}<a class="btn btn-primary full" href=/lineup/new style="margin-bottom:16px">Add event</a>{% endif %}
+{% if not upcoming and not past %}<p class=emptyfind>No tournaments or socials yet.</p>{% endif %}
+{{ lineup_months(upcoming) }}
+{% if past %}<details class=lineuppast><summary>Past <span class=t3>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}"""
+T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}">{{ csrf_field() }}
+<label>Type<select name=kind><option {% if values.kind == 'Tournament' %}selected{% endif %}>Tournament</option><option {% if values.kind == 'Social' %}selected{% endif %}>Social</option></select></label>
+<label>Title<input name=title value="{{ values.title }}" required autocomplete=off></label>
+<div class=row><label>Date<input type=date name=date value="{{ values.date }}" required></label><label>Time<input type=time name=start value="{{ values.start }}" required></label></div>
+<label>Location or map link<input name=location value="{{ values.location }}" autocomplete=off></label>
+<label>Description<textarea name=description rows=4>{{ values.description }}</textarea></label>
+<label>Link (optional)<input name=link value="{{ values.link }}" inputmode=url autocomplete=off placeholder="https://"></label>
+{% if event_id %}<button class="btn btn-danger full" name=action value=delete onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
+</form>"""
 T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp;·&nbsp; Fri · Westminster HS &nbsp;·&nbsp; 7–8:30 PM</p>
 {% for x in data %}{% set p = x.p %}<div class="card tap" id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">

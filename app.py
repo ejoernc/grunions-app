@@ -104,6 +104,10 @@ CREATE TABLE IF NOT EXISTS job_locks(name TEXT PRIMARY KEY, locked_at TEXT);
 CREATE TABLE IF NOT EXISTS sheet_sync(id INTEGER PRIMARY KEY, at TEXT, ok INTEGER, detail TEXT);
 CREATE TABLE IF NOT EXISTS chat_reads(member_id INTEGER NOT NULL, channel TEXT NOT NULL, last_read INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(member_id, channel));
 CREATE TABLE IF NOT EXISTS practice_notices(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, kind TEXT NOT NULL, seen_at TEXT, PRIMARY KEY(practice_id, member_id, kind));
+CREATE TABLE IF NOT EXISTS lineup_events(id INTEGER PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL, date TEXT NOT NULL,
+  start TEXT, location TEXT, description TEXT, link TEXT);
+CREATE TABLE IF NOT EXISTS lineup_rsvps(event_id INTEGER NOT NULL, member_id INTEGER NOT NULL, going INTEGER NOT NULL,
+  at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(event_id, member_id));
 """
 def db():
     if "db" not in g:
@@ -119,6 +123,7 @@ def db():
         drop_club_waiver(g.db)
         ensure_referee_req(g.db)
         migrate_messages(g.db)
+        migrate_lineup(g.db)
         drop_bot_verify_messages(g.db)
         seed_chat_reads(g.db)
         expire_sweep(g.db)
@@ -173,6 +178,12 @@ def migrate_members(d):
     if "phone" in cols and "joined" in cols:
         d.execute("""UPDATE members SET joined=1 WHERE COALESCE(joined,0)=0 AND COALESCE(role,'')!='system'
                      AND trim(COALESCE(phone,''))!=''""")
+def migrate_lineup(d):
+    """Tournaments and socials. Existing databases gain the tables without touching practices."""
+    d.execute("""CREATE TABLE IF NOT EXISTS lineup_events(id INTEGER PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL,
+        date TEXT NOT NULL, start TEXT, location TEXT, description TEXT, link TEXT)""")
+    d.execute("""CREATE TABLE IF NOT EXISTS lineup_rsvps(event_id INTEGER NOT NULL, member_id INTEGER NOT NULL,
+        going INTEGER NOT NULL, at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(event_id, member_id))""")
 def migrate_messages(d):
     """Add chat columns missing from a database created by an older version (production SQLite on DATA_DIR)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
@@ -1700,6 +1711,113 @@ def practice_page(pid):
     editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
     plan_editing = request.args.get("edit") == "1" and host and not me()["is_admin"]
     return page(T["practice"], tab="practice", x=practice_bundle(d, p), editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin")
+LINEUP_KINDS = ("Tournament", "Social")
+def lineup_map_href(location):
+    loc = " ".join(str(location or "").split())
+    if not loc: return ""
+    if loc.lower().startswith(("http://", "https://")): return loc
+    return "https://www.google.com/maps/search/?api=1&query=" + urllib.parse.quote(loc)
+def lineup_month(iso):
+    day = dt.date.fromisoformat(str(iso)[:10])
+    return day.strftime("%B ") + str(day.year)
+def lineup_groups(rows):
+    groups = []
+    for e in rows:
+        label = lineup_month(e["date"])
+        if not groups or groups[-1]["label"] != label: groups.append({"label": label, "events": []})
+        groups[-1]["events"].append(e)
+    return groups
+def lineup_pack(d, rows):
+    mid = me()["id"]
+    ids = [r["id"] for r in rows]
+    counts, mine = {}, {}
+    if ids:
+        marks = ",".join("?" * len(ids))
+        for eid, n in d.execute("SELECT event_id, COUNT(*) FROM lineup_rsvps WHERE going=1 AND event_id IN (%s) GROUP BY event_id" % marks, ids):
+            counts[eid] = n
+        for eid, going in d.execute("SELECT event_id, going FROM lineup_rsvps WHERE member_id=? AND event_id IN (%s)" % marks, (mid, *ids)):
+            mine[eid] = going
+    out = []
+    for r in rows:
+        out.append({"id": r["id"], "kind": r["kind"], "title": r["title"], "date": r["date"], "start": r["start"] or "",
+            "location": r["location"] or "", "map_href": lineup_map_href(r["location"]), "description": r["description"] or "",
+            "link": r["link"] or "", "going_n": counts.get(r["id"], 0), "mine": mine.get(r["id"])})
+    return out
+def lineup_form_values(row=None, form=None):
+    if form is not None:
+        return {"kind": form.get("kind") or "Tournament", "title": form.get("title") or "", "date": form.get("date") or "",
+            "start": form.get("start") or "", "location": form.get("location") or "", "description": form.get("description") or "",
+            "link": form.get("link") or ""}
+    if row:
+        return {"kind": row["kind"], "title": row["title"], "date": row["date"], "start": row["start"] or "",
+            "location": row["location"] or "", "description": row["description"] or "", "link": row["link"] or ""}
+    return {"kind": "Tournament", "title": "", "date": "", "start": "", "location": "", "description": "", "link": ""}
+def save_lineup_event(d, eid=None):
+    kind = (request.form.get("kind") or "").strip()
+    if kind not in LINEUP_KINDS: raise ValueError("Choose Tournament or Social.")
+    title = " ".join((request.form.get("title") or "").split())[:120]
+    if not title: raise ValueError("Add a title.")
+    day = parse_date(request.form.get("date"))
+    if not day: raise ValueError("Add a date.")
+    start = (request.form.get("start") or "").strip()
+    if not re.fullmatch(r"\d{2}:\d{2}", start): raise ValueError("Add a time.")
+    location = " ".join((request.form.get("location") or "").split())[:300]
+    description = (request.form.get("description") or "").strip()[:2000]
+    link = (request.form.get("link") or "").strip()[:500]
+    if link and not link.lower().startswith(("http://", "https://")): raise ValueError("Link must start with http:// or https://.")
+    vals = (kind, title, day.isoformat(), start, location, description, link)
+    if eid:
+        d.execute("UPDATE lineup_events SET kind=?, title=?, date=?, start=?, location=?, description=?, link=? WHERE id=?", (*vals, eid))
+        return eid
+    return d.execute("INSERT INTO lineup_events(kind, title, date, start, location, description, link) VALUES(?,?,?,?,?,?,?)", vals).lastrowid
+@app.route("/lineup", methods=["GET", "POST"])
+@login_required
+def lineup():
+    d = db()
+    if request.method == "POST":
+        a = request.form.get("action")
+        eid = request.form.get("event_id", type=int)
+        if a not in ("going", "notgoing", "clear") or not eid: abort(400)
+        if not d.execute("SELECT 1 FROM lineup_events WHERE id=?", (eid,)).fetchone(): abort(404)
+        if a == "clear": d.execute("DELETE FROM lineup_rsvps WHERE event_id=? AND member_id=?", (eid, me()["id"]))
+        else: d.execute("""INSERT INTO lineup_rsvps(event_id, member_id, going) VALUES(?,?,?)
+            ON CONFLICT(event_id, member_id) DO UPDATE SET going=excluded.going, at=CURRENT_TIMESTAMP""",
+            (eid, me()["id"], 1 if a == "going" else 0))
+        d.commit()
+        return redirect("/lineup")
+    today = today_pt().isoformat()
+    packed = lineup_pack(d, d.execute("SELECT * FROM lineup_events").fetchall())
+    upcoming = sorted((e for e in packed if e["date"] >= today), key=lambda e: (e["date"], e["start"], e["id"]))
+    past = sorted((e for e in packed if e["date"] < today), key=lambda e: (e["date"], e["start"], e["id"]), reverse=True)
+    return page(T["lineup"], tab="lineup", upcoming=lineup_groups(upcoming), past=lineup_groups(past), past_n=len(past))
+@app.route("/lineup/new", methods=["GET", "POST"])
+@admin_required
+def lineup_new():
+    d = db()
+    values = lineup_form_values()
+    if request.method == "POST":
+        try:
+            save_lineup_event(d); d.commit(); flash("Saved", "toast"); return redirect("/lineup")
+        except ValueError as e:
+            flash(str(e)); values = lineup_form_values(form=request.form)
+    return page(T["lineup_edit"], tab="lineup_edit", action="/lineup/new", values=values, event_id=None)
+@app.route("/lineup/<int:eid>/edit", methods=["GET", "POST"])
+@admin_required
+def lineup_edit(eid):
+    d = db()
+    row = d.execute("SELECT * FROM lineup_events WHERE id=?", (eid,)).fetchone()
+    if not row: abort(404)
+    if request.method == "POST" and request.form.get("action") == "delete":
+        d.execute("DELETE FROM lineup_rsvps WHERE event_id=?", (eid,))
+        d.execute("DELETE FROM lineup_events WHERE id=?", (eid,))
+        d.commit(); flash("Deleted", "toast"); return redirect("/lineup")
+    values = lineup_form_values(row)
+    if request.method == "POST":
+        try:
+            save_lineup_event(d, eid); d.commit(); flash("Saved", "toast"); return redirect("/lineup")
+        except ValueError as e:
+            flash(str(e)); values = lineup_form_values(form=request.form)
+    return page(T["lineup_edit"], tab="lineup_edit", action="/lineup/%d/edit" % eid, values=values, event_id=eid)
 @app.route("/api/unread")
 @login_required
 def api_unread():
@@ -3029,7 +3147,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-29 */
+SW_JS = """/* grunions-sw-30 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
