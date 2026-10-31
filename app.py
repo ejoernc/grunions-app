@@ -1746,16 +1746,32 @@ def members_back():
 @staff_required
 def admin():
     d = db(); posted = request.values.get("date")
+    if request.method == "POST" and request.form.get("action") == "walkin":
+        date = posted or today_pt().isoformat()
+        first = " ".join((request.form.get("first") or "").split())[:40]
+        last = " ".join((request.form.get("last") or "").split())[:40]
+        if not first or not last:
+            flash("Add a first and last name.", "toast")
+        else:
+            email = "walkin-%s@grunions.local" % secrets.token_hex(4)
+            cur = d.execute("INSERT INTO members(first,last,email,phone,is_admin,joined) VALUES(?,?,?,?,0,1)", (first, last, email, ""))
+            d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (cur.lastrowid, date, location_for(date)))
+            d.commit(); sync_practice_sheets(d)
+            flash("Checked in %s %s." % (first, last), "toast")
+        return redirect(url_for("admin", date=date, q=request.form.get("q", "")))
     if request.method == "POST":
         date = posted or today_pt().isoformat()
         mid = int(request.form["member_id"])
         detail = handle_member_detail(d, mid)
         if detail == "halt": return redirect(request.full_path)
+        who = d.execute("SELECT first, last, preferred_first FROM members WHERE id=?", (mid,)).fetchone()
         if detail is None:
             if request.form.get("action") == "undo":
                 d.execute("DELETE FROM checkins WHERE member_id=? AND practice_date=?", (mid, date))
+                if who: flash("Undid check-in for %s." % display_first(who), "toast")
             else:
                 d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (mid, date, location_for(date)))
+                if who: flash("Checked in %s." % display_first(who), "toast")
         d.commit()
         if request.form.get("action") in ("verify", "req", "background", "preferred", "role", "recheck", "edit", "undo") or not request.form.get("action"): sync_practice_sheets(d)
         return redirect(url_for("admin", date=date, q=request.form.get("q", "")))

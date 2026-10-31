@@ -220,8 +220,18 @@ dialog.botsheet .sheet{background:#1c1c1f;border:1px solid #2e2e32;border-bottom
 .ci-name{flex:1;min-width:0;height:auto;padding:0;background:none;display:flex;align-items:center;gap:12px;text-align:left;font-weight:400}
 span.avatar.ciav,span.avatar.ciav img{width:40px;height:40px;min-width:40px;max-width:40px;min-height:40px;max-height:40px;flex:0 0 40px;font-size:13px}
 .filt{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
-.filt button{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600}
+.filt button{height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600}
 .filt button.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
+.checkbar{position:sticky;top:0;z-index:6;background:#0a0a0b;margin:0 -20px 8px;padding:8px 20px 10px}
+.checkbar form.row{flex-wrap:nowrap;align-items:center;gap:8px}
+.checkbar .calpick{flex:0 0 auto}
+.checkbar .calbtn{flex:0 0 auto}
+.checkbar .calbtn span{overflow:visible;text-overflow:clip}
+.checkbar input[name=q]{flex:1 1 auto;width:auto;min-width:0;margin:0;height:48px;font-size:14px}
+.checkprog{margin:8px 0 0;color:var(--t2);font-size:14px;font-weight:600}
+button.dock{background:#ececee;color:#0a0a0b;height:44px}
+button.quietcheck{background:transparent;color:var(--t2);border:1px solid var(--line);height:44px}
+.emptyfind{color:var(--t2);margin:8px 0 16px}
 .usawprow{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:var(--r);padding:14px 16px;margin:0 0 12px;color:inherit;text-decoration:none}
 .calpick{position:relative;flex:1.6;min-width:0;display:flex;align-items:center;gap:4px}
 .calnav,.calmonth{flex:none;width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;background:none;color:var(--t1);text-decoration:none;border-radius:10px}
@@ -1035,7 +1045,8 @@ _CHEV_R = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><p
 _CAL_I = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
 T["admin"] = ADMIN_NAV + """
 {% if me().is_admin %}{% set al = admin_alert() or (0, 0) %}<a class=usawprow href=/expiring><span class="dot {{ 'bad' if al[0] else ('warn' if al[1] else '') }}" aria-hidden=true></span><span class=grow>USAWP: {{ al[0] }} expired · {{ al[1] }} expiring within {{ EXPIRING_DAYS }} days</span><span class=nxchev aria-hidden=true>›</span></a>{% endif %}
-<form class="row noprint" method=get action=/admin style="margin-bottom:8px"><div class=calpick id=calPick data-date="{{date}}" data-q="{{q}}" data-dates='{{ days|tojson }}'>
+<div class=checkbar>
+<form class="row noprint" method=get action=/admin style="margin-bottom:0"><div class=calpick id=calPick data-date="{{date}}" data-q="{{q}}" data-dates='{{ days|tojson }}'>
 {% if prev_d %}<a class=calnav href="/admin?date={{prev_d}}{% if q %}&amp;q={{q|urlencode}}{% endif %}" aria-label="Previous practice">""" + _CHEV_L + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Previous practice">""" + _CHEV_L + """</span>{% endif %}
 <button type=button class=calbtn id=calOpen aria-haspopup=dialog aria-expanded=false aria-controls=calPop>""" + _CAL_I + """<span>{{ fmt_d(date).replace(' ', ', ', 1) }}</span></button>
 {% if next_d %}<a class=calnav href="/admin?date={{next_d}}{% if q %}&amp;q={{q|urlencode}}{% endif %}" aria-label="Next practice">""" + _CHEV_R + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Next practice">""" + _CHEV_R + """</span>{% endif %}
@@ -1045,6 +1056,8 @@ T["admin"] = ADMIN_NAV + """
 <div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
 <div class=calgrid id=calGrid>{% for c in month.cells %}{% if c is none %}<span class=calday></span>{% elif c.has %}<a class="calday{{' on' if c.on}}" href="/admin?date={{c.iso}}{% if q %}&amp;q={{q|urlencode}}{% endif %}">{{c.day}}</a>{% else %}<span class=calday aria-disabled=true>{{c.day}}</span>{% endif %}{% endfor %}</div></div></div>
 <input type=hidden name=date value="{{date}}"><input name=q value="{{q}}" placeholder="Search players..." style="margin:0"></form>
+<p class=checkprog>Checked in {{ n }} / Going {{ going|length }}</p>
+</div>
 <h1 style="margin:8px 0 4px">{{loc}}</h1>
 <p class="t2 sm" style="margin-top:0">{% if pr %}{{ fmt_span(pr.start, pr.end) }}{% else %}no practice scheduled{% endif %}{% if coach_names %} · Coaches: {{ coach_names|join(', ') }}{% endif %}{% if n %} · {{ n }} checked in{% endif %}</p>
 {% if coach_warn %}<p class="sm" style="margin-top:0">{{ st('warn', 'No assigned coach is coach-eligible') }}</p>{% endif %}
@@ -1052,26 +1065,40 @@ T["admin"] = ADMIN_NAV + """
 <button type=button data-filter=going>Going ({{ going|length }})</button>
 <button type=button data-filter=not>Not Going ({{ n_not }})</button>
 <button type=button data-filter=none>No Response ({{ n_none }})</button>
+<button type=button data-filter=in>Checked in ({{ n }})</button>
 </div>
 {% macro ci(r) %}
-<div class="li cirow" data-rsvp="{{ 'going' if r.going==1 else ('not' if r.going==0 else 'none') }}"><button type=button class=ci-name onclick="this.closest('.li').nextElementSibling.toggleAttribute('hidden')">
+<div class="li cirow" data-rsvp="{{ 'going' if r.going==1 else ('not' if r.going==0 else 'none') }}" data-checked="{{ 1 if r.cid else 0 }}"><button type=button class=ci-name onclick="this.closest('.li').nextElementSibling.toggleAttribute('hidden')">
 {% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}
 <span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ checkin_status(r) }}</span></button>
 <form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}">
-{% if r.cid %}<button class=compact name=action value=undo title="Undo check-in">Checked in</button>{% else %}<button class="primary compact">Check in</button>{% endif %}</form></div>
+{% if r.cid %}<button class="quietcheck compact" name=action value=undo title="Undo check-in">✓ Checked in</button>{% else %}<button class="dock compact" {% if not clearance(r).ok %}data-confirm="Not cleared — check in anyway?"{% endif %}>Check in</button>{% endif %}</form></div>
 {{ member_panel(r) }}{% endmacro %}
+{% if q and not going and not rest %}<p class=emptyfind>No players match “{{ q }}”.</p>{% endif %}
 <h2>Going <span class=t3>{{going|length}}</span></h2>
 <div class=list>{% for r in going %}{{ ci(r) }}{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 <h2>Everyone else <span class=t3>{{rest|length}}</span></h2>
 <div class=list>{% for r in rest %}{{ ci(r) }}{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
+<form method=post class=card><h2 style="margin-top:0">Walk-in</h2>
+<p class="t3 sm">Someone on deck who is not on the list yet.</p>
+{{ csrf_field() }}<input type=hidden name=action value=walkin><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">
+<div class=row><label>First<input name=first required autocomplete=off></label><label>Last<input name=last required autocomplete=off></label></div>
+<button class="dock full">Add and check in</button></form>
 <script>
 document.querySelectorAll('.filt button').forEach(function(b){
  b.onclick=function(){var on=b.classList.contains('on');
   document.querySelectorAll('.filt button').forEach(function(x){x.classList.remove('on')});
   var key=on?'':b.getAttribute('data-filter'); if(!on) b.classList.add('on');
-  document.querySelectorAll('.cirow').forEach(function(row){row.hidden=!!(key&&row.getAttribute('data-rsvp')!==key);});
+  document.querySelectorAll('.cirow').forEach(function(row){
+   if(!key) row.hidden=false;
+   else if(key==='in') row.hidden=row.getAttribute('data-checked')!=='1';
+   else row.hidden=row.getAttribute('data-rsvp')!==key;
+  });
  };
 });
+if(!window.grunionsConfirm){window.grunionsConfirm=1;
+ document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-confirm]');if(!b||b.dataset.ok)return;e.preventDefault();if(window.confirm(b.getAttribute('data-confirm'))){b.dataset.ok='1';b.click()}});
+}
 </script>
 <script>if(/^#m\\d+$/.test(location.hash)){const p=document.querySelector(location.hash);if(p){const d=p.closest('details');if(d)d.open=true;p.removeAttribute('hidden')}}
 (function(){
