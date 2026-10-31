@@ -84,7 +84,7 @@ body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:calc(64px + en
 body.homefull .homemap .leaflet-marker-icon,body.homefull .homemap .leaflet-control-attribution{pointer-events:auto}
 body.profilepage main{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
 header.profilebar{position:sticky;top:0;z-index:5;background:#0a0a0b;display:grid;grid-template-columns:88px 1fr 88px;grid-template-rows:44px;align-items:center;padding:env(safe-area-inset-top) 6px 0;box-sizing:border-box;min-height:44px}
-header.profilebar h1{margin:0;text-align:center;font-size:17px;font-weight:650;line-height:44px}
+header.profilebar h1{margin:0;text-align:center;font-size:17px;font-weight:650;line-height:44px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header.profilebar .left,header.profilebar .right{display:flex;align-items:center;height:44px;min-width:0}
 header.profilebar .left{justify-self:start;justify-content:flex-start}header.profilebar .right{justify-self:end;justify-content:flex-end}
 header.profilebar button,header.profilebar a.profileback,header.profilebar a.profileact{background:none;color:var(--t1);height:44px;min-width:44px;max-height:44px;padding:0 10px;font-weight:600;font-size:16px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
@@ -94,8 +94,8 @@ body.profile-edit header.profilebar button.editonly,body.profile-edit header.pro
 header.profilebar button.savebtn{color:var(--accent);font-weight:650}
 .profilehero{display:flex;flex-direction:column;align-items:center;padding:12px 0 4px}
 .avatarwrap{position:relative;width:112px;height:112px;flex:none}
-button.avatar.hero{width:112px;height:112px;min-width:112px;max-width:112px;min-height:112px;max-height:112px;flex:0 0 112px;font-size:36px}
-button.avatar.hero img{width:112px;height:112px;max-width:112px;max-height:112px}
+button.avatar.hero,span.avatar.hero{width:112px;height:112px;min-width:112px;max-width:112px;min-height:112px;max-height:112px;flex:0 0 112px;font-size:36px}
+button.avatar.hero img,span.avatar.hero img{width:112px;height:112px;max-width:112px;max-height:112px}
 button.cambadge{position:absolute;right:-4px;bottom:-4px;z-index:2;width:32px;height:32px;min-width:32px;min-height:32px;padding:0;border-radius:50%;background:#2a2a2e;color:#ececee;border:2px solid #ececee;display:flex;align-items:center;justify-content:center}
 button.cambadge svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 body.profile-edit button.cambadge.editonly{display:flex}
@@ -265,7 +265,7 @@ dialog.botsheet .sheet{background:#1c1c1f;border:1px solid #2e2e32;border-bottom
 #actConfirm{margin:0 0 10px;font-weight:600}
 .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;z-index:20}.lightbox img{max-width:96vw;max-height:92vh;border-radius:8px}
 .gobtn{background:none;height:auto;padding:4px 0;color:var(--t2);font-weight:500;font-size:14px}.gobtn::after{content:" ›";color:var(--t3)}
-.ci-name{flex:1;min-width:0;height:auto;padding:0;background:none;display:flex;align-items:center;gap:12px;text-align:left;font-weight:400}
+.ci-name,a.ci-name{flex:1;min-width:0;height:auto;padding:0;background:none;display:flex;align-items:center;gap:12px;text-align:left;font-weight:400;color:inherit;text-decoration:none}
 span.avatar.ciav,span.avatar.ciav img{width:40px;height:40px;min-width:40px;max-width:40px;min-height:40px;max-height:40px;flex:0 0 40px;font-size:13px}
 .filt{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
 .checkbar{position:sticky;top:var(--headh,0px);z-index:6;background:#0a0a0b;margin:0 -20px 8px;padding:8px 20px 10px}
@@ -318,7 +318,7 @@ dialog.memberedit .help a{color:var(--t1)}
 .datefield.empty input[type=date]{color:transparent}
 .datefield.empty input[type=date]::-webkit-datetime-edit,.datefield.empty input[type=date]::-webkit-datetime-edit-fields-wrapper{color:transparent}
 @media print{header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{background:#fff}}
-</style></head><body style="background:#0a0a0b;color:#ececee;margin:0" class="{% if tab=='home' and me() %}homefull{% elif tab=='profile' %}profilepage{% elif tab=='practice' %}practicepage{% endif %}">
+</style></head><body style="background:#0a0a0b;color:#ececee;margin:0" class="{% if tab=='home' and me() %}homefull{% elif tab=='profile' or tab=='member' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' %}practicepage{% endif %}">
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
@@ -368,37 +368,6 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro detail_hiddens(r) %}{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}{% endmacro %}
 {% macro cred_side(iso) %}{% if iso %}<span class=cred><span class="dot {{ date_dot(iso) }}" aria-hidden=true></span>{{ fmt_long(iso) }}</span>{% else %}<span class=t3>Not on file</span>{% endif %}{% endmacro %}
 {% macro date_field(label, name, value) %}<label class="datefield{% if not value %} empty{% endif %}">{{ label }}<input type=date name={{ name }} value="{{ value or '' }}"><span class=dateph>Not on file · add date</span></label>{% endmacro %}
-{% macro member_panel(r) %}{% set cl = clearance(r) %}{% set cred = credential_dates(r) %}{% set ps = panel_status(r) %}{% set chip = coach_row_expiry(r) %}{% set ce = coach_eligibility(r) %}{% set rf = referee_eligibility(r) %}
-<div class=panel id=m{{r.id}} hidden>
-<div class=pstat><div class=pstatline><span class="dot {{ ps.dot }}" aria-hidden=true></span><span class=pstitle>{{ ps.label }}</span><span class=pchips>{% if r.role=='coach' or on_coaching_list(r) or ce.eligible or ce.text %}<span class="chip-info{{ ' ' ~ chip.tone if chip.tone else '' }}">Coach{% if chip.date %} · expires {{ fmt_long(chip.date) }}{% endif %}</span>{% endif %}{% if rf.eligible %}<span class="st st-ok ref-elig">Referee eligible</span>{% elif rf.expired %}<span class="st st-bad ref-elig">Referee eligibility expired {{ fmt_long(rf.expired) }}</span>{% endif %}</span></div>{% if ps.reason %}<p class=preason>{{ ps.reason }}</p>{% endif %}</div>
-<div class=kv><span>USAWP # {{ r.usawp_number or '—' }}</span>{{ cred_side(r.usawp_valid_until) }}</div>
-<div class=kv><span>SafeSport</span>{{ cred_side(cred.safesport) }}</div>
-<div class=kv><span>Background screening</span>{{ cred_side(cred.background) }}</div>
-<div class=kv><span>Referee</span>{{ cred_side(cred.referee) }}</div>
-{% if r.usawp_verified_by %}<p class="t3 xs pfoot">Verified by {{ r.usawp_verified_by }}{% if fmt_when(r.usawp_verified_at) %} · {{ fmt_when(r.usawp_verified_at) }}{% endif %}</p>{% endif %}
-{% if r.vr_status %}<details class=vrdetails><summary>Details</summary><p class="t3 sm">{{ r.vr_status }}{% if r.vr_note %} · {{ r.vr_note }}{% endif %}</p></details>{% endif %}
-{% if me().is_admin %}<div class=actpills>
-<button type=button class="btn btn-secondary" data-member-edit="edit{{ r.id }}" data-focus=membership>Recheck</button>
-<button type=button class="btn btn-secondary" data-member-edit="edit{{ r.id }}">Edit</button>
-<form method=post>{{ detail_hiddens(r) }}<button class="btn btn-secondary" name=action value=ask_bot {% if r.vr_status=='pending' %}disabled{% endif %}>Ask Grunions</button></form>
-</div>{% endif %}</div>
-{% if me().is_admin %}<dialog class="botsheet memberedit" id="edit{{ r.id }}"><form method=post class=sheet><div class=grab aria-hidden=true></div>{{ detail_hiddens(r) }}
-<h2>Edit {{ display_first(r) }} {{ r.last }}</h2>
-<h3 data-section=membership>Membership</h3>
-<p class="t3 sm help">Look this member up on Sport:80 and enter what you find. Grunions does not contact Sport:80.{% if r.vr_status == 'pending' %} Saving answers the pending verification request.{% endif %}{% if not cl.ok or r.usawp_status != 'verified' %} <a target=_blank rel=noopener href="https://usawp.sport80.com/" onclick="navigator.clipboard&&navigator.clipboard.writeText('{{ r.first }} {{ r.last }}')">Verify {{ r.first }} on Sport:80</a>{% endif %}</p>
-<label>Verified<select name=verified><option value=yes {{ 'selected' if r.usawp_status=='verified' }}>Yes</option><option value=no {{ 'selected' if r.usawp_status!='verified' }}>No</option></select></label>
-<label>Membership type<input name=membership_type value="{{ r.membership_type or '' }}" placeholder="Individual Membership, Coach" autocomplete=off></label>
-{{ date_field('Membership expires', 'valid_until', r.usawp_valid_until) }}
-<h3 data-section=clearances>Clearances</h3>
-{{ date_field('SafeSport expires', 'safesport_expires', cred.safesport) }}
-{{ date_field('Background screening expires', 'background_expires', cred.background) }}
-{{ date_field('Referee certification expires', 'referee_expires', cred.referee) }}
-<h3 data-section=name>Name</h3>
-<div class=kv><span>Legal name</span><span>{{ r.first }} {{ r.last }}</span></div>
-<label>Preferred first name<input name=preferred_first value="{{ r.preferred_first or '' }}" placeholder="Leave blank to use legal first name" autocomplete=off></label>
-<button class="btn btn-primary full" name=action value=edit>Save</button>
-<button type=button class="btn btn-secondary full" onclick="grunionsCloseSheet(this.closest('dialog'))">Cancel</button>
-</form></dialog>{% endif %}{% endmacro %}
 {% macro glyph_clock() %}<svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>{% endmacro %}
 {% macro glyph_pin() %}<svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>{% endmacro %}
 {% macro glyph_people() %}<svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><circle cx="9" cy="8" r="2.3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.6 18c.5-2.5 2.3-3.7 4.4-3.7s3.9 1.2 4.4 3.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16.2" cy="9" r="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15.6 14.5c1.5.3 2.7 1.2 3.3 3.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>{% endmacro %}
@@ -477,6 +446,10 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
 <h1>Profile</h1>
 <div class=right><button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=profileForm>Save</button></div>
+</header>{% elif me() and tab == 'member' %}<header class=profilebar>
+<div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
+<h1>{{ display_first(m) }} {{ m.last }}</h1>
+<div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
 </header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left><a class=profileback href=/practices aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div><h1>Practice</h1><div class=right>{% if editing %}<a class=profileact href="/practices/{{ x.p.id }}">Cancel</a>{% elif me().is_admin %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1">Edit</a>{% elif is_staff() %}<button type=button class=profileact data-open="hostedit{{ x.p.id }}">Edit</button>{% endif %}</div></header>{% elif me() %}<header class=homehead><div class=headmain>{% if tab == 'home' %}<h1>Hi, {{ display_first(me()) }}</h1>{% elif tab == 'practices' %}<h1>Schedule</h1>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Check-in</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
@@ -495,14 +468,14 @@ ICONS = {
  "chat": '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12z"/></svg>',
  "admin": '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>',
 }
-TABS = ("""</main>{% if me() and tab != 'profile' %}<nav class="tabs noprint" data-total="{{ badges().total }}">
+TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav class="tabs noprint" data-total="{{ badges().total }}">
 <a href=/home class="{{'on' if tab=='home'}}">""" + ICONS["home"] + """Home</a>
 <a href=/practices class="{{'on' if tab=='practices' or tab=='practice'}}" data-badge=schedule>""" + ICONS["cal"] + """Schedule{{ bubble(badges().schedule) }}</a>
 <a href=/chat class="{{'on' if tab=='chat'}}" data-badge=chat>""" + ICONS["chat"] + """Chat{{ bubble(badges().chat) }}</a>
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=9');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=10');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -696,7 +669,7 @@ if(document.querySelector('nav.tabs')){
   if(a.target&&a.target!=='_self') return;
   var abs; try{abs=new URL(a.href,location.href);}catch(err){return;}
   if(abs.origin!==location.origin) return;
-  if(/^\\/(logout|login|join|profile|auth\\/|static\\/|api\\/)/.test(abs.pathname)) return;
+  if(/^\\/(logout|login|join|profile|admin\\/member|auth\\/|static\\/|api\\/)/.test(abs.pathname)) return;
   if(/\\.(csv|svg|png|webp|jpe?g|gif)$/i.test(abs.pathname)) return;
   if(abs.pathname===location.pathname&&abs.search===location.search){
    e.preventDefault();
@@ -903,6 +876,64 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
  if(phone) phone.addEventListener('input', function(){ var next=formatPhone(phone.value); if(phone.value!==next) phone.value=next; });
  file.onchange=function(){ var f=file.files&&file.files[0]; if(!f) return; if(preview) URL.revokeObjectURL(preview); preview=URL.createObjectURL(f); clear.value=''; showPhoto(preview); };
  removeBtn.onclick=function(){ file.value=''; if(preview){URL.revokeObjectURL(preview); preview=null;} clear.value=hadPhoto?'1':''; showLetters(); };
+})();
+</script>"""
+
+T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}{% set ps = panel_status(m) %}{% set cc = coach_clearance(m) %}{% set ce = coach_eligibility(m) %}
+<form id=memberForm method=post action="/admin/member/{{ m.id }}">{{ csrf_field() }}<input type=hidden name=member_id value={{ m.id }}>
+<div class=profilehero>
+<div class=avatarwrap>
+<span class="avatar hero">{% if m.photo %}<img src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="" width="112" height="112">{% else %}{{ initials(m) }}{% endif %}</span>
+</div>
+<div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
+<p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p>
+<div class=stats><div class=stattile><b>{{ hist|length }}</b><span>Attended</span></div><div class=stattile><b>{{ nmonth }}</b><span>This month</span></div></div>
+</div>
+<div class=seclabel id=membership>Membership</div>
+<div class=list>
+<div class="li prow viewonly"><span>USAWP # {{ m.usawp_number or '—' }}</span>{{ cred_side(m.usawp_valid_until) }}</div>
+<div class="li prow viewonly"><span class=k>Status</span><span class=v>{% if m.vr_status == 'pending' %}{{ st('warn','Verification pending') }}{% elif cl.ok and ps.dot == 'warn' %}{{ st('warn', ps.label) }}{% elif cl.ok %}{{ st('ok','Cleared') }}{% else %}{{ st('bad','Not cleared') }}{% endif %}</span></div>
+{% if m.usawp_verified_at or m.usawp_verified_by %}<div class="li prow viewonly"><span>Verified by {{ m.usawp_verified_by or '—' }}{% if fmt_when(m.usawp_verified_at) %} · {{ fmt_when(m.usawp_verified_at) }}{% elif m.usawp_verified_at %} · {{ m.usawp_verified_at[:10] }}{% endif %}</span></div>{% endif %}
+<div class="li prow viewonly"><span>SafeSport</span>{{ cred_side(cred.safesport) }}</div>
+<div class="li prow viewonly"><span>Background screening</span>{{ cred_side(cred.background) }}</div>
+<div class="li prow viewonly"><span>Referee</span><span class=v>{% set rf = referee_eligibility(m) %}{{ cred_side(cred.referee) }}{% if rf.eligible %} {{ referee_tag(m) }}{% elif rf.expired %}<span class="st st-bad ref-elig">Referee eligibility expired {{ fmt_long(rf.expired) }}</span>{% elif rf.text %} {{ referee_tag(m) }}{% endif %}</span></div>
+{% if cc or ce.eligible or ce.text %}<div class="li prow viewonly"><span>Coach clearance</span><span class=v>{% if cc %}{{ st('ok' if cc.ok else 'bad', 'Cleared' if cc.ok else cc.text) }}{% elif ce.eligible %}{{ coach_tag(m) }}{% else %}<span class="st st-warn coach-elig">{{ ce.text or 'Not eligible' }}</span>{% endif %}</span></div>{% endif %}
+{% if me().is_admin %}
+<div class="li editonly"><p class="t3 sm" style="margin:0">Look this member up on Sport:80 and enter what you find. Grunions does not contact Sport:80.{% if m.vr_status == 'pending' %} Saving answers the pending verification request.{% endif %}</p></div>
+<div class="li editonly"><label class=prefedit style="width:100%;margin:0">USAWP number<input name=number inputmode=numeric autocomplete=off value="{{ m.usawp_number or '' }}"></label></div>
+<div class="li editonly"><label class=prefedit style="width:100%;margin:0">Status<select name=verified><option value=yes {{ 'selected' if m.usawp_status=='verified' }}>Verified</option><option value=no {{ 'selected' if m.usawp_status!='verified' }}>Not verified</option></select></label></div>
+<div class="li editonly"><label class=prefedit style="width:100%;margin:0">Membership type<input name=membership_type value="{{ m.membership_type or '' }}" placeholder="Individual Membership, Coach" autocomplete=off></label></div>
+<div class="li editonly">{{ date_field('Membership expires', 'valid_until', m.usawp_valid_until) }}</div>
+<div class="li editonly">{{ date_field('SafeSport expires', 'safesport_expires', cred.safesport) }}</div>
+<div class="li editonly">{{ date_field('Background screening expires', 'background_expires', cred.background) }}</div>
+<div class="li editonly">{{ date_field('Referee certification expires', 'referee_expires', cred.referee) }}</div>
+<div class="li editonly"><label class=prefedit style="width:100%;margin:0">Note<textarea name=note rows=2 placeholder="Recorded from Sport:80"></textarea></label></div>
+{% endif %}
+</div>
+{% if ps.reason %}<p class="sm viewonly" style="margin:8px 0 0">{{ ps.reason }}</p>{% endif %}
+{% if not cl.ok or m.usawp_status != 'verified' %}<p class="sm viewonly" style="margin:8px 0 0"><a target=_blank rel=noopener href="https://usawp.sport80.com/" onclick="navigator.clipboard&&navigator.clipboard.writeText('{{ m.first }} {{ m.last }}')">Verify {{ m.first }} on Sport:80</a></p>{% endif %}
+{% if m.vr_status %}<details class=vrdetails><summary>Details</summary><p class="t3 sm">{{ m.vr_status }}{% if m.vr_note %} · {{ m.vr_note }}{% endif %}</p></details>{% endif %}
+<div class=seclabel>Personal</div>
+<div class=list>
+<div class="li prow"><span class=k>Legal name</span><span class=v>{{ m.first }} {{ m.last }}</span></div>
+<div class="li prow viewonly"><span class=k>Preferred name</span><span class=v>{{ m.preferred_first or '—' }}</span></div>
+{% if me().is_admin %}<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Preferred first name<input name=preferred_first value="{{ m.preferred_first or '' }}" placeholder="Leave blank to use legal first name" autocomplete=off></label></div>{% endif %}
+<div class="li prow"><span class=k>Email</span><span class=v>{{ m.email }}</span></div>
+<div class="li prow"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
+</div>
+</form>
+{% if me().is_admin %}
+<div class=seclabel>Actions</div>
+<button type=button class="btn btn-secondary full viewonly" id=memberRecheck>Recheck</button>
+<form method=post action="/admin/member/{{ m.id }}" style="margin-top:10px">{{ csrf_field() }}<input type=hidden name=member_id value={{ m.id }}><button class="btn btn-secondary full" name=action value=ask_bot {% if m.vr_status=='pending' %}disabled{% endif %}>Ask Grunions to verify</button></form>
+{% endif %}
+<script>
+(function(){
+ var edit=document.getElementById('profileEdit'), cancel=document.getElementById('profileCancel'), back=document.getElementById('profileBack'), recheck=document.getElementById('memberRecheck');
+ if(edit) edit.onclick=function(){document.body.classList.add('profile-edit'); var el=document.getElementById('membership'); if(el) el.scrollIntoView({block:'start'});};
+ if(cancel) cancel.onclick=function(){document.body.classList.remove('profile-edit'); if(/[?&]edit=1/.test(location.search)) history.replaceState(null,'',location.pathname);};
+ if(back) back.onclick=function(){ if(history.length>1) history.back(); else location.href='{{ "/members" if me().is_admin else "/admin" }}'; };
+ if(recheck) recheck.onclick=function(){document.body.classList.add('profile-edit'); var el=document.getElementById('membership'); if(el) el.scrollIntoView({block:'start'});};
 })();
 </script>"""
 
@@ -1155,9 +1186,9 @@ T["practice"] = """{% set p = x.p %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
 </div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>
 <div class=seclabel>Coaches</div>
-<div class=list>{% for c in x.coaches %}{% set ce = coach_eligibility(c) %}<div class=li><div class=grow><span class=ell>{{ display_first(c) }} {{ c.last }}</span></div>{% if ce.eligible %}{{ coach_tag(c) }}{% else %}<span class="st st-warn coach-elig">{{ ce.text or 'Not eligible' }}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}</div>
+<div class=list>{% for c in x.coaches %}{% set ce = coach_eligibility(c) %}<div class=li><div class=grow><span class=ell>{% if me().is_admin or is_staff() %}<a href="/admin/member/{{ c.id }}" style="color:inherit;text-decoration:none">{{ display_first(c) }} {{ c.last }}</a>{% else %}{{ display_first(c) }} {{ c.last }}{% endif %}</span></div>{% if ce.eligible %}{{ coach_tag(c) }}{% else %}<span class="st st-warn coach-elig">{{ ce.text or 'Not eligible' }}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}</div>
 <div class=seclabel>Going</div>
-<div class=list>{% for r in x.going %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
+<div class=list>{% for r in x.going %}<div class=li><div class=grow>{% if me().is_admin or is_staff() %}<a href="/admin/member/{{ r.id }}" style="color:inherit;text-decoration:none">{{ display_first(r) }} {{ r.last }}</a>{% else %}{{ display_first(r) }} {{ r.last }}{% endif %}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 <div class=seclabel>Can't make it</div>
 <div class=list>{% for r in x.notgoing %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 <div class=seclabel>Checked in</div>
@@ -1216,12 +1247,11 @@ T["admin"] = ADMIN_NAV + """
 <button type=button class=chip data-filter=in>Checked in ({{ n }})</button>
 </div>
 {% macro ci(r) %}
-<div class="li cirow" data-rsvp="{{ 'going' if r.going==1 else ('not' if r.going==0 else 'none') }}" data-checked="{{ 1 if r.cid else 0 }}"><button type=button class=ci-name onclick="this.closest('.li').nextElementSibling.toggleAttribute('hidden')">
+<div class="li cirow" data-rsvp="{{ 'going' if r.going==1 else ('not' if r.going==0 else 'none') }}" data-checked="{{ 1 if r.cid else 0 }}"><a class=ci-name href="/admin/member/{{ r.id }}">
 {% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}
-<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ checkin_status(r) }}</span></button>
+<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ checkin_status(r) }}</span></a>
 <form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}">
-{% if r.cid %}<button class="btn btn-secondary" name=action value=undo title="Undo check-in">✓ Checked in</button>{% else %}<button class="btn btn-primary" {% if not clearance(r).ok %}data-confirm="Not cleared — check in anyway?"{% endif %}>Check in</button>{% endif %}</form></div>
-{{ member_panel(r) }}{% endmacro %}
+{% if r.cid %}<button class="btn btn-secondary" name=action value=undo title="Undo check-in">✓ Checked in</button>{% else %}<button class="btn btn-primary" {% if not clearance(r).ok %}data-confirm="Not cleared — check in anyway?"{% endif %}>Check in</button>{% endif %}</form></div>{% endmacro %}
 {% if q and not going and not rest %}<p class=emptyfind>No players match “{{ q }}”.</p>{% endif %}
 <h2>Going <span class=t3>{{going|length}}</span></h2>
 <div class=list>{% for r in going %}{{ ci(r) }}{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
@@ -1243,7 +1273,7 @@ if(!window.grunionsConfirm){window.grunionsConfirm=1;
  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-confirm]');if(!b||b.dataset.ok)return;e.preventDefault();if(window.confirm(b.getAttribute('data-confirm'))){b.dataset.ok='1';b.click()}});
 }
 </script>
-<script>if(/^#m\\d+$/.test(location.hash)){const p=document.querySelector(location.hash);if(p){const d=p.closest('details');if(d)d.open=true;p.removeAttribute('hidden')}}
+<script>
 (function(){
 var root=document.getElementById('calPick'); if(!root) return;
 var pop=document.getElementById('calPop'), openBtn=document.getElementById('calOpen'), grid=document.getElementById('calGrid'), label=document.getElementById('calLabel');
@@ -1331,10 +1361,10 @@ T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 s
 <a href="/members?view=uncleared{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='uncleared' }}">Not cleared</a>
 <a href="/members?view=referees{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='referees' }}">Referees</a>
 </div></div>
-{% macro prow(r, kind) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow onclick="if(event.target.closest('button,a,form,input,select'))return;this.closest('.li').nextElementSibling.toggleAttribute('hidden')" style="cursor:pointer"><div style="display:flex;align-items:center;gap:8px;min-width:0">{{ status_dot(r.usawp_status) }}<span class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</span></div>
+{% macro prow(r, kind) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><a class=grow href="/admin/member/{{ r.id }}" style="color:inherit;text-decoration:none"><div style="display:flex;align-items:center;gap:8px;min-width:0">{{ status_dot(r.usawp_status) }}<span class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</span></div>
 <div class="t3 xs" style="margin-top:2px">{% if kind=='admins' %}{% if r.role=='coach' %}Active coach{% else %}Not an active coach{% endif %} · {% endif %}{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}Ends {{tw.ends}} · {% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}Trial ended {{tw.ends}} · {% elif r.usawp_valid_until %}thru {{ fmt_long(r.usawp_valid_until) }} · {% endif %}{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices</div>
 <div class=eligs>{% if r.is_admin %}<span class=chip-info>Admin</span>{% endif %}{% set chip = coach_row_expiry(r) %}{% set ce = coach_eligibility(r) %}{% if r.role=='coach' or r.id in listed or ce.eligible or ce.text %}<span class="chip-info{{ ' ' ~ chip.tone if chip.tone else '' }}">Coach{% if chip.date %} · expires {{ chip.date }}{% endif %}</span>{% endif %}{% if r.id in referees %}<span class=chip-info>Referee</span>{% endif %}{{ referee_tag(r) }}</div>
-</div>
+</a>
 <span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false>⋯</button>
 <div class=menu hidden role=menu>
 {% if kind == 'members' %}
@@ -1354,7 +1384,7 @@ T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 s
 {% elif kind == 'ref_eligible' %}
 <form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=referees><input type=hidden name=q value="{{q}}"><button name=action value=add_referee>Add to referees</button></form>
 {% endif %}
-</div></span></div>{{ member_panel(r) }}{% endmacro %}
+</div></span></div><!--endrow-->{% endmacro %}
 <div class=people>
 {% macro lettered(kind) %}{% set ns = namespace(letter='') %}<div class="list loose">{% for r in rows %}{% set letter = ((r.last or '?')[:1])|upper %}{% if letter != ns.letter %}<h3 class=alpha>{{ letter }}</h3>{% set ns.letter = letter %}{% endif %}{{ prow(r, kind) }}{% else %}<div class=li><span class=t3>{% if q %}No people match “{{ q }}”.{% else %}No one here.{% endif %}</span></div>{% endfor %}</div>{% endmacro %}
 {% if view == 'coaches' %}
@@ -1392,16 +1422,15 @@ T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 s
 </script>"""
 
 T["expiring"] = ADMIN_NAV + """<div class=expage><h1>Expiring</h1>
-<p class="t2 sm" style="margin-top:-8px">Membership, SafeSport, and other dated items. Recheck opens the membership sheet.</p>
+<p class="t2 sm" style="margin-top:-8px">Membership, SafeSport, and other dated items. Tap a person to open them.</p>
 <form class="row noprint" method=get action=/expiring style="align-items:center;margin-bottom:8px"><label class="t2 sm" style="flex:0 0 auto;margin:0">Window (days)<input name=days type=number min=1 value={{days}} onchange=this.form.submit() style="margin:6px 0 0;height:44px;width:96px"></label></form>
 {% for key, label in [('expired','Expired'),('within_7','Next 7 days'),('within_%d'%days,'Next %d days'%days)] %}<h2 class=egroup>{{label}} <span class=t3>{{rep[key]|length}}</span></h2>
-<div class=list>{% for r in rep[key] %}<div class=li><div class=grow style="min-width:0"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span class=ell style="font-weight:500;flex:1">{{display_first(r)}} {{r.last}}</span>
+<div class=list>{% for r in rep[key] %}<div class=li><a class=grow href="/admin/member/{{ r.id }}" style="color:inherit;text-decoration:none;min-width:0"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span class=ell style="font-weight:500;flex:1">{{display_first(r)}} {{r.last}}</span>
 <span class="chip-info daybadge"><span class="dot {{ 'bad' if r.days_left < 0 else ('warn' if r.days_left <= 7 else '') }}" aria-hidden=true></span>{% if r.days_left < 0 %}{{ -r.days_left }}d ago{% elif r.days_left == 0 %}Today{% else %}{{ r.days_left }}d left{% endif %}</span></div>
-<div class="t3 xs">{{ r.item }} · {{ fmt_long(r.usawp_valid_until) }}</div></div>
-<button type=button class="btn btn-secondary" data-member-edit="edit{{ r.id }}" data-focus=membership>Recheck</button></div>{% else %}<div class=li><span class=t3>None</span></div>{% endfor %}</div>{% endfor %}
+<div class="t3 xs">{{ r.item }} · {{ fmt_long(r.usawp_valid_until) }}</div></a>
+<a class="btn btn-secondary" href="/admin/member/{{ r.id }}?edit=1">Recheck</a></div>{% else %}<div class=li><span class=t3>None</span></div>{% endfor %}</div>{% endfor %}
 <form method=post style="margin-top:20px">{{csrf_field()}}<input type=hidden name=action value=ask_all><input type=hidden name=days value="{{days}}"><button class="btn btn-primary full">Ask Grunions to recheck all</button></form>
 <p class="t3 sm" style="margin-top:10px">Asks Grunions to look up everyone listed. Daily report: <a href=/api/expiring>/api/expiring</a>.</p>
-{% for person in roster %}{{ member_panel(person) }}{% endfor %}
 </div>"""
 
 T["requirements_page"] = ADMIN_NAV + """<h1>Rules</h1>

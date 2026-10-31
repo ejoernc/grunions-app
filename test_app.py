@@ -49,7 +49,7 @@ qr_page = eli.get("/qr").get_data(as_text=True)
 ok("<h1>Join QR</h1>" in qr_page and "Anyone who scans this joins the team." in qr_page and "src=/qr.svg" in qr_page and ">Copy link</button>" in qr_page and ">Share</button>" in qr_page and ">Print</button>" in qr_page, "QR page has the code, share, and copy link")
 # manual verify
 t = eli.get("/admin?date=2026-10-27").get_data(as_text=True)
-ok("Verify John on Sport:80" in t and "usawp.sport80.com" in t, "Verify shown only for non-verified")
+ok("Verify John on Sport:80" in eli.get("/admin/member/3").get_data(as_text=True) and "usawp.sport80.com" in eli.get("/admin/member/3").get_data(as_text=True), "Verify shown only for non-verified")
 ok(jane.post("/admin", data=dict(csrf=tok, member_id=3, action="verify")).status_code == 403, "member cannot mark verified")
 eli.post("/admin", data=dict(csrf=tok_e, member_id=3, date="2026-10-27", action="verify", number="7654321", valid_until="2027-08-31"))
 t = eli.get("/members").get_data(as_text=True); raw = eli.get("/members.csv").data; r = raw.decode("utf-8-sig")
@@ -65,14 +65,14 @@ eli.post("/admin", data=dict(csrf=tok_e, member_id=4, date="2026-10-27", action=
 ok("Please enter the expiration" in eli.post("/admin", data=dict(csrf=tok_e, member_id=1, date="2026-10-27", action="verify"), follow_redirects=True).get_data(as_text=True), "Mark verified asks for expiration date")
 D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until=? WHERE id=2", ((A.today_pt()-dt.timedelta(days=1)).isoformat(),)); D.commit()
 t = eli.get("/admin?date=2026-10-27").get_data(as_text=True)
-ok(A.fmt_long(soon) in t and "USAWP: " in t and " expired · " in t and " expiring within " in t, "check-in badge + admin banner")
+ok(A.fmt_long(soon) in eli.get("/admin/member/4").get_data(as_text=True) and "USAWP: " in t and " expired · " in t and " expiring within " in t, "check-in badge + admin banner")
 ok(D.execute("SELECT usawp_status FROM members WHERE id=2").fetchone()[0] == "expired", "auto-flip to expired after expires_on")
 j = eli.get("/api/expiring").get_json()
 ok(len(j["expired"]) >= 1 and any(r["first"]=="Ana" for r in j["within_7"]), "expiry report endpoint")
 ok(jane.get("/api/expiring").status_code == 403, "report endpoint admin-only")
 eli.post("/expiring", data=dict(csrf=tok_e, member_id=4))
 exp_page = eli.get("/expiring").get_data(as_text=True)
-ok(">Expired <" in exp_page and ">Next 7 days <" in exp_page and ">Next 30 days <" in exp_page and 'data-focus=membership>Recheck</button>' in exp_page and "Ask Grunions to recheck all" in exp_page and ("d left" in exp_page or "d ago" in exp_page or ">Today<" in exp_page), "expiring groups dates, a days badge, and recheck")
+ok(">Expired <" in exp_page and ">Next 7 days <" in exp_page and ">Next 30 days <" in exp_page and 'href="/admin/member/' in exp_page and ">Recheck</a>" in exp_page and "data-focus=membership" not in exp_page and "Ask Grunions to recheck all" in exp_page and ("d left" in exp_page or "d ago" in exp_page or ">Today<" in exp_page), "expiring groups dates, a days badge, and recheck")
 ana = A.app.test_client(); rr = ana.post("/login", data=dict(csrf=csrf(ana,"/login"), email="ana@example.com"), follow_redirects=True).get_data(as_text=True)
 h = ana.get(re.search(r'href="http://localhost(/auth/[^"]+)"', rr).group(1), follow_redirects=True).get_data(as_text=True)
 ok("expires in <b>5 days" in ana.get("/profile").get_data(as_text=True) and "notice" in h, "member home expiry warning + in-app reminder")
@@ -109,7 +109,7 @@ h = x.get("/home").get_data(as_text=True); p = x.get("/profile").get_data(as_tex
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=2 AND req_id=1", ((A.today_pt()+dt.timedelta(days=10)).isoformat(),)); D.commit()
 ok(any(r.get("item")=="SafeSport training" for r in eli.get("/api/expiring").get_json()["within_30"]), "compliance item in expiring report")
 D.execute("UPDATE member_reqs SET expires_on='2026-01-01' WHERE member_id=2 AND req_id=1"); D.commit()
-ok("SafeSport expired " + A.fmt_long("2026-01-01") in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "expired compliance -> Not cleared with reason")
+ok("SafeSport expired " + A.fmt_long("2026-01-01") in eli.get("/admin/member/2").get_data(as_text=True) and "Not cleared" in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "expired compliance -> Not cleared with reason on the member page")
 
 # verification requests (bot API)
 A.BOT_API_KEY = "test-bot-key"; H = {"Authorization": "Bearer test-bot-key"}
@@ -165,7 +165,7 @@ members_now = eli.get("/members").get_data(as_text=True)
 ok("bot@grunions.local" not in members_now and "Grunions bot" not in members_now.split(">Verified<")[0], "bot account hidden from member list")
 ahome = ana.get("/profile").get_data(as_text=True)
 ok((">Verified %s<" % A.today_pt().isoformat()) in ahome and "Grunions bot" not in ahome, "member verified row shows only the date")
-ok("Verified by Grunions bot" in a and "Verified by Grunions bot" in eli.get("/members").get_data(as_text=True), "admin views still show who verified")
+ok("Verified by Grunions bot" in eli.get("/admin/member/4").get_data(as_text=True), "admin views still show who verified")
 # reactions + images + schedule toggle
 A.UPLOADS = tempfile.mkdtemp()
 from PIL import Image
@@ -231,7 +231,7 @@ D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,sour
 D.execute("UPDATE members SET membership_type='Head Coach' WHERE id=?", (cid,)); D.commit()
 bg_row = '<span>Background screening</span><span class="st st-ok">expires ' + far_bg + '</span>'
 panel_bg = '<span>Background screening</span><span class=cred><span class="dot ok" aria-hidden=true></span>' + A.fmt_long(far_bg) + '</span>'
-ok('class="st st-ok">cleared' in casey.get("/profile").get_data(as_text=True) and "Cleared to coach" not in casey.get("/profile").get_data(as_text=True) and "Coach eligible" not in casey.get("/home").get_data(as_text=True) and bg_row in casey.get("/profile").get_data(as_text=True) and panel_bg in eli.get("/members").get_data(as_text=True) and panel_bg in eli.get("/admin").get_data(as_text=True) and ('class="st st-ok">Background screening expires ' + far_bg) not in eli.get("/members").get_data(as_text=True) and ('class="st st-ok">Background screening expires ' + far_bg) not in eli.get("/admin").get_data(as_text=True), "background screening stays in expanded details, not on People rows or the check-in list")
+ok('class="st st-ok">cleared' in casey.get("/profile").get_data(as_text=True) and "Cleared to coach" not in casey.get("/profile").get_data(as_text=True) and "Coach eligible" not in casey.get("/home").get_data(as_text=True) and bg_row in casey.get("/profile").get_data(as_text=True) and panel_bg in eli.get("/admin/member/%d" % cid).get_data(as_text=True) and panel_bg not in eli.get("/members").get_data(as_text=True) and panel_bg not in eli.get("/admin").get_data(as_text=True) and ('class="st st-ok">Background screening expires ' + far_bg) not in eli.get("/members").get_data(as_text=True) and ('class="st st-ok">Background screening expires ' + far_bg) not in eli.get("/admin").get_data(as_text=True), "background screening stays on the member page, not on People rows or the check-in list")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (soon_bg, cid, bgid_casey)); D.commit()
 ok(('<span>Background screening</span><span class="st st-warn">expires ' + soon_bg + '</span>') in casey.get("/profile").get_data(as_text=True), "background screening is amber inside the expiring window")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (past_bg, cid, bgid_casey)); D.commit()
@@ -329,7 +329,7 @@ ok(stamp and stamp[:10] == start and 'class="toast noprint" role=status>2-week U
 again = alex.post("/home", data=dict(csrf=csrf(alex, "/home"), action="trial"), follow_redirects=True).get_data(as_text=True)
 ok(D.execute("SELECT trial_acknowledged_at FROM members WHERE email='alex@example.com'").fetchone()[0] == stamp and "2-week USAWP trial started" not in again, "a second confirm does not reset the trial")
 adm = eli.get("/admin").get_data(as_text=True); mem = eli.get("/members").get_data(as_text=True); csv = eli.get("/members.csv").get_data(as_text=True)
-ok(("Trial membership ends " + A.fmt_long(end)) in adm and ("Trial membership ends " + A.fmt_long(end)) in mem and ("Ends %s" % md(end)) in mem and stamp[:10] in csv and end.isoformat() in csv, "admin check-in and roster show the trial end date")
+ok(("Trial membership ends " + A.fmt_long(end)) in eli.get("/admin/member/%d" % D.execute("SELECT id FROM members WHERE email='alex@example.com'").fetchone()[0]).get_data(as_text=True) and ("Ends %s" % md(end)) in mem and stamp[:10] in csv and end.isoformat() in csv, "the member page and roster show the trial end date")
 added = alex.post("/home", data=dict(csrf=csrf(alex, "/home"), usawp_number="88821"), follow_redirects=True).get_data(as_text=True)
 ok('class="toast noprint" role=status>Sent to Grunions for verification' in added and "Verification pending" in alex.get("/profile").get_data(as_text=True) and 'class="dot warn"' in added and "USAWP #88821" in added and "name=usawp_number" not in added and "Trial · 14 days left" not in added and "Ends %s" % md(end) not in added and D.execute("SELECT trial_acknowledged_at FROM members WHERE email='alex@example.com'").fetchone()[0] == stamp and D.execute("SELECT member_number, status FROM verify_requests WHERE member_id=(SELECT id FROM members WHERE email='alex@example.com')").fetchone() == ("88821", "pending"), "a trial member can submit a USAWP number and the card shows Pending")
 aid = D.execute("SELECT id FROM members WHERE email='alex@example.com'").fetchone()[0]
@@ -350,7 +350,7 @@ D.execute("UPDATE members SET trial_acknowledged_at=? WHERE email='drew@example.
 eh = drew.get("/home").get_data(as_text=True)
 eprof = drew.get("/profile").get_data(as_text=True)
 ok('class="st st-bad">Not cleared' in eprof and "class=usawpchip" not in eh and ("Trial ended %s" % md(ended_on)) in eprof and "id=trialOpen" not in eh and "Last day of trial" not in eh and 'name=usawp_number inputmode=numeric value=""' in eh and "Cleared for water polo" not in eh, "an ended trial returns to Not cleared and keeps the membership form")
-ok(("Trial membership ended " + A.fmt_long(ended_on)) in eli.get("/admin").get_data(as_text=True) and ("Trial ended %s" % md(ended_on)) in eli.get("/members").get_data(as_text=True), "admin marks an ended trial on check-in and the roster")
+ok(("Trial membership ended " + A.fmt_long(ended_on)) in eli.get("/admin/member/%d" % D.execute("SELECT id FROM members WHERE email='drew@example.com'").fetchone()[0]).get_data(as_text=True) and ("Trial ended %s" % md(ended_on)) in eli.get("/members").get_data(as_text=True), "an ended trial is on the member page and the roster")
 D.execute("UPDATE members SET trial_acknowledged_at=? WHERE email='alex@example.com'", ((today - dt.timedelta(days=15)).isoformat() + "T08:00:00",)); D.commit()
 ok('class="dot ok"' in alex.get("/home").get_data(as_text=True) and 'class="st st-ok">Cleared' in alex.get("/profile").get_data(as_text=True) and "Trial ended" not in alex.get("/home").get_data(as_text=True), "a verified member keeps the normal card after the trial date has passed")
 day = "2026-12-06"
@@ -395,7 +395,7 @@ D.execute("UPDATE members SET usawp_status='verified', usawp_number='1112223', u
 D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,?, 'test','test','2026-01-01T00:00')", (uid, ssid, yesterday)); D.commit()
 shome = sue.get("/home").get_data(as_text=True)
 sprof = sue.get("/profile").get_data(as_text=True)
-ok(("SafeSport expired %s" % yesterday) in sprof and 'class="st st-bad">Not cleared' in sprof and ">Reverify membership<" not in sprof and "name=usawp_number" not in shome and "name=usawp_number" not in sprof and "USAWP #1112223" in shome and "Membership expired" not in sprof and ("SafeSport expired " + A.fmt_long(yesterday)) in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "expired SafeSport stays Not cleared without a membership reverify button")
+ok(("SafeSport expired %s" % yesterday) in sprof and 'class="st st-bad">Not cleared' in sprof and ">Reverify membership<" not in sprof and "name=usawp_number" not in shome and "name=usawp_number" not in sprof and "USAWP #1112223" in shome and "Membership expired" not in sprof and ("SafeSport expired " + A.fmt_long(yesterday)) in eli.get("/admin/member/%d" % uid).get_data(as_text=True), "expired SafeSport stays Not cleared without a membership reverify button")
 
 # notifications: web push + email
 sw = jane.get("/sw.js").get_data(as_text=True)
@@ -663,7 +663,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=9" in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=10" in chui, "chat page has the press-and-hold action sheet")
 tj = csrf(jane, "/chat"); te = csrf(eli, "/chat"); tjohn = csrf(john, "/chat")
 ok(jane.post("/api/messages", json={"body": "Edit me please"}, headers={"X-CSRF": tj}).status_code == 200, "author can post a message to edit")
 mid = [m for m in jane.get("/api/messages").get_json() if m["body"] == "Edit me please"][-1]["id"]
@@ -838,8 +838,9 @@ riley_row = members_html[members_html.rfind("<div class=li", 0, riley_at):member
 eli_pick = eli.get("/practices/%d" % pid).get_data(as_text=True)
 coaches_html = eli.get("/members?view=coaches").get_data(as_text=True)
 riley_c = coaches_html.find("riley@example.com")
-riley_crow = coaches_html[coaches_html.rfind("<div class=li", 0, riley_c):coaches_html.find("<div class=panel", riley_c)]
-ok(badge_pages.count('class="st st-ok coach-elig">Coach eligible') >= 1 and 'class="st st-ok coach-elig"' not in jane.get("/practices").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) in eli_pick and 'class="st st-ok coach-elig">Coach eligible' in eli_pick and ('class="chip-info">Coach · expires ' + future) in riley_row and 'class="chip-info">Coach<' not in riley_row and "Active coach" not in riley_row and ('class="st st-ok">Background screening expires ' + future) not in riley_crow and ('class="chip-info">Coach · expires ' + future) in riley_crow and "Coach eligible" not in riley_crow and "Active coach" not in riley_crow and ('<span>Background screening</span><span class=cred><span class="dot ok" aria-hidden=true></span>' + A.fmt_long(future)) in coaches_html and 'class=chip-info>Admin<' in eli.get("/members").get_data(as_text=True) and 'class=chip-info>Admin<' in coaches_html and 'class=chip-info>Admin<' in eli.get("/members?view=admins").get_data(as_text=True), "a current coach chip is grey, background screening stays in the details, and admins get an Admin chip")
+riley_page = eli.get("/admin/member/%d" % riley_id).get_data(as_text=True)
+riley_crow = coaches_html[coaches_html.rfind("<div class=li", 0, riley_c):coaches_html.find("<!--endrow-->", riley_c)]
+ok(badge_pages.count('class="st st-ok coach-elig">Coach eligible') >= 1 and 'class="st st-ok coach-elig"' not in jane.get("/practices").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) in eli_pick and 'class="st st-ok coach-elig">Coach eligible' in eli_pick and ('class="chip-info">Coach · expires ' + future) in riley_row and 'class="chip-info">Coach<' not in riley_row and "Active coach" not in riley_row and ('class="st st-ok">Background screening expires ' + future) not in riley_crow and ('class="chip-info">Coach · expires ' + future) in riley_crow and "Coach eligible" not in riley_crow and "Active coach" not in riley_crow and ('<span>Background screening</span><span class=cred><span class="dot ok" aria-hidden=true></span>' + A.fmt_long(future)) in riley_page and 'class=chip-info>Admin<' in eli.get("/members").get_data(as_text=True) and 'class=chip-info>Admin<' in coaches_html and 'class=chip-info>Admin<' in eli.get("/members?view=admins").get_data(as_text=True), "a current coach chip is grey, background screening stays in the details, and admins get an Admin chip")
 filt = eli.get("/members?coach=eligible").get_data(as_text=True)
 ok("Riley Quinn" in filt and ">Coach eligible <" in filt and ">Coaches</a>" in eli.get("/members").get_data(as_text=True) and 'class="chip-info">Coach · expires ' in filt, "People has Coaches and Coach eligible sections")
 D.execute("UPDATE members SET usawp_valid_until=? WHERE id=?", (today, riley_id)); D.commit()
@@ -862,12 +863,12 @@ ok(memcsv["riley@example.com"][-3] == "Coach eligible" and memcsv["riley@example
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SELECT id FROM requirements WHERE keywords LIKE '%background%' LIMIT 1)", (past, riley_id)); D.commit()
 expired_coaches = eli.get("/members?view=coaches").get_data(as_text=True)
 rc = expired_coaches.find("riley@example.com")
-expired_crow = expired_coaches[expired_coaches.rfind("<div class=li", 0, rc):expired_coaches.find("<div class=panel", rc)]
-ok('coach-elig">Coach eligible' not in riley.get("/profile").get_data(as_text=True) and ("Coach eligibility expired " + past) in riley.get("/profile").get_data(as_text=True) and ('class="chip-info bad">Coach · expires ' + A.fmt_long(past)) in eli.get("/members").get_data(as_text=True) and ('class="chip-info bad">Coach · expires ' + past) in expired_crow and "Coach eligible" not in expired_crow and "Background screening expires" not in expired_crow and D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone(), "an expired background screening shows Coach eligibility expired and keeps the coaching list")
+expired_crow = expired_coaches[expired_coaches.rfind("<div class=li", 0, rc):expired_coaches.find("<!--endrow-->", rc)]
+ok('coach-elig">Coach eligible' not in riley.get("/profile").get_data(as_text=True) and ("Coach eligibility expired " + past) in riley.get("/profile").get_data(as_text=True) and ('class="chip-info bad">Coach · expires ' + past) in eli.get("/members").get_data(as_text=True) and ('class="chip-info bad">Coach · expires ' + past) in expired_crow and "Coach eligible" not in expired_crow and "Background screening expires" not in expired_crow and D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone(), "an expired background screening shows Coach eligibility expired and keeps the coaching list")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id IN (SELECT id FROM requirements WHERE keywords LIKE '%background%' OR keywords LIKE '%safesport%')", (today, riley_id)); D.commit()
 ok('coach-elig">Coach eligible' in riley.get("/profile").get_data(as_text=True) and "Coach eligibility expired" not in riley.get("/home").get_data(as_text=True), "background and SafeSport are current on the expiry date itself")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SELECT id FROM requirements WHERE keywords LIKE '%safesport%' LIMIT 1)", (past, riley_id)); D.commit()
-ok('coach-elig">Coach eligible' not in riley.get("/home").get_data(as_text=True) and ('class="chip-info bad">Coach · expires ' + A.fmt_long(past)) in eli.get("/admin").get_data(as_text=True), "an expired SafeSport date shows Coach eligibility expired on check-in")
+ok('coach-elig">Coach eligible' not in riley.get("/home").get_data(as_text=True) and ("Coach eligibility expired " + past) in eli.get("/admin/member/%d" % riley_id).get_data(as_text=True), "an expired SafeSport date shows Coach eligibility expired on the member page")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SELECT id FROM requirements WHERE keywords LIKE '%safesport%' LIMIT 1)", (future, riley_id)); D.commit()
 answer(True, membership_type="Athlete")
 ok(not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and 'class="st st-ok coach-elig"' not in riley.get("/home").get_data(as_text=True) and 'class="st st-bad coach-elig"' not in riley.get("/home").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) not in eli.get("/practices/%d" % pid).get_data(as_text=True), "a verified athlete membership removes the USAWP coaching-list row")
@@ -1005,13 +1006,14 @@ denied = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=be
 ok(denied.status_code == 400 and 'class="dot ok"' in bea.get("/home").get_data(as_text=True) and D.execute("SELECT require_background FROM members WHERE id=?", (bea_id,)).fetchone()[0] == 1, "Require background is not an action and leaves the stored flag unused")
 made_coach = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=bea_id, action="make_coach"), follow_redirects=True).get_data(as_text=True)
 bea_at = made_coach.find("bea.player@example.com")
-bea_row = made_coach[made_coach.rfind("<div class=li", 0, bea_at):made_coach.find("<div class=panel", bea_at)]
+bea_row = made_coach[made_coach.rfind("<div class=li", 0, bea_at):made_coach.find("<!--endrow-->", bea_at)]
+bea_detail = eli.get("/admin/member/%d" % bea_id).get_data(as_text=True)
 as_coach = bea.get("/profile").get_data(as_text=True)
 coach_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
 eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=bea_id, action="remove_coach"), follow_redirects=True)
 as_player = bea.get("/profile").get_data(as_text=True)
 player_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
-ok('class="st st-ok">Cleared' in as_coach and "Not cleared to coach" in as_coach and '<span>Background screening</span><span class="st st-bad">missing</span>' in as_coach and "Background screening missing" not in bea_row and '<span>Background screening</span><span class=t3>Not on file</span>' in made_coach and coach_csv["bea.player@example.com"][-1] == "Background screening missing" and "Not cleared to coach" not in as_player and "Background screening" not in as_player and 'class="st st-ok">Cleared' in as_player and player_csv["bea.player@example.com"][-1] == "", "Make coach requires background screening, and Remove coach drops that requirement")
+ok('class="st st-ok">Cleared' in as_coach and "Not cleared to coach" in as_coach and '<span>Background screening</span><span class="st st-bad">missing</span>' in as_coach and "Background screening missing" not in bea_row and '<span>Background screening</span><span class=t3>Not on file</span>' in bea_detail and coach_csv["bea.player@example.com"][-1] == "Background screening missing" and "Not cleared to coach" not in as_player and "Background screening" not in as_player and 'class="st st-ok">Cleared' in as_player and player_csv["bea.player@example.com"][-1] == "", "Make coach requires background screening, and Remove coach drops that requirement")
 week = (A.today_pt() + dt.timedelta(days=7)).isoformat()
 bg_req = D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '%background%'").fetchone()[0]
 casey_mid = D.execute("SELECT id FROM members WHERE email='casey@example.com'").fetchone()[0]
@@ -1119,35 +1121,34 @@ rae_row = ref_members[ref_members.rfind("<div class=li", 0, rae_at):ref_members.
 ref_filt = eli.get("/members?referee=eligible").get_data(as_text=True)
 ref_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
 checkin_ref = eli.get("/admin").get_data(as_text=True)
-ok('class="st st-ok ref-elig">Referee eligible' in rae_row and "Coach eligible" not in rae_row and "Rae Fern" in ref_filt and "Jane Doe" not in ref_filt and "Riley Quinn" not in ref_filt and ">Referees</a>" in ref_members and 'class="st st-ok ref-elig">Referee eligible' in checkin_ref and ref_csv["rae.fern@example.com"][-2] == "Referee eligible" and ref_csv["jane@example.com"][-2] == "" and "Referee eligible" not in rae.get("/home").get_data(as_text=True), "a referee verification shows Referee eligible on Members, the filter, check-in, and the sheet")
+ok('class="st st-ok ref-elig">Referee eligible' in rae_row and "Coach eligible" not in rae_row and "Rae Fern" in ref_filt and "Jane Doe" not in ref_filt and "Riley Quinn" not in ref_filt and ">Referees</a>" in ref_members and 'class="st st-ok ref-elig">Referee eligible' in eli.get("/admin/member/%d" % rae_id).get_data(as_text=True) and ref_csv["rae.fern@example.com"][-2] == "Referee eligible" and ref_csv["jane@example.com"][-2] == "" and "Referee eligible" not in rae.get("/home").get_data(as_text=True), "a referee verification shows Referee eligible on Members, the filter, check-in, and the sheet")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (ref_past, rae_id, bgid)); D.commit()
 expired_row = eli.get("/members").get_data(as_text=True)
 rae_exp = expired_row.find("rae.fern@example.com")
 rae_exp_row = expired_row[expired_row.rfind("<div class=li", 0, rae_exp):expired_row.find("<div class=li", rae_exp)]
 lapsed = "Referee eligibility expired " + ref_past
 lapsed_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
-ok(('class="st st-bad ref-elig">' + lapsed) in rae_exp_row and 'class="st st-ok ref-elig"' not in rae_exp_row and ("Referee eligibility expired " + A.fmt_long(ref_past)) in eli.get("/admin").get_data(as_text=True) and lapsed_csv["rae.fern@example.com"][-2] == lapsed and "Rae Fern" not in eli.get("/members?referee=eligible").get_data(as_text=True), "a lapsed referee certification is marked on Members, check-in, and the sheet")
+ok(('class="st st-bad ref-elig">' + lapsed) in rae_exp_row and 'class="st st-ok ref-elig"' not in rae_exp_row and ("Referee eligibility expired " + A.fmt_long(ref_past)) in eli.get("/admin/member/%d" % rae_id).get_data(as_text=True) and lapsed_csv["rae.fern@example.com"][-2] == lapsed and "Rae Fern" not in eli.get("/members?referee=eligible").get_data(as_text=True), "a lapsed referee certification is marked on Members, check-in, and the sheet")
 mem_panel = eli.get("/members").get_data(as_text=True)
 adm_panel = eli.get("/admin").get_data(as_text=True)
+jane_page = eli.get("/admin/member/%d" % jane_id).get_data(as_text=True)
+coach_page = casey.get("/admin/member/%d" % jane_id)
 jane_cred = '<span>USAWP # 1234567</span><span class=cred><span class="dot warn" aria-hidden=true></span>' + A.fmt_long(soon) + '</span>'
-ok("Member # / expires" not in mem_panel and "Member # / expires" not in adm_panel and jane_cred in mem_panel and jane_cred in adm_panel and "Preferred first name" in mem_panel and "Preferred first name" in adm_panel and "name=preferred_first" in mem_panel and "<span>RSVP</span>" not in mem_panel and "<span>Eligibility</span>" not in mem_panel and "Save background screening" not in mem_panel and "Save Sport:80 result" not in mem_panel and ">Recheck</button>" in mem_panel and ">Edit</button>" in mem_panel and mem_panel.count('class=panel id=m') == adm_panel.count('class=panel id=m') and "nextElementSibling.toggleAttribute('hidden')" in mem_panel and "bot answered" in adm_panel and ">Cleared<" in adm_panel, "the members list opens the same detail panel as check-in")
+ok("Member # / expires" not in jane_page and jane_cred in jane_page and "Preferred first name" in jane_page and "name=preferred_first" in jane_page and "name=number" in jane_page and "<span>RSVP</span>" not in jane_page and "<span>Eligibility</span>" not in jane_page and "Save background screening" not in jane_page and "Save Sport:80 result" not in jane_page and ">Recheck</button>" in jane_page and ">Edit</button>" in jane_page and ">Ask Grunions to verify</button>" in jane_page and "class=panel" not in mem_panel and "class=panel" not in adm_panel and "nextElementSibling.toggleAttribute('hidden')" not in mem_panel and "nextElementSibling.toggleAttribute('hidden')" not in adm_panel and ('href="/admin/member/%d"' % jane_id) in mem_panel and ('href="/admin/member/%d"' % jane_id) in adm_panel and "bot answered" in adm_panel and ">Cleared<" in adm_panel and jane.get("/admin/member/%d" % jane_id).status_code == 403 and coach_page.status_code == 200 and "id=profileEdit" not in coach_page.get_data(as_text=True), "a person opens a member page, check-in keeps its status on the row, and a member cannot open it")
 ana_at = mem_panel.find("ana@example.com")
 ana_li = mem_panel.rfind("<div class=li", 0, ana_at)
-ana_row = mem_panel[ana_li:mem_panel.find("<div class=panel", ana_at)]
+ana_row = mem_panel[ana_li:mem_panel.find("<!--endrow-->", ana_at)]
 ok(ana_row.find('class="dot ok"') < ana_row.find(">Ana Lopez<") and "thru " in ana_row and ana_row.find("class=morebtn") > ana_row.find("ana@example.com") and ">Require background</button>" not in mem_panel and "Require background screening" not in mem_panel and "Don't require background" not in mem_panel, "the status dot sits in front of the name, the menu is at the right of the row, and Require background is gone")
 renamed = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=jane_id, action="preferred", preferred_first="Jay"), follow_redirects=True).get_data(as_text=True)
-ok("Jay" in renamed and "Legal name" in renamed and D.execute("SELECT preferred_first FROM members WHERE id=?", (jane_id,)).fetchone()[0] == "Jay" and 'value="Jay"' in eli.get("/admin").get_data(as_text=True), "a preferred name saved on the members list shows on check-in")
+jay_page = eli.get("/admin/member/%d" % jane_id).get_data(as_text=True)
+ok("Jay" in renamed and "Legal name" in jay_page and D.execute("SELECT preferred_first FROM members WHERE id=?", (jane_id,)).fetchone()[0] == "Jay" and 'value="Jay"' in jay_page and "Jay Doe" in eli.get("/admin").get_data(as_text=True), "a preferred name saved on the members list shows on check-in")
 kay = A.app.test_client(); join(kay, "Kay", "Recheck", "kay.recheck@example.com")
 kay_id = D.execute("SELECT id FROM members WHERE email='kay.recheck@example.com'").fetchone()[0]
 D.execute("UPDATE members SET usawp_status='verified', usawp_number='303030', usawp_valid_until='2027-01-01', role='athlete', is_admin=0 WHERE id=?", (kay_id,))
 D.commit()
-shown = eli.get("/members").get_data(as_text=True) + eli.get("/admin").get_data(as_text=True)
-ok(shown.count(">Recheck</button>") >= 2 and "name=membership_type" in shown and "name=referee_expires" in shown and "name=safesport_expires" in shown and "name=background_expires" in shown and "Not on file · add date" in shown and kay.post("/members", data=dict(csrf=csrf(kay, "/home"), member_id=kay_id, action="recheck", verified="yes")).status_code == 403, "Recheck membership is on the member panel for an admin, and a member cannot save it")
-kay_page = eli.get("/members").get_data(as_text=True)
-kay_panel = kay_page[kay_page.find('<div class=panel id=m%d' % kay_id):]
-kay_next = kay_panel.find("<div class=li")
-if kay_next >= 0: kay_panel = kay_panel[:kay_next]
-kay_form = kay_panel[kay_panel.find("Edit Kay"):kay_panel.find("</dialog>")]
+shown = eli.get("/admin/member/%d" % kay_id).get_data(as_text=True)
+ok(">Recheck</button>" in shown and "name=membership_type" in shown and "name=referee_expires" in shown and "name=safesport_expires" in shown and "name=background_expires" in shown and "Not on file · add date" in shown and kay.post("/members", data=dict(csrf=csrf(kay, "/home"), member_id=kay_id, action="recheck", verified="yes")).status_code == 403 and kay.get("/admin/member/%d" % kay_id).status_code == 403, "Recheck membership is on the member page for an admin, and a member cannot save it")
+kay_panel = eli.get("/admin/member/%d" % kay_id).get_data(as_text=True)
 ask_hits = []
 class _AskResp:
     status = 204
@@ -1164,7 +1165,7 @@ try:
 finally:
     __import__("urllib.request", fromlist=["urlopen"]).urlopen = _ask_orig
     A.VERIFY_WEBHOOK_URL = _ask_url
-ok(">Ask Grunions</button>" in kay_panel and "Look this member up on Sport:80" in kay_form and ">Save</button>" in kay_form and ">Cancel</button>" in kay_form and asked.status_code == 200 and 'class="toast noprint"' in asked.get_data(as_text=True) and ask_hits and ask_hits[0]["requested_by"] == "Eli Joern" and ask_hits[0]["member_submitted"] is False and ask_hits[0]["member_id"] == kay_id and ask_hits[0]["name"] == "Kay Recheck" and D.execute("SELECT status, member_submitted, requested_by FROM verify_requests WHERE member_id=? ORDER BY id DESC LIMIT 1", (kay_id,)).fetchone() == ("pending", 0, "Eli Joern") and kay.post("/members", data=dict(csrf=csrf(kay, "/home"), member_id=kay_id, action="ask_bot")).status_code == 403, "Ask Grunions sits with Recheck and still asks the bot for a verified member")
+ok(">Ask Grunions to verify</button>" in kay_panel and "Look this member up on Sport:80" in kay_panel and ">Save</button>" in kay_panel and ">Cancel</button>" in kay_panel and asked.status_code == 200 and 'class="toast noprint"' in asked.get_data(as_text=True) and ask_hits and ask_hits[0]["requested_by"] == "Eli Joern" and ask_hits[0]["member_submitted"] is False and ask_hits[0]["member_id"] == kay_id and ask_hits[0]["name"] == "Kay Recheck" and D.execute("SELECT status, member_submitted, requested_by FROM verify_requests WHERE member_id=? ORDER BY id DESC LIMIT 1", (kay_id,)).fetchone() == ("pending", 0, "Eli Joern") and kay.post("/members", data=dict(csrf=csrf(kay, "/home"), member_id=kay_id, action="ask_bot")).status_code == 403, "Ask Grunions sits with Recheck and still asks the bot for a verified member")
 D.execute("DELETE FROM verify_requests WHERE member_id=? AND status='pending'", (kay_id,)); D.commit()
 ahead = (A.today_pt() + dt.timedelta(days=50)).isoformat()
 eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=kay_id, action="recheck", verified="yes", membership_type="Individual Membership, Coach", valid_until=ahead, safesport_expires=ahead, background_expires=ahead))
@@ -1172,7 +1173,7 @@ who = D.execute("SELECT usawp_status, usawp_verified_by, usawp_verified_at, role
 ok(who[0] == "verified" and who[1] == "Eli Joern" and who[2].startswith(A.today_pt().isoformat()) and who[3] == "athlete" and who[4] == "Individual Membership, Coach" and D.execute("SELECT source FROM coaching_list WHERE member_id=?", (kay_id,)).fetchone()[0] == "usawp" and kay.get("/admin").status_code == 403 and kay.get("/chat?c=coaches").status_code == 403 and 'class="st st-ok coach-elig">Coach eligible' in kay.get("/profile").get_data(as_text=True) and ('class="chip-info">Coach · expires ' + ahead) in eli.get("/members").get_data(as_text=True), "a Coach membership recorded from Sport:80 adds the coaching list and the expiry chip without coach access")
 D.execute("INSERT INTO verify_requests(member_id,name,email,status,created) VALUES(?,?,?,'pending',?)", (kay_id, "Kay Recheck", "kay.recheck@example.com", A.today_pt().isoformat()))
 D.commit()
-pending_html = eli.get("/members").get_data(as_text=True)
+pending_html = eli.get("/admin/member/%d" % kay_id).get_data(as_text=True)
 eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=kay_id, action="recheck", verified="yes", membership_type="Athlete", valid_until=ahead, safesport_expires=ahead, background_expires=ahead, referee_expires=ahead))
 ok("class=vrdetails" in pending_html and ">Details</summary>" in pending_html and D.execute("SELECT status FROM verify_requests WHERE member_id=? ORDER BY id DESC LIMIT 1", (kay_id,)).fetchone()[0] == "done" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=? AND source='usawp'", (kay_id,)).fetchone() and 'class="st st-ok ref-elig">Referee eligible' in eli.get("/members").get_data(as_text=True) and D.execute("SELECT role FROM members WHERE id=?", (kay_id,)).fetchone()[0] == "athlete", "the same form answers a pending request and a referee certification makes Referee eligible")
 eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=kay_id, action="recheck", verified="yes", membership_type="Athlete", valid_until=ahead, safesport_expires=ahead, background_expires=ahead, referee_expires=(A.today_pt() - dt.timedelta(days=3)).isoformat()))
@@ -1186,7 +1187,7 @@ D.execute("UPDATE members SET trial_acknowledged_at=?, usawp_status='unknown', u
 D.commit()
 trial_page = eli.get("/members").get_data(as_text=True)
 jat = trial_page.find("jane@example.com")
-jchunk = trial_page[trial_page.rfind("<div class=li", 0, jat):trial_page.find("<div class=panel", jat)]
+jchunk = trial_page[trial_page.rfind("<div class=li", 0, jat):trial_page.find("<!--endrow-->", jat)]
 jpre = jchunk[:jchunk.find("jane@example.com")]
 ok(jpre.rstrip().endswith("Ends " + A.fmt_md((A.today_pt() + dt.timedelta(days=14)).isoformat()) + " ·") and jchunk.count("Ends ") == 1 and "practices" in jchunk[jchunk.find("jane@example.com"):], "the members second line leads with the trial end date, then email and practice count")
 
@@ -1203,7 +1204,7 @@ card_e = sched_e.split("id=p%d " % dpid, 1)[1].split("id=p")[0]
 ok(('href="/practices/%d"' % dpid) in sched_j and " going</span>" in card_e and "Water Polo Practice" in card_e and "class=nxhead" not in card_e and "class=datetile" in card_e and "class=mo>" in card_e and "class=pills" in card_e and "I'm going" in card_e and "I'm not going" in card_e and "class=nxchev" in card_e and "class=pimg" not in card_e and "class=nxicon" not in card_e and "class=morebtn" not in card_e and "Assign coaches" not in card_e and "Delete practice" not in card_e and "class=morebtn" not in sched_e and "class=morebtn" not in sched_j, "a schedule card shows the date tile and icon rows and has no More menu")
 page_j = jane.get("/practices/%d" % dpid).get_data(as_text=True)
 page_e = eli.get("/practices/%d" % dpid).get_data(as_text=True)
-ok(jane.get("/practices/999999").status_code == 404 and "Detail Pool" in page_j and "Bring caps" in page_j and "Jay Doe" in page_j and "Eli Joern" in page_j and "Checked in" in page_j and "Can't make it" in page_j and "maps.google.com/maps?q=" not in page_j and "class=\"homemap cardmap banner\"" in page_j and "mode:'card'" in page_j and "google.com/maps/dir/" in page_j and "btn btn-secondary" in page_j and ">Directions</span>" in page_j and "Scheduled" in page_j and ">Edit</a>" not in page_j and "Assign coaches" not in page_j and "class=morebtn" not in page_j and "No assigned coach is coach-eligible" not in page_j and "No coaches assigned." in page_e and "No assigned coach is coach-eligible" not in page_e and ">Edit</a>" in page_e and "class=morebtn" not in page_e and "Assign coaches" in page_e and "Delete practice" in page_e, "the practice page shows who's coming, the map banner, and an admin edit action and coach warning")
+ok(jane.get("/practices/999999").status_code == 404 and "Detail Pool" in page_j and "Bring caps" in page_j and "Jay Doe" in page_j and "Eli Joern" in page_j and "Checked in" in page_j and "Can't make it" in page_j and "maps.google.com/maps?q=" not in page_j and "class=\"homemap cardmap banner\"" in page_j and "mode:'card'" in page_j and "google.com/maps/dir/" in page_j and "btn btn-secondary" in page_j and ">Directions</span>" in page_j and "Scheduled" in page_j and ">Edit</a>" not in page_j and "Assign coaches" not in page_j and "class=morebtn" not in page_j and "No assigned coach is coach-eligible" not in page_j and "No coaches assigned." in page_e and "No assigned coach is coach-eligible" not in page_e and 'href="/admin/member/' in page_e and 'href="/admin/member/' not in page_j and ">Edit</a>" in page_e and "class=morebtn" not in page_e and "Assign coaches" in page_e and "Delete practice" in page_e, "the practice page shows who's coming, the map banner, and an admin edit action and coach warning")
 editp = eli.get("/practices/%d?edit=1" % dpid).get_data(as_text=True)
 ok('name=date' in editp and 'name=start' in editp and 'name=location' in editp and "name=note" in editp and ">Save</button>" in editp and ">Cancel</a>" in editp and 'name=date' not in jane.get("/practices/%d?edit=1" % dpid).get_data(as_text=True), "admins edit the practice on the page, and members stay in read mode")
 eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="edit", back="page", date=pday, start="18:30", end="20:00", location="Detail Pool", note="Caps and fins"))

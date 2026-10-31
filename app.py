@@ -1749,9 +1749,17 @@ def save_sport80_recheck(d, mid, announce=True):
     vu = parse_date(request.form.get("valid_until"))
     mtype = (request.form.get("membership_type") or "").strip()[:120]
     status = "expired" if (verified and vu and vu < today_pt()) or not verified else "verified"
-    d.execute("""UPDATE members SET usawp_status=?, usawp_raw=?, usawp_valid_until=COALESCE(?, usawp_valid_until),
-        usawp_updated=?, usawp_verified_by=?, usawp_verified_at=? WHERE id=?""",
-        (status, "Recorded from Sport:80", vu.isoformat() if vu else None, now, who, now, mid))
+    num = (request.form.get("number") or "").strip()[:20]
+    note = (request.form.get("note") or "").strip()[:500]
+    raw = note or "Recorded from Sport:80"
+    if num:
+        d.execute("""UPDATE members SET usawp_status=?, usawp_raw=?, usawp_number=?, usawp_valid_until=COALESCE(?, usawp_valid_until),
+            usawp_updated=?, usawp_verified_by=?, usawp_verified_at=? WHERE id=?""",
+            (status, raw, num, vu.isoformat() if vu else None, now, who, now, mid))
+    else:
+        d.execute("""UPDATE members SET usawp_status=?, usawp_raw=?, usawp_valid_until=COALESCE(?, usawp_valid_until),
+            usawp_updated=?, usawp_verified_by=?, usawp_verified_at=? WHERE id=?""",
+            (status, raw, vu.isoformat() if vu else None, now, who, now, mid))
     if mtype: apply_membership_type(d, mid, mtype, verified)
     if not verified: drop_usawp_coaching(d, mid)
     for field, req in (("safesport_expires", safesport_req(d)), ("background_expires", background_req(d)), ("referee_expires", referee_req(d))):
@@ -1760,7 +1768,7 @@ def save_sport80_recheck(d, mid, announce=True):
     if pending:
         d.execute("UPDATE verify_requests SET status='done', answered=?, result=?, note=? WHERE id=?",
                   (now, json.dumps({"verified": verified, "membership_type": mtype, "membership_expires_on": vu.isoformat() if vu else ""}),
-                   "Recorded by hand from Sport:80", pending["id"]))
+                   note or "Recorded by hand from Sport:80", pending["id"]))
     if announce: flash("Saved the Sport:80 result.")
 def handle_member_detail(d, mid):
     """Check-in and the members list share these edits. 'ok' saves, 'halt' leaves the row unchanged."""
@@ -1811,6 +1819,28 @@ def handle_member_detail(d, mid):
         d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), mid))
         flash("Saved.", "toast")
     return "ok"
+@app.route("/admin/member/<int:mid>", methods=["GET", "POST"])
+@login_required
+def member_page(mid):
+    """Full-page member view for an admin or a coach. Manual edits stay admin-only."""
+    if not (me()["is_admin"] or is_staff()): abort(403)
+    d = db()
+    exists = d.execute("SELECT id FROM members WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone()
+    if not exists: abort(404)
+    if request.method == "POST":
+        detail = handle_member_detail(d, mid)
+        if detail == "ok":
+            d.commit()
+            if request.form.get("action") in ("verify", "req", "background", "preferred", "role", "recheck", "edit"): sync_practice_sheets(d)
+        return redirect(url_for("member_page", mid=mid))
+    m = d.execute("""SELECT m.*,
+      (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status,
+      (SELECT note FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_note
+      FROM members m WHERE m.id=?""", (mid,)).fetchone()
+    hist = d.execute("SELECT practice_date FROM checkins WHERE member_id=?", (mid,)).fetchall()
+    month = today_pt().strftime("%Y-%m")
+    editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
+    return page(T["member"], tab="member", m=m, hist=hist, nmonth=sum(1 for h in hist if (h["practice_date"] or "").startswith(month)), editing=editing)
 def members_back():
     view = request.form.get("list_view") or ""
     if request.form.get("list_coach") == "eligible": view = view or "coaches"
@@ -2731,7 +2761,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-9 */
+SW_JS = """/* grunions-sw-10 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

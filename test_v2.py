@@ -150,7 +150,8 @@ def test_preferred_first_display_and_legal_verify():
         A.remind(A.db(), mid); A.db().commit()
     assert "Hi Sam," in c.get("/home").get_data(as_text=True)
     admin = boss.get("/admin").get_data(as_text=True)
-    assert "Sam River" in admin and "writeText('Samuel River')" in admin and "Verify Samuel on Sport:80" in admin
+    member = boss.get("/admin/member/%d" % mid).get_data(as_text=True)
+    assert "Sam River" in admin and "writeText('Samuel River')" in member and "Verify Samuel on Sport:80" in member
     act(boss, ids()["mem@example.com"], "make_coach")
     assert mem.post("/admin", data=dict(csrf=csrf(mem, "/admin"), member_id=mid, action="preferred", preferred_first="Nope")).status_code == 403
     act(boss, ids()["mem@example.com"], "remove_coach")
