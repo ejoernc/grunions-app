@@ -687,7 +687,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=18" in chui and "5*60*1000" in chui and "new Date(first.at)" in chui and "sameGroup(first" in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=19" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
@@ -739,6 +739,30 @@ _seen_out = {}
 try: _seen_out = json.loads(_seen_proc.stdout or "{}")
 except ValueError: _seen_out = {}
 ok(_seen_proc.returncode == 0 and _seen_out.get("afterDup") == 1 and _seen_out.get("count") == 1 and _seen_out.get("same") and _seen_out.get("quiet") and _seen_out.get("moved") and _seen_out.get("label") == "Seen by 1", "several seen polls leave one stable line and do not rewrite it")
+_grp_src = chui[chui.find("function sameGroup"):chui.find("function placeWho")]
+_grp_proc = subprocess.run(["node", "-e", _grp_src + r'''
+function chain(times, uids){
+ var prev={uid:uids[0], at:times[0], ann:0, deleted:0}, n=1, i;
+ for(i=1;i<times.length;i++){
+  var cur={uid:uids[i], at:times[i], ann:0, deleted:0};
+  if(!sameGroup(prev, cur)) break;
+  prev=cur; n++;
+ }
+ return n;
+}
+var t0=Date.parse("2020-06-01T12:00:00Z");
+function mins(m){return new Date(t0+m*60000).toISOString()}
+console.log(JSON.stringify({
+ long:chain([mins(0),mins(4),mins(8),mins(12)],[1,1,1,1]),
+ exact:chain([mins(0),mins(5)],[1,1]),
+ gap:chain([mins(0),mins(4),mins(10)],[1,1,1]),
+ other:chain([mins(0),mins(4),mins(5)],[1,1,2])
+}));
+'''], capture_output=True, text=True)
+_grp_out = {}
+try: _grp_out = json.loads(_grp_proc.stdout or "{}")
+except ValueError: _grp_out = {}
+ok(_grp_proc.returncode == 0 and _grp_out.get("long") == 4 and _grp_out.get("exact") == 2 and _grp_out.get("gap") == 2 and _grp_out.get("other") == 2, "a rolling five-minute gap keeps a chain together until someone else speaks or the gap is longer")
 tj = csrf(jane, "/chat"); te = csrf(eli, "/chat"); tjohn = csrf(john, "/chat")
 ok(jane.post("/api/messages", json={"body": "Edit me please"}, headers={"X-CSRF": tj}).status_code == 200, "author can post a message to edit")
 mid = [m for m in jane.get("/api/messages").get_json() if m["body"] == "Edit me please"][-1]["id"]

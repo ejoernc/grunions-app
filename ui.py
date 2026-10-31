@@ -486,7 +486,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=18');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=19');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1011,10 +1011,10 @@ function fill(d,m){
   bodyHtml(m)+`<div class=rx>${rxHtml(m.id)}</div>`;
  if(kept) d.appendChild(kept);}
 let grouping=false;
-function sameGroup(first,cur){
- if(!first||!cur||first.uid!==cur.uid) return false;
- if(!!(first.ann&&!first.deleted)!==!!(cur.ann&&!cur.deleted)) return false;
- var delta=new Date(cur.at)-new Date(first.at);
+function sameGroup(prev,cur){
+ if(!prev||!cur||prev.uid!==cur.uid) return false;
+ if(!!(prev.ann&&!prev.deleted)!==!!(cur.ann&&!cur.deleted)) return false;
+ var delta=new Date(cur.at)-new Date(prev.at);
  return delta>=0&&delta<=5*60*1000}
 function placeWho(el,m,at){
  var text=((m.ann&&!m.deleted)?'Announcement · ':'')+m.who+' · '+t(at);
@@ -1029,8 +1029,8 @@ function placeWho(el,m,at){
 function groupMessages(){
  var rows=[].slice.call(box.querySelectorAll('.m')), i=0;
  while(i<rows.length){
-  var first=msgs[+rows[i].id.slice(3)], j=i;
-  while(j+1<rows.length&&sameGroup(first, msgs[+rows[j+1].id.slice(3)])) j++;
+  var prev=msgs[+rows[i].id.slice(3)], j=i;
+  while(j+1<rows.length&&sameGroup(prev, msgs[+rows[j+1].id.slice(3)])){ j++; prev=msgs[+rows[j].id.slice(3)]; }
   var latest=msgs[+rows[j].id.slice(3)];
   for(var k=i;k<=j;k++){
    var el=rows[k], m=msgs[+el.id.slice(3)];
