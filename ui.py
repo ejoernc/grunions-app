@@ -82,7 +82,7 @@ body.homefull header.homehead{position:sticky;top:0;z-index:8;background:transpa
 body.homefull header.homehead.solid{background:#0a0a0b}
 body.homefull main{position:relative;z-index:1;padding:0 16px calc(64px + env(safe-area-inset-bottom))}
 body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));height:auto;margin:0;z-index:0;border-radius:0;pointer-events:none}
-body.homefull .homedock{position:relative;left:auto;right:auto;bottom:auto;z-index:2;max-height:none;overflow:visible;pointer-events:auto;margin:0;padding:0 0 8px;min-height:calc(100dvh - var(--homehead, 76px) - var(--homealerts, 0px) - 64px - env(safe-area-inset-bottom) - var(--peek, 60px));display:flex;flex-direction:column;justify-content:flex-end;gap:8px}
+body.homefull .homedock{position:relative;left:auto;right:auto;bottom:auto;z-index:2;max-height:none;overflow:visible;pointer-events:auto;margin:0;padding:0 0 12px;min-height:calc(100dvh - var(--homehead, 76px) - var(--homealerts, 0px) - 64px - env(safe-area-inset-bottom) - var(--peek, 60px));display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
 body.homefull .schedlist{position:relative;z-index:2}
 .schedsame{display:none}
 header.homehead .titlestack{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px}
@@ -511,7 +511,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=39');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=40');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
