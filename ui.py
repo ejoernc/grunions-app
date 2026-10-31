@@ -519,7 +519,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=47');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=48');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1362,10 +1362,10 @@ T["lineup"] = """{% macro lineup_card(e) %}<div class="card tripcard"><div class
 <form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>
 <button class="btn {{ 'btn-primary' if e.mine == 1 else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 1 else 'going' }}">{{ e.yes_label|safe }}{% if e.mine == 1 %} ✓{% endif %}</button>
 <button class="btn {{ 'btn-primary' if e.mine == 0 else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 0 else 'notgoing' }}">{{ e.no_label|safe }}{% if e.mine == 0 %} ✓{% endif %}</button></form>
-{% if me().is_admin and e.stage == 'interest' %}<form method=post action=/lineup style="margin-top:10px">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><button class="btn btn-primary full" name=action value=commit>We're going</button></form>{% endif %}
-{% if me().is_admin %}<a class="btn btn-secondary full" style="margin-top:10px" href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div>{% endmacro %}
+{% if can_host_practice() and e.stage == 'interest' %}<form method=post action=/lineup style="margin-top:10px">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><button class="btn btn-primary full" name=action value=commit>We're going</button></form>{% endif %}
+{% if can_host_practice() %}<a class="btn btn-secondary full" style="margin-top:10px" href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div>{% endmacro %}
 {% macro lineup_months(groups) %}{% for g in groups %}<h2 class=lineupmonth>{{ g.label }}</h2>{% for e in g.events %}{{ lineup_card(e) }}{% endfor %}{% endfor %}{% endmacro %}
-{% if me().is_admin %}<a class="btn btn-primary full" href=/lineup/new style="margin-bottom:16px">Add event</a>{% endif %}
+{% if can_host_practice() %}<a class="btn btn-primary full" href=/lineup/new style="margin-bottom:16px">Add event</a>{% endif %}
 {% if not upcoming and not past %}<p class=emptyfind>Nothing on the Lineup yet.</p>{% endif %}
 {{ lineup_months(upcoming) }}
 {% if past %}<details class=lineuppast><summary>Past <span class=t3>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}"""

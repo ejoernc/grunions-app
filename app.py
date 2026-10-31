@@ -510,6 +510,14 @@ def can_host_practice(m=None):
     """Admins and active coaches can set a social and a coach message."""
     m = m or me()
     return bool(m and (m["is_admin"] or is_active_coach(m)))
+def lineup_organizer_required(f):
+    """Create, edit, and delete Lineup events. Members can still view and RSVP."""
+    @functools.wraps(f)
+    def w(*a, **k):
+        if not me(): return redirect(url_for("login", next=request.path))
+        if not can_host_practice(): abort(403)
+        return f(*a, **k)
+    return w
 def role_label(m): return "admin" if m["is_admin"] else ("coach" if m["role"] == "coach" else "member")
 _COACH_WORD = re.compile(r"\bcoach\b", re.IGNORECASE)
 _REFEREE_WORD = re.compile(r"\breferee\b", re.IGNORECASE)
@@ -2099,7 +2107,7 @@ def lineup():
         a = request.form.get("action")
         eid = request.form.get("event_id", type=int)
         if a == "commit":
-            if not me()["is_admin"]: abort(403)
+            if not can_host_practice(): abort(403)
             if not eid: abort(400)
             row = d.execute("SELECT * FROM lineup_events WHERE id=?", (eid,)).fetchone()
             if not row: abort(404)
@@ -2122,7 +2130,7 @@ def lineup():
     past = sorted((e for e in packed if e["end_date"] < today), key=lambda e: (e["date"], e["id"]), reverse=True)
     return page(T["lineup"], tab="lineup", upcoming=lineup_groups(upcoming), past=lineup_groups(past), past_n=len(past))
 @app.route("/lineup/new", methods=["GET", "POST"])
-@admin_required
+@lineup_organizer_required
 def lineup_new():
     d = db()
     values = lineup_form_values()
@@ -2135,7 +2143,7 @@ def lineup_new():
             flash(str(e)); values = lineup_form_values(form=request.form)
     return page(T["lineup_edit"], tab="lineup_edit", action="/lineup/new", values=values, event_id=None)
 @app.route("/lineup/<int:eid>/edit", methods=["GET", "POST"])
-@admin_required
+@lineup_organizer_required
 def lineup_edit(eid):
     d = db()
     row = d.execute("SELECT * FROM lineup_events WHERE id=?", (eid,)).fetchone()
@@ -3482,7 +3490,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-47 */
+SW_JS = """/* grunions-sw-48 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
