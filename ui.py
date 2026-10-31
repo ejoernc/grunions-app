@@ -155,6 +155,10 @@ details.playcard>summary::after{flex:none;font-size:16px;margin-left:2px}
 @container playline (max-width:300px){details.playcard>summary::after{content:none}}
 details.checkin{margin:4px 0 20px}details.checkin>summary{min-height:0;padding:18px 0 8px;font-size:17px;font-weight:600;justify-content:flex-start;gap:8px}
 .kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}.kv:first-child{border-top:0}.kv span:first-child{color:var(--t2)}
+.admintabs{display:flex;gap:8px;overflow-x:auto;margin:0 0 16px;padding:2px 0 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.admintabs::-webkit-scrollbar{display:none}
+.admintabs a{flex:none;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);color:var(--t2);text-decoration:none;font-size:14px;font-weight:600;display:inline-flex;align-items:center}
+.admintabs a.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
 .seg{display:flex;gap:4px;background:var(--surface);border-radius:12px;padding:4px;margin:0 0 20px;overflow-x:auto}
 .seg a{flex:1;text-align:center;padding:9px 12px;border-radius:9px;color:var(--t2);text-decoration:none;font-size:14px;font-weight:500;white-space:nowrap}.seg a.on{background:var(--surface2);color:var(--t1)}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:9;box-sizing:border-box;
@@ -387,7 +391,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
 <h1>Profile</h1>
 <div class=right><button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=profileForm>Save</button></div>
-</header>{% else %}<header{% if tab == 'home' and me() %} class=homehead{% endif %}>{% if tab == 'home' and me() %}<h1>Hi, {{ display_first(me()) }}</h1><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a>{% else %}<a class=brand href=/>Grunions</a>{% if me() %}<a class=sub href=/logout>Log out</a>{% endif %}{% endif %}</header>{% endif %}<main>
+</header>{% elif me() %}<header class=homehead><h1>Hi, {{ display_first(me()) }}</h1><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -507,6 +511,8 @@ function grunionsGo(url,pop){
  }).catch(function(){if(gen===grunionsNavGen) location.href=abs.href;});
 }
 if(document.querySelector('nav.tabs')){
+ try{var adminLast=localStorage.getItem('grunionsAdminTab');var adminLink=document.querySelector('nav.tabs a[href="/admin"], nav.tabs a[href="/members"]');
+  if(adminLink&&adminLast&&['/admin','/members','/expiring','/transfer','/requirements','/qr'].indexOf(adminLast)>=0) adminLink.setAttribute('href', adminLast);}catch(e){}
  history.scrollRestoration='manual';
  history.replaceState({grunions:1},'',location.href);
  document.addEventListener('click',function(e){
@@ -580,9 +586,10 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
 <script>var PUSH_CSRF="{{csrf_token()}}",VAPID_PUBLIC="{{vapid_public_key()}}";</script>
 </body></html>""")
 
-ADMIN_NAV = """<div class="seg noprint">{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="{{'on' if ep=='admin'}}">Check-in</a>{% endif %}
-{% if me().is_admin %}<a href=/members class="{{'on' if ep=='members'}}">People</a><a href=/transfer class="{{'on' if ep=='transfer_page'}}">Transfer</a><a href=/expiring class="{{'on' if ep=='expiring'}}">Expiring</a>
+ADMIN_NAV = """<div class="admintabs noprint" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="{{'on' if ep=='admin'}}">Check-in</a>{% endif %}
+{% if me().is_admin %}<a href=/members class="{{'on' if ep=='members'}}">People</a><a href=/expiring class="{{'on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="{{'on' if ep=='transfer_page'}}">Transfer</a>
 <a href=/requirements class="{{'on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="{{'on' if ep=='qr_page'}}">QR</a>{% endif %}</div>
+<script>(function(){var key='grunionsAdminTab';document.querySelectorAll('.admintabs a').forEach(function(a){a.addEventListener('click',function(){try{localStorage.setItem(key,a.getAttribute('href'))}catch(e){}})});})();</script>
 {% set al = admin_alert() %}{% if al and ep!='admin' %}<a href=/expiring class="note noprint" style="display:block;text-decoration:none"><span class="st st-warn"></span> USAWP: <b>{{al[0]}}</b> expired · <b>{{al[1]}}</b> expiring within {{EXPIRING_DAYS}} days</a>{% endif %}
 {% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% endfor %}"""
 

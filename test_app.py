@@ -1271,7 +1271,7 @@ home_h = jane.get("/home").get_data(as_text=True)
 head, body = home_h.split("<main>", 1)
 prof = jane.get("/profile").get_data(as_text=True)
 sched_head = jane.get("/practices").get_data(as_text=True).split("<main>", 1)[0]
-ok("<h1>Hi, Jay</h1>" in head and ">JD<" in head and "Log out" not in head and 'href=/profile' in head and "<h1>Profile</h1>" in prof and "practices attended" in prof and 'href=/notifications' in prof and ">Log out</a>" in prof and ">Edit<" in prof and "tabs noprint" not in prof and "class=pick" in prof and "Log out" in sched_head, "Home greets by name with an initials avatar, and profile is its own page")
+ok("<h1>Hi, Jay</h1>" in head and ">JD<" in head and "Log out" not in head and 'href=/profile' in head and "<h1>Profile</h1>" in prof and "practices attended" in prof and 'href=/notifications' in prof and ">Log out</a>" in prof and ">Edit<" in prof and "tabs noprint" not in prof and "class=pick" in prof and "<h1>Hi, Jay</h1>" in sched_head and "Log out" not in sched_head and 'href=/profile' in sched_head, "Home greets by name with an initials avatar, and profile is its own page")
 jane.post("/home", data={"csrf": csrf(jane, "/home"), "action": "avatar", "photo": (img_bytes("JPEG", (480, 480)), "me.jpg")}, content_type="multipart/form-data")
 shown = jane.get("/home").get_data(as_text=True)
 ok(('src="/avatar/%d' % jane_id) in shown and 'width="44" height="44"' in shown.split("<main>", 1)[0] and ">JD<" not in shown.split("<main>", 1)[0] and 'width="112" height="112"' in jane.get("/profile").get_data(as_text=True) and eli.get("/avatar/%d" % jane_id).status_code == 200 and client().get("/avatar/%d" % jane_id).status_code == 302, "a profile picture is stored for the member and stays inside the avatar circle")
