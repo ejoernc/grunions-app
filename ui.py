@@ -225,9 +225,11 @@ details.checkin{margin:4px 0 20px}details.checkin>summary{min-height:0;padding:1
 .fchips a.chip{flex:none}
 .expage h2.egroup{position:sticky;top:var(--headh,0px);z-index:4;background:#0a0a0b;margin:18px 0 8px;padding:8px 0}
 .daybadge{height:28px;padding:0 10px;margin:0;flex:none;font-weight:700}
-.people h2,h3.alpha{position:sticky;top:calc(var(--headh,0px) + var(--peoplepin,0px));z-index:4;background:#0a0a0b;padding:8px 0}
-.people h2{margin-top:12px}
-h3.alpha{margin:12px 0 6px;font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--t3)}
+.people h2{position:sticky;top:calc(var(--headh,0px) + var(--peoplepin,0px));z-index:4;background:#0a0a0b;padding:8px 0;margin-top:12px}
+.lgroup{margin:0 0 14px}
+.lgroup .list{margin:0}
+h3.alpha{margin:0;padding:8px 0 6px;font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--t3);position:sticky;top:calc(var(--headh,0px) + var(--peoplepin,0px));z-index:4;background:#0a0a0b}
+.cidetail{font-size:14px;color:var(--t2)}
 .seg{display:flex;gap:8px;margin:0 0 16px;overflow-x:auto;scrollbar-width:none}
 .seg::-webkit-scrollbar{display:none}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:9;box-sizing:border-box;
@@ -503,7 +505,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=24');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=25');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1591,10 +1593,9 @@ T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 s
 <a href="/members?view=uncleared{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='uncleared' }}">Not cleared</a>
 <a href="/members?view=referees{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='referees' }}">Referees</a>
 </div></div>
-{% macro prow(r, kind) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><a class=grow href="/admin/member/{{ r.id }}" style="color:inherit;text-decoration:none"><div style="display:flex;align-items:center;gap:8px;min-width:0">{{ status_dot(r.usawp_status) }}<span class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</span></div>
-<div class="t3 xs" style="margin-top:2px">{% if kind=='admins' %}{% if r.role=='coach' %}Active coach{% else %}Not an active coach{% endif %} · {% endif %}{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}Ends {{tw.ends}} · {% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}Trial ended {{tw.ends}} · {% elif r.usawp_valid_until %}thru {{ fmt_long(r.usawp_valid_until) }} · {% endif %}{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices</div>
+{% macro prow(r, kind) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><a class=ci-name href="/admin/member/{{ r.id }}">{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ checkin_status(r) }}<span class=cidetail> · {% if kind=='admins' %}{% if r.role=='coach' %}Active coach{% else %}Not an active coach{% endif %} · {% endif %}{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}Ends {{ tw.ends }} · {% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}Trial ended {{ tw.ends }} · {% elif r.usawp_valid_until %}thru {{ fmt_long(r.usawp_valid_until) }} · {% endif %}{{ r.email }}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{ r.first }}{% endif %} · {{ r.visits }} practices</span>
 <div class=eligs>{% if r.is_admin %}<span class=chip-info>Admin</span>{% endif %}{% set chip = coach_row_expiry(r) %}{% set ce = coach_eligibility(r) %}{% if r.role=='coach' or r.id in listed or ce.eligible or ce.text %}<span class="chip-info{{ ' ' ~ chip.tone if chip.tone else '' }}">Coach{% if chip.date %} · expires {{ chip.date }}{% endif %}</span>{% endif %}{% if r.id in referees %}<span class=chip-info>Referee</span>{% endif %}{{ referee_tag(r) }}</div>
-</a>
+</span></a>
 <span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false>⋯</button>
 <div class=menu hidden role=menu>
 {% if kind == 'members' %}
@@ -1616,7 +1617,7 @@ T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 s
 {% endif %}
 </div></span></div><!--endrow-->{% endmacro %}
 <div class=people>
-{% macro lettered(kind) %}{% set ns = namespace(letter='') %}<div class="list loose">{% for r in rows %}{% set letter = ((r.last or '?')[:1])|upper %}{% if letter != ns.letter %}<h3 class=alpha>{{ letter }}</h3>{% set ns.letter = letter %}{% endif %}{{ prow(r, kind) }}{% else %}<div class=li><span class=t3>{% if q %}No people match “{{ q }}”.{% else %}No one here.{% endif %}</span></div>{% endfor %}</div>{% endmacro %}
+{% macro lettered(kind) %}{% set ns = namespace(letter='') %}{% for r in rows %}{% set letter = ((r.last or '?')[:1])|upper %}{% if letter != ns.letter %}{% if ns.letter %}</div></div>{% endif %}<div class=lgroup><h3 class=alpha>{{ letter }}</h3><div class="list loose">{% set ns.letter = letter %}{% endif %}{{ prow(r, kind) }}{% else %}<div class="list loose"><div class=li><span class=t3>{% if q %}No people match “{{ q }}”.{% else %}No one here.{% endif %}</span></div></div>{% endfor %}{% if ns.letter %}</div></div>{% endif %}{% endmacro %}
 {% if view == 'coaches' %}
 <h2>Coaches <span class=t3>{{ rows|selectattr('id','in',listed)|list|length }}</span></h2>
 <div class="list loose">{% for r in rows if r.id in listed %}{{ prow(r, 'coaches') }}{% else %}<div class=li><span class=t3>{% if q %}No people match “{{ q }}”.{% else %}No one on the coaching list yet.{% endif %}</span></div>{% endfor %}</div>
