@@ -1926,6 +1926,12 @@ def members_back():
     if view in ("coaches", "admins", "referees", "expiring", "uncleared"): kwargs["view"] = view
     if q: kwargs["q"] = q
     return redirect(url_for("members", **kwargs))
+def checkin_filter(raw, n_not, n_in):
+    """Going is the default. A Not Going or Checked in view with nobody in it falls back."""
+    filt = raw if raw in ("not", "in") else "going"
+    if filt == "not" and n_not <= 0: return "going"
+    if filt == "in" and n_in <= 0: return "going"
+    return filt
 @app.route("/admin", methods=["GET", "POST"])
 @staff_required
 def admin():
@@ -1947,7 +1953,20 @@ def admin():
                 if who: flash("Checked in %s." % display_first(who), "toast")
         d.commit()
         if request.form.get("action") in ("verify", "req", "background", "preferred", "role", "recheck", "edit", "undo") or not request.form.get("action"): sync_practice_sheets(d)
-        return redirect(url_for("admin", date=date, q=request.form.get("q", "")))
+        q = request.form.get("q", "")
+        pr_id = d.execute("SELECT id FROM practices WHERE date=? AND cancelled=0 ORDER BY start LIMIT 1", (date,)).fetchone()
+        pid = pr_id["id"] if pr_id else -1
+        counts = d.execute("""SELECT
+          SUM(CASE WHEN rv.going=0 THEN 1 ELSE 0 END),
+          SUM(CASE WHEN c.id IS NOT NULL THEN 1 ELSE 0 END)
+          FROM members m LEFT JOIN checkins c ON c.member_id=m.id AND c.practice_date=?
+          LEFT JOIN rsvps rv ON rv.member_id=m.id AND rv.practice_id=?
+          WHERE COALESCE(m.role,'')!='system' AND (?='' OR m.first||' '||COALESCE(m.preferred_first,'')||' '||m.last||' '||m.email LIKE '%'||?||'%')""",
+          (date, pid, q, q)).fetchone()
+        filt = checkin_filter(request.form.get("filt"), int(counts[0] or 0), int(counts[1] or 0))
+        kwargs = {"date": date, "q": q}
+        if filt != "going": kwargs["filt"] = filt
+        return redirect(url_for("admin", **kwargs))
     ensure_schedule(d)
     days = practice_days(d)
     date = posted or default_checkin_date(days)
@@ -1960,14 +1979,14 @@ def admin():
       WHERE COALESCE(m.role,'')!='system' AND (?='' OR m.first||' '||COALESCE(m.preferred_first,'')||' '||m.last||' '||m.email LIKE '%'||?||'%')""", (date, pr["id"] if pr else -1, q, q)).fetchall()
     def by_name(r): return (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"])
     going = sorted((r for r in rows if r["going"] == 1), key=by_name)
-    rest = sorted((r for r in rows if r["going"] != 1), key=by_name)
+    not_going = sorted((r for r in rows if r["going"] == 0), key=by_name)
+    rest = sorted((r for r in rows if r["going"] is None), key=by_name)
     checked = sorted((r for r in rows if r["cid"]), key=by_name)
-    n_not = sum(1 for r in rows if r["going"] == 0)
-    n_none = sum(1 for r in rows if r["going"] is None)
-    n = len(checked)
+    n_not, n = len(not_going), len(checked)
+    filt = checkin_filter(request.args.get("filt"), n_not, n)
     assigned = practice_coach_rows(d, [pr["id"]]).get(pr["id"], []) if pr else []
     return page(T["admin"],
-        tab="admin", date=date, q=q, going=going, rest=rest, checked=checked, n=n, n_not=n_not, n_none=n_none, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=sum(1 for r in rows if r["going"] == 1),
+        tab="admin", date=date, q=q, going=going, rest=rest, not_going=not_going, checked=checked, n=n, n_not=n_not, filt=filt, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=len(going),
         days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days), coach_names=coach_labels(assigned))
 
 def expiring_roster(d, rep):
@@ -2972,7 +2991,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-15 */
+SW_JS = """/* grunions-sw-16 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

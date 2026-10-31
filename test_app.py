@@ -382,11 +382,27 @@ eli.post("/admin", data=dict(csrf=csrf(eli, "/admin"), member_id=ben, date=day))
 page = eli.get("/admin?date=%s" % day).get_data(as_text=True)
 g0, e0 = page.index(">Going <"), page.index(">Everyone else <")
 going_html, rest_html = page[g0:e0], page[e0:]
-ok(">Going <span class=t3>3</span>" in page and going_html.index("Ava Evans") < going_html.index("Liam Carter") < going_html.index("Mia Barnes") and "Amy Able" not in going_html and 'class="st st-bad">Not cleared' in going_html and ">✓ Checked in</button>" in going_html and "Checked in (" in page and rest_html.index("Amy Able") < rest_html.index("Ben Foster") < rest_html.index("Noah Diaz") < rest_html.index("Zack Quinn") and "Aaron Quinn" not in rest_html.split("Zack Quinn")[0] and "Liam Carter" not in rest_html and "Going (3)" in page and "Not Going (" in page and "No Response (" in page, "check-in sections sort A-Z by display name and keep clearance badges")
+ok(">Going <span class=t3>3</span>" in page and going_html.index("Ava Evans") < going_html.index("Liam Carter") < going_html.index("Mia Barnes") and "Amy Able" not in going_html and 'class="st st-bad">Not cleared' in going_html and ">✓ Checked in</button>" in going_html and "Checked in (" in page and rest_html.index("Amy Able") < rest_html.index("Ben Foster") < rest_html.index("Noah Diaz") < rest_html.index("Zack Quinn") and "Aaron Quinn" not in rest_html.split("Zack Quinn")[0] and "Liam Carter" not in rest_html and "Going (3)" in page and "Not Going (0)" in page and "No Response" not in page and 'class="chip chip-active on"' in page and 'aria-disabled=true>Not Going (0)' in page, "check-in sections sort A-Z by display name and keep clearance badges")
 found = eli.get("/admin?date=%s&q=Liam" % day).get_data(as_text=True)
 eli.post("/admin", data=dict(csrf=csrf(eli, "/admin"), member_id=ava, date=day, action="undo"))
 back = eli.get("/admin?date=%s" % day).get_data(as_text=True)
 ok(">Going <span class=t3>1</span>" in found and "Liam Carter" in found and "Mia Barnes" not in found and ">Everyone else <span class=t3>0</span>" in found and back.index(">Going <") < back.index("Ava Evans") < back.index("Mia Barnes") < back.index(">Everyone else <") and ">Check in</button>" in back[back.index("Ava Evans"):back.index("Mia Barnes")], "search stays inside the sections and undo returns a going member to Going")
+noah = D.execute("SELECT id FROM members WHERE email='noah.sort@example.com'").fetchone()[0]
+D.execute("INSERT INTO rsvps(practice_id,member_id,going) VALUES(?,?,0)", (spid, noah)); D.commit()
+listed = eli.get("/admin?date=%s" % day).get_data(as_text=True)
+lg, le = listed.index(">Going <"), listed.index(">Everyone else <")
+ok("Noah Diaz" not in listed[lg:le] and "Noah Diaz" not in listed[le:] and "Not Going (1)" in listed and "aria-disabled=true>Not Going" not in listed and ">Check in</button>" in listed[lg:le] and ">Check in</button>" in listed[le:], "going view lists RSVPs and everyone else, and leaves not-going off both")
+only_not = eli.get("/admin?date=%s&filt=not" % day).get_data(as_text=True)
+ok("Noah Diaz" in only_not and ">Not Going <span class=t3>1</span>" in only_not and ">Everyone else" not in only_not and ">Going <span" not in only_not and "Mia Barnes" not in only_not and ">Check in</button>" in only_not and ('class="chip chip-active on" href="/admin?date=%s&amp;filt=not"' % day) in only_not, "not going view is only the not-going list")
+only_in = eli.get("/admin?date=%s&filt=in" % day).get_data(as_text=True)
+ok("Ben Foster" in only_in and "Ava Evans" not in only_in and "Mia Barnes" not in only_in and "Noah Diaz" not in only_in and ">Everyone else" not in only_in and ">Going <span" not in only_in and ">Checked in <span class=t3>1</span>" in only_in, "checked-in view is only checked-in people")
+fell = eli.get("/admin?date=2026-12-05&filt=in").get_data(as_text=True)
+ok(">Going <span" in fell and ">Everyone else" in fell and 'class="chip chip-active on"' in fell.split("Not Going")[0] and 'aria-disabled=true>Checked in (0)' in fell and 'aria-disabled=true>Not Going (0)' in fell, "an empty checked-in filter falls back to Going")
+tok_in = csrf(eli, "/admin")
+kept = eli.post("/admin", data=dict(csrf=tok_in, member_id=ava, date=day, filt="in"), follow_redirects=False)
+undone = eli.post("/admin", data=dict(csrf=tok_in, member_id=ben, date=day, action="undo", filt="in"), follow_redirects=False)
+still = eli.post("/admin", data=dict(csrf=tok_in, member_id=ava, date=day, action="undo", filt="in"), follow_redirects=False)
+ok("filt=in" in kept.headers["Location"] and "filt=in" in undone.headers["Location"] and "filt=in" not in still.headers["Location"], "undoing the last check-in leaves Checked in and returns to Going")
 yesterday = (A.today_pt() - dt.timedelta(days=1)).isoformat()
 ren = A.app.test_client(); join(ren, "Ren", "Ew", "ren@example.com")
 rid = D.execute("SELECT id FROM members WHERE email='ren@example.com'").fetchone()[0]
@@ -671,7 +687,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=15" in chui and "5*60*1000" in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:4px}" in chui and "dataset.seen" in chui and ".seenline').forEach" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=16" in chui and "5*60*1000" in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:4px}" in chui and "dataset.seen" in chui and ".seenline').forEach" not in chui, "chat page has the press-and-hold action sheet")
 tj = csrf(jane, "/chat"); te = csrf(eli, "/chat"); tjohn = csrf(john, "/chat")
 ok(jane.post("/api/messages", json={"body": "Edit me please"}, headers={"X-CSRF": tj}).status_code == 200, "author can post a message to edit")
 mid = [m for m in jane.get("/api/messages").get_json() if m["body"] == "Edit me please"][-1]["id"]
