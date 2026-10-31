@@ -68,10 +68,14 @@ header.profilebar button,header.profilebar a.profileback{background:none;color:v
 header.profilebar .left{justify-self:start}header.profilebar .right{justify-self:end}
 header.profilebar .savebtn{font-weight:650}
 .profilehero{display:flex;flex-direction:column;align-items:center;padding:12px 0 4px}
-button.avatar.hero{width:112px;height:112px;min-width:112px;max-width:112px;min-height:112px;max-height:112px;flex:0 0 112px;font-size:36px;position:relative}
+.avatarwrap{position:relative;width:112px;height:112px;flex:none}
+button.avatar.hero{width:112px;height:112px;min-width:112px;max-width:112px;min-height:112px;max-height:112px;flex:0 0 112px;font-size:36px}
 button.avatar.hero img{width:112px;height:112px;max-width:112px;max-height:112px}
-.cambadge{position:absolute;right:-2px;bottom:-2px;width:32px;height:32px;border-radius:50%;background:#ececee;color:#0a0a0b;display:flex;align-items:center;justify-content:center;border:3px solid #0a0a0b}
-.cambadge svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+button.cambadge{position:absolute;right:-4px;bottom:-4px;z-index:2;width:32px;height:32px;min-width:32px;min-height:32px;padding:0;border-radius:50%;background:#2a2a2e;color:#ececee;border:2px solid #ececee;display:flex;align-items:center;justify-content:center}
+button.cambadge svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+body.profile-edit button.cambadge.editonly{display:flex}
+button.textlink{background:transparent;color:var(--t1);height:auto;min-height:0;padding:6px 8px;border-radius:0;font-size:14px;font-weight:600}
+button.textlink.danger{color:var(--bad)}
 .profilename{margin:14px 0 4px;font-size:24px;font-weight:650;letter-spacing:-.3px;text-align:center}
 .profilesub{color:var(--t2);text-align:center;margin:0 0 16px}
 .stats{display:flex;gap:10px;justify-content:center;margin:0 0 8px}
@@ -795,12 +799,14 @@ _CAM = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2h6l2 2h3v
 T["profile"] = """<form id=profileForm method=post action=/profile enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=action value=save><input type=hidden name=photo_clear id=photoClear value="">
 <input class=pick type=file name=photo id=photoFile accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic">
 <div class=profilehero>
-<button type=button class="avatar hero" id=avatarBtn aria-label="Profile photo">{% if m.photo %}<img id=avatarImg src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="" width="112" height="112">{% else %}<img id=avatarImg alt="" width="112" height="112" hidden>{% endif %}<span id=avatarLetters {% if m.photo %}hidden{% endif %}>{{ initials(m) }}</span><span class="cambadge editonly">""" + _CAM + """</span></button>
+<div class=avatarwrap>
+<button type=button class="avatar hero" id=avatarBtn aria-label="Profile photo">{% if m.photo %}<img id=avatarImg src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="" width="112" height="112">{% else %}<img id=avatarImg alt="" width="112" height="112" hidden>{% endif %}<span id=avatarLetters {% if m.photo %}hidden{% endif %}>{{ initials(m) }}</span></button>
+<button type=button class="cambadge editonly" id=camBadge aria-label="Choose photo">""" + _CAM + """</button>
+</div>
+<button type=button class="textlink danger editonly" id=removePhoto {% if not m.photo %}hidden{% endif %}>Remove photo</button>
 <div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
 <p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p>
 <div class=stats><div class=stattile><b>{{ hist|length }}</b><span>Attended</span></div><div class=stattile><b>{{ nmonth }}</b><span>This month</span></div></div>
-<button type=button class="textlink editonly" id=changePhoto>Change photo</button>
-<button type=button class="textlink danger editonly" id=removePhoto {% if not m.photo %}hidden{% endif %}>Remove photo</button>
 </div>
 <div class=seclabel>Personal</div>
 <div class=list>
@@ -808,7 +814,8 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class="li prow viewonly"><span class=k>Preferred name</span><span class=v>{{ m.preferred_first or '—' }}</span></div>
 <div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Preferred name<input name=preferred_first id=prefName value="{{ m.preferred_first or '' }}" data-original="{{ m.preferred_first or '' }}" placeholder="Leave blank to use your legal first name" autocomplete=off></label></div>
 <div class="li prow"><span class=k>Email</span><span class=v>{{ m.email }}</span></div>
-<div class="li prow"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
+<div class="li prow viewonly"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
+<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Phone<input name=phone id=phoneInput type=tel inputmode=numeric autocomplete=tel value="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}" data-original="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}"></label></div>
 </div>
 <div class=seclabel>Role</div>
 <div class=list><div class="li prow"><span class=k>Role</span><span class="chip-info" style="margin:0">{{ role_label(m)|capitalize }}</span></div></div>
@@ -819,16 +826,26 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 </form>
 <script>
 (function(){
- var file=document.getElementById('photoFile'), clear=document.getElementById('photoClear'), img=document.getElementById('avatarImg'), letters=document.getElementById('avatarLetters'), pref=document.getElementById('prefName'), removeBtn=document.getElementById('removePhoto');
+ var file=document.getElementById('photoFile'), clear=document.getElementById('photoClear'), img=document.getElementById('avatarImg'), letters=document.getElementById('avatarLetters'), pref=document.getElementById('prefName'), phone=document.getElementById('phoneInput'), removeBtn=document.getElementById('removePhoto');
  var originalSrc=img.getAttribute('src')||'', hadPhoto={{ 'true' if m.photo else 'false' }}, preview=null;
  function showPhoto(src){img.hidden=false; img.src=src; letters.hidden=true; removeBtn.hidden=false;}
  function showLetters(){img.hidden=true; img.removeAttribute('src'); letters.hidden=false; removeBtn.hidden=true;}
+ function formatPhone(v){
+  var d=(v||'').replace(/\\D/g,'');
+  if(d.length>10 && d.charAt(0)==='1') d=d.slice(1);
+  d=d.slice(0,10);
+  if(!d) return '';
+  if(d.length<4) return '('+d;
+  if(d.length<7) return '('+d.slice(0,3)+') '+d.slice(3);
+  return '('+d.slice(0,3)+') '+d.slice(3,6)+'-'+d.slice(6);
+ }
  function enter(){document.body.classList.add('profile-edit');}
  function leave(){
   document.body.classList.remove('profile-edit');
   if(preview){URL.revokeObjectURL(preview); preview=null;}
   file.value=''; clear.value='';
   pref.value=pref.getAttribute('data-original')||'';
+  if(phone) phone.value=phone.getAttribute('data-original')||'';
   if(hadPhoto&&originalSrc) showPhoto(originalSrc); else showLetters();
   if(hadPhoto) removeBtn.hidden=false;
  }
@@ -837,7 +854,8 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
  document.getElementById('profileBack').onclick=function(){ if(history.length>1) history.back(); else location.href='/home'; };
  function pick(){ file.click(); }
  document.getElementById('avatarBtn').onclick=function(){ if(document.body.classList.contains('profile-edit')) pick(); };
- document.getElementById('changePhoto').onclick=pick;
+ document.getElementById('camBadge').onclick=function(){ if(document.body.classList.contains('profile-edit')) pick(); };
+ if(phone) phone.addEventListener('input', function(){ var next=formatPhone(phone.value); if(phone.value!==next) phone.value=next; });
  file.onchange=function(){ var f=file.files&&file.files[0]; if(!f) return; if(preview) URL.revokeObjectURL(preview); preview=URL.createObjectURL(f); clear.value=''; showPhoto(preview); };
  removeBtn.onclick=function(){ file.value=''; if(preview){URL.revokeObjectURL(preview); preview=null;} clear.value=hadPhoto?'1':''; showLetters(); };
 })();

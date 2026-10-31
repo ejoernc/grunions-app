@@ -191,11 +191,15 @@ def initials(m):
         last = ""
     letters = (first[:1] + last[:1]).upper()
     return letters or "?"
-def fmt_phone(raw):
-    """(720) 535-5925 when the number has 10 digits. Anything else is shown as stored."""
+def normalize_phone(raw):
+    """10 US digits, or None. A leading 1 is dropped. Stored without punctuation."""
     digits = re.sub(r"\D", "", str(raw or ""))
     if len(digits) == 11 and digits.startswith("1"): digits = digits[1:]
-    if len(digits) == 10: return "(%s) %s-%s" % (digits[:3], digits[3:6], digits[6:])
+    return digits if len(digits) == 10 else None
+def fmt_phone(raw):
+    """(720) 535-5925 when the number has 10 digits. Anything else is shown as stored."""
+    digits = normalize_phone(raw)
+    if digits: return "(%s) %s-%s" % (digits[:3], digits[3:6], digits[6:])
     text = " ".join(str(raw or "").split())
     return text or "—"
 app.jinja_env.globals.update(display_first=display_first, initials=initials, fmt_phone=fmt_phone)
@@ -822,11 +826,14 @@ def home():
 def profile():
     m = me(); d = db()
     if request.method == "POST" and request.form.get("action") == "save":
+        phone = normalize_phone(request.form.get("phone"))
+        if not phone:
+            flash("Enter a 10-digit US phone number.", "toast"); return redirect("/profile")
         try:
             photo = None
             f = request.files.get("photo")
             if f and f.filename: photo = save_image(f)
-            d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), m["id"]))
+            d.execute("UPDATE members SET preferred_first=?, phone=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), phone, m["id"]))
             if photo: d.execute("UPDATE members SET photo=? WHERE id=?", (photo, m["id"]))
             elif request.form.get("photo_clear") == "1": d.execute("UPDATE members SET photo='' WHERE id=?", (m["id"],))
             d.commit(); sync_practice_sheets(d); flash("Saved", "toast")
