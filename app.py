@@ -903,6 +903,45 @@ def load_message(d, mid):
     return d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first FROM messages m
         JOIN members p ON p.id=m.member_id WHERE m.id=?""", (mid,)).fetchone()
 def can_read(ch): return ch == "team" or (ch == "coaches" and is_staff())
+def channel_members(d, channel):
+    """Who a read receipt counts. Team is everyone. Coaches is coaches and admins."""
+    rows = d.execute("""SELECT id, first, last, preferred_first, photo, role, is_admin FROM members
+        WHERE COALESCE(role,'')!='system'""").fetchall()
+    if channel == "coaches":
+        return [r for r in rows if (r["role"] or "") == "coach" or r["is_admin"]]
+    return list(rows)
+def member_brief(m):
+    photo = ""
+    try:
+        if "photo" in m.keys(): photo = m["photo"] or ""
+    except (AttributeError, TypeError):
+        photo = ""
+    return {"id": m["id"], "name": ("%s %s" % (display_first(m), m["last"] or "")).strip(),
+            "initials": initials(m), "photo": ("/avatar/%d?v=%s" % (m["id"], photo)) if photo else ""}
+def seen_summary(d, channel, message_id, sender_id):
+    """Who else in the channel has a last-read at or past this message."""
+    others = [m for m in channel_members(d, channel) if m["id"] != sender_id]
+    if not others or not message_id: return None
+    reads = {r["member_id"]: r["last_read"] for r in d.execute(
+        "SELECT member_id, last_read FROM chat_reads WHERE channel=?", (channel,))}
+    seen, yet = [], []
+    for m in others:
+        (seen if reads.get(m["id"], 0) >= message_id else yet).append(member_brief(m))
+    seen.sort(key=lambda p: p["name"].casefold())
+    yet.sort(key=lambda p: p["name"].casefold())
+    n = len(seen)
+    label = "Seen by everyone" if n == len(others) else "Seen by %d" % n
+    return {"id": message_id, "n": n, "total": len(others), "label": label, "seen": seen, "not_yet": yet}
+def with_seen(d, channel, rows):
+    latest = d.execute("""SELECT id, member_id FROM messages WHERE channel=? AND COALESCE(deleted,0)=0
+        ORDER BY id DESC LIMIT 1""", (channel,)).fetchone()
+    info = seen_summary(d, channel, latest["id"], latest["member_id"]) if latest else None
+    out = []
+    for r in rows:
+        item = msg_dict(r)
+        if info and item["id"] == info["id"]: item["seen"] = info
+        out.append(item)
+    return out
 def save_image(f):
     """Validate + re-encode an upload. Returns stored base name. Strips metadata, fixes rotation, resizes (max 1600px, thumb 480px)."""
     from PIL import Image, ImageOps
@@ -1040,6 +1079,7 @@ def api_messages():
         if not body and not image: abort(400)
         ann = 1 if (j.get("announcement") in (True, "true", "1") and me()["is_admin"] and ch == "team") else 0
         d.execute("INSERT INTO messages(member_id,body,announcement,channel,image) VALUES(?,?,?,?,?)", (me()["id"], body, ann, ch, image)); d.commit()
+        mark_chat_read(d, me()["id"], ch)
         try: notify_chat(d, ch, me(), body, bool(image))
         except Exception as e: app.logger.warning("chat push failed: %s", e)
         return jsonify(ok=True)
@@ -1047,11 +1087,11 @@ def api_messages():
     if request.args.get("sync") == "1":
         rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id
           WHERE m.channel=? ORDER BY m.id DESC LIMIT 80""", (ch,)).fetchall()
-        return jsonify([msg_dict(r) for r in reversed(rows)])
+        return jsonify(with_seen(d, ch, list(reversed(rows))))
     after = request.args.get("after", 0, type=int)
     rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id
       WHERE m.id>? AND m.channel=? ORDER BY m.id DESC LIMIT 200""", (after, ch)).fetchall()
-    return jsonify([msg_dict(r) for r in reversed(rows)])
+    return jsonify(with_seen(d, ch, list(reversed(rows))))
 
 # ---------- practices ----------
 RECURRING = {1: ("Marina High School", "19:00", "20:30"), 4: ("Westminster High School", "19:00", "20:30")}  # Tue, Fri

@@ -181,6 +181,12 @@ nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;flex:none;
 .preview{max-width:600px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;color:var(--t2);font-size:14px}.preview img{height:48px;border-radius:8px}
 .m .img{display:block;margin-top:4px}.m.mine .img{margin-left:auto}.m .img img{max-width:min(70vw,280px);max-height:280px;border-radius:12px;display:block;background:var(--surface)}.m.mine .img{width:fit-content}
 .rx{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.m.mine .rx{justify-content:flex-end}
+.seenline{display:block;width:fit-content;height:auto;margin:4px 0 0;padding:0;background:none;border:0;border-radius:0;color:var(--t3);font-size:12px;font-weight:500;line-height:1.3}
+.m.mine .seenline{margin-left:auto}
+span.avatar.seenav,span.avatar.seenav img{width:32px;height:32px;min-width:32px;max-width:32px;min-height:32px;max-height:32px;flex:0 0 32px;font-size:12px}
+.seenrow{display:flex;align-items:center;gap:10px;min-height:40px}
+.seenlist{max-height:38vh;overflow:auto}
+.seenh{margin:14px 0 6px;font-size:13px;font-weight:650;color:var(--t3);letter-spacing:.02em}
 .rx button{height:30px;padding:0 10px;border-radius:15px;font-size:14px;font-weight:500;background:var(--surface);color:var(--t2);border:1px solid var(--line)}
 .rx button.on{border-color:var(--accent);color:var(--t1)}
 .sheet .emojirow{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
@@ -761,6 +767,13 @@ T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="{{'on' if 
 <button type=button class="full danger" id=actDelete>Delete</button>
 <button type=button class="quiet full" id=actCancel>Cancel</button>
 </div></dialog>
+<dialog id=seenSheet class=modal><div class=sheet>
+<h2 style="margin:0 0 8px">Seen by</h2>
+<div class=seenlist id=seenPeople></div>
+<h3 class=seenh id=seenYetHead hidden>Not yet</h3>
+<div class=seenlist id=seenYet></div>
+<button type=button class="quiet full" id=seenClose style="margin-top:12px">Close</button>
+</div></dialog>
 <script>
 const CSRF="{{csrf_token()}}",CH="{{ch}}",EMO={{REACTIONS|tojson}};let last=0;const box=document.getElementById('chat'),msgs={};
 const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -781,7 +794,21 @@ function paintRx(map){document.querySelectorAll('.m').forEach(el=>{const id=el.i
 let pollGen=0;
 async function poll(){const gen=++pollGen,epoch=window.grunionsNavEpoch|0;try{const r=await fetch('/api/messages?c='+CH+'&after='+last);const j=await r.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;const end=innerHeight+scrollY>=document.body.scrollHeight-120;
  j.forEach(add);const sync=await (await fetch('/api/messages?c='+CH+'&sync=1')).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;sync.forEach(m=>{if(gen===pollGen)upsert(m)});
- const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;paintRx(rx);if(window.grunionsRefresh)grunionsRefresh();if(j.length&&end)scrollTo(0,document.body.scrollHeight)}catch(e){}}
+ const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;paintRx(rx);paintSeen(sync);if(window.grunionsRefresh)grunionsRefresh();if(j.length&&end)scrollTo(0,document.body.scrollHeight)}catch(e){}}
+let seenInfo=null;
+function personRow(p){
+ const av=p.photo?`<span class="avatar seenav"><img src="${esc(p.photo)}" alt="" width="32" height="32"></span>`:`<span class="avatar seenav">${esc(p.initials||'')}</span>`;
+ return `<div class=seenrow>${av}<span>${esc(p.name||'')}</span></div>`}
+function paintSeen(list){
+ document.querySelectorAll('.seenline').forEach(el=>el.remove());
+ const hit=(list||[]).find(m=>m.seen); seenInfo=hit?hit.seen:null; if(!seenInfo) return;
+ const row=document.getElementById('msg'+seenInfo.id); if(!row) return;
+ const b=document.createElement('button'); b.type='button'; b.className='seenline'; b.textContent=seenInfo.label; row.appendChild(b)}
+function openSeen(info){
+ const people=document.getElementById('seenPeople'), yet=document.getElementById('seenYet'), head=document.getElementById('seenYetHead');
+ people.innerHTML=(info.seen||[]).map(personRow).join('')||'<p class="t3 sm">No one yet.</p>';
+ const rest=info.not_yet||[]; head.hidden=!rest.length; yet.innerHTML=rest.map(personRow).join('');
+ document.getElementById('seenSheet').showModal()}
 const sheet=document.getElementById('actSheet'),actEmoji=document.getElementById('actEmoji'),actEdit=document.getElementById('actEdit'),actDelete=document.getElementById('actDelete'),actConfirm=document.getElementById('actConfirm');
 let actId=null,confirming=false;
 function closeSheet(){if(sheet.open)sheet.close();actId=null;confirming=false;actConfirm.hidden=true;actDelete.textContent='Delete'}
@@ -808,8 +835,12 @@ box.addEventListener('pointerdown',e=>{if(e.button)return;if(e.target.closest('b
  const cancel=ev=>{if(ev.type==='pointermove'&&Math.hypot(ev.clientX-x,ev.clientY-y)<10)return;clearTimeout(timer);row.removeEventListener('pointerup',cancel);row.removeEventListener('pointercancel',cancel);row.removeEventListener('pointermove',cancel)};
  row.addEventListener('pointerup',cancel);row.addEventListener('pointercancel',cancel);row.addEventListener('pointermove',cancel)});
 box.addEventListener('contextmenu',e=>{const row=e.target.closest('.m');if(!row||e.target.closest('textarea'))return;e.preventDefault();openSheet(+row.id.slice(3))});
+const seenSheet=document.getElementById('seenSheet');
+document.getElementById('seenClose').onclick=()=>seenSheet.close();
+seenSheet.addEventListener('click',e=>{if(e.target===seenSheet)seenSheet.close()});
 box.addEventListener('click',async e=>{
  const b=e.target.closest('button,a.img');if(!b||b.dataset.save!=null||b.hasAttribute('data-cancel'))return;
+ if(b.classList.contains('seenline')){if(seenInfo)openSeen(seenInfo);return}
  if(b.matches('a.img')){e.preventDefault();const lb=document.createElement('div');lb.className='lightbox';lb.innerHTML=`<img src="${b.dataset.full}" alt="">`;lb.onclick=()=>lb.remove();document.body.appendChild(lb);return}
  if(b.dataset.act){openSheet(+b.dataset.act);return}
  if(b.dataset.e){pollGen++;await fetch('/api/messages/'+b.dataset.m+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:b.dataset.e})});poll()}});

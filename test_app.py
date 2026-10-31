@@ -502,6 +502,34 @@ ja, jo = jane.get("/api/unread").get_json(), john.get("/api/unread").get_json()
 cht = john.get("/chat").get_data(as_text=True)
 ok(jo["coaches"] == jb["coaches"] + 1 and ja["coaches"] == 0 and ja["total"] == jane_now["total"] and re.search(r'data-badge=coaches[^>]*>Coaches<span class=badge>\d+</span>', cht) and not re.search(r'data-badge=team[^>]*>Team<span class=badge>', cht), "coaches unread stays on the Coaches tab and off member totals")
 ok(john.get("/chat?c=coaches").status_code == 200 and john.get("/api/unread").get_json()["coaches"] == 0, "opening coaches chat clears it")
+def _audience(channel):
+    rows = D.execute("SELECT id, role, is_admin FROM members WHERE COALESCE(role,'')!='system'").fetchall()
+    if channel == "coaches": return {r[0] for r in rows if r[1] == "coach" or r[2]}
+    return {r[0] for r in rows}
+def _seen(c, channel):
+    rows = c.get("/api/messages?c=%s&sync=1" % channel).get_json()
+    hit = [m for m in rows if m.get("seen")]
+    return hit[-1]["seen"] if hit else None
+eli.post("/api/messages", json={"body": "Seen check"}, headers={"X-CSRF": csrf(eli, "/chat")})
+eli_id_seen = D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0]
+team_seen = _seen(eli, "team")
+team_ids = {p["id"] for p in team_seen["seen"]} | {p["id"] for p in team_seen["not_yet"]}
+ok(team_seen and team_seen["label"].startswith("Seen by") and eli_id_seen not in team_ids and team_ids == _audience("team") - {eli_id_seen} and janie in {p["id"] for p in team_seen["not_yet"]} and any(p["id"] == janie and p["name"] == "Jane Doe" for p in team_seen["not_yet"]), "the latest team message counts everyone except the sender")
+D.execute("UPDATE members SET preferred_first='Jay' WHERE id=?", (janie,)); D.commit()
+jane.get("/api/messages")
+team_seen = _seen(eli, "team")
+ok(any(p["id"] == janie and p["name"].startswith("Jay ") and p["initials"] == "JD" for p in team_seen["seen"]) and janie not in {p["id"] for p in team_seen["not_yet"]}, "opening the channel marks it seen and uses the preferred name")
+D.execute("UPDATE members SET preferred_first=NULL WHERE id=?", (janie,)); D.commit()
+for pid in _audience("team"):
+    if pid != eli_id_seen:
+        D.execute("INSERT INTO chat_reads(member_id, channel, last_read) VALUES(?,?,?) ON CONFLICT(member_id, channel) DO UPDATE SET last_read=MAX(chat_reads.last_read, excluded.last_read)", (pid, "team", team_seen["id"]))
+D.commit()
+everyone = _seen(jane, "team")
+ok(everyone["label"] == "Seen by everyone" and everyone["not_yet"] == [], "Seen by everyone once the rest of the channel has read it")
+eli.post("/api/messages?c=coaches", json={"body": "Seen coaches"}, headers={"X-CSRF": csrf(eli, "/chat?c=coaches")})
+coach_seen = _seen(eli, "coaches")
+coach_ids = {p["id"] for p in coach_seen["seen"]} | {p["id"] for p in coach_seen["not_yet"]}
+ok(janie not in coach_ids and coach_ids == _audience("coaches") - {eli_id_seen} and jid in coach_ids and "seenline" in eli.get("/chat").get_data(as_text=True) and "id=seenSheet" in eli.get("/chat").get_data(as_text=True) and ">Not yet</h3>" in eli.get("/chat?c=coaches").get_data(as_text=True), "coaches read receipts count coaches and admins, not players")
 dayb = (A.today_pt() + dt.timedelta(days=9)).isoformat()
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=dayb, start="19:00", end="20:30", location="Badge Pool", note=""))
 bpid = D.execute("SELECT id FROM practices WHERE location='Badge Pool'").fetchone()[0]
