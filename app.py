@@ -582,7 +582,7 @@ def panel_status(member):
     if ex["membership"] or status == "expired":
         return {"label": "Expired", "dot": "bad", "reason": ("Membership expired " + fmt_long(until)) if until else "Membership expired"}
     if status != "verified":
-        reason = "Verification pending" if status == "pending" else "Membership not verified"
+        reason = "Membership not verified"
         return {"label": "Not verified", "dot": "bad", "reason": reason}
     if ex.get("safesport"):
         return {"label": "Expired", "dot": "bad", "reason": "SafeSport expired " + fmt_long(ex["safesport"])}
@@ -3019,7 +3019,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-25 */
+SW_JS = """/* grunions-sw-26 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
