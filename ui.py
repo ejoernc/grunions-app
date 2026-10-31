@@ -103,7 +103,9 @@ details[open]>summary::after{transform:rotate(90deg)}details.card{padding:0}deta
 details.playcard>summary{gap:8px;flex-wrap:nowrap;padding-left:16px;padding-right:14px;container-type:inline-size;container-name:playline}
 details.playcard>summary .playtitle{display:flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0;font-size:15px;font-weight:600;line-height:1.2;white-space:nowrap}
 details.playcard>summary .playnum{flex:none;margin-left:auto;color:var(--t2);font-size:13px;font-weight:500;white-space:nowrap}
-details.playcard[open]>summary .playnum{display:none}
+.playopen{display:none}
+details.playcard[open]>summary .playclosed{display:none}
+details.playcard[open]>summary .playopen{display:inline}
 details.playcard>summary::after{flex:none;font-size:16px;margin-left:2px}
 @container playline (max-width:420px){details.playcard>summary{gap:6px}details.playcard>summary .playtitle{font-size:14px;letter-spacing:-.15px;gap:6px}details.playcard>summary .playnum{font-size:12.5px}}
 @container playline (max-width:300px){details.playcard>summary::after{content:none}}
@@ -495,10 +497,8 @@ T["home"] = """{{ push_card() }}
 {% if vr_pending %}{% set play_title = 'Verification pending' %}{% set play_dot = 'warn' %}
 {% elif cl.ok %}{% set play_title = 'Cleared for water polo' %}{% set play_dot = 'ok' %}
 {% else %}{% set play_title = 'Not cleared for water polo' %}{% set play_dot = 'bad' %}{% endif %}
-<details class="card playcard"><summary><span class=playtitle>{{play_title}}<span class="dot {{play_dot}}" aria-hidden=true></span></span><span class=playnum>USAWP # {{m.usawp_number or '—'}}</span></summary><div class=body>
-<div class=kv><span>USA Water Polo</span>{{ usawp(m.usawp_status) }}</div>
-<div class=kv><span>Member # {{m.usawp_number or '—'}}</span>{{ member_expiry(m) }}</div>
-{% if m.usawp_verified_at %}<div class=kv><span>Verified</span><span>{{m.usawp_verified_at[:10]}}</span></div>{% endif %}
+<details class="card playcard"><summary><span class=playtitle>{{play_title}}<span class="dot {{play_dot}}" aria-hidden=true></span></span><span class=playnum><span class=playclosed>USAWP # {{m.usawp_number or '—'}}</span>{% if m.usawp_verified_at %}<span class=playopen>Verified {{ m.usawp_verified_at[:10] }}</span>{% endif %}</span></summary><div class=body>
+<div class=kv><span>USAWP # {{m.usawp_number or '—'}}</span>{{ member_expiry(m) }}</div>
 {% for it in cl.checks %}<div class=kv><span>{{it.req.name}}</span>{{ st({'ok':'ok','no date':'warn'}.get(it.status,'bad'),
  (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status!='expired' else 'expired') }}</div>{% endfor %}
 {% if background_view(m) %}<div class=kv><span>Background screening</span>{{ bg_status(m) }}</div>{% endif %}

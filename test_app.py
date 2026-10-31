@@ -41,7 +41,7 @@ with open("sample_sport80_export.csv", "rb") as f:
 ok("updated 2 members" in t, "Sport:80 import")
 eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date="2026-10-27")); eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date="2026-10-23"))
 h = x.get("/home").get_data(as_text=True)
-ok("verified" in h and "1234567" in h and "2027-08-31" in h and "Marina HS" in h and "Westminster HS" in h, "member home: status, number, valid-until, attendance")
+ok("USAWP # 1234567" in h and "expires 2027-08-31" in h and "1234567" in h and "2027-08-31" in h and "Marina HS" in h and "Westminster HS" in h, "member home: status, number, valid-until, attendance")
 ok("1 checked in" in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "check-in count per practice")
 ok(eli.get("/qr.svg").data.startswith(b"<?xml"), "QR svg")
 # manual verify
@@ -157,7 +157,7 @@ ok("Verification for Ana Lopez" in a and "bot answered" in a, "admin notificatio
 members_now = eli.get("/members").get_data(as_text=True)
 ok("bot@grunions.local" not in members_now and "Grunions bot" not in members_now.split(">Verified<")[0], "bot account hidden from member list")
 ahome = ana.get("/home").get_data(as_text=True)
-ok((">Verified</span><span>%s<" % A.today_pt().isoformat()) in ahome and "Grunions bot" not in ahome, "member verified row shows only the date")
+ok((">Verified %s<" % A.today_pt().isoformat()) in ahome and "Grunions bot" not in ahome, "member verified row shows only the date")
 ok("Grunions bot" in a and ">Verified</span><span>Grunions bot" in eli.get("/members").get_data(as_text=True), "admin views still show who verified")
 # reactions + images + schedule toggle
 A.UPLOADS = tempfile.mkdtemp()
@@ -203,7 +203,7 @@ ok("rows=1" in ch and "scrollbar-width:none" in ch and "shiftKey" in ch and 'id=
 jh = jane.get("/home").get_data(as_text=True)
 jp = jane.post("/home", data=dict(csrf=csrf(jane, "/home"), usawp_number="99998888"), follow_redirects=True).get_data(as_text=True)
 ok("Not cleared for water polo" in jh and "USAWP # 1234567" in jh and "name=usawp_number" not in jh and ">Edit<" not in jh and "id=trialOpen" not in jh and "Reverify membership" not in jh and "SafeSport expired 2026-01-01" in jh and "already verified" in jp and D.execute("SELECT usawp_number FROM members WHERE email='jane@example.com'").fetchone()[0] == "1234567", "verified member sees read-only USAWP number; Edit is hidden and the number cannot be changed")
-ok("Membership & requirements" not in jh and "Membership &amp; requirements" not in jh and 'class="card playcard"' in jh and "Not cleared for water polo" in jh and 'class="dot bad"' in jh and "Cleared to coach" not in jh and jh.index("Not cleared for water polo") < jh.index("USAWP # 1234567") < jh.index(">USA Water Polo<") and '<span>Member # 1234567</span><span class="st st-ok">expires 2027-08-31</span>' in jh and ">Expires<" not in jh and "details.playcard[open]>summary .playnum{display:none}" in jh, "home merges clearance and membership into one card")
+ok("Membership & requirements" not in jh and "Membership &amp; requirements" not in jh and 'class="card playcard"' in jh and "Not cleared for water polo" in jh and 'class="dot bad"' in jh and "Cleared to coach" not in jh and jh.index("Not cleared for water polo") < jh.index("USAWP # 1234567") and ">USA Water Polo<" not in jh and '<span>USAWP # 1234567</span><span class="st st-ok">expires 2027-08-31</span>' in jh and ">Expires<" not in jh and "details.playcard[open]>summary .playclosed{display:none}" in jh and "details.playcard[open]>summary .playopen{display:inline}" in jh, "home merges clearance and membership into one card")
 D.execute("UPDATE member_reqs SET expires_on='2027-06-01' WHERE member_id=2 AND req_id=1"); D.commit()
 ok("USAWP Membership #" not in jane.get("/home").get_data(as_text=True) and "USAWP # 1234567" in jane.get("/home").get_data(as_text=True) and "Cleared for water polo" in jane.get("/home").get_data(as_text=True) and "Club waiver" not in jane.get("/home").get_data(as_text=True), "form hidden once verified and cleared; number stays read-only")
 casey = A.app.test_client(); join(casey, "Casey", "Ng", "casey@example.com")
