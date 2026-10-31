@@ -43,8 +43,8 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:14px}.xs
 .joinpill{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600;flex:none}
 .joinpill.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
 header.homehead{align-items:center}header.homehead h1{margin:0}
-button.avatar,span.avatar{width:44px;height:44px;border-radius:50%;padding:0;background:var(--surface2);color:var(--t1);font-size:14px;font-weight:650;letter-spacing:.2px;overflow:hidden;flex:none;border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center}
-.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+a.avatar,button.avatar,span.avatar{width:44px;height:44px;min-width:44px;max-width:44px;min-height:44px;max-height:44px;border-radius:50%;padding:0;background:var(--surface2);color:var(--t1);font-size:14px;font-weight:650;letter-spacing:.2px;overflow:hidden;flex:0 0 44px;border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center}
+a.avatar img,button.avatar img,span.avatar img{width:44px;height:44px;max-width:44px;max-height:44px;object-fit:cover;border-radius:50%;display:block;flex-shrink:0}
 .profhead{display:flex;align-items:center;gap:14px;margin:0 0 16px}.profhead .avatar{width:64px;height:64px;font-size:20px}
 .nextcard{padding:0;overflow:hidden}
 .nextcard .nxbody{padding:16px 16px 0}.nextcard .nxtitle{font-size:20px}
@@ -66,7 +66,8 @@ header.profilebar button,header.profilebar a.profileback{background:none;color:v
 header.profilebar .left{justify-self:start}header.profilebar .right{justify-self:end}
 header.profilebar .savebtn{font-weight:650}
 .profilehero{display:flex;flex-direction:column;align-items:center;padding:12px 0 4px}
-.avatar.hero{width:112px;height:112px;font-size:36px;position:relative}
+button.avatar.hero{width:112px;height:112px;min-width:112px;max-width:112px;min-height:112px;max-height:112px;flex:0 0 112px;font-size:36px;position:relative}
+button.avatar.hero img{width:112px;height:112px;max-width:112px;max-height:112px}
 .cambadge{position:absolute;right:-2px;bottom:-2px;width:32px;height:32px;border-radius:50%;background:#ececee;color:#0a0a0b;display:flex;align-items:center;justify-content:center;border:3px solid #0a0a0b}
 .cambadge svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .profilename{margin:14px 0 4px;font-size:24px;font-weight:650;letter-spacing:-.3px;text-align:center}
@@ -188,7 +189,7 @@ nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;flex:none;
 .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;z-index:20}.lightbox img{max-width:96vw;max-height:92vh;border-radius:8px}
 .gobtn{background:none;height:auto;padding:4px 0;color:var(--t2);font-weight:500;font-size:14px}.gobtn::after{content:" ›";color:var(--t3)}
 .ci-name{flex:1;min-width:0;height:auto;padding:0;background:none;display:flex;align-items:center;gap:12px;text-align:left;font-weight:400}
-.ciav{width:40px;height:40px;font-size:13px}
+span.avatar.ciav,span.avatar.ciav img{width:40px;height:40px;min-width:40px;max-width:40px;min-height:40px;max-height:40px;flex:0 0 40px;font-size:13px}
 .filt{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
 .filt button{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600}
 .filt button.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
@@ -348,7 +349,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
 <h1>Profile</h1>
 <div class=right><button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=profileForm>Save</button></div>
-</header>{% else %}<header{% if tab == 'home' and me() %} class=homehead{% endif %}>{% if tab == 'home' and me() %}<h1>Hi, {{ display_first(me()) }}</h1><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="">{% else %}{{ initials(me()) }}{% endif %}</a>{% else %}<a class=brand href=/>Grunions</a>{% if me() %}<a class=sub href=/logout>Log out</a>{% endif %}{% endif %}</header>{% endif %}<main>
+</header>{% else %}<header{% if tab == 'home' and me() %} class=homehead{% endif %}>{% if tab == 'home' and me() %}<h1>Hi, {{ display_first(me()) }}</h1><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a>{% else %}<a class=brand href=/>Grunions</a>{% if me() %}<a class=sub href=/logout>Log out</a>{% endif %}{% endif %}</header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -658,7 +659,7 @@ _CAM = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2h6l2 2h3v
 T["profile"] = """<form id=profileForm method=post action=/profile enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=action value=save><input type=hidden name=photo_clear id=photoClear value="">
 <input class=pick type=file name=photo id=photoFile accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic">
 <div class=profilehero>
-<button type=button class="avatar hero" id=avatarBtn aria-label="Profile photo">{% if m.photo %}<img id=avatarImg src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="">{% else %}<img id=avatarImg alt="" hidden>{% endif %}<span id=avatarLetters {% if m.photo %}hidden{% endif %}>{{ initials(m) }}</span><span class="cambadge editonly">""" + _CAM + """</span></button>
+<button type=button class="avatar hero" id=avatarBtn aria-label="Profile photo">{% if m.photo %}<img id=avatarImg src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="" width="112" height="112">{% else %}<img id=avatarImg alt="" width="112" height="112" hidden>{% endif %}<span id=avatarLetters {% if m.photo %}hidden{% endif %}>{{ initials(m) }}</span><span class="cambadge editonly">""" + _CAM + """</span></button>
 <div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
 <p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p>
 <div class=stats><div class=stattile><b>{{ hist|length }}</b><span>Attended</span></div><div class=stattile><b>{{ nmonth }}</b><span>This month</span></div></div>
@@ -916,7 +917,7 @@ T["admin"] = ADMIN_NAV + """
 </div>
 {% macro ci(r) %}
 <div class="li cirow" data-rsvp="{{ 'going' if r.going==1 else ('not' if r.going==0 else 'none') }}"><button type=button class=ci-name onclick="this.closest('.li').nextElementSibling.toggleAttribute('hidden')">
-{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt=""></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}
+{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}
 <span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ checkin_status(r) }}</span></button>
 <form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}">
 {% if r.cid %}<button class=compact name=action value=undo title="Undo check-in">Checked in</button>{% else %}<button class="primary compact">Check in</button>{% endif %}</form></div>
