@@ -511,7 +511,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=38');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=39');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -625,7 +625,7 @@ window.grunionsMountMap=function(el, opts){
     map.setView([pool.lat, pool.lng], z, {animate:false});
     var pt=map.latLngToContainerPoint([pool.lat, pool.lng]);
     var targetX=el.clientWidth/2;
-    var targetY=padTop+(el.clientHeight-padTop-padBottom)/2;
+    var targetY=padTop+(el.clientHeight-padTop-padBottom)/3;
     map.panBy([pt.x-targetX, pt.y-targetY], {animate:false});
    }
    function fits(){
