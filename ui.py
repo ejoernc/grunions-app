@@ -57,8 +57,8 @@ button.avatar,span.avatar{width:44px;height:44px;border-radius:50%;padding:0;bac
 .homemap{height:300px;margin:0 -20px 16px;background:#121214;position:relative;z-index:1}
 body.homefull header.homehead{position:relative;z-index:4;background:transparent}
 body.homefull main{position:relative;z-index:1}
-body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));height:auto;margin:0;z-index:0;border-radius:0}
-body.homefull .homemap .leaflet-top{top:72px}
+body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));height:auto;margin:0;z-index:0;border-radius:0;pointer-events:none}
+body.homefull .homemap .leaflet-marker-icon,body.homefull .homemap .leaflet-control-attribution{pointer-events:auto}
 .homealerts{position:relative;z-index:1}
 .homedock{position:fixed;z-index:2;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto;padding:0 12px 10px;display:flex;flex-direction:column;gap:8px;max-height:min(68vh,calc(100dvh - 150px));overflow:auto;pointer-events:none}
 .homedock .card{pointer-events:auto;background:#151517;margin:0}
@@ -498,7 +498,7 @@ T["home"] = """{% if pins %}
 (function(){
  var el=document.getElementById('homeMap'); if(!el||!window.L) return;
  var pins={{ pins|tojson }};
- var map=L.map(el,{zoomControl:true,attributionControl:true,scrollWheelZoom:false});
+ var map=L.map(el,{zoomControl:false,attributionControl:true,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false});
  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
  function directions(lat,lng){
   var dest=lat+','+lng, apple=/iPhone|iPad|iPod/.test(navigator.userAgent||'');
