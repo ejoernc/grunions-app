@@ -719,7 +719,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=32" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:inherit;text-decoration:underline" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=33" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:inherit;text-decoration:underline" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
@@ -1575,7 +1575,7 @@ live_start = (A.today_pt() - dt.timedelta(days=1)).isoformat()
 live_end = (A.today_pt() + dt.timedelta(days=2)).isoformat()
 one_day = (A.today_pt() + dt.timedelta(days=3)).isoformat()
 trip = dict(description="Bring caps.", link="https://example.com/cup")
-made = eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), kind="Away tournament", title="Winter Cup", city="Long Beach", venue="Belmont Plaza", date=soon_day, end_date=soon_end, **trip), follow_redirects=True).get_data(as_text=True)
+made = eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), kind="Away tournament", title="Winter Cup", city="Long Beach", venue="Belmont Plaza", date=soon_day, end_date=soon_end, stage="going", **trip), follow_redirects=True).get_data(as_text=True)
 eid = D.execute("SELECT id FROM lineup_events WHERE title='Winter Cup'").fetchone()[0]
 eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), kind="Team trip", title="Phoenix Dinner", city="Phoenix", venue="https://maps.example/dinner", date=later_day, end_date=later_end, description="", link=""))
 eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), kind="Hosted social", title="Santa Barbara Picnic", city="Santa Barbara", venue="Leadbetter Beach", date=past_ev, end_date=past_end, description="Already happened.", link=""))
@@ -1611,4 +1611,57 @@ old.execute("INSERT INTO lineup_events(kind, title, date, start, location) VALUE
 old.execute("INSERT INTO lineup_events(kind, title, date, start, location) VALUES('Tournament','Cup','2026-02-01','09:00','Pool')")
 old.execute("INSERT INTO lineup_events(kind, title, date, start, location) VALUES('Team trip/Social','Dinner','2026-03-01','18:00','Hall')")
 A.migrate_lineup(old)
-ok([r[0] for r in old.execute("SELECT kind FROM lineup_events ORDER BY id")] == ["Team trip", "Away tournament", "Team trip"], "older lineup rows become away tournaments and team trips")
+ok(old.execute("SELECT kind, stage FROM lineup_events ORDER BY id").fetchall() == [("Team trip", "attending"), ("Away tournament", "going"), ("Team trip", "attending")], "older lineup rows become away tournaments and team trips")
+interest_day = (A.today_pt() + dt.timedelta(days=21)).isoformat()
+interest_end = (A.today_pt() + dt.timedelta(days=23)).isoformat()
+eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), kind="Away tournament", title="Interest Cup", city="Denver", venue="Denver Pool", date=interest_day, end_date=interest_end))
+iid = D.execute("SELECT id FROM lineup_events WHERE title='Interest Cup'").fetchone()[0]
+gauge = eli.get("/lineup").get_data(as_text=True).split("Interest Cup", 1)[1].split('class="card tripcard"', 1)[0]
+ok("Gauging interest" in gauge and ">Interested<" in gauge and ">Not interested<" in gauge and ">We're going</button>" in gauge and "I'm in" not in gauge and jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=iid, action="commit")).status_code == 403, "a new tournament starts by gauging interest")
+jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=iid, action="going"))
+eli.post("/lineup", data=dict(csrf=csrf(eli, "/lineup"), event_id=iid, action="notgoing"))
+admin_card = eli.get("/lineup").get_data(as_text=True).split("Interest Cup", 1)[1].split('class="card tripcard"', 1)[0]
+member_card = jane.get("/lineup").get_data(as_text=True).split("Interest Cup", 1)[1].split('class="card tripcard"', 1)[0]
+ok(">Interested ✓<" in member_card and "1 interested" in admin_card and "Jay Doe" in admin_card and "Jay Doe" not in member_card, "admins see who is interested")
+eli.post("/lineup", data=dict(csrf=csrf(eli, "/lineup"), event_id=iid, action="commit"))
+committed = jane.get("/lineup").get_data(as_text=True).split("Interest Cup", 1)[1].split('class="card tripcard"', 1)[0]
+note = D.execute("SELECT body FROM notices WHERE member_id=(SELECT id FROM members WHERE email='jane@example.com') ORDER BY id DESC LIMIT 1").fetchone()
+ok("Gauging interest" not in committed and ">I'm in ✓<" in committed and ">Not this time<" in committed and note and "We're going to Interest Cup." in note[0] and not D.execute("SELECT 1 FROM notices WHERE member_id=(SELECT id FROM members WHERE email='eli@example.com') AND body LIKE '%Interest Cup%'").fetchone(), "We're going switches the RSVP and tells interested members")
+social_day = (A.today_pt() + dt.timedelta(days=25)).isoformat()
+eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), kind="Hosted social", title="Beach Social", city="Huntington Beach", venue="Grunions Pool", date=social_day, end_date=social_day))
+sid_ev = D.execute("SELECT id FROM lineup_events WHERE title='Beach Social'").fetchone()[0]
+jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=sid_ev, action="going"))
+social_card = jane.get("/lineup").get_data(as_text=True).split("Beach Social", 1)[1].split('class="card tripcard"', 1)[0]
+ok(">I'm attending ✓<" in social_card and ">Can't make it<" in social_card and "1 attending" in social_card and "Jay Doe" in social_card and "Interested" not in social_card, "hosted socials and trips use I'm attending and list who is coming")
+ok(jane.get("/practices/series/new").status_code == 403, "members cannot create a practice series")
+series_page = eli.get("/practices/series/new").get_data(as_text=True)
+series_head = series_page.split("<main>", 1)[0]
+ok(">Cancel</a>" in series_head and ">Save</button>" in series_head and "<h1>Series</h1>" in series_head and "button.savebtn{color:var(--accent)" in series_page and "name=weekday" in series_page and "Add a series" in eli.get("/practices").get_data(as_text=True), "admins open a series editor with Cancel on the left and blue Save on the right")
+s0 = A.today_pt()
+wd_a, wd_b = s0.weekday(), (s0.weekday() + 2) % 7
+s1 = s0 + dt.timedelta(days=13)
+expect = []
+day = s0
+while day <= s1:
+    if day.weekday() in (wd_a, wd_b): expect.append(day.isoformat())
+    day += dt.timedelta(days=1)
+eli_id = D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0]
+D.execute("INSERT OR REPLACE INTO coaching_list(member_id, source) VALUES(?, 'manual')", (eli_id,)); D.commit()
+made_series = eli.post("/practices/series/new", data={"csrf": csrf(eli, "/practices/series/new"), "weekday": [str(wd_a), str(wd_b)], "start": "18:00", "end": "19:15", "location": "Series Pool", "start_date": s0.isoformat(), "end_date": s1.isoformat(), "coach": str(eli_id), "lead": str(eli_id)}, follow_redirects=True)
+series_id = D.execute("SELECT id FROM practice_series WHERE location='Series Pool'").fetchone()[0]
+rows = D.execute("SELECT id, date, start, series_detached FROM practices WHERE series_id=? ORDER BY date", (series_id,)).fetchall()
+ok(made_series.status_code == 200 and [r[1] for r in rows] == expect and all(r[2] == "18:00" for r in rows) and D.execute("SELECT member_id, is_lead FROM practice_coaches WHERE practice_id=?", (rows[0][0],)).fetchone() == (eli_id, 1) and "Series Pool" in jane.get("/practices").get_data(as_text=True), "a series generates one practice per chosen weekday and copies its coaches")
+skip_id = rows[1][0]
+eli.post("/practices/%d" % skip_id, data=dict(csrf=csrf(eli, "/practices/%d" % skip_id), pid=skip_id, action="skip", back="page"))
+ok(not D.execute("SELECT 1 FROM practices WHERE id=?", (skip_id,)).fetchone() and D.execute("SELECT 1 FROM series_skips WHERE series_id=? AND date=?", (series_id, rows[1][1])).fetchone() and jane.get("/practices/%d" % skip_id).status_code == 404, "skipping a date with no RSVPs removes it for members")
+keep_id = rows[2][0]
+jane.post("/practices/%d" % keep_id, data=dict(csrf=csrf(jane, "/practices/%d" % keep_id), pid=keep_id, action="going", back="page"))
+eli.post("/practices/%d" % keep_id, data=dict(csrf=csrf(eli, "/practices/%d" % keep_id), pid=keep_id, action="skip", back="page"))
+skipped_html = jane.get("/practices/%d" % keep_id).get_data(as_text=True)
+ok(D.execute("SELECT cancelled, skipped FROM practices WHERE id=?", (keep_id,)).fetchone() == (1, 1) and "Cancelled" in skipped_html and "Skip this date" not in skipped_html, "skipping a date that already has RSVPs shows Cancelled")
+first_id, first_day = rows[0][0], rows[0][1]
+eli.post("/practices/%d" % first_id, data=dict(csrf=csrf(eli, "/practices/%d?edit=1" % first_id), pid=first_id, action="edit", back="page", series_scope="once", date=first_day, start="17:00", end="19:15", location="Series Pool", plan_fields="1", coach=str(eli_id), lead=str(eli_id)))
+later_id, later_day = rows[3][0], rows[3][1]
+ok(D.execute("SELECT start, location, series_detached FROM practices WHERE id=?", (first_id,)).fetchone() == ("17:00", "Series Pool", 1) and D.execute("SELECT start, series_detached FROM practices WHERE id=?", (later_id,)).fetchone() == ("18:00", 0), "editing one series date leaves the others alone")
+eli.post("/practices/%d" % later_id, data=dict(csrf=csrf(eli, "/practices/%d?edit=1" % later_id), pid=later_id, action="edit", back="page", series_scope="following", date=later_day, start="18:30", end="19:45", location="Series East", plan_fields="1", coach=str(eli_id), lead=str(eli_id)))
+ok(D.execute("SELECT location, start FROM practices WHERE id=?", (first_id,)).fetchone() == ("Series Pool", "17:00") and D.execute("SELECT location, start, series_detached FROM practices WHERE id=?", (later_id,)).fetchone() == ("Series East", "18:30", 0) and D.execute("SELECT location, start FROM practice_series WHERE id=?", (series_id,)).fetchone() == ("Series East", "18:30"), "this and following updates the series and later dates only")
