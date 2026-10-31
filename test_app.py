@@ -172,7 +172,7 @@ eli.post(f"/api/messages/{mid0}/react", json={"emoji": "🤽"}, headers={"X-CSRF
 ok(jane.get("/api/reactions?c=team").get_json()[str(mid0)]["🤽"] == {"n": 2, "mine": True}, "reaction counts via polling endpoint")
 jane.post(f"/api/messages/{mid0}/react", json={"emoji": "🤽"}, headers={"X-CSRF": tj3})
 ok(jane.get("/api/reactions?c=team").get_json()[str(mid0)]["🤽"] == {"n": 1, "mine": False}, "toggle own reaction off")
-ok(jane.post(f"/api/messages/{mid0}/react", json={"emoji": "💩"}, headers={"X-CSRF": tj3}).status_code == 400, "only quick-set emoji")
+ok(jane.post(f"/api/messages/{mid0}/react", json={"emoji": "nope"}, headers={"X-CSRF": tj3}).status_code == 400, "a word is not a reaction")
 cmid = eli.get("/api/messages?c=coaches").get_json()[-1]["id"]
 ok(jane.post(f"/api/messages/{cmid}/react", json={"emoji": "👍"}, headers={"X-CSRF": tj3}).status_code == 403 and jane.get("/api/reactions?c=coaches").status_code == 403, "no reactions on private channel for members")
 r = jane.post("/api/messages", data={"body": "Pool photo", "image": (img_bytes(), "pool.png")}, headers={"X-CSRF": tj3}, content_type="multipart/form-data")
@@ -647,7 +647,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui, "chat page has the press-and-hold action sheet")
 tj = csrf(jane, "/chat"); te = csrf(eli, "/chat"); tjohn = csrf(john, "/chat")
 ok(jane.post("/api/messages", json={"body": "Edit me please"}, headers={"X-CSRF": tj}).status_code == 200, "author can post a message to edit")
 mid = [m for m in jane.get("/api/messages").get_json() if m["body"] == "Edit me please"][-1]["id"]
@@ -688,7 +688,14 @@ cd = eli.delete("/api/messages/%d" % cid, headers={"X-CSRF": te}).get_json()["me
 ok(cd["deleted"] and cd["body"] == "" and any(m["id"] == cid and m["deleted"] for m in eli.get("/api/messages?c=coaches&sync=1").get_json()), "an admin can delete someone else's coaches-chat message")
 ok(jane.post("/api/messages", json={"body": "react here"}, headers={"X-CSRF": tj}).status_code == 200, "member posts a message to react to")
 rid = [m for m in jane.get("/api/messages").get_json() if m["body"] == "react here"][-1]["id"]
-ok(jane.post("/api/messages/%d/react" % rid, json={"emoji": "😮"}, headers={"X-CSRF": tj}).get_json()["😮"] == {"n": 1, "mine": True} and jane.post("/api/messages/%d/react" % rid, json={"emoji": "💩"}, headers={"X-CSRF": tj}).status_code == 400, "the extra reaction set toggles and anything outside it is rejected")
+first = jane.post("/api/messages/%d/react" % rid, json={"emoji": "😮"}, headers={"X-CSRF": tj}).get_json()
+second = jane.post("/api/messages/%d/react" % rid, json={"emoji": "💩"}, headers={"X-CSRF": tj})
+swapped = second.get_json()
+who = jane.get("/api/messages/%d/reactors?emoji=%s" % (rid, "💩")).get_json()
+ok(first["😮"] == {"n": 1, "mine": True} and second.status_code == 200 and swapped.get("💩") == {"n": 1, "mine": True} and "😮" not in swapped and jane.post("/api/messages/%d/react" % rid, json={"emoji": "nope"}, headers={"X-CSRF": tj}).status_code == 400 and who["people"] and who["people"][0]["name"].startswith("Jane"), "a new reaction replaces the previous one, and a pill can list who reacted")
+quoted = jane.post("/api/messages", json={"body": "quoting that", "reply_to": rid}, headers={"X-CSRF": tj}).get_json()
+qmsg = [m for m in jane.get("/api/messages?sync=1").get_json() if m["body"] == "quoting that"][-1]
+ok(quoted.get("ok") and qmsg["reply"] and qmsg["reply"]["body"] == "react here" and qmsg["reply"]["who"].startswith("Jane") and jane.post("/api/messages", json={"body": "no quote", "reply_to": 999999}, headers={"X-CSRF": tj}).status_code == 200 and [m for m in jane.get("/api/messages?sync=1").get_json() if m["body"] == "no quote"][-1]["reply"] is None, "reply quotes the message above the composer and ignores a missing one")
 photos = [m for m in jane.get("/api/messages").get_json() if m.get("body") == "Pool photo" and m.get("image")]
 ph = photos[-1]; img = ph["image"]["full"]
 cleared = jane.post("/api/messages/%d" % ph["id"], json={"body": "  "}, headers={"X-CSRF": tj}).get_json()["message"]

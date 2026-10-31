@@ -188,10 +188,26 @@ span.avatar.seenav,span.avatar.seenav img{width:32px;height:32px;min-width:32px;
 .seenlist{max-height:38vh;overflow:auto}
 .seenh{margin:14px 0 6px;font-size:13px;font-weight:650;color:var(--t3);letter-spacing:.02em}
 .rx button{height:30px;padding:0 10px;border-radius:15px;font-size:14px;font-weight:500;background:var(--surface);color:var(--t2);border:1px solid var(--line)}
-.rx button.on{border-color:var(--accent);color:var(--t1)}
-.sheet .emojirow{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
-.sheet .emojirow button{height:36px;width:36px;padding:0;border-radius:18px;background:var(--surface2);font-size:18px}
-#actConfirm{margin:0 0 12px;font-weight:600}
+.rx button.on{border-color:#ececee;color:var(--t1);background:#2a2a2e}
+.qbar{max-width:600px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;border-left:3px solid #6c6c74;padding:2px 4px 2px 10px;color:var(--t2);font-size:13px}
+.qbar b{display:block;color:var(--t1);font-size:12px;font-weight:650}.qbar span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70vw}
+.qbar button{width:32px;height:32px;padding:0;background:none;color:var(--t3);flex:none}
+.quotechip{border-left:3px solid #6c6c74;padding:2px 8px;margin:0 0 6px;color:var(--t2);font-size:13px;text-align:left}
+.quotechip b{display:block;color:var(--t3);font-weight:650;font-size:12px}
+dialog.botsheet{position:fixed;inset:auto 0 0 0;margin:0 auto;width:min(640px,100%);max-height:min(88dvh,720px);border:0;padding:0;background:transparent;color:var(--t1)}
+dialog.botsheet::backdrop{background:rgba(0,0,0,.62)}
+dialog.botsheet .sheet{background:#1c1c1f;border:1px solid #2e2e32;border-bottom:0;border-radius:18px 18px 0 0;padding:6px 12px calc(14px + env(safe-area-inset-bottom));max-height:min(88dvh,720px);overflow:auto}
+.grab{width:36px;height:5px;border-radius:3px;background:#5a5a60;margin:6px auto 12px}
+.emogrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:0 0 14px}
+.emogrid button{width:100%;aspect-ratio:1;height:auto;padding:0;border-radius:50%;background:#2c2c2e;font-size:22px}
+.emopick{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;max-height:28vh;overflow:auto;margin:0 0 12px}
+.emopick button{height:40px;padding:0;border-radius:10px;background:#2c2c2e;font-size:20px}
+.actgroup{background:#2c2c2e;border-radius:14px;overflow:hidden;margin:0 0 10px}
+.actgroup .actrow{width:100%;height:48px;padding:0 14px;border-radius:0;background:transparent;color:var(--t1);font-weight:500;justify-content:flex-start;gap:12px;border-bottom:1px solid #3a3a3e}
+.actgroup .actrow:last-child{border-bottom:0}
+.actgroup .actrow svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.actgroup .actrow.danger,.actgroup .actrow.danger svg{color:var(--bad)}
+#actConfirm{margin:0 0 10px;font-weight:600}
 .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;z-index:20}.lightbox img{max-width:96vw;max-height:92vh;border-radius:8px}
 .gobtn{background:none;height:auto;padding:4px 0;color:var(--t2);font-weight:500;font-size:14px}.gobtn::after{content:" ›";color:var(--t3)}
 .ci-name{flex:1;min-width:0;height:auto;padding:0;background:none;display:flex;align-items:center;gap:12px;text-align:left;font-weight:400}
@@ -755,17 +771,24 @@ T["notifications"] = """<h1>Notifications</h1>
 
 T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="{{'on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="{{'on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% else %}<h1>Team</h1>{% endif %}
 <div class=chat id=chat></div><div style=height:90px></div>
-<div class="composer noprint"><div class=preview id=prev hidden><img id=prevImg alt=""><span id=prevName></span><button type=button class="quiet compact" id=prevX>Remove</button></div>
+<div class="composer noprint"><div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=preview id=prev hidden><img id=prevImg alt=""><span id=prevName></span><button type=button class="quiet compact" id=prevX>Remove</button></div>
 <form id=f><input type=file id=file accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic" hidden>
 <button type=button class="iconbtn" id=attach title="Attach image" aria-label="Attach image"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg></button>
 <textarea id=body rows=1 maxlength=2000 placeholder="Message {{'coaches' if ch=='coaches' else 'the team'}}"></textarea>
 <button class="iconbtn send" type=submit aria-label=Send><svg viewBox="0 0 24 24" aria-hidden=true><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button></form></div>
-<dialog id=actSheet class=modal><div class=sheet>
-<div class=emojirow id=actEmoji>{% for e in REACTIONS %}<button type=button>{{e}}</button>{% endfor %}</div>
+<dialog id=actSheet class=botsheet><div class=sheet>
+<div class=grab aria-hidden=true></div>
+<div class=emogrid id=actEmoji>{% for e in REACTIONS %}<button type=button data-e="{{e}}">{{e}}</button>{% endfor %}<button type=button data-more=1 aria-label="More emoji">+</button></div>
+<div class=emopick id=emojiMore hidden></div>
 <p id=actConfirm hidden>Delete this message?</p>
-<button type=button class=full id=actEdit>Edit</button>
-<button type=button class="full danger" id=actDelete>Delete</button>
-<button type=button class="quiet full" id=actCancel>Cancel</button>
+<div class=actgroup><button type=button class=actrow id=actReply><svg viewBox="0 0 24 24" aria-hidden=true><path d="M9 14 4 9l5-5"/><path d="M4 9h9a7 7 0 0 1 7 7v3"/></svg>Reply</button></div>
+<div class=actgroup id=actCopyGroup><button type=button class=actrow id=actCopy><svg viewBox="0 0 24 24" aria-hidden=true><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button></div>
+<div class=actgroup id=actOwn><button type=button class=actrow id=actEdit><svg viewBox="0 0 24 24" aria-hidden=true><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>Edit</button><button type=button class="actrow danger" id=actDelete><svg viewBox="0 0 24 24" aria-hidden=true><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M8 7l1 13h6l1-13"/></svg><span id=actDeleteLabel>Delete</span></button></div>
+</div></dialog>
+<dialog id=whoSheet class=botsheet><div class=sheet>
+<div class=grab aria-hidden=true></div>
+<h2 id=whoTitle style="margin:0 0 8px;font-size:20px"></h2>
+<div class=seenlist id=whoList></div>
 </div></dialog>
 <dialog id=seenSheet class=modal><div class=sheet>
 <h2 style="margin:0 0 8px">Seen by</h2>
@@ -778,12 +801,14 @@ T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="{{'on' if 
 const CSRF="{{csrf_token()}}",CH="{{ch}}",EMO={{REACTIONS|tojson}};let last=0;const box=document.getElementById('chat'),msgs={};
 const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const t=iso=>new Date(iso).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'});
-function rxHtml(id,r){r=r||{};return EMO.filter(e=>r[e]).map(e=>`<button type=button class="${r[e].mine?'on':''}" data-m=${id} data-e="${e}">${e} ${r[e].n}</button>`).join('')}
+function rxHtml(id,r){r=r||{};return Object.keys(r).map(e=>`<button type=button class="${r[e].mine?'on':''}" data-m=${id} data-e="${esc(e)}">${e} ${r[e].n}</button>`).join('')}
 function bodyHtml(m){
  if(m.deleted) return '<div class="txt deleted">Message deleted</div>';
- let h=m.body?`<div class=txt>${esc(m.body)}${m.edited?' <span class=edited>(edited)</span>':''}</div>`:'';
+ let h='';
+ if(m.reply) h+=`<div class=quotechip><b>${esc(m.reply.who||'')}</b><span>${esc(m.reply.body||'')}</span></div>`;
+ if(m.body) h+=`<div class=txt>${esc(m.body)}${m.edited?' <span class=edited>(edited)</span>':''}</div>`;
  if(m.image) h+=`<a class=img href="${m.image.full}" data-full="${m.image.full}"><img src="${m.image.thumb}" alt="Photo from ${esc(m.who)}" loading=lazy></a>`;
- return h}
+ return h||'<div class=txt></div>'}
 function fill(d,m){
  d.className='m'+(m.mine?' mine':'')+(m.ann&&!m.deleted?' ann':'');
  d.innerHTML=(m.deleted?'':`<button type=button class=more data-act=${m.id} aria-label="Message actions">⋯</button>`)+
@@ -809,32 +834,47 @@ function openSeen(info){
  people.innerHTML=(info.seen||[]).map(personRow).join('')||'<p class="t3 sm">No one yet.</p>';
  const rest=info.not_yet||[]; head.hidden=!rest.length; yet.innerHTML=rest.map(personRow).join('');
  document.getElementById('seenSheet').showModal()}
-const sheet=document.getElementById('actSheet'),actEmoji=document.getElementById('actEmoji'),actEdit=document.getElementById('actEdit'),actDelete=document.getElementById('actDelete'),actConfirm=document.getElementById('actConfirm');
-let actId=null,confirming=false;
-function closeSheet(){if(sheet.open)sheet.close();actId=null;confirming=false;actConfirm.hidden=true;actDelete.textContent='Delete'}
-function openSheet(id){const m=msgs[id];if(!m||m.deleted)return;actId=id;confirming=false;actConfirm.hidden=true;actDelete.textContent='Delete';
- actEmoji.innerHTML=EMO.map(e=>`<button type=button data-e="${e}" data-m=${id}>${e}</button>`).join('');
- actEdit.hidden=!(m.mine&&!m.deleted);actDelete.hidden=!m.can_delete;sheet.showModal()}
-function startEdit(id){const m=msgs[id],d=document.getElementById('msg'+id);if(!d||!m||m.deleted||d.querySelector('.editbox'))return;
- const boxe=document.createElement('div');boxe.className='editbox';
- boxe.innerHTML='<textarea maxlength=2000></textarea><div class=row style="margin-top:8px"><button type=button class=primary data-save>Save</button><button type=button class=quiet data-cancel>Cancel</button></div>';
- boxe.querySelector('textarea').value=m.body||'';const txt=d.querySelector('.txt');if(txt)txt.replaceWith(boxe);else d.querySelector('.who').after(boxe);
- boxe.querySelector('[data-save]').onclick=async()=>{pollGen++;const r=await fetch('/api/messages/'+id,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:boxe.querySelector('textarea').value})});const j=await r.json().catch(()=>({}));if(!r.ok){alert(j.error||'Could not save.');return}if(j.message)upsert(j.message,true)};
- boxe.querySelector('[data-cancel]').onclick=()=>upsert(msgs[id],true);
- d.scrollIntoView({block:'center'});boxe.querySelector('textarea').focus()}
+const sheet=document.getElementById('actSheet'),actEdit=document.getElementById('actEdit'),actDelete=document.getElementById('actDelete'),actConfirm=document.getElementById('actConfirm'),actOwn=document.getElementById('actOwn'),actCopyGroup=document.getElementById('actCopyGroup'),emojiMore=document.getElementById('emojiMore'),quoteBar=document.getElementById('quoteBar'),editBar=document.getElementById('editBar');
+const MORE=["😀","😁","😊","😉","😍","😘","😎","🤔","😭","😡","🤯","🤗","🫡","🤝","👏","🙌","💪","✌️","👋","✅","⭐","💧","🏊","🤽","🏆","📣","📸","🧡","💛","💚","💙","💜","🖤","🤍","💔","🤣","😅","😴","🎉"];
+emojiMore.innerHTML=MORE.map(e=>`<button type=button data-e="${e}">${e}</button>`).join('');
+let actId=null,confirming=false,replyTo=null,editId=null;
+function buzz(){try{if(navigator.vibrate)navigator.vibrate(12)}catch(err){}}
+function closeSheet(){if(sheet.open)sheet.close();const panel=sheet.querySelector('.sheet');if(panel)panel.style.transform='';actId=null;confirming=false;actConfirm.hidden=true;document.getElementById('actDeleteLabel').textContent='Delete';emojiMore.hidden=true}
+function openSheet(id){const m=msgs[id];if(!m||m.deleted)return;actId=id;confirming=false;actConfirm.hidden=true;document.getElementById('actDeleteLabel').textContent='Delete';emojiMore.hidden=true;
+ actEdit.hidden=!(m.mine&&!m.deleted);actDelete.hidden=!m.can_delete;actOwn.hidden=actEdit.hidden&&actDelete.hidden;actCopyGroup.hidden=!m.body;
+ if(!sheet.open)sheet.showModal()}
+function clearCompose(){const field=document.getElementById('body');field.value='';grow();document.getElementById('file').value='';document.getElementById('prev').hidden=true;replyTo=null;editId=null;quoteBar.hidden=true;editBar.hidden=true}
+function startReply(id){const m=msgs[id];if(!m||m.deleted)return;editId=null;editBar.hidden=true;replyTo=id;document.getElementById('quoteWho').textContent=m.who;document.getElementById('quoteTxt').textContent=(m.body||'Photo').slice(0,140);quoteBar.hidden=false;document.getElementById('body').focus()}
+function startEdit(id){const m=msgs[id];if(!m||m.deleted||!m.mine)return;replyTo=null;quoteBar.hidden=true;editId=id;const field=document.getElementById('body');field.value=m.body||'';grow();document.getElementById('editHint').textContent=(m.body||'Photo').slice(0,80);editBar.hidden=false;field.focus()}
+async function reactWith(id,emoji){pollGen++;await fetch('/api/messages/'+id+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:emoji})});closeSheet();poll()}
+async function showWho(pill){const r=await fetch('/api/messages/'+pill.dataset.m+'/reactors?emoji='+encodeURIComponent(pill.dataset.e));const j=await r.json().catch(()=>({}));document.getElementById('whoTitle').textContent=pill.dataset.e||'';document.getElementById('whoList').innerHTML=(j.people||[]).map(personRow).join('')||'<p class="t3 sm">No one</p>';document.getElementById('whoSheet').showModal()}
+function toast(msg){const el=document.createElement('div');el.className='toast noprint';el.setAttribute('role','status');el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2000)}
+document.getElementById('actReply').onclick=()=>{const id=actId;closeSheet();startReply(id)};
+document.getElementById('actCopy').onclick=async()=>{const m=msgs[actId];if(!m||!m.body)return;try{await navigator.clipboard.writeText(m.body)}catch(err){const t=document.createElement('textarea');t.value=m.body;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()}closeSheet();toast('Copied')};
 actEdit.onclick=(e)=>{e.preventDefault();e.stopPropagation();const id=actId;closeSheet();setTimeout(()=>startEdit(id),0)};
-actDelete.onclick=async()=>{if(!confirming){confirming=true;actConfirm.hidden=false;return}
+actDelete.onclick=async()=>{if(!confirming){confirming=true;actConfirm.hidden=false;document.getElementById('actDeleteLabel').textContent='Delete message';return}
  const id=actId;pollGen++;const r=await fetch('/api/messages/'+id,{method:'DELETE',headers:{'X-CSRF':CSRF}}),j=await r.json().catch(()=>({}));closeSheet();if(r.ok&&j.message)upsert(j.message,true)};
-document.getElementById('actCancel').onclick=closeSheet;
 sheet.addEventListener('click',e=>{if(e.target===sheet)closeSheet()});
-sheet.addEventListener('close',()=>{confirming=false;actConfirm.hidden=true;actDelete.textContent='Delete'});
-actEmoji.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;pollGen++;
- await fetch('/api/messages/'+b.dataset.m+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:b.dataset.e})});closeSheet();poll()});
-box.addEventListener('pointerdown',e=>{if(e.button)return;if(e.target.closest('button,a,textarea,.editbox'))return;const row=e.target.closest('.m');if(!row)return;
- const id=+row.id.slice(3),x=e.clientX,y=e.clientY,timer=setTimeout(()=>openSheet(id),500);
+sheet.addEventListener('close',()=>{confirming=false;actConfirm.hidden=true;document.getElementById('actDeleteLabel').textContent='Delete';emojiMore.hidden=true});
+document.getElementById('actEmoji').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.more){emojiMore.hidden=!emojiMore.hidden;return}if(actId&&b.dataset.e)reactWith(actId,b.dataset.e)});
+emojiMore.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&b.dataset.e&&actId)reactWith(actId,b.dataset.e)});
+(function(){const panel=sheet.querySelector('.sheet');let y0=0,drag=false;
+ panel.addEventListener('pointerdown',e=>{if(e.button||e.target.closest('button'))return;y0=e.clientY;drag=true;panel.setPointerCapture(e.pointerId)});
+ panel.addEventListener('pointermove',e=>{if(!drag)return;panel.style.transform='translateY('+(Math.max(0,e.clientY-y0))+'px)'});
+ panel.addEventListener('pointerup',e=>{if(!drag)return;drag=false;if(e.clientY-y0>72)closeSheet();else panel.style.transform=''});
+ panel.addEventListener('pointercancel',()=>{drag=false;panel.style.transform=''});
+})();
+document.getElementById('whoSheet').addEventListener('click',e=>{if(e.target.id==='whoSheet')e.target.close()});
+box.addEventListener('pointerdown',e=>{if(e.button)return;
+ const pill=e.target.closest('.rx button');
+ if(pill){const x=e.clientX,y=e.clientY,timer=setTimeout(()=>{pill.dataset.held='1';buzz();showWho(pill)},450);
+  const cancel=ev=>{if(ev.type==='pointermove'&&Math.hypot(ev.clientX-x,ev.clientY-y)<10)return;clearTimeout(timer);pill.removeEventListener('pointerup',cancel);pill.removeEventListener('pointercancel',cancel);pill.removeEventListener('pointermove',cancel)};
+  pill.addEventListener('pointerup',cancel);pill.addEventListener('pointercancel',cancel);pill.addEventListener('pointermove',cancel);return}
+ if(e.target.closest('button,a,textarea,.seenline'))return;const row=e.target.closest('.m');if(!row)return;
+ const id=+row.id.slice(3),x=e.clientX,y=e.clientY,timer=setTimeout(()=>{buzz();openSheet(id)},500);
  const cancel=ev=>{if(ev.type==='pointermove'&&Math.hypot(ev.clientX-x,ev.clientY-y)<10)return;clearTimeout(timer);row.removeEventListener('pointerup',cancel);row.removeEventListener('pointercancel',cancel);row.removeEventListener('pointermove',cancel)};
  row.addEventListener('pointerup',cancel);row.addEventListener('pointercancel',cancel);row.addEventListener('pointermove',cancel)});
-box.addEventListener('contextmenu',e=>{const row=e.target.closest('.m');if(!row||e.target.closest('textarea'))return;e.preventDefault();openSheet(+row.id.slice(3))});
+box.addEventListener('contextmenu',e=>{const pill=e.target.closest('.rx button');if(pill){e.preventDefault();showWho(pill);return}const row=e.target.closest('.m');if(!row||e.target.closest('textarea'))return;e.preventDefault();openSheet(+row.id.slice(3))});
 const seenSheet=document.getElementById('seenSheet');
 document.getElementById('seenClose').onclick=()=>seenSheet.close();
 seenSheet.addEventListener('click',e=>{if(e.target===seenSheet)seenSheet.close()});
@@ -843,19 +883,25 @@ box.addEventListener('click',async e=>{
  if(b.classList.contains('seenline')){if(seenInfo)openSeen(seenInfo);return}
  if(b.matches('a.img')){e.preventDefault();const lb=document.createElement('div');lb.className='lightbox';lb.innerHTML=`<img src="${b.dataset.full}" alt="">`;lb.onclick=()=>lb.remove();document.body.appendChild(lb);return}
  if(b.dataset.act){openSheet(+b.dataset.act);return}
- if(b.dataset.e){pollGen++;await fetch('/api/messages/'+b.dataset.m+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:b.dataset.e})});poll()}});
+ if(b.dataset.e){if(b.dataset.held){delete b.dataset.held;return}pollGen++;await fetch('/api/messages/'+b.dataset.m+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:b.dataset.e})});poll()}});
 const ta=document.getElementById('body'),file=document.getElementById('file'),prev=document.getElementById('prev');
 function grow(){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,136)+'px'}ta.addEventListener('input',grow);
 document.getElementById('attach').onclick=()=>file.click();
 file.onchange=()=>{const f=file.files[0];if(!f)return;if(f.size>8*1024*1024){alert('Image is larger than 8 MB.');file.value='';return}
  prev.hidden=false;document.getElementById('prevName').textContent=f.name;document.getElementById('prevImg').src=URL.createObjectURL(f)};
 document.getElementById('prevX').onclick=()=>{file.value='';prev.hidden=true};
-document.getElementById('f').onsubmit=async e=>{e.preventDefault();const f=file.files[0];if(!ta.value.trim()&&!f)return;
- let r;if(f){const fd=new FormData();fd.append('body',ta.value);fd.append('image',f);
+document.getElementById('quoteX').onclick=()=>{replyTo=null;quoteBar.hidden=true};
+document.getElementById('editX').onclick=()=>{editId=null;editBar.hidden=true;ta.value='';grow()};
+document.getElementById('f').onsubmit=async e=>{e.preventDefault();const f=file.files[0];
+ if(editId){const m=msgs[editId];if(!ta.value.trim()&&!(m&&m.image))return;
+  const r=await fetch('/api/messages/'+editId,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:ta.value})});
+  const j=await r.json().catch(()=>({}));if(!r.ok){alert(j.error||'Could not save.');return}clearCompose();if(j.message)upsert(j.message,true);return}
+ if(!ta.value.trim()&&!f)return;
+ let r;if(f){const fd=new FormData();fd.append('body',ta.value);fd.append('image',f);if(replyTo)fd.append('reply_to',replyTo);
   r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'X-CSRF':CSRF},body:fd})}
- else r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:ta.value})});
+ else r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:ta.value,reply_to:replyTo})});
  if(!r.ok){const j=await r.json().catch(()=>({}));alert(j.error||'Could not send.');return}
- const epoch=window.grunionsNavEpoch|0;ta.value='';grow();file.value='';prev.hidden=true;await poll();if((window.grunionsNavEpoch|0)!==epoch)return;scrollTo(0,document.body.scrollHeight)};
+ const epoch=window.grunionsNavEpoch|0;clearCompose();await poll();if((window.grunionsNavEpoch|0)!==epoch)return;scrollTo(0,document.body.scrollHeight)};
 ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();document.getElementById('f').requestSubmit()}});
 poll().then(()=>scrollTo(0,document.body.scrollHeight));setInterval(poll,3000);
 </script>"""

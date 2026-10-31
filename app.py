@@ -27,7 +27,7 @@ CRON_KEY = os.environ.get("CRON_KEY")  # lets a scheduler call /api/expiring wit
 DEV_SHOW_LINKS = os.environ.get("DEV_SHOW_LINKS", "0") == "1"  # local testing only: show magic link on screen
 UPLOADS = os.environ.get("GRUNIONS_UPLOADS", os.path.join(DATA_DIR, "uploads"))
 MAX_UPLOAD = 8 * 1024 * 1024
-REACTIONS = ["👍", "❤️", "😂", "😮", "🎉", "🙏", "🔥", "🤽", "👏"]
+REACTIONS = ["👍", "👎", "❤️", "😂", "🎉", "😮", "🔥", "👀", "🙏", "🥲", "💯"]
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD + 64 * 1024
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS notices(id INTEGER PRIMARY KEY, member_id INTEGER REF
 CREATE TABLE IF NOT EXISTS usawp_submits(id INTEGER PRIMARY KEY, member_id INTEGER, at TEXT);
 CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), body TEXT NOT NULL,
   announcement INTEGER DEFAULT 0, at TEXT DEFAULT CURRENT_TIMESTAMP, channel TEXT DEFAULT 'team', image TEXT,
-  edited_at TEXT, deleted INTEGER DEFAULT 0);
+  edited_at TEXT, deleted INTEGER DEFAULT 0, reply_to INTEGER);
 CREATE TABLE IF NOT EXISTS push_subscriptions(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id),
   endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created TEXT);
 CREATE TABLE IF NOT EXISTS sent_notices(member_id INTEGER, kind TEXT, sent_at TEXT, PRIMARY KEY(member_id, kind));
@@ -168,7 +168,7 @@ def migrate_members(d):
 def migrate_messages(d):
     """Add chat columns missing from a database created by an older version (production SQLite on DATA_DIR)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
-    for c, t in (("channel", "TEXT DEFAULT 'team'"), ("image", "TEXT"), ("edited_at", "TEXT"), ("deleted", "INTEGER DEFAULT 0")):
+    for c, t in (("channel", "TEXT DEFAULT 'team'"), ("image", "TEXT"), ("edited_at", "TEXT"), ("deleted", "INTEGER DEFAULT 0"), ("reply_to", "INTEGER")):
         if c not in cols: d.execute("ALTER TABLE messages ADD COLUMN %s %s" % (c, t))
 def clean_preferred(v):
     v = str(v or "").strip()[:40]
@@ -891,17 +891,42 @@ def unread_for_me():
 app.jinja_env.globals.update(badges=unread_for_me)
 
 # ---------- chat ----------
+MSG_FROM = """FROM messages m JOIN members p ON p.id=m.member_id
+  LEFT JOIN messages rm ON rm.id=m.reply_to LEFT JOIN members rp ON rp.id=rm.member_id"""
 def msg_dict(r):
     deleted = bool(r["deleted"]) if "deleted" in r.keys() and r["deleted"] else False
     edited = bool(r["edited_at"]) if "edited_at" in r.keys() and r["edited_at"] else False
     mine = r["member_id"] == me()["id"]
+    reply = None
+    if "reply_to" in r.keys() and r["reply_to"] and "rfirst" in r.keys() and r["rfirst"]:
+        who = display_first({"first": r["rfirst"], "last": r["rlast"], "preferred_first": r["rpref"]})
+        if r["reply_deleted"]: text = "Message deleted"
+        elif (r["reply_body"] or "").strip(): text = (r["reply_body"] or "").strip()[:140]
+        elif r["reply_image"]: text = "Photo"
+        else: text = ""
+        reply = {"id": r["reply_to"], "who": "%s %s." % (who, (r["rlast"] or "")[:1]), "body": text}
     return {"id": r["id"], "body": "" if deleted else (r["body"] or ""), "ann": bool(r["announcement"]), "at": (r["at"] or "") + "Z",
             "who": f'{display_first(r)} {r["last"][:1]}.', "mine": mine, "admin": bool(r["is_admin"]),
             "edited": edited and not deleted, "deleted": deleted, "can_delete": (mine or bool(me()["is_admin"])) and not deleted,
+            "reply": reply,
             "image": None if deleted or not r["image"] else {"thumb": f"/media/{r['id']}/thumb", "full": f"/media/{r['id']}/full"}}
 def load_message(d, mid):
-    return d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first FROM messages m
-        JOIN members p ON p.id=m.member_id WHERE m.id=?""", (mid,)).fetchone()
+    return d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first,
+        rm.body AS reply_body, rm.deleted AS reply_deleted, rm.image AS reply_image,
+        rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM + " WHERE m.id=?", (mid,)).fetchone()
+def valid_emoji(e):
+    """One emoji, including a picker choice. Words and empty strings are not."""
+    if not isinstance(e, str): return False
+    e = e.strip()
+    if not e or len(e) > 32: return False
+    if re.search(r"[A-Za-z0-9]", e): return False
+    return any(ord(c) > 127 for c in e)
+def reply_target(d, ch, raw):
+    try: rid = int(raw)
+    except (TypeError, ValueError): return None
+    src = d.execute("SELECT id, channel, deleted FROM messages WHERE id=?", (rid,)).fetchone()
+    if not src or src["deleted"] or (src["channel"] or "team") != ch: return None
+    return src["id"]
 def can_read(ch): return ch == "team" or (ch == "coaches" and is_staff())
 def channel_members(d, channel):
     """Who a read receipt counts. Team is everyone. Coaches is coaches and admins."""
@@ -1015,10 +1040,24 @@ def react(mid):
     if not can_read(ch): abort(403)
     if r["deleted"]: return jsonify(error="This message was deleted"), 400
     e = (request.get_json(silent=True) or {}).get("emoji")
-    if e not in REACTIONS: return jsonify(error="unsupported emoji"), 400
-    if d.execute("DELETE FROM reactions WHERE message_id=? AND member_id=? AND emoji=?", (mid, me()["id"], e)).rowcount == 0:
+    if not valid_emoji(e): return jsonify(error="unsupported emoji"), 400
+    have = [row["emoji"] for row in d.execute("SELECT emoji FROM reactions WHERE message_id=? AND member_id=?", (mid, me()["id"]))]
+    d.execute("DELETE FROM reactions WHERE message_id=? AND member_id=?", (mid, me()["id"]))
+    if have != [e]:
         d.execute("INSERT INTO reactions VALUES(?,?,?)", (mid, me()["id"], e))
     d.commit(); return jsonify(reactions_for(d, ch).get(str(mid), {}))
+@app.route("/api/messages/<int:mid>/reactors")
+@login_required
+def reactors(mid):
+    d = db(); r = d.execute("SELECT channel FROM messages WHERE id=?", (mid,)).fetchone()
+    if not r: abort(404)
+    ch = r["channel"] or "team"
+    if not can_read(ch): abort(403)
+    e = request.args.get("emoji") or ""
+    people = [member_brief(m) for m in d.execute("""SELECT p.id, p.first, p.last, p.preferred_first, p.photo
+        FROM reactions x JOIN members p ON p.id=x.member_id
+        WHERE x.message_id=? AND x.emoji=? ORDER BY p.last, p.first""", (mid, e))]
+    return jsonify(emoji=e, people=people)
 @app.route("/api/messages/<int:mid>", methods=["POST", "DELETE"])
 @login_required
 def api_message_one(mid):
@@ -1078,18 +1117,22 @@ def api_messages():
         body = (j.get("body") or "").strip()[:2000]
         if not body and not image: abort(400)
         ann = 1 if (j.get("announcement") in (True, "true", "1") and me()["is_admin"] and ch == "team") else 0
-        d.execute("INSERT INTO messages(member_id,body,announcement,channel,image) VALUES(?,?,?,?,?)", (me()["id"], body, ann, ch, image)); d.commit()
+        d.execute("INSERT INTO messages(member_id,body,announcement,channel,image,reply_to) VALUES(?,?,?,?,?,?)", (me()["id"], body, ann, ch, image, reply_target(d, ch, j.get("reply_to")))); d.commit()
         mark_chat_read(d, me()["id"], ch)
         try: notify_chat(d, ch, me(), body, bool(image))
         except Exception as e: app.logger.warning("chat push failed: %s", e)
         return jsonify(ok=True)
     mark_chat_read(d, me()["id"], ch)
     if request.args.get("sync") == "1":
-        rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id
+        rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first,
+          rm.body AS reply_body, rm.deleted AS reply_deleted, rm.image AS reply_image,
+          rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM + """
           WHERE m.channel=? ORDER BY m.id DESC LIMIT 80""", (ch,)).fetchall()
         return jsonify(with_seen(d, ch, list(reversed(rows))))
     after = request.args.get("after", 0, type=int)
-    rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id
+    rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first,
+      rm.body AS reply_body, rm.deleted AS reply_deleted, rm.image AS reply_image,
+      rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM + """
       WHERE m.id>? AND m.channel=? ORDER BY m.id DESC LIMIT 200""", (after, ch)).fetchall()
     return jsonify(with_seen(d, ch, list(reversed(rows))))
 
