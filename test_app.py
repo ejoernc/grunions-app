@@ -54,11 +54,19 @@ ok(jane.post("/admin", data=dict(csrf=tok, member_id=3, action="verify")).status
 eli.post("/admin", data=dict(csrf=tok_e, member_id=3, date="2026-10-27", action="verify", number="7654321", valid_until="2027-08-31"))
 t = eli.get("/members").get_data(as_text=True); raw = eli.get("/members.csv").data; r = raw.decode("utf-8-sig")
 ok(raw.startswith(b"\xef\xbb\xbf") and "John,Smith," in r and "7654321" in r and "2027-08-31" in r, "manual verify records number, date, admin, time")
-ok(">All</a>" in t and ">Coaches</a>" in t and ">Admins</a>" in t and ">Expiring</a>" in t and ">Not cleared</a>" in t and ">Referees</a>" in t and "Search people..." in t and "class=alpha" in t and ">Members</a>" not in t, "People has search, letter headers, and filter chips")
+ok(">All</a>" in t and ">Coaches</a>" in t and ">Admins</a>" in t and ">Expiring</a>" in t and ">Not cleared</a>" in t and ">Referees</a>" in t and "Search people..." in t and "class=alpha" in t and ">Members</a>" not in t and t.find(">People</h1>") < t.find("id=growthCard") < t.find('placeholder="Search people..."') and " members · +" in t and "id=growthCard" not in eli.get("/admin").get_data(as_text=True), "People has search, letter headers, filter chips, and a growth chart")
 eli.post("/admin", data=dict(csrf=tok_e, member_id=1, date="2026-10-27", action="verify", valid_until="2020-01-01"))
 ok("Eli,Joern," in eli.get("/members.csv").data.decode("utf-8-sig") and "2020-01-01" not in eli.get("/members.csv").data.decode("utf-8-sig"), "past valid-until rejected")
 # expiry
 import datetime as dt, sqlite3
+_g_today = dt.date(2026, 10, 31)
+_g_day = A.growth_chart([_g_today - dt.timedelta(days=5), _g_today], [], _g_today)
+_g_week = A.growth_chart([_g_today - dt.timedelta(days=40), _g_today - dt.timedelta(days=10), _g_today], [_g_today - dt.timedelta(days=10)], _g_today)
+_g_month = A.growth_chart([_g_today - dt.timedelta(days=200), _g_today], [], _g_today)
+_g_quarter = A.growth_chart([_g_today - dt.timedelta(days=800), _g_today], [], _g_today)
+_g_one = A.growth_chart([_g_today], [], _g_today)
+_g_zero = A.growth_chart([], [], _g_today)
+ok(_g_day["kind"] == "day" and _g_week["kind"] == "week" and _g_month["kind"] == "month" and _g_quarter["kind"] == "quarter" and _g_one["kind"] == "day" and _g_zero["total"] == 0 and "No signups yet" in str(_g_zero["html"]) and 'r="3.5"' in str(_g_one["html"]) and "<polyline" in str(_g_week["html"]) and 'stroke="#ececee"' in str(_g_week["html"]) and 'stroke="#6c6c74"' in str(_g_week["html"]) and _g_week["total"] == 3 and _g_week["delta"] == 3 and "chart.js" not in str(_g_week["html"]), "growth buckets follow the history length and only plot real dates")
 join(A.app.test_client(), "Ana", "Lopez", "ana@example.com")
 D = sqlite3.connect(os.environ["GRUNIONS_DB"]); soon = (A.today_pt()+dt.timedelta(days=5)).isoformat()
 eli.post("/admin", data=dict(csrf=tok_e, member_id=4, date="2026-10-27", action="verify", valid_until=soon))
@@ -663,7 +671,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=14" in chui and "5*60*1000" in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:4px}" in chui and "dataset.seen" in chui and ".seenline').forEach" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=15" in chui and "5*60*1000" in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:4px}" in chui and "dataset.seen" in chui and ".seenline').forEach" not in chui, "chat page has the press-and-hold action sheet")
 tj = csrf(jane, "/chat"); te = csrf(eli, "/chat"); tjohn = csrf(john, "/chat")
 ok(jane.post("/api/messages", json={"body": "Edit me please"}, headers={"X-CSRF": tj}).status_code == 200, "author can post a message to edit")
 mid = [m for m in jane.get("/api/messages").get_json() if m["body"] == "Edit me please"][-1]["id"]

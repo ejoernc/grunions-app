@@ -2060,6 +2060,135 @@ def admins():
         if act in ("add_coaching", "remove_coaching", "add_referee", "remove_referee", "make_coach", "remove_coach", "make_admin", "remove_admin"): sync_practice_sheets(d)
         flash(f"Updated {display_first(m)} {m['last']}."); return redirect("/members?view=admins")
 
+def _stamp_day(raw, utc=False):
+    """Calendar day in Pacific. SQLite created values are UTC; verified_at is already Pacific."""
+    if not raw: return None
+    if not utc:
+        try: return dt.date.fromisoformat(str(raw)[:10])
+        except ValueError: return None
+    iso = utc_to_pt(raw)
+    if not iso: return None
+    try: return dt.date.fromisoformat(iso[:10])
+    except ValueError: return None
+def _growth_kind(span):
+    """Daily under about 3 weeks, weekly under about 4 months, monthly under about 2 years."""
+    if span < 21: return "day"
+    if span < 122: return "week"
+    if span < 730: return "month"
+    return "quarter"
+def _period_end(day, kind, today):
+    """Last calendar day of the day, week, month, or quarter that contains day."""
+    if kind == "day": end = day
+    elif kind == "week": end = day + dt.timedelta(days=(6 - day.weekday()))
+    elif kind == "month":
+        nxt = dt.date(day.year + 1, 1, 1) if day.month == 12 else dt.date(day.year, day.month + 1, 1)
+        end = nxt - dt.timedelta(days=1)
+    else:
+        q_end = ((day.month - 1) // 3 + 1) * 3
+        nxt = dt.date(day.year + 1, 1, 1) if q_end == 12 else dt.date(day.year, q_end + 1, 1)
+        end = nxt - dt.timedelta(days=1)
+    return min(end, today)
+def _bucket_ends(start, today, kind):
+    """Last day of each bucket from start through today, always including both ends."""
+    ends = [start]
+    if kind == "day":
+        d = start + dt.timedelta(days=1)
+        while d <= today:
+            ends.append(d)
+            d += dt.timedelta(days=1)
+        return ends
+    cursor = start
+    while True:
+        end = _period_end(cursor, kind, today)
+        if end > ends[-1]: ends.append(end)
+        if end >= today: return ends
+        cursor = end + dt.timedelta(days=1)
+def _growth_when(kind, start, today):
+    if start >= today: return "today"
+    if kind == "week" and (today - start).days < 7: return "this week"
+    if kind == "month" and start.year == today.year and start.month == today.month: return "this month"
+    if kind == "quarter" and start.year == today.year and (start.month - 1) // 3 == (today.month - 1) // 3: return "this quarter"
+    if kind in ("day", "week"): return "since %s %d" % (start.strftime("%b"), start.day)
+    return "since %s %d" % (start.strftime("%b"), start.year)
+def growth_chart(joined, verified, today=None):
+    """Cumulative membership from real signup days. Straight segments only, no invented points."""
+    today = today or today_pt()
+    joined = sorted(d for d in joined if d and d <= today)
+    verified = sorted(d for d in verified if d and d <= today)
+    if not joined:
+        return {"html": Markup('<div class="card growthcard" id=growthCard data-kind=""><div class=growthhead>0 members</div><p class="t3 sm" style="margin:0">No signups yet.</p></div>'),
+                "kind": "", "total": 0, "delta": 0}
+    start, total = joined[0], len(joined)
+    kind = _growth_kind((today - start).days)
+    ends = _bucket_ends(start, today, kind)
+    before = sum(1 for d in joined if d < start)
+    def cum(days, end): return sum(1 for d in days if d <= end)
+    points = [(end, cum(joined, end), cum(verified, end)) for end in ends]
+    delta = points[-1][1] - before
+    noun = "member" if total == 1 else "members"
+    head = "%d %s · %+d %s" % (total, noun, delta, _growth_when(kind, start, today))
+    W, H, L, R, T, B = 320, 132, 8, 312, 16, 104
+    span = max((today - start).days, 0)
+    vmax = max(p[1] for p in points) or 1
+    def xy(day, value):
+        x = (L + R) / 2 if span == 0 else L + (R - L) * ((day - start).days / span)
+        y = B - (B - T) * (value / vmax)
+        return round(x, 1), round(y, 1)
+    total_pts = " ".join("%s,%s" % xy(day, n) for day, n, _v in points)
+    ver_pts = " ".join("%s,%s" % xy(day, v) for day, _n, v in points)
+    labels = []
+    show = [points[0][0], points[-1][0]]
+    if len(points) >= 3:
+        show.insert(1, points[len(points) // 2][0])
+    seen_x = []
+    for day in show:
+        x, _y = xy(day, 0)
+        if any(abs(x - prev) < 46 for prev in seen_x): continue
+        seen_x.append(x)
+        text = "%s %d" % (day.strftime("%b"), day.day) if kind in ("day", "week") or day.year == today.year else "%s %s" % (day.strftime("%b"), str(day.year)[2:])
+        anchor = "start" if x < 40 else ("end" if x > W - 40 else "middle")
+        labels.append('<text x="%s" y="124" text-anchor="%s" fill="#6c6c74" font-size="11">%s</text>' % (x, anchor, escape(text)))
+    parts = ['<svg viewBox="0 0 %d %d" role="img" aria-label="%s">' % (W, H, escape(head))]
+    for frac in (0, 0.5, 1):
+        y = round(B - (B - T) * frac, 1)
+        parts.append('<line x1="%d" y1="%s" x2="%d" y2="%s" stroke="#26262a" stroke-width="1"/>' % (L, y, R, y))
+    if any(v for _d, _n, v in points):
+        if len(points) == 1:
+            x, y = xy(points[0][0], points[0][2])
+            parts.append('<circle cx="%s" cy="%s" r="2.5" fill="#6c6c74"/>' % (x, y))
+        else:
+            parts.append('<polyline points="%s" fill="none" stroke="#6c6c74" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>' % ver_pts)
+    if len(points) == 1:
+        x, y = xy(points[0][0], points[0][1])
+        parts.append('<circle cx="%s" cy="%s" r="3.5" fill="#ececee"/>' % (x, y))
+    else:
+        parts.append('<polyline points="%s" fill="none" stroke="#ececee" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' % total_pts)
+    parts.append('<line id=growthMark x1="0" y1="%d" x2="0" y2="%d" stroke="#ececee" stroke-width="1" opacity="0" pointer-events="none"/>' % (T, B))
+    parts.extend(labels)
+    parts.append("</svg>")
+    payload = [{"x": xy(day, n)[0], "label": "%s %d" % (day.strftime("%b"), day.day), "total": n, "verified": v} for day, n, v in points]
+    script = """<script>(function(){
+var card=document.getElementById('growthCard'); if(!card||card.dataset.bound) return; card.dataset.bound='1';
+var svg=card.querySelector('svg'), tip=card.querySelector('.growthtip'), mark=card.querySelector('#growthMark');
+var pts=[]; try{pts=JSON.parse(card.getAttribute('data-pts')||'[]')}catch(e){}
+if(!svg||!tip||!pts.length) return;
+var drag=false, timer=0;
+function show(clientX){
+ var box=svg.getBoundingClientRect(), x=(clientX-box.left)/box.width*320, best=pts[0], dist=1e9, i;
+ for(i=0;i<pts.length;i++){var d=Math.abs(pts[i].x-x); if(d<dist){dist=d; best=pts[i]}}
+ tip.hidden=false; tip.textContent=best.label+' · '+best.total+' member'+(best.total==1?'':'s')+(best.verified?' · '+best.verified+' verified':'');
+ var left=(best.x/320)*box.width, half=tip.offsetWidth/2;
+ tip.style.left=Math.max(half+8, Math.min(card.clientWidth-half-8, left))+'px';
+ if(mark){mark.setAttribute('x1', best.x); mark.setAttribute('x2', best.x); mark.setAttribute('opacity','0.45')}
+}
+svg.addEventListener('pointerdown', function(e){drag=true; try{svg.setPointerCapture(e.pointerId)}catch(err){} clearTimeout(timer); show(e.clientX)});
+svg.addEventListener('pointermove', function(e){if(drag) show(e.clientX)});
+function end(){drag=false; clearTimeout(timer); timer=setTimeout(function(){tip.hidden=true; if(mark) mark.setAttribute('opacity','0')}, 1400)}
+svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+})();</script>"""
+    html = Markup('<div class="card growthcard" id=growthCard data-kind="%s" data-pts="%s"><div class=growthhead>%s</div>%s<div class=growthtip hidden></div></div>%s' % (
+        kind, escape(json.dumps(payload)), escape(head), "".join(parts), script))
+    return {"html": html, "kind": kind, "total": total, "delta": delta}
 @app.route("/members", methods=["GET", "POST"])
 @admin_required
 def members():
@@ -2145,10 +2274,16 @@ def members():
     ref_ids = {r["id"] for r in rows if referee_eligibility(d, r)["eligible"]}
     listed = {r[0] for r in d.execute("SELECT member_id FROM coaching_list")}
     referees = {r[0] for r in d.execute("SELECT member_id FROM referee_list")}
+    joined, verified = [], []
+    for r in d.execute("SELECT created, usawp_verified_at FROM members WHERE COALESCE(role,'')!='system'"):
+        day = _stamp_day(r["created"], utc=True)
+        if day: joined.append(day)
+        vday = _stamp_day(r["usawp_verified_at"], utc=False)
+        if vday: verified.append(vday)
     return page(T["members"],
         tab="admin", rows=rows, c=c, view=view, date=focus, q=q,
         listed=listed, referees=referees, coach_ids=coach_ids, ref_ids=ref_ids,
-        n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS)
+        n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS, growth=growth_chart(joined, verified)["html"])
 def csv_attachment(filename, header, rows):
     """UTF-8 with a BOM so Excel opens names and punctuation correctly."""
     buf = io.StringIO(); buf.write("\ufeff"); w = csv.writer(buf); w.writerow(header)
@@ -2837,7 +2972,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-14 */
+SW_JS = """/* grunions-sw-15 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

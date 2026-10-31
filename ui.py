@@ -284,6 +284,10 @@ a.quietcheck,button.quietcheck{background:var(--surface2);color:#fff;border:0;bo
 .usawpcall a{flex:1;min-width:0;padding:12px 0;color:var(--t1);text-decoration:none;font-size:15px;line-height:1.35}
 .usawpcall button.usawpx{flex:none;width:44px;height:44px;min-width:44px;min-height:44px;max-height:44px;padding:0;background:transparent;color:var(--t2);border-radius:10px}
 html.usawp-off .usawpcall{display:none!important}
+.growthcard{position:relative;padding:14px 14px 8px;margin:0 0 12px}
+.growthhead{font-size:15px;font-weight:650;line-height:1.3;margin:0 0 6px}
+.growthcard svg{width:100%;height:auto;display:block;touch-action:none}
+.growthtip{position:absolute;z-index:2;top:36px;transform:translateX(-50%);background:#1d1d20;color:var(--t1);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:13px;white-space:nowrap;pointer-events:none}
 .calpick{position:relative;flex:1.6;min-width:0;display:flex;align-items:center;gap:4px}
 .calnav,.calmonth{flex:none;width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;background:none;color:var(--t1);text-decoration:none;border-radius:10px}
 .calnav{height:48px;width:40px}
@@ -481,7 +485,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=14');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=15');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1431,6 +1435,7 @@ T["transfer"] = ADMIN_NAV + """<h1>Transfer</h1>
 <form method=post action=/export/sheet>{{csrf_field()}}<button class="btn btn-secondary full">Sync to Google Sheet now</button></form></div>{% endif %}"""
 
 T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
+{{ growth }}
 <div class=peoplebar>
 <form method=get action=/members><input name=q value="{{q}}" placeholder="Search people..." autocomplete=off>{% if view != 'members' %}<input type=hidden name=view value="{{view}}">{% endif %}</form>
 <div class=fchips>
