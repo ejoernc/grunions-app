@@ -22,7 +22,7 @@ def test_multi_admin_bootstrap(): assert is_admin("boss@example.com") and is_adm
 def test_roles_page_admin_only():
     assert mem.get("/members").status_code == 403 and mem.get("/admins").status_code == 403
     page = boss.get("/members").get_data(as_text=True)
-    assert "mem@example.com" in page and ">People<" in page and ">Roles<" not in page
+    assert "Mem Three" in page and "mem@example.com" not in page and ">People<" in page and ">Roles<" not in page
     assert boss.get("/admins", follow_redirects=True).status_code == 200
     assert mem.post("/admins", data=dict(csrf=csrf(mem, "/home"), member_id=1, action="make_admin")).status_code == 403
 def test_promote_demote_and_coach():
@@ -157,7 +157,8 @@ def test_preferred_first_display_and_legal_verify():
     act(boss, ids()["mem@example.com"], "remove_coach")
     boss.post("/admin", data=dict(csrf=csrf(boss, "/admin"), member_id=mid, action="preferred", preferred_first="Sammy"))
     assert sqlite3.connect(A.DB).execute("SELECT preferred_first FROM members WHERE id=?", (mid,)).fetchone()[0] == "Sammy"
-    assert "Sammy River" in boss.get("/members").get_data(as_text=True) and "legal Samuel" in boss.get("/members").get_data(as_text=True)
+    members_page = boss.get("/members").get_data(as_text=True)
+    assert "Sammy River" in members_page and "legal Samuel" not in members_page and "samuel@example.com" not in members_page
     assert "Sammy" in boss.get("/admin?q=Sammy").get_data(as_text=True)
     captured = []
     class R:

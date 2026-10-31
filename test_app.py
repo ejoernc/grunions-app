@@ -8,6 +8,12 @@ def csrf(c, path):
 def join(c, first, last, email):
     return c.post("/join", data=dict(csrf=csrf(c, "/join"), first=first, last=last, email=email, phone="555-0100"), follow_redirects=True)
 ok = lambda cond, name: print(("PASS " if cond else "FAIL ") + name) or cond
+def people_row(html, name):
+    i = html.find(">" + name + "</span>")
+    if i < 0: return ""
+    start = html.rfind("<div class=li", 0, i)
+    end = html.find("<!--endrow-->", i)
+    return html[start:end if end >= 0 else None]
 eli, jane, x = client(), client(), client()
 ok("Welcome" in join(eli, "Eli", "Joern", "eli@example.com").get_data(as_text=True), "QR signup creates account + logs in")
 import sqlite3 as _sq
@@ -54,7 +60,7 @@ ok(jane.post("/admin", data=dict(csrf=tok, member_id=3, action="verify")).status
 eli.post("/admin", data=dict(csrf=tok_e, member_id=3, date="2026-10-27", action="verify", number="7654321", valid_until="2027-08-31"))
 t = eli.get("/members").get_data(as_text=True); raw = eli.get("/members.csv").data; r = raw.decode("utf-8-sig")
 ok(raw.startswith(b"\xef\xbb\xbf") and "John,Smith," in r and "7654321" in r and "2027-08-31" in r, "manual verify records number, date, admin, time")
-ok(">All</a>" in t and ">Coaches</a>" in t and ">Admins</a>" in t and ">Expiring</a>" in t and ">Not cleared</a>" in t and ">Referees</a>" in t and "Search people..." in t and "class=alpha" in t and ">Members</a>" not in t and t.find(">People</h1>") < t.find("id=growthCard") < t.find('placeholder="Search people..."') and " members · +" in t and "id=growthCard" not in eli.get("/admin").get_data(as_text=True), "People has search, letter headers, filter chips, and a growth chart")
+ok(">All</a>" in t and ">Coaches</a>" in t and ">Admins</a>" in t and ">Expiring</a>" in t and ">Not cleared</a>" in t and ">Referees</a>" in t and "Search people..." in t and "class=alpha" in t and t.find("class=fchips") < t.find('class="t2 sm peoplesum"') < t.find("class=alpha") and ">Members</a>" not in t and t.find(">People</h1>") < t.find("id=growthCard") < t.find('placeholder="Search people..."') and " members · +" in t and "id=growthCard" not in eli.get("/admin").get_data(as_text=True), "People has search, letter headers, filter chips, and a growth chart")
 eli.post("/admin", data=dict(csrf=tok_e, member_id=1, date="2026-10-27", action="verify", valid_until="2020-01-01"))
 ok("Eli,Joern," in eli.get("/members.csv").data.decode("utf-8-sig") and "2020-01-01" not in eli.get("/members.csv").data.decode("utf-8-sig"), "past valid-until rejected")
 # expiry
@@ -719,7 +725,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=40" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=41" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
@@ -994,13 +1000,11 @@ answer(True, membership_type="Head Coach", compliance={"SafeSport training": fut
 ok(D.execute("SELECT role FROM members WHERE id=?", (riley_id,)).fetchone()[0] == "athlete" and D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "usawp" and riley.get("/admin").status_code == 403 and riley.get("/chat?c=coaches").status_code == 403, "a USAWP coach membership joins the list and grants no coach access")
 badge_pages = riley.get("/profile").get_data(as_text=True) + eli.get("/members").get_data(as_text=True) + eli.get("/admin").get_data(as_text=True) + eli.get("/admins").get_data(as_text=True)
 members_html = eli.get("/members").get_data(as_text=True)
-riley_at = members_html.find("riley@example.com")
-riley_row = members_html[members_html.rfind("<div class=li", 0, riley_at):members_html.find("<div class=li", riley_at)]
+riley_row = people_row(members_html, "Riley Quinn")
 eli_pick = eli.get("/practices/%d" % pid).get_data(as_text=True)
 coaches_html = eli.get("/members?view=coaches").get_data(as_text=True)
-riley_c = coaches_html.find("riley@example.com")
 riley_page = eli.get("/admin/member/%d" % riley_id).get_data(as_text=True)
-riley_crow = coaches_html[coaches_html.rfind("<div class=li", 0, riley_c):coaches_html.find("<!--endrow-->", riley_c)]
+riley_crow = people_row(coaches_html, "Riley Quinn")
 ok('>Coaching</span><span class=v>Coach eligible</span>' in badge_pages and 'class="st st-ok coach-elig"' not in jane.get("/practices").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) in eli_pick and 'class="st st-ok coach-elig">Coach eligible' in eli_pick and ('class="chip-info">Coach · expires ' + future) in riley_row and 'class="chip-info">Coach<' not in riley_row and "Active coach" not in riley_row and ('class="st st-ok">Background screening expires ' + future) not in riley_crow and ('class="chip-info">Coach · expires ' + future) in riley_crow and "Coach eligible" not in riley_crow and "Active coach" not in riley_crow and ('<span class=rowtitle><span class="dot ok" aria-hidden=true></span>Background screening</span><span class=v>' + A.fmt_long(future)) in riley_page and 'class=chip-info>Admin<' in eli.get("/members").get_data(as_text=True) and 'class=chip-info>Admin<' in coaches_html and 'class=chip-info>Admin<' in eli.get("/members?view=admins").get_data(as_text=True), "a current coach chip is grey, background screening stays in the details, and admins get an Admin chip")
 filt = eli.get("/members?coach=eligible").get_data(as_text=True)
 ok("Riley Quinn" in filt and ">Coach eligible <" in filt and ">Coaches</a>" in eli.get("/members").get_data(as_text=True) and 'class="chip-info">Coach · expires ' in filt, "People has Coaches and Coach eligible sections")
@@ -1023,8 +1027,7 @@ with A.app.app_context():
 ok(memcsv["riley@example.com"][-3] == "Coach eligible" and memcsv["riley@example.com"][-2] == "" and memcsv["riley@example.com"][-1].startswith("Background screening expires ") and memcsv["jane@example.com"][-3] == "" and memcsv["jane@example.com"][-2] == "" and memcsv["jane@example.com"][-1] == "" and prow[6] == "Riley" and prow[7] == "1" and prow[8] == "1" and detail == [[pdate, "%s-%s" % (pstart, pend), ploc, "Riley Quinn", "riley@example.com", "Coach eligible"]], "Coach eligible and background screening are on the members CSV, and coach eligibility is on the practices CSV and sheet")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SELECT id FROM requirements WHERE keywords LIKE '%background%' LIMIT 1)", (past, riley_id)); D.commit()
 expired_coaches = eli.get("/members?view=coaches").get_data(as_text=True)
-rc = expired_coaches.find("riley@example.com")
-expired_crow = expired_coaches[expired_coaches.rfind("<div class=li", 0, rc):expired_coaches.find("<!--endrow-->", rc)]
+expired_crow = people_row(expired_coaches, "Riley Quinn")
 ok('coach-elig">Coach eligible' not in riley.get("/profile").get_data(as_text=True) and ("Coach eligibility expired " + past) in riley.get("/profile").get_data(as_text=True) and ('class="chip-info bad">Coach · expires ' + past) in eli.get("/members").get_data(as_text=True) and ('class="chip-info bad">Coach · expires ' + past) in expired_crow and "Coach eligible" not in expired_crow and "Background screening expires" not in expired_crow and D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone(), "an expired background screening shows Coach eligibility expired and keeps the coaching list")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id IN (SELECT id FROM requirements WHERE keywords LIKE '%background%' OR keywords LIKE '%safesport%')", (today, riley_id)); D.commit()
 ok('>Coaching</span><span class=v>Coach eligible</span>' in riley.get("/profile").get_data(as_text=True) and "Coach eligibility expired" not in riley.get("/home").get_data(as_text=True), "background and SafeSport are current on the expiry date itself")
@@ -1050,7 +1053,7 @@ answer(True, membership_type="Individual Membership, Coach")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "usawp" and riley.get("/admin").status_code == 403, "the next coach verification puts them back on the list without coach access")
 una = A.app.test_client(); join(una, "Una", "Noverified", "una.noverified@example.com")
 D.commit(); una_id = D.execute("SELECT id FROM members WHERE email='una.noverified@example.com'").fetchone()[0]
-chunk = eli.get("/members").get_data(as_text=True).split("una.noverified@example.com", 1)[1].split("<div class=li", 1)[0]
+chunk = people_row(eli.get("/members").get_data(as_text=True), "Una Noverified")
 ok(D.execute("SELECT usawp_status FROM members WHERE id=?", (una_id,)).fetchone()[0] == "unknown" and "Add to coaches" in chunk and "Make admin" in chunk and "Add to referees" in chunk, "People offers coaches, referees, and admin actions before USAWP is verified")
 list_act(una_id, "make_coach"); list_act(una_id, "make_admin")
 ok(D.execute("SELECT role, is_admin, usawp_status FROM members WHERE id=?", (una_id,)).fetchone() == ("coach", 1, "unknown") and una.get("/admin").status_code == 200 and una.get("/chat?c=coaches").status_code == 200 and una.get("/members").status_code == 200, "Make coach and Make admin work for a member who is not USAWP verified")
@@ -1060,12 +1063,7 @@ ned = A.app.test_client(); join(ned, "Ned", "List", "ned.list@example.com")
 D.commit(); ned_id = D.execute("SELECT id FROM members WHERE email='ned.list@example.com'").fetchone()[0]
 ok("Add to coaches" in eli.get("/members").get_data(as_text=True) and "Make active coach" in eli.get("/members?view=coaches").get_data(as_text=True) and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices/%d" % pid).get_data(as_text=True) and ned.post("/members", data=dict(csrf=csrf(ned, "/home"), member_id=ned_id, action="make_coach")).status_code == 403, "People offers Add to coaches, and that person is not assignable yet")
 made = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ned_id, action="make_coach"), follow_redirects=True).get_data(as_text=True)
-ned_at = made.find("ned.list@example.com")
-ned_li = made.rfind("<div class=li", 0, ned_at)
-ned_row = made[ned_li:made.find("<div class=li", ned_at)]
-ned_menu = made[ned_li:ned_at]
-eli_at = made.find("eli@example.com")
-eli_row = made[made.rfind("<div class=li", 0, eli_at):made.find("<div class=li", eli_at)]
+ned_row = people_row(made, "Ned List")
 ok('class="toast noprint" role=status>Ned List is now an active coach.' in made and D.execute("SELECT role FROM members WHERE id=?", (ned_id,)).fetchone()[0] == "coach" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (ned_id,)).fetchone() and ("name=coach value=\"%d\"" % ned_id) not in eli.get("/practices/%d" % pid).get_data(as_text=True) and 'class="chip-info bad">Coach</span>' in ned_row and "Active coach" not in ned_row and "Remove active coach" in eli.get("/members?view=coaches").get_data(as_text=True) and ("name=coach value=\"%d\"" % eli_id) in eli.get("/practices/%d" % pid).get_data(as_text=True) and ned.get("/chat?c=coaches").status_code == 200 and ned.get("/admin").status_code == 200, "Make active coach grants access without the coaching list")
 
 # assigned coaches in the practices CSV and the Google Sheet tabs
@@ -1166,8 +1164,7 @@ ok('class="dot ok"' in bea_home and '<span class=rowtitle><span class="dot ok" a
 denied = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=bea_id, action="require_background"), follow_redirects=True)
 ok(denied.status_code == 400 and 'class="dot ok"' in bea.get("/home").get_data(as_text=True) and D.execute("SELECT require_background FROM members WHERE id=?", (bea_id,)).fetchone()[0] == 1, "Require background is not an action and leaves the stored flag unused")
 made_coach = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=bea_id, action="make_coach"), follow_redirects=True).get_data(as_text=True)
-bea_at = made_coach.find("bea.player@example.com")
-bea_row = made_coach[made_coach.rfind("<div class=li", 0, bea_at):made_coach.find("<!--endrow-->", bea_at)]
+bea_row = people_row(made_coach, "Bea Player")
 bea_detail = eli.get("/admin/member/%d" % bea_id).get_data(as_text=True)
 as_coach = bea.get("/profile").get_data(as_text=True)
 coach_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
@@ -1242,10 +1239,8 @@ finally:
 ada = A.app.test_client(); join(ada, "Ada", "Role", "ada.role@example.com")
 ada_id = D.execute("SELECT id FROM members WHERE email='ada.role@example.com'").fetchone()[0]
 menu_page = eli.get("/members").get_data(as_text=True)
-ada_at = menu_page.find("ada.role@example.com")
-ada_menu = menu_page[menu_page.rfind("<div class=li", 0, ada_at):menu_page.find("<div class=li", ada_at)]
-eli_at = menu_page.find("eli@example.com")
-eli_menu = menu_page[menu_page.rfind("<div class=li", 0, eli_at):menu_page.find("<div class=li", eli_at)]
+ada_menu = people_row(menu_page, "Ada Role")
+eli_menu = people_row(menu_page, "Eli Joern")
 ok('class=morebtn' in ada_menu and "M20.5 24a3.5" in ada_menu and "Make admin" in ada_menu and "Add to coaches" in ada_menu and "Add to referees" in ada_menu and "Make active coach" not in ada_menu and "Remove admin" not in ada_menu and ">Remove admin</button>" in eli_menu and "disabled" in eli_menu, "each member has a three-dots menu with admin, coaches, and referees")
 promoted = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=ada_id, action="make_admin"), follow_redirects=True).get_data(as_text=True)
 ok('class="toast noprint" role=status>Ada Role is now an admin.' in promoted and D.execute("SELECT is_admin FROM members WHERE id=?", (ada_id,)).fetchone()[0] == 1, "Make admin from the members menu confirms with a toast")
@@ -1277,16 +1272,14 @@ D.commit()
 ref_vid = D.execute("SELECT id FROM verify_requests WHERE member_id=? AND status='pending' ORDER BY id DESC LIMIT 1", (rae_id,)).fetchone()[0]
 c0.post("/api/verify-requests/%d/result" % ref_vid, headers=H, json={"verified": True, "member_number": "9090909", "membership_type": "Referee", "membership_expires_on": ref_future, "compliance": {"SafeSport training": ref_future, "Background screening": ref_future}})
 ref_members = eli.get("/members").get_data(as_text=True)
-rae_at = ref_members.find("rae.fern@example.com")
-rae_row = ref_members[ref_members.rfind("<div class=li", 0, rae_at):ref_members.find("<div class=li", rae_at)]
+rae_row = people_row(ref_members, "Rae Fern")
 ref_filt = eli.get("/members?referee=eligible").get_data(as_text=True)
 ref_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
 checkin_ref = eli.get("/admin").get_data(as_text=True)
 ok('class="st st-ok ref-elig">Referee eligible' in rae_row and "Coach eligible" not in rae_row and "Rae Fern" in ref_filt and "Jane Doe" not in ref_filt and "Riley Quinn" not in ref_filt and ">Referees</a>" in ref_members and 'class="st st-ok ref-elig">Referee eligible' in eli.get("/admin/member/%d" % rae_id).get_data(as_text=True) and ref_csv["rae.fern@example.com"][-2] == "Referee eligible" and ref_csv["jane@example.com"][-2] == "" and "Referee eligible" not in rae.get("/home").get_data(as_text=True), "a referee verification shows Referee eligible on Members, the filter, check-in, and the sheet")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (ref_past, rae_id, bgid)); D.commit()
 expired_row = eli.get("/members").get_data(as_text=True)
-rae_exp = expired_row.find("rae.fern@example.com")
-rae_exp_row = expired_row[expired_row.rfind("<div class=li", 0, rae_exp):expired_row.find("<div class=li", rae_exp)]
+rae_exp_row = people_row(expired_row, "Rae Fern")
 lapsed = "Referee eligibility expired " + ref_past
 lapsed_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
 ok(('class="st st-bad ref-elig">' + lapsed) in rae_exp_row and 'class="st st-ok ref-elig"' not in rae_exp_row and ("Referee eligibility expired " + A.fmt_long(ref_past)) in eli.get("/admin/member/%d" % rae_id).get_data(as_text=True) and lapsed_csv["rae.fern@example.com"][-2] == lapsed and "Rae Fern" not in eli.get("/members?referee=eligible").get_data(as_text=True), "a lapsed referee certification is marked on Members, check-in, and the sheet")
@@ -1296,10 +1289,8 @@ jane_page = eli.get("/admin/member/%d" % jane_id).get_data(as_text=True)
 coach_page = casey.get("/admin/member/%d" % jane_id)
 jane_cred = '<span class=rowtitle><span class="dot warn" aria-hidden=true></span>USAWP # 1234567</span><span class=v>' + A.fmt_long(soon) + '</span>'
 ok("Member # / expires" not in jane_page and jane_cred in jane_page and "Preferred first name" in jane_page and "name=preferred_first" in jane_page and "name=number" in jane_page and "<span>RSVP</span>" not in jane_page and "<span>Eligibility</span>" not in jane_page and "Save background screening" not in jane_page and "Save Sport:80 result" not in jane_page and ">Recheck</button>" in jane_page and ">Edit</button>" in jane_page and ">Ask Grunions to verify</button>" in jane_page and "class=panel" not in mem_panel and "class=panel" not in adm_panel and "nextElementSibling.toggleAttribute('hidden')" not in mem_panel and "nextElementSibling.toggleAttribute('hidden')" not in adm_panel and ('href="/admin/member/%d"' % jane_id) in mem_panel and ('href="/admin/member/%d"' % jane_id) in adm_panel and "bot answered" not in adm_panel and "verification requested" not in adm_panel and ">Cleared<" in adm_panel and jane.get("/admin/member/%d" % jane_id).status_code == 403 and coach_page.status_code == 200 and "id=profileEdit" not in coach_page.get_data(as_text=True), "a person opens a member page, check-in keeps its status on the row, and a member cannot open it")
-ana_at = mem_panel.find("ana@example.com")
-ana_li = mem_panel.rfind("<div class=li", 0, ana_at)
-ana_row = mem_panel[ana_li:mem_panel.find("<!--endrow-->", ana_at)]
-ok('class="avatar ciav"' in ana_row and ana_row.find(">Ana Lopez<") < ana_row.find('class="st ') and "thru " in ana_row and ana_row.find("class=morebtn") > ana_row.find("ana@example.com") and "<h3 class=alpha>" in mem_panel and mem_panel.find("<h3 class=alpha>") < mem_panel.find('class="list loose"') and ">Require background</button>" not in mem_panel and "Require background screening" not in mem_panel and "Don't require background" not in mem_panel, "People rows match check-in, the menu stays on the right, and Require background is gone")
+ana_row = people_row(mem_panel, "Ana Lopez")
+ok('class="avatar ciav"' in ana_row and ana_row.find(">Ana Lopez<") < ana_row.find('class="st ') and "thru " in ana_row and "ana@example.com" not in ana_row and "legal " not in ana_row and "practice" in ana_row and 'class="psub ell"' in ana_row and ana_row.find("class=morebtn") > ana_row.find('class="psub ell"') and "<h3 class=alpha>" in mem_panel and mem_panel.find("<h3 class=alpha>") < mem_panel.find('class="list loose"') and ">Require background</button>" not in mem_panel and "Require background screening" not in mem_panel and "Don't require background" not in mem_panel, "People rows show one status line without email or legal name, and Require background is gone")
 renamed = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=jane_id, action="preferred", preferred_first="Jay"), follow_redirects=True).get_data(as_text=True)
 jay_page = eli.get("/admin/member/%d" % jane_id).get_data(as_text=True)
 ok("Jay" in renamed and "Legal name" in jay_page and D.execute("SELECT preferred_first FROM members WHERE id=?", (jane_id,)).fetchone()[0] == "Jay" and 'value="Jay"' in jay_page and "Jay Doe" in eli.get("/admin").get_data(as_text=True), "a preferred name saved on the members list shows on check-in")
@@ -1363,10 +1354,8 @@ ok(D.execute("SELECT usawp_status, role FROM members WHERE id=?", (kay_id,)).fet
 D.execute("UPDATE members SET trial_acknowledged_at=?, usawp_status='unknown', usawp_valid_until=NULL WHERE id=?", (A.today_pt().isoformat(), jane_id))
 D.commit()
 trial_page = eli.get("/members").get_data(as_text=True)
-jat = trial_page.find("jane@example.com")
-jchunk = trial_page[trial_page.rfind("<div class=li", 0, jat):trial_page.find("<!--endrow-->", jat)]
-jpre = jchunk[:jchunk.find("jane@example.com")]
-ok(jpre.rstrip().endswith("Ends " + A.fmt_md((A.today_pt() + dt.timedelta(days=14)).isoformat()) + " ·") and jchunk.count("Ends ") == 1 and "practices" in jchunk[jchunk.find("jane@example.com"):], "the members second line leads with the trial end date, then email and practice count")
+jchunk = people_row(trial_page, "Jay Doe")
+ok(("Ends " + A.fmt_md((A.today_pt() + dt.timedelta(days=14)).isoformat())) in jchunk and "jane@example.com" not in jchunk and "legal " not in jchunk and jchunk.count("Ends ") == 1 and "practice" in jchunk and 'class="psub ell"' in jchunk, "the members subline shows the trial end and the practice count")
 
 # practice detail page
 pday = (A.today_pt() + dt.timedelta(days=9)).isoformat()

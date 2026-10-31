@@ -226,7 +226,8 @@ details.checkin{margin:4px 0 20px}details.checkin>summary{min-height:0;padding:1
 .lgroup{margin:0 0 14px}
 .lgroup .list{margin:0}
 h3.alpha{margin:0;padding:8px 0 6px;font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--t3);position:sticky;top:calc(var(--headh,0px) + var(--peoplepin,0px));z-index:4;background:#0a0a0b}
-.cidetail{font-size:14px;color:var(--t2)}
+.psub{display:block;margin-top:1px;color:var(--t2);font-size:14px;line-height:1.35;min-width:0}
+.peoplebar .peoplesum{margin:12px 0 0;line-height:1.35}
 .seg{display:flex;gap:8px;margin:0 0 16px;overflow-x:auto;scrollbar-width:none}
 .seg::-webkit-scrollbar{display:none}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:9;box-sizing:border-box;
@@ -511,7 +512,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=40');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=41');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1674,8 +1675,18 @@ T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 s
 <a href="/members?view=expiring{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='expiring' }}">Expiring</a>
 <a href="/members?view=uncleared{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='uncleared' }}">Not cleared</a>
 <a href="/members?view=referees{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='referees' }}">Referees</a>
-</div></div>
-{% macro prow(r, kind) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><a class=ci-name href="/admin/member/{{ r.id }}">{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ checkin_status(r) }}<span class=cidetail> · {% if kind=='admins' %}{% if r.role=='coach' %}Active coach{% else %}Not an active coach{% endif %} · {% endif %}{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}Ends {{ tw.ends }} · {% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}Trial ended {{ tw.ends }} · {% elif r.usawp_valid_until %}thru {{ fmt_long(r.usawp_valid_until) }} · {% endif %}{{ r.email }}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{ r.first }}{% endif %} · {{ r.visits }} practices</span>
+</div>
+{% if view == 'admins' %}<p class="t2 sm peoplesum">{{ n_admins }} admin{{ 's' if n_admins != 1 }}</p>
+{% elif view != 'coaches' and view != 'referees' %}<p class="t2 sm peoplesum">{% if view=='expiring' %}Expiring or expired{% elif view=='uncleared' %}Not cleared to play{% else %}{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}{% endif %}</p>{% endif %}
+</div>
+{% macro people_sub(r) %}{% set tw = trial_window(r) %}{% set cl = clearance(r) %}{% set ex = expiry_notes(r, cl) %}{% set dl = days_left(r.usawp_valid_until) %}{% set ns = namespace(tone='ok', label='Cleared', detail='') %}
+{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{% set ns.tone = 'trial' %}{% set ns.label = 'Trial' %}{% set ns.detail = 'Ends ' ~ tw.ends %}
+{% elif tw and tw.expired and r.usawp_status != 'verified' %}{% set ns.tone = 'bad' %}{% set ns.label = 'Trial ended ' ~ tw.ends %}
+{% elif not cl.ok %}{% set ns.tone = 'bad' %}{% set ns.label = 'Not cleared' %}
+{% elif dl is not none and dl <= EXPIRING_DAYS %}{% set ns.tone = 'warn' %}{% set ns.label = 'Expiring soon' %}{% endif %}
+{% if not ns.detail %}{% if dl is not none and dl >= 0 and dl <= EXPIRING_DAYS %}{% if dl == 0 %}{% set ns.detail = 'expires today' %}{% elif dl == 1 %}{% set ns.detail = 'expires in 1 day' %}{% else %}{% set ns.detail = 'expires in ' ~ dl ~ ' days' %}{% endif %}{% elif r.usawp_valid_until %}{% set ns.detail = 'thru ' ~ fmt_long(r.usawp_valid_until) %}{% endif %}{% endif %}
+<span class="psub ell">{{ st(ns.tone, ns.label) }}{% if ns.detail %} · {{ ns.detail }}{% endif %} · {{ r.visits }} practice{{ '' if r.visits == 1 else 's' }}</span>{% endmacro %}
+{% macro prow(r, kind) %}<div class=li><a class=ci-name href="/admin/member/{{ r.id }}">{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ people_sub(r) }}
 <div class=eligs>{% if r.is_admin %}<span class=chip-info>Admin</span>{% endif %}{% set chip = coach_row_expiry(r) %}{% set ce = coach_eligibility(r) %}{% if r.role=='coach' or r.id in listed or ce.eligible or ce.text %}<span class="chip-info{{ ' ' ~ chip.tone if chip.tone else '' }}">Coach{% if chip.date %} · expires {{ chip.date }}{% endif %}</span>{% endif %}{% if r.id in referees %}<span class=chip-info>Referee</span>{% endif %}{{ referee_tag(r) }}</div>
 </span></a>
 <span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false><svg width="22" height="22" viewBox="0 0 48 48" aria-hidden=true><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"><path d="M3 24a21 21 0 1 0 42 0a21 21 0 1 0-42 0"/><path d="M20.5 24a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0m-12 0a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0m24 0a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0"/></g></svg></button>
@@ -1711,10 +1722,8 @@ T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 s
 <h2>Referee eligible <span class=t3>{{ rows|selectattr('id','in',ref_ids)|rejectattr('id','in',referees)|list|length }}</span></h2>
 <div class="list loose">{% for r in rows if r.id in ref_ids and r.id not in referees %}{{ prow(r, 'ref_eligible') }}{% else %}<div class=li><span class=t3>{% if q %}No people match “{{ q }}”.{% else %}No one waiting.{% endif %}</span></div>{% endfor %}</div>
 {% elif view == 'admins' %}
-<p class="t2 sm">{{ n_admins }} admin{{ 's' if n_admins != 1 }}</p>
 {{ lettered('admins') }}
 {% else %}
-<p class="t2 sm">{% if view=='expiring' %}Expiring or expired{% elif view=='uncleared' %}Not cleared to play{% else %}{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}{% endif %}</p>
 {{ lettered('members') }}
 {% endif %}
 </div>
