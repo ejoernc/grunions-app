@@ -39,6 +39,19 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:14px}.xs
 .nxicon svg{display:block}
 .joinpill{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600;flex:none}
 .joinpill.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
+header.homehead{align-items:center}header.homehead h1{margin:0}
+button.avatar,span.avatar{width:44px;height:44px;border-radius:50%;padding:0;background:var(--surface2);color:var(--t1);font-size:14px;font-weight:650;letter-spacing:.2px;overflow:hidden;flex:none;border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center}
+.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.profhead{display:flex;align-items:center;gap:14px;margin:0 0 16px}.profhead .avatar{width:64px;height:64px;font-size:20px}
+.nextcard{padding:0;overflow:hidden}
+.nextcard .nxbody{padding:16px 16px 0}.nextcard .nxtitle{font-size:20px}
+.pimg{position:relative;line-height:0}.pimg img{width:100%;height:200px;object-fit:cover;display:block}
+.nxbadge{position:absolute;top:12px;left:12px;background:#151517;color:#ececee;border:1px solid #3a3a40;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:700;letter-spacing:.8px;line-height:1}
+.nxrow{display:flex;align-items:center;gap:10px;margin-top:8px;color:var(--t1);font-size:15px}
+.nxglyph{width:18px;height:18px;flex:none;color:#C8CDD3}
+.nextcard .pills{margin:14px 16px 0}.nextcard .pills:last-child{margin-bottom:16px}
+.nextcard .nxdiv{margin:14px 16px}.nextcard .nxsocial{padding:0 16px 16px}
+.homemap{height:300px;margin:0 -20px 16px;background:#121214;position:relative;z-index:1}
 .menu a{display:flex;align-items:center;width:100%;height:40px;padding:0 12px;box-sizing:border-box;color:var(--t1);font-weight:500;font-size:15px;text-decoration:none;border-radius:8px}
 .card .menu,.pagehead .menu{left:auto;right:0;min-width:220px}
 .mapframe{display:block;width:100%;height:220px;border:0;border-radius:12px;background:var(--surface2)}
@@ -225,12 +238,19 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 {{ message_fields(p) }}
 <button class="primary full" name=action value=message>Save</button></form></div></dialog>
+<dialog class=modal id=image{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Practice image</h2>
+<form method=post action="/practices/{{ p.id }}" enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
+<label>Image<input type=file name=image accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic"></label>
+{% if p.image %}<label><input type=checkbox name=image_clear value=1> Remove image</label>{% endif %}
+<p class="t3 sm">Shown on the Home card only. Leave the file empty to keep the current picture.</p>
+<button class="full" name=action value=image style="background:#ececee;color:#0a0a0b">Save</button></form></div></dialog>
 {% endmacro %}
 {% macro practice_host_more(p, back) %}
 <span class=more><button type=button class=morebtn aria-label="More for {{ fmt_d(p.date) }}" aria-haspopup=menu aria-expanded=false>⋯</button>
 <div class=menu hidden role=menu>
 <button type=button data-open="social{{ p.id }}">After-practice social</button>
 <button type=button data-open="message{{ p.id }}">Coach message</button>
+<button type=button data-open="image{{ p.id }}">Practice image</button>
 </div></span>
 {{ practice_extra_dialogs(p, back) }}
 {% endmacro %}
@@ -239,6 +259,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <div class=menu hidden role=menu>
 <button type=button data-open="social{{ p.id }}">After-practice social</button>
 <button type=button data-open="message{{ p.id }}">Coach message</button>
+<button type=button data-open="image{{ p.id }}">Practice image</button>
 <button type=button data-open="assign{{ p.id }}">Assign coaches</button>
 <a href="/admin?date={{ p.date }}">Check in</a>
 <a href="/practices/{{ p.id }}?edit=1">Edit practice</a>
@@ -264,7 +285,7 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
 <div class=row><button class=danger name=action value=delete>Delete practice</button><button type=button onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% endmacro %}
-<header><a class=brand href=/>Grunions</a>{% if me() %}<a class=sub href=/logout>Log out</a>{% endif %}</header><main>
+<header{% if tab == 'home' and me() %} class=homehead{% endif %}>{% if tab == 'home' and me() %}<h1>Hi, {{ display_first(me()) }}</h1><button type=button class=avatar id=profileOpen aria-haspopup=dialog aria-controls=profileSheet aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="">{% else %}{{ initials(me()) }}{% endif %}</button>{% else %}<a class=brand href=/>Grunions</a>{% if me() %}<a class=sub href=/logout>Log out</a>{% endif %}{% endif %}</header><main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -439,9 +460,22 @@ T["login"] = """<h1>Log in</h1>
 <button class="primary full">Send login link</button></form>
 <p class="t3 sm" style="text-align:center;margin-top:20px">New here? <a href=/join>Join the team</a></p>"""
 
-T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
-{{ push_card() }}
+T["home"] = """{{ push_card() }}
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
+{% if nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'"><a class=cardlink href="/practices/{{nextp.id}}">
+{% if nextp.image %}<div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class=nxbadge>{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div>{% endif %}
+<div class=nxbody><div class=nxtitle>{{ fmt_d(nextp.date) }}</div>
+<div class=nxrow><svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>{{ fmt_clock(nextp.start) }} – {{ fmt_clock(nextp.end) }}</span></div>
+<div class=nxrow><svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span>{{ short_place(nextp.location) }}</span></div>
+{% if nextp.coach_note %}<div class=nxnote>{{ nextp.coach_note }} · {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</div>{% endif %}</div></a>
+<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
+<button {% if nextp_mine==1 %}class=on {% endif %}name=action value="{{ 'clear' if nextp_mine==1 else 'going' }}">I'm going{% if nextp_mine==1 %} ✓{% endif %}</button>
+<button {% if nextp_mine==0 %}class=on {% endif %}name=action value="{{ 'clear' if nextp_mine==0 else 'notgoing' }}">I'm not going{% if nextp_mine==0 %} ✓{% endif %}</button></form>
+{% if sh %}<div class=nxdiv></div><div class=nxsocial><a class=cardlink href="/practices/{{nextp.id}}" style="display:flex;align-items:center;gap:12px">{{ social_icon() }}
+<div class=grow><div class=nxtitle>{{ sh.title }}</div><div class="t2 sm">{{ sh.place }}</div></div></a>
+<form method=post action=/practices>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
+<button class="joinpill{{ ' on' if next_joined }}" name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}Joined ✓{% else %}Join{% endif %}</button></form></div>{% endif %}
+</div>{% endif %}
 {% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set ex = expiry_notes(m, cl) %}{% set cc = coach_clearance(m) %}
 {% if vr_pending %}{% set play_title = 'Verification pending' %}{% set play_dot = 'warn' %}
 {% elif cl.ok %}{% set play_title = 'Cleared for water polo' %}{% set play_dot = 'ok' %}
@@ -489,22 +523,57 @@ T["home"] = """<h1>Hi, {{display_first(m)}}</h1>
 <script>document.getElementById('trialOpen').onclick=function(){document.getElementById('trialDialog').showModal()};
 document.getElementById('trialDialog').addEventListener('click',function(e){if(e.target===this)this.close()});</script>{% endif %}
 {% endif %}</div></details>
-{% if nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'"><a class=cardlink href="/practices/{{nextp.id}}">
-<div class=nxmain><div class=datetile><span class=wd>{{ weekday_abbr(nextp.date) }}</span><span class=dn>{{ day_num(nextp.date) }}</span></div>
-<div class=grow><div class=nxtitle>{{ fmt_clock(nextp.start) }} · {{ short_place(nextp.location) }}</div>
-<div class="t2 sm">{{ nextp_n }} going{% if next_coaches %} · Coaches: {{ next_coaches }}{% endif %}</div></div>
-<span class=nxchev aria-hidden=true>›</span></div>
-{% if nextp.coach_note %}<div class=nxnote>{{ nextp.coach_note }} · {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</div>{% endif %}</a>
-<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
-<button {% if nextp_mine==1 %}class=on {% endif %}name=action value="{{ 'clear' if nextp_mine==1 else 'going' }}">I'm going{% if nextp_mine==1 %} ✓{% endif %}</button>
-<button {% if nextp_mine==0 %}class=on {% endif %}name=action value="{{ 'clear' if nextp_mine==0 else 'notgoing' }}">I'm not going{% if nextp_mine==0 %} ✓{% endif %}</button></form>
-{% if sh %}<div class=nxdiv></div><div class=nxsocial><a class=cardlink href="/practices/{{nextp.id}}" style="display:flex;align-items:center;gap:12px">{{ social_icon() }}
-<div class=grow><div class=nxtitle>{{ sh.title }}</div><div class="t2 sm">{{ sh.place }}</div></div></a>
-<form method=post action=/practices>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
-<button class="joinpill{{ ' on' if next_joined }}" name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}Joined ✓{% else %}Join{% endif %}</button></form></div>{% endif %}
-</div>{% endif %}
+{% if pins %}
+<style>{{ leaflet_css|safe }}
+.homemap .leaflet-tile-pane{filter:grayscale(1) invert(1) contrast(.9) brightness(.82)}
+.homemap .leaflet-control-attribution{background:rgba(10,10,11,.72);color:#a0a0a8;font-size:10px;max-width:70%}
+.homemap .leaflet-control-attribution a{color:#c8cdd3}
+.homemap .leaflet-bar a,.homemap .leaflet-bar a:hover{background:#1d1d20;color:#ececee;border-bottom-color:#26262a}
+.homemap .leaflet-div-icon.mpin{background:#ececee;border:2px solid #0a0a0b;border-radius:50%;box-shadow:0 0 0 1px #8a8a92}
+.homemap .leaflet-div-icon.mpin.social{background:#0a0a0b;border:2px solid #ececee;box-shadow:none}
+</style>
+<section class=homemap id=homeMap aria-label="Practice map"></section>
+<script src=/static/leaflet/leaflet.js></script>
+<script>
+(function(){
+ var el=document.getElementById('homeMap'); if(!el||!window.L) return;
+ var pins={{ pins|tojson }};
+ var map=L.map(el,{zoomControl:true,attributionControl:true,scrollWheelZoom:false});
+ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+ function directions(lat,lng){
+  var dest=lat+','+lng, apple=/iPhone|iPad|iPod/.test(navigator.userAgent||'');
+  var url=apple?('https://maps.apple.com/?daddr='+encodeURIComponent(dest)):('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest));
+  window.open(url,'_blank','noopener');
+ }
+ function icon(kind){return L.divIcon({className:'mpin'+(kind==='social'?' social':''),html:'',iconSize:[16,16],iconAnchor:[8,8]});}
+ var bounds=[];
+ pins.forEach(function(p){
+  var m=L.marker([p.lat,p.lng],{icon:icon(p.kind),title:p.label||'Directions'}).addTo(map);
+  m.on('click',function(){directions(p.lat,p.lng);});
+  bounds.push([p.lat,p.lng]);
+ });
+ if(bounds.length>1) map.fitBounds(bounds,{padding:[40,40],maxZoom:15});
+ else if(bounds.length) map.setView(bounds[0],15);
+ setTimeout(function(){map.invalidateSize();},0);
+})();
+</script>
+{% endif %}
+<dialog class=modal id=profileSheet><div class=sheet>
+<div class=profhead>{% if m.photo %}<span class=avatar><img src="/avatar/{{ m.id }}?v={{ m.photo }}" alt=""></span>{% else %}<span class=avatar>{{ initials(m) }}</span>{% endif %}
+<div><div style="font-weight:650">{{ display_first(m) }} {{ m.last }}</div>
+<div class="t2 sm">{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</div></div></div>
+<form method=post action=/home enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=action value=avatar>
+<label>Profile picture<input type=file name=photo accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic"></label>
+<button class=full style="background:#ececee;color:#0a0a0b">Save picture</button></form>
+{% if m.photo %}<form method=post action=/home style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=action value=avatar_clear>
+<button class=full>Remove picture</button></form>{% endif %}
+<p class="sm" style="margin:16px 0 0"><a href=/notifications>Notifications</a></p>
+<a class="btn full" href=/logout style="margin-top:12px">Log out</a>
+</div></dialog>
+<script>document.getElementById('profileOpen').onclick=function(){document.getElementById('profileSheet').showModal()};
+document.getElementById('profileSheet').addEventListener('click',function(e){if(e.target===this)this.close()});</script>
 {% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}
-<details class=card><summary>Attendance <span class="t3 sm" style="margin-left:auto;margin-right:10px">{{hist|length}} total · {{nmonth}} this month</span></summary><div class=body>
+<details class=card><summary>Attendance</summary><div class=body>
 {% for h in hist[:20] %}<div class=kv><span>{{fmt_d(h.practice_date)}}</span><span class=t2>{{h.location}}</span></div>{% else %}<p class=t3>No practices yet.</p>{% endfor %}</div></details>
 <details class=card><summary>Profile</summary><div class=body>
 <div class=kv><span>Legal name</span><span>{{m.first}} {{m.last}}</span></div>
@@ -513,7 +582,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <button class=full>Save</button></form>
 <div class=kv><span>Email</span><span>{{m.email}}</span></div>
 <div class=kv><span>Phone</span><span>{{m.phone}}</span></div><div class=kv><span>Role</span><span>{{role_label(m)|capitalize}}</span></div>
-<p class="sm" style="margin:8px 0 0"><a href=/notifications>Notification settings</a></p></div></details>"""
+</div></details>"""
 
 T["notifications"] = """<h1>Notifications</h1>
 {{ push_card() }}
@@ -658,7 +727,7 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 {% if me().is_admin and not p.cancelled and not x.any_eligible %}<div class="sm" style="margin-top:8px">{{ st('warn', 'No assigned coach is coach-eligible') }}</div>{% endif %}
 {% if not editing and p.coach_note %}<p style="margin:12px 0 0">{{ p.coach_note }}</p><p class="t3 sm">{{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</p>{% endif %}</div>
 {% if me().is_admin %}<div style="display:flex;align-items:center;gap:8px">{% if not editing %}<a class=btn href="/practices/{{ p.id }}?edit=1">Edit</a>{% endif %}{{ practice_more(p, x.coach_ids, 'page') }}</div>{% elif is_staff() %}{{ practice_host_more(p, 'page') }}{% endif %}</div>
-{% if editing %}<form method=post action="/practices/{{ p.id }}" class=card style="margin-top:16px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+{% if editing %}<form method=post action="/practices/{{ p.id }}" class=card style="margin-top:16px" enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <label>Date<input type=date name=date value="{{ p.date }}" required></label>
 <div class=row><label>Start<input type=time name=start value="{{ p.start }}" required></label><label>End<input type=time name=end value="{{ p.end }}" required></label></div>
 <label>Location / address<input name=location value="{{ p.location or '' }}" required></label>
@@ -666,6 +735,8 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 <div class="t3 xs" style="margin:4px 0 8px">After-practice social</div>
 {{ social_fields(p) }}
 {{ message_fields(p) }}
+<label>Practice image<input type=file name=image accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic"></label>
+{% if p.image %}<label><input type=checkbox name=image_clear value=1> Remove image</label>{% endif %}
 <div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>
 {% for c in coach_choices %}<label><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in x.coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
 {% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>

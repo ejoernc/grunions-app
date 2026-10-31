@@ -543,7 +543,7 @@ try:
     nxt = home[home.find('class="card tap nextcard"'):]
     nxt = nxt[:nxt.find("I'm going")]
     adm = eli.get("/admin").get_data(as_text=True)
-    ok("class=dn>23<" in sched and "7:00 PM" in sched and "Westminster HS" in sched and "FRI" in nxt and ">23<" in nxt and "7:00 PM" in nxt and "Westminster HS" in nxt and 'value="2026-10-23"' in adm, "at 5:30pm Pacific, Friday's practice is on the schedule and check-in uses that date")
+    ok("class=dn>23<" in sched and "7:00 PM" in sched and "Westminster HS" in sched and "Fri Oct 23" in nxt and "7:00 PM" in nxt and "Westminster HS" in nxt and "class=datetile" not in nxt and 'value="2026-10-23"' in adm, "at 5:30pm Pacific, Friday's practice is on the schedule and check-in uses that date")
     ok(D.execute("SELECT COUNT(*) FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()[0] == 1, "opening the schedule does not delete Friday's practice")
     A.now_pt = lambda: dt.datetime(2026, 10, 24, 3, 30, tzinfo=dt.timezone.utc)  # 8:30pm PDT
     ok("class=dn>23<" in jane.get("/practices").get_data(as_text=True), "the practice stays up through 8:30pm Pacific")
@@ -706,7 +706,7 @@ eli.post("/practices", data=dict(base, coach=[str(eli_id), str(john_id), str(jan
 sched, home, staff, coachpg = jane.get("/practices").get_data(as_text=True), jane.get("/home").get_data(as_text=True), eli.get("/practices").get_data(as_text=True), john.get("/practices").get_data(as_text=True)
 pdate = D.execute("SELECT date FROM practices WHERE id=?", (pid,)).fetchone()[0]
 checkin = eli.get("/admin?date=%s" % pdate).get_data(as_text=True)
-ok(" going · Coaches: Eli, Sam" in sched and " going · Coaches: Eli, Sam" in home and "Coaches: Eli, Sam" in coachpg and "Coaches: Eli, Sam" in staff and "Coaches: Eli, Sam" in checkin and 'class="st st-ok coach-elig"' not in sched and 'class="st st-ok coach-elig"' not in staff and "No assigned coach is coach-eligible" not in sched and "No assigned coach is coach-eligible" not in staff and "No assigned coach is coach-eligible" in eli.get("/practices/%d" % pid).get_data(as_text=True) and "No assigned coach is coach-eligible" not in coachpg and "No assigned coach is coach-eligible" not in eli.get("/home").get_data(as_text=True), "assigned coaches show on every schedule card and on check-in, and the eligibility warning stays on the practice page")
+ok(" going · Coaches: Eli, Sam" in sched and " going · Coaches:" not in home and "Coaches: Eli, Sam" in coachpg and "Coaches: Eli, Sam" in staff and "Coaches: Eli, Sam" in checkin and 'class="st st-ok coach-elig"' not in sched and 'class="st st-ok coach-elig"' not in staff and "No assigned coach is coach-eligible" not in sched and "No assigned coach is coach-eligible" not in staff and "No assigned coach is coach-eligible" in eli.get("/practices/%d" % pid).get_data(as_text=True) and "No assigned coach is coach-eligible" not in coachpg and "No assigned coach is coach-eligible" not in eli.get("/home").get_data(as_text=True), "assigned coaches show on every schedule card and on check-in, and the eligibility warning stays on the practice page")
 picker = eli.get("/practices/%d" % pid).get_data(as_text=True)
 ok(('name=coach value="%d" checked' % eli_id) in picker and ('name=coach value="%d" checked' % john_id) in picker and ('name=coach value="%d"' % jane_id) not in picker and "<select name=coach" not in picker and "name=coach" not in sched and "name=coach" not in coachpg, "edit practice is a checkbox per coaching-list member, and only an admin gets that list")
 ok(jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=pid, action="edit", start=pstart, end=pend, location=ploc, note=pnote, coach=str(jane_id))).status_code == 403 and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? ORDER BY member_id", (pid,)).fetchall() == [(eli_id,), (john_id,)], "a member cannot change practice coaches, and someone off the coaching list is not stored")
@@ -716,7 +716,7 @@ ok("Coaches: Eli" in hid and "Coaches: Eli, Sam" not in hid and D.execute("SELEC
 list_act(john_id, "add_coaching")
 ok("Coaches: Eli, Sam" in jane.get("/practices").get_data(as_text=True), "returning to the coaching list shows the assigned name again")
 eli.post("/practices", data=dict(base, coach=[str(john_id)]))
-ok("Coaches: Sam" in jane.get("/practices").get_data(as_text=True) and "Coaches: Eli, Sam" not in jane.get("/practices").get_data(as_text=True) and "Coaches: Sam" in jane.get("/home").get_data(as_text=True), "unchecking a coach removes that name from the card")
+ok("Coaches: Sam" in jane.get("/practices").get_data(as_text=True) and "Coaches: Eli, Sam" not in jane.get("/practices").get_data(as_text=True) and "Coaches: Sam" not in jane.get("/home").get_data(as_text=True), "unchecking a coach removes that name from the schedule card")
 eli.post("/practices", data=base)
 ok("Coaches:" not in jane.get("/practices").get_data(as_text=True) and "Coaches:" not in jane.get("/home").get_data(as_text=True), "clearing every coach checkbox removes the line")
 list_act(jane_id, "add_coaching")
@@ -1226,3 +1226,52 @@ eli.post("/practices/%d" % nid, data=dict(csrf=csrf(eli, "/practices"), pid=nid,
 eli.post("/practices/%d" % nid, data=dict(csrf=csrf(eli, "/practices"), pid=nid, action="message", message=""))
 cleared = jane.get("/home").get_data(as_text=True) + jane.get("/practices/%d" % nid).get_data(as_text=True)
 ok("Social after at" not in cleared and "Warmup laps" not in cleared and "Drinks after at" not in cleared and "<h2>After-practice social</h2>" not in jane.get("/practices/%d" % nid).get_data(as_text=True), "clearing the social and the coach message hides both")
+
+# Home header, practice image, and map
+home_h = jane.get("/home").get_data(as_text=True)
+head, body = home_h.split("<main>", 1)
+sheet = body.split("id=profileSheet", 1)[1].split("</dialog>", 1)[0]
+sched_head = jane.get("/practices").get_data(as_text=True).split("<main>", 1)[0]
+ok("<h1>Hi, Jay</h1>" in head and ">JD<" in head and "Log out" not in head and "id=profileOpen" in head and "practices attended" in sheet and 'href=/notifications' in sheet and ">Log out</a>" in sheet and "Log out" in sched_head, "Home greets by name with an initials avatar, and logout and notifications live in that menu")
+jane.post("/home", data={"csrf": csrf(jane, "/home"), "action": "avatar", "photo": (img_bytes("JPEG", (480, 480)), "me.jpg")}, content_type="multipart/form-data")
+shown = jane.get("/home").get_data(as_text=True)
+ok(('src="/avatar/%d' % jane_id) in shown and ">JD<" not in shown.split("<main>", 1)[0] and eli.get("/avatar/%d" % jane_id).status_code == 200 and client().get("/avatar/%d" % jane_id).status_code == 302, "a profile picture is stored for the member and can be loaded wherever an avatar is shown")
+jane.post("/home", data=dict(csrf=csrf(jane, "/home"), action="avatar_clear"))
+ok(">JD<" in jane.get("/home").get_data(as_text=True).split("<main>", 1)[0] and not (D.execute("SELECT photo FROM members WHERE id=?", (jane_id,)).fetchone()[0] or ""), "removing the profile picture falls back to initials")
+card_home = jane.get("/home").get_data(as_text=True)
+pic_id = int(re.search(r'href="/practices/(\d+)"', card_home[card_home.find('class="card tap nextcard"'):]).group(1))
+pic_date = D.execute("SELECT date FROM practices WHERE id=?", (pic_id,)).fetchone()[0]
+badge = "TODAY" if pic_date == A.today_pt().isoformat() else A.fmt_d(pic_date)
+ok(jane.post("/practices/%d" % pic_id, data={"csrf": csrf(jane, "/home"), "pid": pic_id, "action": "image", "image": (img_bytes(), "pool.png")}, content_type="multipart/form-data").status_code == 403 and "class=pimg" not in jane.get("/home").get_data(as_text=True), "a member cannot set the practice image, and Home omits the image area")
+pat.post("/practices/%d" % pic_id, data={"csrf": csrf(pat, "/practices/%d" % pic_id), "pid": pic_id, "action": "image", "back": "page", "image": (img_bytes("PNG", (640, 400)), "pool.png")}, content_type="multipart/form-data")
+pictured = jane.get("/home").get_data(as_text=True)
+pcard = pictured[pictured.find('class="card tap nextcard"'):pictured.find("I'm going", pictured.find('class="card tap nextcard"'))]
+sched_pic = jane.get("/practices").get_data(as_text=True)
+ok("class=pimg" in pcard and ("/practice-image/%d" % pic_id) in pcard and (">%s<" % badge) in pcard and "class=pimg" not in sched_pic and ("/practice-image/" ) not in sched_pic and jane.get("/practice-image/%d" % pic_id).status_code == 200 and "Practice image" in pat.get("/practices/%d" % pic_id).get_data(as_text=True) and 'type=file name=image' in eli.get("/practices/%d?edit=1" % pic_id).get_data(as_text=True), "a coach image shows on the Home card with a monochrome date badge and stays off the schedule")
+pat.post("/practices/%d" % pic_id, data=dict(csrf=csrf(pat, "/practices/%d" % pic_id), pid=pic_id, action="image", back="page", image_clear="1"))
+ok("class=pimg" not in jane.get("/home").get_data(as_text=True) and not (D.execute("SELECT image FROM practices WHERE id=?", (pic_id,)).fetchone()[0] or ""), "removing the practice image drops the image area")
+D.execute("UPDATE practices SET lat=?, lng=?, social_kind=?, social_place=?, social_address=?, social_lat=?, social_lng=? WHERE id=?", (33.5, -117.5, "Dinner", "The Harp", "123 Main St", 33.6, -117.6, pic_id)); D.commit()
+mapped = jane.get("/home").get_data(as_text=True)
+i_card, i_play, i_map = mapped.find('class="card tap nextcard"'), mapped.find('class="card playcard"'), mapped.find("id=homeMap")
+ok(0 <= i_card < i_play < i_map and "33.5" in mapped and "33.6" in mapped and "tile.openstreetmap.org" in mapped and "maps.apple.com" in mapped and "google.com/maps/dir/" in mapped and "id=homeMap" not in jane.get("/practices").get_data(as_text=True), "the map sits under the clearance card, with the pool and social pins")
+import urllib.request as _ureq
+class _GeoResp:
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def read(self): return b'[{"lat":"33.5","lon":"-117.25"}]'
+_orig_url = _ureq.urlopen
+_ureq.urlopen = lambda req, timeout=None, **k: _GeoResp()
+try:
+    A._GEO_CACHE.pop("Unit Pool Address", None)
+    hit = A.geocode_address("Unit Pool Address")
+    again = A.geocode_address("Unit Pool Address")
+finally:
+    _ureq.urlopen = _orig_url
+ok(hit == (33.5, -117.25) and again == hit and A.geocode_address("") is None and A.geocode_address("https://maps.example/x") is None, "nominatim results are cached and a map link is not geocoded")
+prow = D.execute("SELECT date, start, end, COALESCE(note,'') FROM practices WHERE id=?", (pic_id,)).fetchone()
+eli.post("/practices/%d" % pic_id, data=dict(csrf=csrf(eli, "/practices/%d" % pic_id), pid=pic_id, action="edit", back="page", date=prow[0], start=prow[1], end=prow[2], location="Moved Map Pool", note=prow[3]))
+D.commit()
+moved_row = D.execute("SELECT lat, lng, social_lat FROM practices WHERE id=?", (pic_id,)).fetchone()
+eli.post("/practices/%d" % pic_id, data=dict(csrf=csrf(eli, "/practices/%d" % pic_id), pid=pic_id, action="social", back="page", social_kind="Dinner", social_place="Other Place", social_address="456 Side St"))
+D.commit()
+ok(moved_row[0] is None and moved_row[1] is None and moved_row[2] == 33.6 and D.execute("SELECT social_lat FROM practices WHERE id=?", (pic_id,)).fetchone()[0] is None, "changing the pool or social address clears the cached coordinates")

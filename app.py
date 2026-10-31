@@ -8,7 +8,7 @@ import qrcode, qrcode.image.svg
 from markupsafe import Markup, escape
 import ui
 from ui import T
-from flask import (Flask, request, redirect, url_for, session, g, render_template_string, Response, abort, flash, jsonify)
+from flask import (Flask, request, redirect, url_for, session, g, render_template_string, Response, abort, flash, jsonify, send_from_directory)
 
 DATA_DIR = os.environ.get("DATA_DIR") or os.path.dirname(os.path.abspath(__file__))  # persistent disk in production
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -72,7 +72,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS members(id INTEGER PRIMARY KEY, first TEXT NOT NULL, last TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE, phone TEXT, created TEXT DEFAULT CURRENT_TIMESTAMP, is_admin INTEGER DEFAULT 0,
   usawp_status TEXT DEFAULT 'unknown', usawp_raw TEXT, usawp_number TEXT, usawp_valid_until TEXT, usawp_updated TEXT,
-  preferred_first TEXT, trial_acknowledged_at TEXT, joined INTEGER DEFAULT 0, require_background INTEGER DEFAULT 0);
+  preferred_first TEXT, trial_acknowledged_at TEXT, joined INTEGER DEFAULT 0, require_background INTEGER DEFAULT 0, photo TEXT);
 CREATE TABLE IF NOT EXISTS checkins(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id),
   practice_date TEXT NOT NULL, location TEXT, at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(member_id, practice_date));
 CREATE TABLE IF NOT EXISTS login_tokens(token_hash TEXT PRIMARY KEY, member_id INTEGER, expires TEXT, used INTEGER DEFAULT 0);
@@ -81,7 +81,8 @@ CREATE TABLE IF NOT EXISTS requirements(id INTEGER PRIMARY KEY, name TEXT NOT NU
 CREATE TABLE IF NOT EXISTS member_reqs(member_id INTEGER, req_id INTEGER, completed_on TEXT, expires_on TEXT, source TEXT, by TEXT, at TEXT,
   PRIMARY KEY(member_id, req_id));
 CREATE TABLE IF NOT EXISTS practices(id INTEGER PRIMARY KEY, date TEXT NOT NULL, start TEXT DEFAULT '19:00', end TEXT DEFAULT '20:30',
-  location TEXT, note TEXT, cancelled INTEGER DEFAULT 0, cancel_reason TEXT, UNIQUE(date, location));
+  location TEXT, note TEXT, cancelled INTEGER DEFAULT 0, cancel_reason TEXT, image TEXT,
+  lat REAL, lng REAL, social_lat REAL, social_lng REAL, UNIQUE(date, location));
 CREATE TABLE IF NOT EXISTS rsvps(practice_id INTEGER, member_id INTEGER, going INTEGER, at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(practice_id, member_id));
 CREATE TABLE IF NOT EXISTS practice_coaches(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id));
 CREATE TABLE IF NOT EXISTS social_joins(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id));
@@ -137,7 +138,8 @@ def migrate_practices(d):
     cols = [r[1] for r in d.execute("PRAGMA table_info(practices)")]
     for c, t in (("cancel_reason", "TEXT"), ("social_kind", "TEXT"), ("social_place", "TEXT"),
                  ("social_address", "TEXT"), ("social_time", "TEXT"), ("social_note", "TEXT"),
-                 ("coach_note", "TEXT"), ("coach_note_by", "TEXT"), ("coach_note_at", "TEXT")):
+                 ("coach_note", "TEXT"), ("coach_note_by", "TEXT"), ("coach_note_at", "TEXT"),
+                 ("image", "TEXT"), ("lat", "REAL"), ("lng", "REAL"), ("social_lat", "REAL"), ("social_lng", "REAL")):
         if c not in cols:
             d.execute("ALTER TABLE practices ADD COLUMN %s %s" % (c, t))
     migrate_social_kinds(d)
@@ -156,7 +158,7 @@ def migrate_members(d):
                  ("usawp_verified_at", "TEXT"), ("sport80_contact_id", "TEXT"), ("preferred_first", "TEXT"),
                  ("trial_acknowledged_at", "TEXT"), ("notify_prefs", "TEXT"),
                  ("email_reminders", "INTEGER DEFAULT 1"), ("membership_type", "TEXT"), ("joined", "INTEGER DEFAULT 0"),
-                 ("require_background", "INTEGER DEFAULT 0")):
+                 ("require_background", "INTEGER DEFAULT 0"), ("photo", "TEXT")):
         if c not in cols: d.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
     # /join always stores a phone. Existing registrations keep Google sign-in; a blank phone is not one.
     cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
@@ -178,7 +180,18 @@ def display_first(m):
         pref = (m["preferred_first"] or "").strip()
         if pref: return pref
     return m["first"]
-app.jinja_env.globals.update(display_first=display_first)
+def initials(m):
+    """First initial plus last initial, for a profile picture that has not been set."""
+    if not m: return ""
+    first = (display_first(m) or "").strip()
+    last = ""
+    try:
+        if "last" in m.keys(): last = (m["last"] or "").strip()
+    except (AttributeError, TypeError):
+        last = ""
+    letters = (first[:1] + last[:1]).upper()
+    return letters or "?"
+app.jinja_env.globals.update(display_first=display_first, initials=initials)
 # applies_to: all | athlete | coach. keywords: normalized substrings to find this item's columns in a Sport:80 export.
 DEFAULT_REQS = [("SafeSport training", "all", "safesport", 1), ("Background screening", "coach", "background", 1),
                 ("Concussion training", "coach", "concussion", 1)]
@@ -659,6 +672,18 @@ def home():
     if request.method == "POST" and request.form.get("action") == "preferred":
         d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), m["id"]))
         d.commit(); sync_practice_sheets(d); flash("Preferred name saved."); return redirect("/home")
+    if request.method == "POST" and request.form.get("action") == "avatar":
+        f = request.files.get("photo")
+        if not f or not f.filename:
+            flash("Choose a picture."); return redirect("/home")
+        try: stored = save_image(f)
+        except ValueError as e:
+            flash(str(e)); return redirect("/home")
+        d.execute("UPDATE members SET photo=? WHERE id=?", (stored, m["id"]))
+        d.commit(); flash("Profile picture saved.", "toast"); return redirect("/home")
+    if request.method == "POST" and request.form.get("action") == "avatar_clear":
+        d.execute("UPDATE members SET photo='' WHERE id=?", (m["id"],))
+        d.commit(); return redirect("/home")
     if request.method == "POST" and request.form.get("action") == "trial":
         row = d.execute("SELECT usawp_number, usawp_status, trial_acknowledged_at FROM members WHERE id=?", (m["id"],)).fetchone()
         if (row["usawp_status"] or "") == "verified" or (row["usawp_number"] or "").strip() or (row["trial_acknowledged_at"] or "").strip():
@@ -692,6 +717,7 @@ def home():
     month = today_pt().strftime("%Y-%m")
     ensure_schedule(d)
     nextp = d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where() + " ORDER BY date, start LIMIT 1", upcoming_bounds()).fetchone()
+    if nextp: nextp = ensure_map_coords(d, nextp)
     nextp_n = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (nextp["id"],)).fetchone()[0] if nextp else 0
     nextp_mine = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (nextp["id"], m["id"])).fetchone() if nextp else None
     nextp_mine = nextp_mine[0] if nextp_mine else None
@@ -702,7 +728,12 @@ def home():
     d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (m["id"],)); d.commit()
     ann = d.execute("SELECT m.*, p.first, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id WHERE announcement=1 AND channel='team' AND COALESCE(m.deleted,0)=0 ORDER BY m.id DESC LIMIT 1").fetchone()
     vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
-    return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined, vr_pending=vr_pending)
+    pins = map_pins(nextp)
+    leaflet_css = ""
+    if pins:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "leaflet", "leaflet.css"), encoding="utf-8") as f:
+            leaflet_css = f.read()
+    return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined, vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, leaflet_css=leaflet_css)
 
 # ---------- unread badges ----------
 def empty_unread():
@@ -804,6 +835,38 @@ def media(mid, kind):
     from flask import send_from_directory
     fn = r["image"].rsplit(".", 1)[0] + "_t.webp" if kind == "thumb" else r["image"]
     resp = send_from_directory(UPLOADS, fn, max_age=86400); resp.headers["Cache-Control"] = "private, max-age=86400"; return resp
+def _stored_file(name):
+    base = os.path.basename(str(name or ""))
+    if not base or base != name or not os.path.isfile(os.path.join(UPLOADS, base)): return None
+    return base
+@app.route("/avatar/<int:mid>")
+@login_required
+def avatar(mid):
+    r = db().execute("SELECT photo FROM members WHERE id=?", (mid,)).fetchone()
+    fn = _stored_file(r["photo"] if r else "")
+    if not fn: abort(404)
+    resp = send_from_directory(UPLOADS, fn, max_age=86400)
+    resp.headers["Cache-Control"] = "private, max-age=86400"
+    return resp
+@app.route("/practice-image/<int:pid>")
+@login_required
+def practice_image(pid):
+    r = db().execute("SELECT image FROM practices WHERE id=?", (pid,)).fetchone()
+    fn = _stored_file(r["image"] if r else "")
+    if not fn: abort(404)
+    resp = send_from_directory(UPLOADS, fn, max_age=86400)
+    resp.headers["Cache-Control"] = "private, max-age=86400"
+    return resp
+def apply_practice_image(d, pid):
+    """Replace or remove the Home-card image. An empty upload leaves the current picture."""
+    f = request.files.get("image")
+    if f and f.filename:
+        d.execute("UPDATE practices SET image=? WHERE id=?", (save_image(f), pid))
+        return True
+    if request.form.get("image_clear"):
+        d.execute("UPDATE practices SET image='' WHERE id=?", (pid,))
+        return True
+    return False
 @app.errorhandler(413)
 def too_big(e): return jsonify(error="Image is larger than 8 MB."), 413
 @app.route("/api/messages/<int:mid>/react", methods=["POST"])
@@ -979,9 +1042,64 @@ def clean_social(form):
 def save_social(d, pid, form):
     kind, place, address, social_time, note = clean_social(form)
     if kind and not place: return False
+    old = d.execute("SELECT social_place, social_address, social_kind FROM practices WHERE id=?", (pid,)).fetchone()
     d.execute("""UPDATE practices SET social_kind=?, social_place=?, social_address=?, social_time=?, social_note=? WHERE id=?""",
               (kind, place, address, social_time, note, pid))
+    moved = not old or (old["social_place"] or "") != (place or "") or (old["social_address"] or "") != (address or "") or not kind
+    if moved: d.execute("UPDATE practices SET social_lat=NULL, social_lng=NULL WHERE id=?", (pid,))
     return True
+_GEO_CACHE = {}
+def geocode_address(query):
+    """Nominatim lookup. Results are cached in memory; the practice row stores the ones we keep."""
+    q = " ".join(str(query or "").split())
+    if not q or q.lower().startswith(("http://", "https://")): return None
+    if q in _GEO_CACHE: return _GEO_CACHE[q]
+    url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode({"q": q, "format": "jsonv2", "limit": "1"})
+    req = urllib.request.Request(url, headers={"User-Agent": "GrunionsWaterPolo/1.0 (team practice map)", "Accept": "application/json"})
+    hit = None
+    try:
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read().decode() or "[]")
+        if data and data[0].get("lat") and data[0].get("lon"):
+            hit = (round(float(data[0]["lat"]), 6), round(float(data[0]["lon"]), 6))
+    except Exception as e:
+        app.logger.info("geocode failed: %s", e)
+        hit = None
+    _GEO_CACHE[q] = hit
+    return hit
+def social_geocode_query(p):
+    """Address to geocode for the social pin. A map link is not an address, so the place name is used."""
+    if not social_home(p): return ""
+    addr = " ".join(str(_field(p, "social_address") or "").split())
+    if addr and not addr.lower().startswith(("http://", "https://")): return addr
+    return " ".join(str(_field(p, "social_place") or "").split())
+def ensure_map_coords(d, p):
+    """Fill missing pool and social coordinates. A failed lookup is not written, so a later try can succeed."""
+    if not p or "lat" not in p.keys(): return p
+    changed = False
+    if p["lat"] is None or p["lng"] is None:
+        hit = geocode_address(p["location"])
+        if hit:
+            d.execute("UPDATE practices SET lat=?, lng=? WHERE id=?", (hit[0], hit[1], p["id"]))
+            changed = True
+    sq = social_geocode_query(p)
+    if sq and (p["social_lat"] is None or p["social_lng"] is None):
+        hit = geocode_address(sq)
+        if hit:
+            d.execute("UPDATE practices SET social_lat=?, social_lng=? WHERE id=?", (hit[0], hit[1], p["id"]))
+            changed = True
+    if changed:
+        d.commit()
+        p = d.execute("SELECT * FROM practices WHERE id=?", (p["id"],)).fetchone()
+    return p
+def map_pins(p):
+    """Pool pin, plus the social pin when that place has coordinates. No pool pin means no map."""
+    if not p or p["lat"] is None or p["lng"] is None: return []
+    pins = [{"lat": p["lat"], "lng": p["lng"], "kind": "pool", "label": short_place(p["location"] or "")}]
+    sh = social_home(p)
+    if sh and p["social_lat"] is not None and p["social_lng"] is not None:
+        pins.append({"lat": p["social_lat"], "lng": p["social_lng"], "kind": "social", "label": sh["place"]})
+    return pins
 def save_coach_note(d, pid, text):
     text = " ".join((text or "").split())[:280]
     old = d.execute("SELECT coach_note FROM practices WHERE id=?", (pid,)).fetchone()
@@ -1101,6 +1219,12 @@ def handle_practice_post(d):
     elif a == "message" and pid:
         if not can_host_practice(): abort(403)
         save_coach_note(d, pid, request.form.get("message"))
+    elif a == "image" and pid:
+        if not can_host_practice(): abort(403)
+        try:
+            if not apply_practice_image(d, pid): flash("Choose a picture.")
+        except ValueError as e:
+            flash(str(e))
     elif not me()["is_admin"]: abort(403)
     elif a == "add":
         try: d.execute("INSERT INTO practices(date,start,end,location,note) VALUES(?,?,?,?,?)", (request.form["date"], request.form.get("start") or "19:00", request.form.get("end") or "20:30", request.form.get("location") or "TBD", request.form.get("note")))
@@ -1117,10 +1241,13 @@ def handle_practice_post(d):
         if not date: flash("Enter the practice date.")
         else:
             try:
-                d.execute("UPDATE practices SET date=?, start=?, end=?, location=?, note=? WHERE id=?", (date, start, end, loc, note, pid))
+                moved = (loc or "") != (old["location"] or "")
+                d.execute("UPDATE practices SET date=?, start=?, end=?, location=?, note=?" + (", lat=NULL, lng=NULL" if moved else "") + " WHERE id=?", (date, start, end, loc, note, pid))
                 save_practice_coaches(d, pid, request.form.getlist("coach"))
                 if "social_kind" in request.form: save_social(d, pid, request.form)
                 if "message" in request.form: save_coach_note(d, pid, request.form.get("message"))
+                try: apply_practice_image(d, pid)
+                except ValueError as e: flash(str(e))
                 if old and (old["date"], old["start"], old["end"], old["location"], old["note"] or "") != (date, start, end, loc, note or ""):
                     flag_practice(d, pid, "change", me()["id"])
             except sqlite3.IntegrityError:
@@ -1144,9 +1271,10 @@ def handle_practice_post(d):
         src = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
         new_date = (dt.date.fromisoformat(src["date"]) + dt.timedelta(days=7)).isoformat()
         try:
-            cur = d.execute("""INSERT INTO practices(date,start,end,location,note,cancelled,social_kind,social_place,social_address,social_time,social_note)
-                VALUES(?,?,?,?,?,0,?,?,?,?,?)""", (new_date, src["start"], src["end"], src["location"], src["note"],
-                src["social_kind"], src["social_place"], src["social_address"], src["social_time"], src["social_note"]))
+            cur = d.execute("""INSERT INTO practices(date,start,end,location,note,cancelled,social_kind,social_place,social_address,social_time,social_note,image,lat,lng,social_lat,social_lng)
+                VALUES(?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,?)""", (new_date, src["start"], src["end"], src["location"], src["note"],
+                src["social_kind"], src["social_place"], src["social_address"], src["social_time"], src["social_note"],
+                src["image"], src["lat"], src["lng"], src["social_lat"], src["social_lng"]))
             new_id = cur.lastrowid
             save_practice_coaches(d, new_id, [r[0] for r in d.execute("SELECT member_id FROM practice_coaches WHERE practice_id=?", (pid,))])
             flash("Copied to %s." % fmt_d(new_date))
