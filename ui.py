@@ -486,7 +486,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=16');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=17');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1003,10 +1003,13 @@ function bodyHtml(m){
  if(m.image) h+=`<a class=img href="${m.image.full}" data-full="${m.image.full}"><img src="${m.image.thumb}" alt="Photo from ${esc(m.who)}" loading=lazy></a>`;
  return h||'<div class=txt></div>'}
 function fill(d,m){
+ var kept=d.querySelector&&d.querySelector('#seenLine');
+ if(kept) kept.remove();
  d.className='m'+(m.mine?' mine':'')+(m.ann&&!m.deleted?' ann':'');
  d.dataset.g='';
  d.innerHTML=(m.deleted?'':`<button type=button class=more data-act=${m.id} aria-label="Message actions">⋯</button>`)+
-  bodyHtml(m)+`<div class=rx>${rxHtml(m.id)}</div>`}
+  bodyHtml(m)+`<div class=rx>${rxHtml(m.id)}</div>`;
+ if(kept) d.appendChild(kept);}
 let grouping=false;
 function sameGroup(first,cur){
  if(!first||!cur||first.uid!==cur.uid) return false;
@@ -1064,15 +1067,13 @@ function paintSeen(list){
  Object.keys(msgs).forEach(id=>{const m=msgs[id]; if(m&&m.seen&&(!hit||m.id>hit.id)) hit=m});
  if(hit) Object.keys(msgs).forEach(id=>{if(+id!==hit.id&&msgs[id]&&msgs[id].seen) delete msgs[id].seen});
  seenInfo=hit?hit.seen:null;
- var line=box.querySelector('.seenline');
- if(!seenInfo){ if(line) line.remove(); return; }
- var row=document.getElementById('msg'+seenInfo.id);
- if(!row){ if(line) line.remove(); return; }
+ var row=seenInfo?document.getElementById('msg'+seenInfo.id):null;
+ var line=document.getElementById('seenLine');
+ document.querySelectorAll('.seenline').forEach(function(el){ if(el!==line) el.remove(); });
+ if(!seenInfo||!row){ if(line) line.remove(); return; }
+ if(!line){ line=document.createElement('button'); line.type='button'; line.id='seenLine'; line.className='seenline'; }
  var key=seenKey(seenInfo);
- if(line&&line.dataset.seen===key&&line.parentNode===row) return;
- if(!line){ line=document.createElement('button'); line.type='button'; line.className='seenline'; }
- if(line.textContent!==seenInfo.label) line.textContent=seenInfo.label;
- line.dataset.seen=key;
+ if(line.dataset.seen!==key){ line.textContent=seenInfo.label; line.dataset.seen=key; }
  if(line.parentNode!==row) row.appendChild(line);
 }
 function openSeen(info){

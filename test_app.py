@@ -687,7 +687,58 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=16" in chui and "5*60*1000" in chui and "new Date(first.at)" in chui and "sameGroup(first" in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:4px}" in chui and "dataset.seen" in chui and ".seenline').forEach" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=17" in chui and "5*60*1000" in chui and "new Date(first.at)" in chui and "sameGroup(first" in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:4px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+import subprocess
+_seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
+_seen_proc = subprocess.run(["node", "-e", r'''
+function El(){ this.children=[]; this.parentNode=null; this._id=""; this.className=""; this._text=""; this.dataset={}; this.type=""; this.textSets=0; }
+var byId={};
+Object.defineProperty(El.prototype,"id",{get:function(){return this._id},set:function(v){ if(this._id) delete byId[this._id]; this._id=v||""; if(v) byId[v]=this; }});
+Object.defineProperty(El.prototype,"textContent",{get:function(){return this._text},set:function(v){ this.textSets++; this._text=String(v); }});
+El.prototype.appendChild=function(el){ if(el.parentNode) el.parentNode.removeChild(el); el.parentNode=this; this.children.push(el); return el; };
+El.prototype.removeChild=function(el){ this.children=this.children.filter(function(c){return c!==el}); el.parentNode=null; };
+El.prototype.remove=function(){ if(this._id) delete byId[this._id]; if(this.parentNode) this.parentNode.removeChild(this); };
+El.prototype.querySelectorAll=function(sel){
+ var out=[];
+ if(sel===".seenline" && (this.className||"").split(/\s+/).indexOf("seenline")>=0) out.push(this);
+ if(sel==="#seenLine" && this.id==="seenLine") out.push(this);
+ this.children.forEach(function(c){ out=out.concat(c.querySelectorAll(sel)); });
+ return out;
+};
+El.prototype.querySelector=function(sel){ return this.querySelectorAll(sel)[0]||null; };
+var root=new El();
+var document={
+ createElement:function(){return new El()},
+ getElementById:function(id){return byId[id]||null},
+ querySelectorAll:function(sel){return root.querySelectorAll(sel)}
+};
+function row(id){ var el=new El(); el.id="msg"+id; root.appendChild(el); return el; }
+var seenInfo=null, msgs={};
+''' + _seen_src + r'''
+row(5); row(9);
+var info={id:5,n:6,total:8,label:"Seen by 6",seen:[]};
+msgs[5]={id:5,seen:info};
+var node=null, writes=0;
+for(var i=0;i<5;i++){
+ paintSeen([msgs[5]]);
+ var cur=document.getElementById("seenLine");
+ if(!node){ node=cur; writes=cur.textSets; }
+}
+for(var n=0;n<3;n++){ var extra=document.createElement("button"); extra.className="seenline"; extra.textContent="Seen by 6"; document.getElementById("msg5").appendChild(extra); }
+paintSeen([msgs[5]]);
+var afterDup=document.querySelectorAll(".seenline").length;
+var same=document.getElementById("seenLine")===node;
+var quiet=node.textSets===writes;
+msgs[9]={id:9,seen:{id:9,n:1,total:8,label:"Seen by 1",seen:[]}};
+delete msgs[5].seen;
+paintSeen([msgs[9]]);
+var moved=node.parentNode&&node.parentNode.id==="msg9" && document.getElementById("msg5").querySelectorAll(".seenline").length===0;
+console.log(JSON.stringify({count:document.querySelectorAll(".seenline").length, afterDup:afterDup, same:same, quiet:quiet, moved:moved, label:node.textContent, node:!!node}));
+'''], capture_output=True, text=True)
+_seen_out = {}
+try: _seen_out = json.loads(_seen_proc.stdout or "{}")
+except ValueError: _seen_out = {}
+ok(_seen_proc.returncode == 0 and _seen_out.get("afterDup") == 1 and _seen_out.get("count") == 1 and _seen_out.get("same") and _seen_out.get("quiet") and _seen_out.get("moved") and _seen_out.get("label") == "Seen by 1", "several seen polls leave one stable line and do not rewrite it")
 tj = csrf(jane, "/chat"); te = csrf(eli, "/chat"); tjohn = csrf(john, "/chat")
 ok(jane.post("/api/messages", json={"body": "Edit me please"}, headers={"X-CSRF": tj}).status_code == 200, "author can post a message to edit")
 mid = [m for m in jane.get("/api/messages").get_json() if m["body"] == "Edit me please"][-1]["id"]
