@@ -179,7 +179,7 @@ def migrate_members(d):
         d.execute("""UPDATE members SET joined=1 WHERE COALESCE(joined,0)=0 AND COALESCE(role,'')!='system'
                      AND trim(COALESCE(phone,''))!=''""")
 def migrate_lineup(d):
-    """Away tournaments and team trips. Existing databases gain the tables and the trip columns without touching practices."""
+    """Away and hosted lineup events. Existing databases gain the tables and columns without touching practices."""
     d.execute("""CREATE TABLE IF NOT EXISTS lineup_events(id INTEGER PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL,
         date TEXT NOT NULL, end_date TEXT, city TEXT, venue TEXT, start TEXT, location TEXT, description TEXT, link TEXT)""")
     d.execute("""CREATE TABLE IF NOT EXISTS lineup_rsvps(event_id INTEGER NOT NULL, member_id INTEGER NOT NULL,
@@ -190,7 +190,8 @@ def migrate_lineup(d):
             d.execute("ALTER TABLE lineup_events ADD COLUMN %s %s" % (c, t))
     d.execute("UPDATE lineup_events SET end_date=date WHERE end_date IS NULL OR trim(end_date)=''")
     d.execute("UPDATE lineup_events SET venue=location WHERE (venue IS NULL OR trim(venue)='') AND trim(COALESCE(location,''))!=''")
-    d.execute("UPDATE lineup_events SET kind='Team trip/Social' WHERE kind='Social'")
+    d.execute("UPDATE lineup_events SET kind='Away tournament' WHERE kind='Tournament'")
+    d.execute("UPDATE lineup_events SET kind='Team trip' WHERE kind IN ('Social', 'Team trip/Social')")
 def migrate_messages(d):
     """Add chat columns missing from a database created by an older version (production SQLite on DATA_DIR)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
@@ -1718,7 +1719,10 @@ def practice_page(pid):
     editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
     plan_editing = request.args.get("edit") == "1" and host and not me()["is_admin"]
     return page(T["practice"], tab="practice", x=practice_bundle(d, p), editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin")
-LINEUP_KINDS = ("Tournament", "Team trip/Social")
+LINEUP_KINDS = ("Away tournament", "Hosted tournament", "Team trip", "Hosted social")
+LINEUP_SIDE = {"Away tournament": "Away", "Team trip": "Away", "Hosted tournament": "Hosting", "Hosted social": "Hosting"}
+def lineup_side(kind):
+    return LINEUP_SIDE.get(kind, "Away")
 def lineup_where(city, venue):
     city = " ".join(str(city or "").split())
     venue = " ".join(str(venue or "").split())
@@ -1761,15 +1765,15 @@ def lineup_pack(d, rows):
     for r in rows:
         end = r["end_date"] or r["date"]
         city, venue = r["city"] or "", r["venue"] or ""
-        out.append({"id": r["id"], "kind": r["kind"], "title": r["title"], "date": r["date"], "end_date": end,
+        out.append({"id": r["id"], "kind": r["kind"], "side": lineup_side(r["kind"]), "title": r["title"], "date": r["date"], "end_date": end,
             "city": city, "venue": venue, "where": lineup_where(city, venue), "map_href": lineup_map_href(city, venue),
             "when": lineup_range(r["date"], end), "description": r["description"] or "", "link": r["link"] or "",
             "going_n": counts.get(r["id"], 0), "mine": mine.get(r["id"])})
     return out
 def lineup_form_values(row=None, form=None):
-    blank = {"kind": "Tournament", "title": "", "date": "", "end_date": "", "city": "", "venue": "", "description": "", "link": ""}
+    blank = {"kind": "Away tournament", "title": "", "date": "", "end_date": "", "city": "", "venue": "", "description": "", "link": ""}
     if form is not None:
-        return {"kind": form.get("kind") or "Tournament", "title": form.get("title") or "", "date": form.get("date") or "",
+        return {"kind": form.get("kind") or "Away tournament", "title": form.get("title") or "", "date": form.get("date") or "",
             "end_date": form.get("end_date") or "", "city": form.get("city") or "", "venue": form.get("venue") or "",
             "description": form.get("description") or "", "link": form.get("link") or ""}
     if row:
@@ -1778,11 +1782,11 @@ def lineup_form_values(row=None, form=None):
     return blank
 def save_lineup_event(d, eid=None):
     kind = (request.form.get("kind") or "").strip()
-    if kind not in LINEUP_KINDS: raise ValueError("Choose Tournament or Team trip/Social.")
+    if kind not in LINEUP_KINDS: raise ValueError("Choose Away tournament, Hosted tournament, Team trip, or Hosted social.")
     title = " ".join((request.form.get("title") or "").split())[:120]
     if not title: raise ValueError("Add a title.")
     city = " ".join((request.form.get("city") or "").split())[:80]
-    if not city: raise ValueError("Add a destination city.")
+    if not city: raise ValueError("Add a city.")
     venue = " ".join((request.form.get("venue") or "").split())[:300]
     if not venue: raise ValueError("Add a venue.")
     day = parse_date(request.form.get("date"))
@@ -3175,7 +3179,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-31 */
+SW_JS = """/* grunions-sw-32 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
