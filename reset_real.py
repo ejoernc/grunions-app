@@ -11,7 +11,10 @@ Uses the same DATA_DIR / GRUNIONS_DB / GRUNIONS_UPLOADS settings as the app. Mak
 import os, sys, shutil, datetime as dt
 import app as A
 
-REAL_LOCATIONS = {"Marina High School": "15871 Springdale St, Huntington Beach", "Westminster High School": "Westminster"}
+REAL_LOCATIONS = {
+    "Marina High School": "15871 Springdale St, Huntington Beach, CA 92649",
+    "Westminster High School": "14325 Goldenwest St, Westminster, CA 92683",
+}
 ELLIOTT = dict(first="Elliott", last="Joern", email="elliott.joern@gmail.com", number="659226", membership="2027-06-07")
 COMPLIANCE = {"safesport": "2027-05-11", "background": "2028-08-28"}
 

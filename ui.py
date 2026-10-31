@@ -1131,8 +1131,8 @@ T["practice"] = """{% set p = x.p %}
 <div class=seclabel>Details</div>
 <div class=list>
 <div class="li prow"><span class=k>Time</span><span class=v>{{ fmt_clock(p.start) }} – {{ fmt_clock(p.end) }}</span></div>
-<div class="li prow"><span class=k>Location</span><span class=v>{{ p.location or '—' }}</span></div>
-{% if p.location %}<a class="li prow chevrow" {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %} href="https://www.google.com/maps/dir/?api=1&amp;destination={{ ((pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else p.location)|urlencode }}" target=_blank rel=noopener><span>Directions</span><span class=nxchev aria-hidden=true>›</span></a>{% endif %}
+<div class="li prow"><span class=k>Location</span><span class=v>{{ p.address or p.location or '—' }}</span></div>
+{% if p.location %}<a class="li prow chevrow" {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %} href="https://www.google.com/maps/dir/?api=1&amp;destination={{ ((pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location))|urlencode }}" target=_blank rel=noopener><span>Directions</span><span class=nxchev aria-hidden=true>›</span></a>{% endif %}
 {% if p.note %}<div class="li prow"><span class=k>Notes</span><span class=v>{{ p.note }}</span></div>{% endif %}
 {% if p.coach_note %}<div class="li prow"><span class=k>Coach note</span><span class=v>{{ p.coach_note }} · {{ p.coach_note_by }}{% if p.coach_note_at %} · {{ fmt_stamp(p.coach_note_at) }}{% endif %}</span></div>{% endif %}
 </div>

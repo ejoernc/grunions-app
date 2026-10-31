@@ -1306,7 +1306,10 @@ ok("class=pimg" not in jane.get("/home").get_data(as_text=True) and not (D.execu
 D.execute("UPDATE practices SET lat=?, lng=?, social_kind=?, social_place=?, social_address=?, social_lat=?, social_lng=? WHERE id=?", (33.5, -117.5, "Dinner", "The Harp", "123 Main St", 33.6, -117.6, pic_id)); D.commit()
 mapped = jane.get("/home").get_data(as_text=True)
 i_card, i_play, i_map = mapped.find('class="card tap nextcard"'), mapped.find('class="card playcard"'), mapped.find("id=homeMap")
-ok("id=homeMap" in mapped and "class=homedock" in mapped and 'class="homefull"' in mapped and "var regional=12" in mapped and "zoomControl:false" in mapped and "dragging:false" in mapped and "touchZoom:false" in mapped and "doubleClickZoom:false" in mapped and "boxZoom:false" in mapped and "keyboard:false" in mapped and mapped.find("id=homeMap") < i_card < i_play and "33.5" in mapped and "33.6" in mapped and "tile.openstreetmap.org" in mapped and "maps.apple.com" in mapped and "google.com/maps/dir/" in mapped and "id=homeMap" not in jane.get("/practices").get_data(as_text=True) and "<summary>Attendance</summary>" not in mapped and "<summary>Profile</summary>" not in mapped and "name=preferred_first" in jane.get("/profile").get_data(as_text=True), "the map fills the home screen behind the cards at a regional zoom, with the pool and social pins")
+pic_loc = D.execute("SELECT location FROM practices WHERE id=?", (pic_id,)).fetchone()[0]
+pic_pool = A.pool_place(pic_loc)
+pool_lat = str(pic_pool["lat"]) if pic_pool else "33.5"
+ok("id=homeMap" in mapped and "class=homedock" in mapped and 'class="homefull"' in mapped and "var regional=12" in mapped and "zoomControl:false" in mapped and "dragging:false" in mapped and "touchZoom:false" in mapped and "doubleClickZoom:false" in mapped and "boxZoom:false" in mapped and "keyboard:false" in mapped and mapped.find("id=homeMap") < i_card < i_play and pool_lat in mapped and "33.6" in mapped and "tile.openstreetmap.org" in mapped and "maps.apple.com" in mapped and "google.com/maps/dir/" in mapped and "id=homeMap" not in jane.get("/practices").get_data(as_text=True) and "<summary>Attendance</summary>" not in mapped and "<summary>Profile</summary>" not in mapped and "name=preferred_first" in jane.get("/profile").get_data(as_text=True), "the map fills the home screen behind the cards at a regional zoom, with the pool and social pins")
 import urllib.request as _ureq
 class _GeoResp:
     def __enter__(self): return self
@@ -1321,6 +1324,14 @@ try:
 finally:
     _ureq.urlopen = _orig_url
 ok(hit == (33.5, -117.25) and again == hit and A.geocode_address("") is None and A.geocode_address("https://maps.example/x") is None, "nominatim results are cached and a map link is not geocoded")
+west, marina = A.pool_place("Westminster High School"), A.pool_place("Marina High School")
+wid = D.execute("SELECT id FROM practices WHERE location='Westminster High School' ORDER BY date LIMIT 1").fetchone()[0]
+D.execute("UPDATE practices SET lat=39.836652, lng=-105.037205, address='' WHERE id=?", (wid,)); D.commit()
+fixed = jane.get("/practices/%d" % wid).get_data(as_text=True)
+wrow = D.execute("SELECT lat, lng, address FROM practices WHERE id=?", (wid,)).fetchone()
+mid = D.execute("SELECT id FROM practices WHERE location='Marina High School' ORDER BY date LIMIT 1").fetchone()[0]
+mrow = D.execute("SELECT lat, lng, address FROM practices WHERE id=?", (mid,)).fetchone()
+ok(west["address"] == "14325 Goldenwest St, Westminster, CA 92683" and west["lng"] < -117 and A.geocode_address("Westminster High School") == (west["lat"], west["lng"]) and abs(wrow[0] - west["lat"]) < 1e-5 and abs(wrow[1] - west["lng"]) < 1e-5 and wrow[2] == west["address"] and "Goldenwest" in fixed and "39.836652" not in fixed and ("destination=%s" % west["lat"]) in fixed and marina["address"] == "15871 Springdale St, Huntington Beach, CA 92649" and abs(mrow[0] - marina["lat"]) < 1e-5 and abs(mrow[1] - marina["lng"]) < 1e-5 and mrow[2] == marina["address"] and A.geocode_address("Marina High School") == (marina["lat"], marina["lng"]), "Westminster and Marina pins and directions use the California schools")
 prow = D.execute("SELECT date, start, end, COALESCE(note,'') FROM practices WHERE id=?", (pic_id,)).fetchone()
 eli.post("/practices/%d" % pic_id, data=dict(csrf=csrf(eli, "/practices/%d" % pic_id), pid=pic_id, action="edit", back="page", date=prow[0], start=prow[1], end=prow[2], location="Moved Map Pool", note=prow[3]))
 D.commit()

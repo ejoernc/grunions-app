@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS requirements(id INTEGER PRIMARY KEY, name TEXT NOT NU
 CREATE TABLE IF NOT EXISTS member_reqs(member_id INTEGER, req_id INTEGER, completed_on TEXT, expires_on TEXT, source TEXT, by TEXT, at TEXT,
   PRIMARY KEY(member_id, req_id));
 CREATE TABLE IF NOT EXISTS practices(id INTEGER PRIMARY KEY, date TEXT NOT NULL, start TEXT DEFAULT '19:00', end TEXT DEFAULT '20:30',
-  location TEXT, note TEXT, cancelled INTEGER DEFAULT 0, cancel_reason TEXT, image TEXT,
+  location TEXT, address TEXT, note TEXT, cancelled INTEGER DEFAULT 0, cancel_reason TEXT, image TEXT,
   lat REAL, lng REAL, social_lat REAL, social_lng REAL, UNIQUE(date, location));
 CREATE TABLE IF NOT EXISTS rsvps(practice_id INTEGER, member_id INTEGER, going INTEGER, at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(practice_id, member_id));
 CREATE TABLE IF NOT EXISTS practice_coaches(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id));
@@ -139,10 +139,12 @@ def migrate_practices(d):
     for c, t in (("cancel_reason", "TEXT"), ("social_kind", "TEXT"), ("social_place", "TEXT"),
                  ("social_address", "TEXT"), ("social_time", "TEXT"), ("social_note", "TEXT"),
                  ("coach_note", "TEXT"), ("coach_note_by", "TEXT"), ("coach_note_at", "TEXT"),
-                 ("image", "TEXT"), ("lat", "REAL"), ("lng", "REAL"), ("social_lat", "REAL"), ("social_lng", "REAL")):
+                 ("image", "TEXT"), ("lat", "REAL"), ("lng", "REAL"), ("social_lat", "REAL"), ("social_lng", "REAL"),
+                 ("address", "TEXT")):
         if c not in cols:
             d.execute("ALTER TABLE practices ADD COLUMN %s %s" % (c, t))
     migrate_social_kinds(d)
+    pin_known_pools(d)
 def migrate_social_joins(d):
     """Who is joining the after-practice social. Existing practices start with nobody."""
     d.execute("""CREATE TABLE IF NOT EXISTS social_joins(
@@ -1153,6 +1155,8 @@ def ensure_schedule(d, weeks=4):
             loc, a, b = RECURRING[day.weekday()]
             d.execute("INSERT OR IGNORE INTO practices(date,start,end,location) VALUES(?,?,?,?)", (day.isoformat(), a, b, loc))
     d.commit()
+    pin_known_pools(d)
+    d.commit()
 def fmt_t(t): h, m = map(int, t.split(":")); return f"{(h-1)%12+1}:{m:02d}{'pm' if h>=12 else 'am'}"
 def fmt_clock(t):
     """7:00 PM, for the Home next-practice title."""
@@ -1260,11 +1264,35 @@ def save_social(d, pid, form):
     moved = not old or (old["social_place"] or "") != (place or "") or (old["social_address"] or "") != (address or "") or not kind
     if moved: d.execute("UPDATE practices SET social_lat=NULL, social_lng=NULL WHERE id=?", (pid,))
     return True
+# Bare "Westminster High School" geocodes to Westminster, Colorado. These two pools are the California schools.
+POOLS = (
+    {"name": "Marina High School", "address": "15871 Springdale St, Huntington Beach, CA 92649", "lat": 33.731441, "lng": -118.027846},
+    {"name": "Westminster High School", "address": "14325 Goldenwest St, Westminster, CA 92683", "lat": 33.753752, "lng": -118.011052},
+)
+def pool_place(text):
+    """The known California pool for a school name or its street address."""
+    key = " ".join(str(text or "").split()).casefold()
+    if not key: return None
+    for place in POOLS:
+        if key in (place["name"].casefold(), place["address"].casefold()): return place
+    return None
+def pin_known_pools(d):
+    """Write the California street address and coordinates. A stored Colorado pin is replaced."""
+    cols = [r[1] for r in d.execute("PRAGMA table_info(practices)")]
+    if "address" not in cols or "lat" not in cols: return
+    for place in POOLS:
+        d.execute("""UPDATE practices SET lat=?, lng=?, address=?
+            WHERE lower(trim(location))=?
+              AND (lat IS NULL OR lng IS NULL OR abs(lat - ?) > 0.02 OR abs(lng - ?) > 0.02 OR COALESCE(address,'') != ?)""",
+            (place["lat"], place["lng"], place["address"], place["name"].casefold(), place["lat"], place["lng"], place["address"]))
 _GEO_CACHE = {}
 def geocode_address(query):
-    """Nominatim lookup. Results are cached in memory; the practice row stores the ones we keep."""
+    """Nominatim lookup. Results are cached in memory; the practice row stores the ones we keep.
+    The two home pools never go to Nominatim: the bare school name would resolve to Colorado."""
     q = " ".join(str(query or "").split())
     if not q or q.lower().startswith(("http://", "https://")): return None
+    place = pool_place(q)
+    if place: return (place["lat"], place["lng"])
     if q in _GEO_CACHE: return _GEO_CACHE[q]
     url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode({"q": q, "format": "jsonv2", "limit": "1"})
     req = urllib.request.Request(url, headers={"User-Agent": "GrunionsWaterPolo/1.0 (team practice map)", "Accept": "application/json"})
@@ -1286,10 +1314,15 @@ def social_geocode_query(p):
     if addr and not addr.lower().startswith(("http://", "https://")): return addr
     return " ".join(str(_field(p, "social_place") or "").split())
 def ensure_map_coords(d, p):
-    """Fill missing pool and social coordinates. A failed lookup is not written, so a later try can succeed."""
+    """Fill missing pool and social coordinates. A failed lookup is not written, so a later try can succeed.
+    Marina and Westminster always use their California coordinates, never a fresh text search."""
     if not p or "lat" not in p.keys(): return p
     changed = False
-    if p["lat"] is None or p["lng"] is None:
+    place = pool_place(p["location"])
+    if place and (p["lat"] is None or p["lng"] is None or abs(p["lat"] - place["lat"]) > 0.02 or abs(p["lng"] - place["lng"]) > 0.02 or (p["address"] or "") != place["address"]):
+        d.execute("UPDATE practices SET lat=?, lng=?, address=? WHERE id=?", (place["lat"], place["lng"], place["address"], p["id"]))
+        changed = True
+    elif p["lat"] is None or p["lng"] is None:
         hit = geocode_address(p["location"])
         if hit:
             d.execute("UPDATE practices SET lat=?, lng=? WHERE id=?", (hit[0], hit[1], p["id"]))
@@ -1483,8 +1516,8 @@ def handle_practice_post(d):
         src = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
         new_date = (dt.date.fromisoformat(src["date"]) + dt.timedelta(days=7)).isoformat()
         try:
-            cur = d.execute("""INSERT INTO practices(date,start,end,location,note,cancelled,social_kind,social_place,social_address,social_time,social_note,image,lat,lng,social_lat,social_lng)
-                VALUES(?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,?)""", (new_date, src["start"], src["end"], src["location"], src["note"],
+            cur = d.execute("""INSERT INTO practices(date,start,end,location,address,note,cancelled,social_kind,social_place,social_address,social_time,social_note,image,lat,lng,social_lat,social_lng)
+                VALUES(?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,?)""", (new_date, src["start"], src["end"], src["location"], src["address"], src["note"],
                 src["social_kind"], src["social_place"], src["social_address"], src["social_time"], src["social_note"],
                 src["image"], src["lat"], src["lng"], src["social_lat"], src["social_lng"]))
             new_id = cur.lastrowid
