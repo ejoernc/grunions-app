@@ -946,7 +946,7 @@ def msg_dict(r):
         elif r["reply_image"]: text = "Photo"
         else: text = ""
         reply = {"id": r["reply_to"], "who": "%s %s." % (who, (r["rlast"] or "")[:1]), "body": text}
-    return {"id": r["id"], "body": "" if deleted else (r["body"] or ""), "ann": bool(r["announcement"]), "at": (r["at"] or "") + "Z",
+    return {"id": r["id"], "uid": r["member_id"], "body": "" if deleted else (r["body"] or ""), "ann": bool(r["announcement"]), "at": (r["at"] or "") + "Z",
             "who": f'{display_first(r)} {r["last"][:1]}.', "mine": mine, "admin": bool(r["is_admin"]),
             "edited": edited and not deleted, "deleted": deleted, "can_delete": (mine or bool(me()["is_admin"])) and not deleted,
             "reply": reply,
@@ -985,13 +985,13 @@ def member_brief(m):
     return {"id": m["id"], "name": ("%s %s" % (display_first(m), m["last"] or "")).strip(),
             "initials": initials(m), "photo": ("/avatar/%d?v=%s" % (m["id"], photo)) if photo else ""}
 def seen_summary(d, channel, message_id, sender_id):
-    """Who else in the channel has a last-read at or past this message."""
+    """Who else in the channel has a last-read at or past this message. The sender is never counted."""
     others = [m for m in channel_members(d, channel) if m["id"] != sender_id]
+    others.sort(key=lambda m: (display_first(m).casefold(), (m["last"] or "").casefold(), m["id"]))
     if not others or not message_id: return None
     reads = {r["member_id"]: r["last_read"] for r in d.execute(
         "SELECT member_id, last_read FROM chat_reads WHERE channel=?", (channel,))}
     seen = [member_brief(m) for m in others if reads.get(m["id"], 0) >= message_id]
-    seen.sort(key=lambda p: p["name"].casefold())
     n = len(seen)
     label = "Seen by everyone" if n == len(others) else "Seen by %d" % n
     return {"id": message_id, "n": n, "total": len(others), "label": label, "seen": seen}
@@ -2837,7 +2837,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-11 */
+SW_JS = """/* grunions-sw-12 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

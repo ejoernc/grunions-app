@@ -218,7 +218,9 @@ color:var(--t3);text-decoration:none;font:500 12px/14px -apple-system,BlinkMacSy
 .badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bad);color:#fff;font-size:10px;font-weight:700;line-height:1}
 nav.tabs a .badge{position:absolute;top:4px;left:50%;margin-left:8px}.datetile{position:relative}.datetile .pdate{position:absolute;top:0;right:0}.datetile .pdate .badge{position:absolute;top:-4px;right:-4px;margin:0}
 nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;flex:none;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.chat{display:flex;flex-direction:column;gap:14px}.m{position:relative;-webkit-touch-callout:none}.m .who{font-size:13px;color:var(--t3);margin-bottom:3px}.m .txt{background:var(--surface);border-radius:14px;padding:10px 14px;display:inline-block;max-width:85%;white-space:pre-wrap;word-wrap:break-word}
+.chat{display:flex;flex-direction:column;gap:0}.m{position:relative;-webkit-touch-callout:none;margin-top:14px}.m.g-mid,.m.g-last{margin-top:4px}.chat>.m:first-child{margin-top:0}.m .who{font-size:13px;color:var(--t3);margin-bottom:3px}.m .txt{background:var(--surface);border-radius:14px;padding:10px 14px;display:inline-block;max-width:85%;white-space:pre-wrap;word-wrap:break-word}
+.m.g-first:not(.mine) .txt,.m.g-first:not(.mine) .img img{border-bottom-left-radius:5px}.m.g-mid:not(.mine) .txt,.m.g-mid:not(.mine) .img img{border-top-left-radius:5px;border-bottom-left-radius:5px}.m.g-last:not(.mine) .txt,.m.g-last:not(.mine) .img img{border-top-left-radius:5px}
+.m.g-first.mine .txt,.m.g-first.mine .img img{border-bottom-right-radius:5px}.m.g-mid.mine .txt,.m.g-mid.mine .img img{border-top-right-radius:5px;border-bottom-right-radius:5px}.m.g-last.mine .txt,.m.g-last.mine .img img{border-top-right-radius:5px}
 .m.mine{text-align:right}.m.mine .txt{background:var(--surface2);text-align:left}.m.ann .txt{display:block;max-width:none;border:1px solid var(--line);background:var(--surface)}
 .m .txt.deleted{font-style:italic;color:var(--t3);background:transparent}.m .edited{font-size:12px;color:var(--t3);font-weight:400}
 .m .more{display:none;position:absolute;top:-4px;right:0;width:32px;height:32px;padding:0;background:none;color:var(--t3);font-size:18px}
@@ -475,7 +477,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=11');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=12');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -987,28 +989,77 @@ function bodyHtml(m){
  return h||'<div class=txt></div>'}
 function fill(d,m){
  d.className='m'+(m.mine?' mine':'')+(m.ann&&!m.deleted?' ann':'');
+ d.dataset.g='';
  d.innerHTML=(m.deleted?'':`<button type=button class=more data-act=${m.id} aria-label="Message actions">⋯</button>`)+
-  `<div class=who>${m.ann&&!m.deleted?'Announcement · ':''}${esc(m.who)} · ${t(m.at)}</div>`+bodyHtml(m)+`<div class=rx>${rxHtml(m.id)}</div>`}
-function add(m){msgs[m.id]=m;last=Math.max(last,m.id);if(document.getElementById('msg'+m.id))return;const d=document.createElement('div');d.id='msg'+m.id;fill(d,m);box.appendChild(d)}
-function upsert(m,force){msgs[m.id]=m;const d=document.getElementById('msg'+m.id);if(!d){add(m);return}last=Math.max(last,m.id);if(!force&&d.querySelector('.editbox'))return;fill(d,m)}
+  bodyHtml(m)+`<div class=rx>${rxHtml(m.id)}</div>`}
+let grouping=false;
+function groupedWith(prev,cur){
+ if(!prev||!cur||prev.uid!==cur.uid) return false;
+ if(!!(prev.ann&&!prev.deleted)!==!!(cur.ann&&!cur.deleted)) return false;
+ var delta=new Date(cur.at)-new Date(prev.at);
+ return delta>=0&&delta<=5*60*1000}
+function placeWho(el,m,at){
+ var text=((m.ann&&!m.deleted)?'Announcement · ':'')+m.who+' · '+t(at);
+ var who=el.querySelector('.who');
+ if(!who){
+  who=document.createElement('div'); who.className='who';
+  var more=el.querySelector('.more');
+  if(more) more.insertAdjacentElement('afterend', who);
+  else el.insertBefore(who, el.firstChild);
+ }
+ if(who.textContent!==text) who.textContent=text}
+function groupMessages(){
+ var rows=[].slice.call(box.querySelectorAll('.m')), i=0;
+ while(i<rows.length){
+  var prev=msgs[+rows[i].id.slice(3)], j=i;
+  while(j+1<rows.length&&groupedWith(prev, msgs[+rows[j+1].id.slice(3)])){j++; prev=msgs[+rows[j].id.slice(3)]}
+  var latest=msgs[+rows[j].id.slice(3)];
+  for(var k=i;k<=j;k++){
+   var el=rows[k], m=msgs[+el.id.slice(3)];
+   var pos=i===j?'solo':(k===i?'first':(k===j?'last':'mid'));
+   if(el.dataset.g!==pos){
+    el.classList.remove('g-solo','g-first','g-mid','g-last');
+    el.classList.add('g-'+pos);
+    el.dataset.g=pos;
+   }
+   if(k===i) placeWho(el, m, latest.at);
+   else { var w=el.querySelector('.who'); if(w) w.remove(); }
+  }
+  i=j+1}}
+function add(m){msgs[m.id]=m;last=Math.max(last,m.id);if(document.getElementById('msg'+m.id))return;const d=document.createElement('div');d.id='msg'+m.id;fill(d,m);box.appendChild(d);if(!grouping)groupMessages()}
+function sameBubble(a,b){
+ if(!a||!b) return false;
+ var img=function(x){return x&&x.image?x.image.full+'|'+x.image.thumb:''};
+ var rep=function(x){return x&&x.reply?x.reply.id+'|'+x.reply.who+'|'+x.reply.body:''};
+ return a.body===b.body&&!!a.deleted===!!b.deleted&&!!a.edited===!!b.edited&&!!a.ann===!!b.ann&&a.who===b.who&&!!a.mine===!!b.mine&&a.uid===b.uid&&img(a)===img(b)&&rep(a)===rep(b)}
+function upsert(m,force){var prev=msgs[m.id];msgs[m.id]=m;const d=document.getElementById('msg'+m.id);if(!d){add(m);return}last=Math.max(last,m.id);if(!force&&d.querySelector('.editbox'))return;if(!force&&sameBubble(prev,m))return;fill(d,m);if(!grouping)groupMessages()}
 function paintRx(map){document.querySelectorAll('.m').forEach(el=>{const id=el.id.slice(3),rx=el.querySelector('.rx');if(!rx)return;const h=rxHtml(id,map[id]);if(rx.dataset.h!==h){rx.innerHTML=h;rx.dataset.h=h}})}
 let pollGen=0;
 async function poll(){const gen=++pollGen,epoch=window.grunionsNavEpoch|0;try{const r=await fetch('/api/messages?c='+CH+'&after='+last);const j=await r.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;const end=innerHeight+scrollY>=document.body.scrollHeight-120;
- j.forEach(add);const sync=await (await fetch('/api/messages?c='+CH+'&sync=1')).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;sync.forEach(m=>{if(gen===pollGen)upsert(m)});
- const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;paintRx(rx);paintSeen(sync.concat(j));if(window.grunionsRefresh)grunionsRefresh();if(j.length&&end)scrollTo(0,document.body.scrollHeight)}catch(e){}}
+ grouping=true;j.forEach(add);const sync=await (await fetch('/api/messages?c='+CH+'&sync=1')).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch){grouping=false;return}sync.forEach(m=>{if(gen===pollGen)upsert(m)});grouping=false;groupMessages();
+ const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;paintRx(rx);paintSeen(sync.concat(j));if(window.grunionsRefresh)grunionsRefresh();if(j.length&&end)scrollTo(0,document.body.scrollHeight)}catch(e){grouping=false}}
 let seenInfo=null;
 function personRow(p){
  const av=p.photo?`<span class="avatar seenav"><img src="${esc(p.photo)}" alt="" width="32" height="32"></span>`:`<span class="avatar seenav">${esc(p.initials||'')}</span>`;
  return `<div class=seenrow>${av}<span>${esc(p.name||'')}</span></div>`}
+function seenKey(info){return info.id+'|'+info.n+'|'+info.total+'|'+info.label}
 function paintSeen(list){
- document.querySelectorAll('.seenline').forEach(el=>el.remove());
  let hit=null;
  (list||[]).forEach(m=>{if(m&&m.seen&&(!hit||m.id>hit.id)) hit=m});
  Object.keys(msgs).forEach(id=>{const m=msgs[id]; if(m&&m.seen&&(!hit||m.id>hit.id)) hit=m});
  if(hit) Object.keys(msgs).forEach(id=>{if(+id!==hit.id&&msgs[id]&&msgs[id].seen) delete msgs[id].seen});
- seenInfo=hit?hit.seen:null; if(!seenInfo) return;
- const row=document.getElementById('msg'+seenInfo.id); if(!row) return;
- const b=document.createElement('button'); b.type='button'; b.className='seenline'; b.textContent=seenInfo.label; row.appendChild(b)}
+ seenInfo=hit?hit.seen:null;
+ var line=box.querySelector('.seenline');
+ if(!seenInfo){ if(line) line.remove(); return; }
+ var row=document.getElementById('msg'+seenInfo.id);
+ if(!row){ if(line) line.remove(); return; }
+ var key=seenKey(seenInfo);
+ if(line&&line.dataset.seen===key&&line.parentNode===row) return;
+ if(!line){ line=document.createElement('button'); line.type='button'; line.className='seenline'; }
+ if(line.textContent!==seenInfo.label) line.textContent=seenInfo.label;
+ line.dataset.seen=key;
+ if(line.parentNode!==row) row.appendChild(line);
+}
 function openSeen(info){
  document.getElementById('seenPeople').innerHTML=(info.seen||[]).map(personRow).join('')||'<p class="t3 sm">No one has seen this yet.</p>';
  grunionsOpenSheet(document.getElementById('seenSheet'))}
