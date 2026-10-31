@@ -498,7 +498,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' %}<nav class="tabs noprint" da
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=7');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=8');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1225,11 +1225,6 @@ T["admin"] = ADMIN_NAV + """
 <div class=list>{% for r in going %}{{ ci(r) }}{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 <h2>Everyone else <span class=t3>{{rest|length}}</span></h2>
 <div class=list>{% for r in rest %}{{ ci(r) }}{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
-<form method=post class=card><h2 style="margin-top:0">Walk-in</h2>
-<p class="t3 sm">Someone on deck who is not on the list yet.</p>
-{{ csrf_field() }}<input type=hidden name=action value=walkin><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">
-<div class=row><label>First<input name=first required autocomplete=off></label><label>Last<input name=last required autocomplete=off></label></div>
-<button class="btn btn-primary full">Add and check in</button></form>
 <script>
 document.querySelectorAll('.filt button').forEach(function(b){
  b.onclick=function(){var on=b.classList.contains('on');

@@ -1825,18 +1825,7 @@ def members_back():
 def admin():
     d = db(); posted = request.values.get("date")
     if request.method == "POST" and request.form.get("action") == "walkin":
-        date = posted or today_pt().isoformat()
-        first = " ".join((request.form.get("first") or "").split())[:40]
-        last = " ".join((request.form.get("last") or "").split())[:40]
-        if not first or not last:
-            flash("Add a first and last name.", "toast")
-        else:
-            email = "walkin-%s@grunions.local" % secrets.token_hex(4)
-            cur = d.execute("INSERT INTO members(first,last,email,phone,is_admin,joined) VALUES(?,?,?,?,0,1)", (first, last, email, ""))
-            d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (cur.lastrowid, date, location_for(date)))
-            d.commit(); sync_practice_sheets(d)
-            flash("Checked in %s %s." % (first, last), "toast")
-        return redirect(url_for("admin", date=date, q=request.form.get("q", "")))
+        abort(400)
     if request.method == "POST":
         date = posted or today_pt().isoformat()
         mid = int(request.form["member_id"])
@@ -2743,7 +2732,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-7 */
+SW_JS = """/* grunions-sw-8 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
