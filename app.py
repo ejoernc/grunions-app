@@ -1689,7 +1689,7 @@ def practice_page(pid):
     host = can_host_practice()
     editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
     plan_editing = request.args.get("edit") == "1" and host and not me()["is_admin"]
-    return page(T["practice"], tab="practice", x=practice_bundle(d, p), editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [])
+    return page(T["practice"], tab="practice", x=practice_bundle(d, p), editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin")
 @app.route("/api/unread")
 @login_required
 def api_unread():
@@ -3019,7 +3019,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-27 */
+SW_JS = """/* grunions-sw-28 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
