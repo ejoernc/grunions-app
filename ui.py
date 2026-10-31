@@ -42,11 +42,11 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:14px}.xs
 .nxicon{width:40px;height:40px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;color:#C8CDD3}
 .nxicon svg{display:block}
 .joinpill{flex:none}
-header.homehead{position:sticky;top:0;z-index:8;background:#0a0a0b;align-items:center;gap:12px;min-height:76px;box-sizing:border-box}
-header.homehead .headmain{flex:1;min-width:0;display:flex;align-items:center}
+header.homehead{position:sticky;top:0;z-index:8;background:#0a0a0b;align-items:center;gap:12px;min-height:calc(76px + env(safe-area-inset-top));box-sizing:border-box;padding:calc(16px + env(safe-area-inset-top)) 20px 16px}
+header.homehead .headmain{flex:1;min-width:0;display:flex;align-items:center;padding-right:56px}
 header.homehead h1{margin:0;font-size:28px;line-height:1.15;letter-spacing:-.3px}
 header.homehead .headtabs{flex:1;min-width:0;margin:0;padding:0}
-header.homehead a.avatar{flex:none}
+header.homehead a.avatar{position:absolute;right:20px;top:calc(16px + env(safe-area-inset-top));z-index:1}
 a.avatar,button.avatar,span.avatar{width:44px;height:44px;min-width:44px;max-width:44px;min-height:44px;max-height:44px;border-radius:50%;padding:0;background:var(--surface2);color:var(--t1);font-size:14px;font-weight:650;letter-spacing:.2px;overflow:hidden;flex:0 0 44px;border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center}
 a.avatar img,button.avatar img,span.avatar img{width:44px;height:44px;max-width:44px;max-height:44px;object-fit:cover;border-radius:50%;display:block;flex-shrink:0}
 .profhead{display:flex;align-items:center;gap:14px;margin:0 0 16px}.profhead .avatar{width:64px;height:64px;font-size:20px}
@@ -78,24 +78,21 @@ body.practicepage main{padding-top:0}
 .homemap .leaflet-bar a,.homemap .leaflet-bar a:hover{background:#1d1d20;color:#ececee;border-bottom-color:#26262a}
 .homemap .leaflet-marker-icon.mpin{background:#ececee;border:3px solid #0a0a0b;border-radius:50%;box-shadow:0 0 0 1px #ececee}
 .homemap .leaflet-marker-icon.mpin.social{background:#0a0a0b;border:3px solid #ececee;box-shadow:none}
-body.homefull header.homehead{position:sticky;top:0;z-index:8;background:transparent;padding-top:calc(12px + env(safe-area-inset-top))}
+body.homefull header.homehead{position:sticky;top:0;z-index:8;background:transparent}
 body.homefull header.homehead.solid{background:#0a0a0b}
 body.homefull main{position:relative;z-index:1;padding:0 16px calc(64px + env(safe-area-inset-bottom))}
 body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));height:auto;margin:0;z-index:0;border-radius:0;pointer-events:none}
-body.homefull .homedock{position:relative;left:auto;right:auto;bottom:auto;z-index:2;max-height:none;overflow:visible;pointer-events:auto;margin:0;padding:0 0 8px;min-height:calc(100dvh - var(--homehead, 76px) - 64px - env(safe-area-inset-bottom) - var(--peek, 120px));display:flex;flex-direction:column;justify-content:flex-end;gap:8px}
+body.homefull .homedock{position:relative;left:auto;right:auto;bottom:auto;z-index:2;max-height:none;overflow:visible;pointer-events:auto;margin:0;padding:0 0 8px;min-height:calc(100dvh - var(--homehead, 76px) - var(--homealerts, 0px) - 64px - env(safe-area-inset-bottom) - var(--peek, 60px));display:flex;flex-direction:column;justify-content:flex-end;gap:8px}
 body.homefull .schedlist{position:relative;z-index:2}
 .schedsame{display:none}
-header.homehead .titlestack{position:relative;flex:1;min-width:0}
-header.homehead .hititle,header.homehead .schedtitle{margin:0}
-header.homehead .schedtitle{position:absolute;left:0;top:0;right:0;opacity:0}
-header.homehead .schedsub{margin:2px 0 0;max-height:0;opacity:0;overflow:hidden;line-height:1.3}
-body.schedopen .hititle{opacity:0}
-body.schedopen .schedtitle{opacity:1}
-body.schedopen .schedsub{opacity:1;max-height:28px}
+header.homehead .titlestack{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+header.homehead .hititle{margin:0}
+header.homehead .titlestack a.usawpchip{margin:0}
+.daychip{margin-left:auto}
 body.schedopen header.homehead{background:#0a0a0b}
 body.schedopen .homemap{opacity:0}
 #schedule{scroll-margin-top:calc(var(--homehead, 88px) + 8px)}
-@media (prefers-reduced-motion:reduce){body.homefull .homemap,header.homehead .hititle,header.homehead .schedtitle,header.homehead .schedsub{transition:none}}
+@media (prefers-reduced-motion:reduce){body.homefull .homemap{transition:none}}
 body.homefull .homemap .leaflet-marker-icon,body.homefull .homemap .leaflet-control-attribution{pointer-events:auto}
 body.profilepage main{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
 header.profilebar{position:sticky;top:0;z-index:5;background:#0a0a0b;display:grid;grid-template-columns:88px 1fr 88px;grid-template-rows:44px;align-items:center;padding:env(safe-area-inset-top) 6px 0;box-sizing:border-box;min-height:44px}
@@ -391,6 +388,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% endif %}
 {% endmacro %}
 {% macro expiry_slot(m) %}{% set left = days_left(m.usawp_valid_until) %}{% if left is not none and left >= 0 and left <= EXPIRING_DAYS %}<span class="t3 xs">{% if left == 0 %} · expires today{% elif left == 1 %} · expires in 1 day{% else %} · expires in {{ left }} days{% endif %}</span>{% endif %}{% endmacro %}
+{% macro hi_membership() %}{% set num = (me().usawp_number or '')|trim %}{% if num %}{% set cl = clearance(me()) %}{% set dl = days_left(me().usawp_valid_until) %}{% set ns = namespace(tone='ok') %}{% if vr_pending %}{% set ns.tone = 'warn' %}{% elif not cl.ok %}{% set ns.tone = 'bad' %}{% elif dl is not none and dl <= EXPIRING_DAYS %}{% set ns.tone = 'warn' %}{% else %}{% for it in cl.checks %}{% if it.days_left is not none and it.days_left >= 0 and it.days_left <= EXPIRING_DAYS %}{% set ns.tone = 'warn' %}{% endif %}{% endfor %}{% endif %}<a class="usawpchip{% if ns.tone != 'ok' %} {{ ns.tone }}{% endif %}" href="/profile#membership"><span class="dot {{ ns.tone }}" aria-hidden=true></span>USAWP #{{ num }}</a>{% endif %}{% endmacro %}
 {% macro member_status(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{{ st('trial', trial_badge(tw)) }}<div class="t3 xs">Ends {{tw.ends}}</div>{% elif not cl.ok %}{{ st('bad','Not cleared') }}{% elif dl is not none and dl <= EXPIRING_DAYS %}{{ st('warn','Expiring soon') }}{% else %}{{ st('ok','Cleared') }}{% endif %}
 {% if tw and tw.expired and r.usawp_status != 'verified' %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}{{ expiry_slot(r) }}{% endmacro %}
@@ -482,7 +480,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>{% endif %}</div><h1>Practice</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle>Schedule</h1><p class="t2 sm schedsub">Tue · Marina HS &nbsp;·&nbsp; Fri · Westminster HS &nbsp;·&nbsp; 7–8:30 PM</p></div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>{% endif %}</div><h1>Practice</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><h1 class=hititle>Hi, {{ display_first(me()) }}</h1>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -507,7 +505,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=28');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=29');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -826,7 +824,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 </div>{% endif %}
 {% if nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'">
 {% if nextp.image %}<a class=cardlink href="/practices/{{nextp.id}}"><div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div></a>{% endif %}
-<div class=nxbody><div class=nxcardhead><a class=cardlink href="/practices/{{nextp.id}}"><div class=nxtitle>{{ practice_title(nextp) }}</div></a>{% if num %}<a class="usawpchip{% if ns.tone != 'ok' %} {{ ns.tone }}{% endif %}" href="/profile#membership"><span class="dot {{ ns.tone }}" aria-hidden=true></span>USAWP #{{ num }}</a>{% endif %}</div>
+<div class=nxbody><div class=nxcardhead><a class=cardlink href="/practices/{{nextp.id}}"><div class=nxtitle>{{ practice_title(nextp) }}</div></a><span class="chip-info daychip">{{ relative_day(nextp.date) }}</span></div>
 <a class=cardlink href="/practices/{{nextp.id}}">
 <div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_card_date(nextp.date) }} · {{ fmt_clock(nextp.start) }} – {{ fmt_clock(nextp.end) }}</span></div>
 <div class=nxrow>{{ glyph_pin() }}<span>{{ short_place(nextp.location) }}</span></div>
@@ -863,13 +861,21 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <script>
 (function(){
  var head=document.querySelector('header.homefade'); if(!head||head.dataset.bound) return; head.dataset.bound='1';
- var map=document.getElementById('homeMap'), hi=head.querySelector('.hititle'), sch=head.querySelector('.schedtitle'), sub=head.querySelector('.schedsub');
+ var map=document.getElementById('homeMap');
  var reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches, ticking=false;
  function measure(){
-  var card=document.querySelector('#schedule .card:not(.schedsame)'), headH=head.offsetHeight||76;
-  var peek=card?Math.round(card.getBoundingClientRect().height*0.5):0;
-  document.documentElement.style.setProperty('--peek', peek+'px');
+  var card=document.querySelector('#schedule .card:not(.schedsame)');
+  var dock=document.querySelector('.homedock');
+  var headH=head.offsetHeight||76;
   document.documentElement.style.setProperty('--homehead', headH+'px');
+  if(!card||!dock) return;
+  var nav=document.querySelector('nav.tabs');
+  var navTop=window.innerHeight-(nav?nav.offsetHeight:64);
+  var want=Math.round(card.offsetHeight*0.25);
+  document.documentElement.style.setProperty('--peek', want+'px');
+  var top=card.getBoundingClientRect().top+window.scrollY;
+  var delta=(navTop-want)-top;
+  dock.style.minHeight=Math.max(0, Math.round(dock.offsetHeight+delta))+'px';
  }
  function range(){
   var mark=document.querySelector('.nextcard')||document.getElementById('schedule'); if(!mark) return 160;
@@ -882,14 +888,13 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
   if(p<0) p=0; if(p>1) p=1;
   if(reduced) p=y>12?1:0;
   if(map) map.style.opacity=String(1-p);
-  if(hi) hi.style.opacity=String(1-p);
-  if(sch) sch.style.opacity=String(p);
-  if(sub){ sub.style.opacity=String(p); sub.style.maxHeight=Math.round(p*28)+'px'; }
   head.classList.toggle('solid', p>0.92);
  }
  function onScroll(){ if(ticking) return; ticking=true; requestAnimationFrame(paint); }
  window.addEventListener('scroll', onScroll, {passive:true});
  measure();
+ var alerts=document.querySelector('.homealerts');
+ if(window.ResizeObserver&&alerts) new ResizeObserver(function(){ measure(); }).observe(alerts);
  function land(){
   var hash=location.hash;
   if(head.getAttribute('data-entry')==='schedule' && (!hash || hash==='#schedule')) window.scrollTo(0, range());
@@ -897,7 +902,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
   paint();
  }
  land();
- requestAnimationFrame(land);
+ requestAnimationFrame(function(){ measure(); land(); });
  window.addEventListener('resize', function(){ measure(); paint(); }, {passive:true});
 })();
 </script>
