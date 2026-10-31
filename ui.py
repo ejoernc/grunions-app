@@ -59,6 +59,38 @@ body.homefull header.homehead{position:relative;z-index:4;background:transparent
 body.homefull main{position:relative;z-index:1}
 body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));height:auto;margin:0;z-index:0;border-radius:0;pointer-events:none}
 body.homefull .homemap .leaflet-marker-icon,body.homefull .homemap .leaflet-control-attribution{pointer-events:auto}
+body.profilepage main{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
+header.profilebar{position:sticky;top:0;z-index:5;background:#0a0a0b;display:grid;grid-template-columns:88px 1fr 88px;align-items:center;padding:calc(8px + env(safe-area-inset-top)) 6px 8px}
+header.profilebar h1{margin:0;text-align:center;font-size:17px;font-weight:650}
+header.profilebar button,header.profilebar a.profileback{background:none;color:var(--t1);height:44px;min-width:44px;padding:0 10px;font-weight:600;font-size:16px;text-decoration:none}
+header.profilebar .left{justify-self:start}header.profilebar .right{justify-self:end}
+header.profilebar .savebtn{font-weight:650}
+.profilehero{display:flex;flex-direction:column;align-items:center;padding:12px 0 4px}
+.avatar.hero{width:112px;height:112px;font-size:36px;position:relative}
+.cambadge{position:absolute;right:-2px;bottom:-2px;width:32px;height:32px;border-radius:50%;background:#ececee;color:#0a0a0b;display:flex;align-items:center;justify-content:center;border:3px solid #0a0a0b}
+.cambadge svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.profilename{margin:14px 0 4px;font-size:24px;font-weight:650;letter-spacing:-.3px;text-align:center}
+.profilesub{color:var(--t2);text-align:center;margin:0 0 16px}
+.stats{display:flex;gap:10px;justify-content:center;margin:0 0 8px}
+.stattile{min-width:120px;background:var(--surface);border-radius:14px;padding:12px 16px;text-align:center}
+.stattile b{display:block;font-size:22px;font-weight:650;line-height:1.2}
+.stattile span{color:var(--t2);font-size:12px}
+.seclabel{margin:22px 4px 8px;color:var(--t3);font-size:13px;font-weight:600}
+.prow{justify-content:space-between;gap:12px}
+.prow .k{color:var(--t2)}
+.prow .v{text-align:right}
+a.chevrow{color:inherit;text-decoration:none;width:100%}
+a.chevrow .nxchev{color:var(--t3);font-size:22px}
+a.logoutrow{color:var(--bad);text-decoration:none;width:100%;justify-content:center;font-weight:600}
+.textlink{background:none;color:var(--t1);height:auto;padding:8px 12px;font-weight:600}
+.textlink.danger{color:var(--bad)}
+.editonly{display:none}
+body.profile-edit .editonly{display:block}
+body.profile-edit .editonly.inline{display:inline-flex}
+body.profile-edit .viewonly{display:none}
+input[type=file].pick{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;opacity:0}
+.prefedit{margin:0}
+.prefedit input{margin-top:6px}
 .homealerts{position:relative;z-index:1}
 .homedock{position:fixed;z-index:2;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto;padding:0 12px 10px;display:flex;flex-direction:column;gap:8px;max-height:min(68vh,calc(100dvh - 150px));overflow:auto;pointer-events:none}
 .homedock .card{pointer-events:auto;background:#151517;margin:0}
@@ -77,6 +109,10 @@ button.morebtn[aria-expanded=true]{background:var(--surface2);color:var(--t1)}
 .menu button{width:100%;height:40px;padding:0 12px;justify-content:flex-start;background:transparent;color:var(--t1);font-weight:500;font-size:15px;border-radius:8px}
 .menu button:disabled{color:var(--t3)}
 .li{display:flex;align-items:center;gap:12px;padding:14px 18px;min-height:60px;border-top:1px solid var(--line)}.li:first-child{border-top:0}
+.editonly,.li.editonly{display:none}
+body.profile-edit .editonly{display:inline-flex}
+body.profile-edit .li.editonly{display:flex}
+body.profile-edit .viewonly{display:none}
 .grow{flex:1;min-width:0}.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 label{display:block;font-size:13px;color:var(--t2);margin:0 0 14px}
 .checks{margin:0 0 14px}.checks label{display:flex;align-items:center;min-height:40px;margin:0;color:var(--t1);font-size:16px}
@@ -175,7 +211,7 @@ a.calday.on{background:var(--accent);color:#fff}
 span.calday{color:var(--t3);opacity:.4;font-weight:500}
 .panel{padding:4px 18px 18px;border-top:1px solid var(--line);background:var(--surface)}.panel h3{font-size:15px;font-weight:600;margin:18px 0 10px}
 @media print{header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{background:#fff}}
-</style></head><body style="background:#0a0a0b;color:#ececee;margin:0"{% if tab=='home' and me() %} class=homefull{% endif %}>
+</style></head><body style="background:#0a0a0b;color:#ececee;margin:0" class="{% if tab=='home' and me() %}homefull{% elif tab=='profile' %}profilepage{% endif %}">
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
@@ -308,7 +344,11 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
 <div class=row><button class=danger name=action value=delete>Delete practice</button><button type=button onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% endmacro %}
-<header{% if tab == 'home' and me() %} class=homehead{% endif %}>{% if tab == 'home' and me() %}<h1>Hi, {{ display_first(me()) }}</h1><button type=button class=avatar id=profileOpen aria-haspopup=dialog aria-controls=profileSheet aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="">{% else %}{{ initials(me()) }}{% endif %}</button>{% else %}<a class=brand href=/>Grunions</a>{% if me() %}<a class=sub href=/logout>Log out</a>{% endif %}{% endif %}</header><main>
+{% if tab == 'profile' and me() %}<header class=profilebar>
+<div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
+<h1>Profile</h1>
+<div class=right><button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=profileForm>Save</button></div>
+</header>{% else %}<header{% if tab == 'home' and me() %} class=homehead{% endif %}>{% if tab == 'home' and me() %}<h1>Hi, {{ display_first(me()) }}</h1><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="">{% else %}{{ initials(me()) }}{% endif %}</a>{% else %}<a class=brand href=/>Grunions</a>{% if me() %}<a class=sub href=/logout>Log out</a>{% endif %}{% endif %}</header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -326,7 +366,7 @@ ICONS = {
  "chat": '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12z"/></svg>',
  "admin": '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>',
 }
-TABS = ("""</main>{% if me() %}<nav class="tabs noprint" data-total="{{ badges().total }}">
+TABS = ("""</main>{% if me() and tab != 'profile' %}<nav class="tabs noprint" data-total="{{ badges().total }}">
 <a href=/home class="{{'on' if tab=='home'}}">""" + ICONS["home"] + """Home</a>
 <a href=/practices class="{{'on' if tab=='practices'}}" data-badge=schedule>""" + ICONS["cal"] + """Schedule{{ bubble(badges().schedule) }}</a>
 <a href=/chat class="{{'on' if tab=='chat'}}" data-badge=chat>""" + ICONS["chat"] + """Chat{{ bubble(badges().chat) }}</a>
@@ -436,7 +476,7 @@ if(document.querySelector('nav.tabs')){
   if(a.target&&a.target!=='_self') return;
   var abs; try{abs=new URL(a.href,location.href);}catch(err){return;}
   if(abs.origin!==location.origin) return;
-  if(/^\\/(logout|login|join|auth\\/|static\\/|api\\/)/.test(abs.pathname)) return;
+  if(/^\\/(logout|login|join|profile|auth\\/|static\\/|api\\/)/.test(abs.pathname)) return;
   if(/\\.(csv|svg|png|webp|jpe?g|gif)$/i.test(abs.pathname)) return;
   if(abs.pathname===location.pathname&&abs.search===location.search){
    e.preventDefault();
@@ -612,28 +652,59 @@ T["home"] = """{% if pins %}
 <script>document.getElementById('trialOpen').onclick=function(){document.getElementById('trialDialog').showModal()};
 document.getElementById('trialDialog').addEventListener('click',function(e){if(e.target===this)this.close()});</script>{% endif %}
 {% endif %}</div></details>
+</div>"""
+
+_CAM = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg>'
+T["profile"] = """<form id=profileForm method=post action=/profile enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=action value=save><input type=hidden name=photo_clear id=photoClear value="">
+<input class=pick type=file name=photo id=photoFile accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic">
+<div class=profilehero>
+<button type=button class="avatar hero" id=avatarBtn aria-label="Profile photo">{% if m.photo %}<img id=avatarImg src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="">{% else %}<img id=avatarImg alt="" hidden>{% endif %}<span id=avatarLetters {% if m.photo %}hidden{% endif %}>{{ initials(m) }}</span><span class="cambadge editonly">""" + _CAM + """</span></button>
+<div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
+<p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p>
+<div class=stats><div class=stattile><b>{{ hist|length }}</b><span>Attended</span></div><div class=stattile><b>{{ nmonth }}</b><span>This month</span></div></div>
+<button type=button class="textlink editonly" id=changePhoto>Change photo</button>
+<button type=button class="textlink danger editonly" id=removePhoto {% if not m.photo %}hidden{% endif %}>Remove photo</button>
 </div>
-<dialog class=modal id=profileSheet><div class=sheet>
-<div class=profhead>{% if m.photo %}<span class=avatar><img src="/avatar/{{ m.id }}?v={{ m.photo }}" alt=""></span>{% else %}<span class=avatar>{{ initials(m) }}</span>{% endif %}
-<div><div style="font-weight:650">{{ display_first(m) }} {{ m.last }}</div>
-<div class="t2 sm">{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</div></div></div>
-<form method=post action=/home enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=action value=avatar>
-<label>Profile picture<input type=file name=photo accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic"></label>
-<button class=full style="background:#ececee;color:#0a0a0b">Save picture</button></form>
-{% if m.photo %}<form method=post action=/home style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=action value=avatar_clear>
-<button class=full>Remove picture</button></form>{% endif %}
-<div class=kv><span>Legal name</span><span>{{m.first}} {{m.last}}</span></div>
-<form method=post action=/home>{{csrf_field()}}<input type=hidden name=action value=preferred>
-<label>Preferred first name (optional)<input name=preferred_first value="{{m.preferred_first or ''}}" placeholder="Leave blank to use your legal first name" autocomplete=off></label>
-<button class=full>Save</button></form>
-<div class=kv><span>Email</span><span>{{m.email}}</span></div>
-<div class=kv><span>Phone</span><span>{{m.phone}}</span></div>
-<div class=kv><span>Role</span><span>{{role_label(m)|capitalize}}</span></div>
-<p class="sm" style="margin:16px 0 0"><a href=/notifications>Notifications</a></p>
-<a class="btn full" href=/logout style="margin-top:12px">Log out</a>
-</div></dialog>
-<script>document.getElementById('profileOpen').onclick=function(){document.getElementById('profileSheet').showModal()};
-document.getElementById('profileSheet').addEventListener('click',function(e){if(e.target===this)this.close()});</script>"""
+<div class=seclabel>Personal</div>
+<div class=list>
+<div class="li prow"><span class=k>Legal name</span><span class=v>{{ m.first }} {{ m.last }}</span></div>
+<div class="li prow viewonly"><span class=k>Preferred name</span><span class=v>{{ m.preferred_first or '—' }}</span></div>
+<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Preferred name<input name=preferred_first id=prefName value="{{ m.preferred_first or '' }}" data-original="{{ m.preferred_first or '' }}" placeholder="Leave blank to use your legal first name" autocomplete=off></label></div>
+<div class="li prow"><span class=k>Email</span><span class=v>{{ m.email }}</span></div>
+<div class="li prow"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
+</div>
+<div class=seclabel>Role</div>
+<div class=list><div class="li prow"><span class=k>Role</span><span class="coach-tag" style="margin:0">{{ role_label(m)|capitalize }}</span></div></div>
+<div class=seclabel>Settings</div>
+<div class=list><a class="li prow chevrow" href=/notifications><span>Notifications</span><span class=nxchev aria-hidden=true>›</span></a></div>
+<div class=seclabel>Account</div>
+<div class=list><a class="li logoutrow" href=/logout>Log out</a></div>
+</form>
+<script>
+(function(){
+ var file=document.getElementById('photoFile'), clear=document.getElementById('photoClear'), img=document.getElementById('avatarImg'), letters=document.getElementById('avatarLetters'), pref=document.getElementById('prefName'), removeBtn=document.getElementById('removePhoto');
+ var originalSrc=img.getAttribute('src')||'', hadPhoto={{ 'true' if m.photo else 'false' }}, preview=null;
+ function showPhoto(src){img.hidden=false; img.src=src; letters.hidden=true; removeBtn.hidden=false;}
+ function showLetters(){img.hidden=true; img.removeAttribute('src'); letters.hidden=false; removeBtn.hidden=true;}
+ function enter(){document.body.classList.add('profile-edit');}
+ function leave(){
+  document.body.classList.remove('profile-edit');
+  if(preview){URL.revokeObjectURL(preview); preview=null;}
+  file.value=''; clear.value='';
+  pref.value=pref.getAttribute('data-original')||'';
+  if(hadPhoto&&originalSrc) showPhoto(originalSrc); else showLetters();
+  if(hadPhoto) removeBtn.hidden=false;
+ }
+ document.getElementById('profileEdit').onclick=enter;
+ document.getElementById('profileCancel').onclick=leave;
+ document.getElementById('profileBack').onclick=function(){ if(history.length>1) history.back(); else location.href='/home'; };
+ function pick(){ file.click(); }
+ document.getElementById('avatarBtn').onclick=function(){ if(document.body.classList.contains('profile-edit')) pick(); };
+ document.getElementById('changePhoto').onclick=pick;
+ file.onchange=function(){ var f=file.files&&file.files[0]; if(!f) return; if(preview) URL.revokeObjectURL(preview); preview=URL.createObjectURL(f); clear.value=''; showPhoto(preview); };
+ removeBtn.onclick=function(){ file.value=''; if(preview){URL.revokeObjectURL(preview); preview=null;} clear.value=hadPhoto?'1':''; showLetters(); };
+})();
+</script>"""
 
 T["notifications"] = """<h1>Notifications</h1>
 {{ push_card() }}

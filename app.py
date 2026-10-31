@@ -191,7 +191,14 @@ def initials(m):
         last = ""
     letters = (first[:1] + last[:1]).upper()
     return letters or "?"
-app.jinja_env.globals.update(display_first=display_first, initials=initials)
+def fmt_phone(raw):
+    """(720) 535-5925 when the number has 10 digits. Anything else is shown as stored."""
+    digits = re.sub(r"\D", "", str(raw or ""))
+    if len(digits) == 11 and digits.startswith("1"): digits = digits[1:]
+    if len(digits) == 10: return "(%s) %s-%s" % (digits[:3], digits[3:6], digits[6:])
+    text = " ".join(str(raw or "").split())
+    return text or "—"
+app.jinja_env.globals.update(display_first=display_first, initials=initials, fmt_phone=fmt_phone)
 # applies_to: all | athlete | coach. keywords: normalized substrings to find this item's columns in a Sport:80 export.
 DEFAULT_REQS = [("SafeSport training", "all", "safesport", 1), ("Background screening", "coach", "background", 1),
                 ("Concussion training", "coach", "concussion", 1)]
@@ -734,6 +741,26 @@ def home():
         with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "leaflet", "leaflet.css"), encoding="utf-8") as f:
             leaflet_css = f.read()
     return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined, vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, leaflet_css=leaflet_css)
+
+@app.route("/profile", methods=["GET", "POST"])
+@login_required
+def profile():
+    m = me(); d = db()
+    if request.method == "POST" and request.form.get("action") == "save":
+        try:
+            photo = None
+            f = request.files.get("photo")
+            if f and f.filename: photo = save_image(f)
+            d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), m["id"]))
+            if photo: d.execute("UPDATE members SET photo=? WHERE id=?", (photo, m["id"]))
+            elif request.form.get("photo_clear") == "1": d.execute("UPDATE members SET photo='' WHERE id=?", (m["id"],))
+            d.commit(); sync_practice_sheets(d); flash("Saved", "toast")
+        except ValueError as e:
+            d.rollback(); flash(str(e))
+        return redirect("/profile")
+    hist = d.execute("SELECT practice_date FROM checkins WHERE member_id=?", (m["id"],)).fetchall()
+    month = today_pt().strftime("%Y-%m")
+    return page(T["profile"], tab="profile", m=m, hist=hist, nmonth=sum(1 for h in hist if h["practice_date"].startswith(month)))
 
 # ---------- unread badges ----------
 def empty_unread():

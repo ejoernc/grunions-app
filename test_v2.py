@@ -129,7 +129,8 @@ def test_preferred_first_display_and_legal_verify():
     c.post("/join", data=dict(csrf=csrf(c, "/join"), first="Samuel", last="River", email="samuel@example.com", phone="1", preferred_first="  Sam  "), follow_redirects=True)
     assert sqlite3.connect(A.DB).execute("SELECT first, preferred_first FROM members WHERE email='samuel@example.com'").fetchone() == ("Samuel", "Sam")
     home = c.get("/home").get_data(as_text=True)
-    assert "<h1>Hi, Sam</h1>" in home and "Samuel River" in home and 'value="Sam"' in home
+    prof = c.get("/profile").get_data(as_text=True)
+    assert "<h1>Hi, Sam</h1>" in home and "Samuel River" in prof and 'value="Sam"' in prof
     c.post("/api/messages", json={"body": "hey team"}, headers={"X-CSRF": csrf(c, "/chat")})
     assert c.get("/api/messages").get_json()[-1]["who"].startswith("Sam ")
     boss.post("/home", data=dict(csrf=csrf(boss, "/home"), action="preferred", preferred_first="Chief"))
