@@ -41,7 +41,7 @@ with open("sample_sport80_export.csv", "rb") as f:
 ok("updated 2 members" in t, "Sport:80 import")
 eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date="2026-10-27")); eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date="2026-10-23"))
 h = x.get("/home").get_data(as_text=True)
-ok("USAWP # 1234567" in h and "expires 2027-08-31" in h and "1234567" in h and "2027-08-31" in h and "Marina HS" in h and "Westminster HS" in h, "member home: status, number, valid-until, attendance")
+ok("USAWP # 1234567" in h and "expires 2027-08-31" in h and "1234567" in h and "2027-08-31" in h and "2 practices attended" in h and "<summary>Attendance</summary>" not in h, "member home: status, number, valid-until, and the practice count in the profile menu")
 ok("1 checked in" in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "check-in count per practice")
 ok(eli.get("/qr.svg").data.startswith(b"<?xml"), "QR svg")
 # manual verify
@@ -1253,7 +1253,7 @@ ok("class=pimg" not in jane.get("/home").get_data(as_text=True) and not (D.execu
 D.execute("UPDATE practices SET lat=?, lng=?, social_kind=?, social_place=?, social_address=?, social_lat=?, social_lng=? WHERE id=?", (33.5, -117.5, "Dinner", "The Harp", "123 Main St", 33.6, -117.6, pic_id)); D.commit()
 mapped = jane.get("/home").get_data(as_text=True)
 i_card, i_play, i_map = mapped.find('class="card tap nextcard"'), mapped.find('class="card playcard"'), mapped.find("id=homeMap")
-ok(0 <= i_card < i_play < i_map and "33.5" in mapped and "33.6" in mapped and "tile.openstreetmap.org" in mapped and "maps.apple.com" in mapped and "google.com/maps/dir/" in mapped and "id=homeMap" not in jane.get("/practices").get_data(as_text=True), "the map sits under the clearance card, with the pool and social pins")
+ok("id=homeMap" in mapped and "class=homedock" in mapped and "class=homefull" in mapped and "paddingBottomRight" in mapped and mapped.find("id=homeMap") < i_card < i_play and "33.5" in mapped and "33.6" in mapped and "tile.openstreetmap.org" in mapped and "maps.apple.com" in mapped and "google.com/maps/dir/" in mapped and "id=homeMap" not in jane.get("/practices").get_data(as_text=True) and "<summary>Attendance</summary>" not in mapped and "<summary>Profile</summary>" not in mapped and "name=preferred_first" in mapped.split("id=profileSheet",1)[1], "the map fills the home screen behind the cards, with the pool and social pins")
 import urllib.request as _ureq
 class _GeoResp:
     def __enter__(self): return self

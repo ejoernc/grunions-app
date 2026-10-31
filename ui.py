@@ -55,6 +55,13 @@ button.avatar,span.avatar{width:44px;height:44px;border-radius:50%;padding:0;bac
 .nextcard .pills{margin:14px 16px 0}.nextcard .pills:last-child{margin-bottom:16px}
 .nextcard .nxdiv{margin:14px 16px}.nextcard .nxsocial{padding:0 16px 16px}
 .homemap{height:300px;margin:0 -20px 16px;background:#121214;position:relative;z-index:1}
+body.homefull header.homehead{position:relative;z-index:4;background:transparent}
+body.homefull main{position:relative;z-index:1}
+body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));height:auto;margin:0;z-index:0;border-radius:0}
+body.homefull .homemap .leaflet-top{top:72px}
+.homealerts{position:relative;z-index:1}
+.homedock{position:fixed;z-index:2;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto;padding:0 12px 10px;display:flex;flex-direction:column;gap:8px;max-height:min(68vh,calc(100dvh - 150px));overflow:auto;pointer-events:none}
+.homedock .card{pointer-events:auto;background:#151517;margin:0}
 .menu a{display:flex;align-items:center;width:100%;height:40px;padding:0 12px;box-sizing:border-box;color:var(--t1);font-weight:500;font-size:15px;text-decoration:none;border-radius:8px}
 .card .menu,.pagehead .menu{left:auto;right:0;min-width:220px}
 .mapframe{display:block;width:100%;height:220px;border:0;border-radius:12px;background:var(--surface2)}
@@ -168,7 +175,7 @@ a.calday.on{background:var(--accent);color:#fff}
 span.calday{color:var(--t3);opacity:.4;font-weight:500}
 .panel{padding:4px 18px 18px;border-top:1px solid var(--line);background:var(--surface)}.panel h3{font-size:15px;font-weight:600;margin:18px 0 10px}
 @media print{header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{background:#fff}}
-</style></head><body style="background:#0a0a0b;color:#ececee;margin:0">
+</style></head><body style="background:#0a0a0b;color:#ececee;margin:0"{% if tab=='home' and me() %} class=homefull{% endif %}>
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
@@ -476,8 +483,59 @@ T["login"] = """<h1>Log in</h1>
 <button class="primary full">Send login link</button></form>
 <p class="t3 sm" style="text-align:center;margin-top:20px">New here? <a href=/join>Join the team</a></p>"""
 
-T["home"] = """{{ push_card() }}
+T["home"] = """{% if pins %}
+<style>{{ leaflet_css|safe }}
+.homemap .leaflet-tile-pane{filter:grayscale(1) invert(1) contrast(.9) brightness(.82)}
+.homemap .leaflet-control-attribution{background:rgba(10,10,11,.72);color:#a0a0a8;font-size:10px;max-width:70%}
+.homemap .leaflet-control-attribution a{color:#c8cdd3}
+.homemap .leaflet-bar a,.homemap .leaflet-bar a:hover{background:#1d1d20;color:#ececee;border-bottom-color:#26262a}
+.homemap .leaflet-marker-icon.mpin{background:#ececee;border:3px solid #0a0a0b;border-radius:50%;box-shadow:0 0 0 1px #ececee}
+.homemap .leaflet-marker-icon.mpin.social{background:#0a0a0b;border:3px solid #ececee;box-shadow:none}
+</style>
+<section class=homemap id=homeMap aria-label="Practice map"></section>
+<script src=/static/leaflet/leaflet.js></script>
+<script>
+(function(){
+ var el=document.getElementById('homeMap'); if(!el||!window.L) return;
+ var pins={{ pins|tojson }};
+ var map=L.map(el,{zoomControl:true,attributionControl:true,scrollWheelZoom:false});
+ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+ function directions(lat,lng){
+  var dest=lat+','+lng, apple=/iPhone|iPad|iPod/.test(navigator.userAgent||'');
+  var url=apple?('https://maps.apple.com/?daddr='+encodeURIComponent(dest)):('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest));
+  window.open(url,'_blank','noopener');
+ }
+ function icon(kind){return L.divIcon({className:'mpin'+(kind==='social'?' social':''),html:'',iconSize:[18,18],iconAnchor:[9,9]});}
+ var bounds=[];
+ pins.forEach(function(p){
+  var m=L.marker([p.lat,p.lng],{icon:icon(p.kind),title:p.label||'Directions',zIndexOffset:p.kind==='pool'?800:0}).addTo(map);
+  m.on('click',function(){directions(p.lat,p.lng);});
+  bounds.push([p.lat,p.lng]);
+ });
+ function place(){
+  var dock=document.querySelector('.homedock');
+  var cover=dock?Math.ceil(dock.getBoundingClientRect().height)+28:280;
+  var pool=null;
+  pins.forEach(function(p){ if(p.kind==='pool') pool=p; });
+  if(!pool && pins.length) pool=pins[0];
+  if(bounds.length>1) map.fitBounds(bounds,{paddingTopLeft:[40,88],paddingBottomRight:[40,cover],maxZoom:14});
+  else if(bounds.length) map.setView(bounds[0],15);
+  if(!pool || !el.clientHeight) return;
+  var pt=map.latLngToContainerPoint([pool.lat, pool.lng]);
+  var openBottom=el.clientHeight-cover;
+  var target=Math.max(110, openBottom*0.46);
+  if(pt.y>openBottom-12) map.panBy([0, pt.y-target],{animate:false});
+ }
+ setTimeout(function(){map.invalidateSize();place();},0);
+ setTimeout(function(){map.invalidateSize();place();},250);
+ window.addEventListener('resize',function(){map.invalidateSize();place();});
+})();
+</script>
+{% endif %}
+<div class=homealerts>{{ push_card() }}
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
+{% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}</div>
+<div class=homedock>
 {% if nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'"><a class=cardlink href="/practices/{{nextp.id}}">
 {% if nextp.image %}<div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class=nxbadge>{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div>{% endif %}
 <div class=nxbody><div class=nxtitle>{{ fmt_d(nextp.date) }}</div>
@@ -538,41 +596,7 @@ T["home"] = """{{ push_card() }}
 <script>document.getElementById('trialOpen').onclick=function(){document.getElementById('trialDialog').showModal()};
 document.getElementById('trialDialog').addEventListener('click',function(e){if(e.target===this)this.close()});</script>{% endif %}
 {% endif %}</div></details>
-{% if pins %}
-<style>{{ leaflet_css|safe }}
-.homemap .leaflet-tile-pane{filter:grayscale(1) invert(1) contrast(.9) brightness(.82)}
-.homemap .leaflet-control-attribution{background:rgba(10,10,11,.72);color:#a0a0a8;font-size:10px;max-width:70%}
-.homemap .leaflet-control-attribution a{color:#c8cdd3}
-.homemap .leaflet-bar a,.homemap .leaflet-bar a:hover{background:#1d1d20;color:#ececee;border-bottom-color:#26262a}
-.homemap .leaflet-div-icon.mpin{background:#ececee;border:2px solid #0a0a0b;border-radius:50%;box-shadow:0 0 0 1px #8a8a92}
-.homemap .leaflet-div-icon.mpin.social{background:#0a0a0b;border:2px solid #ececee;box-shadow:none}
-</style>
-<section class=homemap id=homeMap aria-label="Practice map"></section>
-<script src=/static/leaflet/leaflet.js></script>
-<script>
-(function(){
- var el=document.getElementById('homeMap'); if(!el||!window.L) return;
- var pins={{ pins|tojson }};
- var map=L.map(el,{zoomControl:true,attributionControl:true,scrollWheelZoom:false});
- L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
- function directions(lat,lng){
-  var dest=lat+','+lng, apple=/iPhone|iPad|iPod/.test(navigator.userAgent||'');
-  var url=apple?('https://maps.apple.com/?daddr='+encodeURIComponent(dest)):('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest));
-  window.open(url,'_blank','noopener');
- }
- function icon(kind){return L.divIcon({className:'mpin'+(kind==='social'?' social':''),html:'',iconSize:[16,16],iconAnchor:[8,8]});}
- var bounds=[];
- pins.forEach(function(p){
-  var m=L.marker([p.lat,p.lng],{icon:icon(p.kind),title:p.label||'Directions'}).addTo(map);
-  m.on('click',function(){directions(p.lat,p.lng);});
-  bounds.push([p.lat,p.lng]);
- });
- if(bounds.length>1) map.fitBounds(bounds,{padding:[40,40],maxZoom:15});
- else if(bounds.length) map.setView(bounds[0],15);
- setTimeout(function(){map.invalidateSize();},0);
-})();
-</script>
-{% endif %}
+</div>
 <dialog class=modal id=profileSheet><div class=sheet>
 <div class=profhead>{% if m.photo %}<span class=avatar><img src="/avatar/{{ m.id }}?v={{ m.photo }}" alt=""></span>{% else %}<span class=avatar>{{ initials(m) }}</span>{% endif %}
 <div><div style="font-weight:650">{{ display_first(m) }} {{ m.last }}</div>
@@ -582,22 +606,18 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <button class=full style="background:#ececee;color:#0a0a0b">Save picture</button></form>
 {% if m.photo %}<form method=post action=/home style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=action value=avatar_clear>
 <button class=full>Remove picture</button></form>{% endif %}
-<p class="sm" style="margin:16px 0 0"><a href=/notifications>Notifications</a></p>
-<a class="btn full" href=/logout style="margin-top:12px">Log out</a>
-</div></dialog>
-<script>document.getElementById('profileOpen').onclick=function(){document.getElementById('profileSheet').showModal()};
-document.getElementById('profileSheet').addEventListener('click',function(e){if(e.target===this)this.close()});</script>
-{% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}
-<details class=card><summary>Attendance</summary><div class=body>
-{% for h in hist[:20] %}<div class=kv><span>{{fmt_d(h.practice_date)}}</span><span class=t2>{{h.location}}</span></div>{% else %}<p class=t3>No practices yet.</p>{% endfor %}</div></details>
-<details class=card><summary>Profile</summary><div class=body>
 <div class=kv><span>Legal name</span><span>{{m.first}} {{m.last}}</span></div>
 <form method=post action=/home>{{csrf_field()}}<input type=hidden name=action value=preferred>
 <label>Preferred first name (optional)<input name=preferred_first value="{{m.preferred_first or ''}}" placeholder="Leave blank to use your legal first name" autocomplete=off></label>
 <button class=full>Save</button></form>
 <div class=kv><span>Email</span><span>{{m.email}}</span></div>
-<div class=kv><span>Phone</span><span>{{m.phone}}</span></div><div class=kv><span>Role</span><span>{{role_label(m)|capitalize}}</span></div>
-</div></details>"""
+<div class=kv><span>Phone</span><span>{{m.phone}}</span></div>
+<div class=kv><span>Role</span><span>{{role_label(m)|capitalize}}</span></div>
+<p class="sm" style="margin:16px 0 0"><a href=/notifications>Notifications</a></p>
+<a class="btn full" href=/logout style="margin-top:12px">Log out</a>
+</div></dialog>
+<script>document.getElementById('profileOpen').onclick=function(){document.getElementById('profileSheet').showModal()};
+document.getElementById('profileSheet').addEventListener('click',function(e){if(e.target===this)this.close()});</script>"""
 
 T["notifications"] = """<h1>Notifications</h1>
 {{ push_card() }}
