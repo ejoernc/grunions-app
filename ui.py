@@ -83,11 +83,15 @@ body.homefull main{position:relative;z-index:1}
 body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));height:auto;margin:0;z-index:0;border-radius:0;pointer-events:none}
 body.homefull .homemap .leaflet-marker-icon,body.homefull .homemap .leaflet-control-attribution{pointer-events:auto}
 body.profilepage main{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
-header.profilebar{position:sticky;top:0;z-index:5;background:#0a0a0b;display:grid;grid-template-columns:88px 1fr 88px;align-items:center;padding:calc(8px + env(safe-area-inset-top)) 6px 8px}
-header.profilebar h1{margin:0;text-align:center;font-size:17px;font-weight:650}
-header.profilebar button,header.profilebar a.profileback,header.profilebar a.profileact{background:none;color:var(--t1);height:44px;min-width:44px;padding:0 10px;font-weight:600;font-size:16px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
-header.profilebar .left{justify-self:start}header.profilebar .right{justify-self:end}
-header.profilebar .savebtn{font-weight:650}
+header.profilebar{position:sticky;top:0;z-index:5;background:#0a0a0b;display:grid;grid-template-columns:88px 1fr 88px;grid-template-rows:44px;align-items:center;padding:env(safe-area-inset-top) 6px 0;box-sizing:border-box;min-height:44px}
+header.profilebar h1{margin:0;text-align:center;font-size:17px;font-weight:650;line-height:44px}
+header.profilebar .left,header.profilebar .right{display:flex;align-items:center;height:44px;min-width:0}
+header.profilebar .left{justify-self:start;justify-content:flex-start}header.profilebar .right{justify-self:end;justify-content:flex-end}
+header.profilebar button,header.profilebar a.profileback,header.profilebar a.profileact{background:none;color:var(--t1);height:44px;min-width:44px;max-height:44px;padding:0 10px;font-weight:600;font-size:16px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+header.profilebar button.editonly,header.profilebar a.editonly{display:none}
+body.profile-edit header.profilebar button.viewonly,body.profile-edit header.profilebar a.viewonly{display:none}
+body.profile-edit header.profilebar button.editonly,body.profile-edit header.profilebar a.editonly{display:inline-flex}
+header.profilebar button.savebtn{color:var(--accent);font-weight:650}
 .profilehero{display:flex;flex-direction:column;align-items:center;padding:12px 0 4px}
 .avatarwrap{position:relative;width:112px;height:112px;flex:none}
 button.avatar.hero{width:112px;height:112px;min-width:112px;max-width:112px;min-height:112px;max-height:112px;flex:0 0 112px;font-size:36px}
@@ -498,7 +502,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' %}<nav class="tabs noprint" da
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=8');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=9');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
