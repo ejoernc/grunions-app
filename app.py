@@ -201,8 +201,8 @@ def migrate_lineup(d):
     cols = [r[1] for r in d.execute("PRAGMA table_info(lineup_events)")]
     if "stage" not in cols:
         d.execute("ALTER TABLE lineup_events ADD COLUMN stage TEXT")
-    d.execute("UPDATE lineup_events SET stage='going' WHERE stage IS NULL AND kind IN ('Away tournament', 'Hosted tournament')")
-    d.execute("UPDATE lineup_events SET stage='attending' WHERE stage IS NULL")
+    d.execute("UPDATE lineup_events SET stage='going' WHERE (stage IS NULL OR stage='') AND kind='Away tournament'")
+    d.execute("UPDATE lineup_events SET stage='attending' WHERE kind IN ('Hosted tournament', 'Hosted social', 'Team trip') OR stage IS NULL OR stage=''")
 def migrate_series(d):
     """Practice series, their coaches, and skipped dates. Existing one-off practices stay unattached."""
     d.execute("""CREATE TABLE IF NOT EXISTS practice_series(id INTEGER PRIMARY KEY, weekdays TEXT NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL,
@@ -1942,7 +1942,8 @@ LINEUP_KINDS = ("Away tournament", "Hosted tournament", "Team trip", "Hosted soc
 LINEUP_TOURNAMENTS = ("Away tournament", "Hosted tournament")
 LINEUP_SIDE = {"Away tournament": "Away", "Team trip": "Away", "Hosted tournament": "Hosting", "Hosted social": "Hosting"}
 def lineup_stage_value(kind, form, existing=None):
-    if kind not in LINEUP_TOURNAMENTS: return "attending"
+    """Away tournaments can be gauging interest or committed. Hosted events and trips are attending."""
+    if kind != "Away tournament": return "attending"
     posted = (form.get("stage") or "").strip()
     if posted in ("interest", "going"): return posted
     return existing or "interest"

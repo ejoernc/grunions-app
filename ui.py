@@ -1339,7 +1339,7 @@ T["lineup"] = """{% macro lineup_card(e) %}<div class="card tripcard"><div class
 {% if past %}<details class=lineuppast><summary>Past <span class=t3>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}"""
 T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}">{{ csrf_field() }}
 <label>Type<select name=kind><option value="Away tournament" {% if values.kind == 'Away tournament' %}selected{% endif %}>Away tournament</option><option value="Hosted tournament" {% if values.kind == 'Hosted tournament' %}selected{% endif %}>Hosted tournament</option><option value="Team trip" {% if values.kind == 'Team trip' %}selected{% endif %}>Team trip</option><option value="Hosted social" {% if values.kind == 'Hosted social' %}selected{% endif %}>Hosted social</option></select></label>
-<label>Tournament status<select name=stage><option value=interest {% if values.stage != 'going' %}selected{% endif %}>Gauging interest</option><option value=going {% if values.stage == 'going' %}selected{% endif %}>We're going</option></select></label>
+<label>Away tournament status<select name=stage><option value=interest {% if values.stage != 'going' %}selected{% endif %}>Gauging interest</option><option value=going {% if values.stage == 'going' %}selected{% endif %}>We're going</option></select></label>
 <label>Title<input name=title value="{{ values.title }}" required autocomplete=off></label>
 <label>City<input name=city value="{{ values.city }}" required autocomplete=off></label>
 <label>Venue<input name=venue value="{{ values.venue }}" required autocomplete=off></label>
