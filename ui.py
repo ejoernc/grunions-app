@@ -1151,8 +1151,7 @@ T["practice"] = """{% set p = x.p %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
 </div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>
 <div class=seclabel>Coaches</div>
-{% if me().is_admin and not p.cancelled and x.coaches and not x.any_eligible %}<p class="sm" style="margin:0 4px 8px">{{ st('warn', 'No assigned coach is coach-eligible') }}</p>{% endif %}
-<div class=list>{% for c in x.coaches %}<div class=li><div class=grow><span class=ell>{{ display_first(c) }} {{ c.last }}</span></div>{{ coach_tag(c) }}</div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}</div>
+<div class=list>{% for c in x.coaches %}{% set ce = coach_eligibility(c) %}<div class=li><div class=grow><span class=ell>{{ display_first(c) }} {{ c.last }}</span></div>{% if ce.eligible %}{{ coach_tag(c) }}{% else %}<span class="st st-warn coach-elig">{{ ce.text or 'Not eligible' }}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}</div>
 <div class=seclabel>Going</div>
 <div class=list>{% for r in x.going %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 <div class=seclabel>Can't make it</div>
@@ -1206,7 +1205,6 @@ T["admin"] = ADMIN_NAV + """
 </div>
 <h1 style="margin:8px 0 4px">{{loc}}</h1>
 <p class="t2 sm" style="margin-top:0">{% if pr %}{{ fmt_span(pr.start, pr.end) }}{% else %}no practice scheduled{% endif %}{% if coach_names %} · Coaches: {{ coach_names|join(', ') }}{% endif %}{% if n %} · {{ n }} checked in{% endif %}</p>
-{% if coach_warn %}<p class="sm" style="margin-top:0">{{ st('warn', 'No assigned coach is coach-eligible') }}</p>{% endif %}
 <div class=filt role=group aria-label="RSVP">
 <button type=button class=chip data-filter=going>Going ({{ going|length }})</button>
 <button type=button class=chip data-filter=not>Not Going ({{ n_not }})</button>

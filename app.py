@@ -1575,7 +1575,7 @@ def practice_bundle(d, p):
     social_n = d.execute("SELECT COUNT(*) FROM social_joins WHERE practice_id=?", (p["id"],)).fetchone()[0]
     return dict(p=p, going=practice_people([r for r in rv if r["going"]]), notgoing=practice_people([r for r in rv if not r["going"]]),
                 checked=practice_people(checked), mine=mine, coach_ids={c["id"] for c in coaches}, coach_names=coach_labels(coaches),
-                coaches=practice_people(coaches), any_eligible=any(coach_eligibility(d, c)["eligible"] for c in coaches), social_n=social_n)
+                coaches=practice_people(coaches), social_n=social_n)
 @app.route("/practices", methods=["GET", "POST"])
 @login_required
 def practices():
@@ -1860,10 +1860,9 @@ def admin():
     n_none = sum(1 for r in rows if r["going"] is None)
     n = len(checked)
     assigned = practice_coach_rows(d, [pr["id"]]).get(pr["id"], []) if pr else []
-    coach_warn = bool(assigned) and not any(coach_eligibility(d, c)["eligible"] for c in assigned)
     return page(T["admin"],
         tab="admin", date=date, q=q, going=going, rest=rest, checked=checked, n=n, n_not=n_not, n_none=n_none, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=sum(1 for r in rows if r["going"] == 1),
-        days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days), coach_warn=coach_warn, coach_names=coach_labels(assigned))
+        days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days), coach_names=coach_labels(assigned))
 
 def expiring_roster(d, rep):
     ids = []
