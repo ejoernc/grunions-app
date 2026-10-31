@@ -949,14 +949,11 @@ def seen_summary(d, channel, message_id, sender_id):
     if not others or not message_id: return None
     reads = {r["member_id"]: r["last_read"] for r in d.execute(
         "SELECT member_id, last_read FROM chat_reads WHERE channel=?", (channel,))}
-    seen, yet = [], []
-    for m in others:
-        (seen if reads.get(m["id"], 0) >= message_id else yet).append(member_brief(m))
+    seen = [member_brief(m) for m in others if reads.get(m["id"], 0) >= message_id]
     seen.sort(key=lambda p: p["name"].casefold())
-    yet.sort(key=lambda p: p["name"].casefold())
     n = len(seen)
     label = "Seen by everyone" if n == len(others) else "Seen by %d" % n
-    return {"id": message_id, "n": n, "total": len(others), "label": label, "seen": seen, "not_yet": yet}
+    return {"id": message_id, "n": n, "total": len(others), "label": label, "seen": seen}
 def with_seen(d, channel, rows):
     latest = d.execute("""SELECT id, member_id FROM messages WHERE channel=? AND COALESCE(deleted,0)=0
         ORDER BY id DESC LIMIT 1""", (channel,)).fetchone()

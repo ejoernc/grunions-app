@@ -823,8 +823,6 @@ T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="{{'on' if 
 <div class=grab aria-hidden=true></div>
 <h2 style="margin:0 0 8px">Seen by</h2>
 <div class=seenlist id=seenPeople></div>
-<h3 class=seenh id=seenYetHead hidden>Not yet</h3>
-<div class=seenlist id=seenYet></div>
 <button type=button class="quiet full" id=seenClose style="margin-top:12px">Close</button>
 </div></dialog>
 <script>
@@ -849,20 +847,22 @@ function paintRx(map){document.querySelectorAll('.m').forEach(el=>{const id=el.i
 let pollGen=0;
 async function poll(){const gen=++pollGen,epoch=window.grunionsNavEpoch|0;try{const r=await fetch('/api/messages?c='+CH+'&after='+last);const j=await r.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;const end=innerHeight+scrollY>=document.body.scrollHeight-120;
  j.forEach(add);const sync=await (await fetch('/api/messages?c='+CH+'&sync=1')).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;sync.forEach(m=>{if(gen===pollGen)upsert(m)});
- const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;paintRx(rx);paintSeen(sync);if(window.grunionsRefresh)grunionsRefresh();if(j.length&&end)scrollTo(0,document.body.scrollHeight)}catch(e){}}
+ const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;paintRx(rx);paintSeen(sync.concat(j));if(window.grunionsRefresh)grunionsRefresh();if(j.length&&end)scrollTo(0,document.body.scrollHeight)}catch(e){}}
 let seenInfo=null;
 function personRow(p){
  const av=p.photo?`<span class="avatar seenav"><img src="${esc(p.photo)}" alt="" width="32" height="32"></span>`:`<span class="avatar seenav">${esc(p.initials||'')}</span>`;
  return `<div class=seenrow>${av}<span>${esc(p.name||'')}</span></div>`}
 function paintSeen(list){
  document.querySelectorAll('.seenline').forEach(el=>el.remove());
- const hit=(list||[]).find(m=>m.seen); seenInfo=hit?hit.seen:null; if(!seenInfo) return;
+ let hit=null;
+ (list||[]).forEach(m=>{if(m&&m.seen&&(!hit||m.id>hit.id)) hit=m});
+ Object.keys(msgs).forEach(id=>{const m=msgs[id]; if(m&&m.seen&&(!hit||m.id>hit.id)) hit=m});
+ if(hit) Object.keys(msgs).forEach(id=>{if(+id!==hit.id&&msgs[id]&&msgs[id].seen) delete msgs[id].seen});
+ seenInfo=hit?hit.seen:null; if(!seenInfo) return;
  const row=document.getElementById('msg'+seenInfo.id); if(!row) return;
  const b=document.createElement('button'); b.type='button'; b.className='seenline'; b.textContent=seenInfo.label; row.appendChild(b)}
 function openSeen(info){
- const people=document.getElementById('seenPeople'), yet=document.getElementById('seenYet'), head=document.getElementById('seenYetHead');
- people.innerHTML=(info.seen||[]).map(personRow).join('')||'<p class="t3 sm">No one yet.</p>';
- const rest=info.not_yet||[]; head.hidden=!rest.length; yet.innerHTML=rest.map(personRow).join('');
+ document.getElementById('seenPeople').innerHTML=(info.seen||[]).map(personRow).join('')||'<p class="t3 sm">No one has seen this yet.</p>';
  grunionsOpenSheet(document.getElementById('seenSheet'))}
 const sheet=document.getElementById('actSheet'),actEdit=document.getElementById('actEdit'),actDelete=document.getElementById('actDelete'),actConfirm=document.getElementById('actConfirm'),actOwn=document.getElementById('actOwn'),actCopyGroup=document.getElementById('actCopyGroup'),emojiMore=document.getElementById('emojiMore'),quoteBar=document.getElementById('quoteBar'),editBar=document.getElementById('editBar');
 const MORE=["😀","😁","😊","😉","😍","😘","😎","🤔","😭","😡","🤯","🤗","🫡","🤝","👏","🙌","💪","✌️","👋","✅","⭐","💧","🏊","🤽","🏆","📣","📸","🧡","💛","💚","💙","💜","🖤","🤍","💔","🤣","😅","😴","🎉"];
