@@ -398,11 +398,6 @@ def remind(d, mid, by="Grunions"):
     when = "has expired" if n is not None and n < 0 else (f"expires in {n} days ({r['usawp_valid_until']})" if n is not None else "needs to be confirmed")
     d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (mid, f"Hi {display_first(r)}, your USA Water Polo membership {when}. Renew at usawp.sport80.com with Grunions as your club so you can keep playing. ({by})"))
 app.jinja_env.globals.update(days_left=days_left, EXPIRING_DAYS=EXPIRING_DAYS, trial_window=trial_window, trial_badge=trial_badge, TRIAL_JOIN_URL=TRIAL_JOIN_URL)
-def admin_alert():
-    if not (me() and me()["is_admin"]): return None
-    rep = expiry_report(db()); n7 = len(rep["within_7"]) + len(rep["within_%d" % EXPIRING_DAYS]); ne = len(rep["expired"])
-    return (ne, n7) if (ne or n7) else None
-app.jinja_env.globals.update(admin_alert=admin_alert)
 @app.teardown_appcontext
 def _close(e):
     d = g.pop("db", None)
@@ -3024,7 +3019,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-22 */
+SW_JS = """/* grunions-sw-23 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
