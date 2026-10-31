@@ -34,15 +34,14 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:14px}.xs
 .nxchev{color:var(--t3);font-size:22px;line-height:1;flex:none}
 .nxnote{margin-top:10px;color:var(--t3);font-size:13px;line-height:1.4}
 .pills{display:flex;gap:10px;margin-top:14px}
-.pills button{flex:1;height:44px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600}
-.pills button.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
+.pills .btn{flex:1;min-width:0}
+.pills button.on{background:var(--accent);color:#fff}
 .nxdiv{height:1px;background:var(--line);margin:14px 0}
 .nxsocial{display:flex;align-items:center;gap:12px}
 .nxicon{width:40px;height:40px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;color:#C8CDD3}
 .nxicon svg{display:block}
-.joinpill{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600;flex:none}
-.joinpill.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
-header.homehead{align-items:center}header.homehead h1{margin:0}
+.joinpill{flex:none}
+header.homehead{position:sticky;top:0;z-index:8;background:#0a0a0b;align-items:center}header.homehead h1{margin:0}
 a.avatar,button.avatar,span.avatar{width:44px;height:44px;min-width:44px;max-width:44px;min-height:44px;max-height:44px;border-radius:50%;padding:0;background:var(--surface2);color:var(--t1);font-size:14px;font-weight:650;letter-spacing:.2px;overflow:hidden;flex:0 0 44px;border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center}
 a.avatar img,button.avatar img,span.avatar img{width:44px;height:44px;max-width:44px;max-height:44px;object-fit:cover;border-radius:50%;display:block;flex-shrink:0}
 .profhead{display:flex;align-items:center;gap:14px;margin:0 0 16px}.profhead .avatar{width:64px;height:64px;font-size:20px}
@@ -54,7 +53,10 @@ a.avatar img,button.avatar img,span.avatar img{width:44px;height:44px;max-width:
 .nxglyph{width:18px;height:18px;flex:none;color:#C8CDD3}
 .nextcard .pills{margin:14px 16px 0}.nextcard .pills:last-child{margin-bottom:16px}
 .nextcard .nxdiv{margin:14px 16px}.nextcard .nxsocial{padding:0 16px 16px}
-.homemap{height:300px;margin:0 -20px 16px;background:#121214;position:relative;z-index:1}
+.homemap{height:300px;margin:0 -20px 16px;background:#1a1c20;position:relative;z-index:1}
+.homemap.leaflet-container,.homemap .leaflet-container{background:#1a1c20}
+.homemap .leaflet-tile-pane{opacity:0;transition:opacity .45s ease}
+.homemap.tiles .leaflet-tile-pane{opacity:1}
 body.homefull header.homehead{position:relative;z-index:4;background:transparent}
 body.homefull main{position:relative;z-index:1}
 body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));height:auto;margin:0;z-index:0;border-radius:0;pointer-events:none}
@@ -122,14 +124,22 @@ padding:0 14px;height:48px;font:inherit;color-scheme:dark}textarea{padding:12px 
 input[type=date]::-webkit-calendar-picker-indicator,input[type=datetime-local]::-webkit-calendar-picker-indicator{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3' y='5' width='18' height='16' rx='2' fill='none' stroke='%23ececee' stroke-width='1.8'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4' fill='none' stroke='%23ececee' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-size:18px 18px;background-position:center}
 input[type=time]::-webkit-calendar-picker-indicator{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='8' fill='none' stroke='%23ececee' stroke-width='1.8'/%3E%3Cpath d='M12 8v5l3 2' fill='none' stroke='%23ececee' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-size:18px 18px;background-position:center}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
-.btn,button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:48px;padding:0 18px;border-radius:10px;border:0;font:inherit;font-weight:600;
-cursor:pointer;text-decoration:none;background:var(--surface2);color:var(--t1)}.btn.primary,button.primary{background:var(--accent);color:#fff}
-.btn.quiet,button.quiet{background:none;color:var(--t2);padding:0 8px}.btn.danger,button.danger{background:none;color:var(--bad)}
-.btn.compact,button.compact{height:40px;padding:0 14px;font-size:15px}.full{width:100%}.row{display:flex;gap:10px}.row>*{flex:1}
-.coach-tag{display:inline-block;margin-left:6px;padding:0 7px;border-radius:999px;border:1px solid var(--line);color:var(--t2);font-size:12px;font-weight:600;line-height:20px;vertical-align:1px;white-space:nowrap}
-.coach-tag.warn{color:var(--warn);border-color:#8a6410}.coach-tag.bad{color:var(--bad);border-color:#7a302c}
+.btn,a.btn,button.btn,button{display:inline-flex;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;height:48px;padding:0 18px;border-radius:12px;border:0;font:inherit;font-weight:600;line-height:1;
+cursor:pointer;text-decoration:none;background:var(--surface2);color:#fff}
+.btn,a.btn,button.btn{min-height:48px}
+.btn-primary,button.btn-primary,a.btn-primary,.btn.primary,button.primary{background:var(--accent);color:#fff}
+.btn-secondary,button.btn-secondary,a.btn-secondary{background:var(--surface2);color:#fff}
+.btn-danger,button.btn-danger,a.btn-danger,.btn.danger,button.danger{background:var(--surface2);color:var(--bad)}
+.btn.quiet,button.quiet{background:transparent;color:var(--t2);height:44px;min-height:44px;padding:0 8px}
+.btn.compact,button.compact{padding:0 14px}.full{width:100%}.row{display:flex;gap:10px}.row>*{flex:1}
+.chip,a.chip,button.chip{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:36px;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t2);font-size:14px;font-weight:600;line-height:1;text-decoration:none;white-space:nowrap;flex:none;cursor:pointer}
+.chip-active,a.chip-active,button.chip-active,.chip.on,a.chip.on,button.chip.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
+.chip-info,.coach-tag{display:inline-flex;align-items:center;gap:6px;height:24px;margin-left:6px;padding:0 8px;border-radius:999px;border:1px solid var(--line);background:#2a2a2e;color:var(--t1);font-size:12px;font-weight:600;line-height:1;white-space:nowrap;vertical-align:1px}
+.chip-info.warn,.coach-tag.warn{color:var(--warn);border-color:#8a6410;background:transparent}
+.chip-info.bad,.coach-tag.bad{color:var(--bad);border-color:#7a302c;background:transparent}
+.nxbadge{margin:0;height:auto;padding:5px 10px;letter-spacing:.8px;background:#151517;color:#ececee;border-color:#3a3a40}
 .coach-elig,.ref-elig{margin-left:8px;font-weight:650;font-size:15px}
-.eligs{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px}.eligs .coach-elig,.eligs .ref-elig,.eligs .coach-tag{margin-left:0}.eligs .st{white-space:normal}
+.eligs{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px}.eligs .coach-elig,.eligs .ref-elig,.eligs .coach-tag,.eligs .chip-info{margin-left:0}.eligs .st{white-space:normal}
 .memline{display:flex;flex-wrap:wrap;align-items:center;gap:2px 0;margin-top:2px;color:var(--t3);font-size:13px;line-height:1.4}
 .st{display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--t2);white-space:nowrap}
 .st::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--t3)}.st-ok::before{background:var(--ok)}.st-bad::before{background:var(--bad)}.st-warn::before{background:var(--warn)}.st-trial::before{background:var(--ok)}
@@ -157,22 +167,20 @@ details.checkin{margin:4px 0 20px}details.checkin>summary{min-height:0;padding:1
 .kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}.kv:first-child{border-top:0}.kv span:first-child{color:var(--t2)}
 .admintabs{display:flex;gap:8px;overflow-x:auto;margin:0 0 16px;padding:2px 0 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .admintabs::-webkit-scrollbar{display:none}
-.admintabs a{flex:none;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);color:var(--t2);text-decoration:none;font-size:14px;font-weight:600;display:inline-flex;align-items:center}
-.admintabs a.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
+.admintabs a.chip{flex:none}
 .pagetitle{display:flex;justify-content:space-between;align-items:baseline;gap:12px}.pagetitle h1{margin-bottom:12px}
-.peoplebar{position:sticky;top:0;z-index:6;background:#0a0a0b;margin:0 -20px 8px;padding:0 20px 10px}
+.peoplebar{position:sticky;top:var(--headh,0px);z-index:6;background:#0a0a0b;margin:0 -20px 8px;padding:0 20px 10px}
 .peoplebar input{height:48px;margin:0}
 .fchips{display:flex;gap:8px;margin:10px 0 0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .fchips::-webkit-scrollbar{display:none}
-.fchips a{flex:none;height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);color:var(--t2);text-decoration:none;font-size:14px;font-weight:600;display:inline-flex;align-items:center;white-space:nowrap}
-.fchips a.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
-.expage h2.egroup{position:sticky;top:0;z-index:4;background:#0a0a0b;margin:18px 0 8px;padding:8px 0}
-.daybadge{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:#2a2a2e;color:var(--t1);font-size:12px;font-weight:700;white-space:nowrap;flex:none}
-.people h2,h3.alpha{position:sticky;top:var(--peoplepin,0px);z-index:4;background:#0a0a0b;padding:8px 0}
+.fchips a.chip{flex:none}
+.expage h2.egroup{position:sticky;top:var(--headh,0px);z-index:4;background:#0a0a0b;margin:18px 0 8px;padding:8px 0}
+.daybadge{height:28px;padding:0 10px;margin:0;flex:none;font-weight:700}
+.people h2,h3.alpha{position:sticky;top:calc(var(--headh,0px) + var(--peoplepin,0px));z-index:4;background:#0a0a0b;padding:8px 0}
 .people h2{margin-top:12px}
 h3.alpha{margin:12px 0 6px;font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--t3)}
-.seg{display:flex;gap:4px;background:var(--surface);border-radius:12px;padding:4px;margin:0 0 20px;overflow-x:auto}
-.seg a{flex:1;text-align:center;padding:9px 12px;border-radius:9px;color:var(--t2);text-decoration:none;font-size:14px;font-weight:500;white-space:nowrap}.seg a.on{background:var(--surface2);color:var(--t1)}
+.seg{display:flex;gap:8px;margin:0 0 16px;overflow-x:auto;scrollbar-width:none}
+.seg::-webkit-scrollbar{display:none}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:9;box-sizing:border-box;
 height:calc(64px + env(safe-area-inset-bottom));padding:0 0 env(safe-area-inset-bottom);background:#0a0a0b;
 border-top:1px solid var(--line);display:flex;justify-content:center;view-transition-name:grunions-nav}
@@ -203,7 +211,7 @@ span.avatar.seenav,span.avatar.seenav img{width:32px;height:32px;min-width:32px;
 .seenrow{display:flex;align-items:center;gap:10px;min-height:40px}
 .seenlist{max-height:38vh;overflow:auto}
 .seenh{margin:14px 0 6px;font-size:13px;font-weight:650;color:var(--t3);letter-spacing:.02em}
-.rx button{height:30px;padding:0 10px;border-radius:15px;font-size:14px;font-weight:500;background:var(--surface);color:var(--t2);border:1px solid var(--line)}
+.rx button{height:30px;min-height:30px;padding:0 10px;border-radius:999px;font-size:14px;font-weight:500;background:var(--surface);color:var(--t2);border:1px solid var(--line)}
 .rx button.on{border-color:#ececee;color:var(--t1);background:#2a2a2e}
 .qbar{max-width:600px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;border-left:3px solid #6c6c74;padding:2px 4px 2px 10px;color:var(--t2);font-size:13px}
 .qbar b{display:block;color:var(--t1);font-size:12px;font-weight:650}.qbar span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70vw}
@@ -232,17 +240,15 @@ dialog.botsheet .sheet{background:#1c1c1f;border:1px solid #2e2e32;border-bottom
 .ci-name{flex:1;min-width:0;height:auto;padding:0;background:none;display:flex;align-items:center;gap:12px;text-align:left;font-weight:400}
 span.avatar.ciav,span.avatar.ciav img{width:40px;height:40px;min-width:40px;max-width:40px;min-height:40px;max-height:40px;flex:0 0 40px;font-size:13px}
 .filt{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
-.filt button{height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600}
-.filt button.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
-.checkbar{position:sticky;top:0;z-index:6;background:#0a0a0b;margin:0 -20px 8px;padding:8px 20px 10px}
+.checkbar{position:sticky;top:var(--headh,0px);z-index:6;background:#0a0a0b;margin:0 -20px 8px;padding:8px 20px 10px}
 .checkbar form.row{flex-wrap:nowrap;align-items:center;gap:8px}
 .checkbar .calpick{flex:0 0 auto}
 .checkbar .calbtn{flex:0 0 auto}
 .checkbar .calbtn span{overflow:visible;text-overflow:clip}
 .checkbar input[name=q]{flex:1 1 auto;width:auto;min-width:0;margin:0;height:48px;font-size:14px}
 .checkprog{margin:8px 0 0;color:var(--t2);font-size:14px;font-weight:600}
-button.dock{background:#ececee;color:#0a0a0b;height:44px}
-a.quietcheck,button.quietcheck{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:transparent;color:var(--t2);border:1px solid var(--line);height:44px;border-radius:10px;font-weight:600;text-decoration:none;padding:0 18px}
+button.dock,a.dock{background:var(--accent);color:#fff}
+a.quietcheck,button.quietcheck{background:var(--surface2);color:#fff;border:0;border-radius:12px}
 .emptyfind{color:var(--t2);margin:8px 0 16px}
 .usawprow{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:var(--r);padding:14px 16px;margin:0 0 12px;color:inherit;text-decoration:none}
 .calpick{position:relative;flex:1.6;min-width:0;display:flex;align-items:center;gap:4px}
@@ -250,7 +256,7 @@ a.quietcheck,button.quietcheck{display:inline-flex;align-items:center;justify-co
 .calnav{height:48px;width:40px}
 .calnav[aria-disabled=true]{color:var(--t3);opacity:.35;pointer-events:none}
 .calnav svg,.calmonth svg,.calbtn svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;display:block}
-.calbtn{flex:1;min-width:0;height:48px;margin:0;padding:0 10px;background:var(--surface2);border:1px solid var(--line);color:var(--t1);border-radius:10px;font:inherit;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+.calbtn{flex:1;min-width:0;height:48px;min-height:48px;margin:0;padding:0 10px;background:var(--surface2);border:1px solid var(--line);color:var(--t1);border-radius:12px;font:inherit;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
 .calbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .calpop{position:absolute;z-index:12;top:calc(100% + 6px);left:0;width:min(300px,calc(100vw - 40px));background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 12px 32px rgba(0,0,0,.55);color:var(--t1)}
 .calhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
@@ -271,8 +277,8 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 .vrdetails{margin-top:4px}.vrdetails>summary{min-height:0;padding:8px 0;font-size:14px;color:var(--t3);justify-content:flex-start;gap:6px;font-weight:500}
 .vrdetails>summary::after{font-size:16px}.vrdetails p{margin:0 0 6px}
 .actpills{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 2px;align-items:center}
-.actpills form{margin:0}.actpills button{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600;font-size:14px}
-.actpills button:disabled{color:var(--t3)}
+.actpills form{margin:0;flex:1}.actpills .btn{flex:1}
+.actpills button:disabled{color:var(--t3);background:#2a2a2e}
 dialog.memberedit h2{margin:0 0 12px;font-size:22px;letter-spacing:-.3px}
 dialog.memberedit h3{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--t3);margin:20px 0 8px;font-weight:650}
 dialog.memberedit h3[data-section=membership]{margin-top:0}
@@ -306,7 +312,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro date_field(label, name, value) %}<label class="datefield{% if not value %} empty{% endif %}">{{ label }}<input type=date name={{ name }} value="{{ value or '' }}"><span class=dateph>Not on file · add date</span></label>{% endmacro %}
 {% macro member_panel(r) %}{% set cl = clearance(r) %}{% set cred = credential_dates(r) %}{% set ps = panel_status(r) %}{% set chip = coach_row_expiry(r) %}{% set ce = coach_eligibility(r) %}{% set rf = referee_eligibility(r) %}
 <div class=panel id=m{{r.id}} hidden>
-<div class=pstat><div class=pstatline><span class="dot {{ ps.dot }}" aria-hidden=true></span><span class=pstitle>{{ ps.label }}</span><span class=pchips>{% if r.role=='coach' or on_coaching_list(r) or ce.eligible or ce.text %}<span class="coach-tag{{ ' ' ~ chip.tone if chip.tone else '' }}">Coach{% if chip.date %} · expires {{ fmt_long(chip.date) }}{% endif %}</span>{% endif %}{% if rf.eligible %}<span class="st st-ok ref-elig">Referee eligible</span>{% elif rf.expired %}<span class="st st-bad ref-elig">Referee eligibility expired {{ fmt_long(rf.expired) }}</span>{% endif %}</span></div>{% if ps.reason %}<p class=preason>{{ ps.reason }}</p>{% endif %}</div>
+<div class=pstat><div class=pstatline><span class="dot {{ ps.dot }}" aria-hidden=true></span><span class=pstitle>{{ ps.label }}</span><span class=pchips>{% if r.role=='coach' or on_coaching_list(r) or ce.eligible or ce.text %}<span class="chip-info{{ ' ' ~ chip.tone if chip.tone else '' }}">Coach{% if chip.date %} · expires {{ fmt_long(chip.date) }}{% endif %}</span>{% endif %}{% if rf.eligible %}<span class="st st-ok ref-elig">Referee eligible</span>{% elif rf.expired %}<span class="st st-bad ref-elig">Referee eligibility expired {{ fmt_long(rf.expired) }}</span>{% endif %}</span></div>{% if ps.reason %}<p class=preason>{{ ps.reason }}</p>{% endif %}</div>
 <div class=kv><span>USAWP # {{ r.usawp_number or '—' }}</span>{{ cred_side(r.usawp_valid_until) }}</div>
 <div class=kv><span>SafeSport</span>{{ cred_side(cred.safesport) }}</div>
 <div class=kv><span>Background screening</span>{{ cred_side(cred.background) }}</div>
@@ -314,9 +320,9 @@ dialog.memberedit .help a{color:var(--t1)}
 {% if r.usawp_verified_by %}<p class="t3 xs pfoot">Verified by {{ r.usawp_verified_by }}{% if fmt_when(r.usawp_verified_at) %} · {{ fmt_when(r.usawp_verified_at) }}{% endif %}</p>{% endif %}
 {% if r.vr_status %}<details class=vrdetails><summary>Details</summary><p class="t3 sm">{{ r.vr_status }}{% if r.vr_note %} · {{ r.vr_note }}{% endif %}</p></details>{% endif %}
 {% if me().is_admin %}<div class=actpills>
-<button type=button data-member-edit="edit{{ r.id }}" data-focus=membership>Recheck</button>
-<button type=button data-member-edit="edit{{ r.id }}">Edit</button>
-<form method=post>{{ detail_hiddens(r) }}<button name=action value=ask_bot {% if r.vr_status=='pending' %}disabled{% endif %}>Ask Grunions</button></form>
+<button type=button class="btn btn-secondary" data-member-edit="edit{{ r.id }}" data-focus=membership>Recheck</button>
+<button type=button class="btn btn-secondary" data-member-edit="edit{{ r.id }}">Edit</button>
+<form method=post>{{ detail_hiddens(r) }}<button class="btn btn-secondary" name=action value=ask_bot {% if r.vr_status=='pending' %}disabled{% endif %}>Ask Grunions</button></form>
 </div>{% endif %}</div>
 {% if me().is_admin %}<dialog class="botsheet memberedit" id="edit{{ r.id }}"><form method=post class=sheet><div class=grab aria-hidden=true></div>{{ detail_hiddens(r) }}
 <h2>Edit {{ display_first(r) }} {{ r.last }}</h2>
@@ -332,8 +338,8 @@ dialog.memberedit .help a{color:var(--t1)}
 <h3 data-section=name>Name</h3>
 <div class=kv><span>Legal name</span><span>{{ r.first }} {{ r.last }}</span></div>
 <label>Preferred first name<input name=preferred_first value="{{ r.preferred_first or '' }}" placeholder="Leave blank to use legal first name" autocomplete=off></label>
-<button class=full name=action value=edit style="background:#ececee;color:#0a0a0b">Save</button>
-<button type=button class="quiet full" onclick="grunionsCloseSheet(this.closest('dialog'))">Cancel</button>
+<button class="btn btn-primary full" name=action value=edit>Save</button>
+<button type=button class="btn btn-secondary full" onclick="grunionsCloseSheet(this.closest('dialog'))">Cancel</button>
 </form></dialog>{% endif %}{% endmacro %}
 {% macro glyph_clock() %}<svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>{% endmacro %}
 {% macro glyph_pin() %}<svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>{% endmacro %}
@@ -357,17 +363,17 @@ dialog.memberedit .help a{color:var(--t1)}
 <dialog class=modal id=social{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">After-practice social</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 {{ social_fields(p) }}
-<button class="primary full" name=action value=social>Save</button></form></div></dialog>
+<button class="btn btn-primary full" name=action value=social>Save</button></form></div></dialog>
 <dialog class=modal id=message{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Coach message</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 {{ message_fields(p) }}
-<button class="primary full" name=action value=message>Save</button></form></div></dialog>
+<button class="btn btn-primary full" name=action value=message>Save</button></form></div></dialog>
 <dialog class=modal id=image{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Practice image</h2>
 <form method=post action="/practices/{{ p.id }}" enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 <label>Image<input type=file name=image accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic"></label>
 {% if p.image %}<label><input type=checkbox name=image_clear value=1> Remove image</label>{% endif %}
 <p class="t3 sm">Shown on the Home card only. Leave the file empty to keep the current picture.</p>
-<button class="full" name=action value=image style="background:#ececee;color:#0a0a0b">Save</button></form></div></dialog>
+<button class="btn btn-primary full" name=action value=image>Save</button></form></div></dialog>
 {% endmacro %}
 {% macro practice_host_more(p, back) %}
 <span class=more><button type=button class=morebtn aria-label="More for {{ fmt_d(p.date) }}" aria-haspopup=menu aria-expanded=false>⋯</button>
@@ -398,16 +404,16 @@ dialog.memberedit .help a{color:var(--t1)}
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 <div class=checks role=group aria-label="Coaches">{% for c in coach_choices %}<label><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
 {% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
-<div class=row><button class=primary name=action value=assign>Save</button><button type=button onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
+<div class=row><button class="btn btn-primary" name=action value=assign>Save</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 <dialog class=modal id=cancel{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Send cancellation</h2>
 <p class="t2 sm">Members get an email and a push that include this reason.</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 <label>Reason<textarea name=reason required></textarea></label>
-<button class="primary full" name=action value=cancel>Confirm</button></form></div></dialog>
+<button class="btn btn-danger full" name=action value=cancel>Confirm</button></form></div></dialog>
 <dialog class=modal id=delete{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Delete this practice?</h2>
 <p class="t2 sm">{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
-<div class=row><button class=danger name=action value=delete>Delete practice</button><button type=button onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
+<div class=row><button class="btn btn-danger" name=action value=delete>Delete practice</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% endmacro %}
 {% if tab == 'profile' and me() %}<header class=profilebar>
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
@@ -421,7 +427,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <p class="t2 sm" id=iosPushHint hidden>On iPhone or iPad, add Grunions to your Home Screen to get notifications. Tap Share, then Add to Home Screen, and open the app from there (iOS 16.4 or later).</p>
 <p class="t2 sm">Allow notifications for chat, practice reminders, and membership expiry. This works on Android, and on iPhone once Grunions is on your Home Screen (iOS 16.4 or later).</p>
 <p class="t2 sm" id=pushDenied hidden>Notifications are blocked in this browser. Allow them in the site settings, then come back.</p>
-<button type=button class="primary full" id=allowPush>Allow notifications</button>
+<button type=button class="btn btn-primary full" id=allowPush>Allow notifications</button>
 <p class="t3 sm" style="margin:10px 0 0"><a href=/notifications>Notification settings</a></p>
 </div>{% endmacro %}"""
 
@@ -497,6 +503,12 @@ function grunionsSyncNav(next){
  return true;
 }
 var grunionsNavGen=0;
+function grunionsPinHead(){
+ var h=document.querySelector('header.homehead');
+ var sticky=h && !document.body.classList.contains('homefull');
+ document.documentElement.style.setProperty('--headh', sticky ? (h.offsetHeight+'px') : '0px');
+}
+window.grunionsPinHead=grunionsPinHead;
 function grunionsApply(html,url,pop){
  var doc=new DOMParser().parseFromString(html,'text/html');
  var newMain=doc.querySelector('main'), newNav=doc.querySelector('nav.tabs');
@@ -511,8 +523,10 @@ function grunionsApply(html,url,pop){
  if(nextHead&&curHead&&curHead.outerHTML!==nextHead.outerHTML) curHead.replaceWith(nextHead);
  else if(nextHead&&!curHead) document.body.insertBefore(nextHead, document.querySelector('main'));
  document.title=doc.title||document.title;
+ if(doc.body) document.body.className=doc.body.className;
  if(!pop) history.pushState({grunions:1},'',url);
  grunionsRunScripts(scripts);
+ if(window.grunionsPinHead) grunionsPinHead();
  grunionsPushCard();
  if(window.grunionsRefresh) grunionsRefresh();
  var hash=url.split('#')[1]||'';
@@ -607,14 +621,16 @@ document.addEventListener('click',function(e){
  if(el&&sheet){var top=el.getBoundingClientRect().top-sheet.getBoundingClientRect().top+sheet.scrollTop; sheet.scrollTop=Math.max(0,top-12);}
 });
 document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&t.matches('.datefield input[type=date]')) t.closest('.datefield').classList.toggle('empty',!t.value);});
+grunionsPinHead();
+window.addEventListener('resize', grunionsPinHead);
 </script>
 <script>var PUSH_CSRF="{{csrf_token()}}",VAPID_PUBLIC="{{vapid_public_key()}}";</script>
 </body></html>""")
 
-ADMIN_NAV = """<div class="admintabs noprint" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="{{'on' if ep=='admin'}}">Check-in</a>{% endif %}
-{% if me().is_admin %}<a href=/members class="{{'on' if ep=='members'}}">People</a><a href=/expiring class="{{'on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="{{'on' if ep=='transfer_page'}}">Transfer</a>
-<a href=/requirements class="{{'on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="{{'on' if ep=='qr_page'}}">QR</a>{% endif %}</div>
-<script>(function(){var key='grunionsAdminTab';document.querySelectorAll('.admintabs a').forEach(function(a){a.addEventListener('click',function(){try{localStorage.setItem(key,a.getAttribute('href'))}catch(e){}})});var on=document.querySelector('.admintabs a.on');if(on&&on.scrollIntoView)on.scrollIntoView({inline:'nearest',block:'nearest'});})();</script>
+ADMIN_NAV = """<div class="admintabs noprint" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Check-in</a>{% endif %}
+{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a>
+<a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>
+<script>(function(){var key='grunionsAdminTab';document.querySelectorAll('.admintabs a').forEach(function(a){a.addEventListener('click',function(){try{localStorage.setItem(key,a.getAttribute('href'))}catch(e){}})});var on=document.querySelector('.admintabs a.on');if(on&&on.parentNode){var sc=on.parentNode;if(on.offsetLeft+on.offsetWidth>sc.clientWidth+sc.scrollLeft)sc.scrollLeft=Math.max(0,on.offsetLeft-8);}})();</script>
 {% set al = admin_alert() %}{% if al and ep!='admin' %}<a href=/expiring class="note noprint" style="display:block;text-decoration:none"><span class="st st-warn"></span> USAWP: <b>{{al[0]}}</b> expired · <b>{{al[1]}}</b> expiring within {{EXPIRING_DAYS}} days</a>{% endif %}
 {% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% endfor %}"""
 
@@ -627,14 +643,14 @@ T["join"] = """<h1>Join the Grunions</h1>
 <label>Legal last name<input name=last required autocomplete=family-name></label>
 <label>Email<input name=email type=email required autocomplete=email placeholder="The one on your USA Water Polo account"></label>
 <label>Phone<input name=phone type=tel required autocomplete=tel></label>
-<button class="primary full">Create account</button></form>
+<button class="btn btn-primary full">Create account</button></form>
 <p class="t3 sm" style="text-align:center;margin-top:20px">Already a member? <a href=/login>Log in</a></p>"""
 
 T["login"] = """<h1>Log in</h1>
 {% if google_enabled() %}<a class="btn full" href=/auth/google style="background:var(--surface2);color:var(--t1);border:1px solid var(--line)"><svg width=18 height=18 viewBox="0 0 48 48" aria-hidden=true><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</a>
 <p class="t3 sm" style="text-align:center;margin:16px 0 4px">or</p>{% endif %}<p class=t2>We'll email you a one-time login link.</p>
 <form method=post>{{csrf_field()}}<label>Email<input name=email type=email required autocomplete=email></label>
-<button class="primary full">Send login link</button></form>
+<button class="btn btn-primary full">Send login link</button></form>
 <p class="t3 sm" style="text-align:center;margin-top:20px">New here? <a href=/join>Join the team</a></p>"""
 
 T["home"] = """{% if pins %}
@@ -650,10 +666,13 @@ T["home"] = """{% if pins %}
 <script src=/static/leaflet/leaflet.js></script>
 <script>
 (function(){
- var el=document.getElementById('homeMap'); if(!el||!window.L) return;
+ function boot(){
+ var el=document.getElementById('homeMap'); if(!el||!window.L||el.dataset.mapon) return;
+ el.dataset.mapon='1';
  var pins={{ pins|tojson }};
  var map=L.map(el,{zoomControl:false,attributionControl:true,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false});
- L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+ var tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+ var faded=false; tiles.on('tileload',function(){if(!faded){faded=true;el.classList.add('tiles')}});
  function directions(lat,lng){
   var dest=lat+','+lng, apple=/iPhone|iPad|iPod/.test(navigator.userAgent||'');
   var url=apple?('https://maps.apple.com/?daddr='+encodeURIComponent(dest)):('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest));
@@ -698,7 +717,11 @@ T["home"] = """{% if pins %}
  }
  setTimeout(function(){map.invalidateSize();place();},0);
  setTimeout(function(){map.invalidateSize();place();},250);
- window.addEventListener('resize',function(){map.invalidateSize();place();});
+ function onResize(){if(!el.isConnected){window.removeEventListener('resize',onResize);return;}map.invalidateSize();place();}
+ window.addEventListener('resize',onResize);
+ }
+ if(window.L) boot();
+ else {var s=document.createElement('script'); s.src='/static/leaflet/leaflet.js'; s.onload=boot; document.body.appendChild(s);}
 })();
 </script>
 {% endif %}
@@ -707,19 +730,19 @@ T["home"] = """{% if pins %}
 {% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}</div>
 <div class=homedock>
 {% if nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'"><a class=cardlink href="/practices/{{nextp.id}}">
-{% if nextp.image %}<div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class=nxbadge>{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div>{% endif %}
+{% if nextp.image %}<div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div>{% endif %}
 <div class=nxbody><div class=nxtitle>{{ fmt_d(nextp.date) }}</div>
 <div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_clock(nextp.start) }} – {{ fmt_clock(nextp.end) }}</span></div>
 <div class=nxrow>{{ glyph_pin() }}<span>{{ short_place(nextp.location) }}</span></div>
 <div class=nxrow>{{ glyph_people() }}<span>{{ nextp_n }} going{% if next_coaches %} · Coaches: {{ next_coaches }}{% endif %}</span></div>
 {% if nextp.coach_note %}<div class=nxnote>{{ nextp.coach_note }} · {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</div>{% endif %}</div></a>
 <form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
-<button {% if nextp_mine==1 %}class=on {% endif %}name=action value="{{ 'clear' if nextp_mine==1 else 'going' }}">I'm going{% if nextp_mine==1 %} ✓{% endif %}</button>
-<button {% if nextp_mine==0 %}class=on {% endif %}name=action value="{{ 'clear' if nextp_mine==0 else 'notgoing' }}">I'm not going{% if nextp_mine==0 %} ✓{% endif %}</button></form>
+<button class="btn {{ 'btn-primary' if nextp_mine==1 else 'btn-secondary' }}" name=action value="{{ 'clear' if nextp_mine==1 else 'going' }}">I'm going{% if nextp_mine==1 %} ✓{% endif %}</button>
+<button class="btn {{ 'btn-primary' if nextp_mine==0 else 'btn-secondary' }}" name=action value="{{ 'clear' if nextp_mine==0 else 'notgoing' }}">I'm not going{% if nextp_mine==0 %} ✓{% endif %}</button></form>
 {% if sh %}<div class=nxdiv></div><div class=nxsocial><a class=cardlink href="/practices/{{nextp.id}}" style="display:flex;align-items:center;gap:12px">{{ social_icon() }}
 <div class=grow><div class=nxtitle>{{ sh.title }}</div><div class="t2 sm">{{ sh.place }}</div></div></a>
 <form method=post action=/practices>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
-<button class="joinpill{{ ' on' if next_joined }}" name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}Joined ✓{% else %}Join{% endif %}</button></form></div>{% endif %}
+<button class="btn {{ 'btn-primary' if next_joined else 'btn-secondary' }}" name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}Joined ✓{% else %}Join{% endif %}</button></form></div>{% endif %}
 </div>{% endif %}
 {% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set ex = expiry_notes(m, cl) %}{% set cc = coach_clearance(m) %}
 {% if vr_pending %}{% set play_title = 'Verification pending' %}{% set play_dot = 'warn' %}
@@ -737,30 +760,30 @@ T["home"] = """{% if pins %}
 {% if m.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %}<p class="sm" style="margin:8px 0 0"><span class="st st-warn"></span> Your membership expires in <b>{{dl}} days</b> ({{m.usawp_valid_until}}). <a href=https://usawp.sport80.com>Renew</a></p>{% endif %}
 {% if m.usawp_status != 'verified' %}<p class="t2 sm" style="margin:8px 0 0">Register or renew at <a href=https://usawp.sport80.com>usawp.sport80.com</a> with {{m.email}} and choose Grunions as your club.</p>{% endif %}
 {% if ex.membership and not vr_pending %}
-<button type=button class="primary full" id=reverifyOpen style="margin-top:14px">Reverify membership</button>
+<button type=button class="btn btn-primary full" id=reverifyOpen style="margin-top:14px">Reverify membership</button>
 <form id=reverifyForm hidden method=post action=/home style="margin-top:14px">{{csrf_field()}}
 <div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="{{m.usawp_number or ''}}" autocomplete=off></label>
 <label style="margin:0">Background screening expires<input name=background_expires type=date value="{{ (background_view(m).date if background_view(m) else '') }}"></label>
-<button class=primary style="flex:0 0 auto">Send</button></div></form>
+<button class="btn btn-primary" style="flex:0 0 auto">Send</button></div></form>
 <script>document.getElementById('reverifyOpen').onclick=function(){var f=document.getElementById('reverifyForm');f.hidden=false;this.hidden=true;f.querySelector('input[name=usawp_number]').focus()};</script>
 {% elif m.usawp_status == 'verified' %}
 {% set bg = background_view(m) %}{% if bg and bg.required and bg.kind == 'bad' and not vr_pending %}
 <form method=post action=/home style="margin-top:14px">{{csrf_field()}}<input type=hidden name=action value=reverify_background>
-<button class="primary full">Reverify background screening</button></form>{% endif %}
+<button class="btn btn-primary full">Reverify background screening</button></form>{% endif %}
 {% elif m.usawp_number %}
-<div class=usawp-line><span>USAWP # {{m.usawp_number}}</span><button type=button class=compact id=usawpEdit>Edit</button></div>
+<div class=usawp-line><span>USAWP # {{m.usawp_number}}</span><button type=button class="btn btn-secondary" id=usawpEdit>Edit</button></div>
 <form id=usawpForm hidden method=post action=/home>{{csrf_field()}}
 <div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="{{m.usawp_number}}" autocomplete=off></label>
-<button class=primary style="flex:0 0 auto">Save</button></div></form>
+<button class="btn btn-primary" style="flex:0 0 auto">Save</button></div></form>
 <script>document.getElementById('usawpEdit').onclick=function(){var f=document.getElementById('usawpForm');f.hidden=!f.hidden;if(!f.hidden)f.querySelector('input[name=usawp_number]').focus()};</script>
 {% else %}<form method=post action=/home style="margin-top:14px">{{csrf_field()}}
 <div class="row wrap" style="align-items:flex-end"><label style="margin:0;flex:1 1 180px">USAWP Membership #<input name=usawp_number inputmode=numeric value="" autocomplete=off></label>
-<button class=primary style="flex:0 0 auto">Add</button>
-{% if not tw %}<button type=button class=compact id=trialOpen style="flex:0 0 auto">2-week USAWP trial</button>{% endif %}</div></form>
+<button class="btn btn-secondary" style="flex:0 0 auto">Add</button>
+{% if not tw %}<button type=button class="btn btn-secondary" id=trialOpen style="flex:0 0 auto">2-week USAWP trial</button>{% endif %}</div></form>
 {% if not tw %}<dialog id=trialDialog class=modal><div class=sheet>
 <p>I will complete the USA Water Polo 2-week trial membership before I get in the pool. I understand I need to get a full USAWP membership soon, otherwise I will not be able to practice.</p>
 <form method=post action=/home>{{csrf_field()}}<input type=hidden name=action value=trial>
-<button class="primary full">I confirm</button></form>
+<button class="btn btn-primary full">I confirm</button></form>
 <a class="btn full" style="margin-top:10px" href="{{TRIAL_JOIN_URL}}" target=_blank rel=noopener>Get USAWP trial membership</a>
 </div></dialog>
 <script>document.getElementById('trialOpen').onclick=function(){document.getElementById('trialDialog').showModal()};
@@ -788,11 +811,11 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class="li prow"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
 </div>
 <div class=seclabel>Role</div>
-<div class=list><div class="li prow"><span class=k>Role</span><span class="coach-tag" style="margin:0">{{ role_label(m)|capitalize }}</span></div></div>
+<div class=list><div class="li prow"><span class=k>Role</span><span class="chip-info" style="margin:0">{{ role_label(m)|capitalize }}</span></div></div>
 <div class=seclabel>Settings</div>
 <div class=list><a class="li prow chevrow" href=/notifications><span>Notifications</span><span class=nxchev aria-hidden=true>›</span></a></div>
 <div class=seclabel>Account</div>
-<div class=list><a class="li logoutrow" href=/logout>Log out</a></div>
+<a class="btn btn-secondary full" href=/logout>Log out</a>
 </form>
 <script>
 (function(){
@@ -828,9 +851,9 @@ T["notifications"] = """<h1>Notifications</h1>
 {% endfor %}</div>
 <label style="margin-top:16px"><input type=checkbox name=email_reminders value=1 {% if email_on %}checked{% endif %}>Email reminders for membership, SafeSport, and the 2-week trial</label>
 <p class="t3 sm">These emails go out 7 days before, 1 day before, and on the day it expires. Practice cancellation emails always send.</p>
-<button class="primary full">Save</button></form>"""
+<button class="btn btn-primary full">Save</button></form>"""
 
-T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="{{'on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="{{'on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% else %}<h1>Team</h1>{% endif %}
+T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% else %}<h1>Team</h1>{% endif %}
 <div class=chat id=chat></div><div style=height:90px></div>
 <div class="composer noprint"><div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=preview id=prev hidden><img id=prevImg alt=""><span id=prevName></span><button type=button class="quiet compact" id=prevX>Remove</button></div>
 <form id=f><input type=file id=file accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic" hidden>
@@ -855,7 +878,7 @@ T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="{{'on' if 
 <div class=grab aria-hidden=true></div>
 <h2 style="margin:0 0 8px">Seen by</h2>
 <div class=seenlist id=seenPeople></div>
-<button type=button class="quiet full" id=seenClose style="margin-top:12px">Close</button>
+<button type=button class="btn btn-secondary full" id=seenClose style="margin-top:12px">Close</button>
 </div></dialog>
 <script>
 const CSRF="{{csrf_token()}}",CH="{{ch}}",EMO={{REACTIONS|tojson}};let last=0;const box=document.getElementById('chat'),msgs={};
@@ -996,12 +1019,12 @@ T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">T
 {% if p.note %}<div class=nxnote>{{p.note}}</div>{% endif %}
 {% if p.coach_note %}<div class=nxnote>{{ p.coach_note }} · {{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</div>{% endif %}</a>
 {% if not p.cancelled %}<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{p.id}}>
-<button {% if x.mine == 1 %}class=on {% endif %}name=action value="{{ 'clear' if x.mine==1 else 'going' }}">I'm going{% if x.mine==1 %} ✓{% endif %}</button>
-<button {% if x.mine == 0 %}class=on {% endif %}name=action value="{{ 'clear' if x.mine==0 else 'notgoing' }}">I'm not going{% if x.mine==0 %} ✓{% endif %}</button></form>
+<button class="btn {{ 'btn-primary' if x.mine == 1 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==1 else 'going' }}">I'm going{% if x.mine==1 %} ✓{% endif %}</button>
+<button class="btn {{ 'btn-primary' if x.mine == 0 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==0 else 'notgoing' }}">I'm not going{% if x.mine==0 %} ✓{% endif %}</button></form>
 {% endif %}</div>{% endfor %}
 {% if me().is_admin %}<details class=card><summary>Add a practice</summary><form method=post class=body>{{csrf_field()}}<label>Date<input type=date name=date required></label>
 <div class=row><label>Start<input type=time name=start value=19:00></label><label>End<input type=time name=end value=20:30></label></div>
-<label>Location<input name=location required></label><label>Note<input name=note></label><button class="primary full" name=action value=add>Add practice</button></form></details>{% endif %}""" + _PRACTICE_JS
+<label>Location<input name=location required></label><label>Note<input name=note></label><button class="btn btn-primary full" name=action value=add>Add practice</button></form></details>{% endif %}""" + _PRACTICE_JS
 
 T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a href=/practices>Schedule</a></p>
 <div class=pagehead><div><h1 style="margin-bottom:4px">{{ fmt_d(p.date) }}</h1>
@@ -1010,7 +1033,7 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 {% if p.cancelled and p.cancel_reason %}<p style="margin:8px 0 0">{{ p.cancel_reason }}</p>{% endif %}
 {% if me().is_admin and not p.cancelled and not x.any_eligible %}<div class="sm" style="margin-top:8px">{{ st('warn', 'No assigned coach is coach-eligible') }}</div>{% endif %}
 {% if not editing and p.coach_note %}<p style="margin:12px 0 0">{{ p.coach_note }}</p><p class="t3 sm">{{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</p>{% endif %}</div>
-{% if me().is_admin %}<div style="display:flex;align-items:center;gap:8px">{% if not editing %}<a class=btn href="/practices/{{ p.id }}?edit=1">Edit</a>{% endif %}{{ practice_more(p, x.coach_ids, 'page') }}</div>{% elif is_staff() %}{{ practice_host_more(p, 'page') }}{% endif %}</div>
+{% if me().is_admin %}<div style="display:flex;align-items:center;gap:8px">{% if not editing %}<a class="btn btn-secondary" href="/practices/{{ p.id }}?edit=1">Edit</a>{% endif %}{{ practice_more(p, x.coach_ids, 'page') }}</div>{% elif is_staff() %}{{ practice_host_more(p, 'page') }}{% endif %}</div>
 {% if editing %}<form method=post action="/practices/{{ p.id }}" class=card style="margin-top:16px" enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <label>Date<input type=date name=date value="{{ p.date }}" required></label>
 <div class=row><label>Start<input type=time name=start value="{{ p.start }}" required></label><label>End<input type=time name=end value="{{ p.end }}" required></label></div>
@@ -1024,11 +1047,11 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 <div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>
 {% for c in coach_choices %}<label><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in x.coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
 {% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
-<div class=row><button class=primary name=action value=edit>Save</button><a class=btn href="/practices/{{ p.id }}">Cancel</a></div></form>
+<div class=row><button class="btn btn-primary" name=action value=edit>Save</button><a class="btn btn-secondary" href="/practices/{{ p.id }}">Cancel</a></div></form>
 {% else %}
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=pills style="margin-top:16px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
-<button {% if x.mine == 1 %}class=on {% endif %}name=action value="{{ 'clear' if x.mine==1 else 'going' }}">I'm going{% if x.mine==1 %} ✓{% endif %}</button>
-<button {% if x.mine == 0 %}class=on {% endif %}name=action value="{{ 'clear' if x.mine==0 else 'notgoing' }}">I'm not going{% if x.mine==0 %} ✓{% endif %}</button></form>{% endif %}
+<button class="btn {{ 'btn-primary' if x.mine == 1 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==1 else 'going' }}">I'm going{% if x.mine==1 %} ✓{% endif %}</button>
+<button class="btn {{ 'btn-primary' if x.mine == 0 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==0 else 'notgoing' }}">I'm not going{% if x.mine==0 %} ✓{% endif %}</button></form>{% endif %}
 {% if social_line(p) or me().is_admin or is_staff() %}<h2>After-practice social</h2>
 <div class=list><div class=li>{% if social_line(p) %}{{ social_icon() }}{% endif %}<div class=grow>
 {% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
@@ -1036,7 +1059,7 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 {% if p.social_note %}<div class="t2 sm">{{ p.social_note }}</div>{% endif %}
 {% if p.social_address %}{% if p.social_address.lower().startswith('http://') or p.social_address.lower().startswith('https://') %}<div class="sm"><a href="{{ p.social_address }}" target=_blank rel=noopener>Map</a></div>{% else %}<div class="t2 sm">{{ p.social_address }} · <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ p.social_address|urlencode }}" target=_blank rel=noopener>Map</a></div>{% endif %}{% endif %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
-</div>{% if me().is_admin or is_staff() %}<button type=button class=compact data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>{% endif %}
+</div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>{% endif %}
 <h2>Coaches</h2>
 <div class=list>{% for c in x.coaches %}<div class=li><div class=grow>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</div></div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}</div>
 <h2>Going <span class=t3>{{ x.going|length }}</span></h2>
@@ -1074,17 +1097,17 @@ T["admin"] = ADMIN_NAV + """
 <p class="t2 sm" style="margin-top:0">{% if pr %}{{ fmt_span(pr.start, pr.end) }}{% else %}no practice scheduled{% endif %}{% if coach_names %} · Coaches: {{ coach_names|join(', ') }}{% endif %}{% if n %} · {{ n }} checked in{% endif %}</p>
 {% if coach_warn %}<p class="sm" style="margin-top:0">{{ st('warn', 'No assigned coach is coach-eligible') }}</p>{% endif %}
 <div class=filt role=group aria-label="RSVP">
-<button type=button data-filter=going>Going ({{ going|length }})</button>
-<button type=button data-filter=not>Not Going ({{ n_not }})</button>
-<button type=button data-filter=none>No Response ({{ n_none }})</button>
-<button type=button data-filter=in>Checked in ({{ n }})</button>
+<button type=button class=chip data-filter=going>Going ({{ going|length }})</button>
+<button type=button class=chip data-filter=not>Not Going ({{ n_not }})</button>
+<button type=button class=chip data-filter=none>No Response ({{ n_none }})</button>
+<button type=button class=chip data-filter=in>Checked in ({{ n }})</button>
 </div>
 {% macro ci(r) %}
 <div class="li cirow" data-rsvp="{{ 'going' if r.going==1 else ('not' if r.going==0 else 'none') }}" data-checked="{{ 1 if r.cid else 0 }}"><button type=button class=ci-name onclick="this.closest('.li').nextElementSibling.toggleAttribute('hidden')">
 {% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}
 <span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ checkin_status(r) }}</span></button>
 <form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}">
-{% if r.cid %}<button class="quietcheck compact" name=action value=undo title="Undo check-in">✓ Checked in</button>{% else %}<button class="dock compact" {% if not clearance(r).ok %}data-confirm="Not cleared — check in anyway?"{% endif %}>Check in</button>{% endif %}</form></div>
+{% if r.cid %}<button class="btn btn-secondary" name=action value=undo title="Undo check-in">✓ Checked in</button>{% else %}<button class="btn btn-primary" {% if not clearance(r).ok %}data-confirm="Not cleared — check in anyway?"{% endif %}>Check in</button>{% endif %}</form></div>
 {{ member_panel(r) }}{% endmacro %}
 {% if q and not going and not rest %}<p class=emptyfind>No players match “{{ q }}”.</p>{% endif %}
 <h2>Going <span class=t3>{{going|length}}</span></h2>
@@ -1095,12 +1118,12 @@ T["admin"] = ADMIN_NAV + """
 <p class="t3 sm">Someone on deck who is not on the list yet.</p>
 {{ csrf_field() }}<input type=hidden name=action value=walkin><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">
 <div class=row><label>First<input name=first required autocomplete=off></label><label>Last<input name=last required autocomplete=off></label></div>
-<button class="dock full">Add and check in</button></form>
+<button class="btn btn-primary full">Add and check in</button></form>
 <script>
 document.querySelectorAll('.filt button').forEach(function(b){
  b.onclick=function(){var on=b.classList.contains('on');
-  document.querySelectorAll('.filt button').forEach(function(x){x.classList.remove('on')});
-  var key=on?'':b.getAttribute('data-filter'); if(!on) b.classList.add('on');
+  document.querySelectorAll('.filt button').forEach(function(x){x.classList.remove('on'); x.classList.remove('chip-active')});
+  var key=on?'':b.getAttribute('data-filter'); if(!on){b.classList.add('on'); b.classList.add('chip-active')}
   document.querySelectorAll('.cirow').forEach(function(row){
    if(!key) row.hidden=false;
    else if(key==='in') row.hidden=row.getAttribute('data-checked')!=='1';
@@ -1169,7 +1192,7 @@ T["transfer"] = ADMIN_NAV + """<h1>Transfer</h1>
 <li>Log in at <a href=https://usawp.sport80.com>usawp.sport80.com</a> and switch to the Grunions club profile.</li>
 <li>Members → Smart Lists → Edit Columns: name, email, membership status, member number, valid until, plus SafeSport / background columns.</li>
 <li>Actions → Export Report, then upload the emailed file here.</li></ol>
-<form method=post action=/transfer enctype=multipart/form-data style="margin-top:14px">{{csrf_field()}}<input type=file name=file accept=".csv,.xlsx" style="padding:11px 14px;height:44px"><button class="dock full" style="margin-top:12px">Import</button></form>
+<form method=post action=/transfer enctype=multipart/form-data style="margin-top:14px">{{csrf_field()}}<input type=file name=file accept=".csv,.xlsx" style="padding:11px 14px;height:44px"><button class="btn btn-primary full" style="margin-top:12px">Import</button></form>
 {% if stats %}<div class=note style="margin-top:16px">Read {{stats.rows}} rows · updated {{stats.matched}} members · {{stats.req_updates or 0}} compliance items · {{stats.unmatched|length}} roster rows not in the app</div>
 {% if stats.unmatched %}<details style="margin-top:12px"><summary>Not signed up in the app</summary><div class=body>{% for u in stats.unmatched %}<div class="kv t2">{{u}}</div>{% endfor %}</div></details>{% endif %}
 {% else %}<p class="t3 sm" style="margin:12px 0 0">No file imported yet.</p>{% endif %}
@@ -1177,32 +1200,32 @@ T["transfer"] = ADMIN_NAV + """<h1>Transfer</h1>
 <h2>Export</h2>
 <div class=card><h2 style="margin:0 0 8px">Members</h2>
 <p class="t2 sm">Legal name, preferred name, phone, role, clearance, USAWP number, membership, SafeSport, background screening, trial dates, and attendance.</p>
-<a class="quietcheck full" href=/members.csv>Download members CSV</a></div>
+<a class="btn btn-secondary full" href=/members.csv>Download members CSV</a></div>
 <div class=card><h2 style="margin:0 0 8px">Practices and attendance</h2>
 <form method=get action=/export/practices.csv>
 <div class=row><label>Start<input type=date name=start value="{{start}}" required></label><label>End<input type=date name=end value="{{end}}" required></label></div>
-<button class="quietcheck full" name=detail value=0>Download practices CSV</button>
-<button class="quietcheck full" style="margin-top:10px" name=detail value=1>Download detailed attendance CSV</button></form>
+<button class="btn btn-secondary full" name=detail value=0>Download practices CSV</button>
+<button class="btn btn-secondary full" style="margin-top:10px" name=detail value=1>Download detailed attendance CSV</button></form>
 <p class="t3 sm" style="margin:12px 0 0">Practices is one row per practice, with the assigned coaches, a coach count, and how many of those coaches are coach-eligible. Detailed attendance is one row per member per practice, with RSVP and check-in.</p></div>
 {% if sheet_on %}<div class=card><h2 style="margin:0 0 8px">Google Sheet</h2>
 <p class="t2 sm">{% if sheet_status.at %}Last sync {{sheet_status.at}} PT · {{sheet_status.label}}{% else %}Not synced yet{% endif %}{% if sheet_status.detail and not sheet_status.ok %} · {{sheet_status.detail}}{% endif %}</p>
 <p class="t3 sm">Members, Practices, and Attendance stay in sync after changes. A full rewrite also runs daily.</p>
-<form method=post action=/export/sheet>{{csrf_field()}}<button class="quietcheck full">Sync to Google Sheet now</button></form></div>{% endif %}"""
+<form method=post action=/export/sheet>{{csrf_field()}}<button class="btn btn-secondary full">Sync to Google Sheet now</button></form></div>{% endif %}"""
 
 T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
 <div class=peoplebar>
 <form method=get action=/members><input name=q value="{{q}}" placeholder="Search people..." autocomplete=off>{% if view != 'members' %}<input type=hidden name=view value="{{view}}">{% endif %}</form>
 <div class=fchips>
-<a href="/members{% if q %}?q={{ q|urlencode }}{% endif %}" {% if view=='members' %}class=on{% endif %}>All</a>
-<a href="/members?view=coaches{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if view=='coaches' %}class=on{% endif %}>Coaches</a>
-<a href="/members?view=admins{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if view=='admins' %}class=on{% endif %}>Admins</a>
-<a href="/members?view=expiring{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if view=='expiring' %}class=on{% endif %}>Expiring</a>
-<a href="/members?view=uncleared{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if view=='uncleared' %}class=on{% endif %}>Not cleared</a>
-<a href="/members?view=referees{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if view=='referees' %}class=on{% endif %}>Referees</a>
+<a href="/members{% if q %}?q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='members' }}">All</a>
+<a href="/members?view=coaches{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='coaches' }}">Coaches</a>
+<a href="/members?view=admins{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='admins' }}">Admins</a>
+<a href="/members?view=expiring{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='expiring' }}">Expiring</a>
+<a href="/members?view=uncleared{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='uncleared' }}">Not cleared</a>
+<a href="/members?view=referees{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='referees' }}">Referees</a>
 </div></div>
 {% macro prow(r, kind) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r) %}<div class=li><div class=grow onclick="if(event.target.closest('button,a,form,input,select'))return;this.closest('.li').nextElementSibling.toggleAttribute('hidden')" style="cursor:pointer"><div style="display:flex;align-items:center;gap:8px;min-width:0">{{ status_dot(r.usawp_status) }}<span class=ell style="font-weight:500">{{display_first(r)}} {{r.last}}</span></div>
 <div class="t3 xs" style="margin-top:2px">{% if kind=='admins' %}{% if r.role=='coach' %}Active coach{% else %}Not an active coach{% endif %} · {% endif %}{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}Ends {{tw.ends}} · {% elif tw and tw.expired and r.usawp_status != 'verified' and not ex.membership %}Trial ended {{tw.ends}} · {% elif r.usawp_valid_until %}thru {{ fmt_long(r.usawp_valid_until) }} · {% endif %}{{r.email}}{% if r.preferred_first and r.preferred_first.strip() %} · legal {{r.first}}{% endif %} · {{r.visits}} practices</div>
-<div class=eligs>{% if r.is_admin %}<span class=coach-tag>Admin</span>{% endif %}{% set chip = coach_row_expiry(r) %}{% set ce = coach_eligibility(r) %}{% if r.role=='coach' or r.id in listed or ce.eligible or ce.text %}<span class="coach-tag{{ ' ' ~ chip.tone if chip.tone else '' }}">Coach{% if chip.date %} · expires {{ chip.date }}{% endif %}</span>{% endif %}{% if r.id in referees %}<span class=coach-tag>Referee</span>{% endif %}{{ referee_tag(r) }}</div>
+<div class=eligs>{% if r.is_admin %}<span class=chip-info>Admin</span>{% endif %}{% set chip = coach_row_expiry(r) %}{% set ce = coach_eligibility(r) %}{% if r.role=='coach' or r.id in listed or ce.eligible or ce.text %}<span class="chip-info{{ ' ' ~ chip.tone if chip.tone else '' }}">Coach{% if chip.date %} · expires {{ chip.date }}{% endif %}</span>{% endif %}{% if r.id in referees %}<span class=chip-info>Referee</span>{% endif %}{{ referee_tag(r) }}</div>
 </div>
 <span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false>⋯</button>
 <div class=menu hidden role=menu>
@@ -1265,10 +1288,10 @@ T["expiring"] = ADMIN_NAV + """<div class=expage><h1>Expiring</h1>
 <form class="row noprint" method=get action=/expiring style="align-items:center;margin-bottom:8px"><label class="t2 sm" style="flex:0 0 auto;margin:0">Window (days)<input name=days type=number min=1 value={{days}} onchange=this.form.submit() style="margin:6px 0 0;height:44px;width:96px"></label></form>
 {% for key, label in [('expired','Expired'),('within_7','Next 7 days'),('within_%d'%days,'Next %d days'%days)] %}<h2 class=egroup>{{label}} <span class=t3>{{rep[key]|length}}</span></h2>
 <div class=list>{% for r in rep[key] %}<div class=li><div class=grow style="min-width:0"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span class=ell style="font-weight:500;flex:1">{{display_first(r)}} {{r.last}}</span>
-<span class=daybadge><span class="dot {{ 'bad' if r.days_left < 0 else ('warn' if r.days_left <= 7 else '') }}" aria-hidden=true></span>{% if r.days_left < 0 %}{{ -r.days_left }}d ago{% elif r.days_left == 0 %}Today{% else %}{{ r.days_left }}d left{% endif %}</span></div>
+<span class="chip-info daybadge"><span class="dot {{ 'bad' if r.days_left < 0 else ('warn' if r.days_left <= 7 else '') }}" aria-hidden=true></span>{% if r.days_left < 0 %}{{ -r.days_left }}d ago{% elif r.days_left == 0 %}Today{% else %}{{ r.days_left }}d left{% endif %}</span></div>
 <div class="t3 xs">{{ r.item }} · {{ fmt_long(r.usawp_valid_until) }}</div></div>
-<button type=button class="quietcheck compact" data-member-edit="edit{{ r.id }}" data-focus=membership>Recheck</button></div>{% else %}<div class=li><span class=t3>None</span></div>{% endfor %}</div>{% endfor %}
-<form method=post style="margin-top:20px">{{csrf_field()}}<input type=hidden name=action value=ask_all><input type=hidden name=days value="{{days}}"><button class="dock full">Ask Grunions to recheck all</button></form>
+<button type=button class="btn btn-secondary" data-member-edit="edit{{ r.id }}" data-focus=membership>Recheck</button></div>{% else %}<div class=li><span class=t3>None</span></div>{% endfor %}</div>{% endfor %}
+<form method=post style="margin-top:20px">{{csrf_field()}}<input type=hidden name=action value=ask_all><input type=hidden name=days value="{{days}}"><button class="btn btn-primary full">Ask Grunions to recheck all</button></form>
 <p class="t3 sm" style="margin-top:10px">Asks Grunions to look up everyone listed. Daily report: <a href=/api/expiring>/api/expiring</a>.</p>
 {% for person in roster %}{{ member_panel(person) }}{% endfor %}
 </div>"""
@@ -1281,18 +1304,18 @@ T["requirements_page"] = ADMIN_NAV + """<h1>Rules</h1>
 <div class=row><label>Applies to<select name=applies_to>{% for o in ['all','athlete','coach'] %}<option {{'selected' if q.applies_to==o}}>{{o}}</option>{% endfor %}</select></label>
 <label>Import keywords<input name=keywords value="{{q.keywords or ''}}"></label></div>
 <label><input type=checkbox name=expires {{'checked' if q.expires}}>Has an expiration date</label><label><input type=checkbox name=active {{'checked' if q.active}}>Active</label>
-<button class="quietcheck full" name=action value=save>Save</button></form></details>{% endfor %}
+<button class="btn btn-primary full" name=action value=save>Save</button></form></details>{% endfor %}
 <details class=card><summary>Add a rule</summary><form method=post class=body>{{csrf_field()}}<label>Name<input name=name placeholder="CPR / First Aid"></label>
 <div class=row><label>Applies to<select name=applies_to><option>all</option><option>athlete</option><option>coach</option></select></label><label>Keywords<input name=keywords placeholder="cpr,firstaid"></label></div>
-<label><input type=checkbox name=expires checked>Has an expiration date</label><button class="dock full" name=action value=add>Add</button></form></details>"""
+<label><input type=checkbox name=expires checked>Has an expiration date</label><button class="btn btn-secondary full" name=action value=add>Add</button></form></details>"""
 
 T["qr_page"] = ADMIN_NAV + """<div style="text-align:center"><h1>Join QR</h1>
 <p class="t2 sm" style="margin-top:-8px">Anyone who scans this joins the team.</p>
 {% if u %}<div style="background:#fff;border-radius:16px;padding:18px;display:inline-block;margin-top:8px"><img src=/qr.svg alt="Sign-up QR code" width="240" height="240" style="width:min(64vw,240px);height:auto;display:block"></div>
 <p class="t3 sm" id=joinLink style="margin-top:12px;word-break:break-all">{{u}}</p>
-<button class="dock full noprint" type=button id=copyJoin>Copy link</button>
-<button class="quietcheck full noprint" type=button id=shareJoin style="margin-top:8px">Share</button>
-<button class="quiet noprint" type=button onclick="print()" style="margin-top:4px">Print</button>
+<button class="btn btn-primary full noprint" type=button id=copyJoin>Copy link</button>
+<button class="btn btn-secondary full noprint" type=button id=shareJoin style="margin-top:8px">Share</button>
+<button class="btn btn-secondary noprint" type=button onclick="print()" style="margin-top:8px">Print</button>
 {% else %}<p class=emptyfind>The join link is not ready yet.</p>{% endif %}</div>
 <script>
 (function(){
