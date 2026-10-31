@@ -60,6 +60,9 @@ a.avatar img,button.avatar img,span.avatar img{width:44px;height:44px;max-width:
 .nextcard .nxdiv{margin:14px 16px}.nextcard .nxsocial{padding:0 16px 16px}
 .homemap{height:300px;margin:0 -20px 16px;background:#1a1c20;position:relative;z-index:1}
 .homemap.cardmap{height:220px;margin:0 0 12px;border-radius:14px;overflow:hidden;cursor:pointer;touch-action:pan-y}
+.homemap.banner{height:220px;margin:0 -20px 0;border-radius:0;overflow:hidden;position:relative}
+.homemap.banner::after{content:"";position:absolute;left:0;right:0;bottom:0;height:84px;background:linear-gradient(transparent,#0a0a0b);z-index:450;pointer-events:none}
+body.practicepage main{padding-top:0}
 .homemap.leaflet-container,.homemap .leaflet-container{background:#1a1c20}
 .homemap .leaflet-tile-pane{filter:grayscale(1) invert(1) contrast(.9) brightness(.82);opacity:0;transition:opacity .45s ease}
 .homemap.tiles .leaflet-tile-pane{opacity:1}
@@ -75,7 +78,7 @@ body.homefull .homemap .leaflet-marker-icon,body.homefull .homemap .leaflet-cont
 body.profilepage main{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
 header.profilebar{position:sticky;top:0;z-index:5;background:#0a0a0b;display:grid;grid-template-columns:88px 1fr 88px;align-items:center;padding:calc(8px + env(safe-area-inset-top)) 6px 8px}
 header.profilebar h1{margin:0;text-align:center;font-size:17px;font-weight:650}
-header.profilebar button,header.profilebar a.profileback{background:none;color:var(--t1);height:44px;min-width:44px;padding:0 10px;font-weight:600;font-size:16px;text-decoration:none}
+header.profilebar button,header.profilebar a.profileback,header.profilebar a.profileact{background:none;color:var(--t1);height:44px;min-width:44px;padding:0 10px;font-weight:600;font-size:16px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
 header.profilebar .left{justify-self:start}header.profilebar .right{justify-self:end}
 header.profilebar .savebtn{font-weight:650}
 .profilehero{display:flex;flex-direction:column;align-items:center;padding:12px 0 4px}
@@ -87,6 +90,15 @@ button.cambadge svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-
 body.profile-edit button.cambadge.editonly{display:flex}
 button.textlink{background:transparent;color:var(--t1);height:auto;min-height:0;padding:6px 8px;border-radius:0;font-size:14px;font-weight:600}
 button.textlink.danger{color:var(--bad)}
+a.rowbtn,button.rowbtn{width:100%;height:auto;min-height:60px;padding:14px 18px;border-radius:0;background:transparent;color:var(--t1);font-weight:500;justify-content:flex-start;text-decoration:none;border-top:1px solid var(--line)}
+.list>form{margin:0}
+.list>form:not(:first-child)>button.rowbtn{border-top:1px solid var(--line)}
+.pracemeta{color:var(--t2);text-align:center;margin:0;font-size:15px}
+.pracemeta+.pracemeta{margin-top:2px}
+.pracestatus{margin:10px 0 2px}
+.stats.trio{width:100%;max-width:420px}
+.stats.trio .stattile{flex:1;min-width:0;padding:12px 8px}
+.list .li .coach-elig{margin-left:0;flex:none;height:24px;padding:0 8px;border-radius:999px;border:1px solid var(--line);background:#2a2a2e;font-size:12px;font-weight:600}
 .profilename{margin:14px 0 4px;font-size:24px;font-weight:650;letter-spacing:-.3px;text-align:center}
 .profilesub{color:var(--t2);text-align:center;margin:0 0 16px}
 .stats{display:flex;gap:10px;justify-content:center;margin:0 0 8px}
@@ -304,7 +316,7 @@ dialog.memberedit .help a{color:var(--t1)}
 .datefield.empty input[type=date]{color:transparent}
 .datefield.empty input[type=date]::-webkit-datetime-edit,.datefield.empty input[type=date]::-webkit-datetime-edit-fields-wrapper{color:transparent}
 @media print{header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{background:#fff}}
-</style></head><body style="background:#0a0a0b;color:#ececee;margin:0" class="{% if tab=='home' and me() %}homefull{% elif tab=='profile' %}profilepage{% endif %}">
+</style></head><body style="background:#0a0a0b;color:#ececee;margin:0" class="{% if tab=='home' and me() %}homefull{% elif tab=='profile' %}profilepage{% elif tab=='practice' %}practicepage{% endif %}">
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
@@ -433,7 +445,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
 <h1>Profile</h1>
 <div class=right><button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=profileForm>Save</button></div>
-</header>{% elif me() %}<header class=homehead><div class=headmain>{% if tab == 'home' %}<h1>Hi, {{ display_first(me()) }}</h1>{% elif tab == 'practices' %}<h1>Schedule</h1>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Check-in</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left><a class=profileback href=/practices aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div><h1>Practice</h1><div class=right>{% if editing %}<a class=profileact href="/practices/{{ x.p.id }}">Cancel</a>{% elif me().is_admin %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1">Edit</a>{% elif is_staff() %}<button type=button class=profileact data-open="hostedit{{ x.p.id }}">Edit</button>{% endif %}</div></header>{% elif me() %}<header class=homehead><div class=headmain>{% if tab == 'home' %}<h1>Hi, {{ display_first(me()) }}</h1>{% elif tab == 'practices' %}<h1>Schedule</h1>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Check-in</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -453,12 +465,12 @@ ICONS = {
 }
 TABS = ("""</main>{% if me() and tab != 'profile' %}<nav class="tabs noprint" data-total="{{ badges().total }}">
 <a href=/home class="{{'on' if tab=='home'}}">""" + ICONS["home"] + """Home</a>
-<a href=/practices class="{{'on' if tab=='practices'}}" data-badge=schedule>""" + ICONS["cal"] + """Schedule{{ bubble(badges().schedule) }}</a>
+<a href=/practices class="{{'on' if tab=='practices' or tab=='practice'}}" data-badge=schedule>""" + ICONS["cal"] + """Schedule{{ bubble(badges().schedule) }}</a>
 <a href=/chat class="{{'on' if tab=='chat'}}" data-badge=chat>""" + ICONS["chat"] + """Chat{{ bubble(badges().chat) }}</a>
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=5');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=6');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1031,7 +1043,7 @@ _PRACTICE_JS = """<script>
  });
  document.querySelectorAll('[data-open]').forEach(function(b){
   if(b.dataset.bound) return; b.dataset.bound='1';
-  b.onclick=function(e){e.stopPropagation(); e.preventDefault(); closeAll(); var d=document.getElementById(b.getAttribute('data-open')); if(d) d.showModal();};
+  b.onclick=function(e){e.stopPropagation(); e.preventDefault(); closeAll(); var d=document.getElementById(b.getAttribute('data-open')); var parent=b.closest('dialog'); if(parent&&parent!==d) parent.close(); if(d) d.showModal();};
  });
  document.querySelectorAll('[data-copy]').forEach(function(b){
   if(b.dataset.bound) return; b.dataset.bound='1';
@@ -1066,15 +1078,30 @@ T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp
 <div class=row><label>Start<input type=time name=start value=19:00></label><label>End<input type=time name=end value=20:30></label></div>
 <label>Location<input name=location required></label><label>Note<input name=note></label><button class="btn btn-primary full" name=action value=add>Add practice</button></form></details>{% endif %}""" + _PRACTICE_JS
 
-T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a href=/practices>Schedule</a></p>
-<div class=pagehead><div><h1 style="margin-bottom:4px">{{ fmt_d(p.date) }}</h1>
-<div class="t2">{{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} · {{ p.location }}</div>
-<div style="margin-top:8px">{% if p.cancelled %}{{ st('bad','Cancelled') }}{% else %}{{ st('ok','Scheduled') }}{% endif %}</div>
-{% if p.cancelled and p.cancel_reason %}<p style="margin:8px 0 0">{{ p.cancel_reason }}</p>{% endif %}
-{% if me().is_admin and not p.cancelled and not x.any_eligible %}<div class="sm" style="margin-top:8px">{{ st('warn', 'No assigned coach is coach-eligible') }}</div>{% endif %}
-{% if not editing and p.coach_note %}<p style="margin:12px 0 0">{{ p.coach_note }}</p><p class="t3 sm">{{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</p>{% endif %}</div>
-{% if me().is_admin %}<div style="display:flex;align-items:center;gap:8px">{% if not editing %}<a class="btn btn-secondary" href="/practices/{{ p.id }}?edit=1">Edit</a>{% endif %}{{ practice_more(p, x.coach_ids, 'page') }}</div>{% elif is_staff() %}{{ practice_host_more(p, 'page') }}{% endif %}</div>
-{% if editing %}<form method=post action="/practices/{{ p.id }}" class=card style="margin-top:16px" enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+T["practice"] = """{% set p = x.p %}
+{% if p.location %}<section class="homemap cardmap banner" id=practiceMap aria-label="Map of {{ p.location }}"></section>
+<script>
+(function(){
+ var pins={{ pins|tojson }};
+ function start(){ var el=document.getElementById('practiceMap'); if(el&&window.grunionsMountMap) grunionsMountMap(el,{pins:pins,mode:'card'}); }
+ if(window.grunionsMountMap) start(); else document.addEventListener('DOMContentLoaded', start);
+})();
+</script>{% endif %}
+<div class=profilehero>
+<div class=profilename>{{ practice_title(p) }}</div>
+<p class=pracemeta>{{ fmt_card_date(p.date) }} · {{ fmt_clock(p.start) }} – {{ fmt_clock(p.end) }}</p>
+{% if p.location %}<p class=pracemeta>{{ p.location }}</p>{% endif %}
+<div class=pracestatus>{% if p.cancelled %}{{ st('bad','Cancelled') }}{% else %}{{ st('ok','Scheduled') }}{% endif %}</div>
+{% if p.cancelled and p.cancel_reason %}<p class="t3 sm" style="margin:6px 0 0">{{ p.cancel_reason }}</p>{% endif %}
+{% if me().is_admin and p.cancelled %}<form method=post action="/practices/{{ p.id }}" style="margin-top:12px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=restore>Undo cancel</button></form>{% endif %}
+<div class="stats trio">
+<div class=stattile><b>{{ x.going|length }}</b><span>Going</span></div>
+<div class=stattile><b>{{ x.coaches|length }}</b><span>Coaches</span></div>
+<div class=stattile><b>{{ x.checked|length }}</b><span>Checked in</span></div>
+</div>
+</div>
+{% if editing %}
+<form method=post action="/practices/{{ p.id }}" class=card style="margin-top:16px" enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <label>Date<input type=date name=date value="{{ p.date }}" required></label>
 <div class=row><label>Start<input type=time name=start value="{{ p.start }}" required></label><label>End<input type=time name=end value="{{ p.end }}" required></label></div>
 <label>Location / address<input name=location value="{{ p.location or '' }}" required></label>
@@ -1087,39 +1114,70 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 <div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>
 {% for c in coach_choices %}<label><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in x.coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
 {% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
-<div class=row><button class="btn btn-primary" name=action value=edit>Save</button><a class="btn btn-secondary" href="/practices/{{ p.id }}">Cancel</a></div></form>
+<button class="btn btn-primary full" name=action value=edit>Save</button></form>
+{% if me().is_admin %}<div class=seclabel>Manage</div><div class=list>
+<button type=button class="li rowbtn" data-open="assign{{ p.id }}">Assign coaches</button>
+<a class="li rowbtn" href="/admin?date={{ p.date }}">Check in</a>
+{% if p.cancelled %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="li rowbtn" name=action value=restore>Undo cancel</button></form>
+{% else %}<button type=button class="li rowbtn" data-open="cancel{{ p.id }}">Send cancellation</button>{% endif %}
+<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="li rowbtn" name=action value=duplicate>Duplicate practice</button></form>
+<button type=button class="li rowbtn" data-copy="{{ app_base() }}/practices/{{ p.id }}">Copy link</button>
+<button type=button class="li rowbtn" data-open="delete{{ p.id }}">Delete practice</button>
+</div>{% endif %}
 {% else %}
-{% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=pills style="margin-top:16px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+{% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=pills style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <button class="btn {{ 'btn-primary' if x.mine == 1 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==1 else 'going' }}">I'm going{% if x.mine==1 %} ✓{% endif %}</button>
 <button class="btn {{ 'btn-primary' if x.mine == 0 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==0 else 'notgoing' }}">I'm not going{% if x.mine==0 %} ✓{% endif %}</button></form>{% endif %}
-{% if social_line(p) or me().is_admin or is_staff() %}<h2>After-practice social</h2>
+<div class=seclabel>Details</div>
+<div class=list>
+<div class="li prow"><span class=k>Time</span><span class=v>{{ fmt_clock(p.start) }} – {{ fmt_clock(p.end) }}</span></div>
+<div class="li prow"><span class=k>Location</span><span class=v>{{ p.location or '—' }}</span></div>
+{% if p.location %}<a class="li prow chevrow" {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %} href="https://www.google.com/maps/dir/?api=1&amp;destination={{ ((pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else p.location)|urlencode }}" target=_blank rel=noopener><span>Directions</span><span class=nxchev aria-hidden=true>›</span></a>{% endif %}
+{% if p.note %}<div class="li prow"><span class=k>Notes</span><span class=v>{{ p.note }}</span></div>{% endif %}
+{% if p.coach_note %}<div class="li prow"><span class=k>Coach note</span><span class=v>{{ p.coach_note }} · {{ p.coach_note_by }}{% if p.coach_note_at %} · {{ fmt_stamp(p.coach_note_at) }}{% endif %}</span></div>{% endif %}
+</div>
+<div class=seclabel>After-practice social</div>
 <div class=list><div class=li>{% if social_line(p) %}{{ social_icon() }}{% endif %}<div class=grow>
 {% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
 <div class="t3 sm">{{ x.social_n }} joining</div>
 {% if p.social_note %}<div class="t2 sm">{{ p.social_note }}</div>{% endif %}
 {% if p.social_address %}{% if p.social_address.lower().startswith('http://') or p.social_address.lower().startswith('https://') %}<div class="sm"><a href="{{ p.social_address }}" target=_blank rel=noopener>Map</a></div>{% else %}<div class="t2 sm">{{ p.social_address }} · <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ p.social_address|urlencode }}" target=_blank rel=noopener>Map</a></div>{% endif %}{% endif %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
-</div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>{% endif %}
-<h2>Coaches</h2>
-<div class=list>{% for c in x.coaches %}<div class=li><div class=grow>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</div></div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}</div>
-<h2>Going <span class=t3>{{ x.going|length }}</span></h2>
+</div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>
+<div class=seclabel>Coaches</div>
+{% if me().is_admin and not p.cancelled and not x.any_eligible %}<p class="sm" style="margin:0 4px 8px">{{ st('warn', 'No assigned coach is coach-eligible') }}</p>{% endif %}
+<div class=list>{% for c in x.coaches %}<div class=li><div class=grow><span class=ell>{{ display_first(c) }} {{ c.last }}</span></div>{{ coach_tag(c) }}</div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}</div>
+<div class=seclabel>Going</div>
 <div class=list>{% for r in x.going %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
-<h2>Can't make it <span class=t3>{{ x.notgoing|length }}</span></h2>
+<div class=seclabel>Can't make it</div>
 <div class=list>{% for r in x.notgoing %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
-<h2>Checked in <span class=t3>{{ x.checked|length }}</span></h2>
+<div class=seclabel>Checked in</div>
 <div class=list>{% for r in x.checked %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
-{% if p.location %}<h2>Map</h2>
-<section class="homemap cardmap" id=practiceMap aria-label="Map of {{ p.location }}"></section>
-<script>
-(function(){
- var pins={{ pins|tojson }};
- function start(){ var el=document.getElementById('practiceMap'); if(el&&window.grunionsMountMap) grunionsMountMap(el,{pins:pins,mode:'card'}); }
- if(window.grunionsMountMap) start(); else document.addEventListener('DOMContentLoaded', start);
-})();
-</script>
-<p style="margin-top:10px"><a class="btn btn-secondary full" {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %} href="https://www.google.com/maps/dir/?api=1&amp;destination={{ ((pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else p.location)|urlencode }}" target=_blank rel=noopener>Directions</a></p>{% endif %}
-<h2>Notes</h2>
-<p>{{ p.note if p.note else 'No notes.' }}</p>
+{% endif %}
+{% if me().is_admin or is_staff() %}{{ practice_extra_dialogs(p, 'page') }}{% endif %}
+{% if is_staff() and not me().is_admin %}
+<dialog class=modal id=hostedit{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Edit practice</h2>
+<div class=list>
+<button type=button class="li rowbtn" data-open="social{{ p.id }}">After-practice social</button>
+<button type=button class="li rowbtn" data-open="message{{ p.id }}">Coach message</button>
+<button type=button class="li rowbtn" data-open="image{{ p.id }}">Practice image</button>
+</div></div></dialog>
+{% endif %}
+{% if me().is_admin %}
+<dialog class=modal id=assign{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Assign coaches</h2>
+<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+<div class=checks role=group aria-label="Coaches">{% for c in coach_choices %}<label><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in x.coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
+{% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
+<div class=row><button class="btn btn-primary" name=action value=assign>Save</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
+<dialog class=modal id=cancel{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Send cancellation</h2>
+<p class="t2 sm">Members get an email and a push that include this reason.</p>
+<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+<label>Reason<textarea name=reason required></textarea></label>
+<button class="btn btn-danger full" name=action value=cancel>Confirm</button></form></div></dialog>
+<dialog class=modal id=delete{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Delete this practice?</h2>
+<p class="t2 sm">{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.</p>
+<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
+<div class=row><button class="btn btn-danger" name=action value=delete>Delete practice</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% endif %}""" + _PRACTICE_JS
 
 _CHEV_L = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'

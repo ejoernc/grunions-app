@@ -1546,7 +1546,7 @@ def practice_page(pid):
     mark_practice_seen(d, me()["id"], pid); d.commit()
     g._unread_mid = None
     editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
-    return page(T["practice"], tab="practices", x=practice_bundle(d, p), editing=editing, pins=map_pins(p), coach_choices=coach_candidates(d) if me()["is_admin"] else [])
+    return page(T["practice"], tab="practice", x=practice_bundle(d, p), editing=editing, pins=map_pins(p), coach_choices=coach_candidates(d) if (me()["is_admin"] or is_staff()) else [])
 @app.route("/api/unread")
 @login_required
 def api_unread():
@@ -2687,7 +2687,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-5 */
+SW_JS = """/* grunions-sw-6 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
