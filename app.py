@@ -1801,16 +1801,45 @@ def admin():
         tab="admin", date=date, q=q, going=going, rest=rest, checked=checked, n=n, n_not=n_not, n_none=n_none, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=sum(1 for r in rows if r["going"] == 1),
         days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days), coach_warn=coach_warn, coach_names=coach_labels(assigned))
 
+def expiring_roster(d, rep):
+    ids = []
+    seen = set()
+    for bucket in rep.values():
+        for item in bucket:
+            if item["id"] not in seen:
+                seen.add(item["id"]); ids.append(item["id"])
+    if not ids: return []
+    qmarks = ",".join("?" * len(ids))
+    rows = d.execute("""SELECT m.*,
+      (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status,
+      (SELECT note FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_note
+      FROM members m WHERE m.id IN (%s)""" % qmarks, ids).fetchall()
+    by_id = {r["id"]: r for r in rows}
+    return [by_id[i] for i in ids if i in by_id]
 @app.route("/expiring", methods=["GET", "POST"])
 @admin_required
 def expiring():
-    d = db(); days = request.args.get("days", EXPIRING_DAYS, type=int)
+    d = db(); days = request.values.get("days", EXPIRING_DAYS, type=int) or EXPIRING_DAYS
+    if request.method == "POST" and request.form.get("action") == "ask_all":
+        rep = expiry_report(d, days)
+        ids = [r["id"] for r in expiring_roster(d, rep)]
+        asked = sum(1 for mid in ids if create_verify_request(d, mid).startswith("Asked"))
+        if not ids: flash("No one to recheck.", "toast")
+        else: flash("Asked Grunions to recheck %d %s." % (asked, "person" if asked == 1 else "people"), "toast")
+        return redirect(url_for("expiring", days=days))
+    if request.method == "POST" and request.form.get("member_id") and request.form.get("action") in DETAIL_ACTIONS:
+        mid = int(request.form["member_id"])
+        detail = handle_member_detail(d, mid)
+        if detail == "ok":
+            d.commit()
+            if request.form.get("action") in ("verify", "req", "background", "preferred", "role", "recheck", "edit"): sync_practice_sheets(d)
+        return redirect(url_for("expiring", days=days))
     if request.method == "POST":
         ids = [int(request.form["member_id"])] if request.form.get("member_id") else [x["id"] for k, v in expiry_report(d, days).items() for x in v]
         for mid in ids: remind(d, mid, by=f"{me()['first']} {me()['last']}")
         d.commit(); flash(f"In-app reminder posted to {len(ids)} member(s)."); return redirect(url_for("expiring", days=days))
     rep = expiry_report(d, days)
-    return page(T["expiring"], tab="admin", rep=rep, days=days)
+    return page(T["expiring"], tab="admin", rep=rep, days=days, roster=expiring_roster(d, rep), date="", q="")
 @app.route("/requirements", methods=["GET", "POST"])
 @admin_required
 def requirements_page():

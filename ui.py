@@ -162,10 +162,12 @@ details.checkin{margin:4px 0 20px}details.checkin>summary{min-height:0;padding:1
 .pagetitle{display:flex;justify-content:space-between;align-items:baseline;gap:12px}.pagetitle h1{margin-bottom:12px}
 .peoplebar{position:sticky;top:0;z-index:6;background:#0a0a0b;margin:0 -20px 8px;padding:0 20px 10px}
 .peoplebar input{height:48px;margin:0}
-.pchips{display:flex;gap:8px;margin:10px 0 0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.pchips::-webkit-scrollbar{display:none}
-.pchips a{flex:none;height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);color:var(--t2);text-decoration:none;font-size:14px;font-weight:600;display:inline-flex;align-items:center;white-space:nowrap}
-.pchips a.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
+.fchips{display:flex;gap:8px;margin:10px 0 0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.fchips::-webkit-scrollbar{display:none}
+.fchips a{flex:none;height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);color:var(--t2);text-decoration:none;font-size:14px;font-weight:600;display:inline-flex;align-items:center;white-space:nowrap}
+.fchips a.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
+.expage h2.egroup{position:sticky;top:0;z-index:4;background:#0a0a0b;margin:18px 0 8px;padding:8px 0}
+.daybadge{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:#2a2a2e;color:var(--t1);font-size:12px;font-weight:700;white-space:nowrap;flex:none}
 .people h2,h3.alpha{position:sticky;top:var(--peoplepin,0px);z-index:4;background:#0a0a0b;padding:8px 0}
 .people h2{margin-top:12px}
 h3.alpha{margin:12px 0 6px;font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--t3)}
@@ -1188,7 +1190,7 @@ T["transfer"] = ADMIN_NAV + """<h1>Transfer</h1>
 T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
 <div class=peoplebar>
 <form method=get action=/members><input name=q value="{{q}}" placeholder="Search people..." autocomplete=off>{% if view != 'members' %}<input type=hidden name=view value="{{view}}">{% endif %}</form>
-<div class=pchips>
+<div class=fchips>
 <a href="/members{% if q %}?q={{ q|urlencode }}{% endif %}" {% if view=='members' %}class=on{% endif %}>All</a>
 <a href="/members?view=coaches{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if view=='coaches' %}class=on{% endif %}>Coaches</a>
 <a href="/members?view=admins{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if view=='admins' %}class=on{% endif %}>Admins</a>
@@ -1256,14 +1258,18 @@ T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 s
 })();
 </script>"""
 
-T["expiring"] = ADMIN_NAV + """<h1>Expiring</h1>
-<form class="row noprint" style="align-items:center;margin-bottom:8px"><span class="t2 sm" style="flex:0 0 auto">Window (days)</span><input name=days type=number value={{days}} onchange=this.form.submit() style="margin:0"></form>
-{% for key, label in [('expired','Already expired'),('within_7','Next 7 days'),('within_%d'%days,'Next %d days'%days)] %}<h2>{{label}} <span class=t3>{{rep[key]|length}}</span></h2>
-<div class=list>{% for r in rep[key] %}<div class=li><div class=grow><div style="font-weight:500">{{display_first(r)}} {{r.last}}</div>
-<div class="t3 xs">{{r.item}} · {{r.usawp_valid_until}} · {% if r.days_left < 0 %}{{-r.days_left}}d ago{% else %}{{r.days_left}}d left{% endif %}</div></div>
-<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><button class=compact>Remind</button></form></div>{% else %}<div class=li><span class=t3>None</span></div>{% endfor %}</div>{% endfor %}
-<form method=post style="margin-top:20px">{{csrf_field()}}<button class="primary full">Remind everyone listed</button></form>
-<p class="t3 xs" style="margin-top:10px">Reminders appear on each member's home screen. Daily report: <a href=/api/expiring>/api/expiring</a> or daily_expiry.py.</p>"""
+T["expiring"] = ADMIN_NAV + """<div class=expage><h1>Expiring</h1>
+<p class="t2 sm" style="margin-top:-8px">Membership, SafeSport, and other dated items. Recheck opens the membership sheet.</p>
+<form class="row noprint" method=get action=/expiring style="align-items:center;margin-bottom:8px"><label class="t2 sm" style="flex:0 0 auto;margin:0">Window (days)<input name=days type=number min=1 value={{days}} onchange=this.form.submit() style="margin:6px 0 0;height:44px;width:96px"></label></form>
+{% for key, label in [('expired','Expired'),('within_7','Next 7 days'),('within_%d'%days,'Next %d days'%days)] %}<h2 class=egroup>{{label}} <span class=t3>{{rep[key]|length}}</span></h2>
+<div class=list>{% for r in rep[key] %}<div class=li><div class=grow style="min-width:0"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span class=ell style="font-weight:500;flex:1">{{display_first(r)}} {{r.last}}</span>
+<span class=daybadge><span class="dot {{ 'bad' if r.days_left < 0 else ('warn' if r.days_left <= 7 else '') }}" aria-hidden=true></span>{% if r.days_left < 0 %}{{ -r.days_left }}d ago{% elif r.days_left == 0 %}Today{% else %}{{ r.days_left }}d left{% endif %}</span></div>
+<div class="t3 xs">{{ r.item }} · {{ fmt_long(r.usawp_valid_until) }}</div></div>
+<button type=button class="quietcheck compact" data-member-edit="edit{{ r.id }}" data-focus=membership>Recheck</button></div>{% else %}<div class=li><span class=t3>None</span></div>{% endfor %}</div>{% endfor %}
+<form method=post style="margin-top:20px">{{csrf_field()}}<input type=hidden name=action value=ask_all><input type=hidden name=days value="{{days}}"><button class="dock full">Ask Grunions to recheck all</button></form>
+<p class="t3 sm" style="margin-top:10px">Asks Grunions to look up everyone listed. Daily report: <a href=/api/expiring>/api/expiring</a>.</p>
+{% for person in roster %}{{ member_panel(person) }}{% endfor %}
+</div>"""
 
 T["requirements_page"] = ADMIN_NAV + """<h1>Requirements</h1><p class="t2 sm">Cleared to play means a verified, current USAWP membership and current SafeSport. Other items can stay on file for import; they do not block clearance. Keywords match Sport:80 export columns.</p>
 {% for q in reqs %}<details class=card><summary><span>{{q.name}}</span><span class="t3 sm" style="margin-left:auto;margin-right:10px">{{q.applies_to}}{{'' if q.active else ' · off'}}</span></summary>
