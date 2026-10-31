@@ -511,7 +511,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=37');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=38');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -612,23 +612,28 @@ window.grunionsMountMap=function(el, opts){
     else map.setView([pool.lat, pool.lng], 15, {animate:false});
     return;
    }
-   var dock=document.querySelector('.homedock');
-   var cover=dock?Math.ceil(dock.getBoundingClientRect().height)+16:280;
+   var box=el.getBoundingClientRect();
+   var card=document.querySelector('.nextcard');
+   var cardTop=card?card.getBoundingClientRect().top:(box.top+box.height*0.62);
+   var visTop=Math.max(box.top, 0);
+   var visBottom=Math.min(cardTop, box.bottom);
+   if(visBottom-visTop<80) visBottom=Math.min(box.bottom, visTop+80);
+   var padTop=Math.max(0, visTop-box.top);
+   var padBottom=Math.max(0, box.bottom-visBottom);
    var regional=12;
-   var top=el.getBoundingClientRect().top;
-   var openBottom=el.clientHeight-cover-8;
-   var desired=window.innerHeight*0.35-top;
-   if(desired>openBottom-24) desired=Math.max(80, openBottom*0.45);
    function frame(z){
     map.setView([pool.lat, pool.lng], z, {animate:false});
     var pt=map.latLngToContainerPoint([pool.lat, pool.lng]);
-    map.panBy([0, pt.y-desired], {animate:false});
+    var targetX=el.clientWidth/2;
+    var targetY=padTop+(el.clientHeight-padTop-padBottom)/2;
+    map.panBy([pt.x-targetX, pt.y-targetY], {animate:false});
    }
    function fits(){
-    var pad=24, head=72;
+    var pad=24;
+    var topLimit=padTop+pad, botLimit=el.clientHeight-padBottom-pad;
     for(var i=0;i<bounds.length;i++){
      var q=map.latLngToContainerPoint(bounds[i]);
-     if(q.x<pad||q.y<head||q.x>el.clientWidth-pad||q.y>openBottom) return false;
+     if(q.x<pad||q.y<topLimit||q.x>el.clientWidth-pad||q.y>botLimit) return false;
     }
     return true;
    }
@@ -636,6 +641,7 @@ window.grunionsMountMap=function(el, opts){
    frame(z);
    if(bounds.length>1){ while(z>8 && !fits()){ z-=1; frame(z); } }
   }
+  window.grunionsPlaceMap=place;
   setTimeout(function(){map.invalidateSize();place();},0);
   setTimeout(function(){map.invalidateSize();place();},250);
   function onResize(){if(!el.isConnected){window.removeEventListener('resize',onResize);return;}map.invalidateSize();place();}
@@ -890,6 +896,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
   var top=card.getBoundingClientRect().top+window.scrollY;
   var delta=(navTop-want)-top;
   dock.style.minHeight=Math.max(0, Math.round(dock.offsetHeight+delta))+'px';
+  if(window.grunionsPlaceMap) window.grunionsPlaceMap();
  }
  function range(){
   var mark=document.querySelector('.nextcard')||document.getElementById('schedule'); if(!mark) return 160;
