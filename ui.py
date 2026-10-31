@@ -211,6 +211,33 @@ a.calday:hover{background:var(--surface2)}
 a.calday.on{background:var(--accent);color:#fff}
 span.calday{color:var(--t3);opacity:.4;font-weight:500}
 .panel{padding:4px 18px 18px;border-top:1px solid var(--line);background:var(--surface)}.panel h3{font-size:15px;font-weight:600;margin:18px 0 10px}
+.pstat{padding:14px 0 2px}.pstatline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pstat .dot{width:10px;height:10px}.pstitle{font-size:20px;font-weight:650;letter-spacing:-.2px;line-height:1.2}
+.pchips{margin-left:auto;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.preason{margin:6px 0 0;color:var(--t2);font-size:15px}
+.panel .kv{padding:8px 0}.cred{display:inline-flex;align-items:center;gap:8px;color:var(--t1);text-align:right}
+.pfoot{margin:10px 0 0}
+.vrdetails{margin-top:4px}.vrdetails>summary{min-height:0;padding:8px 0;font-size:14px;color:var(--t3);justify-content:flex-start;gap:6px;font-weight:500}
+.vrdetails>summary::after{font-size:16px}.vrdetails p{margin:0 0 6px}
+.actpills{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 2px;align-items:center}
+.actpills form{margin:0}.actpills button{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600;font-size:14px}
+.actpills button:disabled{color:var(--t3)}
+dialog.memberedit{width:min(480px,calc(100vw - 24px));max-height:min(92dvh,820px);margin:auto}
+dialog.memberedit .sheet{max-height:min(92dvh,820px);overflow:auto}
+dialog.memberedit h2{margin:0 0 12px;font-size:22px;letter-spacing:-.3px}
+dialog.memberedit h3{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--t3);margin:20px 0 8px;font-weight:650}
+dialog.memberedit h3[data-section=membership]{margin-top:0}
+dialog.memberedit .help{margin:0 0 12px}
+dialog.memberedit .help a{color:var(--t1)}
+.datefield{position:relative}
+.datefield .dateph{display:none;position:absolute;left:14px;right:42px;bottom:0;height:48px;line-height:48px;color:var(--t3);pointer-events:none;font-size:16px}
+.datefield.empty .dateph{display:block}
+.datefield.empty input[type=date]{color:transparent}
+.datefield.empty input[type=date]::-webkit-datetime-edit,.datefield.empty input[type=date]::-webkit-datetime-edit-fields-wrapper{color:transparent}
+@media (max-width:700px){
+ dialog.memberedit{width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}
+ dialog.memberedit .sheet{height:100%;max-height:none;border:0;border-radius:0;padding:20px 20px calc(24px + env(safe-area-inset-bottom))}
+}
 @media print{header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{background:#fff}}
 </style></head><body style="background:#0a0a0b;color:#ececee;margin:0" class="{% if tab=='home' and me() %}homefull{% elif tab=='profile' %}profilepage{% endif %}">
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
@@ -229,48 +256,40 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 {% macro checkin_status(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{{ st('trial', 'Trial') }}{% elif tw and tw.expired and r.usawp_status != 'verified' %}{{ st('bad', 'Trial ended') }}{% elif not cl.ok %}{{ st('bad','Not cleared') }}{% elif dl is not none and dl <= EXPIRING_DAYS %}{{ st('warn','Expiring soon') }}{% else %}{{ st('ok','Cleared') }}{% endif %}
 {% if r.vr_status == 'pending' %}<span class="t3 xs"> · verification requested</span>{% elif r.vr_status == 'done' %}<span class="t3 xs"> · bot answered</span>{% endif %}{% endmacro %}
-{% macro member_panel(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}{% set cred = credential_dates(r) %}
+{% macro detail_hiddens(r) %}{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}{% endmacro %}
+{% macro cred_side(iso) %}{% if iso %}<span class=cred><span class="dot {{ date_dot(iso) }}" aria-hidden=true></span>{{ fmt_long(iso) }}</span>{% else %}<span class=t3>Not on file</span>{% endif %}{% endmacro %}
+{% macro date_field(label, name, value) %}<label class="datefield{% if not value %} empty{% endif %}">{{ label }}<input type=date name={{ name }} value="{{ value or '' }}"><span class=dateph>Not on file · add date</span></label>{% endmacro %}
+{% macro member_panel(r) %}{% set cl = clearance(r) %}{% set cred = credential_dates(r) %}{% set ps = panel_status(r) %}{% set chip = coach_row_expiry(r) %}{% set ce = coach_eligibility(r) %}{% set rf = referee_eligibility(r) %}
 <div class=panel id=m{{r.id}} hidden>
-<div class=kv><span>RSVP</span><span>{% if r.going==1 %}RSVP ✓{% elif r.going==0 %}Not going{% else %}—{% endif %}</span></div>
-<div class=kv><span>Membership</span><span>{{ usawp(r.usawp_status) }}{% if r.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %} · {{dl}}d left{% endif %}</span></div>
-<div class=kv><span>Member # {{r.usawp_number or '—'}}</span>{{ member_expiry(r) }}</div>
-{% if tw %}<div class=kv><span>Trial</span><span>{% if tw.active and r.usawp_status != 'verified' %}{{ trial_badge(tw) }} · Ends {{tw.ends}}{% elif tw.expired %}Trial ended {{tw.ends}}{% else %}—{% endif %}</span></div>{% endif %}
-<div class=kv><span>SafeSport</span><span>{% if cred.safesport %}expires {{cred.safesport}}{% else %}missing{% endif %}</span></div>
-<div class=kv><span>Background screening</span>{% if background_view(r) %}{{ bg_status(r) }}{% else %}<span>Not on file</span>{% endif %}</div>
-<div class=kv><span>Eligibility</span><span>{% if coach_eligibility(r).text or referee_eligibility(r).text %}{{ coach_tag(r) }} {{ referee_tag(r) }}{% else %}—{% endif %}</span></div>
-{% if not cl.ok %}<div class=kv><span>Not cleared</span><span style="text-align:right">{{cl.reasons|join(', ')}}</span></div>{% endif %}
-{% if me().is_admin %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
-<label>Background screening expires<input name=expires_on type=date value="{{ background_view(r).date if background_view(r) else '' }}"></label>
-<button class=full name=action value=background>Save background screening</button></form>{% endif %}
-{% if r.usawp_verified_by %}<div class=kv><span>Verified</span><span>{{r.usawp_verified_by}}, {{r.usawp_verified_at.replace('T',' ')}}</span></div>{% endif %}
-{% if r.vr_status %}<div class=kv><span>Bot request</span><span>{{r.vr_status}}{% if r.vr_note %} · {{r.vr_note}}{% endif %}</span></div>{% endif %}
-{% if me().is_admin %}<details class=recheck {% if r.vr_status == 'pending' %}open{% endif %}><summary>Recheck membership</summary>
-<form method=post class=body>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
-<p class="t3 sm">Look this member up on Sport:80 and enter what you find. Grunions does not contact Sport:80.{% if r.vr_status == 'pending' %} Saving answers the pending verification request.{% endif %}</p>
-<label>Verified<select name=verified><option value=yes {{'selected' if r.usawp_status=='verified'}}>Yes</option><option value=no {{'selected' if r.usawp_status!='verified'}}>No</option></select></label>
-<label>Membership type<input name=membership_type value="{{r.membership_type or ''}}" placeholder="Individual Membership, Coach"></label>
-<label>Membership expires<input type=date name=valid_until value="{{r.usawp_valid_until or ''}}"></label>
-<label>SafeSport expires<input type=date name=safesport_expires value="{{cred.safesport or ''}}"></label>
-<label>Background screening expires<input type=date name=background_expires value="{{cred.background or ''}}"></label>
-<label>Referee certification expires<input type=date name=referee_expires value="{{cred.referee or ''}}"></label>
-<button class="primary full" name=action value=recheck>Save Sport:80 result</button></form>
-<form method=post class=body style="margin-top:10px">{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
-<button class=full name=action value=ask_bot {% if r.vr_status=='pending' %}disabled{% endif %}>{{'Requested' if r.vr_status=='pending' else 'Ask Grunions to verify'}}</button></form></details>{% endif %}
-{% if r.preferred_first and r.preferred_first.strip() %}<div class=kv><span>Legal name</span><span>{{r.first}} {{r.last}}</span></div>{% endif %}
-{% if me().is_admin %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
-<label>Preferred first name (optional)<input name=preferred_first value="{{r.preferred_first or ''}}" placeholder="Leave blank to use legal first name"></label>
-<button class=full name=action value=preferred>Save preferred name</button></form>{% endif %}
-{% if me().is_admin and (not cl.ok or r.usawp_status != 'verified') %}
-<h3>Verify {{r.first}} on Sport:80</h3>
-<div class=row><a class="btn" target=_blank rel=noopener href="https://usawp.sport80.com/" onclick="navigator.clipboard&&navigator.clipboard.writeText('{{r.first}} {{r.last}}')">Open Sport:80</a></div>
-<p class="t3 xs" style="margin-top:6px">Opening Sport:80 copies the name. Search the Grunions club members list and confirm membership is Current. Enter what you find with Recheck membership.</p>
-<h3>Compliance item</h3><form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
-<label>Item<select name=req_id>{% for it in cl.checks|sort(attribute='status') %}<option value={{it.req.id}}>{{it.req.name}} ({{it.status}})</option>{% endfor %}</select></label>
-<div class=row><label>Completed<input name=completed_on type=date></label><label>Expires on<input name=expires_on type=date></label></div>
-<button class=full name=action value=req>Save item</button></form>
-<h3>Role</h3><form method=post class=row>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
-<select name=role style="margin:0">{% for o in ['member','coach','admin'] %}<option {{'selected' if role_label(r)==o}}>{{o}}</option>{% endfor %}</select><button name=action value=role style="flex:0 0 auto">Save</button></form>
-{% endif %}</div>{% endmacro %}
+<div class=pstat><div class=pstatline><span class="dot {{ ps.dot }}" aria-hidden=true></span><span class=pstitle>{{ ps.label }}</span><span class=pchips>{% if r.role=='coach' or on_coaching_list(r) or ce.eligible or ce.text %}<span class="coach-tag{{ ' ' ~ chip.tone if chip.tone else '' }}">Coach{% if chip.date %} · expires {{ fmt_long(chip.date) }}{% endif %}</span>{% endif %}{% if rf.eligible %}<span class="st st-ok ref-elig">Referee eligible</span>{% elif rf.expired %}<span class="st st-bad ref-elig">Referee eligibility expired {{ fmt_long(rf.expired) }}</span>{% endif %}</span></div>{% if ps.reason %}<p class=preason>{{ ps.reason }}</p>{% endif %}</div>
+<div class=kv><span>USAWP # {{ r.usawp_number or '—' }}</span>{{ cred_side(r.usawp_valid_until) }}</div>
+<div class=kv><span>SafeSport</span>{{ cred_side(cred.safesport) }}</div>
+<div class=kv><span>Background screening</span>{{ cred_side(cred.background) }}</div>
+<div class=kv><span>Referee</span>{{ cred_side(cred.referee) }}</div>
+{% if r.usawp_verified_by %}<p class="t3 xs pfoot">Verified by {{ r.usawp_verified_by }}{% if fmt_when(r.usawp_verified_at) %} · {{ fmt_when(r.usawp_verified_at) }}{% endif %}</p>{% endif %}
+{% if r.vr_status %}<details class=vrdetails><summary>Details</summary><p class="t3 sm">{{ r.vr_status }}{% if r.vr_note %} · {{ r.vr_note }}{% endif %}</p></details>{% endif %}
+{% if me().is_admin %}<div class=actpills>
+<button type=button data-member-edit="edit{{ r.id }}" data-focus=membership>Recheck</button>
+<button type=button data-member-edit="edit{{ r.id }}">Edit</button>
+<form method=post>{{ detail_hiddens(r) }}<button name=action value=ask_bot {% if r.vr_status=='pending' %}disabled{% endif %}>Ask Grunions</button></form>
+</div>{% endif %}</div>
+{% if me().is_admin %}<dialog class="modal memberedit" id="edit{{ r.id }}"><form method=post class=sheet>{{ detail_hiddens(r) }}
+<h2>Edit {{ display_first(r) }} {{ r.last }}</h2>
+<h3 data-section=membership>Membership</h3>
+<p class="t3 sm help">Look this member up on Sport:80 and enter what you find. Grunions does not contact Sport:80.{% if r.vr_status == 'pending' %} Saving answers the pending verification request.{% endif %}{% if not cl.ok or r.usawp_status != 'verified' %} <a target=_blank rel=noopener href="https://usawp.sport80.com/" onclick="navigator.clipboard&&navigator.clipboard.writeText('{{ r.first }} {{ r.last }}')">Verify {{ r.first }} on Sport:80</a>{% endif %}</p>
+<label>Verified<select name=verified><option value=yes {{ 'selected' if r.usawp_status=='verified' }}>Yes</option><option value=no {{ 'selected' if r.usawp_status!='verified' }}>No</option></select></label>
+<label>Membership type<input name=membership_type value="{{ r.membership_type or '' }}" placeholder="Individual Membership, Coach" autocomplete=off></label>
+{{ date_field('Membership expires', 'valid_until', r.usawp_valid_until) }}
+<h3 data-section=clearances>Clearances</h3>
+{{ date_field('SafeSport expires', 'safesport_expires', cred.safesport) }}
+{{ date_field('Background screening expires', 'background_expires', cred.background) }}
+{{ date_field('Referee certification expires', 'referee_expires', cred.referee) }}
+<h3 data-section=name>Name</h3>
+<div class=kv><span>Legal name</span><span>{{ r.first }} {{ r.last }}</span></div>
+<label>Preferred first name<input name=preferred_first value="{{ r.preferred_first or '' }}" placeholder="Leave blank to use legal first name" autocomplete=off></label>
+<button class=full name=action value=edit style="background:#ececee;color:#0a0a0b">Save</button>
+<button type=button class="quiet full" onclick="this.closest('dialog').close()">Cancel</button>
+</form></dialog>{% endif %}{% endmacro %}
 {% macro glyph_clock() %}<svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>{% endmacro %}
 {% macro glyph_pin() %}<svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>{% endmacro %}
 {% macro glyph_people() %}<svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><circle cx="9" cy="8" r="2.3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.6 18c.5-2.5 2.3-3.7 4.4-3.7s3.9 1.2 4.4 3.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16.2" cy="9" r="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15.6 14.5c1.5.3 2.7 1.2 3.3 3.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>{% endmacro %}
@@ -495,6 +514,17 @@ if(document.querySelector('nav.tabs')){
  });
  window.addEventListener('popstate',function(){if(document.querySelector('nav.tabs')) grunionsGo(location.href,true);});
 }
+document.addEventListener('click',function(e){
+ var b=e.target.closest&&e.target.closest('[data-member-edit]'); if(!b) return;
+ var d=document.getElementById(b.getAttribute('data-member-edit')); if(!d||!d.showModal) return;
+ e.preventDefault(); if(!d.open) d.showModal();
+ var sheet=d.querySelector('.sheet'), sec=b.getAttribute('data-focus');
+ var el=sec?d.querySelector('[data-section="'+sec+'"]'):null;
+ if(sheet) sheet.scrollTop=0;
+ if(el&&sheet){var top=el.getBoundingClientRect().top-sheet.getBoundingClientRect().top+sheet.scrollTop; sheet.scrollTop=Math.max(0,top-12);}
+});
+document.addEventListener('click',function(e){var d=e.target.closest&&e.target.closest('dialog.memberedit'); if(d&&e.target===d) d.close();});
+document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&t.matches('.datefield input[type=date]')) t.closest('.datefield').classList.toggle('empty',!t.value);});
 </script>
 <script>var PUSH_CSRF="{{csrf_token()}}",VAPID_PUBLIC="{{vapid_public_key()}}";</script>
 </body></html>""")

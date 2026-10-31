@@ -61,7 +61,7 @@ eli.post("/admin", data=dict(csrf=tok_e, member_id=4, date="2026-10-27", action=
 ok("Please enter the expiration" in eli.post("/admin", data=dict(csrf=tok_e, member_id=1, date="2026-10-27", action="verify"), follow_redirects=True).get_data(as_text=True), "Mark verified asks for expiration date")
 D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until=? WHERE id=2", ((A.today_pt()-dt.timedelta(days=1)).isoformat(),)); D.commit()
 t = eli.get("/admin?date=2026-10-27").get_data(as_text=True)
-ok("5d left" in t and "USAWP: " in t and " expired · " in t and " expiring within " in t, "check-in badge + admin banner")
+ok(A.fmt_long(soon) in t and "USAWP: " in t and " expired · " in t and " expiring within " in t, "check-in badge + admin banner")
 ok(D.execute("SELECT usawp_status FROM members WHERE id=2").fetchone()[0] == "expired", "auto-flip to expired after expires_on")
 j = eli.get("/api/expiring").get_json()
 ok(len(j["expired"]) >= 1 and any(r["first"]=="Ana" for r in j["within_7"]), "expiry report endpoint")
@@ -88,7 +88,7 @@ ok("1 going" in jane.get("/practices").get_data(as_text=True), "RSVP headcount")
 ok(jane.post("/practices", data=dict(csrf=tj2, pid=pid[0], action="cancel")).status_code == 403, "members cannot cancel practices")
 eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date=pid[1]))
 c = eli.get("/admin?date=%s" % pid[1]).get_data(as_text=True)
-ok(c.find(">Going <") < c.find("Jane Doe") < c.find(">Everyone else <") < c.find("Eli Joern") and ">Checked in</button>" in c[c.find("Jane Doe"):c.find(">Everyone else <")] and "RSVP ✓" in c and "Not cleared" in c and "Search players..." in c, "check-in lists who is going, then everyone else, and keeps the checked-in button")
+ok(c.find(">Going <") < c.find("Jane Doe") < c.find(">Everyone else <") < c.find("Eli Joern") and ">Checked in</button>" in c[c.find("Jane Doe"):c.find(">Everyone else <")] and "RSVP ✓" not in c and "Not cleared" in c and "Search players..." in c, "check-in lists who is going, then everyone else, and keeps the checked-in button")
 eli.post("/practices", data=dict(csrf=tok_e, pid=pid[0], action="edit", start="19:30", end="21:00", location="Marina High School", note="Pool B"))
 eli.post("/practices", data=dict(csrf=tok_e, pid=pid[0], action="cancel"))
 ok(tuple(D.execute("SELECT cancelled, start, note FROM practices WHERE id=?", (pid[0],)).fetchone()) == (1, "19:30", "Pool B"), "admin edit + cancel practice")
@@ -102,7 +102,7 @@ h = x.get("/home").get_data(as_text=True); ok("Cleared for water polo" in h and 
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=2 AND req_id=1", ((A.today_pt()+dt.timedelta(days=10)).isoformat(),)); D.commit()
 ok(any(r.get("item")=="SafeSport training" for r in eli.get("/api/expiring").get_json()["within_30"]), "compliance item in expiring report")
 D.execute("UPDATE member_reqs SET expires_on='2026-01-01' WHERE member_id=2 AND req_id=1"); D.commit()
-ok("SafeSport training expired" in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "expired compliance -> Not cleared with reason")
+ok("SafeSport expired " + A.fmt_long("2026-01-01") in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "expired compliance -> Not cleared with reason")
 
 # verification requests (bot API)
 A.BOT_API_KEY = "test-bot-key"; H = {"Authorization": "Bearer test-bot-key"}
@@ -158,7 +158,7 @@ members_now = eli.get("/members").get_data(as_text=True)
 ok("bot@grunions.local" not in members_now and "Grunions bot" not in members_now.split(">Verified<")[0], "bot account hidden from member list")
 ahome = ana.get("/home").get_data(as_text=True)
 ok((">Verified %s<" % A.today_pt().isoformat()) in ahome and "Grunions bot" not in ahome, "member verified row shows only the date")
-ok("Grunions bot" in a and ">Verified</span><span>Grunions bot" in eli.get("/members").get_data(as_text=True), "admin views still show who verified")
+ok("Verified by Grunions bot" in a and "Verified by Grunions bot" in eli.get("/members").get_data(as_text=True), "admin views still show who verified")
 # reactions + images + schedule toggle
 A.UPLOADS = tempfile.mkdtemp()
 from PIL import Image
@@ -221,7 +221,8 @@ past_bg = (A.today_pt() - dt.timedelta(days=2)).isoformat()
 D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,?,'test','test','2026-01-01')", (cid, bgid_casey, far_bg))
 D.execute("UPDATE members SET membership_type='Head Coach' WHERE id=?", (cid,)); D.commit()
 bg_row = '<span>Background screening</span><span class="st st-ok">expires ' + far_bg + '</span>'
-ok('class="st st-ok">cleared' in casey.get("/home").get_data(as_text=True) and "Cleared to coach" not in casey.get("/home").get_data(as_text=True) and "Coach eligible" not in casey.get("/home").get_data(as_text=True) and bg_row in casey.get("/home").get_data(as_text=True) and bg_row in eli.get("/members").get_data(as_text=True) and bg_row in eli.get("/admin").get_data(as_text=True) and ('class="st st-ok">Background screening expires ' + far_bg) not in eli.get("/members").get_data(as_text=True) and ('class="st st-ok">Background screening expires ' + far_bg) not in eli.get("/admin").get_data(as_text=True), "background screening stays in expanded details, not on People rows or the check-in list")
+panel_bg = '<span>Background screening</span><span class=cred><span class="dot ok" aria-hidden=true></span>' + A.fmt_long(far_bg) + '</span>'
+ok('class="st st-ok">cleared' in casey.get("/home").get_data(as_text=True) and "Cleared to coach" not in casey.get("/home").get_data(as_text=True) and "Coach eligible" not in casey.get("/home").get_data(as_text=True) and bg_row in casey.get("/home").get_data(as_text=True) and panel_bg in eli.get("/members").get_data(as_text=True) and panel_bg in eli.get("/admin").get_data(as_text=True) and ('class="st st-ok">Background screening expires ' + far_bg) not in eli.get("/members").get_data(as_text=True) and ('class="st st-ok">Background screening expires ' + far_bg) not in eli.get("/admin").get_data(as_text=True), "background screening stays in expanded details, not on People rows or the check-in list")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (soon_bg, cid, bgid_casey)); D.commit()
 ok(('<span>Background screening</span><span class="st st-warn">expires ' + soon_bg + '</span>') in casey.get("/home").get_data(as_text=True), "background screening is amber inside the expiring window")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (past_bg, cid, bgid_casey)); D.commit()
@@ -318,7 +319,7 @@ ok(stamp and stamp[:10] == start and 'class="toast noprint" role=status>2-week U
 again = alex.post("/home", data=dict(csrf=csrf(alex, "/home"), action="trial"), follow_redirects=True).get_data(as_text=True)
 ok(D.execute("SELECT trial_acknowledged_at FROM members WHERE email='alex@example.com'").fetchone()[0] == stamp and "2-week USAWP trial started" not in again, "a second confirm does not reset the trial")
 adm = eli.get("/admin").get_data(as_text=True); mem = eli.get("/members").get_data(as_text=True); csv = eli.get("/members.csv").get_data(as_text=True)
-ok("Trial · 14 days left" in adm and ("Ends %s" % md(end)) in adm and "Trial · 14 days left" in mem and ("Ends %s" % md(end)) in mem and stamp[:10] in csv and end.isoformat() in csv, "admin check-in and roster show trial days left and the end date")
+ok(("Trial membership ends " + A.fmt_long(end)) in adm and ("Trial membership ends " + A.fmt_long(end)) in mem and ("Ends %s" % md(end)) in mem and stamp[:10] in csv and end.isoformat() in csv, "admin check-in and roster show the trial end date")
 added = alex.post("/home", data=dict(csrf=csrf(alex, "/home"), usawp_number="88821"), follow_redirects=True).get_data(as_text=True)
 ok('class="toast noprint" role=status>Sent to Grunions for verification' in added and "Verification pending" in added and 'class="dot warn"' in added and "USAWP # 88821" in added and ">Edit<" in added and "Trial · 14 days left" not in added and "Ends %s" % md(end) not in added and D.execute("SELECT trial_acknowledged_at FROM members WHERE email='alex@example.com'").fetchone()[0] == stamp and D.execute("SELECT member_number, status FROM verify_requests WHERE member_id=(SELECT id FROM members WHERE email='alex@example.com')").fetchone() == ("88821", "pending"), "a trial member can submit a USAWP number and the card shows Pending")
 aid = D.execute("SELECT id FROM members WHERE email='alex@example.com'").fetchone()[0]
@@ -338,7 +339,7 @@ ended_on = today - dt.timedelta(days=1)
 D.execute("UPDATE members SET trial_acknowledged_at=? WHERE email='drew@example.com'", ((today - dt.timedelta(days=15)).isoformat() + "T08:00:00",)); D.commit()
 eh = drew.get("/home").get_data(as_text=True)
 ok("Not cleared for water polo" in eh and 'class="dot bad"' in eh and ("Trial ended %s" % md(ended_on)) in eh and "id=trialOpen" not in eh and "Last day of trial" not in eh and 'name=usawp_number inputmode=numeric value=""' in eh and "Cleared for water polo" not in eh, "an ended trial returns to Not cleared and keeps the membership form")
-ok(("Trial ended %s" % md(ended_on)) in eli.get("/admin").get_data(as_text=True) and ("Trial ended %s" % md(ended_on)) in eli.get("/members").get_data(as_text=True), "admin marks an ended trial on check-in and the roster")
+ok(("Trial membership ended " + A.fmt_long(ended_on)) in eli.get("/admin").get_data(as_text=True) and ("Trial ended %s" % md(ended_on)) in eli.get("/members").get_data(as_text=True), "admin marks an ended trial on check-in and the roster")
 D.execute("UPDATE members SET trial_acknowledged_at=? WHERE email='alex@example.com'", ((today - dt.timedelta(days=15)).isoformat() + "T08:00:00",)); D.commit()
 ok("Cleared for water polo" in alex.get("/home").get_data(as_text=True) and "Trial ended" not in alex.get("/home").get_data(as_text=True), "a verified member keeps the normal card after the trial date has passed")
 day = "2026-12-06"
@@ -381,7 +382,7 @@ uid = D.execute("SELECT id FROM members WHERE email='sue@example.com'").fetchone
 D.execute("UPDATE members SET usawp_status='verified', usawp_number='1112223', usawp_valid_until='2027-08-31' WHERE id=?", (uid,))
 D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,NULL,?, 'test','test','2026-01-01T00:00')", (uid, ssid, yesterday)); D.commit()
 shome = sue.get("/home").get_data(as_text=True)
-ok(("SafeSport expired %s" % yesterday) in shome and "Not cleared for water polo" in shome and ">Reverify membership<" not in shome and "name=usawp_number" not in shome and "USAWP # 1112223" in shome and "Membership expired" not in shome and "SafeSport training expired" in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "expired SafeSport stays Not cleared without a membership reverify button")
+ok(("SafeSport expired %s" % yesterday) in shome and "Not cleared for water polo" in shome and ">Reverify membership<" not in shome and "name=usawp_number" not in shome and "USAWP # 1112223" in shome and "Membership expired" not in shome and ("SafeSport expired " + A.fmt_long(yesterday)) in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "expired SafeSport stays Not cleared without a membership reverify button")
 
 # notifications: web push + email
 sw = jane.get("/sw.js").get_data(as_text=True)
@@ -787,9 +788,9 @@ eli_pick = eli.get("/practices/%d" % pid).get_data(as_text=True)
 coaches_html = eli.get("/members?view=coaches").get_data(as_text=True)
 riley_c = coaches_html.find("riley@example.com")
 riley_crow = coaches_html[coaches_html.rfind("<div class=li", 0, riley_c):coaches_html.find("<div class=panel", riley_c)]
-ok(badge_pages.count('class="st st-ok coach-elig">Coach eligible') >= 3 and 'class="st st-ok coach-elig"' not in jane.get("/practices").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) in eli_pick and 'class="st st-ok coach-elig">Coach eligible' in eli_pick and ('class="coach-tag">Coach · expires ' + future) in riley_row and "class=coach-tag>Coach<" not in riley_row and "Active coach" not in riley_row and ('class="st st-ok">Background screening expires ' + future) not in riley_crow and ('class="coach-tag">Coach · expires ' + future) in riley_crow and "Coach eligible" not in riley_crow and "Active coach" not in riley_crow and ('<span>Background screening</span><span class="st st-ok">expires ' + future) in coaches_html and "class=coach-tag>Admin<" in eli.get("/members").get_data(as_text=True) and "class=coach-tag>Admin<" in coaches_html and "class=coach-tag>Admin<" in eli.get("/members?view=admins").get_data(as_text=True), "a current coach chip is grey, background screening stays in the details, and admins get an Admin chip")
+ok(badge_pages.count('class="st st-ok coach-elig">Coach eligible') >= 1 and 'class="st st-ok coach-elig"' not in jane.get("/practices").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) in eli_pick and 'class="st st-ok coach-elig">Coach eligible' in eli_pick and ('class="coach-tag">Coach · expires ' + future) in riley_row and "class=coach-tag>Coach<" not in riley_row and "Active coach" not in riley_row and ('class="st st-ok">Background screening expires ' + future) not in riley_crow and ('class="coach-tag">Coach · expires ' + future) in riley_crow and "Coach eligible" not in riley_crow and "Active coach" not in riley_crow and ('<span>Background screening</span><span class=cred><span class="dot ok" aria-hidden=true></span>' + A.fmt_long(future)) in coaches_html and "class=coach-tag>Admin<" in eli.get("/members").get_data(as_text=True) and "class=coach-tag>Admin<" in coaches_html and "class=coach-tag>Admin<" in eli.get("/members?view=admins").get_data(as_text=True), "a current coach chip is grey, background screening stays in the details, and admins get an Admin chip")
 filt = eli.get("/members?coach=eligible").get_data(as_text=True)
-ok("Riley Quinn" in filt and ">Coach eligible<" in filt and 'class="st st-ok coach-elig">Coach eligible' in filt and ">Coaches</a>" in eli.get("/members").get_data(as_text=True), "People has Coaches and Coach eligible sections")
+ok("Riley Quinn" in filt and ">Coach eligible <" in filt and ">Coaches</a>" in eli.get("/members").get_data(as_text=True) and 'class="coach-tag">Coach · expires ' in filt, "People has Coaches and Coach eligible sections")
 D.execute("UPDATE members SET usawp_valid_until=? WHERE id=?", (today, riley_id)); D.commit()
 soon_chip = eli.get("/members").get_data(as_text=True)
 ok('coach-elig">Coach eligible' in riley.get("/home").get_data(as_text=True) and ('class="coach-tag warn">Coach · expires ' + today) in soon_chip, "a coach membership is still eligible on the day it expires, and the chip turns yellow")
@@ -811,11 +812,11 @@ D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SEL
 expired_coaches = eli.get("/members?view=coaches").get_data(as_text=True)
 rc = expired_coaches.find("riley@example.com")
 expired_crow = expired_coaches[expired_coaches.rfind("<div class=li", 0, rc):expired_coaches.find("<div class=panel", rc)]
-ok('coach-elig">Coach eligible' not in riley.get("/home").get_data(as_text=True) and ("Coach eligibility expired " + past) in riley.get("/home").get_data(as_text=True) and ("Coach eligibility expired " + past) in eli.get("/members").get_data(as_text=True) and ('class="coach-tag bad">Coach · expires ' + past) in expired_crow and "Coach eligible" not in expired_crow and "Background screening expires" not in expired_crow and D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone(), "an expired background screening shows Coach eligibility expired and keeps the coaching list")
+ok('coach-elig">Coach eligible' not in riley.get("/home").get_data(as_text=True) and ("Coach eligibility expired " + past) in riley.get("/home").get_data(as_text=True) and ('class="coach-tag bad">Coach · expires ' + A.fmt_long(past)) in eli.get("/members").get_data(as_text=True) and ('class="coach-tag bad">Coach · expires ' + past) in expired_crow and "Coach eligible" not in expired_crow and "Background screening expires" not in expired_crow and D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone(), "an expired background screening shows Coach eligibility expired and keeps the coaching list")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id IN (SELECT id FROM requirements WHERE keywords LIKE '%background%' OR keywords LIKE '%safesport%')", (today, riley_id)); D.commit()
 ok('coach-elig">Coach eligible' in riley.get("/home").get_data(as_text=True) and "Coach eligibility expired" not in riley.get("/home").get_data(as_text=True), "background and SafeSport are current on the expiry date itself")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SELECT id FROM requirements WHERE keywords LIKE '%safesport%' LIMIT 1)", (past, riley_id)); D.commit()
-ok('coach-elig">Coach eligible' not in riley.get("/home").get_data(as_text=True) and ("Coach eligibility expired " + past) in eli.get("/admin").get_data(as_text=True), "an expired SafeSport date shows Coach eligibility expired on check-in")
+ok('coach-elig">Coach eligible' not in riley.get("/home").get_data(as_text=True) and ('class="coach-tag bad">Coach · expires ' + A.fmt_long(past)) in eli.get("/admin").get_data(as_text=True), "an expired SafeSport date shows Coach eligibility expired on check-in")
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=(SELECT id FROM requirements WHERE keywords LIKE '%safesport%' LIMIT 1)", (future, riley_id)); D.commit()
 answer(True, membership_type="Athlete")
 ok(not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and 'class="st st-ok coach-elig"' not in riley.get("/home").get_data(as_text=True) and 'class="st st-bad coach-elig"' not in riley.get("/home").get_data(as_text=True) and ('name=coach value="%d"' % riley_id) not in eli.get("/practices/%d" % pid).get_data(as_text=True), "a verified athlete membership removes the USAWP coaching-list row")
@@ -959,7 +960,7 @@ coach_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/membe
 eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=bea_id, action="remove_coach"), follow_redirects=True)
 as_player = bea.get("/home").get_data(as_text=True)
 player_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
-ok("Cleared for water polo" in as_coach and "Not cleared to coach" in as_coach and '<span>Background screening</span><span class="st st-bad">missing</span>' in as_coach and "Background screening missing" not in bea_row and '<span>Background screening</span><span class="st st-bad">missing</span>' in made_coach and coach_csv["bea.player@example.com"][-1] == "Background screening missing" and "Not cleared to coach" not in as_player and "Background screening" not in as_player and "Cleared for water polo" in as_player and player_csv["bea.player@example.com"][-1] == "", "Make coach requires background screening, and Remove coach drops that requirement")
+ok("Cleared for water polo" in as_coach and "Not cleared to coach" in as_coach and '<span>Background screening</span><span class="st st-bad">missing</span>' in as_coach and "Background screening missing" not in bea_row and '<span>Background screening</span><span class=t3>Not on file</span>' in made_coach and coach_csv["bea.player@example.com"][-1] == "Background screening missing" and "Not cleared to coach" not in as_player and "Background screening" not in as_player and "Cleared for water polo" in as_player and player_csv["bea.player@example.com"][-1] == "", "Make coach requires background screening, and Remove coach drops that requirement")
 week = (A.today_pt() + dt.timedelta(days=7)).isoformat()
 bg_req = D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '%background%'").fetchone()[0]
 casey_mid = D.execute("SELECT id FROM members WHERE email='casey@example.com'").fetchone()[0]
@@ -1074,10 +1075,11 @@ rae_exp = expired_row.find("rae.fern@example.com")
 rae_exp_row = expired_row[expired_row.rfind("<div class=li", 0, rae_exp):expired_row.find("<div class=li", rae_exp)]
 lapsed = "Referee eligibility expired " + ref_past
 lapsed_csv = {r[3]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/members.csv").data.decode("utf-8-sig"))))[1:]}
-ok(('class="st st-bad ref-elig">' + lapsed) in rae_exp_row and 'class="st st-ok ref-elig"' not in rae_exp_row and lapsed in eli.get("/admin").get_data(as_text=True) and lapsed_csv["rae.fern@example.com"][-2] == lapsed and "Rae Fern" not in eli.get("/members?referee=eligible").get_data(as_text=True), "a lapsed referee certification is marked on Members, check-in, and the sheet")
+ok(('class="st st-bad ref-elig">' + lapsed) in rae_exp_row and 'class="st st-ok ref-elig"' not in rae_exp_row and ("Referee eligibility expired " + A.fmt_long(ref_past)) in eli.get("/admin").get_data(as_text=True) and lapsed_csv["rae.fern@example.com"][-2] == lapsed and "Rae Fern" not in eli.get("/members?referee=eligible").get_data(as_text=True), "a lapsed referee certification is marked on Members, check-in, and the sheet")
 mem_panel = eli.get("/members").get_data(as_text=True)
 adm_panel = eli.get("/admin").get_data(as_text=True)
-ok("Member # / expires" not in mem_panel and "Member # / expires" not in adm_panel and ("<span>Member # 1234567</span><span class=\"st st-warn\">expires " + soon + "</span>") in mem_panel and ("<span>Member # 1234567</span><span class=\"st st-warn\">expires " + soon + "</span>") in adm_panel and "Preferred first name (optional)" in mem_panel and "Preferred first name (optional)" in adm_panel and mem_panel.count('class=panel id=m') == adm_panel.count('class=panel id=m') and "nextElementSibling.toggleAttribute('hidden')" in mem_panel and "bot answered" in adm_panel and ">Cleared<" in adm_panel, "the members list opens the same detail panel as check-in")
+jane_cred = '<span>USAWP # 1234567</span><span class=cred><span class="dot warn" aria-hidden=true></span>' + A.fmt_long(soon) + '</span>'
+ok("Member # / expires" not in mem_panel and "Member # / expires" not in adm_panel and jane_cred in mem_panel and jane_cred in adm_panel and "Preferred first name" in mem_panel and "Preferred first name" in adm_panel and "name=preferred_first" in mem_panel and "<span>RSVP</span>" not in mem_panel and "<span>Eligibility</span>" not in mem_panel and "Save background screening" not in mem_panel and "Save Sport:80 result" not in mem_panel and ">Recheck</button>" in mem_panel and ">Edit</button>" in mem_panel and mem_panel.count('class=panel id=m') == adm_panel.count('class=panel id=m') and "nextElementSibling.toggleAttribute('hidden')" in mem_panel and "bot answered" in adm_panel and ">Cleared<" in adm_panel, "the members list opens the same detail panel as check-in")
 ana_at = mem_panel.find("ana@example.com")
 ana_li = mem_panel.rfind("<div class=li", 0, ana_at)
 ana_row = mem_panel[ana_li:mem_panel.find("<div class=panel", ana_at)]
@@ -1089,12 +1091,12 @@ kay_id = D.execute("SELECT id FROM members WHERE email='kay.recheck@example.com'
 D.execute("UPDATE members SET usawp_status='verified', usawp_number='303030', usawp_valid_until='2027-01-01', role='athlete', is_admin=0 WHERE id=?", (kay_id,))
 D.commit()
 shown = eli.get("/members").get_data(as_text=True) + eli.get("/admin").get_data(as_text=True)
-ok(shown.count(">Recheck membership<") >= 2 and "name=membership_type" in shown and "name=referee_expires" in shown and "name=safesport_expires" in shown and "name=background_expires" in shown and kay.post("/members", data=dict(csrf=csrf(kay, "/home"), member_id=kay_id, action="recheck", verified="yes")).status_code == 403, "Recheck membership is on the member panel for an admin, and a member cannot save it")
+ok(shown.count(">Recheck</button>") >= 2 and "name=membership_type" in shown and "name=referee_expires" in shown and "name=safesport_expires" in shown and "name=background_expires" in shown and "Not on file · add date" in shown and kay.post("/members", data=dict(csrf=csrf(kay, "/home"), member_id=kay_id, action="recheck", verified="yes")).status_code == 403, "Recheck membership is on the member panel for an admin, and a member cannot save it")
 kay_page = eli.get("/members").get_data(as_text=True)
 kay_panel = kay_page[kay_page.find('<div class=panel id=m%d' % kay_id):]
 kay_next = kay_panel.find("<div class=li")
 if kay_next >= 0: kay_panel = kay_panel[:kay_next]
-kay_form = kay_panel[kay_panel.find("Recheck membership"):kay_panel.find("</details>")]
+kay_form = kay_panel[kay_panel.find("Edit Kay"):kay_panel.find("</dialog>")]
 ask_hits = []
 class _AskResp:
     status = 204
@@ -1111,7 +1113,7 @@ try:
 finally:
     __import__("urllib.request", fromlist=["urlopen"]).urlopen = _ask_orig
     A.VERIFY_WEBHOOK_URL = _ask_url
-ok(">Ask Grunions to verify</button>" in kay_form and "Save Sport:80 result" in kay_form and asked.status_code == 200 and ask_hits and ask_hits[0]["requested_by"] == "Eli Joern" and ask_hits[0]["member_submitted"] is False and ask_hits[0]["member_id"] == kay_id and ask_hits[0]["name"] == "Kay Recheck" and D.execute("SELECT status, member_submitted, requested_by FROM verify_requests WHERE member_id=? ORDER BY id DESC LIMIT 1", (kay_id,)).fetchone() == ("pending", 0, "Eli Joern") and kay.post("/members", data=dict(csrf=csrf(kay, "/home"), member_id=kay_id, action="ask_bot")).status_code == 403, "Ask Grunions sits with Recheck membership and still asks the bot for a verified member")
+ok(">Ask Grunions</button>" in kay_panel and "Look this member up on Sport:80" in kay_form and ">Save</button>" in kay_form and ">Cancel</button>" in kay_form and asked.status_code == 200 and 'class="toast noprint"' in asked.get_data(as_text=True) and ask_hits and ask_hits[0]["requested_by"] == "Eli Joern" and ask_hits[0]["member_submitted"] is False and ask_hits[0]["member_id"] == kay_id and ask_hits[0]["name"] == "Kay Recheck" and D.execute("SELECT status, member_submitted, requested_by FROM verify_requests WHERE member_id=? ORDER BY id DESC LIMIT 1", (kay_id,)).fetchone() == ("pending", 0, "Eli Joern") and kay.post("/members", data=dict(csrf=csrf(kay, "/home"), member_id=kay_id, action="ask_bot")).status_code == 403, "Ask Grunions sits with Recheck and still asks the bot for a verified member")
 D.execute("DELETE FROM verify_requests WHERE member_id=? AND status='pending'", (kay_id,)); D.commit()
 ahead = (A.today_pt() + dt.timedelta(days=50)).isoformat()
 eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=kay_id, action="recheck", verified="yes", membership_type="Individual Membership, Coach", valid_until=ahead, safesport_expires=ahead, background_expires=ahead))
@@ -1121,10 +1123,12 @@ D.execute("INSERT INTO verify_requests(member_id,name,email,status,created) VALU
 D.commit()
 pending_html = eli.get("/members").get_data(as_text=True)
 eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=kay_id, action="recheck", verified="yes", membership_type="Athlete", valid_until=ahead, safesport_expires=ahead, background_expires=ahead, referee_expires=ahead))
-ok("class=recheck open" in pending_html and D.execute("SELECT status FROM verify_requests WHERE member_id=? ORDER BY id DESC LIMIT 1", (kay_id,)).fetchone()[0] == "done" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=? AND source='usawp'", (kay_id,)).fetchone() and 'class="st st-ok ref-elig">Referee eligible' in eli.get("/members").get_data(as_text=True) and D.execute("SELECT role FROM members WHERE id=?", (kay_id,)).fetchone()[0] == "athlete", "the same form answers a pending request and a referee certification makes Referee eligible")
+ok("class=vrdetails" in pending_html and ">Details</summary>" in pending_html and D.execute("SELECT status FROM verify_requests WHERE member_id=? ORDER BY id DESC LIMIT 1", (kay_id,)).fetchone()[0] == "done" and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=? AND source='usawp'", (kay_id,)).fetchone() and 'class="st st-ok ref-elig">Referee eligible' in eli.get("/members").get_data(as_text=True) and D.execute("SELECT role FROM members WHERE id=?", (kay_id,)).fetchone()[0] == "athlete", "the same form answers a pending request and a referee certification makes Referee eligible")
 eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=kay_id, action="recheck", verified="yes", membership_type="Athlete", valid_until=ahead, safesport_expires=ahead, background_expires=ahead, referee_expires=(A.today_pt() - dt.timedelta(days=3)).isoformat()))
 lapsed_ref = "Referee eligibility expired " + (A.today_pt() - dt.timedelta(days=3)).isoformat()
 ok(lapsed_ref in eli.get("/members").get_data(as_text=True) and "Kay Recheck" not in eli.get("/members?referee=eligible").get_data(as_text=True), "a past referee certification is marked expired")
+saved = eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=kay_id, action="edit", verified="yes", membership_type="Athlete", valid_until=ahead, safesport_expires=ahead, background_expires=ahead, preferred_first="Kaylee"), follow_redirects=True).get_data(as_text=True)
+ok('class="toast noprint" role=status>Saved.' in saved and D.execute("SELECT preferred_first, membership_type FROM members WHERE id=?", (kay_id,)).fetchone() == ("Kaylee", "Athlete") and "Save background screening" not in saved and "Save preferred name" not in saved, "one Save stores the Sport:80 result and the preferred name")
 eli.post("/members", data=dict(csrf=csrf(eli, "/members"), member_id=kay_id, action="recheck", verified="no", membership_type="Head Coach", valid_until=ahead))
 ok(D.execute("SELECT usawp_status, role FROM members WHERE id=?", (kay_id,)).fetchone() == ("expired", "athlete") and not D.execute("SELECT 1 FROM coaching_list WHERE member_id=? AND source='usawp'", (kay_id,)).fetchone(), "a not-verified recheck does not add a coach membership to the coaching list")
 D.execute("UPDATE members SET trial_acknowledged_at=?, usawp_status='unknown', usawp_valid_until=NULL WHERE id=?", (A.today_pt().isoformat(), jane_id))

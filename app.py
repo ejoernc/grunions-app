@@ -521,7 +521,78 @@ def credential_dates(m):
     try: mid = m["id"]
     except (TypeError, KeyError, IndexError): return {}
     return screening_dates(db(), mid)
-app.jinja_env.globals.update(is_staff=is_staff, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m), referee_eligibility=lambda m: referee_eligibility(db(), m), credential_dates=credential_dates, coach_row_expiry=lambda m: coach_row_expiry(db(), m))
+def fmt_long(iso):
+    """Nov 3, 2026."""
+    if not iso: return ""
+    try: d = dt.date.fromisoformat(str(iso)[:10])
+    except ValueError: return ""
+    return d.strftime("%b ") + str(d.day) + ", " + str(d.year)
+def fmt_when(s):
+    """Oct 23, 6:57 PM from a Pacific stamp."""
+    if not s or "T" not in str(s): return ""
+    day, clock = str(s).split("T", 1)
+    try:
+        d = dt.date.fromisoformat(day[:10])
+        h, m = map(int, clock[:5].split(":"))
+    except (ValueError, IndexError):
+        return ""
+    am = "AM" if h < 12 else "PM"
+    h12 = (h - 1) % 12 + 1
+    return d.strftime("%b ") + str(d.day) + ", %d:%02d %s" % (h12, m, am)
+def date_dot(iso):
+    """Green, amber, or red for an expiry date. Empty when there is no date."""
+    if not iso: return ""
+    left = days_left(str(iso)[:10])
+    if left is None or left < 0: return "bad"
+    if left <= EXPIRING_DAYS: return "warn"
+    return "ok"
+def _expiring_label(n):
+    if n <= 0: return "Expiring soon today"
+    if n == 1: return "Expiring soon in 1 day"
+    return "Expiring soon in %d days" % n
+def panel_status(member):
+    """Headline for the expanded member row: a status, a dot, and one reason."""
+    cl = clearance(db(), member)
+    tw = trial_window(member)
+    ex = expiry_notes(member, cl)
+    status, until = "", ""
+    try:
+        status = (member["usawp_status"] or "") if member else ""
+        if member and member["usawp_valid_until"]: until = str(member["usawp_valid_until"])[:10]
+    except (TypeError, KeyError, IndexError):
+        pass
+    dl = days_left(until) if until else None
+    if tw and tw["active"] and status != "verified" and not ex["membership"]:
+        reason = "Trial membership ends " + fmt_long(tw["end"])
+        if tw["days_left"] <= 3:
+            return {"label": _expiring_label(tw["days_left"]), "dot": "warn", "reason": reason}
+        return {"label": "Cleared", "dot": "ok", "reason": reason}
+    if tw and tw["expired"] and status != "verified":
+        return {"label": "Expired", "dot": "bad", "reason": "Trial membership ended " + fmt_long(tw["end"])}
+    if ex["membership"] or status == "expired":
+        return {"label": "Expired", "dot": "bad", "reason": ("Membership expired " + fmt_long(until)) if until else "Membership expired"}
+    if status != "verified":
+        reason = "Verification pending" if status == "pending" else "Membership not verified"
+        return {"label": "Not verified", "dot": "bad", "reason": reason}
+    if ex.get("safesport"):
+        return {"label": "Expired", "dot": "bad", "reason": "SafeSport expired " + fmt_long(ex["safesport"])}
+    if not cl["ok"]:
+        reason = (cl.get("reasons") or ["Not cleared"])[0]
+        if reason == "SafeSport training missing": reason = "SafeSport not on file"
+        elif reason.startswith("Membership "): reason = "Membership not verified"
+        return {"label": "Not cleared", "dot": "bad", "reason": reason}
+    if dl is not None and dl <= EXPIRING_DAYS:
+        return {"label": _expiring_label(dl), "dot": "warn", "reason": "Membership expires " + fmt_long(until)}
+    ss = credential_dates(member).get("safesport") or ""
+    left = days_left(ss) if ss else None
+    if left is not None and left <= EXPIRING_DAYS:
+        return {"label": _expiring_label(left), "dot": "warn", "reason": "SafeSport expires " + fmt_long(ss)}
+    return {"label": "Cleared", "dot": "ok", "reason": ""}
+def on_coaching_list(member):
+    try: mid = member["id"]
+    except (TypeError, KeyError, IndexError): return False
+    return db().execute("SELECT 1 FROM coaching_list WHERE member_id=?", (mid,)).fetchone() is not None
+app.jinja_env.globals.update(is_staff=is_staff, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m), referee_eligibility=lambda m: referee_eligibility(db(), m), credential_dates=credential_dates, coach_row_expiry=lambda m: coach_row_expiry(db(), m), fmt_long=fmt_long, fmt_when=fmt_when, date_dot=date_dot, panel_status=panel_status, on_coaching_list=on_coaching_list)
 def staff_required(f):
     @functools.wraps(f)
     def w(*a, **k):
@@ -1502,7 +1573,7 @@ def qr_svg():
 def qr_page():
     return page(T["qr_page"], tab="admin", u=signup_url())
 
-DETAIL_ACTIONS = ("verify", "req", "role", "ask_bot", "preferred", "background", "recheck")
+DETAIL_ACTIONS = ("verify", "req", "role", "ask_bot", "preferred", "background", "recheck", "edit")
 def save_req_expiry(d, mid, req, exp, by):
     if not req or not exp: return
     now = stamp_pt("minutes")
@@ -1511,7 +1582,7 @@ def save_req_expiry(d, mid, req, exp, by):
         ON CONFLICT(member_id,req_id) DO UPDATE SET expires_on=excluded.expires_on,
         completed_on=COALESCE(member_reqs.completed_on, excluded.completed_on), source='manual', by=excluded.by, at=excluded.at""",
         (mid, req["id"], today_pt().isoformat(), day, by, now))
-def save_sport80_recheck(d, mid):
+def save_sport80_recheck(d, mid, announce=True):
     """Manual Sport:80 result. Coach membership joins the coaching list and does not grant coach access."""
     verified = request.form.get("verified") == "yes"
     now = stamp_pt("minutes")
@@ -1531,7 +1602,7 @@ def save_sport80_recheck(d, mid):
         d.execute("UPDATE verify_requests SET status='done', answered=?, result=?, note=? WHERE id=?",
                   (now, json.dumps({"verified": verified, "membership_type": mtype, "membership_expires_on": vu.isoformat() if vu else ""}),
                    "Recorded by hand from Sport:80", pending["id"]))
-    flash("Saved the Sport:80 result.")
+    if announce: flash("Saved the Sport:80 result.")
 def handle_member_detail(d, mid):
     """Check-in and the members list share these edits. 'ok' saves, 'halt' leaves the row unchanged."""
     act = request.form.get("action")
@@ -1547,7 +1618,7 @@ def handle_member_detail(d, mid):
               usawp_valid_until=COALESCE(?,usawp_valid_until), usawp_updated=?, usawp_verified_by=?, usawp_verified_at=? WHERE id=?""",
               (num, vu.isoformat() if vu else None, now, f"{me()['first']} {me()['last']}", now, mid))
     elif act == "ask_bot":
-        flash(create_verify_request(d, mid))
+        flash(create_verify_request(d, mid), "toast")
     elif act == "req":
         rid = int(request.form["req_id"]); done = parse_date(request.form.get("completed_on")); exp = parse_date(request.form.get("expires_on"))
         q = d.execute("SELECT * FROM requirements WHERE id=?", (rid,)).fetchone()
@@ -1576,6 +1647,10 @@ def handle_member_detail(d, mid):
         else: save_background_expiry(d, mid, exp, f"{me()['first']} {me()['last']}")
     elif act == "recheck":
         save_sport80_recheck(d, mid)
+    elif act == "edit":
+        save_sport80_recheck(d, mid, announce=False)
+        d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), mid))
+        flash("Saved.", "toast")
     return "ok"
 def members_back():
     view = request.form.get("list_view") or ""
@@ -1598,7 +1673,7 @@ def admin():
             else:
                 d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (mid, date, location_for(date)))
         d.commit()
-        if request.form.get("action") in ("verify", "req", "background", "preferred", "role", "recheck", "undo") or not request.form.get("action"): sync_practice_sheets(d)
+        if request.form.get("action") in ("verify", "req", "background", "preferred", "role", "recheck", "edit", "undo") or not request.form.get("action"): sync_practice_sheets(d)
         return redirect(url_for("admin", date=date, q=request.form.get("q", "")))
     ensure_schedule(d)
     days = practice_days(d)
@@ -1698,7 +1773,7 @@ def members():
         if detail == "halt": return members_back()
         if detail == "ok":
             d.commit()
-            if act in ("verify", "req", "background", "preferred", "role", "recheck"): sync_practice_sheets(d)
+            if act in ("verify", "req", "background", "preferred", "role", "recheck", "edit"): sync_practice_sheets(d)
             return members_back()
         if act == "make_admin":
             d.execute("UPDATE members SET is_admin=1 WHERE id=?", (mid,))
