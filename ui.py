@@ -307,6 +307,7 @@ button.dock,a.dock{background:var(--accent);color:#fff}
 a.quietcheck,button.quietcheck{background:var(--surface2);color:#fff;border:0;border-radius:12px}
 .emptyfind{color:var(--t2);margin:8px 0 16px}
 details.lineuppast{margin-top:8px}details.lineuppast>summary{min-height:44px;padding:8px 0;font-size:17px;font-weight:600;justify-content:flex-start}
+.repeatblock .repeatopts{display:none}.repeatblock:has(input[name=repeat]:checked) .repeatopts{display:block}
 .tripcard .nxcardhead .tripname{flex:1;min-width:0}.tripcard .nxcardhead .chip-info{flex:none;margin-left:0}.tripcard .kindline{margin-top:2px}
 .tripcard .tripwhere{align-items:flex-start}.tripcard .tripwhere a{min-width:0}
 .growthcard{position:relative;padding:14px 14px 8px;margin:0 0 12px}
@@ -509,7 +510,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=33');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=34');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -860,7 +861,15 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {% endif %}</div>{% endfor %}
 {% if me().is_admin %}<details class=card><summary>Add a practice</summary><form method=post class=body>{{csrf_field()}}<label>Date<input type=date name=date required></label>
 <div class=row><label>Start<input type=time name=start value=19:00></label><label>End<input type=time name=end value=20:30></label></div>
-<label>Location<input name=location required></label><label>Note<input name=note></label><button class="btn btn-primary full" name=action value=add>Add practice</button></form></details><a class="btn btn-secondary full" href=/practices/series/new style="margin-top:12px">Add a series</a>{% endif %}
+<label>Location<input name=location required></label><label>Note<input name=note></label>
+<div class=repeatblock><label class=repeatline><input type=checkbox name=repeat value=1> Repeat</label>
+<div class=repeatopts><div class=checks role=group aria-label="Weekdays"><div class="t3 xs">Weekdays</div>
+<label style="margin:8px 0"><input type=checkbox name=weekday value=0> Mon</label><label style="margin:8px 0"><input type=checkbox name=weekday value=1> Tue</label><label style="margin:8px 0"><input type=checkbox name=weekday value=2> Wed</label><label style="margin:8px 0"><input type=checkbox name=weekday value=3> Thu</label><label style="margin:8px 0"><input type=checkbox name=weekday value=4> Fri</label><label style="margin:8px 0"><input type=checkbox name=weekday value=5> Sat</label><label style="margin:8px 0"><input type=checkbox name=weekday value=6> Sun</label></div>
+<label>Ends (optional)<input type=date name=end_date></label>
+<p class="t3 sm">Starts on the date above. Occurrences fall on the weekdays you pick, through the end date, or for the next eight weeks.</p>
+{% if coach_choices %}<div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>{% for c in coach_choices %}<label style="margin:8px 0"><input type=checkbox name=coach value="{{ c.id }}">{{ display_first(c) }} {{ c.last }}</label>{% endfor %}</div>{% endif %}
+</div></div>
+<button class="btn btn-primary full" name=action value=add>Add practice</button></form></details>{% endif %}
 </div>
 <script>
 (function(){
@@ -1380,7 +1389,15 @@ T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp
 {% endif %}</div>{% endfor %}
 {% if me().is_admin %}<details class=card><summary>Add a practice</summary><form method=post class=body>{{csrf_field()}}<label>Date<input type=date name=date required></label>
 <div class=row><label>Start<input type=time name=start value=19:00></label><label>End<input type=time name=end value=20:30></label></div>
-<label>Location<input name=location required></label><label>Note<input name=note></label><button class="btn btn-primary full" name=action value=add>Add practice</button></form></details><a class="btn btn-secondary full" href=/practices/series/new style="margin-top:12px">Add a series</a>{% endif %}""" + _PRACTICE_JS
+<label>Location<input name=location required></label><label>Note<input name=note></label>
+<div class=repeatblock><label class=repeatline><input type=checkbox name=repeat value=1> Repeat</label>
+<div class=repeatopts><div class=checks role=group aria-label="Weekdays"><div class="t3 xs">Weekdays</div>
+<label style="margin:8px 0"><input type=checkbox name=weekday value=0> Mon</label><label style="margin:8px 0"><input type=checkbox name=weekday value=1> Tue</label><label style="margin:8px 0"><input type=checkbox name=weekday value=2> Wed</label><label style="margin:8px 0"><input type=checkbox name=weekday value=3> Thu</label><label style="margin:8px 0"><input type=checkbox name=weekday value=4> Fri</label><label style="margin:8px 0"><input type=checkbox name=weekday value=5> Sat</label><label style="margin:8px 0"><input type=checkbox name=weekday value=6> Sun</label></div>
+<label>Ends (optional)<input type=date name=end_date></label>
+<p class="t3 sm">Starts on the date above. Occurrences fall on the weekdays you pick, through the end date, or for the next eight weeks.</p>
+{% if coach_choices %}<div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>{% for c in coach_choices %}<label style="margin:8px 0"><input type=checkbox name=coach value="{{ c.id }}">{{ display_first(c) }} {{ c.last }}</label>{% endfor %}</div>{% endif %}
+</div></div>
+<button class="btn btn-primary full" name=action value=add>Add practice</button></form></details>{% endif %}""" + _PRACTICE_JS
 
 T["practice"] = """{% set p = x.p %}
 {% if p.location %}<section class="homemap cardmap banner" id=practiceMap aria-label="Map of {{ p.location }}"></section>

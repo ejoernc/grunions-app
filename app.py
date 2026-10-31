@@ -1335,7 +1335,7 @@ def save_series(d, sid=None):
     if not re.fullmatch(r"\d{2}:\d{2}", start_t) or not re.fullmatch(r"\d{2}:\d{2}", end_t): raise ValueError("Add a start and end time.")
     loc = " ".join((request.form.get("location") or "").split())[:200]
     if not loc: raise ValueError("Add a location.")
-    start = parse_date(request.form.get("start_date"))
+    start = parse_date(request.form.get("start_date") or request.form.get("date"))
     if not start: raise ValueError("Add a start date.")
     end_raw = (request.form.get("end_date") or "").strip()
     end = parse_date(end_raw) if end_raw else None
@@ -1733,8 +1733,13 @@ def handle_practice_post(d):
             flash(str(e))
     elif not me()["is_admin"]: abort(403)
     elif a == "add":
-        try: d.execute("INSERT INTO practices(date,start,end,location,note) VALUES(?,?,?,?,?)", (request.form["date"], request.form.get("start") or "19:00", request.form.get("end") or "20:30", request.form.get("location") or "TBD", request.form.get("note")))
-        except sqlite3.IntegrityError: flash("A practice already exists at that place on that date.")
+        if request.form.get("repeat"):
+            try: save_series(d)
+            except ValueError as e: flash(str(e))
+            except sqlite3.IntegrityError: flash("A practice already exists at that place on that date.")
+        else:
+            try: d.execute("INSERT INTO practices(date,start,end,location,note) VALUES(?,?,?,?,?)", (request.form["date"], request.form.get("start") or "19:00", request.form.get("end") or "20:30", request.form.get("location") or "TBD", request.form.get("note")))
+            except sqlite3.IntegrityError: flash("A practice already exists at that place on that date.")
     elif a == "edit" and pid:
         old = d.execute("SELECT date, start, end, location, note, series_id FROM practices WHERE id=?", (pid,)).fetchone()
         raw_date = request.form.get("date")
@@ -1884,7 +1889,7 @@ def combined_view(entry):
     return page(T["home"], tab="practices" if entry == "practices" else "home",
         m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices,
         nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined,
-        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, data=data)
+        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, data=data, coach_choices=coach_candidates(d) if m["is_admin"] else [])
 @app.route("/practices", methods=["GET", "POST"])
 @login_required
 def practices():
@@ -3449,7 +3454,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-33 */
+SW_JS = """/* grunions-sw-34 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
