@@ -497,7 +497,7 @@ T["home"] = """{{ push_card() }}
 {% if vr_pending %}{% set play_title = 'Verification pending' %}{% set play_dot = 'warn' %}
 {% elif cl.ok %}{% set play_title = 'Cleared for water polo' %}{% set play_dot = 'ok' %}
 {% else %}{% set play_title = 'Not cleared for water polo' %}{% set play_dot = 'bad' %}{% endif %}
-<details class="card playcard"><summary><span class=playtitle>{{play_title}}<span class="dot {{play_dot}}" aria-hidden=true></span></span><span class=playnum><span class=playclosed>USAWP # {{m.usawp_number or '—'}}</span>{% if m.usawp_verified_at %}<span class=playopen>Verified {{ m.usawp_verified_at[:10] }}</span>{% endif %}</span></summary><div class=body>
+<details class="card playcard"><summary><span class=playtitle><span class="dot {{play_dot}}" aria-hidden=true></span>{{play_title}}</span><span class=playnum><span class=playclosed>USAWP # {{m.usawp_number or '—'}}</span>{% if m.usawp_verified_at %}<span class=playopen>Verified {{ m.usawp_verified_at[:10] }}</span>{% endif %}</span></summary><div class=body>
 <div class=kv><span>USAWP # {{m.usawp_number or '—'}}</span>{{ member_expiry(m) }}</div>
 {% for it in cl.checks %}<div class=kv><span>{{it.req.name}}</span>{{ st({'ok':'ok','no date':'warn'}.get(it.status,'bad'),
  (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status!='expired' else 'expired') }}</div>{% endfor %}
