@@ -687,7 +687,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=21" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=22" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:inherit;text-decoration:underline" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
@@ -763,6 +763,36 @@ _grp_out = {}
 try: _grp_out = json.loads(_grp_proc.stdout or "{}")
 except ValueError: _grp_out = {}
 ok(_grp_proc.returncode == 0 and _grp_out.get("long") == 4 and _grp_out.get("exact") == 2 and _grp_out.get("gap") == 2 and _grp_out.get("other") == 2, "a rolling five-minute gap keeps a chain together until someone else speaks or the gap is longer")
+_link_src = chui[chui.find("function safeHttp"):chui.find("function bodyHtml")]
+_link_proc = subprocess.run(["node", "-e", r'''
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+''' + _link_src + r'''
+function has(html, needle){ return html.indexOf(needle)>=0; }
+var https=linkify('see https://example.com/a?b=1&c=2.');
+var www=linkify('www.example.com/path');
+var bare=linkify('go to example.com/path today');
+var js=linkify('javascript:alert(1)');
+var xss=linkify('<script>alert(1)</script>');
+var addr=linkify('pool is 15192 Goldenwest St, Westminster, CA 92683 thanks');
+var street=linkify('10 Main Street');
+var email=linkify('email me at pat@example.com please');
+var court=linkify('meet at 3 pm at the Court');
+console.log(JSON.stringify({
+ https: has(https,'href="https://example.com/a?b=1&amp;c=2"') && has(https,'target=_blank') && has(https,'rel="noopener noreferrer"') && https.endsWith('.</a>')===false && has(https,'</a>.'),
+ www: has(www,'href="https://www.example.com/path"'),
+ bare: has(bare,'href="https://example.com/path"'),
+ js: js.indexOf('<a')<0 && has(js,'javascript:alert(1)'),
+ xss: xss.indexOf('<script>')<0 && has(xss,'&lt;script&gt;'),
+ addr: has(addr,'class="msglink maplink"') && has(addr,'maps/search/?api=1&amp;query=15192%20Goldenwest%20St') && has(addr,'data-map="15192 Goldenwest St, Westminster, CA 92683"'),
+ street: has(street,'maplink') && has(street,'10%20Main%20Street'),
+ email: email.indexOf('<a')<0,
+ court: court.indexOf('<a')<0
+}));
+'''], capture_output=True, text=True)
+_link_out = {}
+try: _link_out = json.loads(_link_proc.stdout or "{}")
+except ValueError: _link_out = {}
+ok(_link_proc.returncode == 0 and all(_link_out.get(k) for k in ("https","www","bare","js","xss","addr","street","email","court")), "chat links http addresses and street addresses, and leaves scripts and emails as text")
 tj = csrf(jane, "/chat"); te = csrf(eli, "/chat"); tjohn = csrf(john, "/chat")
 ok(jane.post("/api/messages", json={"body": "Edit me please"}, headers={"X-CSRF": tj}).status_code == 200, "author can post a message to edit")
 mid = [m for m in jane.get("/api/messages").get_json() if m["body"] == "Edit me please"][-1]["id"]
