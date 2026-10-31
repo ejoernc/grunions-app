@@ -927,12 +927,17 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 {% if m.vr_status %}<details class=vrdetails><summary>Details</summary><p class="t3 sm">{{ m.vr_status }}{% if m.vr_note %} · {{ m.vr_note }}{% endif %}</p></details>{% endif %}
 <div class=seclabel>Personal</div>
 <div class=list>
-<div class="li prow"><span class=k>Legal name</span><span class=v>{{ m.first }} {{ m.last }}</span></div>
+<div class="li prow viewonly"><span class=k>Legal name</span><span class=v>{{ m.first }} {{ m.last }}</span></div>
+{% if me().is_admin %}
+<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Legal first name<input name=first value="{{ m.first }}" autocomplete=off required></label></div>
+<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Legal last name<input name=last value="{{ m.last }}" autocomplete=off required></label></div>
+{% endif %}
 <div class="li prow viewonly"><span class=k>Preferred name</span><span class=v>{{ m.preferred_first or '—' }}</span></div>
 {% if me().is_admin %}<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Preferred first name<input name=preferred_first value="{{ m.preferred_first or '' }}" placeholder="Leave blank to use legal first name" autocomplete=off></label></div>{% endif %}
 <div class="li prow"><span class=k>Email</span><span class=v>{{ m.email }}</span></div>
 <div class="li prow"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
 </div>
+{% for a in audits %}<p class="t3 sm viewonly" style="margin:8px 0 0">{{ a.actor }} changed {{ a.old_name }} → {{ a.new_name }} · {{ fmt_when(a.at) }}</p>{% endfor %}
 </form>
 {% if me().is_admin %}
 <div class=seclabel>Actions</div>

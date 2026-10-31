@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS verify_requests(id INTEGER PRIMARY KEY, member_id INT
   member_number TEXT, requested_by TEXT, member_submitted INTEGER DEFAULT 0, status TEXT DEFAULT 'pending', created TEXT, answered TEXT, result TEXT, note TEXT, webhook TEXT);
 CREATE TABLE IF NOT EXISTS reactions(message_id INTEGER, member_id INTEGER, emoji TEXT, PRIMARY KEY(message_id, member_id, emoji));
 CREATE TABLE IF NOT EXISTS notices(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), body TEXT, at TEXT DEFAULT CURRENT_TIMESTAMP, seen INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS name_audits(id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL, actor_id INTEGER, actor TEXT NOT NULL, old_name TEXT NOT NULL, new_name TEXT NOT NULL, at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS usawp_submits(id INTEGER PRIMARY KEY, member_id INTEGER, at TEXT);
 CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), body TEXT NOT NULL,
   announcement INTEGER DEFAULT 0, at TEXT DEFAULT CURRENT_TIMESTAMP, channel TEXT DEFAULT 'team', image TEXT,
@@ -180,6 +181,9 @@ def migrate_messages(d):
 def clean_preferred(v):
     v = str(v or "").strip()[:40]
     return v or None
+def clean_legal(v):
+    """Collapse whitespace. Empty means the field was left blank."""
+    return " ".join(str(v or "").split())[:80]
 def display_first(m):
     """Name shown in the app. Blank preferred_first falls back to the legal first name."""
     if not m: return ""
@@ -1893,8 +1897,24 @@ def handle_member_detail(d, mid):
     elif act == "edit":
         save_sport80_recheck(d, mid, announce=False)
         d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), mid))
-        flash("Saved.", "toast")
+        if save_legal_name(d, mid): flash("Saved.", "toast")
+        else: flash("Enter a legal first and last name.", "toast")
     return "ok"
+def save_legal_name(d, mid):
+    """Admins may rename someone from the member page. A blank name is refused. Unchanged names are not audited."""
+    if not me()["is_admin"]: abort(403)
+    if "first" not in request.form and "last" not in request.form: return True
+    first, last = clean_legal(request.form.get("first")), clean_legal(request.form.get("last"))
+    if not first or not last: return False
+    row = d.execute("SELECT first, last FROM members WHERE id=?", (mid,)).fetchone()
+    if not row: return False
+    old_name, new_name = "%s %s" % (row["first"], row["last"]), "%s %s" % (first, last)
+    if old_name == new_name: return True
+    actor = "%s %s" % (me()["first"], me()["last"])
+    d.execute("UPDATE members SET first=?, last=? WHERE id=?", (first, last, mid))
+    d.execute("INSERT INTO name_audits(member_id, actor_id, actor, old_name, new_name, at) VALUES(?,?,?,?,?,?)",
+              (mid, me()["id"], actor, old_name, new_name, stamp_pt("minutes")))
+    return True
 @app.route("/admin/member/<int:mid>", methods=["GET", "POST"])
 @login_required
 def member_page(mid):
@@ -1916,7 +1936,8 @@ def member_page(mid):
     hist = d.execute("SELECT practice_date FROM checkins WHERE member_id=?", (mid,)).fetchall()
     month = today_pt().strftime("%Y-%m")
     editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
-    return page(T["member"], tab="member", m=m, hist=hist, nmonth=sum(1 for h in hist if (h["practice_date"] or "").startswith(month)), editing=editing)
+    audits = d.execute("SELECT actor, old_name, new_name, at FROM name_audits WHERE member_id=? ORDER BY id DESC LIMIT 8", (mid,)).fetchall()
+    return page(T["member"], tab="member", m=m, hist=hist, nmonth=sum(1 for h in hist if (h["practice_date"] or "").startswith(month)), editing=editing, audits=audits)
 def members_back():
     view = request.form.get("list_view") or ""
     if request.form.get("list_coach") == "eligible": view = view or "coaches"
