@@ -135,8 +135,9 @@ a.rowbtn,button.rowbtn{width:100%;height:auto;min-height:60px;padding:14px 18px;
 .sechead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:22px 4px 8px}
 .sechead .seclabel{margin:0}
 .verifiedwhen{margin:0;color:var(--t3);font-size:13px;font-weight:400;font-family:inherit;line-height:1.5;text-align:right;flex:none}
-.rowtitle{display:inline-flex;align-items:center;gap:8px;min-width:0}
-.prow{justify-content:space-between;gap:12px}
+.rowtitle{display:inline-flex;align-items:center;gap:6px;flex:none;white-space:nowrap}
+.prow .v{font-size:14px;color:var(--t2);text-align:right}
+.prow{justify-content:space-between;gap:8px;padding-left:16px;padding-right:16px}
 .prow .k{color:var(--t2)}
 .prow .v{text-align:right}
 a.chevrow{color:inherit;text-decoration:none;width:100%}
@@ -168,6 +169,7 @@ button.morebtn[aria-expanded=true]{background:var(--surface2);color:var(--t1)}
 .menu button{width:100%;height:40px;padding:0 12px;justify-content:flex-start;background:transparent;color:var(--t1);font-weight:500;font-size:15px;border-radius:8px}
 .menu button:disabled{color:var(--t3)}
 .li{display:flex;align-items:center;gap:12px;padding:14px 18px;min-height:60px;border-top:1px solid var(--line)}.li:first-child{border-top:0}
+.li.prow{padding-left:16px;padding-right:16px;gap:8px}
 .editonly,.li.editonly{display:none}
 body.profile-edit .editonly{display:inline-flex}
 body.profile-edit .li.editonly{display:flex}
