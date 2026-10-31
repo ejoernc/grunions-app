@@ -194,10 +194,13 @@ span.avatar.seenav,span.avatar.seenav img{width:32px;height:32px;min-width:32px;
 .qbar button{width:32px;height:32px;padding:0;background:none;color:var(--t3);flex:none}
 .quotechip{border-left:3px solid #6c6c74;padding:2px 8px;margin:0 0 6px;color:var(--t2);font-size:13px;text-align:left}
 .quotechip b{display:block;color:var(--t3);font-weight:650;font-size:12px}
-dialog.botsheet{position:fixed;inset:auto 0 0 0;margin:0 auto;width:min(640px,100%);max-height:min(88dvh,720px);border:0;padding:0;background:transparent;color:var(--t1)}
-dialog.botsheet::backdrop{background:rgba(0,0,0,.62)}
-dialog.botsheet .sheet{background:#1c1c1f;border:1px solid #2e2e32;border-bottom:0;border-radius:18px 18px 0 0;padding:6px 12px calc(14px + env(safe-area-inset-bottom));max-height:min(88dvh,720px);overflow:auto}
-.grab{width:36px;height:5px;border-radius:3px;background:#5a5a60;margin:6px auto 12px}
+dialog.botsheet{position:fixed;inset:auto 0 calc(64px + env(safe-area-inset-bottom)) 0;margin:0 auto;width:min(640px,100%);height:fit-content;max-height:calc(100dvh - 64px - env(safe-area-inset-bottom) - 8px);border:0;padding:0;background:transparent;color:var(--t1);overflow:visible}
+dialog.botsheet::backdrop{background:rgba(0,0,0,.62);opacity:1;transition:opacity .25s ease-out}
+dialog.botsheet.opening::backdrop,dialog.botsheet.closing::backdrop{opacity:0}
+dialog.botsheet .sheet{background:#1c1c1f;border:1px solid #2e2e32;border-bottom:0;border-radius:18px 18px 0 0;padding:0 12px calc(14px + env(safe-area-inset-bottom));max-height:calc(100dvh - 64px - env(safe-area-inset-bottom) - 8px);overflow:auto;transform:translateY(0);transition:transform .25s ease-out}
+.grab{display:block;width:100%;height:28px;margin:0 0 8px;padding:0;position:sticky;top:0;z-index:1;background:#1c1c1f;touch-action:none;cursor:grab}
+.grab::after{content:"";position:absolute;left:50%;top:12px;width:36px;height:5px;margin-left:-18px;border-radius:3px;background:#5a5a60}
+@media (prefers-reduced-motion:reduce){dialog.botsheet::backdrop,dialog.botsheet .sheet{transition:none}}
 .emogrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:0 0 14px}
 .emogrid button{width:100%;aspect-ratio:1;height:auto;padding:0;border-radius:50%;background:#2c2c2e;font-size:22px}
 .emopick{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;max-height:28vh;overflow:auto;margin:0 0 12px}
@@ -244,8 +247,6 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 .actpills{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 2px;align-items:center}
 .actpills form{margin:0}.actpills button{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600;font-size:14px}
 .actpills button:disabled{color:var(--t3)}
-dialog.memberedit{width:min(480px,calc(100vw - 24px));max-height:min(92dvh,820px);margin:auto}
-dialog.memberedit .sheet{max-height:min(92dvh,820px);overflow:auto}
 dialog.memberedit h2{margin:0 0 12px;font-size:22px;letter-spacing:-.3px}
 dialog.memberedit h3{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--t3);margin:20px 0 8px;font-weight:650}
 dialog.memberedit h3[data-section=membership]{margin-top:0}
@@ -256,10 +257,6 @@ dialog.memberedit .help a{color:var(--t1)}
 .datefield.empty .dateph{display:block}
 .datefield.empty input[type=date]{color:transparent}
 .datefield.empty input[type=date]::-webkit-datetime-edit,.datefield.empty input[type=date]::-webkit-datetime-edit-fields-wrapper{color:transparent}
-@media (max-width:700px){
- dialog.memberedit{width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}
- dialog.memberedit .sheet{height:100%;max-height:none;border:0;border-radius:0;padding:20px 20px calc(24px + env(safe-area-inset-bottom))}
-}
 @media print{header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{background:#fff}}
 </style></head><body style="background:#0a0a0b;color:#ececee;margin:0" class="{% if tab=='home' and me() %}homefull{% elif tab=='profile' %}profilepage{% endif %}">
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
@@ -295,7 +292,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <button type=button data-member-edit="edit{{ r.id }}">Edit</button>
 <form method=post>{{ detail_hiddens(r) }}<button name=action value=ask_bot {% if r.vr_status=='pending' %}disabled{% endif %}>Ask Grunions</button></form>
 </div>{% endif %}</div>
-{% if me().is_admin %}<dialog class="modal memberedit" id="edit{{ r.id }}"><form method=post class=sheet>{{ detail_hiddens(r) }}
+{% if me().is_admin %}<dialog class="botsheet memberedit" id="edit{{ r.id }}"><form method=post class=sheet><div class=grab aria-hidden=true></div>{{ detail_hiddens(r) }}
 <h2>Edit {{ display_first(r) }} {{ r.last }}</h2>
 <h3 data-section=membership>Membership</h3>
 <p class="t3 sm help">Look this member up on Sport:80 and enter what you find. Grunions does not contact Sport:80.{% if r.vr_status == 'pending' %} Saving answers the pending verification request.{% endif %}{% if not cl.ok or r.usawp_status != 'verified' %} <a target=_blank rel=noopener href="https://usawp.sport80.com/" onclick="navigator.clipboard&&navigator.clipboard.writeText('{{ r.first }} {{ r.last }}')">Verify {{ r.first }} on Sport:80</a>{% endif %}</p>
@@ -310,7 +307,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=kv><span>Legal name</span><span>{{ r.first }} {{ r.last }}</span></div>
 <label>Preferred first name<input name=preferred_first value="{{ r.preferred_first or '' }}" placeholder="Leave blank to use legal first name" autocomplete=off></label>
 <button class=full name=action value=edit style="background:#ececee;color:#0a0a0b">Save</button>
-<button type=button class="quiet full" onclick="this.closest('dialog').close()">Cancel</button>
+<button type=button class="quiet full" onclick="grunionsCloseSheet(this.closest('dialog'))">Cancel</button>
 </form></dialog>{% endif %}{% endmacro %}
 {% macro glyph_clock() %}<svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>{% endmacro %}
 {% macro glyph_pin() %}<svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>{% endmacro %}
@@ -536,16 +533,48 @@ if(document.querySelector('nav.tabs')){
  });
  window.addEventListener('popstate',function(){if(document.querySelector('nav.tabs')) grunionsGo(location.href,true);});
 }
+window.grunionsOpenSheet=function(d){
+ if(!d||d.classList.contains('closing')) return;
+ var panel=d.querySelector('.sheet');
+ d.classList.remove('closing'); d.classList.add('opening');
+ if(panel){panel.style.transition='none';panel.style.transform='translateY(110%)'}
+ if(!d.open) d.showModal();
+ requestAnimationFrame(function(){requestAnimationFrame(function(){
+  d.classList.remove('opening');
+  if(panel){panel.style.transition='transform .25s ease-out';panel.style.transform='translateY(0)'}
+ })});
+};
+window.grunionsCloseSheet=function(d){
+ if(!d||!d.open||d.classList.contains('closing')) return;
+ d.classList.add('closing');
+ var panel=d.querySelector('.sheet');
+ if(panel){panel.style.transition='transform .25s ease-out';panel.style.transform='translateY(110%)'}
+ setTimeout(function(){d.classList.remove('closing');if(panel){panel.style.transition='';panel.style.transform=''}if(d.open)d.close()},250);
+};
+if(!window.grunionsSheetDrag){window.grunionsSheetDrag=1;
+ document.addEventListener('pointerdown',function(e){
+  var grab=e.target.closest&&e.target.closest('dialog.botsheet .grab'); if(!grab||e.button) return;
+  var d=grab.closest('dialog'), panel=d.querySelector('.sheet'); if(!panel) return;
+  var y0=e.clientY, dy=0, drag=true;
+  panel.style.transition='none';
+  grab.setPointerCapture&&grab.setPointerCapture(e.pointerId);
+  function move(ev){if(!drag)return;dy=Math.max(0,ev.clientY-y0);panel.style.transform='translateY('+dy+'px)'}
+  function end(){if(!drag)return;drag=false;grab.removeEventListener('pointermove',move);grab.removeEventListener('pointerup',end);grab.removeEventListener('pointercancel',end);
+   if(dy>80) grunionsCloseSheet(d); else {panel.style.transition='transform .25s ease-out';panel.style.transform='translateY(0)'}}
+  grab.addEventListener('pointermove',move); grab.addEventListener('pointerup',end); grab.addEventListener('pointercancel',end);
+ });
+ document.addEventListener('click',function(e){var d=e.target.closest&&e.target.closest('dialog.botsheet'); if(d&&e.target===d) grunionsCloseSheet(d)});
+ document.addEventListener('cancel',function(e){var d=e.target; if(d&&d.matches&&d.matches('dialog.botsheet')){e.preventDefault();grunionsCloseSheet(d)}},true);
+}
 document.addEventListener('click',function(e){
  var b=e.target.closest&&e.target.closest('[data-member-edit]'); if(!b) return;
  var d=document.getElementById(b.getAttribute('data-member-edit')); if(!d||!d.showModal) return;
- e.preventDefault(); if(!d.open) d.showModal();
+ e.preventDefault(); grunionsOpenSheet(d);
  var sheet=d.querySelector('.sheet'), sec=b.getAttribute('data-focus');
  var el=sec?d.querySelector('[data-section="'+sec+'"]'):null;
  if(sheet) sheet.scrollTop=0;
  if(el&&sheet){var top=el.getBoundingClientRect().top-sheet.getBoundingClientRect().top+sheet.scrollTop; sheet.scrollTop=Math.max(0,top-12);}
 });
-document.addEventListener('click',function(e){var d=e.target.closest&&e.target.closest('dialog.memberedit'); if(d&&e.target===d) d.close();});
 document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&t.matches('.datefield input[type=date]')) t.closest('.datefield').classList.toggle('empty',!t.value);});
 </script>
 <script>var PUSH_CSRF="{{csrf_token()}}",VAPID_PUBLIC="{{vapid_public_key()}}";</script>
@@ -790,7 +819,8 @@ T["chat"] = """{% if is_staff() %}<div class=seg><a href=/chat class="{{'on' if 
 <h2 id=whoTitle style="margin:0 0 8px;font-size:20px"></h2>
 <div class=seenlist id=whoList></div>
 </div></dialog>
-<dialog id=seenSheet class=modal><div class=sheet>
+<dialog id=seenSheet class=botsheet><div class=sheet>
+<div class=grab aria-hidden=true></div>
 <h2 style="margin:0 0 8px">Seen by</h2>
 <div class=seenlist id=seenPeople></div>
 <h3 class=seenh id=seenYetHead hidden>Not yet</h3>
@@ -833,21 +863,21 @@ function openSeen(info){
  const people=document.getElementById('seenPeople'), yet=document.getElementById('seenYet'), head=document.getElementById('seenYetHead');
  people.innerHTML=(info.seen||[]).map(personRow).join('')||'<p class="t3 sm">No one yet.</p>';
  const rest=info.not_yet||[]; head.hidden=!rest.length; yet.innerHTML=rest.map(personRow).join('');
- document.getElementById('seenSheet').showModal()}
+ grunionsOpenSheet(document.getElementById('seenSheet'))}
 const sheet=document.getElementById('actSheet'),actEdit=document.getElementById('actEdit'),actDelete=document.getElementById('actDelete'),actConfirm=document.getElementById('actConfirm'),actOwn=document.getElementById('actOwn'),actCopyGroup=document.getElementById('actCopyGroup'),emojiMore=document.getElementById('emojiMore'),quoteBar=document.getElementById('quoteBar'),editBar=document.getElementById('editBar');
 const MORE=["😀","😁","😊","😉","😍","😘","😎","🤔","😭","😡","🤯","🤗","🫡","🤝","👏","🙌","💪","✌️","👋","✅","⭐","💧","🏊","🤽","🏆","📣","📸","🧡","💛","💚","💙","💜","🖤","🤍","💔","🤣","😅","😴","🎉"];
 emojiMore.innerHTML=MORE.map(e=>`<button type=button data-e="${e}">${e}</button>`).join('');
 let actId=null,confirming=false,replyTo=null,editId=null;
 function buzz(){try{if(navigator.vibrate)navigator.vibrate(12)}catch(err){}}
-function closeSheet(){if(sheet.open)sheet.close();const panel=sheet.querySelector('.sheet');if(panel)panel.style.transform='';actId=null;confirming=false;actConfirm.hidden=true;document.getElementById('actDeleteLabel').textContent='Delete';emojiMore.hidden=true}
+function closeSheet(){actId=null;confirming=false;actConfirm.hidden=true;document.getElementById('actDeleteLabel').textContent='Delete';emojiMore.hidden=true;grunionsCloseSheet(sheet)}
 function openSheet(id){const m=msgs[id];if(!m||m.deleted)return;actId=id;confirming=false;actConfirm.hidden=true;document.getElementById('actDeleteLabel').textContent='Delete';emojiMore.hidden=true;
  actEdit.hidden=!(m.mine&&!m.deleted);actDelete.hidden=!m.can_delete;actOwn.hidden=actEdit.hidden&&actDelete.hidden;actCopyGroup.hidden=!m.body;
- if(!sheet.open)sheet.showModal()}
+ grunionsOpenSheet(sheet)}
 function clearCompose(){const field=document.getElementById('body');field.value='';grow();document.getElementById('file').value='';document.getElementById('prev').hidden=true;replyTo=null;editId=null;quoteBar.hidden=true;editBar.hidden=true}
 function startReply(id){const m=msgs[id];if(!m||m.deleted)return;editId=null;editBar.hidden=true;replyTo=id;document.getElementById('quoteWho').textContent=m.who;document.getElementById('quoteTxt').textContent=(m.body||'Photo').slice(0,140);quoteBar.hidden=false;document.getElementById('body').focus()}
 function startEdit(id){const m=msgs[id];if(!m||m.deleted||!m.mine)return;replyTo=null;quoteBar.hidden=true;editId=id;const field=document.getElementById('body');field.value=m.body||'';grow();document.getElementById('editHint').textContent=(m.body||'Photo').slice(0,80);editBar.hidden=false;field.focus()}
 async function reactWith(id,emoji){pollGen++;await fetch('/api/messages/'+id+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:emoji})});closeSheet();poll()}
-async function showWho(pill){const r=await fetch('/api/messages/'+pill.dataset.m+'/reactors?emoji='+encodeURIComponent(pill.dataset.e));const j=await r.json().catch(()=>({}));document.getElementById('whoTitle').textContent=pill.dataset.e||'';document.getElementById('whoList').innerHTML=(j.people||[]).map(personRow).join('')||'<p class="t3 sm">No one</p>';document.getElementById('whoSheet').showModal()}
+async function showWho(pill){const r=await fetch('/api/messages/'+pill.dataset.m+'/reactors?emoji='+encodeURIComponent(pill.dataset.e));const j=await r.json().catch(()=>({}));document.getElementById('whoTitle').textContent=pill.dataset.e||'';document.getElementById('whoList').innerHTML=(j.people||[]).map(personRow).join('')||'<p class="t3 sm">No one</p>';grunionsOpenSheet(document.getElementById('whoSheet'))}
 function toast(msg){const el=document.createElement('div');el.className='toast noprint';el.setAttribute('role','status');el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2000)}
 document.getElementById('actReply').onclick=()=>{const id=actId;closeSheet();startReply(id)};
 document.getElementById('actCopy').onclick=async()=>{const m=msgs[actId];if(!m||!m.body)return;try{await navigator.clipboard.writeText(m.body)}catch(err){const t=document.createElement('textarea');t.value=m.body;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()}closeSheet();toast('Copied')};
@@ -858,13 +888,6 @@ sheet.addEventListener('click',e=>{if(e.target===sheet)closeSheet()});
 sheet.addEventListener('close',()=>{confirming=false;actConfirm.hidden=true;document.getElementById('actDeleteLabel').textContent='Delete';emojiMore.hidden=true});
 document.getElementById('actEmoji').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.more){emojiMore.hidden=!emojiMore.hidden;return}if(actId&&b.dataset.e)reactWith(actId,b.dataset.e)});
 emojiMore.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&b.dataset.e&&actId)reactWith(actId,b.dataset.e)});
-(function(){const panel=sheet.querySelector('.sheet');let y0=0,drag=false;
- panel.addEventListener('pointerdown',e=>{if(e.button||e.target.closest('button'))return;y0=e.clientY;drag=true;panel.setPointerCapture(e.pointerId)});
- panel.addEventListener('pointermove',e=>{if(!drag)return;panel.style.transform='translateY('+(Math.max(0,e.clientY-y0))+'px)'});
- panel.addEventListener('pointerup',e=>{if(!drag)return;drag=false;if(e.clientY-y0>72)closeSheet();else panel.style.transform=''});
- panel.addEventListener('pointercancel',()=>{drag=false;panel.style.transform=''});
-})();
-document.getElementById('whoSheet').addEventListener('click',e=>{if(e.target.id==='whoSheet')e.target.close()});
 box.addEventListener('pointerdown',e=>{if(e.button)return;
  const pill=e.target.closest('.rx button');
  if(pill){const x=e.clientX,y=e.clientY,timer=setTimeout(()=>{pill.dataset.held='1';buzz();showWho(pill)},450);
@@ -875,9 +898,7 @@ box.addEventListener('pointerdown',e=>{if(e.button)return;
  const cancel=ev=>{if(ev.type==='pointermove'&&Math.hypot(ev.clientX-x,ev.clientY-y)<10)return;clearTimeout(timer);row.removeEventListener('pointerup',cancel);row.removeEventListener('pointercancel',cancel);row.removeEventListener('pointermove',cancel)};
  row.addEventListener('pointerup',cancel);row.addEventListener('pointercancel',cancel);row.addEventListener('pointermove',cancel)});
 box.addEventListener('contextmenu',e=>{const pill=e.target.closest('.rx button');if(pill){e.preventDefault();showWho(pill);return}const row=e.target.closest('.m');if(!row||e.target.closest('textarea'))return;e.preventDefault();openSheet(+row.id.slice(3))});
-const seenSheet=document.getElementById('seenSheet');
-document.getElementById('seenClose').onclick=()=>seenSheet.close();
-seenSheet.addEventListener('click',e=>{if(e.target===seenSheet)seenSheet.close()});
+document.getElementById('seenClose').onclick=()=>grunionsCloseSheet(document.getElementById('seenSheet'));
 box.addEventListener('click',async e=>{
  const b=e.target.closest('button,a.img');if(!b||b.dataset.save!=null||b.hasAttribute('data-cancel'))return;
  if(b.classList.contains('seenline')){if(seenInfo)openSeen(seenInfo);return}
