@@ -2687,7 +2687,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-4 */
+SW_JS = """/* grunions-sw-5 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
@@ -2747,7 +2747,7 @@ def notifications():
         for key, _label in notify_types_for(m): prefs[key] = key in chosen
         d.execute("UPDATE members SET notify_prefs=?, email_reminders=? WHERE id=?", (json.dumps(prefs), 1 if request.form.get("email_reminders") else 0, m["id"]))
         d.commit(); flash("Notification settings saved."); return redirect("/notifications")
-    return page(T["notifications"], tab="home", types=notify_types_for(m), prefs=notify_prefs(m), email_on=wants_email_reminders(m))
+    return page(T["notifications"], tab="notifications", types=notify_types_for(m), prefs=notify_prefs(m), email_on=wants_email_reminders(m))
 
 ensure_vapid()
 start_scheduler()
