@@ -6,6 +6,7 @@ BASE = """<!doctype html><html lang=en style="background:#0a0a0b;color-scheme:da
 <meta name=apple-mobile-web-app-capable content=yes><link rel=manifest href=/manifest.webmanifest>
 <link rel=icon href=/static/icons/favicon-32.png sizes=32x32 type=image/png><link rel=apple-touch-icon href=/static/icons/apple-touch-icon-180.png>
 <title>Grunions</title>
+<style>{{ leaflet_css|safe }}</style>
 <style>html,body{background:#0a0a0b;color:#ececee}html{color-scheme:dark}
 @view-transition{navigation:auto}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:0s;mix-blend-mode:normal}
@@ -54,9 +55,15 @@ a.avatar img,button.avatar img,span.avatar img{width:44px;height:44px;max-width:
 .nextcard .pills{margin:14px 16px 0}.nextcard .pills:last-child{margin-bottom:16px}
 .nextcard .nxdiv{margin:14px 16px}.nextcard .nxsocial{padding:0 16px 16px}
 .homemap{height:300px;margin:0 -20px 16px;background:#1a1c20;position:relative;z-index:1}
+.homemap.cardmap{height:220px;margin:0 0 12px;border-radius:14px;overflow:hidden;cursor:pointer;touch-action:pan-y}
 .homemap.leaflet-container,.homemap .leaflet-container{background:#1a1c20}
-.homemap .leaflet-tile-pane{opacity:0;transition:opacity .45s ease}
+.homemap .leaflet-tile-pane{filter:grayscale(1) invert(1) contrast(.9) brightness(.82);opacity:0;transition:opacity .45s ease}
 .homemap.tiles .leaflet-tile-pane{opacity:1}
+.homemap .leaflet-control-attribution{background:rgba(10,10,11,.72);color:#a0a0a8;font-size:10px;max-width:70%}
+.homemap .leaflet-control-attribution a{color:#c8cdd3}
+.homemap .leaflet-bar a,.homemap .leaflet-bar a:hover{background:#1d1d20;color:#ececee;border-bottom-color:#26262a}
+.homemap .leaflet-marker-icon.mpin{background:#ececee;border:3px solid #0a0a0b;border-radius:50%;box-shadow:0 0 0 1px #ececee}
+.homemap .leaflet-marker-icon.mpin.social{background:#0a0a0b;border:3px solid #ececee;box-shadow:none}
 body.homefull header.homehead{position:relative;z-index:4;background:transparent}
 body.homefull main{position:relative;z-index:1}
 body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));height:auto;margin:0;z-index:0;border-radius:0;pointer-events:none}
@@ -103,7 +110,6 @@ input[type=file].pick{position:absolute;width:1px;height:1px;padding:0;margin:-1
 .homedock .card{pointer-events:auto;background:#151517;margin:0}
 .menu a{display:flex;align-items:center;width:100%;height:40px;padding:0 12px;box-sizing:border-box;color:var(--t1);font-weight:500;font-size:15px;text-decoration:none;border-radius:8px}
 .card .menu,.pagehead .menu{left:auto;right:0;min-width:220px}
-.mapframe{display:block;width:100%;height:220px;border:0;border-radius:12px;background:var(--surface2)}
 .pagehead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .usawp-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
 .list{background:var(--surface);border-radius:var(--r);margin:0 0 12px;overflow:hidden}
@@ -507,6 +513,84 @@ function grunionsSyncNav(next){
  return true;
 }
 var grunionsNavGen=0;
+window.grunionsDirections=function(lat,lng){
+ var dest=lat+','+lng, apple=/iPhone|iPad|iPod/.test(navigator.userAgent||'');
+ var url=apple?('https://maps.apple.com/?daddr='+encodeURIComponent(dest)):('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest));
+ window.open(url,'_blank','noopener');
+};
+if(!window.grunionsDirClick){window.grunionsDirClick=1;
+ document.addEventListener('click',function(e){
+  var a=e.target.closest&&e.target.closest('[data-directions]'); if(!a) return;
+  var parts=(a.getAttribute('data-directions')||'').split(',');
+  if(parts.length<2||!parts[0]||!parts[1]) return;
+  e.preventDefault();
+  grunionsDirections(parts[0], parts[1]);
+ });
+}
+window.grunionsMountMap=function(el, opts){
+ if(!el) return;
+ opts=opts||{};
+ function boot(){
+  if(!window.L||!el.isConnected||el.dataset.mapon) return;
+  var pins=opts.pins||[];
+  if(!pins.length) return;
+  el.dataset.mapon='1';
+  var map=L.map(el,{zoomControl:false,attributionControl:true,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false});
+  var tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+  var faded=false; tiles.on('tileload',function(){if(!faded){faded=true;el.classList.add('tiles')}});
+  function icon(kind){return L.divIcon({className:'mpin'+(kind==='social'?' social':''),html:'',iconSize:[18,18],iconAnchor:[9,9]});}
+  var bounds=[], pool=null;
+  pins.forEach(function(p){ if(p.kind==='pool') pool=p; bounds.push([p.lat,p.lng]); });
+  if(!pool) pool=pins[0];
+  function go(p){ var t=opts.mode==='card'?pool:p; grunionsDirections(t.lat, t.lng); }
+  pins.forEach(function(p){
+   var m=L.marker([p.lat,p.lng],{icon:icon(p.kind),title:p.label||'Directions',zIndexOffset:p.kind==='pool'?800:0}).addTo(map);
+   m.on('click',function(ev){ if(L.DomEvent) L.DomEvent.stopPropagation(ev); go(p); });
+  });
+  if(opts.mode==='card') map.on('click',function(){ go(pool); });
+  function place(){
+   if(!el.clientHeight||!pool) return;
+   if(opts.mode==='card'){
+    if(bounds.length>1) map.fitBounds(bounds,{padding:[24,24],maxZoom:16,animate:false});
+    else map.setView([pool.lat, pool.lng], 15, {animate:false});
+    return;
+   }
+   var dock=document.querySelector('.homedock');
+   var cover=dock?Math.ceil(dock.getBoundingClientRect().height)+16:280;
+   var regional=12;
+   var top=el.getBoundingClientRect().top;
+   var openBottom=el.clientHeight-cover-8;
+   var desired=window.innerHeight*0.35-top;
+   if(desired>openBottom-24) desired=Math.max(80, openBottom*0.45);
+   function frame(z){
+    map.setView([pool.lat, pool.lng], z, {animate:false});
+    var pt=map.latLngToContainerPoint([pool.lat, pool.lng]);
+    map.panBy([0, pt.y-desired], {animate:false});
+   }
+   function fits(){
+    var pad=24, head=72;
+    for(var i=0;i<bounds.length;i++){
+     var q=map.latLngToContainerPoint(bounds[i]);
+     if(q.x<pad||q.y<head||q.x>el.clientWidth-pad||q.y>openBottom) return false;
+    }
+    return true;
+   }
+   var z=regional;
+   frame(z);
+   if(bounds.length>1){ while(z>8 && !fits()){ z-=1; frame(z); } }
+  }
+  setTimeout(function(){map.invalidateSize();place();},0);
+  setTimeout(function(){map.invalidateSize();place();},250);
+  function onResize(){if(!el.isConnected){window.removeEventListener('resize',onResize);return;}map.invalidateSize();place();}
+  window.addEventListener('resize',onResize);
+ }
+ if(window.L) boot();
+ else {
+  var s=document.querySelector('script[data-leaflet]');
+  if(!s){ s=document.createElement('script'); s.src='/static/leaflet/leaflet.js'; s.setAttribute('data-leaflet','1'); s.onload=boot; document.body.appendChild(s); }
+  else s.addEventListener('load', boot);
+ }
+};
 function grunionsPinHead(){
  var h=document.querySelector('header.homehead');
  var sticky=h && !document.body.classList.contains('homefull');
@@ -658,74 +742,12 @@ T["login"] = """<h1>Log in</h1>
 <p class="t3 sm" style="text-align:center;margin-top:20px">New here? <a href=/join>Join the team</a></p>"""
 
 T["home"] = """{% if pins %}
-<style>{{ leaflet_css|safe }}
-.homemap .leaflet-tile-pane{filter:grayscale(1) invert(1) contrast(.9) brightness(.82)}
-.homemap .leaflet-control-attribution{background:rgba(10,10,11,.72);color:#a0a0a8;font-size:10px;max-width:70%}
-.homemap .leaflet-control-attribution a{color:#c8cdd3}
-.homemap .leaflet-bar a,.homemap .leaflet-bar a:hover{background:#1d1d20;color:#ececee;border-bottom-color:#26262a}
-.homemap .leaflet-marker-icon.mpin{background:#ececee;border:3px solid #0a0a0b;border-radius:50%;box-shadow:0 0 0 1px #ececee}
-.homemap .leaflet-marker-icon.mpin.social{background:#0a0a0b;border:3px solid #ececee;box-shadow:none}
-</style>
 <section class=homemap id=homeMap aria-label="Practice map"></section>
-<script src=/static/leaflet/leaflet.js></script>
 <script>
 (function(){
- function boot(){
- var el=document.getElementById('homeMap'); if(!el||!window.L||el.dataset.mapon) return;
- el.dataset.mapon='1';
  var pins={{ pins|tojson }};
- var map=L.map(el,{zoomControl:false,attributionControl:true,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false});
- var tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
- var faded=false; tiles.on('tileload',function(){if(!faded){faded=true;el.classList.add('tiles')}});
- function directions(lat,lng){
-  var dest=lat+','+lng, apple=/iPhone|iPad|iPod/.test(navigator.userAgent||'');
-  var url=apple?('https://maps.apple.com/?daddr='+encodeURIComponent(dest)):('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest));
-  window.open(url,'_blank','noopener');
- }
- function icon(kind){return L.divIcon({className:'mpin'+(kind==='social'?' social':''),html:'',iconSize:[18,18],iconAnchor:[9,9]});}
- var bounds=[];
- pins.forEach(function(p){
-  var m=L.marker([p.lat,p.lng],{icon:icon(p.kind),title:p.label||'Directions',zIndexOffset:p.kind==='pool'?800:0}).addTo(map);
-  m.on('click',function(){directions(p.lat,p.lng);});
-  bounds.push([p.lat,p.lng]);
- });
- function place(){
-  if(!el.clientHeight) return;
-  var dock=document.querySelector('.homedock');
-  var cover=dock?Math.ceil(dock.getBoundingClientRect().height)+16:280;
-  var pool=null;
-  pins.forEach(function(p){ if(p.kind==='pool') pool=p; });
-  if(!pool && pins.length) pool=pins[0];
-  if(!pool) return;
-  var regional=12;
-  var top=el.getBoundingClientRect().top;
-  var openBottom=el.clientHeight-cover-8;
-  var desired=window.innerHeight*0.35-top;
-  if(desired>openBottom-24) desired=Math.max(80, openBottom*0.45);
-  function frame(z){
-    map.setView([pool.lat, pool.lng], z, {animate:false});
-    var pt=map.latLngToContainerPoint([pool.lat, pool.lng]);
-    map.panBy([0, pt.y-desired], {animate:false});
-  }
-  function fits(){
-    var pad=24, head=72;
-    for(var i=0;i<bounds.length;i++){
-      var q=map.latLngToContainerPoint(bounds[i]);
-      if(q.x<pad||q.y<head||q.x>el.clientWidth-pad||q.y>openBottom) return false;
-    }
-    return true;
-  }
-  var z=regional;
-  frame(z);
-  if(bounds.length>1){ while(z>8 && !fits()){ z-=1; frame(z); } }
- }
- setTimeout(function(){map.invalidateSize();place();},0);
- setTimeout(function(){map.invalidateSize();place();},250);
- function onResize(){if(!el.isConnected){window.removeEventListener('resize',onResize);return;}map.invalidateSize();place();}
- window.addEventListener('resize',onResize);
- }
- if(window.L) boot();
- else {var s=document.createElement('script'); s.src='/static/leaflet/leaflet.js'; s.onload=boot; document.body.appendChild(s);}
+ function start(){ var el=document.getElementById('homeMap'); if(el&&window.grunionsMountMap) grunionsMountMap(el,{pins:pins,mode:'home'}); }
+ if(window.grunionsMountMap) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
 </script>
 {% endif %}
@@ -1087,8 +1109,15 @@ T["practice"] = """{% set p = x.p %}<p class="t3 sm" style="margin-top:0"><a hre
 <h2>Checked in <span class=t3>{{ x.checked|length }}</span></h2>
 <div class=list>{% for r in x.checked %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 {% if p.location %}<h2>Map</h2>
-<iframe class=mapframe title="Map of {{ p.location }}" src="https://maps.google.com/maps?q={{ p.location|urlencode }}&amp;z=15&amp;output=embed" loading=lazy referrerpolicy=no-referrer-when-downgrade></iframe>
-<p style="margin-top:10px"><a class=btn href="https://www.google.com/maps/dir/?api=1&amp;destination={{ p.location|urlencode }}" target=_blank rel=noopener>Directions</a></p>{% endif %}
+<section class="homemap cardmap" id=practiceMap aria-label="Map of {{ p.location }}"></section>
+<script>
+(function(){
+ var pins={{ pins|tojson }};
+ function start(){ var el=document.getElementById('practiceMap'); if(el&&window.grunionsMountMap) grunionsMountMap(el,{pins:pins,mode:'card'}); }
+ if(window.grunionsMountMap) start(); else document.addEventListener('DOMContentLoaded', start);
+})();
+</script>
+<p style="margin-top:10px"><a class="btn btn-secondary full" {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %} href="https://www.google.com/maps/dir/?api=1&amp;destination={{ ((pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else p.location)|urlencode }}" target=_blank rel=noopener>Directions</a></p>{% endif %}
 <h2>Notes</h2>
 <p>{{ p.note if p.note else 'No notes.' }}</p>
 {% endif %}""" + _PRACTICE_JS

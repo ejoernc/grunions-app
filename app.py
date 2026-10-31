@@ -618,7 +618,10 @@ def admin_notices():
     if not (me() and me()["is_admin"]): return []
     d = db(); rows = d.execute("SELECT * FROM notices WHERE member_id=? AND seen=0 ORDER BY id DESC", (me()["id"],)).fetchall()
     d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (me()["id"],)); d.commit(); return rows
-app.jinja_env.globals.update(REACTIONS=REACTIONS, csrf_token=csrf_token, csrf_field=csrf_field, admin_notices=admin_notices, me=me)
+def leaflet_css():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "leaflet", "leaflet.css")
+    with open(path, encoding="utf-8") as f: return f.read()
+app.jinja_env.globals.update(REACTIONS=REACTIONS, csrf_token=csrf_token, csrf_field=csrf_field, admin_notices=admin_notices, me=me, leaflet_css=leaflet_css())
 def start_session(mid):
     session.clear(); session.permanent = True; session["mid"] = mid; csrf_token()
 
@@ -815,11 +818,7 @@ def home():
     ann = d.execute("SELECT m.*, p.first, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id WHERE announcement=1 AND channel='team' AND COALESCE(m.deleted,0)=0 ORDER BY m.id DESC LIMIT 1").fetchone()
     vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
     pins = map_pins(nextp)
-    leaflet_css = ""
-    if pins:
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "leaflet", "leaflet.css"), encoding="utf-8") as f:
-            leaflet_css = f.read()
-    return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined, vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, leaflet_css=leaflet_css)
+    return page(T["home"], tab="home", m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices, nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined, vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins)
 
 @app.route("/profile", methods=["GET", "POST"])
 @login_required
@@ -1531,10 +1530,11 @@ def practice_page(pid):
         return handle_practice_post(d)
     p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
     if not p: abort(404)
+    p = ensure_map_coords(d, p)
     mark_practice_seen(d, me()["id"], pid); d.commit()
     g._unread_mid = None
     editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
-    return page(T["practice"], tab="practices", x=practice_bundle(d, p), editing=editing, coach_choices=coach_candidates(d) if me()["is_admin"] else [])
+    return page(T["practice"], tab="practices", x=practice_bundle(d, p), editing=editing, pins=map_pins(p), coach_choices=coach_candidates(d) if me()["is_admin"] else [])
 @app.route("/api/unread")
 @login_required
 def api_unread():
