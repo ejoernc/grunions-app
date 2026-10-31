@@ -217,8 +217,10 @@ def migrate_lineup(d):
         if pair:
             d.execute("UPDATE lineup_events SET hosting=?, kind=? WHERE id=?", (pair[0], pair[1], row[0]))
     d.execute("UPDATE lineup_events SET hosting='Away' WHERE hosting IS NULL OR trim(hosting)=''")
-    d.execute("UPDATE lineup_events SET stage='going' WHERE stage='attending'")
-    d.execute("UPDATE lineup_events SET stage='interest' WHERE stage IS NULL OR trim(stage)=''")
+    d.execute("UPDATE lineup_events SET stage='going' WHERE stage='attending' AND kind IN ('Tournament', 'Clinic')")
+    d.execute("UPDATE lineup_events SET stage='attending' WHERE kind IN ('Social', 'Volunteering')")
+    d.execute("UPDATE lineup_events SET stage='interest' WHERE (stage IS NULL OR trim(stage)='') AND kind IN ('Tournament', 'Clinic')")
+    d.execute("UPDATE lineup_events SET stage='attending' WHERE stage IS NULL OR trim(stage)=''")
 def migrate_series(d):
     """Practice series, their coaches, and skipped dates. Existing one-off practices stay unattached."""
     d.execute("""CREATE TABLE IF NOT EXISTS practice_series(id INTEGER PRIMARY KEY, weekdays TEXT NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL,
@@ -1962,19 +1964,18 @@ def series_page(sid):
     skips = [r["date"] for r in d.execute("SELECT date FROM series_skips WHERE series_id=? ORDER BY date", (sid,))]
     return page(T["series_edit"], tab="series_edit", action="/practices/series/%d" % sid, values=values, series_id=sid, skips=skips, coach_choices=coach_candidates(d))
 LINEUP_HOSTING = ("Away", "Hosting")
-LINEUP_KINDS = ("Tournament", "Clinic", "Social")
-def lineup_kinds_for(hosting):
-    if hosting == "Away": return ("Tournament", "Clinic")
-    if hosting == "Hosting": return ("Tournament", "Clinic", "Social")
-    return ()
-def lineup_stage_value(form, existing=None):
-    """Every lineup event is gauging interest until it is committed."""
+LINEUP_KINDS = ("Tournament", "Clinic", "Social", "Volunteering")
+LINEUP_INTEREST = ("Tournament", "Clinic")
+def lineup_stage_value(kind, form, existing=None):
+    """Tournaments, and clinics when chosen, gauge interest. Socials and volunteering are attending."""
+    if kind not in LINEUP_INTEREST: return "attending"
     posted = (form.get("stage") or "").strip()
     if posted in ("interest", "going"): return posted
-    if existing == "attending": return "going"
-    return existing or "interest"
+    if existing in ("interest", "going"): return existing
+    return "interest"
 def lineup_rsvp_words(stage):
     if stage == "interest": return "Interested", "Not interested", "interested"
+    if stage == "attending": return "I'm attending", "Can't make it", "attending"
     return "I'm in", "Not this time", "in"
 def lineup_where(city, venue):
     city = " ".join(str(city or "").split())
@@ -2022,10 +2023,11 @@ def lineup_pack(d, rows):
     for r in rows:
         end = r["end_date"] or r["date"]
         city, venue = r["city"] or "", r["venue"] or ""
-        stage = r["stage"] or "interest"
-        if stage == "attending": stage = "going"
         hosting = r["hosting"] or "Away"
         kind = r["kind"] or "Tournament"
+        stage = r["stage"] or ("interest" if kind in LINEUP_INTEREST else "attending")
+        if stage == "attending" and kind in LINEUP_INTEREST: stage = "going"
+        if kind not in LINEUP_INTEREST: stage = "attending"
         yes, no, unit = lineup_rsvp_words(stage)
         names = [("%s %s" % (display_first(p), p["last"] or "")).strip() for p in practice_people(roster.get(r["id"], []))]
         out.append({"id": r["id"], "kind": kind, "hosting": hosting, "stage": stage,
@@ -2044,7 +2046,8 @@ def lineup_form_values(row=None, form=None):
             "description": form.get("description") or "", "link": form.get("link") or "", "stage": form.get("stage") or "interest"}
     if row:
         stage = row["stage"] or "interest"
-        if stage == "attending": stage = "going"
+        if (row["kind"] or "") not in LINEUP_INTEREST: stage = "attending"
+        elif stage == "attending": stage = "going"
         return {"hosting": row["hosting"] or "Away", "kind": row["kind"] or "Tournament", "title": row["title"], "date": row["date"], "end_date": row["end_date"] or row["date"],
             "city": row["city"] or "", "venue": row["venue"] or "", "description": row["description"] or "", "link": row["link"] or "",
             "stage": stage}
@@ -2052,9 +2055,8 @@ def lineup_form_values(row=None, form=None):
 def save_lineup_event(d, eid=None):
     hosting = (request.form.get("hosting") or "").strip()
     kind = (request.form.get("kind") or "").strip()
-    allowed = lineup_kinds_for(hosting)
-    if hosting not in LINEUP_HOSTING or kind not in allowed:
-        raise ValueError("Away events are a Tournament or Clinic. Hosted events are a Tournament, Clinic, or Social.")
+    if hosting not in LINEUP_HOSTING or kind not in LINEUP_KINDS:
+        raise ValueError("Choose Tournament, Clinic, Social, or Volunteering. Practices and local games stay off the Lineup.")
     title = " ".join((request.form.get("title") or "").split())[:120]
     if not title: raise ValueError("Add a title.")
     city = " ".join((request.form.get("city") or "").split())[:80]
@@ -2070,8 +2072,8 @@ def save_lineup_event(d, eid=None):
     link = (request.form.get("link") or "").strip()[:500]
     if link and not link.lower().startswith(("http://", "https://")): raise ValueError("Link must start with http:// or https://.")
     prev = d.execute("SELECT stage FROM lineup_events WHERE id=?", (eid,)).fetchone() if eid else None
-    stage = lineup_stage_value(request.form, prev["stage"] if prev else None)
-    became_going = stage == "going" and (not prev or prev["stage"] != "going")
+    stage = lineup_stage_value(kind, request.form, prev["stage"] if prev else None)
+    became_going = stage == "going" and kind in LINEUP_INTEREST and (not prev or prev["stage"] != "going")
     vals = (hosting, kind, title, day.isoformat(), end.isoformat(), city, venue, description, link, stage)
     if eid:
         d.execute("UPDATE lineup_events SET hosting=?, kind=?, title=?, date=?, end_date=?, city=?, venue=?, description=?, link=?, stage=? WHERE id=?", (*vals, eid))
@@ -2101,6 +2103,7 @@ def lineup():
             if not eid: abort(400)
             row = d.execute("SELECT * FROM lineup_events WHERE id=?", (eid,)).fetchone()
             if not row: abort(404)
+            if row["kind"] not in LINEUP_INTEREST: abort(400)
             if (row["stage"] or "interest") != "going":
                 d.execute("UPDATE lineup_events SET stage='going' WHERE id=?", (eid,))
                 d.commit(); notify_lineup_committed(d, row)
@@ -3479,7 +3482,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-46 */
+SW_JS = """/* grunions-sw-47 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

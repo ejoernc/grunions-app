@@ -519,7 +519,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=46');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=47');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1351,7 +1351,7 @@ _PRACTICE_JS = """<script>
 })();
 </script>"""
 
-T["lineup"] = """{% macro lineup_card(e) %}<div class="card tripcard"><div class=nxcardhead><div class=tripname><div class=nxtitle>{{ e.title }}</div></div><span class=lineupchips><span class=chip-info>{{ e.hosting|upper }}</span><span class=chip-info>{{ e.kind|upper }}</span></span></div>
+T["lineup"] = """{% macro lineup_card(e) %}<div class="card tripcard"><div class=nxcardhead><div class=tripname><div class=nxtitle>{{ e.title }}</div></div><span class=lineupchips><span class=chip-info>{{ e.hosting }}</span><span class=chip-info>{{ e.kind }}</span></span></div>
 {% if e.stage == 'interest' %}<div style="margin:-4px 0 8px"><span class="chip-info" style="margin:0">Gauging interest</span></div>{% endif %}
 {% if e.where %}<div class="nxrow tripwhere">{{ glyph_pin() }}<a href="{{ e.map_href }}" target=_blank rel="noopener noreferrer">{{ e.where }}</a></div>{% endif %}
 <div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
@@ -1371,8 +1371,8 @@ T["lineup"] = """{% macro lineup_card(e) %}<div class="card tripcard"><div class
 {% if past %}<details class=lineuppast><summary>Past <span class=t3>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}"""
 T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}">{{ csrf_field() }}
 <label>Hosting<select name=hosting id=lineHost><option value=Away {% if values.hosting != 'Hosting' %}selected{% endif %}>Away</option><option value=Hosting {% if values.hosting == 'Hosting' %}selected{% endif %}>Hosting</option></select></label>
-<label>Kind<select name=kind id=lineKind><option value=Tournament {% if values.kind == 'Tournament' %}selected{% endif %}>Tournament</option><option value=Clinic {% if values.kind == 'Clinic' %}selected{% endif %}>Clinic</option><option value=Social {% if values.kind == 'Social' %}selected{% endif %}>Social</option></select></label>
-<label>Status<select name=stage><option value=interest {% if values.stage != 'going' %}selected{% endif %}>Gauging interest</option><option value=going {% if values.stage == 'going' %}selected{% endif %}>We're going</option></select></label>
+<label>Type<select name=kind id=lineKind><option value=Tournament {% if values.kind == 'Tournament' %}selected{% endif %}>Tournament</option><option value=Clinic {% if values.kind == 'Clinic' %}selected{% endif %}>Clinic</option><option value=Social {% if values.kind == 'Social' %}selected{% endif %}>Social</option><option value=Volunteering {% if values.kind == 'Volunteering' %}selected{% endif %}>Volunteering</option></select></label>
+<label id=lineStage>Status<select name=stage><option value=interest {% if values.stage != 'going' %}selected{% endif %}>Gauging interest</option><option value=going {% if values.stage == 'going' %}selected{% endif %}>We're going</option></select></label>
 <label>Title<input name=title value="{{ values.title }}" required autocomplete=off></label>
 <label>City<input name=city value="{{ values.city }}" required autocomplete=off></label>
 <label>Venue<input name=venue value="{{ values.venue }}" required autocomplete=off></label>
@@ -1381,9 +1381,9 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}">{{ cs
 <label>Link (optional)<input name=link value="{{ values.link }}" inputmode=url autocomplete=off placeholder="https://"></label>
 {% if event_id %}<button class="btn btn-danger full" name=action value=delete onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
 </form>
-<script>(function(){var host=document.getElementById('lineHost'), kind=document.getElementById('lineKind'); if(!host||!kind) return;
- function sync(){var away=host.value==='Away'; Array.prototype.forEach.call(kind.options, function(o){var hide=away&&o.value==='Social'; o.hidden=hide; o.disabled=hide;}); if(away&&kind.value==='Social') kind.value='Tournament';}
- host.addEventListener('change', sync); sync();})();</script>"""
+<script>(function(){var kind=document.getElementById('lineKind'), stage=document.getElementById('lineStage'); if(!kind||!stage) return;
+ function sync(){var interest=kind.value==='Tournament'||kind.value==='Clinic'; stage.hidden=!interest; var sel=stage.querySelector('select'); if(sel) sel.disabled=!interest;}
+ kind.addEventListener('change', sync); sync();})();</script>"""
 T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ csrf_field() }}
 <div class=checks role=group aria-label="Weekdays"><div class="t3 xs">Weekdays</div>
 {% for value, label in values.labels %}<label style="margin:8px 0"><input type=checkbox name=weekday value="{{ value }}" {% if value in values.weekdays %}checked{% endif %}>{{ label }}</label>{% endfor %}</div>
