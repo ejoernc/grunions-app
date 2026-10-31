@@ -1584,14 +1584,16 @@ def admin():
       LEFT JOIN rsvps rv ON rv.member_id=m.id AND rv.practice_id=?
       WHERE COALESCE(m.role,'')!='system' AND (?='' OR m.first||' '||COALESCE(m.preferred_first,'')||' '||m.last||' '||m.email LIKE '%'||?||'%')""", (date, pr["id"] if pr else -1, q, q)).fetchall()
     def by_name(r): return (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"])
-    going = sorted((r for r in rows if r["going"] == 1 and not r["cid"]), key=by_name)
-    rest = sorted((r for r in rows if not r["cid"] and r["going"] != 1), key=by_name)
+    going = sorted((r for r in rows if r["going"] == 1), key=by_name)
+    rest = sorted((r for r in rows if r["going"] != 1), key=by_name)
     checked = sorted((r for r in rows if r["cid"]), key=by_name)
+    n_not = sum(1 for r in rows if r["going"] == 0)
+    n_none = sum(1 for r in rows if r["going"] is None)
     n = len(checked)
     assigned = practice_coach_rows(d, [pr["id"]]).get(pr["id"], []) if pr else []
     coach_warn = bool(pr) and not any(coach_eligibility(d, c)["eligible"] for c in assigned)
     return page(T["admin"],
-        tab="admin", date=date, q=q, going=going, rest=rest, checked=checked, n=n, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=sum(1 for r in rows if r["going"] == 1),
+        tab="admin", date=date, q=q, going=going, rest=rest, checked=checked, n=n, n_not=n_not, n_none=n_none, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=sum(1 for r in rows if r["going"] == 1),
         days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days), coach_warn=coach_warn, coach_names=coach_labels(assigned))
 
 @app.route("/expiring", methods=["GET", "POST"])

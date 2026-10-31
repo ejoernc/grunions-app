@@ -142,7 +142,12 @@ nav.tabs a.on{color:var(--accent)}nav.tabs svg{width:24px;height:24px;flex:none;
 #actConfirm{margin:0 0 12px;font-weight:600}
 .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;z-index:20}.lightbox img{max-width:96vw;max-height:92vh;border-radius:8px}
 .gobtn{background:none;height:auto;padding:4px 0;color:var(--t2);font-weight:500;font-size:14px}.gobtn::after{content:" ›";color:var(--t3)}
-.ci-name{flex:1;min-width:0;height:auto;padding:0;background:none;display:block;text-align:left;font-weight:400}
+.ci-name{flex:1;min-width:0;height:auto;padding:0;background:none;display:flex;align-items:center;gap:12px;text-align:left;font-weight:400}
+.ciav{width:40px;height:40px;font-size:13px}
+.filt{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
+.filt button{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--t1);font-weight:600}
+.filt button.on{background:#ececee;color:#0a0a0b;border-color:#ececee}
+.usawprow{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:var(--r);padding:14px 16px;margin:0 0 12px;color:inherit;text-decoration:none}
 .calpick{position:relative;flex:1.6;min-width:0;display:flex;align-items:center;gap:4px}
 .calnav,.calmonth{flex:none;width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;background:none;color:var(--t1);text-decoration:none;border-radius:10px}
 .calnav{height:48px;width:40px}
@@ -175,6 +180,9 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 {% if tw and tw.expired and r.usawp_status != 'verified' %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}
 {% if r.vr_status == 'pending' %}<span class="t3 xs"> · verification requested</span>{% elif r.vr_status == 'done' %}<span class="t3 xs"> · bot answered</span>{% endif %}{% endmacro %}
 {% macro status_dot(s) %}{% set kind = {'verified':'ok','expired':'bad','pending':'warn'}.get(s, '') %}<span class="dot{% if kind %} {{kind}}{% endif %}" aria-hidden=true></span>{% endmacro %}
+{% macro checkin_status(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}
+{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{{ st('trial', 'Trial') }}{% elif tw and tw.expired and r.usawp_status != 'verified' %}{{ st('bad', 'Trial ended') }}{% elif not cl.ok %}{{ st('bad','Not cleared') }}{% elif dl is not none and dl <= EXPIRING_DAYS %}{{ st('warn','Expiring soon') }}{% else %}{{ st('ok','Cleared') }}{% endif %}
+{% if r.vr_status == 'pending' %}<span class="t3 xs"> · verification requested</span>{% elif r.vr_status == 'done' %}<span class="t3 xs"> · bot answered</span>{% endif %}{% endmacro %}
 {% macro member_panel(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}{% set cred = credential_dates(r) %}
 <div class=panel id=m{{r.id}} hidden>
 <div class=kv><span>RSVP</span><span>{% if r.going==1 %}RSVP ✓{% elif r.going==0 %}Not going{% else %}—{% endif %}</span></div>
@@ -444,7 +452,7 @@ if(document.querySelector('nav.tabs')){
 ADMIN_NAV = """<div class="seg noprint">{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="{{'on' if ep=='admin'}}">Check-in</a>{% endif %}
 {% if me().is_admin %}<a href=/members class="{{'on' if ep=='members'}}">People</a><a href=/transfer class="{{'on' if ep=='transfer_page'}}">Transfer</a><a href=/expiring class="{{'on' if ep=='expiring'}}">Expiring</a>
 <a href=/requirements class="{{'on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="{{'on' if ep=='qr_page'}}">QR</a>{% endif %}</div>
-{% set al = admin_alert() %}{% if al %}<a href=/expiring class="note noprint" style="display:block;text-decoration:none"><span class="st st-warn"></span> USAWP: <b>{{al[0]}}</b> expired · <b>{{al[1]}}</b> expiring within {{EXPIRING_DAYS}} days</a>{% endif %}
+{% set al = admin_alert() %}{% if al and ep!='admin' %}<a href=/expiring class="note noprint" style="display:block;text-decoration:none"><span class="st st-warn"></span> USAWP: <b>{{al[0]}}</b> expired · <b>{{al[1]}}</b> expiring within {{EXPIRING_DAYS}} days</a>{% endif %}
 {% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% endfor %}"""
 
 T = {}
@@ -780,23 +788,29 @@ _CHEV_L = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><p
 _CHEV_R = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 _CAL_I = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
 T["admin"] = ADMIN_NAV + """
+{% if me().is_admin %}{% set al = admin_alert() or (0, 0) %}<a class=usawprow href=/expiring><span class="dot {{ 'bad' if al[0] else ('warn' if al[1] else '') }}" aria-hidden=true></span><span class=grow>USAWP: {{ al[0] }} expired · {{ al[1] }} expiring within {{ EXPIRING_DAYS }} days</span><span class=nxchev aria-hidden=true>›</span></a>{% endif %}
 <form class="row noprint" method=get action=/admin style="margin-bottom:8px"><div class=calpick id=calPick data-date="{{date}}" data-q="{{q}}" data-dates='{{ days|tojson }}'>
 {% if prev_d %}<a class=calnav href="/admin?date={{prev_d}}{% if q %}&amp;q={{q|urlencode}}{% endif %}" aria-label="Previous practice">""" + _CHEV_L + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Previous practice">""" + _CHEV_L + """</span>{% endif %}
-<button type=button class=calbtn id=calOpen aria-haspopup=dialog aria-expanded=false aria-controls=calPop>""" + _CAL_I + """<span>{{fmt_d(date)}}</span></button>
+<button type=button class=calbtn id=calOpen aria-haspopup=dialog aria-expanded=false aria-controls=calPop>""" + _CAL_I + """<span>{{ fmt_d(date).replace(' ', ', ', 1) }}</span></button>
 {% if next_d %}<a class=calnav href="/admin?date={{next_d}}{% if q %}&amp;q={{q|urlencode}}{% endif %}" aria-label="Next practice">""" + _CHEV_R + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Next practice">""" + _CHEV_R + """</span>{% endif %}
 <div class=calpop id=calPop hidden role=dialog aria-label="Choose a practice"><div class=calhead>
 <button type=button class=calmonth id=calPrevM aria-label="Previous month">""" + _CHEV_L + """</button><div class=lbl id=calLabel>{{month.label}}</div>
 <button type=button class=calmonth id=calNextM aria-label="Next month">""" + _CHEV_R + """</button></div>
 <div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
 <div class=calgrid id=calGrid>{% for c in month.cells %}{% if c is none %}<span class=calday></span>{% elif c.has %}<a class="calday{{' on' if c.on}}" href="/admin?date={{c.iso}}{% if q %}&amp;q={{q|urlencode}}{% endif %}">{{c.day}}</a>{% else %}<span class=calday aria-disabled=true>{{c.day}}</span>{% endif %}{% endfor %}</div></div></div>
-<input type=hidden name=date value="{{date}}"><input name=q value="{{q}}" placeholder="Search" style="margin:0"></form>
-<h1 style="margin:20px 0 4px">{{loc}}</h1><p class="t2 sm">{{fmt_d(date)}} · {{n}} checked in{% if pr %} · {{rsvp_n}} RSVP'd{% else %} · no practice scheduled{% endif %}</p>
-{% if coach_names %}<p class="t2 sm" style="margin-top:0">Coaches: {{ coach_names|join(', ') }}</p>{% endif %}
+<input type=hidden name=date value="{{date}}"><input name=q value="{{q}}" placeholder="Search players..." style="margin:0"></form>
+<h1 style="margin:8px 0 4px">{{loc}}</h1>
+<p class="t2 sm" style="margin-top:0">{% if pr %}{{ fmt_span(pr.start, pr.end) }}{% else %}no practice scheduled{% endif %}{% if coach_names %} · Coaches: {{ coach_names|join(', ') }}{% endif %}{% if n %} · {{ n }} checked in{% endif %}</p>
 {% if coach_warn %}<p class="sm" style="margin-top:0">{{ st('warn', 'No assigned coach is coach-eligible') }}</p>{% endif %}
+<div class=filt role=group aria-label="RSVP">
+<button type=button data-filter=going>Going ({{ going|length }})</button>
+<button type=button data-filter=not>Not Going ({{ n_not }})</button>
+<button type=button data-filter=none>No Response ({{ n_none }})</button>
+</div>
 {% macro ci(r) %}
-<div class=li><button type=button class=ci-name onclick="this.closest('.li').nextElementSibling.toggleAttribute('hidden')">
-<div style="display:flex;align-items:center;min-width:0;font-weight:500"><span class=ell>{{display_first(r)}} {{r.last}}</span>{{ referee_tag(r) }}</div>
-{{ member_status(r) }}</button>
+<div class="li cirow" data-rsvp="{{ 'going' if r.going==1 else ('not' if r.going==0 else 'none') }}"><button type=button class=ci-name onclick="this.closest('.li').nextElementSibling.toggleAttribute('hidden')">
+{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt=""></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}
+<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ checkin_status(r) }}</span></button>
 <form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}">
 {% if r.cid %}<button class=compact name=action value=undo title="Undo check-in">Checked in</button>{% else %}<button class="primary compact">Check in</button>{% endif %}</form></div>
 {{ member_panel(r) }}{% endmacro %}
@@ -804,8 +818,15 @@ T["admin"] = ADMIN_NAV + """
 <div class=list>{% for r in going %}{{ ci(r) }}{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 <h2>Everyone else <span class=t3>{{rest|length}}</span></h2>
 <div class=list>{% for r in rest %}{{ ci(r) }}{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
-<details class=checkin><summary>Checked in <span class=t3>{{checked|length}}</span></summary>
-<div class=list>{% for r in checked %}{{ ci(r) }}{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div></details>
+<script>
+document.querySelectorAll('.filt button').forEach(function(b){
+ b.onclick=function(){var on=b.classList.contains('on');
+  document.querySelectorAll('.filt button').forEach(function(x){x.classList.remove('on')});
+  var key=on?'':b.getAttribute('data-filter'); if(!on) b.classList.add('on');
+  document.querySelectorAll('.cirow').forEach(function(row){row.hidden=!!(key&&row.getAttribute('data-rsvp')!==key);});
+ };
+});
+</script>
 <script>if(/^#m\\d+$/.test(location.hash)){const p=document.querySelector(location.hash);if(p){const d=p.closest('details');if(d)d.open=true;p.removeAttribute('hidden')}}
 (function(){
 var root=document.getElementById('calPick'); if(!root) return;
