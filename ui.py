@@ -88,7 +88,7 @@ body.homefull .schedlist{position:relative;z-index:2}
 header.homehead .titlestack{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 header.homehead .hititle{margin:0}
 header.homehead .titlestack a.usawpchip{margin:0}
-.daychip{margin-left:auto}
+.nextcard .daychip{height:32px;margin:-3px -8px -3px 0;padding:0 11px;font-size:16px}
 body.schedopen header.homehead{background:#0a0a0b}
 body.schedopen .homemap{opacity:0}
 #schedule{scroll-margin-top:calc(var(--homehead, 88px) + 8px)}
@@ -513,7 +513,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=43');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=44');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
