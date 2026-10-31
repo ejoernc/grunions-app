@@ -618,7 +618,11 @@ app.jinja_env.globals.update(REACTIONS=REACTIONS, csrf_token=csrf_token, csrf_fi
 def start_session(mid):
     session.clear(); session.permanent = True; session["mid"] = mid; csrf_token()
 
-def page(body, tab="", **kw): return render_template_string(ui.BASE + body + ui.TABS, tab=tab, **kw)
+def page(body, tab="", **kw):
+    html = render_template_string(ui.BASE + body + ui.TABS, tab=tab, **kw)
+    resp = Response(html, mimetype="text/html; charset=utf-8")
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 # ---------- public: signup + login ----------
 @app.route("/manifest.webmanifest")
@@ -2604,7 +2608,8 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """self.addEventListener('push', function(event) {
+SW_JS = """/* grunions-sw-4 */
+self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
   var tasks = [self.registration.showNotification(data.title || 'Grunions', {

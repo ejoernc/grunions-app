@@ -198,10 +198,10 @@ span.avatar.seenav,span.avatar.seenav img{width:32px;height:32px;min-width:32px;
 .qbar button{width:32px;height:32px;padding:0;background:none;color:var(--t3);flex:none}
 .quotechip{border-left:3px solid #6c6c74;padding:2px 8px;margin:0 0 6px;color:var(--t2);font-size:13px;text-align:left}
 .quotechip b{display:block;color:var(--t3);font-weight:650;font-size:12px}
-dialog.botsheet{position:fixed;inset:auto 0 calc(64px + env(safe-area-inset-bottom)) 0;margin:0 auto;width:min(640px,100%);height:fit-content;max-height:calc(100dvh - 64px - env(safe-area-inset-bottom) - 8px);border:0;padding:0;background:transparent;color:var(--t1);overflow:visible}
+dialog.botsheet{position:fixed;z-index:30;inset:auto 0 0 0;margin:0 auto;width:min(640px,100%);height:fit-content;max-height:calc(100dvh - 8px);border:0;padding:0;background:transparent;color:var(--t1);overflow:visible}
 dialog.botsheet::backdrop{background:rgba(0,0,0,.62);opacity:1;transition:opacity .25s ease-out}
 dialog.botsheet.opening::backdrop,dialog.botsheet.closing::backdrop{opacity:0}
-dialog.botsheet .sheet{background:#1c1c1f;border:1px solid #2e2e32;border-bottom:0;border-radius:18px 18px 0 0;padding:0 12px calc(14px + env(safe-area-inset-bottom));max-height:calc(100dvh - 64px - env(safe-area-inset-bottom) - 8px);overflow:auto;transform:translateY(0);transition:transform .25s ease-out}
+dialog.botsheet .sheet{background:#1c1c1f;border:1px solid #2e2e32;border-bottom:0;border-radius:18px 18px 0 0;padding:0 12px calc(14px + env(safe-area-inset-bottom));max-height:calc(100dvh - 12px);overflow:auto;transform:translateY(0);transition:transform .25s ease-out}
 .grab{display:block;width:100%;height:28px;margin:0 0 8px;padding:0;position:sticky;top:0;z-index:1;background:#1c1c1f;touch-action:none;cursor:grab}
 .grab::after{content:"";position:absolute;left:50%;top:12px;width:36px;height:5px;margin-left:-18px;border-radius:3px;background:#5a5a60}
 @media (prefers-reduced-motion:reduce){dialog.botsheet::backdrop,dialog.botsheet .sheet{transition:none}}
@@ -416,7 +416,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' %}<nav class="tabs noprint" da
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=4');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -485,6 +485,9 @@ function grunionsApply(html,url,pop){
  var main=document.querySelector('main');
  main.replaceChildren.apply(main, [].slice.call(newMain.childNodes));
  grunionsSyncNav(newNav);
+ var nextHead=doc.querySelector('header'), curHead=document.querySelector('header');
+ if(nextHead&&curHead&&curHead.outerHTML!==nextHead.outerHTML) curHead.replaceWith(nextHead);
+ else if(nextHead&&!curHead) document.body.insertBefore(nextHead, document.querySelector('main'));
  document.title=doc.title||document.title;
  if(!pop) history.pushState({grunions:1},'',url);
  grunionsRunScripts(scripts);
