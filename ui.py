@@ -52,6 +52,13 @@ a.avatar img,button.avatar img,span.avatar img{width:44px;height:44px;max-width:
 .profhead{display:flex;align-items:center;gap:14px;margin:0 0 16px}.profhead .avatar{width:64px;height:64px;font-size:20px}
 .nextcard{padding:0;overflow:hidden}
 .nextcard .nxbody{padding:16px 16px 0}.nextcard .nxtitle{font-size:20px}
+.nextcard .nxcardhead{margin:0 0 2px}
+.nextcard .nxcardhead .cardlink{flex:1;min-width:0}
+a.usawpchip{display:inline-flex;align-items:center;gap:6px;margin-left:auto;color:var(--t2);font-size:13px;font-weight:500;line-height:1.2;text-decoration:none;white-space:nowrap;flex:none}
+a.usawpchip.warn{color:var(--warn)}
+a.usawpchip.bad{color:var(--bad)}
+.numcard .nxtitle{font-size:17px;line-height:1.3}
+#membership{scroll-margin-top:72px}
 .pimg{position:relative;line-height:0}.pimg img{width:100%;height:200px;object-fit:cover;display:block}
 .nxbadge{position:absolute;top:12px;left:12px;background:#151517;color:#ececee;border:1px solid #3a3a40;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:700;letter-spacing:.8px;line-height:1}
 .nxrow{display:flex;align-items:center;gap:10px;margin-top:8px;color:var(--t1);font-size:15px}
@@ -180,15 +187,6 @@ dialog.modal .sheet{background:var(--surface);border:1px solid var(--line);borde
 details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;min-height:56px;padding:0 18px;color:var(--t1)}
 details>summary::-webkit-details-marker{display:none}details>summary::after{content:"›";color:var(--t3);font-size:22px;transition:transform .15s}
 details[open]>summary::after{transform:rotate(90deg)}details.card{padding:0}details.card>.body{padding:0 18px 16px}
-details.playcard>summary{gap:8px;flex-wrap:nowrap;padding-left:16px;padding-right:14px;container-type:inline-size;container-name:playline}
-details.playcard>summary .playtitle{display:flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0;font-size:15px;font-weight:600;line-height:1.2;white-space:nowrap}
-details.playcard>summary .playnum{flex:none;margin-left:auto;color:var(--t2);font-size:13px;font-weight:500;white-space:nowrap}
-.playopen{display:none}
-details.playcard[open]>summary .playclosed{display:none}
-details.playcard[open]>summary .playopen{display:inline}
-details.playcard>summary::after{flex:none;font-size:16px;margin-left:2px}
-@container playline (max-width:420px){details.playcard>summary{gap:6px}details.playcard>summary .playtitle{font-size:14px;letter-spacing:-.15px;gap:6px}details.playcard>summary .playnum{font-size:12.5px}}
-@container playline (max-width:300px){details.playcard>summary::after{content:none}}
 details.checkin{margin:4px 0 20px}details.checkin>summary{min-height:0;padding:18px 0 8px;font-size:17px;font-weight:600;justify-content:flex-start;gap:8px}
 .kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}.kv:first-child{border-top:0}.kv span:first-child{color:var(--t2)}
 .admintabs{display:flex;gap:8px;overflow-x:auto;margin:0 0 16px;padding:2px 0 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
@@ -325,6 +323,36 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro bg_line(m) %}{% set bg = background_view(m) %}{% if bg %}{{ st(bg.kind, bg.text) }}{% endif %}{% endmacro %}
 {% macro bg_status(m) %}{% set bg = background_view(m) %}{% if bg %}{{ st(bg.kind, ('expires ' ~ bg.date) if bg.date else 'missing') }}{% endif %}{% endmacro %}
 {% macro member_expiry(m) %}{% set left = days_left(m.usawp_valid_until) %}{% if not m.usawp_valid_until %}{{ st('bad', 'missing') }}{% elif left < 0 %}{{ st('bad', 'expires ' ~ m.usawp_valid_until) }}{% elif left <= EXPIRING_DAYS %}{{ st('warn', 'expires ' ~ m.usawp_valid_until) }}{% else %}{{ st('ok', 'expires ' ~ m.usawp_valid_until) }}{% endif %}{% endmacro %}
+{% macro membership_section(m, vr_pending) %}{% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set ex = expiry_notes(m, cl) %}{% set cc = coach_clearance(m) %}{% set left = days_left(m.usawp_valid_until) %}{% set locked = m.usawp_status == 'verified' and not (left is not none and left < 0) %}
+<div class=seclabel id=membership>Membership</div>
+<div class=list>
+<div class="li prow"><span>USAWP #{{ m.usawp_number or '—' }}</span>{{ member_expiry(m) }}</div>
+{% if not locked %}<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">USAWP number<input form=profileForm id=usawpNumber name=usawp_number inputmode=numeric autocomplete=off value="{{ m.usawp_number or '' }}" data-original="{{ m.usawp_number or '' }}"></label></div>{% endif %}
+<div class="li prow"><span class=k>Status</span><span class=v>{% if vr_pending %}{{ st('warn','Verification pending') }}{% elif cl.ok and dl is not none and dl <= EXPIRING_DAYS %}{{ st('warn','Expiring soon') }}{% elif cl.ok %}{{ st('ok','Cleared') }}{% else %}{{ st('bad','Not cleared') }}{% endif %}</span></div>
+{% if m.usawp_verified_at %}<div class="li prow"><span>Verified {{ m.usawp_verified_at[:10] }}</span></div>{% endif %}
+{% for it in cl.checks %}<div class="li prow"><span>{{it.req.name}}</span>{{ st({'ok':'ok','no date':'warn'}.get(it.status,'bad'),
+ (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status!='expired' else 'expired') }}</div>{% endfor %}
+{% if background_view(m) %}<div class="li prow"><span>Background screening</span>{{ bg_status(m) }}</div>{% endif %}
+{% if cc %}<div class="li prow"><span>Coaching</span>{{ st('ok' if cc.ok else 'bad', 'cleared' if cc.ok else cc.text) }}</div>{% elif coach_eligibility(m).text %}<div class="li prow">{{ coach_tag(m) }}</div>{% endif %}
+</div>
+{% if tw and tw.active and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<div style="margin-top:8px">{{ st('trial', trial_badge(tw)) }}</div><p class="sm" style="margin:8px 0 0">Ends {{tw.ends}}</p>{% elif tw and tw.expired and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<p class="sm" style="margin:8px 0 0">Trial ended {{tw.ends}}</p>{% endif %}
+{% if not cl.ok %}{% if not vr_pending %}{% for line in ex.lines %}<p class="sm" style="margin:8px 0 0">{{line}}</p>{% endfor %}{% elif ex.safesport %}<p class="sm" style="margin:8px 0 0">SafeSport expired {{ex.safesport}}</p>{% endif %}
+{% if ex.rest %}<p class="t2 sm" style="margin:8px 0 0">Needs: {{ex.rest|join(', ')}}</p>{% endif %}{% endif %}
+{% if m.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %}<p class="sm" style="margin:8px 0 0"><span class="st st-warn"></span> Your membership expires in <b>{{dl}} days</b> ({{m.usawp_valid_until}}). <a href=https://usawp.sport80.com>Renew</a></p>{% endif %}
+{% if m.usawp_status != 'verified' %}<p class="t2 sm" style="margin:8px 0 0">Register or renew at <a href=https://usawp.sport80.com>usawp.sport80.com</a> with {{m.email}} and choose Grunions as your club.</p>{% endif %}
+{% if ex.membership and not vr_pending %}
+<button type=button class="btn btn-primary full" id=reverifyOpen style="margin-top:14px">Reverify membership</button>
+<form id=reverifyForm hidden method=post action=/home style="margin-top:14px">{{csrf_field()}}
+<div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="{{m.usawp_number or ''}}" autocomplete=off></label>
+<label style="margin:0">Background screening expires<input name=background_expires type=date value="{{ (background_view(m).date if background_view(m) else '') }}"></label>
+<button class="btn btn-primary" style="flex:0 0 auto">Send</button></div></form>
+<script>document.getElementById('reverifyOpen').onclick=function(){var f=document.getElementById('reverifyForm');f.hidden=false;this.hidden=true;f.querySelector('input[name=usawp_number]').focus()};</script>
+{% elif m.usawp_status == 'verified' %}
+{% set bg = background_view(m) %}{% if bg and bg.required and bg.kind == 'bad' and not vr_pending %}
+<form method=post action=/home style="margin-top:14px">{{csrf_field()}}<input type=hidden name=action value=reverify_background>
+<button class="btn btn-primary full">Reverify background screening</button></form>{% endif %}
+{% endif %}
+{% endmacro %}
 {% macro member_status(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{{ st('trial', trial_badge(tw)) }}<div class="t3 xs">Ends {{tw.ends}}</div>{% elif not cl.ok %}{{ st('bad','Not cleared') }}{% elif dl is not none and dl <= EXPIRING_DAYS %}{{ st('warn','Expires in %dd' % dl) }}{% else %}{{ st('ok','Cleared') }}{% endif %}
 {% if tw and tw.expired and r.usawp_status != 'verified' %}<div class="xs">Trial ended {{tw.ends}}</div>{% endif %}
@@ -470,7 +498,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' %}<nav class="tabs noprint" da
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=6');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=7');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -768,57 +796,17 @@ T["home"] = """{% if pins %}
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
 {% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}</div>
 <div class=homedock>
-{% if nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'"><a class=cardlink href="/practices/{{nextp.id}}">
-{% if nextp.image %}<div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div>{% endif %}
-<div class=nxbody><div class=nxtitle>{{ practice_title(nextp) }}</div>
-<div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_card_date(nextp.date) }} · {{ fmt_clock(nextp.start) }} – {{ fmt_clock(nextp.end) }}</span></div>
-<div class=nxrow>{{ glyph_pin() }}<span>{{ short_place(nextp.location) }}</span></div>
-<div class=nxrow>{{ glyph_people() }}<span>{{ nextp_n }} going{% if next_coaches %} · Coaches: {{ next_coaches }}{% endif %}</span></div>
-{% if nextp.coach_note %}<div class=nxnote>{{ nextp.coach_note }} · {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</div>{% endif %}</div></a>
-<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
-<button class="btn {{ 'btn-primary' if nextp_mine==1 else 'btn-secondary' }}" name=action value="{{ 'clear' if nextp_mine==1 else 'going' }}">I'm going{% if nextp_mine==1 %} ✓{% endif %}</button>
-<button class="btn {{ 'btn-primary' if nextp_mine==0 else 'btn-secondary' }}" name=action value="{{ 'clear' if nextp_mine==0 else 'notgoing' }}">I'm not going{% if nextp_mine==0 %} ✓{% endif %}</button></form>
-{% if sh %}<div class=nxdiv></div><div class=nxsocial><a class=cardlink href="/practices/{{nextp.id}}" style="display:flex;align-items:center;gap:12px">{{ social_icon() }}
-<div class=grow><div class=nxtitle>{{ sh.title }}</div><div class="t2 sm">{{ sh.place }}</div></div></a>
-<form method=post action=/practices>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
-<button class="btn {{ 'btn-primary' if next_joined else 'btn-secondary' }}" name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}Joined ✓{% else %}Join{% endif %}</button></form></div>{% endif %}
-</div>{% endif %}
-{% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set ex = expiry_notes(m, cl) %}{% set cc = coach_clearance(m) %}
-{% if vr_pending %}{% set play_title = 'Verification pending' %}{% set play_dot = 'warn' %}
-{% elif cl.ok %}{% set play_title = 'Cleared for water polo' %}{% set play_dot = 'ok' %}
-{% else %}{% set play_title = 'Not cleared for water polo' %}{% set play_dot = 'bad' %}{% endif %}
-<details class="card playcard"><summary><span class=playtitle><span class="dot {{play_dot}}" aria-hidden=true></span>{{play_title}}</span><span class=playnum><span class=playclosed>USAWP # {{m.usawp_number or '—'}}</span>{% if m.usawp_verified_at %}<span class=playopen>Verified {{ m.usawp_verified_at[:10] }}</span>{% endif %}</span></summary><div class=body>
-<div class=kv><span>USAWP # {{m.usawp_number or '—'}}</span>{{ member_expiry(m) }}</div>
-{% for it in cl.checks %}<div class=kv><span>{{it.req.name}}</span>{{ st({'ok':'ok','no date':'warn'}.get(it.status,'bad'),
- (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status!='expired' else 'expired') }}</div>{% endfor %}
-{% if background_view(m) %}<div class=kv><span>Background screening</span>{{ bg_status(m) }}</div>{% endif %}
-{% if cc %}<div class=kv><span>Coaching</span>{{ st('ok' if cc.ok else 'bad', 'cleared' if cc.ok else cc.text) }}</div>{% elif coach_eligibility(m).text %}<div style="margin-top:8px">{{ coach_tag(m) }}</div>{% endif %}
-{% if tw and tw.active and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<div style="margin-top:8px">{{ st('trial', trial_badge(tw)) }}</div><p class="sm" style="margin:8px 0 0">Ends {{tw.ends}}</p>{% elif tw and tw.expired and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<p class="sm" style="margin:8px 0 0">Trial ended {{tw.ends}}</p>{% endif %}
-{% if not cl.ok %}{% if not vr_pending %}{% for line in ex.lines %}<p class="sm" style="margin:8px 0 0">{{line}}</p>{% endfor %}{% elif ex.safesport %}<p class="sm" style="margin:8px 0 0">SafeSport expired {{ex.safesport}}</p>{% endif %}
-{% if ex.rest %}<p class="t2 sm" style="margin:8px 0 0">Needs: {{ex.rest|join(', ')}}</p>{% endif %}{% endif %}
-{% if m.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %}<p class="sm" style="margin:8px 0 0"><span class="st st-warn"></span> Your membership expires in <b>{{dl}} days</b> ({{m.usawp_valid_until}}). <a href=https://usawp.sport80.com>Renew</a></p>{% endif %}
-{% if m.usawp_status != 'verified' %}<p class="t2 sm" style="margin:8px 0 0">Register or renew at <a href=https://usawp.sport80.com>usawp.sport80.com</a> with {{m.email}} and choose Grunions as your club.</p>{% endif %}
-{% if ex.membership and not vr_pending %}
-<button type=button class="btn btn-primary full" id=reverifyOpen style="margin-top:14px">Reverify membership</button>
-<form id=reverifyForm hidden method=post action=/home style="margin-top:14px">{{csrf_field()}}
-<div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="{{m.usawp_number or ''}}" autocomplete=off></label>
-<label style="margin:0">Background screening expires<input name=background_expires type=date value="{{ (background_view(m).date if background_view(m) else '') }}"></label>
-<button class="btn btn-primary" style="flex:0 0 auto">Send</button></div></form>
-<script>document.getElementById('reverifyOpen').onclick=function(){var f=document.getElementById('reverifyForm');f.hidden=false;this.hidden=true;f.querySelector('input[name=usawp_number]').focus()};</script>
-{% elif m.usawp_status == 'verified' %}
-{% set bg = background_view(m) %}{% if bg and bg.required and bg.kind == 'bad' and not vr_pending %}
-<form method=post action=/home style="margin-top:14px">{{csrf_field()}}<input type=hidden name=action value=reverify_background>
-<button class="btn btn-primary full">Reverify background screening</button></form>{% endif %}
-{% elif m.usawp_number %}
-<div class=usawp-line><span>USAWP # {{m.usawp_number}}</span><button type=button class="btn btn-secondary" id=usawpEdit>Edit</button></div>
-<form id=usawpForm hidden method=post action=/home>{{csrf_field()}}
-<div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="{{m.usawp_number}}" autocomplete=off></label>
-<button class="btn btn-primary" style="flex:0 0 auto">Save</button></div></form>
-<script>document.getElementById('usawpEdit').onclick=function(){var f=document.getElementById('usawpForm');f.hidden=!f.hidden;if(!f.hidden)f.querySelector('input[name=usawp_number]').focus()};</script>
-{% else %}<form method=post action=/home style="margin-top:14px">{{csrf_field()}}
-<div class="row wrap" style="align-items:flex-end"><label style="margin:0;flex:1 1 180px">USAWP Membership #<input name=usawp_number inputmode=numeric value="" autocomplete=off></label>
-<button class="btn btn-secondary" style="flex:0 0 auto">Add</button>
-{% if not tw %}<button type=button class="btn btn-secondary" id=trialOpen style="flex:0 0 auto">2-week USAWP trial</button>{% endif %}</div></form>
+{% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set num = (m.usawp_number or '')|trim %}
+{% set ns = namespace(tone='ok') %}
+{% if vr_pending %}{% set ns.tone = 'warn' %}
+{% elif not cl.ok %}{% set ns.tone = 'bad' %}
+{% elif dl is not none and dl <= EXPIRING_DAYS %}{% set ns.tone = 'warn' %}
+{% else %}{% for it in cl.checks %}{% if it.days_left is not none and it.days_left >= 0 and it.days_left <= EXPIRING_DAYS %}{% set ns.tone = 'warn' %}{% endif %}{% endfor %}{% endif %}
+{% if not num %}<div class="card numcard"><div class=nxtitle>Enter your USAWP membership number</div>
+<form method=post action=/home style="margin-top:12px">{{csrf_field()}}
+<label>USAWP Membership #<input name=usawp_number inputmode=numeric value="" autocomplete=off></label>
+<button class="btn btn-primary full">Save</button>
+{% if not tw %}<button type=button class="btn btn-secondary full" id=trialOpen style="margin-top:8px">2-week USAWP trial</button>{% endif %}</form>
 {% if not tw %}<dialog id=trialDialog class=modal><div class=sheet>
 <p>I will complete the USA Water Polo 2-week trial membership before I get in the pool. I understand I need to get a full USAWP membership soon, otherwise I will not be able to practice.</p>
 <form method=post action=/home>{{csrf_field()}}<input type=hidden name=action value=trial>
@@ -827,7 +815,23 @@ T["home"] = """{% if pins %}
 </div></dialog>
 <script>document.getElementById('trialOpen').onclick=function(){document.getElementById('trialDialog').showModal()};
 document.getElementById('trialDialog').addEventListener('click',function(e){if(e.target===this)this.close()});</script>{% endif %}
-{% endif %}</div></details>
+</div>{% endif %}
+{% if nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'">
+{% if nextp.image %}<a class=cardlink href="/practices/{{nextp.id}}"><div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div></a>{% endif %}
+<div class=nxbody><div class=nxcardhead><a class=cardlink href="/practices/{{nextp.id}}"><div class=nxtitle>{{ practice_title(nextp) }}</div></a>{% if num %}<a class="usawpchip{% if ns.tone != 'ok' %} {{ ns.tone }}{% endif %}" href="/profile#membership"><span class="dot {{ ns.tone }}" aria-hidden=true></span>USAWP #{{ num }}</a>{% endif %}</div>
+<a class=cardlink href="/practices/{{nextp.id}}">
+<div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_card_date(nextp.date) }} · {{ fmt_clock(nextp.start) }} – {{ fmt_clock(nextp.end) }}</span></div>
+<div class=nxrow>{{ glyph_pin() }}<span>{{ short_place(nextp.location) }}</span></div>
+<div class=nxrow>{{ glyph_people() }}<span>{{ nextp_n }} going{% if next_coaches %} · Coaches: {{ next_coaches }}{% endif %}</span></div>
+{% if nextp.coach_note %}<div class=nxnote>{{ nextp.coach_note }} · {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</div>{% endif %}</a></div>
+<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
+<button class="btn {{ 'btn-primary' if nextp_mine==1 else 'btn-secondary' }}" name=action value="{{ 'clear' if nextp_mine==1 else 'going' }}">I'm going{% if nextp_mine==1 %} ✓{% endif %}</button>
+<button class="btn {{ 'btn-primary' if nextp_mine==0 else 'btn-secondary' }}" name=action value="{{ 'clear' if nextp_mine==0 else 'notgoing' }}">I'm not going{% if nextp_mine==0 %} ✓{% endif %}</button></form>
+{% if sh %}<div class=nxdiv></div><div class=nxsocial><a class=cardlink href="/practices/{{nextp.id}}" style="display:flex;align-items:center;gap:12px">{{ social_icon() }}
+<div class=grow><div class=nxtitle>{{ sh.title }}</div><div class="t2 sm">{{ sh.place }}</div></div></a>
+<form method=post action=/practices>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
+<button class="btn {{ 'btn-primary' if next_joined else 'btn-secondary' }}" name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}Joined ✓{% else %}Join{% endif %}</button></form></div>{% endif %}
+</div>{% endif %}
 </div>"""
 
 _CAM = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg>'
@@ -843,14 +847,16 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p>
 <div class=stats><div class=stattile><b>{{ hist|length }}</b><span>Attended</span></div><div class=stattile><b>{{ nmonth }}</b><span>This month</span></div></div>
 </div>
+</form>
+{{ membership_section(m, vr_pending) }}
 <div class=seclabel>Personal</div>
 <div class=list>
 <div class="li prow"><span class=k>Legal name</span><span class=v>{{ m.first }} {{ m.last }}</span></div>
 <div class="li prow viewonly"><span class=k>Preferred name</span><span class=v>{{ m.preferred_first or '—' }}</span></div>
-<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Preferred name<input name=preferred_first id=prefName value="{{ m.preferred_first or '' }}" data-original="{{ m.preferred_first or '' }}" placeholder="Leave blank to use your legal first name" autocomplete=off></label></div>
+<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Preferred name<input form=profileForm name=preferred_first id=prefName value="{{ m.preferred_first or '' }}" data-original="{{ m.preferred_first or '' }}" placeholder="Leave blank to use your legal first name" autocomplete=off></label></div>
 <div class="li prow"><span class=k>Email</span><span class=v>{{ m.email }}</span></div>
 <div class="li prow viewonly"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
-<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Phone<input name=phone id=phoneInput type=tel inputmode=numeric autocomplete=tel value="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}" data-original="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}"></label></div>
+<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Phone<input form=profileForm name=phone id=phoneInput type=tel inputmode=numeric autocomplete=tel value="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}" data-original="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}"></label></div>
 </div>
 <div class=seclabel>Role</div>
 <div class=list><div class="li prow"><span class=k>Role</span><span class="chip-info" style="margin:0">{{ role_label(m)|capitalize }}</span></div></div>
@@ -858,10 +864,9 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class=list><a class="li prow chevrow" href=/notifications><span>Notifications</span><span class=nxchev aria-hidden=true>›</span></a></div>
 <div class=seclabel>Account</div>
 <a class="btn btn-secondary full" href=/logout>Log out</a>
-</form>
 <script>
 (function(){
- var file=document.getElementById('photoFile'), clear=document.getElementById('photoClear'), img=document.getElementById('avatarImg'), letters=document.getElementById('avatarLetters'), pref=document.getElementById('prefName'), phone=document.getElementById('phoneInput'), removeBtn=document.getElementById('removePhoto');
+ var file=document.getElementById('photoFile'), clear=document.getElementById('photoClear'), img=document.getElementById('avatarImg'), letters=document.getElementById('avatarLetters'), pref=document.getElementById('prefName'), phone=document.getElementById('phoneInput'), removeBtn=document.getElementById('removePhoto'), usawp=document.getElementById('usawpNumber');
  var originalSrc=img.getAttribute('src')||'', hadPhoto={{ 'true' if m.photo else 'false' }}, preview=null;
  function showPhoto(src){img.hidden=false; img.src=src; letters.hidden=true; removeBtn.hidden=false;}
  function showLetters(){img.hidden=true; img.removeAttribute('src'); letters.hidden=false; removeBtn.hidden=true;}
@@ -881,6 +886,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
   file.value=''; clear.value='';
   pref.value=pref.getAttribute('data-original')||'';
   if(phone) phone.value=phone.getAttribute('data-original')||'';
+  if(usawp) usawp.value=usawp.getAttribute('data-original')||'';
   if(hadPhoto&&originalSrc) showPhoto(originalSrc); else showLetters();
   if(hadPhoto) removeBtn.hidden=false;
  }

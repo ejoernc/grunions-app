@@ -830,6 +830,20 @@ def profile():
         phone = normalize_phone(request.form.get("phone"))
         if not phone:
             flash("Enter a 10-digit US phone number.", "toast"); return redirect("/profile")
+        new_num = None
+        if "usawp_number" in request.form:
+            num = (request.form.get("usawp_number") or "").strip()
+            current = (m["usawp_number"] or "").strip()
+            if num != current:
+                until = m["usawp_valid_until"] or ""
+                if (m["usawp_status"] or "") == "verified" and not (until and until < today_pt().isoformat()):
+                    flash("Your USAWP number is already verified."); return redirect("/profile")
+                if not re.fullmatch(r"[0-9]{4,10}", num):
+                    flash("Membership number must be 4-10 digits."); return redirect("/profile")
+                since = (dt.datetime.now() - dt.timedelta(hours=1)).isoformat(timespec="seconds")
+                if d.execute("SELECT COUNT(*) FROM usawp_submits WHERE member_id=? AND at>=?", (m["id"], since)).fetchone()[0] >= 3:
+                    flash("You can only submit a membership number 3 times per hour."); return redirect("/profile")
+                new_num = num
         try:
             photo = None
             f = request.files.get("photo")
@@ -837,13 +851,22 @@ def profile():
             d.execute("UPDATE members SET preferred_first=?, phone=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), phone, m["id"]))
             if photo: d.execute("UPDATE members SET photo=? WHERE id=?", (photo, m["id"]))
             elif request.form.get("photo_clear") == "1": d.execute("UPDATE members SET photo='' WHERE id=?", (m["id"],))
-            d.commit(); sync_practice_sheets(d); flash("Saved", "toast")
+            if new_num:
+                d.execute("UPDATE members SET usawp_number=? WHERE id=?", (new_num, m["id"]))
+                d.execute("INSERT INTO usawp_submits(member_id, at) VALUES(?,?)", (m["id"], dt.datetime.now().isoformat(timespec="seconds")))
+            d.commit(); sync_practice_sheets(d)
+            if new_num:
+                create_verify_request(d, m["id"], update_pending=True)
+                flash("Sent to Grunions for verification", "toast")
+            else:
+                flash("Saved", "toast")
         except ValueError as e:
             d.rollback(); flash(str(e))
         return redirect("/profile")
     hist = d.execute("SELECT practice_date FROM checkins WHERE member_id=?", (m["id"],)).fetchall()
     month = today_pt().strftime("%Y-%m")
-    return page(T["profile"], tab="profile", m=m, hist=hist, nmonth=sum(1 for h in hist if h["practice_date"].startswith(month)))
+    vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
+    return page(T["profile"], tab="profile", m=m, hist=hist, nmonth=sum(1 for h in hist if h["practice_date"].startswith(month)), vr_pending=vr_pending)
 
 # ---------- unread badges ----------
 def empty_unread():
@@ -2720,7 +2743,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-6 */
+SW_JS = """/* grunions-sw-7 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
