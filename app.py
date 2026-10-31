@@ -970,8 +970,20 @@ def fmt_clock(t):
     """7:00 PM, for the Home next-practice title."""
     h, m = map(int, str(t).split(":")[:2])
     return f"{(h-1)%12+1}:{m:02d} {'PM' if h >= 12 else 'AM'}"
+def fmt_span(start, end):
+    """7:00 – 8:30 PM. The first meridiem shows only when the two times differ."""
+    def parts(t):
+        h, m = map(int, str(t).split(":")[:2])
+        return (h - 1) % 12 + 1, m, "PM" if h >= 12 else "AM"
+    sh, sm, sa = parts(start)
+    eh, em, ea = parts(end)
+    left = "%d:%02d" % (sh, sm)
+    if sa != ea: left += " " + sa
+    return "%s – %d:%02d %s" % (left, eh, em, ea)
 def weekday_abbr(s):
     return dt.date.fromisoformat(str(s)[:10]).strftime("%a").upper()
+def month_abbr(s):
+    return dt.date.fromisoformat(str(s)[:10]).strftime("%b").upper()
 def day_num(s):
     return dt.date.fromisoformat(str(s)[:10]).day
 def short_place(name):
@@ -1193,7 +1205,7 @@ def save_practice_coaches(d, pid, raw):
         if i in allowed and i not in chosen: chosen.append(i)
     d.execute("DELETE FROM practice_coaches WHERE practice_id=?", (pid,))
     if chosen: d.executemany("INSERT INTO practice_coaches(practice_id, member_id) VALUES(?,?)", [(pid, i) for i in chosen])
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_clock=fmt_clock, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):

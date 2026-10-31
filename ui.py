@@ -24,9 +24,12 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:14px}.xs
 .card.tap{cursor:pointer}a.cardlink,a.goingcount{color:inherit;text-decoration:none}a.cardlink{display:block;flex:1;min-width:0}
 .nxhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .nxmain{display:flex;align-items:center;gap:12px}
-.datetile{width:54px;height:54px;border-radius:14px;background:var(--surface2);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
-.datetile .wd{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--t3);line-height:1}
-.datetile .dn{font-size:22px;font-weight:650;line-height:1.15;margin-top:2px}
+.datetile{width:64px;height:64px;border-radius:14px;background:var(--surface2);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
+.datetile .wd,.datetile .mo{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--t3);line-height:1}
+.datetile .dn{font-size:22px;font-weight:650;line-height:1.1;margin-top:2px}
+.datetile .mo{margin-top:2px}
+.nxcardhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.schedrows .nxrow{margin-top:6px;font-size:15px}.schedrows .nxrow:first-child{margin-top:0}
 .nxtitle{font-size:16px;font-weight:650;line-height:1.3}
 .nxchev{color:var(--t3);font-size:22px;line-height:1;flex:none}
 .nxnote{margin-top:10px;color:var(--t3);font-size:13px;line-height:1.4}
@@ -214,6 +217,9 @@ span.calday{color:var(--t3);opacity:.4;font-weight:500}
 <h3>Role</h3><form method=post class=row>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}
 <select name=role style="margin:0">{% for o in ['member','coach','admin'] %}<option {{'selected' if role_label(r)==o}}>{{o}}</option>{% endfor %}</select><button name=action value=role style="flex:0 0 auto">Save</button></form>
 {% endif %}</div>{% endmacro %}
+{% macro glyph_clock() %}<svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>{% endmacro %}
+{% macro glyph_pin() %}<svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>{% endmacro %}
+{% macro glyph_people() %}<svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><circle cx="9" cy="8" r="2.3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.6 18c.5-2.5 2.3-3.7 4.4-3.7s3.9 1.2 4.4 3.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16.2" cy="9" r="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15.6 14.5c1.5.3 2.7 1.2 3.3 3.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>{% endmacro %}
 {% macro social_icon() %}<span class=nxicon aria-hidden=true><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1536" fill="none" width="32" height="32"><path fill="currentColor" fill-rule="evenodd" d="M 778 1101 L 778 1132 L 783 1156 L 793 1178 L 801 1190 L 816 1206 L 839 1222 L 865 1232 L 887 1235 L 1213 1235 L 1239 1231 L 1251 1227 L 1267 1219 L 1281 1209 L 1297 1193 L 1305 1182 L 1314 1165 L 1320 1146 L 1323 1125 L 1323 1101 L 1321 1100 Z M 712 970 L 714 991 L 720 1005 L 725 1012 L 741 1026 L 755 1032 L 766 1034 L 1335 1034 L 1352 1030 L 1366 1022 L 1376 1012 L 1382 1003 L 1388 985 L 1387 961 L 1384 952 L 1376 939 L 1359 924 L 1348 919 L 1334 916 L 766 916 L 749 920 L 739 925 L 729 933 L 721 943 L 715 955 Z M 778 819 L 779 852 L 1323 851 L 1323 826 L 1318 798 L 1309 777 L 1297 759 L 1281 743 L 1258 728 L 1235 720 L 1215 717 L 885 717 L 869 719 L 854 723 L 840 729 L 828 736 L 809 752 L 799 764 L 787 785 L 782 799 Z M 755 183 L 751 184 L 573 331 L 567 342 L 548 453 L 544 467 L 221 468 L 235 641 L 238 663 L 239 689 L 242 710 L 244 748 L 247 770 L 248 796 L 251 817 L 252 843 L 255 864 L 257 903 L 261 936 L 262 962 L 264 971 L 271 1068 L 274 1090 L 276 1127 L 279 1149 L 280 1174 L 284 1191 L 294 1210 L 308 1225 L 326 1236 L 339 1240 L 354 1242 L 580 1241 L 597 1236 L 614 1226 L 628 1212 L 638 1195 L 642 1184 L 644 1172 L 644 1163 L 647 1149 L 649 1124 L 660 1047 L 662 1022 L 684 859 L 685 842 L 688 828 L 689 811 L 702 718 L 703 701 L 715 616 L 733 467 L 603 467 L 602 463 L 620 365 L 789 226 Z M 601 467 L 602 471 L 598 495 L 595 505 L 585 568 L 582 578 L 580 596 L 577 606 L 567 669 L 540 814 L 535 849 L 527 887 L 507 1006 L 504 1016 L 484 1136 L 482 1140 L 476 1140 L 428 1131 L 427 1124 L 436 1079 L 442 1039 L 446 1023 L 456 960 L 464 922 L 465 910 L 477 849 L 484 803 L 487 793 L 493 752 L 505 692 L 507 674 L 509 669 L 544 468 Z"/></svg></span>{% endmacro %}
 {% macro social_fields(p) %}
 <div class="t3 xs">Type</div>
@@ -465,8 +471,9 @@ T["home"] = """{{ push_card() }}
 {% if nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'"><a class=cardlink href="/practices/{{nextp.id}}">
 {% if nextp.image %}<div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class=nxbadge>{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div>{% endif %}
 <div class=nxbody><div class=nxtitle>{{ fmt_d(nextp.date) }}</div>
-<div class=nxrow><svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>{{ fmt_clock(nextp.start) }} – {{ fmt_clock(nextp.end) }}</span></div>
-<div class=nxrow><svg class=nxglyph viewBox="0 0 24 24" aria-hidden=true><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span>{{ short_place(nextp.location) }}</span></div>
+<div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_clock(nextp.start) }} – {{ fmt_clock(nextp.end) }}</span></div>
+<div class=nxrow>{{ glyph_pin() }}<span>{{ short_place(nextp.location) }}</span></div>
+<div class=nxrow>{{ glyph_people() }}<span>{{ nextp_n }} going{% if next_coaches %} · Coaches: {{ next_coaches }}{% endif %}</span></div>
 {% if nextp.coach_note %}<div class=nxnote>{{ nextp.coach_note }} · {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</div>{% endif %}</div></a>
 <form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
 <button {% if nextp_mine==1 %}class=on {% endif %}name=action value="{{ 'clear' if nextp_mine==1 else 'going' }}">I'm going{% if nextp_mine==1 %} ✓{% endif %}</button>
@@ -704,10 +711,11 @@ _PRACTICE_JS = """<script>
 T["practices"] = """<h1>Schedule</h1><p class="t2 sm" style="margin-top:-12px">Tue · Marina HS &nbsp;·&nbsp; Fri · Westminster HS &nbsp;·&nbsp; 7–8:30 PM</p>
 {% for x in data %}{% set p = x.p %}<div class="card tap" id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">
-<div class=nxmain><div class=datetile><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class=wd>{{ weekday_abbr(p.date) }}</span><span class=dn>{{ day_num(p.date) }}</span></div>
-<div class=grow><div class=nxtitle>{{ fmt_clock(p.start) }} · {{ short_place(p.location) }}</div>
-<div class="t2 sm">{{ x.going|length }} going{% if x.coach_names %} · Coaches: {{ x.coach_names|join(', ') }}{% endif %}</div></div>
-<span class=nxchev aria-hidden=true>›</span></div>
+<div class=nxcardhead><div class=nxtitle>Water Polo Practice</div><span class=nxchev aria-hidden=true>›</span></div>
+<div class=nxmain><div class=datetile><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class=wd>{{ weekday_abbr(p.date) }}</span><span class=dn>{{ day_num(p.date) }}</span><span class=mo>{{ month_abbr(p.date) }}</span></div>
+<div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_span(p.start, p.end) }}</span></div>
+<div class=nxrow>{{ glyph_pin() }}<span>{{ p.location }}</span></div>
+<div class=nxrow>{{ glyph_people() }}<span>{{ x.going|length }} going{% if x.coach_names %} · Coaches: {{ x.coach_names|join(', ') }}{% endif %}</span></div></div></div>
 {% if p.cancelled %}{{ st('bad','Cancelled') }}{% if p.cancel_reason %}<div class="t3 sm">{{ p.cancel_reason }}</div>{% endif %}{% endif %}
 {% if p.note %}<div class=nxnote>{{p.note}}</div>{% endif %}
 {% if p.coach_note %}<div class=nxnote>{{ p.coach_note }} · {{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</div>{% endif %}</a>
