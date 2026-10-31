@@ -84,6 +84,26 @@ ok(">Expired <" in exp_page and ">Next 7 days <" in exp_page and ">Next 30 days 
 ana = A.app.test_client(); rr = ana.post("/login", data=dict(csrf=csrf(ana,"/login"), email="ana@example.com"), follow_redirects=True).get_data(as_text=True)
 h = ana.get(re.search(r'href="http://localhost(/auth/[^"]+)"', rr).group(1), follow_redirects=True).get_data(as_text=True)
 ok("expires in <b>5 days" in ana.get("/profile").get_data(as_text=True) and "notice" in h, "member home expiry warning + in-app reminder")
+def _around(html, name):
+    i = html.find(">" + name + "<")
+    return html[max(0, i - 80):i + 320] if i >= 0 else ""
+_one = (A.today_pt() + dt.timedelta(days=1)).isoformat()
+_zero = A.today_pt().isoformat()
+_edge = (A.today_pt() + dt.timedelta(days=30)).isoformat()
+_far = (A.today_pt() + dt.timedelta(days=31)).isoformat()
+_past = (A.today_pt() - dt.timedelta(days=1)).isoformat()
+D.execute("UPDATE members SET usawp_valid_until=? WHERE id=4", (_one,)); D.commit()
+_one_row = _around(eli.get("/admin").get_data(as_text=True), "Ana Lopez") + _around(eli.get("/members").get_data(as_text=True), "Ana Lopez")
+D.execute("UPDATE members SET usawp_valid_until=? WHERE id=4", (_zero,)); D.commit()
+_zero_row = _around(eli.get("/admin").get_data(as_text=True), "Ana Lopez") + _around(eli.get("/members").get_data(as_text=True), "Ana Lopez")
+D.execute("UPDATE members SET usawp_valid_until=? WHERE id=4", (_edge,)); D.commit()
+_edge_row = _around(eli.get("/members").get_data(as_text=True), "Ana Lopez")
+D.execute("UPDATE members SET usawp_valid_until=? WHERE id=4", (_far,)); D.commit()
+_far_row = _around(eli.get("/admin").get_data(as_text=True), "Ana Lopez") + _around(eli.get("/members").get_data(as_text=True), "Ana Lopez")
+D.execute("UPDATE members SET usawp_valid_until=? WHERE id=4", (_past,)); D.commit()
+_past_row = _around(eli.get("/admin").get_data(as_text=True), "Ana Lopez") + _around(eli.get("/members").get_data(as_text=True), "Ana Lopez")
+D.execute("UPDATE members SET usawp_valid_until=? WHERE id=4", (soon,)); D.commit()
+ok("· expires in 5 days" in eli.get("/admin").get_data(as_text=True) and "· expires in 5 days" in eli.get("/members").get_data(as_text=True) and "· expires in 1 day" in _one_row and "· expires in 1 days" not in _one_row and "· expires today" in _zero_row and "· expires in 0" not in _zero_row and "· expires in 30 days" in _edge_row and "· expires" not in _far_row and "· expires" not in _past_row, "the status line counts down a membership inside 30 days and stays quiet otherwise")
 
 # roles, channels, practices
 D.execute("UPDATE members SET role='coach' WHERE id=3"); D.commit()
@@ -689,7 +709,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=26" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:inherit;text-decoration:underline" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=27" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:inherit;text-decoration:underline" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
