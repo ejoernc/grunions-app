@@ -426,12 +426,17 @@ def trial_window(m):
     today = today_pt()
     left = (end - today).days
     return {"start": start.isoformat(), "end": end.isoformat(), "ends": fmt_md(end.isoformat()), "active": today <= end, "expired": today > end, "days_left": left}
-def trial_badge(tw):
-    """Status label for an active trial. The end date itself is the last day."""
+def trial_left_phrase(tw):
+    """Countdown from the trial end date: expires today, expires in 1 day, or expires in N days."""
     if not tw or not tw.get("active"): return ""
-    left = tw["days_left"]
-    if left <= 0: return "Last day of trial"
-    return "Trial · %d day%s left" % (left, "" if left == 1 else "s")
+    left = tw.get("days_left")
+    if left is None or left <= 0: return "expires today"
+    if left == 1: return "expires in 1 day"
+    return "expires in %d days" % left
+def trial_badge(tw):
+    """Status label for an active trial, counted from the trial end date."""
+    phrase = trial_left_phrase(tw)
+    return ("Trial · " + phrase) if phrase else ""
 def relative_day(iso):
     """TODAY, TOMORROW, a weekday within the next week, otherwise a short date."""
     if not iso: return ""
@@ -448,7 +453,7 @@ def remind(d, mid, by="Grunions"):
     n = days_left(r["usawp_valid_until"])
     when = "has expired" if n is not None and n < 0 else (f"expires in {n} days ({r['usawp_valid_until']})" if n is not None else "needs to be confirmed")
     d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (mid, f"Hi {display_first(r)}, your USA Water Polo membership {when}. Renew at usawp.sport80.com with Grunions as your club so you can keep playing. ({by})"))
-app.jinja_env.globals.update(days_left=days_left, EXPIRING_DAYS=EXPIRING_DAYS, trial_window=trial_window, trial_badge=trial_badge, TRIAL_JOIN_URL=TRIAL_JOIN_URL, relative_day=relative_day)
+app.jinja_env.globals.update(days_left=days_left, EXPIRING_DAYS=EXPIRING_DAYS, trial_window=trial_window, trial_badge=trial_badge, trial_left_phrase=trial_left_phrase, TRIAL_JOIN_URL=TRIAL_JOIN_URL, relative_day=relative_day)
 @app.teardown_appcontext
 def _close(e):
     d = g.pop("db", None)
@@ -624,10 +629,7 @@ def panel_status(member):
         pass
     dl = days_left(until) if until else None
     if tw and tw["active"] and status != "verified" and not ex["membership"]:
-        reason = "Trial membership ends " + fmt_long(tw["end"])
-        if tw["days_left"] <= 3:
-            return {"label": _expiring_label(tw["days_left"]), "dot": "warn", "reason": reason}
-        return {"label": "Cleared", "dot": "ok", "reason": reason}
+        return {"label": trial_badge(tw), "dot": "warn", "reason": trial_badge(tw)}
     if tw and tw["expired"] and status != "verified":
         return {"label": "Expired", "dot": "bad", "reason": "Trial membership ended " + fmt_long(tw["end"])}
     if ex["membership"] or status == "expired":
@@ -3454,7 +3456,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-41 */
+SW_JS = """/* grunions-sw-42 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
