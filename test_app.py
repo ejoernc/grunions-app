@@ -612,6 +612,7 @@ import csv as csvmod, io as io_mod
 gone = eli.get("/export"); old_import = eli.get("/import")
 exp = eli.get("/transfer").get_data(as_text=True)
 ok(gone.status_code == 302 and "/transfer" in gone.headers["Location"] and old_import.status_code == 302 and "/transfer" in old_import.headers["Location"] and ">Transfer<" in eli.get("/members").get_data(as_text=True) and ">Import<" not in eli.get("/members").get_data(as_text=True) and exp.find(">Import<") < exp.find(">Export<") and "Download members CSV" in exp and "Download practices CSV" in exp and "Download detailed attendance CSV" in exp and 'name=start' in exp and 'name=end' in exp and ('value="%s"' % (A.today_pt() - dt.timedelta(days=28)).isoformat()) in exp and ('value="%s"' % (A.today_pt() + dt.timedelta(days=28)).isoformat()) in exp, "Transfer puts import above export, and the old tabs redirect there")
+ok("Bring in a Sport:80 export" in exp and "No file imported yet." in exp and 'class="dock full"' in exp, "Transfer has one import action and an empty state")
 ok(jane.get("/export").status_code == 403 and jane.get("/members.csv").status_code == 403 and jane.get("/export/practices.csv").status_code == 403 and john.get("/export").status_code == 403 and A.app.test_client().get("/export").status_code == 302, "member, coach, and signed-out visitors cannot export")
 exa = A.app.test_client(); join(exa, "Exa", "Export", "exa.export@example.com")
 eid = D.execute("SELECT id FROM members WHERE email='exa.export@example.com'").fetchone()[0]

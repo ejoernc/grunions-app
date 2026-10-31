@@ -242,7 +242,7 @@ span.avatar.ciav,span.avatar.ciav img{width:40px;height:40px;min-width:40px;max-
 .checkbar input[name=q]{flex:1 1 auto;width:auto;min-width:0;margin:0;height:48px;font-size:14px}
 .checkprog{margin:8px 0 0;color:var(--t2);font-size:14px;font-weight:600}
 button.dock{background:#ececee;color:#0a0a0b;height:44px}
-button.quietcheck{background:transparent;color:var(--t2);border:1px solid var(--line);height:44px}
+a.quietcheck,button.quietcheck{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:transparent;color:var(--t2);border:1px solid var(--line);height:44px;border-radius:10px;font-weight:600;text-decoration:none;padding:0 18px}
 .emptyfind{color:var(--t2);margin:8px 0 16px}
 .usawprow{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:var(--r);padding:14px 16px;margin:0 0 12px;color:inherit;text-decoration:none}
 .calpick{position:relative;flex:1.6;min-width:0;display:flex;align-items:center;gap:4px}
@@ -614,7 +614,7 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
 ADMIN_NAV = """<div class="admintabs noprint" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="{{'on' if ep=='admin'}}">Check-in</a>{% endif %}
 {% if me().is_admin %}<a href=/members class="{{'on' if ep=='members'}}">People</a><a href=/expiring class="{{'on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="{{'on' if ep=='transfer_page'}}">Transfer</a>
 <a href=/requirements class="{{'on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="{{'on' if ep=='qr_page'}}">QR</a>{% endif %}</div>
-<script>(function(){var key='grunionsAdminTab';document.querySelectorAll('.admintabs a').forEach(function(a){a.addEventListener('click',function(){try{localStorage.setItem(key,a.getAttribute('href'))}catch(e){}})});})();</script>
+<script>(function(){var key='grunionsAdminTab';document.querySelectorAll('.admintabs a').forEach(function(a){a.addEventListener('click',function(){try{localStorage.setItem(key,a.getAttribute('href'))}catch(e){}})});var on=document.querySelector('.admintabs a.on');if(on&&on.scrollIntoView)on.scrollIntoView({inline:'nearest',block:'nearest'});})();</script>
 {% set al = admin_alert() %}{% if al and ep!='admin' %}<a href=/expiring class="note noprint" style="display:block;text-decoration:none"><span class="st st-warn"></span> USAWP: <b>{{al[0]}}</b> expired · <b>{{al[1]}}</b> expiring within {{EXPIRING_DAYS}} days</a>{% endif %}
 {% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% endfor %}"""
 
@@ -1163,29 +1163,31 @@ if(!window.grunionsCalDoc){
 </script>"""
 
 T["transfer"] = ADMIN_NAV + """<h1>Transfer</h1>
+<p class="t2 sm" style="margin-top:-8px">Bring in a Sport:80 export, or download the roster and attendance.</p>
 <h2>Import</h2>
 <div class=card><ol class="t2 sm" style="margin:0;padding-left:18px;line-height:1.7">
 <li>Log in at <a href=https://usawp.sport80.com>usawp.sport80.com</a> and switch to the Grunions club profile.</li>
 <li>Members → Smart Lists → Edit Columns: name, email, membership status, member number, valid until, plus SafeSport / background columns.</li>
 <li>Actions → Export Report, then upload the emailed file here.</li></ol>
-<form method=post action=/transfer enctype=multipart/form-data style="margin-top:14px">{{csrf_field()}}<input type=file name=file accept=".csv,.xlsx" style="padding:11px 14px"><button class="primary full" style="margin-top:12px">Import</button></form>
+<form method=post action=/transfer enctype=multipart/form-data style="margin-top:14px">{{csrf_field()}}<input type=file name=file accept=".csv,.xlsx" style="padding:11px 14px;height:44px"><button class="dock full" style="margin-top:12px">Import</button></form>
 {% if stats %}<div class=note style="margin-top:16px">Read {{stats.rows}} rows · updated {{stats.matched}} members · {{stats.req_updates or 0}} compliance items · {{stats.unmatched|length}} roster rows not in the app</div>
-{% if stats.unmatched %}<details style="margin-top:12px"><summary>Not signed up in the app</summary><div class=body>{% for u in stats.unmatched %}<div class="kv t2">{{u}}</div>{% endfor %}</div></details>{% endif %}{% endif %}
+{% if stats.unmatched %}<details style="margin-top:12px"><summary>Not signed up in the app</summary><div class=body>{% for u in stats.unmatched %}<div class="kv t2">{{u}}</div>{% endfor %}</div></details>{% endif %}
+{% else %}<p class="t3 sm" style="margin:12px 0 0">No file imported yet.</p>{% endif %}
 <p class="t3 xs" style="margin:12px 0 0">Matching uses email first, then exact legal first and last name. An optional Preferred First Name column is stored as the name shown in the app and is not used for matching. A Membership Type or Member Type column adds USAWP coaches to the coaching list.</p></div>
 <h2>Export</h2>
 <div class=card><h2 style="margin:0 0 8px">Members</h2>
 <p class="t2 sm">Legal name, preferred name, phone, role, clearance, USAWP number, membership, SafeSport, background screening, trial dates, and attendance.</p>
-<a class="btn primary" href=/members.csv>Download members CSV</a></div>
+<a class="quietcheck full" href=/members.csv>Download members CSV</a></div>
 <div class=card><h2 style="margin:0 0 8px">Practices and attendance</h2>
 <form method=get action=/export/practices.csv>
 <div class=row><label>Start<input type=date name=start value="{{start}}" required></label><label>End<input type=date name=end value="{{end}}" required></label></div>
-<button class="primary full" name=detail value=0>Download practices CSV</button>
-<button class=full style="margin-top:10px" name=detail value=1>Download detailed attendance CSV</button></form>
+<button class="quietcheck full" name=detail value=0>Download practices CSV</button>
+<button class="quietcheck full" style="margin-top:10px" name=detail value=1>Download detailed attendance CSV</button></form>
 <p class="t3 sm" style="margin:12px 0 0">Practices is one row per practice, with the assigned coaches, a coach count, and how many of those coaches are coach-eligible. Detailed attendance is one row per member per practice, with RSVP and check-in.</p></div>
 {% if sheet_on %}<div class=card><h2 style="margin:0 0 8px">Google Sheet</h2>
 <p class="t2 sm">{% if sheet_status.at %}Last sync {{sheet_status.at}} PT · {{sheet_status.label}}{% else %}Not synced yet{% endif %}{% if sheet_status.detail and not sheet_status.ok %} · {{sheet_status.detail}}{% endif %}</p>
 <p class="t3 sm">Members, Practices, and Attendance stay in sync after changes. A full rewrite also runs daily.</p>
-<form method=post action=/export/sheet>{{csrf_field()}}<button class="primary full">Sync to Google Sheet now</button></form></div>{% endif %}"""
+<form method=post action=/export/sheet>{{csrf_field()}}<button class="quietcheck full">Sync to Google Sheet now</button></form></div>{% endif %}"""
 
 T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
 <div class=peoplebar>
