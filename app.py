@@ -488,7 +488,13 @@ def coach_row_expiry(d, member):
         return {"eligible": False, "date": ""}
     dates = screening_dates(d, mid)
     days = [day for day in (until, dates.get("safesport") or "", dates.get("background") or "") if day]
-    return {"eligible": coach_eligibility(d, member)["eligible"], "date": min(days) if days else ""}
+    date = min(days) if days else ""
+    eligible = coach_eligibility(d, member)["eligible"]
+    tone = "bad"
+    if eligible:
+        left = days_left(date) if date else None
+        tone = "warn" if left is not None and left <= EXPIRING_DAYS else ""
+    return {"eligible": eligible, "date": date, "tone": tone}
 def credential_dates(m):
     """SafeSport, background, and referee certification expiries for the recheck form."""
     if not m: return {}
