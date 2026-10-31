@@ -280,7 +280,10 @@ span.avatar.ciav,span.avatar.ciav img{width:40px;height:40px;min-width:40px;max-
 button.dock,a.dock{background:var(--accent);color:#fff}
 a.quietcheck,button.quietcheck{background:var(--surface2);color:#fff;border:0;border-radius:12px}
 .emptyfind{color:var(--t2);margin:8px 0 16px}
-.usawprow{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:var(--r);padding:14px 16px;margin:0 0 12px;color:inherit;text-decoration:none}
+.usawpcall{display:flex;align-items:center;gap:4px;margin:0 0 16px;padding:0 2px 0 14px;border:1.5px solid var(--warn);background:rgba(227,160,8,.09);border-radius:14px;color:var(--t1)}
+.usawpcall a{flex:1;min-width:0;padding:12px 0;color:var(--t1);text-decoration:none;font-size:15px;line-height:1.35}
+.usawpcall button.usawpx{flex:none;width:44px;height:44px;min-width:44px;min-height:44px;max-height:44px;padding:0;background:transparent;color:var(--t2);border-radius:10px}
+html.usawp-off .usawpcall{display:none!important}
 .calpick{position:relative;flex:1.6;min-width:0;display:flex;align-items:center;gap:4px}
 .calnav,.calmonth{flex:none;width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;background:none;color:var(--t1);text-decoration:none;border-radius:10px}
 .calnav{height:48px;width:40px}
@@ -453,6 +456,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
 </header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}">Cancel</a>{% else %}<a class=profileback href=/practices aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>{% endif %}</div><h1>Practice</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1">Edit</a>{% endif %}</div></header>{% elif me() %}<header class=homehead><div class=headmain>{% if tab == 'home' %}<h1>Hi, {{ display_first(me()) }}</h1>{% elif tab == 'practices' %}<h1>Schedule</h1>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Check-in</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
+<script>try{if(sessionStorage.getItem('grunionsUsawpCall')==='1')document.documentElement.classList.add('usawp-off')}catch(e){}</script>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -477,7 +481,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=13');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=14');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -739,7 +743,8 @@ window.addEventListener('resize', grunionsPinHead);
 </body></html>""")
 
 ADMIN_NAV = """<script>(function(){var key='grunionsAdminTab';document.querySelectorAll('.admintabs a').forEach(function(a){a.addEventListener('click',function(){try{localStorage.setItem(key,a.getAttribute('href'))}catch(e){}})});var on=document.querySelector('.admintabs a.on');if(on&&on.parentNode){var sc=on.parentNode;if(on.offsetLeft+on.offsetWidth>sc.clientWidth+sc.scrollLeft)sc.scrollLeft=Math.max(0,on.offsetLeft-8);}})();</script>
-{% set al = admin_alert() %}{% if al and ep!='admin' %}<a href=/expiring class="note noprint" style="display:block;text-decoration:none"><span class="st st-warn"></span> USAWP: <b>{{al[0]}}</b> expired · <b>{{al[1]}}</b> expiring within {{EXPIRING_DAYS}} days</a>{% endif %}
+{% set al = admin_alert() %}{% if al %}<div class="usawpcall noprint" id=usawpCall><a href=/expiring>USAWP: {{ al[0] }} expired · {{ al[1] }} expiring within {{ EXPIRING_DAYS }} days</a><button type=button class=usawpx aria-label="Dismiss"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+<script>(function(){var el=document.getElementById('usawpCall');if(!el)return;var x=el.querySelector('.usawpx');if(!x)return;x.onclick=function(e){e.preventDefault();e.stopPropagation();try{sessionStorage.setItem('grunionsUsawpCall','1')}catch(err){}document.documentElement.classList.add('usawp-off');el.remove()};})();</script>{% endif %}
 {% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% endfor %}"""
 
 T = {}
@@ -1300,7 +1305,6 @@ _CHEV_L = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><p
 _CHEV_R = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 _CAL_I = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
 T["admin"] = ADMIN_NAV + """
-{% if me().is_admin %}{% set al = admin_alert() or (0, 0) %}<a class=usawprow href=/expiring><span class="dot {{ 'bad' if al[0] else ('warn' if al[1] else '') }}" aria-hidden=true></span><span class=grow>USAWP: {{ al[0] }} expired · {{ al[1] }} expiring within {{ EXPIRING_DAYS }} days</span><span class=nxchev aria-hidden=true>›</span></a>{% endif %}
 <div class=checkbar>
 <form class="row noprint" method=get action=/admin style="margin-bottom:0"><div class=calpick id=calPick data-date="{{date}}" data-q="{{q}}" data-dates='{{ days|tojson }}'>
 {% if prev_d %}<a class=calnav href="/admin?date={{prev_d}}{% if q %}&amp;q={{q|urlencode}}{% endif %}" aria-label="Previous practice">""" + _CHEV_L + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Previous practice">""" + _CHEV_L + """</span>{% endif %}
