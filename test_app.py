@@ -44,6 +44,8 @@ h = x.get("/home").get_data(as_text=True)
 ok("USAWP # 1234567" in h and "expires 2027-08-31" in h and "1234567" in h and "2027-08-31" in h and "2 practices attended" in x.get("/profile").get_data(as_text=True) and "<summary>Attendance</summary>" not in h and A.fmt_phone("7205355925") == "(720) 535-5925", "member home shows clearance, and the practice count lives on the profile page")
 ok("1 checked in" in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "check-in count per practice")
 ok(eli.get("/qr.svg").data.startswith(b"<?xml"), "QR svg")
+qr_page = eli.get("/qr").get_data(as_text=True)
+ok("<h1>Join QR</h1>" in qr_page and "Anyone who scans this joins the team." in qr_page and "src=/qr.svg" in qr_page and ">Copy link</button>" in qr_page and ">Share</button>" in qr_page and ">Print</button>" in qr_page, "QR page has the code, share, and copy link")
 # manual verify
 t = eli.get("/admin?date=2026-10-27").get_data(as_text=True)
 ok("Verify John on Sport:80" in t and "usawp.sport80.com" in t, "Verify shown only for non-verified")

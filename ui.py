@@ -1286,6 +1286,30 @@ T["requirements_page"] = ADMIN_NAV + """<h1>Rules</h1>
 <div class=row><label>Applies to<select name=applies_to><option>all</option><option>athlete</option><option>coach</option></select></label><label>Keywords<input name=keywords placeholder="cpr,firstaid"></label></div>
 <label><input type=checkbox name=expires checked>Has an expiration date</label><button class="dock full" name=action value=add>Add</button></form></details>"""
 
-T["qr_page"] = ADMIN_NAV + """<div style="text-align:center"><h1>New to Grunions? Scan to join.</h1>
-<div style="background:#fff;border-radius:16px;padding:18px;display:inline-block"><img src=/qr.svg alt="Sign-up QR code" style="width:min(70vw,380px);display:block"></div>
-<p class="t3 sm" style="margin-top:12px">{{u}}</p><button class="primary noprint" onclick=print()>Print</button></div>"""
+T["qr_page"] = ADMIN_NAV + """<div style="text-align:center"><h1>Join QR</h1>
+<p class="t2 sm" style="margin-top:-8px">Anyone who scans this joins the team.</p>
+{% if u %}<div style="background:#fff;border-radius:16px;padding:18px;display:inline-block;margin-top:8px"><img src=/qr.svg alt="Sign-up QR code" width="240" height="240" style="width:min(64vw,240px);height:auto;display:block"></div>
+<p class="t3 sm" id=joinLink style="margin-top:12px;word-break:break-all">{{u}}</p>
+<button class="dock full noprint" type=button id=copyJoin>Copy link</button>
+<button class="quietcheck full noprint" type=button id=shareJoin style="margin-top:8px">Share</button>
+<button class="quiet noprint" type=button onclick="print()" style="margin-top:4px">Print</button>
+{% else %}<p class=emptyfind>The join link is not ready yet.</p>{% endif %}</div>
+<script>
+(function(){
+ var link=document.getElementById('joinLink'), copy=document.getElementById('copyJoin'), share=document.getElementById('shareJoin');
+ if(!link||!copy) return;
+ function text(){return (link.textContent||'').trim()}
+ function copied(){copy.textContent='Copied'; setTimeout(function(){copy.textContent='Copy link'},1600)}
+ function fallback(value){var ta=document.createElement('textarea'); ta.value=value; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy')}catch(e){} ta.remove()}
+ copy.onclick=function(){
+  var value=text();
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(value).then(copied, function(){fallback(value); copied()});
+  else {fallback(value); copied()}
+ };
+ if(share) share.onclick=function(){
+  var value=text();
+  if(navigator.share) navigator.share({title:'Join the Grunions', url:value}).catch(function(){});
+  else copy.click();
+ };
+})();
+</script>"""
