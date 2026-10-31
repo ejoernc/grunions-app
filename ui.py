@@ -1151,7 +1151,7 @@ T["practice"] = """{% set p = x.p %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
 </div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>
 <div class=seclabel>Coaches</div>
-{% if me().is_admin and not p.cancelled and not x.any_eligible %}<p class="sm" style="margin:0 4px 8px">{{ st('warn', 'No assigned coach is coach-eligible') }}</p>{% endif %}
+{% if me().is_admin and not p.cancelled and x.coaches and not x.any_eligible %}<p class="sm" style="margin:0 4px 8px">{{ st('warn', 'No assigned coach is coach-eligible') }}</p>{% endif %}
 <div class=list>{% for c in x.coaches %}<div class=li><div class=grow><span class=ell>{{ display_first(c) }} {{ c.last }}</span></div>{{ coach_tag(c) }}</div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}</div>
 <div class=seclabel>Going</div>
 <div class=list>{% for r in x.going %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>

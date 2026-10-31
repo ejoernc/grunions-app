@@ -1860,7 +1860,7 @@ def admin():
     n_none = sum(1 for r in rows if r["going"] is None)
     n = len(checked)
     assigned = practice_coach_rows(d, [pr["id"]]).get(pr["id"], []) if pr else []
-    coach_warn = bool(pr) and not any(coach_eligibility(d, c)["eligible"] for c in assigned)
+    coach_warn = bool(assigned) and not any(coach_eligibility(d, c)["eligible"] for c in assigned)
     return page(T["admin"],
         tab="admin", date=date, q=q, going=going, rest=rest, checked=checked, n=n, n_not=n_not, n_none=n_none, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=sum(1 for r in rows if r["going"] == 1),
         days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days), coach_warn=coach_warn, coach_names=coach_labels(assigned))
