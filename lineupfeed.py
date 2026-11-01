@@ -65,7 +65,7 @@ def ensure_schema(d):
                  ("created_by", "INTEGER"), ("submitted_at", "TEXT"), ("featured", "INTEGER DEFAULT 0"),
                  ("skill_levels", "TEXT"), ("divisions", "TEXT"), ("division_custom", "TEXT"),
                  ("comp_format", "TEXT"), ("sport", "TEXT"),
-                 ("date_precision", "TEXT"), ("date_part", "TEXT")):
+                 ("date_precision", "TEXT"), ("date_part", "TEXT"), ("host_org", "TEXT")):
         if c not in cols:
             d.execute("ALTER TABLE lineup_events ADD COLUMN %s %s" % (c, t))
     d.execute("UPDATE lineup_events SET date_precision='exact' WHERE date_precision IS NULL OR trim(date_precision)=''")
@@ -218,6 +218,7 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
         if hosting not in ("Away", "Hosting"): hosting = (existing["hosting"] if existing and existing["hosting"] in ("Away", "Hosting") else "Away")
     else:
         hosting = existing["hosting"] if existing and existing["hosting"] in ("Away", "Hosting") else "Away"
+    host_org = _words(form.get("host_org"), 80) if hosting == "Away" and cat["hosting_ok"] else ""
     details = (form.get("details") or "").strip()[:2000]
     cost = _words(form.get("cost"), 80)
     cap_raw = (form.get("capacity") or "").strip()
@@ -296,19 +297,19 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
             or prev_precision != precision or prev_part != part)
     vals = (cat["id"], subtype, title, day.isoformat(), end.isoformat(), start_time, end_time, city, location,
             description, link, hosting, kind, stage, official, team_intent, status, host_id, actor["id"] if not existing else existing["created_by"],
-            banner_name, capacity, cost, details, deadline, review_note or "", submitted, featured, precision, part)
+            banner_name, capacity, cost, details, deadline, review_note or "", submitted, featured, precision, part, host_org)
     if existing:
         d.execute("""UPDATE lineup_events SET category_id=?, subtype=?, title=?, date=?, end_date=?, start_time=?, end_time=?,
             city=?, venue=?, description=?, link=?, hosting=?, kind=?, stage=?, official=?, team_intent=?, status=?, host_id=?,
             created_by=?, banner=?, capacity=?, cost=?, details=?, reg_deadline=?, review_note=?, submitted_at=?, featured=?,
-            date_precision=?, date_part=? WHERE id=?""",
+            date_precision=?, date_part=?, host_org=? WHERE id=?""",
             (*vals, existing["id"]))
         eid = existing["id"]
     else:
         eid = d.execute("""INSERT INTO lineup_events(category_id, subtype, title, date, end_date, start_time, end_time,
             city, venue, description, link, hosting, kind, stage, official, team_intent, status, host_id, created_by,
-            banner, capacity, cost, details, reg_deadline, review_note, submitted_at, featured, date_precision, date_part)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", vals).lastrowid
+            banner, capacity, cost, details, reg_deadline, review_note, submitted_at, featured, date_precision, date_part, host_org)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", vals).lastrowid
     became_pending = status == "pending" and (not existing or (existing["status"] or "") != "pending")
     promoted = team_intent == "official" and existing and (existing["team_intent"] or "") == "considering"
     return {"id": eid, "status": status, "submitted": became_pending, "date_changed": bool(date_changed),
@@ -341,6 +342,7 @@ def form_values(form=None, row=None, cat_slug="", mode="create"):
             "hosting": form.get("hosting") or "Away", "title": form.get("title") or "", "date": form.get("date") or "",
             "end_date": form.get("end_date") or "", "start_time": form.get("start_time") or "", "end_time": form.get("end_time") or "",
             "date_precision": precision, "month": month, "date_part": part,
+            "host_org": form.get("host_org") or "",
             "location": form.get("location") or form.get("venue") or "", "city": form.get("city") or "",
             "description": form.get("description") or "", "link": form.get("link") or "", "details": form.get("details") or "",
             "cost": form.get("cost") or "", "capacity": form.get("capacity") or "", "reg_deadline": form.get("reg_deadline") or "",
@@ -350,6 +352,7 @@ def form_values(form=None, row=None, cat_slug="", mode="create"):
             "title": row["title"] or "", "date": row["date"] or "", "end_date": row["end_date"] or "",
             "start_time": row["start_time"] or "", "end_time": row["end_time"] or "",
             "date_precision": precision, "month": month, "date_part": part,
+            "host_org": row["host_org"] if "host_org" in row.keys() and row["host_org"] else "",
             "location": row["venue"] or "", "city": row["city"] or "", "description": row["description"] or "",
             "link": row["link"] or "", "details": row["details"] or "", "cost": row["cost"] or "",
             "capacity": "" if row["capacity"] is None else str(row["capacity"]), "reg_deadline": row["reg_deadline"] or "",
@@ -357,6 +360,6 @@ def form_values(form=None, row=None, cat_slug="", mode="create"):
     intent = "considering" if mode == "propose" else ""
     return {"mode": mode, "category": "travel" if mode == "propose" else cat_slug, "subtype": "Tournament" if mode == "propose" else "",
         "hosting": "Away", "title": "", "date": "", "end_date": "", "start_time": "", "end_time": "",
-        "date_precision": "exact", "month": "", "date_part": "", "location": "", "city": "",
+        "date_precision": "exact", "month": "", "date_part": "", "host_org": "", "location": "", "city": "",
         "description": "", "link": "", "details": "", "cost": "", "capacity": "", "reg_deadline": "",
         "team_intent": intent, "official": "1" if mode in ("create", "propose") else "", "featured": ""}

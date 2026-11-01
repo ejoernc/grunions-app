@@ -2241,6 +2241,23 @@ def lineup_seen(row, actor):
     if not actor: return False
     if can_host_practice(actor): return True
     return actor["id"] in ((row["created_by"] or 0), (row["host_id"] or 0))
+def lineup_tile(row):
+    """Date tile for a Lineup card. Month-only events show the month, not a day."""
+    precision = row["date_precision"] if "date_precision" in row.keys() and row["date_precision"] else "exact"
+    day = dt.date.fromisoformat(str(row["date"])[:10])
+    if precision == "month":
+        part = (row["date_part"] or "").strip().lower() if "date_part" in row.keys() else ""
+        top = {"early": "EARLY", "mid": "MID", "late": "LATE"}.get(part, "")
+        return {"wd": top, "dn": day.strftime("%b").upper(), "mo": str(day.year)}
+    return {"wd": weekday_abbr(day.isoformat()), "dn": str(day.day), "mo": month_abbr(day.isoformat())}
+def lineup_dir_href(city, venue):
+    """Directions link. A pasted map URL is used as-is."""
+    venue = " ".join(str(venue or "").split())
+    city = " ".join(str(city or "").split())
+    if venue.lower().startswith(("http://", "https://")): return venue
+    query = ", ".join(part for part in (venue, city) if part)
+    if not query: return ""
+    return "https://www.google.com/maps/dir/?api=1&destination=" + urllib.parse.quote(query)
 def lineup_when_label(row):
     precision = row["date_precision"] if "date_precision" in row.keys() and row["date_precision"] else "exact"
     if precision == "month":
@@ -2304,8 +2321,11 @@ def lineup_pack(d, rows):
             "official": bool(r["official"]), "intent": intent, "status": r["status"] or "published", "status_label": lineup_status_label(r),
             "host_line": lineup_host_line(r), "member_event": not r["official"], "featured": bool(r["featured"]),
             "where": lineup_where(r["city"] or "", r["venue"] or ""), "map_href": lineup_map_href(r["city"] or "", r["venue"] or ""),
+            "dir_href": lineup_dir_href(r["city"] or "", r["venue"] or ""),
             "when": lineup_when_label(r), "date": r["date"], "end_date": r["end_date"] or r["date"],
             "precision": r["date_precision"] if "date_precision" in r.keys() and r["date_precision"] else "exact",
+            "tile": lineup_tile(r),
+            "host_org": (r["host_org"] or "") if "host_org" in r.keys() and r["hosting"] == "Away" else "",
             "description": r["description"] or "", "details": r["details"] or "", "link": r["link"] or "",
             "cost": r["cost"] or "", "capacity": cap, "full": full, "reg_deadline": r["reg_deadline"] or "",
             "review_note": r["review_note"] or "", "banner": r["banner"] or "",
@@ -3948,7 +3968,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-52 */
+SW_JS = """/* grunions-sw-53 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

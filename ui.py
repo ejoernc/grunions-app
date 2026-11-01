@@ -329,6 +329,7 @@ a.quietcheck,button.quietcheck{background:var(--surface2);color:#fff;border:0;bo
 details.lineuppast{margin-top:8px}details.lineuppast>summary{min-height:44px;padding:8px 0;font-size:17px;font-weight:600;justify-content:flex-start}
 .repeatblock .repeatopts{display:none}.repeatblock:has(input[name=repeat]:checked) .repeatopts{display:block}
 .tripcard{padding:0;overflow:hidden}.tripcard .evbody{padding:0 18px 18px}.tripcard .nxcardhead{flex-wrap:wrap;align-items:flex-start}.tripcard .nxcardhead .tripname{flex:1 1 100%;min-width:0}.tripcard .nxcardhead .chip-info{flex:none;margin-left:0}.lineupchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.lineupchips .chip-info{margin:0}
+div.card.tap.tripcard{padding:18px;overflow:visible}div.card.tap.tripcard .lineupchips{margin:0 0 8px}div.card.tap.tripcard .hostorg{margin:0 0 8px}div.card.tap.tripcard .nxcardhead{margin-bottom:6px}
 .tripcard .tripwhere{align-items:flex-start}.tripcard .tripwhere a{min-width:0}
 .evbanner{height:132px;display:flex;align-items:flex-end;padding:14px;position:relative;overflow:hidden;background:linear-gradient(160deg,#3a3a40,#141416)}
 .evbanner.cat-activities{background:linear-gradient(165deg,#2e3238,#141416)}.evbanner.cat-club{background:linear-gradient(150deg,#34343a,#121214)}.evbanner.cat-learn{background:linear-gradient(170deg,#32363c,#141418)}.evbanner.cat-service{background:linear-gradient(155deg,#2c3036,#121214)}.evbanner.cat-travel{background:linear-gradient(160deg,#3a3e46,#101014)}.evbanner.cat-social{background:linear-gradient(160deg,#3a3a40,#16161a)}
@@ -543,7 +544,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=52');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=53');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1387,15 +1388,16 @@ _PRACTICE_JS = """<script>
 </script>"""
 
 T["lineup"] = """{% macro ev_icon() %}<svg width="28" height="28" viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"><path d="M8 10h32v28H8z"/><path d="M8 18h32M16 6v8M32 6v8"/></g></svg>{% endmacro %}
-{% macro lineup_card(e) %}<div class="card tap tripcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'"><div class="evbanner cat-{{ e.slug }}">{% if e.banner %}<img src="/lineup-image/{{ e.id }}?v={{ e.banner }}" alt="">{% else %}{{ ev_icon() }}{% endif %}</div><div class=evbody>
-<div class=nxcardhead><div class=tripname><a class=cardlink href="/lineup/{{ e.id }}"><div class=nxtitle>{{ e.title }}</div></a></div><span class=lineupchips>{% if e.hosting %}<span class=chip-info>{{ e.hosting }}</span>{% endif %}{% if e.subtype %}<span class=chip-info>{{ e.subtype }}</span>{% endif %}<span class=chip-info>{{ e.chip or e.category }}</span>{% if e.intent == 'considering' %}<span class=chip-info>Considering</span>{% elif e.intent == 'official' %}<span class=chip-info>Official</span>{% endif %}</span></div>
-<div class=evhost>{% if e.member_event %}Member event · {% endif %}{{ e.host_line }}</div>
-{% if e.where %}<div class="nxrow tripwhere">{{ glyph_pin() }}<a href="{{ e.map_href }}" target=_blank rel="noopener noreferrer">{{ e.where }}</a></div>{% endif %}
-<div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
-{% if e.description %}<div class=evnote>{{ e.description }}</div>{% endif %}
-{% if e.sports_line %}<div class="t3 sm sportline">{{ e.sports_line }}</div>{% endif %}
-<div class="t3 sm" style="margin-top:8px">{{ e.count_line }}</div>
-{% if e.roster %}<div class="t2 sm">{{ e.roster|join(', ') }}</div>{% endif %}
+{% macro lineup_card(e) %}<div class="card tap tripcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
+<a class=cardlink href="/lineup/{{ e.id }}">
+<div class=nxcardhead><div class=nxtitle>{{ e.title }}</div></div>
+<div class=lineupchips>{% if e.hosting %}<span class=chip-info>{{ e.hosting }}</span>{% endif %}{% if e.subtype %}<span class=chip-info>{{ e.subtype }}</span>{% endif %}{% if e.intent == 'considering' %}<span class=chip-info>Considering</span>{% elif e.intent == 'official' %}<span class=chip-info>Official</span>{% endif %}</div>
+{% if e.host_org %}<div class="t3 sm hostorg">Hosted by {{ e.host_org }}</div>{% endif %}
+<div class=nxmain><div class=datetile>{% if e.tile.wd %}<span class=wd>{{ e.tile.wd }}</span>{% endif %}<span class=dn>{{ e.tile.dn }}</span><span class=mo>{{ e.tile.mo }}</span></div>
+<div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
+{% if e.where %}<div class=nxrow>{{ glyph_pin() }}<span>{{ e.where }}</span></div>{% endif %}
+<div class=nxrow>{{ glyph_people() }}<span>{{ e.count_line }}</span></div>
+{% if e.sports_line %}<div class="t3 sm sportline">{{ e.sports_line }}</div>{% endif %}</div></div></a>
 <form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><input type=hidden name=back value=/lineup>
 {% if e.intent == 'considering' %}
 <button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">I'm Interested{% if e.mine == 'interested' %} ✓{% endif %}</button>
@@ -1405,9 +1407,7 @@ T["lineup"] = """{% macro ev_icon() %}<svg width="28" height="28" viewBox="0 0 4
 <button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">Interested{% if e.mine == 'interested' %} ✓{% endif %}</button>
 {% endif %}
 <button class="btn {{ 'btn-primary' if e.mine == 'notgoing' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'notgoing' else 'notgoing' }}">Not going{% if e.mine == 'notgoing' %} ✓{% endif %}</button></form>
-{% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="btn btn-secondary full" name=action value=official>Make official</button></form>{% endif %}
-{% if e.can_edit %}<a class="btn btn-secondary full" style="margin-top:10px" href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}
-</div></div>{% endmacro %}
+</div>{% endmacro %}
 {% macro lineup_months(groups) %}{% for g in groups %}<h2 class=lineupmonth>{{ g.label }}</h2>{% for e in g.events %}{{ lineup_card(e) }}{% endfor %}{% endfor %}{% endmacro %}
 <div class=lineupacts>{% if can_host_practice() %}<a class="btn btn-secondary" href="/lineup/new?mode=create">Create event</a><a class="btn btn-secondary" href="/lineup/new?mode=propose">Propose opportunity</a>{% else %}<a class="btn btn-secondary" href="/lineup/new?mode=suggest">Suggest an event</a>{% endif %}</div>
 <div class=filt role=group aria-label="Category"><a class="chip{{ ' chip-active on' if not cat }}" href=/lineup>All</a>{% for c in filter_chips %}<a class="chip{{ ' chip-active on' if cat == c.slug }}" href="/lineup?cat={{ c.slug }}">{{ c.chip }}</a>{% endfor %}</div>
@@ -1422,8 +1422,10 @@ T["lineup_event"] = """<div class="card tripcard" style="padding:0"><div class="
 <div class=lineupchips style="margin-bottom:8px">{% if e.member_event %}<span class=chip-info>Member event</span>{% else %}<span class=chip-info>Club</span>{% endif %}{% if e.hosting %}<span class=chip-info>{{ e.hosting }}</span>{% endif %}{% if e.subtype %}<span class=chip-info>{{ e.subtype }}</span>{% endif %}<span class=chip-info>{{ e.category }}</span>{% if e.intent == 'considering' %}<span class=chip-info>Considering</span>{% elif e.intent == 'official' %}<span class=chip-info>Official</span>{% endif %}{% if e.status != 'published' %}<span class=chip-info>{{ e.status_label }}</span>{% endif %}</div>
 <div class=profilename style="font-size:28px;font-weight:650;letter-spacing:-.3px">{{ e.title }}</div>
 <div class=evhost>{{ e.host_line }}</div>
+{% if e.host_org %}<div class=evhost>Hosted by {{ e.host_org }}</div>{% endif %}
 <div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
-{% if e.where %}<div class="nxrow tripwhere">{{ glyph_pin() }}<a href="{{ e.map_href }}" target=_blank rel="noopener noreferrer">{{ e.where }}</a></div>{% endif %}
+{% if e.where %}<div class=nxrow>{{ glyph_pin() }}<span>{{ e.where }}</span></div>
+<a class="li prow chevrow" href="{{ e.dir_href }}" target=_blank rel="noopener noreferrer"><span>Directions</span><span class=nxchev aria-hidden=true>›</span></a>{% endif %}
 {% if e.description %}<div class=evnote>{{ e.description }}</div>{% endif %}
 {% if e.sports_line %}<div class="t3 sm sportline">{{ e.sports_line }}</div>{% endif %}
 {% if e.details %}<div class=evnote>{{ e.details }}</div>{% endif %}
@@ -1434,7 +1436,7 @@ T["lineup_event"] = """<div class="card tripcard" style="padding:0"><div class="
 {% if e.reg_deadline %}<div class="t3 sm">Register by {{ e.reg_deadline }}</div>{% endif %}
 {% if e.review_note and e.status in ('changes_requested', 'declined') %}<div class=note>{{ e.review_note }}</div>{% endif %}
 <div class="t2 sm" style="margin-top:10px">{{ e.count_line }}</div>
-{% if e.roster %}<div class="t2 sm">{{ e.roster|join(', ') }}</div>{% endif %}
+{% if e.roster %}<h2>Who's in</h2><div class="t2 sm">{{ e.roster|join(', ') }}</div>{% endif %}
 {% if e.status == 'published' %}<form method=post action="/lineup/{{ e.id }}" class=pills>{{ csrf_field() }}
 {% if e.intent == 'considering' %}
 <button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">I'm Interested{% if e.mine == 'interested' %} ✓{% endif %}</button>
@@ -1474,7 +1476,8 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <button type=submit name=action value=save style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" tabindex=-1>{{ save_label or 'Save' }}</button>
 <label>Category<select name=category id=lineCat>{% for c in categories %}<option value="{{ c.slug }}" data-hosting="{{ c.hosting_ok }}" data-intent="{{ c.intent_ok }}" {% if values.category == c.slug %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
 <label id=lineSub>Subtype<select name=subtype id=lineSubSel><option value="">None</option>{% for name in subtypes.get(values.category, []) %}<option value="{{ name }}" {% if values.subtype == name %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
-<label id=lineHost>Away / Hosting<select name=hosting><option value=Away {% if values.hosting != 'Hosting' %}selected{% endif %}>Away</option><option value=Hosting {% if values.hosting == 'Hosting' %}selected{% endif %}>Hosting</option></select></label>
+<label id=lineHost>Away / Hosting<select name=hosting id=lineHostSel><option value=Away {% if values.hosting != 'Hosting' %}selected{% endif %}>Away</option><option value=Hosting {% if values.hosting == 'Hosting' %}selected{% endif %}>Hosting</option></select></label>
+<label id=lineOrg {% if values.hosting == 'Hosting' %}hidden{% endif %}>Host organization<input name=host_org value="{{ values.host_org }}" placeholder="IGLA+" autocomplete=off></label>
 {% if organizer %}<label id=lineIntent>Team intent<select name=team_intent><option value=considering {% if values.team_intent != 'official' %}selected{% endif %}>Considering</option><option value=official {% if values.team_intent == 'official' %}selected{% endif %}>Official</option></select></label>
 <input type=hidden name=official value=0><label id=lineOfficial><input type=checkbox name=official value=1 {% if values.official == '1' or mode == 'create' or mode == 'propose' %}checked{% endif %}> Official club event</label>{% endif %}
 <label>Title<input name=title value="{{ values.title }}" required autocomplete=off></label>
@@ -1510,7 +1513,8 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 </form>
 <script>(function(){
  var cat=document.getElementById('lineCat'), sub=document.getElementById('lineSub'), sel=document.getElementById('lineSubSel');
- var host=document.getElementById('lineHost'), intent=document.getElementById('lineIntent'), official=document.getElementById('lineOfficial');
+ var host=document.getElementById('lineHost'), hostSel=document.getElementById('lineHostSel'), org=document.getElementById('lineOrg');
+ var intent=document.getElementById('lineIntent'), official=document.getElementById('lineOfficial');
  var subtypes={{ subtypes|tojson }}, current={{ values.subtype|tojson }}, mode={{ mode|tojson }};
  function sync(){
   var opt=cat.options[cat.selectedIndex], slug=cat.value;
@@ -1518,11 +1522,15 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
   names.forEach(function(n){html+='<option'+(n===current?' selected':'')+'>'+n.replace(/</g,'')+'</option>'});
   sel.innerHTML=html; if(current && names.indexOf(current)<0){var o=document.createElement('option'); o.textContent=current; o.selected=true; sel.appendChild(o);}
   var showHost=opt&&opt.getAttribute('data-hosting')==='1'; host.hidden=!showHost;
+  var away=!!(showHost&&hostSel&&hostSel.value!=='Hosting');
+  if(org){org.hidden=!away; var field=org.querySelector('input'); if(field) field.disabled=!away;}
   var showIntent=opt&&opt.getAttribute('data-intent')==='1';
   if(intent) intent.hidden=!showIntent;
   if(mode==='propose'&&showIntent){cat.value='travel';}
  }
- cat.addEventListener('change', function(){current=sel.value; sync()}); sync();
+ cat.addEventListener('change', function(){current=sel.value; sync()});
+ if(hostSel) hostSel.addEventListener('change', sync);
+ sync();
  var exactBox=document.getElementById('exactDates'), monthBox=document.getElementById('monthDates');
  function datesMode(){
   var on=document.querySelector('input[name=date_precision]:checked');
