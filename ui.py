@@ -309,23 +309,18 @@ span.avatar.ciav,span.avatar.ciav img{width:40px;height:40px;min-width:40px;max-
 .checkbar .calbtn{flex:0 0 auto}
 .checkbar .calbtn span{overflow:visible;text-overflow:clip}
 .checkbar input[name=q]{flex:1 1 auto;width:auto;min-width:0;margin:0;height:48px;font-size:14px}
-.checkprog{margin:0;color:var(--t2);font-size:14px;font-weight:600}
 .checkmeta{display:flex;flex-direction:column;gap:8px;margin:0 0 16px}
-.checkmeta .filt{margin:0}
-.evpick{display:flex;gap:8px;overflow-x:auto;margin:4px 0 12px;padding:2px 0 4px;scrollbar-width:none}
-.evpick::-webkit-scrollbar{display:none}
-.evpill{flex:none;display:flex;flex-direction:column;gap:2px;min-width:108px;padding:8px 12px;border-radius:12px;background:var(--surface2);color:inherit;text-decoration:none}
-.evpill b{font-size:14px;font-weight:650;line-height:1.2}
-.evpill span{font-size:12px;font-weight:500;color:var(--t2)}
-.evpill.on{background:#ececee;color:#0a0a0b}
-.evpill.on span{color:#0a0a0b}
-.evcard{padding:14px 16px;margin:0 0 12px}
-.evcardtop{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.evcard h1{font-size:22px;line-height:1.2;letter-spacing:-.3px;margin:8px 0 4px}
-.evcard .t2{margin:0;font-weight:400}
-.evcard .t2 a{color:inherit}
-.evcard .t3{margin:6px 0 0}
-a.schedlink{color:var(--accent);font-weight:600;text-decoration:none;font-size:15px}
+.checkmeta .filt{margin:0;align-items:center}
+.evstack{display:flex;flex-direction:column;gap:8px;margin:4px 0 12px}
+.evcard{padding:14px 16px;margin:0}
+.evcard .evhit{display:block;color:inherit;text-decoration:none}
+.evcard .nxtitle{font-size:16px;font-weight:650;line-height:1.3}
+.evcard .t2{margin:2px 0 0;font-weight:400;font-size:15px}
+.evcard .t3{margin:2px 0 0}
+.evcard.on{background:#ececee;color:#0a0a0b}
+.evcard.on .t2,.evcard.on .t3{color:#3f3f46}
+a.schedlink{display:inline-block;margin-top:8px;color:var(--accent);font-weight:600;text-decoration:none;font-size:15px}
+.checkprog{margin:0 0 0 auto;color:var(--t2);font-size:14px;font-weight:600}
 button.dock,a.dock{background:var(--accent);color:#fff}
 a.quietcheck,button.quietcheck{background:var(--surface2);color:#fff;border:0;border-radius:12px}
 .emptyfind{color:var(--t2);margin:8px 0 16px}
@@ -551,7 +546,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=54');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=55');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1744,18 +1739,21 @@ T["admin"] = ADMIN_NAV + """
 <div class=calgrid id=calGrid>{% for c in month.cells %}{% if c is none %}<span class=calday></span>{% elif c.has %}<a class="calday{{' on' if c.on}}" href="/admin?date={{c.iso}}{{ fbit }}{{ qbit }}">{{c.day}}</a>{% else %}<span class=calday aria-disabled=true>{{c.day}}</span>{% endif %}{% endfor %}</div></div></div>
 <input type=hidden name=date value="{{date}}">{% if filt != 'going' %}<input type=hidden name=filt value="{{filt}}">{% endif %}{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}<input name=q value="{{q}}" placeholder="Search players..." style="margin:0"></form>
 </div>
-{% if events|length > 1 %}<div class=evpick role=tablist aria-label="Events">{% for ev in events %}<a class="evpill{{ ' on' if sel and ev.key == sel.key }}" href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}"><b>{{ ev.pill }}</b><span>{{ ev.type_label }}</span></a>{% endfor %}</div>{% endif %}
-{% if sel %}<div class="card evcard"><div class=evcardtop><span class=chip-info>{{ sel.type_label }}</span><a class=schedlink href="{{ sel.detail }}">Details</a></div>
-<h1>{{ sel.title }}</h1>
-<p class="t2 sm">{{ sel.when }}{% if sel.place %} · {% if sel.map_href %}<a href="{{ sel.map_href }}" target=_blank rel="noopener noreferrer">{{ sel.place }}</a>{% else %}{{ sel.place }}{% endif %}{% endif %}</p>
-{% if sel.who %}<p class="t3 sm">{{ sel.who }}</p>{% endif %}</div>{% else %}<p class=emptyfind>No events on this day</p>{% endif %}
+{% if events %}<div class=evstack>{% for ev in events %}{% set picked = sel and ev.key == sel.key %}<div class="card evcard{{ ' on' if picked }}">{% if events|length > 1 %}<a class=evhit href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}">{% endif %}
+<div class=nxtitle>{{ ev.title }}</div>
+<p class=t2>{{ ev.when }}</p>
+{% if ev.place %}<p class=t2>{{ ev.place }}</p>{% endif %}
+{% if ev.who %}<p class="t3 sm">{{ ev.who }}</p>{% endif %}
+{% if events|length > 1 %}</a>{% endif %}
+<a class=schedlink href="{{ ev.detail }}">Details</a>
+</div>{% endfor %}</div>{% else %}<p class=emptyfind>No events on this day</p>{% endif %}
 <div class=checkmeta>
-<div class=filt role=group aria-label="RSVP">
+<div class="filt checkfilt" role=group aria-label="RSVP">
 <a class="chip{{ ' chip-active on' if filt=='going' }}" href="/admin?date={{ date }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Going ({{ going|length }})</a>
 {% if n_not %}<a class="chip{{ ' chip-active on' if filt=='not' }}" href="/admin?date={{ date }}&amp;filt=not{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Not Going ({{ n_not }})</a>{% else %}<button type=button class=chip disabled aria-disabled=true>Not Going (0)</button>{% endif %}
 {% if n %}<a class="chip{{ ' chip-active on' if filt=='in' }}" href="/admin?date={{ date }}&amp;filt=in{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Checked in ({{ n }})</a>{% else %}<button type=button class=chip disabled aria-disabled=true>Checked in (0)</button>{% endif %}
+<span class=checkprog>Checked in {{ n }} / Going {{ going|length }}</span>
 </div>
-<p class=checkprog>Checked in {{ n }} / Going {{ going|length }}</p>
 </div>
 {% macro ci(r) %}
 <div class="li cirow" data-rsvp="{{ 'going' if r.going==1 else ('not' if r.going==0 else 'none') }}" data-checked="{{ 1 if r.cid else 0 }}"><a class=ci-name href="/admin/member/{{ r.id }}">
