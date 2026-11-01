@@ -62,7 +62,9 @@ def ensure_schema(d):
                  ("host_id", "INTEGER"), ("official", "INTEGER DEFAULT 0"), ("team_intent", "TEXT"),
                  ("status", "TEXT"), ("banner", "TEXT"), ("capacity", "INTEGER"), ("cost", "TEXT"),
                  ("details", "TEXT"), ("reg_deadline", "TEXT"), ("review_note", "TEXT"),
-                 ("created_by", "INTEGER"), ("submitted_at", "TEXT"), ("featured", "INTEGER DEFAULT 0")):
+                 ("created_by", "INTEGER"), ("submitted_at", "TEXT"), ("featured", "INTEGER DEFAULT 0"),
+                 ("skill_levels", "TEXT"), ("divisions", "TEXT"), ("division_custom", "TEXT"),
+                 ("comp_format", "TEXT"), ("sport", "TEXT")):
         if c not in cols:
             d.execute("ALTER TABLE lineup_events ADD COLUMN %s %s" % (c, t))
     rcols = _cols(d, "lineup_rsvps")

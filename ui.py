@@ -323,6 +323,13 @@ details.lineuppast{margin-top:8px}details.lineuppast>summary{min-height:44px;pad
 .evbanner.cat-activities{background:linear-gradient(165deg,#2e3238,#141416)}.evbanner.cat-club{background:linear-gradient(150deg,#34343a,#121214)}.evbanner.cat-learn{background:linear-gradient(170deg,#32363c,#141418)}.evbanner.cat-service{background:linear-gradient(155deg,#2c3036,#121214)}.evbanner.cat-travel{background:linear-gradient(160deg,#3a3e46,#101014)}.evbanner.cat-social{background:linear-gradient(160deg,#3a3a40,#16161a)}
 .evbanner img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.evbanner svg{position:relative;z-index:1;color:#ececee}
 .lineupacts{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}.lineupacts .btn{width:auto;padding:0 14px}
+.sportline{margin-top:6px;color:var(--t3)}
+.actseg{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.actseg label{position:relative;flex:1;min-width:72px}
+.actseg input{position:absolute;opacity:0;width:1px;height:1px}
+.actseg span{display:flex;align-items:center;justify-content:center;height:40px;border-radius:999px;background:var(--surface2);font-size:13px;font-weight:600;padding:0 8px}
+.actseg input:checked+span{background:#ececee;color:#0a0a0b}
+.actseg input:focus-visible+span{outline:2px solid var(--accent)}
 .evhost{color:var(--t2);font-size:14px;margin:2px 0 8px}.evnote{color:var(--t2);font-size:15px;line-height:1.4;margin:8px 0}
 details.moredetails{margin:8px 0 12px}details.moredetails>summary{min-height:44px;padding:8px 0;font-weight:600}
 .growthcard{position:relative;padding:14px 14px 8px;margin:0 0 12px}
@@ -499,7 +506,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left><a class=profileback href=/lineup aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>{% endif %}</div><h1>Practice</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if can_host_practice() %}<a href=/admin/approvals class="chip{{' chip-active on' if ep=='approvals'}}">Approvals ({{ approval_count() }})</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left><a class=profileback href=/lineup aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if can_host_practice() %}<a href=/admin/approvals class="chip{{' chip-active on' if ep=='approvals'}}">Approvals ({{ approval_count() }})</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -525,7 +532,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=49');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=50');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -864,6 +871,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_card_date(nextp.date) }} · {{ fmt_clock(nextp.start) }} – {{ fmt_clock(nextp.end) }}</span></div>
 <div class=nxrow>{{ glyph_pin() }}<span>{{ short_place(nextp.location) }}</span></div>
 <div class=nxrow>{{ glyph_people() }}<span>{{ nextp_n }} going{% if next_coaches %} · Coaches: {{ next_coaches }}{% endif %}</span></div>
+{% if practice_sports_line(nextp) %}<div class="t3 sm sportline">{{ practice_sports_line(nextp) }}</div>{% endif %}
 {% if nextp.coach_note %}<div class=nxnote>{{ nextp.coach_note }} · {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</div>{% endif %}</a></div>
 <form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
 <button class="btn {{ 'btn-primary' if nextp_mine==1 else 'btn-secondary' }}" name=action value="{{ 'clear' if nextp_mine==1 else 'going' }}">I'm going{% if nextp_mine==1 %} ✓{% endif %}</button>
@@ -877,11 +885,12 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <div class=schedlist id=schedule>
 {% for x in data %}{% set p = x.p %}<div class="card tap{% if nextp and p.id == nextp.id %} schedsame{% endif %}" id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">
-<div class=nxcardhead><div class=nxtitle>Water Polo Practice</div></div>
+<div class=nxcardhead><div class=nxtitle>{{ practice_title(p) }}</div></div>
 <div class=nxmain><div class=datetile><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class=wd>{{ weekday_abbr(p.date) }}</span><span class=dn>{{ day_num(p.date) }}</span><span class=mo>{{ month_abbr(p.date) }}</span></div>
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_span(p.start, p.end) }}</span></div>
 <div class=nxrow>{{ glyph_pin() }}<span>{{ p.location }}</span></div>
-<div class=nxrow>{{ glyph_people() }}<span>{{ x.going|length }} going{% if x.coach_names %} · Coaches: {{ x.coach_names|join(', ') }}{% endif %}</span></div></div></div>
+<div class=nxrow>{{ glyph_people() }}<span>{{ x.going|length }} going{% if x.coach_names %} · Coaches: {{ x.coach_names|join(', ') }}{% endif %}</span></div>
+{% if practice_sports_line(p) %}<div class="t3 sm sportline">{{ practice_sports_line(p) }}</div>{% endif %}</div></div>
 {% if p.cancelled %}{{ st('bad','Cancelled') }}{% if p.cancel_reason %}<div class="t3 sm">{{ p.cancel_reason }}</div>{% endif %}{% endif %}
 {% if p.note %}<div class=nxnote>{{p.note}}</div>{% endif %}
 {% if p.coach_note %}<div class=nxnote>{{ p.coach_note }} · {{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</div>{% endif %}</a>
@@ -889,7 +898,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <button class="btn {{ 'btn-primary' if x.mine == 1 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==1 else 'going' }}">I'm going{% if x.mine==1 %} ✓{% endif %}</button>
 <button class="btn {{ 'btn-primary' if x.mine == 0 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==0 else 'notgoing' }}">I'm not going{% if x.mine==0 %} ✓{% endif %}</button></form>
 {% endif %}</div>{% endfor %}
-{% if me().is_admin %}<details class=card><summary>Add a practice</summary><form method=post class=body>{{csrf_field()}}<label>Date<input type=date name=date required></label>
+{% if me().is_admin %}<details class=card><summary>Add a practice</summary><form method=post class=body>{{csrf_field()}}{{ sports_editor() }}<label>Date<input type=date name=date required></label>
 <div class=row><label>Start<input type=time name=start value=19:00></label><label>End<input type=time name=end value=20:30></label></div>
 <label>Location<input name=location required></label><label>Note<input name=note></label>
 <div class=repeatblock><label class=repeatline><input type=checkbox name=repeat value=1> Repeat</label>
@@ -1373,6 +1382,7 @@ T["lineup"] = """{% macro ev_icon() %}<svg width="28" height="28" viewBox="0 0 4
 {% if e.where %}<div class="nxrow tripwhere">{{ glyph_pin() }}<a href="{{ e.map_href }}" target=_blank rel="noopener noreferrer">{{ e.where }}</a></div>{% endif %}
 <div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
 {% if e.description %}<div class=evnote>{{ e.description }}</div>{% endif %}
+{% if e.sports_line %}<div class="t3 sm sportline">{{ e.sports_line }}</div>{% endif %}
 <div class="t3 sm" style="margin-top:8px">{{ e.count_line }}</div>
 {% if e.roster %}<div class="t2 sm">{{ e.roster|join(', ') }}</div>{% endif %}
 <form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><input type=hidden name=back value=/lineup>
@@ -1404,7 +1414,9 @@ T["lineup_event"] = """<div class="card tripcard" style="padding:0"><div class="
 <div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
 {% if e.where %}<div class="nxrow tripwhere">{{ glyph_pin() }}<a href="{{ e.map_href }}" target=_blank rel="noopener noreferrer">{{ e.where }}</a></div>{% endif %}
 {% if e.description %}<div class=evnote>{{ e.description }}</div>{% endif %}
+{% if e.sports_line %}<div class="t3 sm sportline">{{ e.sports_line }}</div>{% endif %}
 {% if e.details %}<div class=evnote>{{ e.details }}</div>{% endif %}
+{% if e.levels_raw %}<details class=card><summary>Skill levels</summary>{% for row in SPORTS.LEVELS %}<p><b>{{ row[1] }}</b> {{ row[3] }}</p>{% endfor %}</details>{% endif %}
 {% if e.link %}<div class=evnote><a href="{{ e.link }}" target=_blank rel="noopener noreferrer">Registration</a></div>{% endif %}
 {% if e.cost %}<div class="t3 sm">About {{ e.cost }}</div>{% endif %}
 {% if e.capacity %}<div class="t3 sm">{{ e.going_n }} of {{ e.capacity }} spots{% if e.wait_n %} · {{ e.wait_n }} waitlisted{% endif %}</div>{% endif %}
@@ -1459,6 +1471,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <label>Location / meeting point<input name=location value="{{ values.location }}" required autocomplete=off></label>
 <label>Short description<textarea name=description rows=3 required>{{ values.description }}</textarea></label>
 <details class=moredetails><summary>More details</summary>
+{{ sports_editor(sports_row, false, true) }}
 <label>Subtype is set above. End date<input type=date name=end_date value="{{ values.end_date }}"></label>
 <label>End time<input type=time name=end_time value="{{ values.end_time }}"></label>
 <label>City<input name=city value="{{ values.city }}" autocomplete=off></label>
@@ -1491,6 +1504,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
  cat.addEventListener('change', function(){current=sel.value; sync()}); sync();
 })();</script>"""
 T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ csrf_field() }}
+{{ sports_editor(series) }}
 <div class=checks role=group aria-label="Weekdays"><div class="t3 xs">Weekdays</div>
 {% for value, label in values.labels %}<label style="margin:8px 0"><input type=checkbox name=weekday value="{{ value }}" {% if value in values.weekdays %}checked{% endif %}>{{ label }}</label>{% endfor %}</div>
 <div class=row><label>Start<input type=time name=start value="{{ values.start }}" required></label><label>End<input type=time name=end value="{{ values.end }}" required></label></div>
@@ -1508,11 +1522,12 @@ T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ c
 T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp;·&nbsp; Fri · Westminster HS &nbsp;·&nbsp; 7–8:30 PM</p>
 {% for x in data %}{% set p = x.p %}<div class="card tap" id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">
-<div class=nxcardhead><div class=nxtitle>Water Polo Practice</div></div>
+<div class=nxcardhead><div class=nxtitle>{{ practice_title(p) }}</div></div>
 <div class=nxmain><div class=datetile><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class=wd>{{ weekday_abbr(p.date) }}</span><span class=dn>{{ day_num(p.date) }}</span><span class=mo>{{ month_abbr(p.date) }}</span></div>
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_span(p.start, p.end) }}</span></div>
 <div class=nxrow>{{ glyph_pin() }}<span>{{ p.location }}</span></div>
-<div class=nxrow>{{ glyph_people() }}<span>{{ x.going|length }} going{% if x.coach_names %} · Coaches: {{ x.coach_names|join(', ') }}{% endif %}</span></div></div></div>
+<div class=nxrow>{{ glyph_people() }}<span>{{ x.going|length }} going{% if x.coach_names %} · Coaches: {{ x.coach_names|join(', ') }}{% endif %}</span></div>
+{% if practice_sports_line(p) %}<div class="t3 sm sportline">{{ practice_sports_line(p) }}</div>{% endif %}</div></div>
 {% if p.cancelled %}{{ st('bad','Cancelled') }}{% if p.cancel_reason %}<div class="t3 sm">{{ p.cancel_reason }}</div>{% endif %}{% endif %}
 {% if p.note %}<div class=nxnote>{{p.note}}</div>{% endif %}
 {% if p.coach_note %}<div class=nxnote>{{ p.coach_note }} · {{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</div>{% endif %}</a>
@@ -1520,7 +1535,7 @@ T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp
 <button class="btn {{ 'btn-primary' if x.mine == 1 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==1 else 'going' }}">I'm going{% if x.mine==1 %} ✓{% endif %}</button>
 <button class="btn {{ 'btn-primary' if x.mine == 0 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==0 else 'notgoing' }}">I'm not going{% if x.mine==0 %} ✓{% endif %}</button></form>
 {% endif %}</div>{% endfor %}
-{% if me().is_admin %}<details class=card><summary>Add a practice</summary><form method=post class=body>{{csrf_field()}}<label>Date<input type=date name=date required></label>
+{% if me().is_admin %}<details class=card><summary>Add a practice</summary><form method=post class=body>{{csrf_field()}}{{ sports_editor() }}<label>Date<input type=date name=date required></label>
 <div class=row><label>Start<input type=time name=start value=19:00></label><label>End<input type=time name=end value=20:30></label></div>
 <label>Location<input name=location required></label><label>Note<input name=note></label>
 <div class=repeatblock><label class=repeatline><input type=checkbox name=repeat value=1> Repeat</label>
@@ -1543,6 +1558,9 @@ T["practice"] = """{% set p = x.p %}
 </script>{% endif %}
 <div class=profilehero>
 <div class=profilename>{{ practice_title(p) }}</div>
+{% if practice_sports_line(p) %}<p class="t3 sm sportline">{{ practice_sports_line(p) }}</p>{% endif %}
+{% if p.activity_type == 'hybrid' %}{% for seg in SPORTS.parse_segments(p.segments) %}<p class="t3 sm">{{ SPORTS.ACTIVITY_NAME.get(seg.type, seg.type) }} · {{ fmt_span(seg.start, seg.end) }}</p>{% endfor %}{% endif %}
+{% if p.opponent and p.activity_type == 'game' %}<p class=pracemeta>{% if p.home_away == 'home' %}Home{% elif p.home_away == 'away' %}Away{% endif %}{% if p.home_away %} · {% endif %}vs. {{ p.opponent }}</p>{% endif %}
 <p class=pracemeta>{{ fmt_card_date(p.date) }} · {{ fmt_clock(p.start) }} – {{ fmt_clock(p.end) }}</p>
 {% if p.location %}<p class=pracemeta>{{ p.location }}</p>{% endif %}
 <div class=pracestatus>{% if p.cancelled %}{{ st('bad','Cancelled') }}{% else %}{{ st('ok','Scheduled') }}{% endif %}</div>
@@ -1556,8 +1574,10 @@ T["practice"] = """{% set p = x.p %}
 <div class=stattile><b>{{ x.checked|length }}</b><span>Checked in</span></div>
 </div>
 </div>
+{% if p.skill_levels %}<details class=card><summary>Skill levels</summary>{% for row in SPORTS.LEVELS %}<p><b>{{ row[1] }}</b> {{ row[3] }}</p>{% endfor %}</details>{% endif %}
 {% if editing %}
 <form id=practiceForm method=post action="/practices/{{ p.id }}" class=card style="margin-top:16px" enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+{{ sports_editor(p) }}
 <label>Date<input type=date name=date value="{{ p.date }}" required></label>
 {% if p.series_id %}<label>Apply changes to<select name=series_scope><option value=once>Only this date</option><option value=following>This and following</option></select></label>{% endif %}
 <div class=row><label>Start<input type=time name=start value="{{ p.start }}" required></label><label>End<input type=time name=end value="{{ p.end }}" required></label></div>

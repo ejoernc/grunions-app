@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 import qrcode, qrcode.image.svg
 from markupsafe import Markup, escape
 import lineupfeed
+import sports
 import ui
 from ui import T
 from flask import (Flask, request, redirect, url_for, session, g, render_template_string, Response, abort, flash, jsonify, send_from_directory)
@@ -153,9 +154,14 @@ def migrate_practices(d):
                  ("coach_note", "TEXT"), ("coach_note_by", "TEXT"), ("coach_note_at", "TEXT"),
                  ("image", "TEXT"), ("lat", "REAL"), ("lng", "REAL"), ("social_lat", "REAL"), ("social_lng", "REAL"),
                  ("address", "TEXT"), ("coaching_plan", "TEXT"),
-                 ("series_id", "INTEGER"), ("series_detached", "INTEGER DEFAULT 0"), ("skipped", "INTEGER DEFAULT 0")):
+                 ("series_id", "INTEGER"), ("series_detached", "INTEGER DEFAULT 0"), ("skipped", "INTEGER DEFAULT 0"),
+                 ("activity_type", "TEXT"), ("sport", "TEXT"), ("title", "TEXT"), ("skill_levels", "TEXT"),
+                 ("divisions", "TEXT"), ("division_custom", "TEXT"), ("opponent", "TEXT"), ("home_away", "TEXT"),
+                 ("gameplay_notes", "TEXT"), ("segments", "TEXT"), ("comp_format", "TEXT")):
         if c not in cols:
             d.execute("ALTER TABLE practices ADD COLUMN %s %s" % (c, t))
+    d.execute("UPDATE practices SET activity_type='practice' WHERE activity_type IS NULL OR trim(activity_type)=''")
+    d.execute("UPDATE practices SET sport='Water Polo' WHERE sport IS NULL OR trim(sport)=''")
     migrate_social_kinds(d)
     pin_known_pools(d)
 def migrate_social_joins(d):
@@ -234,6 +240,14 @@ def migrate_series(d):
     for c, t in (("series_id", "INTEGER"), ("series_detached", "INTEGER DEFAULT 0"), ("skipped", "INTEGER DEFAULT 0")):
         if c not in cols:
             d.execute("ALTER TABLE practices ADD COLUMN %s %s" % (c, t))
+    scols = [r[1] for r in d.execute("PRAGMA table_info(practice_series)")]
+    for c, t in (("activity_type", "TEXT"), ("sport", "TEXT"), ("title", "TEXT"), ("skill_levels", "TEXT"),
+                 ("divisions", "TEXT"), ("division_custom", "TEXT"), ("opponent", "TEXT"), ("home_away", "TEXT"),
+                 ("gameplay_notes", "TEXT"), ("segments", "TEXT"), ("comp_format", "TEXT")):
+        if c not in scols:
+            d.execute("ALTER TABLE practice_series ADD COLUMN %s %s" % (c, t))
+    d.execute("UPDATE practice_series SET activity_type='practice' WHERE activity_type IS NULL OR trim(activity_type)=''")
+    d.execute("UPDATE practice_series SET sport='Water Polo' WHERE sport IS NULL OR trim(sport)=''")
 def migrate_messages(d):
     """Add chat columns missing from a database created by an older version (production SQLite on DATA_DIR)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
@@ -1331,7 +1345,10 @@ def sync_series(d, sid, today=None):
             continue
         if p["cancelled"]: continue
         try:
-            d.execute("UPDATE practices SET start=?, end=?, location=? WHERE id=?", (row["start"], row["end"], row["location"], p["id"]))
+            sp = sports.sports_from_row(row)
+            d.execute("""UPDATE practices SET start=?, end=?, location=?, activity_type=?, sport=?, title=?, skill_levels=?,
+                divisions=?, division_custom=?, opponent=?, home_away=?, gameplay_notes=?, segments=?, comp_format=? WHERE id=?""",
+                (row["start"], row["end"], row["location"], *sports.sports_tuple(sp), p["id"]))
         except sqlite3.IntegrityError:
             pass
     for day in series_dates(row, today):
@@ -1340,7 +1357,9 @@ def sync_series(d, sid, today=None):
         if d.execute("SELECT 1 FROM practices WHERE series_id=? AND date=?", (sid, iso)).fetchone(): continue
         if d.execute("SELECT 1 FROM practices WHERE date=? AND location=?", (iso, row["location"])).fetchone(): continue
         try:
-            cur = d.execute("INSERT INTO practices(date,start,end,location,series_id) VALUES(?,?,?,?,?)", (iso, row["start"], row["end"], row["location"], sid))
+            sp = sports.sports_from_row(row)
+            cur = d.execute("""INSERT INTO practices(date,start,end,location,series_id,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (iso, row["start"], row["end"], row["location"], sid, *sports.sports_tuple(sp)))
         except sqlite3.IntegrityError:
             continue
         copy_series_coaches(d, sid, cur.lastrowid)
@@ -1378,23 +1397,38 @@ def save_series(d, sid=None):
     if end and end < start: raise ValueError("End date must be on or after the start date.")
     weekdays = ",".join(str(n) for n in sorted(picked))
     end_iso = end.isoformat() if end else None
+    sp = sports.sports_from_form(request.form)
+    tup = sports.sports_tuple(sp)
     if sid:
-        d.execute("UPDATE practice_series SET weekdays=?, start=?, end=?, location=?, start_date=?, end_date=? WHERE id=?",
-                  (weekdays, start_t, end_t, loc, start.isoformat(), end_iso, sid))
+        d.execute("""UPDATE practice_series SET weekdays=?, start=?, end=?, location=?, start_date=?, end_date=?,
+            activity_type=?, sport=?, title=?, skill_levels=?, divisions=?, division_custom=?, opponent=?, home_away=?, gameplay_notes=?, segments=?, comp_format=? WHERE id=?""",
+                  (weekdays, start_t, end_t, loc, start.isoformat(), end_iso, *tup, sid))
     else:
-        sid = d.execute("INSERT INTO practice_series(weekdays, start, end, location, start_date, end_date) VALUES(?,?,?,?,?,?)",
-                        (weekdays, start_t, end_t, loc, start.isoformat(), end_iso)).lastrowid
+        sid = d.execute("""INSERT INTO practice_series(weekdays, start, end, location, start_date, end_date,
+            activity_type, sport, title, skill_levels, divisions, division_custom, opponent, home_away, gameplay_notes, segments, comp_format)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (weekdays, start_t, end_t, loc, start.isoformat(), end_iso, *tup)).lastrowid
     replace_series_coaches(d, sid, request.form.getlist("coach"), request.form.get("lead"))
     sync_series(d, sid)
     return sid
-def apply_series_following(d, sid, from_date, start, end, loc, coach_ids, lead):
+def apply_series_following(d, sid, from_date, start, end, loc, coach_ids, lead, sp=None):
     """Change this date and later occurrences. Earlier dates stay as they are."""
-    d.execute("UPDATE practice_series SET start=?, end=?, location=? WHERE id=?", (start, end, loc, sid))
+    if sp:
+        d.execute("""UPDATE practice_series SET start=?, end=?, location=?, activity_type=?, sport=?, title=?, skill_levels=?,
+            divisions=?, division_custom=?, opponent=?, home_away=?, gameplay_notes=?, segments=?, comp_format=? WHERE id=?""",
+            (start, end, loc, *sports.sports_tuple(sp), sid))
+    else:
+        d.execute("UPDATE practice_series SET start=?, end=?, location=? WHERE id=?", (start, end, loc, sid))
     d.execute("UPDATE practices SET series_detached=1 WHERE series_id=? AND date<? AND COALESCE(series_detached,0)=0", (sid, from_date))
     replace_series_coaches(d, sid, coach_ids, lead)
     for p in d.execute("SELECT id FROM practices WHERE series_id=? AND date>=? AND COALESCE(cancelled,0)=0 AND COALESCE(skipped,0)=0", (sid, from_date)):
         try:
-            d.execute("UPDATE practices SET start=?, end=?, location=?, series_detached=0 WHERE id=?", (start, end, loc, p["id"]))
+            if sp:
+                d.execute("""UPDATE practices SET start=?, end=?, location=?, series_detached=0, activity_type=?, sport=?, title=?, skill_levels=?,
+                    divisions=?, division_custom=?, opponent=?, home_away=?, gameplay_notes=?, segments=?, comp_format=? WHERE id=?""",
+                    (start, end, loc, *sports.sports_tuple(sp), p["id"]))
+            else:
+                d.execute("UPDATE practices SET start=?, end=?, location=?, series_detached=0 WHERE id=?", (start, end, loc, p["id"]))
         except sqlite3.IntegrityError:
             continue
         prev = {r["member_id"]: (r["focus"] or "") for r in d.execute("SELECT member_id, focus FROM practice_coaches WHERE practice_id=?", (p["id"],))}
@@ -1432,14 +1466,77 @@ def fmt_card_date(s):
     """Tue, Nov 3. The comma sits on the Home time row."""
     d = dt.date.fromisoformat(str(s)[:10]); return d.strftime("%a, %b ") + str(d.day)
 def practice_title(p):
-    """Home card title. A stored practice title wins; otherwise Water Polo Practice."""
-    if not p: return "Water Polo Practice"
-    try: keys = p.keys()
-    except AttributeError: keys = ()
-    if "title" in keys:
-        name = " ".join(str(p["title"] or "").split())
-        if name: return name
-    return "Water Polo Practice"
+    """Label from the activity type. A custom title wins. Unset rows are Practice."""
+    if not p: return "Practice"
+    data = sports.sports_from_row(p)
+    return sports.activity_title(data["activity_type"], data["opponent"], data["segments"], data["title"])
+def practice_sports_line(p):
+    if not p: return ""
+    data = sports.sports_from_row(p)
+    return sports.sports_line(data["skill_levels"], data["divisions"], data["division_custom"], data["comp_format"])
+def sports_editor(row=None, show_activity=True, show_format=False):
+    """Shared activity, level, and division fields. Levels are an exact set."""
+    data = sports.sports_from_row(row) if row is not None else {
+        "activity_type": "practice", "sport": "Water Polo", "title": "", "skill_levels": "", "divisions": "",
+        "division_custom": "", "opponent": "", "home_away": "", "gameplay_notes": "", "segments": "", "comp_format": ""}
+    levels = set(data["skill_levels"].split(",")) if data["skill_levels"] else set()
+    divs = set(data["divisions"].split(",")) if data["divisions"] else set()
+    segs = sports.parse_segments(data["segments"])
+    while len(segs) < 3: segs.append({"type": "", "start": "", "end": ""})
+    parts = []
+    if show_activity:
+        parts.append('<div class=actseg role=group aria-label="Activity type">')
+        for pid, name in sports.ACTIVITIES:
+            checked = " checked" if data["activity_type"] == pid else ""
+            parts.append('<label><input type=radio name=activity_type value="%s"%s><span>%s</span></label>' % (pid, checked, name))
+        parts.append("</div>")
+        parts.append('<label>Title<input name=title id=actTitle value="%s" placeholder="%s" autocomplete=off></label>' % (escape(data["title"]), escape(sports.activity_title(data["activity_type"], data["opponent"], data["segments"], ""))))
+        parts.append('<label>Sport<input name=sport value="%s" autocomplete=off></label>' % escape(data["sport"] or "Water Polo"))
+    parts.append('<div class=checks role=group aria-label="Skill levels"><div class="t3 xs">Skill levels</div>')
+    parts.append('<label><input type=checkbox id=allLevels> All levels</label>')
+    for pid, name, short, _full in sports.LEVELS:
+        checked = " checked" if pid in levels else ""
+        parts.append('<label><input type=checkbox name=level value="%s"%s> %s <span class="t3 sm">%s</span></label>' % (pid, checked, name, escape(short)))
+    parts.append("</div>")
+    parts.append('<div class=checks role=group aria-label="Division"><div class="t3 xs">Division <span class=t3>(optional)</span></div>')
+    for pid, name in sports.DIVISIONS:
+        checked = " checked" if pid in divs else ""
+        parts.append('<label><input type=checkbox name=division value="%s"%s> %s</label>' % (pid, checked, name))
+    parts.append('<label data-actcustom>Custom label<input name=division_custom value="%s" autocomplete=off></label></div>' % escape(data["division_custom"]))
+    if show_activity:
+        parts.append('<div data-act=game><label>Opponent<input name=opponent value="%s" autocomplete=off placeholder="Squid"></label>' % escape(data["opponent"]))
+        parts.append('<label>Home / away<select name=home_away><option value="">Not set</option><option value=home%s>Home</option><option value=away%s>Away</option></select></label></div>' % (
+            " selected" if data["home_away"] == "home" else "", " selected" if data["home_away"] == "away" else ""))
+        parts.append('<div data-act=scrimmage><label>Gameplay notes<textarea name=gameplay_notes rows=2>%s</textarea></label></div>' % escape(data["gameplay_notes"]))
+        parts.append('<div data-act=hybrid><div class="t3 xs">Segments</div>')
+        for seg in segs[:3]:
+            opts = "".join('<option value="%s"%s>%s</option>' % (pid, " selected" if seg["type"] == pid else "", name) for pid, name in sports.ACTIVITIES if pid != "hybrid")
+            parts.append('<div class=row><label>Type<select name=segment_type><option value="">—</option>%s</select></label><label>Start<input type=time name=segment_start value="%s"></label><label>End<input type=time name=segment_end value="%s"></label></div>' % (opts, escape(seg["start"]), escape(seg["end"])))
+        parts.append("</div>")
+    if show_format:
+        parts.append('<label>Registration<select name=comp_format><option value="">Not set</option>')
+        for pid, name, blurb in sports.FORMATS:
+            parts.append('<option value="%s"%s>%s</option>' % (pid, " selected" if data["comp_format"] == pid else "", name))
+        parts.append("</select></label>")
+        for _pid, name, blurb in sports.FORMATS:
+            parts.append('<p class="t3 sm" style="margin:0 0 4px">%s — %s</p>' % (name, escape(blurb)))
+    parts.append("""<script>(function(){
+ var boxes=[].slice.call(document.querySelectorAll('input[name=level]'));
+ var all=document.getElementById('allLevels');
+ function syncAll(){ if(all) all.checked=boxes.length&&boxes.every(function(b){return b.checked}); }
+ if(all) all.addEventListener('change', function(){ boxes.forEach(function(b){b.checked=all.checked}); });
+ boxes.forEach(function(b){ b.addEventListener('change', syncAll); });
+ syncAll();
+ function kind(){ var r=document.querySelector('input[name=activity_type]:checked'); return r?r.value:'practice'; }
+ function suggest(k, opp){ if(k==='scrimmage') return 'Scrimmage'; if(k==='game') return opp?('Game vs. '+opp):'Game'; if(k==='hybrid') return 'Practice + Scrimmage'; return 'Practice'; }
+ document.querySelectorAll('[data-act]').forEach(function(el){ el.hidden=(el.getAttribute('data-act')||'').split(' ').indexOf(kind())<0; });
+ document.querySelectorAll('input[name=activity_type]').forEach(function(r){ r.addEventListener('change', function(){
+  document.querySelectorAll('[data-act]').forEach(function(el){ el.hidden=(el.getAttribute('data-act')||'').split(' ').indexOf(kind())<0; });
+  var title=document.getElementById('actTitle'); if(title && title.dataset.auto!=='0'){ title.value=''; title.placeholder=suggest(kind(), (document.querySelector('[name=opponent]')||{}).value||''); }
+ }); });
+ var title=document.getElementById('actTitle'); if(title) title.addEventListener('input', function(){ title.dataset.auto=title.value?'0':'1'; });
+})();</script>""")
+    return Markup("".join(parts))
 def fmt_stamp(s):
     """Pacific stamp from stamp_pt, shown as Fri Oct 30, 1:19pm."""
     if not s or "T" not in str(s): return ""
@@ -1730,7 +1827,7 @@ def hide_coaching_plan(p):
     data = dict(p)
     data["coaching_plan"] = ""
     return data
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, SPORTS=sports)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
@@ -1773,7 +1870,11 @@ def handle_practice_post(d):
             except ValueError as e: flash(str(e))
             except sqlite3.IntegrityError: flash("A practice already exists at that place on that date.")
         else:
-            try: d.execute("INSERT INTO practices(date,start,end,location,note) VALUES(?,?,?,?,?)", (request.form["date"], request.form.get("start") or "19:00", request.form.get("end") or "20:30", request.form.get("location") or "TBD", request.form.get("note")))
+            try:
+                sp = sports.sports_from_form(request.form)
+                d.execute("""INSERT INTO practices(date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (request.form["date"], request.form.get("start") or "19:00", request.form.get("end") or "20:30", request.form.get("location") or "TBD", request.form.get("note"), *sports.sports_tuple(sp)))
             except sqlite3.IntegrityError: flash("A practice already exists at that place on that date.")
     elif a == "edit" and pid:
         old = d.execute("SELECT date, start, end, location, note, series_id FROM practices WHERE id=?", (pid,)).fetchone()
@@ -1799,11 +1900,15 @@ def handle_practice_post(d):
                 if "message" in request.form: save_coach_note(d, pid, request.form.get("message"))
                 try: apply_practice_image(d, pid)
                 except ValueError as e: flash(str(e))
+                sp = sports.sports_from_form(request.form) if "activity_type" in request.form else None
+                if sp:
+                    d.execute("""UPDATE practices SET activity_type=?, sport=?, title=?, skill_levels=?, divisions=?, division_custom=?,
+                        opponent=?, home_away=?, gameplay_notes=?, segments=?, comp_format=? WHERE id=?""", (*sports.sports_tuple(sp), pid))
                 if old and (old["date"], old["start"], old["end"], old["location"], old["note"] or "") != (date, start, end, loc, note or ""):
                     flag_practice(d, pid, "change", me()["id"])
                 if old and old["series_id"]:
                     if request.form.get("series_scope") == "following":
-                        apply_series_following(d, old["series_id"], old["date"], start, end, loc, request.form.getlist("coach"), request.form.get("lead"))
+                        apply_series_following(d, old["series_id"], old["date"], start, end, loc, request.form.getlist("coach"), request.form.get("lead"), sp)
                     else:
                         d.execute("UPDATE practices SET series_detached=1 WHERE id=?", (pid,))
             except sqlite3.IntegrityError:
@@ -1967,7 +2072,7 @@ def series_new():
             save_series(d); d.commit(); flash("Saved", "toast"); return redirect("/practices")
         except ValueError as e:
             flash(str(e)); values = series_form_values(form=request.form)
-    return page(T["series_edit"], tab="series_edit", action="/practices/series/new", values=values, series_id=None, skips=[], coach_choices=coach_candidates(d))
+    return page(T["series_edit"], tab="series_edit", action="/practices/series/new", values=values, series_id=None, skips=[], coach_choices=coach_candidates(d), series=None)
 @app.route("/practices/series/<int:sid>", methods=["GET", "POST"])
 @admin_required
 def series_page(sid):
@@ -1987,7 +2092,7 @@ def series_page(sid):
         except ValueError as e:
             flash(str(e)); values = series_form_values(form=request.form)
     skips = [r["date"] for r in d.execute("SELECT date FROM series_skips WHERE series_id=? ORDER BY date", (sid,))]
-    return page(T["series_edit"], tab="series_edit", action="/practices/series/%d" % sid, values=values, series_id=sid, skips=skips, coach_choices=coach_candidates(d))
+    return page(T["series_edit"], tab="series_edit", action="/practices/series/%d" % sid, values=values, series_id=sid, skips=skips, coach_choices=coach_candidates(d), series=row)
 def lineup_where(city, venue):
     city = " ".join(str(city or "").split())
     venue = " ".join(str(venue or "").split())
@@ -2122,7 +2227,9 @@ def lineup_pack(d, rows):
             "roster": names, "mine": mine.get(r["id"]), "created_by": r["created_by"], "host_id": r["host_id"],
             "can_edit": lineupfeed.can_edit_event(me(), r, organizer) if me() else False,
             "can_review": organizer, "chip_label": event_chip_label(start, end),
-            "submitted": (r["submitted_at"] or "")[:10]})
+            "submitted": (r["submitted_at"] or "")[:10],
+            "sports_line": sports.sports_line(r["skill_levels"] if "skill_levels" in r.keys() else "", r["divisions"] if "divisions" in r.keys() else "", r["division_custom"] if "division_custom" in r.keys() else "", r["comp_format"] if "comp_format" in r.keys() else ""),
+            "levels_raw": r["skill_levels"] if "skill_levels" in r.keys() else ""})
     return out
 def lineup_groups(rows):
     groups = []
@@ -2226,7 +2333,7 @@ def lineup_template_ctx(d, mode, values, event_id=None):
     if not can_host_practice():
         cats = [c for c in cats if c["member_ok"]]
     return dict(categories=cats, subtypes=lineupfeed.subtypes_for(d), values=values, mode=mode, event_id=event_id,
-        organizer=can_host_practice(), save_label=("Submit" if mode == "suggest" else "Save"))
+        organizer=can_host_practice(), save_label=("Submit" if mode == "suggest" else "Save"), sports_row=None)
 def _save_lineup(d, existing=None):
     form = _form_last()
     banner = None
@@ -2238,6 +2345,14 @@ def _save_lineup(d, existing=None):
     except PermissionError:
         abort(403)
     apply_lineup_side_effects(d, info, existing)
+    cat = d.execute("SELECT slug FROM lineup_categories c JOIN lineup_events e ON e.category_id=c.id WHERE e.id=?", (info["id"],)).fetchone()
+    slug = cat["slug"] if cat else ""
+    levels = sports.pack_levels(request.form.getlist("level"))
+    divs, custom = sports.pack_divisions(request.form.getlist("division"), request.form.get("division_custom"))
+    comp = sports.pack_format(request.form.get("comp_format")) if slug == "travel" else ""
+    sport = " ".join((request.form.get("sport") or "").split())[:40]
+    d.execute("UPDATE lineup_events SET skill_levels=?, divisions=?, division_custom=?, comp_format=?, sport=? WHERE id=?",
+              (levels, divs, custom, comp, sport or "Water Polo", info["id"]))
     d.commit()
     return info
 @app.route("/lineup", methods=["GET", "POST"])
@@ -2337,6 +2452,7 @@ def lineup_edit(eid):
         except ValueError as e:
             flash(str(e)); values = lineupfeed.form_values(_form_last(), mode="edit")
     ctx = lineup_template_ctx(d, "edit", values, event_id=eid)
+    ctx["sports_row"] = row
     ctx["show_cancel"] = can_host_practice() and (row["status"] or "") == "published"
     ctx["show_delete"] = can_host_practice() or (row["created_by"] == me()["id"] and (row["status"] or "") in ("draft", "declined", "changes_requested"))
     return page(T["lineup_edit"], tab="lineup_edit", action="/lineup/%d/edit" % eid, **ctx)
@@ -3749,7 +3865,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-49 */
+SW_JS = """/* grunions-sw-50 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
