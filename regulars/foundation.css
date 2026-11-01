@@ -164,6 +164,7 @@
   --icon-md: 20px;
   --shadow-overlay: 0 10px 28px rgba(0, 0, 0, .45);
   --size-button: 48px;
+  --field-plan-min: calc(3.5 * var(--type-b1-line) + 24px);
   --size-chip: 36px;
   --size-nav: 64px;
   --size-avatar: 44px;

@@ -242,6 +242,8 @@ button.morebtn[aria-expanded=true]{background:var(--surface2);color:var(--t1)}
 .menu button{width:100%;height:40px;padding:0 12px;justify-content:flex-start;background:transparent;color:var(--t1);font-weight:500;font-size:15px;border-radius:8px}
 .menu button:disabled{color:var(--t3)}
 .li{display:flex;align-items:center;gap:12px;padding:14px 18px;min-height:60px;border-top:1px solid var(--line)}.li:first-child{border-top:0}
+.planrow{flex-wrap:wrap}.planline{flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.planlabel{font-weight:500;color:var(--color-text)}.plantext{flex:1 0 100%;white-space:pre-wrap;margin-top:4px}
+textarea.planfield{height:auto;min-height:var(--field-plan-min);line-height:var(--type-b1-line);resize:vertical;field-sizing:content}
 .li.prow{padding-left:16px;padding-right:16px;gap:8px}
 .editonly,.li.editonly{display:none}
 body.profile-edit .editonly{display:inline-flex}
@@ -859,7 +861,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=76');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=77');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -2384,7 +2386,7 @@ T["practice"] = """{% set p = x.p %}
 <label style="margin:8px 0 0">Focus group<input name="focus-{{ c.id }}" list=focusGroups value="{{ x.focuses.get(c.id, '') }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
 </div>{% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
 <datalist id=focusGroups><option value=Beginners><option value=Intermediate><option value=Advanced><option value=Goalies></datalist>
-<label>Today's plan<textarea name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label>
+<label>Practice plan<textarea class=planfield name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label>
 <input type=hidden name=plan_fields value=1>
 </form>
 {% if me().is_admin %}<div class=seclabel>Manage</div><div class=list>
@@ -2418,7 +2420,7 @@ T["practice"] = """{% set p = x.p %}
 <div class=list>
 {% if plan_editing %}<form id=practiceForm method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=plan_fields value=1>
 <div class=li><span class="chip-info" style="margin:0">Coaches only</span></div>
-<div class=li><label class=prefedit style="width:100%;margin:0">Today's plan<textarea name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label></div>
+<div class=li><label class=prefedit style="width:100%;margin:0">Practice plan<textarea class=planfield name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label></div>
 {% if x.coaches %}<div class=li><label style="margin:0"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}>No lead</label></div>{% endif %}
 {% for c in x.coaches %}<div class=li><div class=grow>
 <label style="margin:0"><input type=radio name=lead value="{{ c.id }}" {% if c.is_lead %}checked{% endif %}>{{ display_first(c) }} {{ c.last }}</label>
@@ -2428,7 +2430,7 @@ T["practice"] = """{% set p = x.p %}
 </form>
 {% else %}
 {% for c in x.coaches %}{% set editable = can_host_practice() and (me().is_admin or c.id == me().id) %}{% if editable %}<button type=button class="li coachrow" data-open="cfocus{{ p.id }}-{{ c.id }}"><span class=coachline>{{ person_mark(c) }}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Lead</span>{% endif %}</span>{% if c.focus %}<span class="t3 sm">{{ c.focus }}</span>{% endif %}</button>{% else %}<div class=li><div class=grow><div style="display:flex;align-items:center;gap:8px;min-width:0">{% if can_host_practice() %}{{ person_mark(c) }}{% endif %}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Lead</span>{% endif %}</div>{% if can_host_practice() and c.focus %}<div class="t3 sm">{{ c.focus }}</div>{% endif %}</div></div>{% endif %}{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}
-{% if can_host_practice() %}<div class="li" style="align-items:flex-start"><div class=grow><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:500">Today's plan</span><span class="chip-info" style="margin:0">Coaches only</span></div>{% if p.coaching_plan %}<div class="t3 sm" style="white-space:pre-wrap;margin-top:4px">{{ p.coaching_plan }}</div>{% endif %}</div><button type=button class="btn btn-secondary" data-open="plan{{ p.id }}">{{ 'Edit' if p.coaching_plan else 'Add' }}</button></div>{% endif %}
+{% if can_host_practice() %}<div class="li planrow"><div class=planline><span class=planlabel>Practice plan</span><span class="chip-info" style="margin:0">Coaches only</span></div><button type=button class="btn btn-secondary" data-open="plan{{ p.id }}">{{ 'Edit' if p.coaching_plan else 'Add' }}</button>{% if p.coaching_plan %}<div class="t3 sm plantext">{{ p.coaching_plan }}</div>{% endif %}</div>{% endif %}
 {% endif %}
 </div>
 {{ whos_going(x.going) }}
@@ -2439,9 +2441,9 @@ T["practice"] = """{% set p = x.p %}
 {% if p.location %}{% set dest = (pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location) %}{{ event_location('practiceLoc', pins, p.location, p.address or '', 'https://www.google.com/maps/dir/?api=1&destination=' ~ (dest|urlencode)) }}{% endif %}
 {% endif %}
 {% if me().is_admin or is_staff() %}{{ practice_extra_dialogs(p, 'page') }}
-<dialog class=modal id=plan{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Today's plan</h2>
+<dialog class=modal id=plan{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Practice plan</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
-<label>Today's plan<textarea name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label>
+<textarea class=planfield name=coaching_plan rows=4 aria-label="Practice plan">{{ p.coaching_plan or '' }}</textarea>
 <button class="btn btn-primary full" name=action value=plan>Save</button></form></div></dialog>
 {% for c in x.coaches %}{% if me().is_admin or c.id == me().id %}<dialog class=modal id="cfocus{{ p.id }}-{{ c.id }}"><div class=sheet><h2 style="margin:0 0 12px">{{ display_first(c) }} {{ c.last }}</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=coach_id value="{{ c.id }}">
