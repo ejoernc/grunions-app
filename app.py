@@ -130,6 +130,7 @@ def db():
         if not g.db.execute("SELECT 1 FROM requirements").fetchone():
             g.db.executemany("INSERT INTO requirements(name,applies_to,keywords,expires) VALUES(?,?,?,?)", DEFAULT_REQS); g.db.commit()
         drop_club_waiver(g.db)
+        drop_concussion_rule(g.db)
         ensure_referee_req(g.db)
         migrate_messages(g.db)
         migrate_lineup(g.db)
@@ -305,8 +306,7 @@ def fmt_phone(raw):
     return text or "—"
 app.jinja_env.globals.update(display_first=display_first, initials=initials, fmt_phone=fmt_phone)
 # applies_to: all | athlete | coach. keywords: normalized substrings to find this item's columns in a Sport:80 export.
-DEFAULT_REQS = [("SafeSport training", "all", "safesport", 1), ("Background screening", "coach", "background", 1),
-                ("Concussion training", "coach", "concussion", 1)]
+DEFAULT_REQS = [("SafeSport training", "all", "safesport", 1), ("Background screening", "coach", "background", 1)]
 def drop_club_waiver(d):
     """Remove the Club waiver requirement from an existing database. Other rows stay put."""
     ids = []
@@ -319,9 +319,20 @@ def drop_club_waiver(d):
     d.execute("DELETE FROM member_reqs WHERE req_id IN (%s)" % marks, ids)
     d.execute("DELETE FROM requirements WHERE id IN (%s)" % marks, ids)
     d.commit()
+def drop_concussion_rule(d):
+    """Retire the seeded Concussion training rule. Dates already on file stay and no longer count."""
+    ids = []
+    for rid, name, keywords in d.execute("SELECT id, name, keywords FROM requirements"):
+        label = (name or "").strip().lower()
+        kws = [k.strip().lower() for k in (keywords or "").split(",") if k.strip()]
+        if label == "concussion training" or "concussion" in label or "concussion" in kws: ids.append(rid)
+    if not ids: return
+    d.execute("DELETE FROM requirements WHERE id IN (%s)" % ",".join("?" * len(ids)), ids)
+    d.commit()
 def req_keywords(d):
     kws = [k for r in d.execute("SELECT keywords FROM requirements") for k in (r[0] or "").split(",") if k]
-    if "waiver" not in kws: kws.append("waiver")  # leftover Sport:80 waiver columns are not membership dates
+    for extra in ("waiver", "concussion"):  # leftover Sport:80 columns are not membership dates
+        if extra not in kws: kws.append(extra)
     return kws
 def safesport_req(d):
     for q in d.execute("SELECT * FROM requirements WHERE active=1 ORDER BY id"):

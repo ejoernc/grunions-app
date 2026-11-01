@@ -90,7 +90,7 @@ Transfer import takes .csv or .xlsx (title rows above the header are skipped; he
 - **ID Number / Member Number / Membership Number** — stored as USAWP #. **Contact ID** — stored as sport80_contact_id.
 - **Status / Membership Status** and **Valid Until / Expiry Date / Membership Expiry Date** — status. If there's no status column, a future expiry counts as current.
 - **Membership Type / Member Type** — stored on the member. A value with the word coach (not coaches or coaching) adds them to the coaching list. Any other value removes only a USAWP-sourced list row.
-- Any column containing a requirement keyword (safesport, background, concussion; editable in Rules) plus expiry/valid through/completed/status updates that item. A Club waiver column is ignored.
+- Any column containing a requirement keyword (safesport, background; editable in Rules) plus expiry/valid through/completed/status updates that item. Club waiver and concussion columns are ignored.
 A file needs a name or email column plus at least one of status, member number, or expiry.
 
 ## Sign in with Google

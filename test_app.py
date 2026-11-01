@@ -297,6 +297,23 @@ kept = D.execute("SELECT COUNT(*) FROM member_reqs WHERE req_id=?", (ssid,)).fet
 nmembers = D.execute("SELECT COUNT(*) FROM members").fetchone()[0]
 D.commit(); A.drop_club_waiver(D); A.drop_club_waiver(D)
 ok(D.execute("SELECT COUNT(*) FROM requirements WHERE lower(name)='club waiver' OR lower(ifnull(keywords,'')) LIKE '%waiver%'").fetchone()[0] == 0 and D.execute("SELECT COUNT(*) FROM member_reqs WHERE req_id=?", (wid,)).fetchone()[0] == 0 and D.execute("SELECT COUNT(*) FROM member_reqs WHERE req_id=?", (ssid,)).fetchone()[0] == kept and D.execute("SELECT COUNT(*) FROM members").fetchone()[0] == nmembers and '<span class=rowtitle><span class="dot ok" aria-hidden=true></span>SafeSport training</span><span class=v>expires 2027-05-11</span>' in casey.get("/profile").get_data(as_text=True) and "Club waiver" not in casey.get("/home").get_data(as_text=True), "migration removes Club waiver only and the member stays cleared")
+_conc = D.execute("INSERT INTO requirements(name,applies_to,keywords,expires,active) VALUES('Concussion training','coach','concussion',1,1)")
+_conc_id = _conc.lastrowid
+_conc_day = (A.today_pt() - dt.timedelta(days=3)).isoformat()
+D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,?,?, 'test','test','2026-01-01')", (cid, _conc_id, "2026-01-01", _conc_day))
+D.commit()
+_rep = sqlite3.connect(os.environ["GRUNIONS_DB"]); _rep.row_factory = sqlite3.Row
+_before = sum(1 for bucket in A.expiry_report(_rep).values() for item in bucket if "concussion" in (item.get("item") or "").lower())
+_rep.close()
+A.drop_concussion_rule(D); A.drop_concussion_rule(D)
+_rules = eli.get("/requirements").get_data(as_text=True)
+_mem = sqlite3.connect(os.environ["GRUNIONS_DB"]); _mem.row_factory = sqlite3.Row
+_cleared = A.clearance(_mem, _mem.execute("SELECT * FROM members WHERE id=?", (cid,)).fetchone())
+_mem.close()
+_after = sqlite3.connect(os.environ["GRUNIONS_DB"]); _after.row_factory = sqlite3.Row
+_still = [item for bucket in A.expiry_report(_after).values() for item in bucket]
+_after.close()
+ok(_before == 1 and D.execute("SELECT COUNT(*) FROM requirements WHERE lower(name) LIKE '%concussion%' OR lower(ifnull(keywords,'')) LIKE '%concussion%'").fetchone()[0] == 0 and D.execute("SELECT expires_on FROM member_reqs WHERE req_id=?", (_conc_id,)).fetchone()[0] == _conc_day and "Concussion" not in _rules and "concussion" in [k.lower() for k in A.req_keywords(D)] and all("concussion" not in (item.get("item") or "").lower() for item in _still) and not any("concussion" in (r or "").lower() for r in _cleared["reasons"]) and "Concussion" not in casey.get("/profile").get_data(as_text=True) and "Concussion" not in eli.get("/admin/member/%d" % cid).get_data(as_text=True), "retiring concussion keeps the old date and drops it from Rules, compliance, and clearance")
 sam = A.app.test_client(); join(sam, "Sam", "River", "sam@example.com")
 sh = sam.get("/home").get_data(as_text=True)
 ok('name=usawp_number inputmode=numeric value=""' in sh and "Enter your USAWP membership number" in sh and "USAWP Membership #" in sh and "class=usawpchip" not in sh and '<span class=rowtitle><span class="dot bad" aria-hidden=true></span>SafeSport training</span><span class=v>missing</span>' in sam.get("/profile").get_data(as_text=True) and "Verification pending" not in sh and "id=trialOpen" in sh and ">2-week USAWP trial<" in sh, "empty membership form for a new member")
@@ -691,7 +708,7 @@ exp = eli.get("/transfer").get_data(as_text=True)
 ok(gone.status_code == 302 and "/transfer" in gone.headers["Location"] and old_import.status_code == 302 and "/transfer" in old_import.headers["Location"] and "class=mtitle>Data transfer" in eli.get("/manage").get_data(as_text=True) and ">Import<" not in eli.get("/members").get_data(as_text=True) and exp.find(">Import<") < exp.find(">Export<") and "Download members CSV" in exp and "Download practices CSV" in exp and "Download detailed attendance CSV" in exp and 'name=start' in exp and 'name=end' in exp and ('value="%s"' % (A.today_pt() - dt.timedelta(days=28)).isoformat()) in exp and ('value="%s"' % (A.today_pt() + dt.timedelta(days=28)).isoformat()) in exp, "Transfer puts import above export, and the old tabs redirect there")
 ok("Bring in a Sport:80 export" in exp and "No file imported yet." in exp and 'class="btn btn-primary full"' in exp and "Upload a file" in exp and "CSV or Excel" in exp and 'name=file' in exp and 'accept=".csv,.xlsx"' in exp and 'data-mode="file"' in exp and 'style="padding:11px 14px;height:44px"' not in exp, "Transfer has one import action and an empty state")
 rules = eli.get("/requirements").get_data(as_text=True)
-ok("<h1>Rules</h1>" in rules and "Cleared to play means a current USAWP membership" in rules and "value=add>Add</button>" in rules and ("No rules yet." in rules or "<details class=card>" in rules), "Rules has a title, a one-line helper, and an add action")
+ok("<h1>Rules</h1>" in rules and "Cleared to play means a current USAWP membership" in rules and "value=add>Add</button>" in rules and ("No rules yet." in rules or "<details class=card>" in rules) and "Concussion" not in rules and "SafeSport training" in rules, "Rules has a title, a one-line helper, and an add action, and no concussion rule")
 ok(jane.get("/export").status_code == 403 and jane.get("/members.csv").status_code == 403 and jane.get("/export/practices.csv").status_code == 403 and john.get("/export").status_code == 403 and A.app.test_client().get("/export").status_code == 302, "member, coach, and signed-out visitors cannot export")
 exa = A.app.test_client(); join(exa, "Exa", "Export", "exa.export@example.com")
 eid = D.execute("SELECT id FROM members WHERE email='exa.export@example.com'").fetchone()[0]
