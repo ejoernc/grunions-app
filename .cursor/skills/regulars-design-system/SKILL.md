@@ -38,7 +38,7 @@ Leave these as literals: the first-paint `background:#090D0B` on `html` and `bod
 ## Classes
 
 - Buttons: `btn btn-primary`, `btn btn-secondary`, `btn btn-danger`, `btn quiet`, `iconbtn`. RSVP uses one macro, `rsvp_btn`: selected is lime `btn-primary` with a leading Phosphor check (`svg.rsvpcheck`); unselected is outlined `btn-secondary`. Labels are Going and Not going (Lineup also has Interested).
-- Image upload: `image_drop(name, src, clear_name)`. A 140px dropzone, dashed 1.5px `--color-border`, radius `--radius-overlay`. Empty state is a Phosphor upload icon, a lime “Upload an image”, and “PNG or JPG”. The whole area opens the hidden file input and accepts a desktop drop. After a file or an existing picture, the thumbnail fills the zone with Replace and Remove.
+- Upload field: `upload_field(name, mode, hint, accept, src, clear_name)`. One 140px zone for images and files. Dashed 1.5px `--color-border`, radius `--radius-overlay`. Image mode uses a Phosphor image icon, lime “Upload an image”, and “PNG or JPG”, then a thumbnail. File mode uses a Phosphor file icon, lime “Upload a file”, and the accepted types (such as “CSV or Excel”), then the filename and size. The whole area opens the hidden input. A desktop drag highlights the border. Replace and Remove sit on the chosen file.
 
 - Chips: `chip`, `chip chip-active on`, `chip-info`. Sibling views (Chat, Admin, Profile) use these pills. There is no underline tab.
 - Admin page header: `admin_page(title, subtitle)`. One Title 1 H1 with an optional `btn quiet pageact` on the right, then an optional Body 2 subtitle (`pagesub`). Gap from the header block to content is `--space-4` (`.pagehead` margin-bottom). Management pages use a back control to Manage. One H1 per page.

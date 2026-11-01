@@ -188,16 +188,21 @@ body.profile-edit .editonly.inline{display:inline-flex}
 body.profile-edit .viewonly{display:none}
 input[type=file].pick{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;opacity:0}
 .dropzone{position:relative;height:140px;border-radius:var(--radius-overlay);border:1.5px dashed var(--color-border);background:transparent;overflow:hidden}
-.dropzone.over{border-color:var(--color-lime)}
+.dropzone.over,.dropzone:hover{border-color:var(--color-lime);background:color-mix(in srgb,var(--color-lime) 10%,transparent)}
+.dropzone.has:hover{background:transparent}
 button.dropempty{position:absolute;inset:0;width:100%;height:100%;min-height:0;padding:0;border:0;border-radius:inherit;background:transparent;color:var(--color-text);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer}
 .dropempty[hidden],.dropfill[hidden]{display:none !important}
 .dropico{width:32px;height:32px;color:var(--t2);display:block}
 .droplink{color:var(--color-lime);font-weight:650;font-size:16px;line-height:1.2}
 .drophint{color:var(--t3);font-size:13px;line-height:1.2}
-.dropfill{position:absolute;inset:0}
-.dropfill img{width:100%;height:100%;object-fit:cover;display:block}
+.dropfill{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.dropfill img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.dropzone[data-mode=file] .dropfill img,.dropzone[data-mode=image] .filemeta{display:none}
+.filemeta{display:flex;flex-direction:column;align-items:center;gap:2px;max-width:calc(100% - 24px);padding:0 12px;text-align:center;position:relative;z-index:1}
+.dropname{font-weight:650;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dropsize{color:var(--t3);font-size:13px;line-height:1.2}
 .dropacts{position:absolute;right:8px;bottom:8px;display:flex;gap:8px}
-.dropacts button{height:32px;min-height:32px;padding:0 12px;border-radius:999px;background:var(--color-surface);color:var(--color-text);font-size:13px;font-weight:650;width:auto}
+.dropacts button{height:32px;min-height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--color-control);background:var(--color-surface);color:var(--color-text);font-size:13px;font-weight:650;width:auto}
 .prefedit{margin:0}
 .prefedit input{margin-top:6px}
 .homealerts{position:relative;z-index:1}
@@ -682,7 +687,13 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro glyph_clock() %}<svg class="nxglyph" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg>{% endmacro %}
 {% macro glyph_pin() %}<svg class="nxglyph" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,64a40,40,0,1,0,40,40A40,40,0,0,0,128,64Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,128Zm0-112a88.1,88.1,0,0,0-88,88c0,31.4,14.51,64.68,42,96.25a254.19,254.19,0,0,0,41.45,38.3,8,8,0,0,0,9.18,0A254.19,254.19,0,0,0,174,200.25c27.45-31.57,42-64.85,42-96.25A88.1,88.1,0,0,0,128,16Zm0,206c-16.53-13-72-60.75-72-118a72,72,0,0,1,144,0C200,161.23,144.53,209,128,222Z"/></svg>{% endmacro %}
 {% macro glyph_people() %}<svg class="nxglyph" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.7a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,37.71A8,8,0,0,1,250.14,206.7Z"/></svg>{% endmacro %}
-{% macro image_drop(name, src='', clear_name='') %}<div class="dropzone{% if src %} has{% endif %}" data-dropzone><input class=pick type=file name={{ name }} accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic" aria-label="Upload an image">{% if clear_name %}<input type=hidden name={{ clear_name }} value="" data-clear>{% endif %}<button type=button class=dropempty {% if src %}hidden{% endif %}><svg class=dropico viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0ZM93.66,77.66,120,51.31V144a8,8,0,0,0,16,0V51.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,77.66Z"/></svg><span class=droplink>Upload an image</span><span class=drophint>PNG or JPG</span></button><div class=dropfill {% if not src %}hidden{% endif %}><img alt="" data-preview {% if src %}src="{{ src }}"{% endif %}><div class=dropacts><button type=button data-replace>Replace</button><button type=button data-remove>Remove</button></div></div></div>{% endmacro %}
+{% macro upload_field(name, mode='image', hint='', accept='', src='', clear_name='') %}
+{%- set is_file = mode == 'file' -%}
+{%- set label = 'Upload a file' if is_file else 'Upload an image' -%}
+{%- set hint_text = hint or ('CSV' if is_file else 'PNG or JPG') -%}
+{%- set acc = accept or ('.csv,.xlsx' if is_file else 'image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic') -%}
+<div class="dropzone{% if src %} has{% endif %}" data-dropzone data-mode="{{ 'file' if is_file else 'image' }}"><input class=pick type=file name={{ name }} accept="{{ acc }}" aria-label="{{ label }}">{% if clear_name %}<input type=hidden name={{ clear_name }} value="" data-clear>{% endif %}<button type=button class=dropempty {% if src %}hidden{% endif %}>{% if is_file %}<svg class=dropico viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM160,51.31,188.69,80H160ZM200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Z"/></svg>{% else %}<svg class=dropico viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM96,100a12,12,0,1,1,12-12A12,12,0,0,1,96,100Z"/></svg>{% endif %}<span class=droplink>{{ label }}</span><span class=drophint>{{ hint_text }}</span></button><div class=dropfill {% if not src %}hidden{% endif %}><img alt="" data-preview {% if src %}src="{{ src }}"{% endif %}><div class=filemeta><span class=dropname data-name></span><span class=dropsize data-size></span></div><div class=dropacts><button type=button data-replace>Replace</button><button type=button data-remove>Remove</button></div></div></div>
+{%- endmacro %}
 {% macro social_icon() %}<span class=nxicon aria-hidden=true><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M237.66,45.66A8,8,0,0,0,232,32H24a8,8,0,0,0-5.66,13.66L120,147.31V208H88a8,8,0,0,0,0,16h80a8,8,0,0,0,0-16H136V147.31ZM43.31,48H212.69l-16,16H59.31ZM128,132.69,75.31,80H180.69Z"/></svg></span>{% endmacro %}
 {% macro social_fields(p) %}
 <div class="t3 xs">Type</div>
@@ -709,7 +720,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <button class="btn btn-primary full" name=action value=message>Save</button></form></div></dialog>
 <dialog class=modal id=image{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Practice image</h2>
 <form method=post action="/practices/{{ p.id }}" enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
-{{ image_drop('image', ('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', 'image_clear') }}
+{{ upload_field('image', src=('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', clear_name='image_clear') }}
 <p class="t3 sm">Shown on the Home card only. Leave the file empty to keep the current picture.</p>
 <button class="btn btn-primary full" name=action value=image>Save</button></form></div></dialog>
 <dialog class=modal id=notes{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Notes</h2>
@@ -839,7 +850,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=73');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=74');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -1254,11 +1265,21 @@ window.grunionsDropzones=function(){
   var had=!!(img && img.getAttribute('src'));
   function show(on){ if(empty) empty.hidden=on; if(fill) fill.hidden=!on; zone.classList.toggle('has', on); }
   function pick(){ if(input) input.click(); }
+  var fileMode=zone.getAttribute('data-mode')==='file';
+  var nameEl=zone.querySelector('[data-name]'), sizeEl=zone.querySelector('[data-size]');
+  function sizeLabel(n){
+   if(n<1024) return n+' B';
+   if(n<1048576) return (Math.round(n/102.4)/10)+' KB';
+   return (Math.round(n/104857.6)/10)+' MB';
+  }
   function useFile(f){
    if(!f) return;
-   if(f.size>8*1024*1024){ alert('Image is larger than 8 MB.'); return; }
+   if(!fileMode && f.size>8*1024*1024){ alert('Image is larger than 8 MB.'); return; }
    try{ var dt=new DataTransfer(); dt.items.add(f); input.files=dt.files; }catch(err){}
-   if(img) img.src=URL.createObjectURL(f);
+   if(fileMode){
+    if(nameEl) nameEl.textContent=f.name;
+    if(sizeEl) sizeEl.textContent=sizeLabel(f.size);
+   } else if(img) img.src=URL.createObjectURL(f);
    if(clear) clear.value='';
    show(true);
   }
@@ -1270,6 +1291,8 @@ window.grunionsDropzones=function(){
    e.preventDefault(); e.stopPropagation();
    if(input) input.value='';
    if(img) img.removeAttribute('src');
+   if(nameEl) nameEl.textContent='';
+   if(sizeEl) sizeEl.textContent='';
    if(clear) clear.value=had?'1':'';
    show(false);
   });
@@ -2019,7 +2042,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
 <dialog class=botsheet id=setNotes><div class=sheet><div class=grab></div><h2>Notes &amp; media</h2>
 <label>Notes<textarea name=note id=noteInput rows=3></textarea></label>
-{{ image_drop('image') }}
+{{ upload_field('image') }}
 <button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
 <dialog class=botsheet id=setPlan><div class=sheet><div class=grab></div><h2>Team plan</h2>
 <div class=actseg role=radiogroup aria-label="Team plan">
@@ -2120,7 +2143,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <button type=submit name=action value=save style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" tabindex=-1>{{ save_label or 'Save' }}</button>
 <div class=bannerpick>
 <div class="t3 xs">Banner image</div>
-{{ image_drop('banner', ('/lineup-image/' ~ event_id ~ '?v=' ~ banner) if banner and event_id else '', 'banner_clear') }}
+{{ upload_field('banner', src=('/lineup-image/' ~ event_id ~ '?v=' ~ banner) if banner and event_id else '', clear_name='banner_clear') }}
 </div>
 <label>Type<select name=event_type id=lineType>{% for name in event_types %}<option value="{{ name }}" {% if values.event_type == name %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
 <div class="t3 xs">Where</div>
@@ -2265,7 +2288,7 @@ T["practice"] = """{% set p = x.p %}
 {{ social_fields(p) }}
 {{ message_fields(p) }}
 <div class="t3 xs" style="margin:4px 0 8px">Practice image</div>
-{{ image_drop('image', ('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', 'image_clear') }}
+{{ upload_field('image', src=('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', clear_name='image_clear') }}
 <div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>
 <label style="margin:0 0 8px"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}>No lead</label>
 {% for c in coach_choices %}<div style="padding:8px 0;border-top:1px solid var(--line)">
@@ -2515,7 +2538,7 @@ T["transfer"] = ADMIN_NAV + """{{ admin_page('Transfer', 'Bring in a Sport:80 ex
 <li>Log in at <a href=https://usawp.sport80.com>usawp.sport80.com</a> and switch to the Grunions club profile.</li>
 <li>Members → Smart Lists → Edit Columns: name, email, membership status, member number, valid until, plus SafeSport / background columns.</li>
 <li>Actions → Export Report, then upload the emailed file here.</li></ol>
-<form method=post action=/transfer enctype=multipart/form-data style="margin-top:14px">{{csrf_field()}}<input type=file name=file accept=".csv,.xlsx" style="padding:11px 14px;height:44px"><button class="btn btn-primary full" style="margin-top:12px">Import</button></form>
+<form method=post action=/transfer enctype=multipart/form-data style="margin-top:14px">{{csrf_field()}}{{ upload_field('file', 'file', 'CSV or Excel', '.csv,.xlsx') }}<button class="btn btn-primary full" style="margin-top:12px">Import</button></form>
 {% if stats %}<div class=note style="margin-top:16px">Read {{stats.rows}} rows · updated {{stats.matched}} members · {{stats.req_updates or 0}} compliance items · {{stats.unmatched|length}} roster rows not in the app</div>
 {% if stats.unmatched %}<details style="margin-top:12px"><summary>Not signed up in the app</summary><div class=body>{% for u in stats.unmatched %}<div class="kv t2">{{u}}</div>{% endfor %}</div></details>{% endif %}
 {% else %}<p class="t3 sm" style="margin:12px 0 0">No file imported yet.</p>{% endif %}
@@ -2737,9 +2760,11 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 </div>
 <h2>Field</h2>
 <label>Field<input placeholder="Location"></label>
-<h2>Image upload</h2>
-<p class="t3 sm">Every image field is the same dropzone. The dashed area is the control. After a picture is chosen, the thumbnail fills it and Replace or Remove sit on top.</p>
-{{ image_drop('ds_image') }}
+<h2>Upload</h2>
+<p class="t3 sm">One field for images and files. The dashed area is the control. An image fills the zone. A file shows its name and size. Replace and Remove sit on either one.</p>
+{{ upload_field('ds_image') }}
+<div style="height:12px"></div>
+{{ upload_field('ds_file', 'file', 'CSV', '.csv,.xlsx') }}
 <h2>Card and RSVP</h2>
 <div class=card>
 <div class=nxtitle>Practice</div>
