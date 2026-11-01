@@ -729,7 +729,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=68" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=69" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
@@ -1232,11 +1232,11 @@ try:
     prev_d = days[i - 1] if i else None
     next_d = days[i + 1] if i + 1 < len(days) else None
     grid = adm.split("id=calGrid", 1)[1].split("</div>", 1)[0]
-    ok('value="2026-10-20"' in adm and "id=calPick" in adm and "id=calPop" in adm and "class=botsheet" in adm and "class=grab" in adm and "calpop" not in adm and 'fill="currentColor"' in adm and "span.calday{color:var(--t3)" in adm and not re.search(r"<input[^>]*type=date[^>]*name=date|<input[^>]*name=date[^>]*type=date", adm), "check-in opens a dark practice calendar on the next practice when today has none")
+    ok('value="2026-10-20"' in adm and "id=calPick" in adm and "id=calPop" in adm and "class=matpick" in adm and ">Select date<" in adm and ">Cancel</button>" in adm and ">OK</button>" in adm and "class=botsheet" not in adm.split("id=calPop",1)[0] and "calpop" not in adm and 'fill="currentColor"' in adm and "span.calday{color:var(--t3)" in adm and "border-radius:50%" in adm and not re.search(r"<input[^>]*type=date[^>]*name=date|<input[^>]*name=date[^>]*type=date", adm), "check-in opens a centered date dialog on the next practice when today has none")
     ok('aria-disabled=true>19</span>' in grid and 'aria-disabled=true>21</span>' in grid and 'class="calday on" href="/admin?date=2026-10-20"' in grid and 'href="/admin?date=2026-10-16"' in grid and "2026-10-21" not in grid and ('date=%s' % prev_d) in adm and 'aria-label="Previous event"' in adm and ('date=%s' % next_d) in adm and 'aria-label="Next event"' in adm, "only practice days are selectable, including past ones, and the arrows use those days")
     kept = eli.get("/admin?date=2026-10-23&q=Jane").get_data(as_text=True)
     odd = eli.get("/admin?date=2026-10-19").get_data(as_text=True)
-    ok('value="2026-10-23"' in kept and 'value="Jane"' in kept and "date=2026-10-20" in kept and "q=Jane" in kept and 'value="2026-10-19"' in odd and "No events on this day" in odd and "id=calPop" in odd and "class=grab" in odd, "a chosen date stays put, and practice links keep the search")
+    ok('value="2026-10-23"' in kept and 'value="Jane"' in kept and "date=2026-10-20" in kept and "q=Jane" in kept and 'value="2026-10-19"' in odd and "No events on this day" in odd and "id=calPop" in odd and ">Select date<" in odd and "Mon, Oct 19" in odd, "a chosen date stays put, and practice links keep the search")
 finally:
     A.now_pt = real_now
 
@@ -1634,7 +1634,7 @@ _now = A.wall_pt().replace(second=0, microsecond=0)
 _estart = dt.datetime.combine(_now.date(), dt.time(0, 0))
 _eend = dt.datetime.combine(_now.date(), dt.time(23, 30))
 if _now >= _eend:
-    _estart, _eend = _now - dt.timedelta(minutes=20), _now + dt.timedelta(hours=1)
+    _estart, _eend = dt.datetime.combine(_now.date(), dt.time(23, 0)), dt.datetime.combine(_now.date(), dt.time(23, 59))
 early, early_end = _estart.date().isoformat(), _eend.date().isoformat()
 eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(category="travel", subtype="Tournament", hosting="Away", title="Sunday Cup", team_intent="official", date=early, end_date=early_end, start_time="%02d:%02d" % (_estart.hour, _estart.minute), end_time="%02d:%02d" % (_eend.hour, _eend.minute), location="Early Pool", description="A multi-day trip.")))
 sun_id = D.execute("SELECT id FROM lineup_events WHERE title='Sunday Cup'").fetchone()[0]
@@ -1723,7 +1723,7 @@ _now = A.wall_pt().replace(second=0, microsecond=0)
 _estart = dt.datetime.combine(_now.date(), dt.time(0, 0))
 _eend = dt.datetime.combine(_now.date(), dt.time(23, 30))
 if _now >= _eend:
-    _estart, _eend = _now - dt.timedelta(minutes=20), _now + dt.timedelta(hours=1)
+    _estart, _eend = dt.datetime.combine(_now.date(), dt.time(23, 0)), dt.datetime.combine(_now.date(), dt.time(23, 59))
 _jane_prev = D.execute("SELECT COALESCE(MAX(id),0) FROM notices WHERE member_id=?", (jane_id,)).fetchone()[0]
 _sam_id = D.execute("SELECT id FROM members WHERE email='sam@example.com'").fetchone()[0]
 _eli_id = D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0]
@@ -1867,3 +1867,6 @@ _bedit = eli.get("/lineup/%d/edit" % _bid[0]).get_data(as_text=True)
 ok(_bid[1] and _bim.size[0] == 1600 and abs((_bim.size[0] / _bim.size[1]) - 1.5) < 0.02 and "evhero" in _bpage and "class=\"homemap cardmap still\"" in _bpage and "class=chip-info>Club" not in _bpage and "Attending · Tournament" in _bpage and "Replace" in _bedit and "banner_clear" in _bedit and "Banner image" in eli.get("/lineup/new").get_data(as_text=True).split(">Type<", 1)[0], "a banner is cropped to 3:2 and replaces the hero map")
 eli.post("/lineup/%d/edit" % _bid[0], data=dict(csrf=csrf(eli, "/lineup/%d/edit" % _bid[0]), mode="edit", event_type="Tournament", hosting="Away", team_intent="official", title="Banner Cup", location="Banner Pool", description="A wide picture.", date=_bday, start_time="09:00", banner_clear="1"))
 ok((D.execute("SELECT COALESCE(banner,'') FROM lineup_events WHERE id=?", (_bid[0],)).fetchone()[0] or "") == "" and eli.get("/lineup-image/%d" % _bid[0]).status_code == 404, "removing a banner clears the stored image")
+_new = eli.get("/events/new").get_data(as_text=True)
+_editp = eli.get("/practices/%d?edit=1" % D.execute("SELECT id FROM practices ORDER BY id LIMIT 1").fetchone()[0]).get_data(as_text=True)
+ok("data-matfor=dateInput" in _new and "id=dateSheet" not in _new and "grunionsOpenDate" in _new and "Select time" in _new and "id=timeClock" in _new and "matDateOk" in _new and "type=date" in _editp and "type=time" in _editp and "grunionsBindPickers" in _editp, "form dates and times open the centered picker")

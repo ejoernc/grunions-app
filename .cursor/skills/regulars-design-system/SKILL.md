@@ -44,7 +44,7 @@ Leave these as literals: the first-paint `background:#090D0B` on `html` and `bod
 - Status line: `roster_status` (dot plus one line)
 - Cards: `card`. Event pages share the hero, stat tiles, and location card.
 - Chat: `.m .txt`, `.m.mine .txt`
-- Sheets: `dialog.botsheet .sheet`, `dialog.modal .sheet`
+- Sheets: `dialog.botsheet .sheet`, `dialog.modal .sheet`. Date and time pickers are `dialog.matpick`, a centered dialog: "Select date" or "Select time", a large headline, month/year dropdown with arrows, a lime circle on the selected day, today outlined, Cancel and OK. Schedule ghosts days with no events and keeps the event dot. Form date and time fields use the same dialog, and every day stays selectable.
 - Map: `.homemap` with `.mpin`
 - Nav: `nav.tabs` — a floating pill of 52px circles, 8px gaps, 8px padding, 24px above the safe area. Members get Home, Lineup, Chat. Coaches and admins also get Admin. No text labels. Unselected circles are Clubhouse with Chalk Phosphor Regular icons. The selected circle is Electric Lime with a Forest Ink Phosphor Fill icon. Built by `_nav_anchor`.
 - Icons: `ICONS` in `ui.py`

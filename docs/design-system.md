@@ -47,7 +47,7 @@ Buttons, chips, cards, inputs, sheets, avatars, the bottom nav, and Phosphor ico
 | People | Rows, letter headers, and status dots. Sticky bars keep the page background. |
 | Member and profile | Shared lists, avatars, and the profile bar. Your profile switches General, My Lineup, and Hosting with the same pill chips. Hosting shows only after you have hosted. Another member's page stays on General. |
 | Admin tabs | One page header (`admin_page`): chip row, then Title 1, an optional ghost action (`btn quiet pageact`), then an optional Body 2 subtitle. Schedule, People, Events, Expiring, Transfer, Rules, and Join QR use it. The gap from the chips to the title is `--space-5`. The gap from the header block to the first content is `--space-4`. |
-| Admin Schedule | The header title is Schedule, then the date bar. One card per event, selected with `--color-selected`. Filters and the check-in count stay in the filter row. |
+| Admin Schedule | The header title is Schedule, then the date bar. The date control opens a centered picker (`dialog.matpick`): Select date, a large headline, month and year dropdown, previous and next arrows, a lime circle on the selected day, today outlined, event dots, and ghosted days with no events. Cancel and OK sit at the bottom right. Form date and time fields use the same dialog; those calendars do not ghost days. One card per event, selected with `--color-selected`. Filters and the check-in count stay in the filter row. |
 | Events, People, Expiring, Transfer, Rules, QR | Same page header. People puts Export CSV in the action slot. Events puts Create event there. Each page has one H1. |
 | Design preview | `/design-system`, admins only. |
 

@@ -480,14 +480,38 @@ details.moredetails{margin:8px 0 12px}details.moredetails>summary{min-height:44p
 .calhead .lbl{font-weight:650;color:var(--color-text);font-size:17px}
 .calwd,.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
 .calwd{color:var(--color-text-secondary);font-size:12px;font-weight:650;margin-bottom:6px}
-.calday{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:44px;border-radius:var(--radius-compact);font-size:15px;font-weight:650;text-decoration:none;color:var(--color-text);background:transparent}
+.calday{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:0;height:48px;padding-top:10px;border-radius:0;font-size:14px;font-weight:650;text-decoration:none;color:var(--color-text);background:transparent}
 a.calday:hover{background:var(--color-raised)}
-a.calday.on,a.calday.on:hover{background:var(--color-lime);color:var(--color-forest)}
-.calday.today:not(.on){box-shadow:inset 0 0 0 1.5px var(--color-lime)}
-.caldot{width:5px;height:5px;border-radius:50%;background:var(--color-lime);display:block}
-a.calday.on .caldot{background:var(--color-forest)}
+a.calday.on,a.calday.on:hover,button.calday.on{background:transparent;color:var(--color-forest)}
+.calday{z-index:0}
+a.calday::before,button.calday::before,span.calday[aria-disabled]::before{content:"";position:absolute;top:2px;left:50%;width:36px;height:36px;margin-left:-18px;border-radius:50%;z-index:-1}
+a.calday.on::before,button.calday.on::before{background:var(--color-lime)}
+.calday.today:not(.on)::before{box-shadow:inset 0 0 0 1.5px var(--color-lime)}
+.caldot{width:5px;height:5px;border-radius:50%;background:var(--color-lime);display:block;position:relative;z-index:1;margin-top:4px}
+a.calday.on .caldot,button.calday.on .caldot{background:var(--color-lime)}
 span.calday{color:var(--t3);opacity:.4;font-weight:500}
 span.calday.today{opacity:1;color:var(--color-text)}
+button.calday{width:100%;height:48px;min-height:0;padding:8px 0 0;background:transparent;color:var(--color-text);font-weight:650;border-radius:0;position:relative}
+.calhead select.matmonth{flex:1;min-width:0;height:40px;margin:0;padding:0 28px 0 4px;border:0;border-radius:8px;background-color:transparent;color:var(--color-text);font-weight:650;font-size:16px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20256%20256'%3E%3Cpath%20fill%3D'%23F2F6F1'%20d%3D'M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'%2F%3E%3C%2Fsvg%3E");background-repeat:no-repeat;background-position:right 2px center;background-size:18px}
+dialog.matpick{position:fixed;z-index:40;inset:0;margin:auto;width:min(360px,calc(100% - 32px));height:fit-content;max-height:min(640px,calc(100dvh - 32px));border:0;padding:0;background:transparent;color:var(--color-text);overflow:visible}
+dialog.matpick::backdrop{background:var(--color-backdrop)}
+dialog.matpick .sheet{background:var(--color-sheet);border:1px solid var(--color-sheet-border);border-radius:var(--radius-overlay);padding:20px 12px 8px;max-height:calc(100dvh - 32px);overflow:auto}
+.matkicker{margin:0 12px 4px;color:var(--color-text-secondary);font-size:var(--type-b2-size);line-height:var(--type-b2-line)}
+.matheadline{margin:0 12px 16px;font-size:2rem;line-height:1.15;font-weight:400;letter-spacing:-.02em}
+.matactions{display:flex;justify-content:flex-end;gap:4px;margin:8px 4px 4px}
+button.mattext{height:40px;min-height:40px;padding:0 12px;background:none;color:var(--color-lime);font-weight:650}
+.timebig{display:flex;align-items:center;gap:2px;margin:0 12px 8px;font-size:3rem;font-weight:400;line-height:1}
+.timebig button{height:auto;min-height:0;padding:0 2px;background:none;color:var(--color-text-secondary);font:inherit;font-weight:400}
+.timebig button.on{color:var(--color-lime)}
+.ampm{display:flex;flex-direction:column;margin-left:12px;border:1px solid var(--color-control);border-radius:8px;overflow:hidden}
+.ampm button{height:36px;min-height:36px;padding:0 10px;background:transparent;color:var(--color-text-secondary);font-size:14px;font-weight:650}
+.ampm button.on{background:var(--color-lime);color:var(--color-forest)}
+.clock{position:relative;width:256px;height:256px;margin:8px auto 4px;border-radius:50%;background:var(--color-surface-2)}
+.clockhand{position:absolute;left:50%;top:50%;width:2px;height:78px;margin:-78px 0 0 -1px;background:var(--color-lime);transform-origin:center bottom;border-radius:2px;pointer-events:none;z-index:1}
+.clock::after{content:"";position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:var(--color-lime);z-index:2}
+button.clocknum{position:absolute;z-index:2;width:40px;height:40px;min-height:0;margin:-20px 0 0 -20px;padding:0;border-radius:50%;background:transparent;color:var(--color-text);font-weight:650;font-size:15px}
+button.clocknum.on{background:var(--color-lime);color:var(--color-forest)}
+.pickhold{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);border:0;opacity:0;pointer-events:none}
 .calback{display:flex;align-items:center;gap:6px;height:40px;margin:0 0 8px;padding:0;background:none;color:var(--color-text);font-weight:650}
 .panel{padding:4px 18px 18px;border-top:1px solid var(--line);background:var(--surface)}.panel h3{font-size:15px;font-weight:600;margin:18px 0 10px}
 .pstat{padding:14px 0 2px}.pstatline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -780,7 +804,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=68');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=69');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -947,6 +971,7 @@ function grunionsApply(html,url,pop){
  document.title=doc.title||document.title;
  if(!pop) history.pushState({grunions:1},'',url);
  grunionsRunScripts(scripts);
+ if(window.grunionsBindPickers) grunionsBindPickers();
  if(window.grunionsPinHead) grunionsPinHead();
  grunionsPushCard();
  if(window.grunionsRefresh) grunionsRefresh();
@@ -1042,6 +1067,146 @@ document.addEventListener('click',function(e){
  if(el&&sheet){var top=el.getBoundingClientRect().top-sheet.getBoundingClientRect().top+sheet.scrollTop; sheet.scrollTop=Math.max(0,top-12);}
 });
 document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&t.matches('.datefield input[type=date]')) t.closest('.datefield').classList.toggle('empty',!t.value);});
+(function(){
+ function pad(n){return (n<10?'0':'')+n}
+ function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+ function headline(iso){
+  if(!iso||iso.length<10) return 'Select date';
+  var p=iso.split('-'), dt=new Date(+p[0], +p[1]-1, +p[2]);
+  var w=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
+  var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt.getMonth()];
+  return w+', '+mo+' '+dt.getDate();
+ }
+ var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+ var dateDlg, timeDlg, dateSt, timeSt;
+ function sheet(dlg){ return dlg.querySelector('.sheet'); }
+ function makeDate(){
+  if(dateDlg) return dateDlg;
+  dateDlg=document.createElement('dialog');
+  dateDlg.className='matpick'; dateDlg.id='grunionsDateDlg'; dateDlg.setAttribute('aria-label','Select date');
+  dateDlg.innerHTML='<div class=sheet><div class=matkicker>Select date</div><div class=matheadline id=matHeadline></div><div class=calhead><select id=matMonth class=matmonth aria-label="Month and year"></select><button type=button class=calmonth id=matPrev aria-label="Previous month"></button><button type=button class=calmonth id=matNext aria-label="Next month"></button></div><div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class=calgrid id=matGrid></div><div class=matactions><button type=button class=mattext id=matDateCancel>Cancel</button><button type=button class=mattext id=matDateOk>OK</button></div></div>';
+  document.body.appendChild(dateDlg);
+  dateDlg.querySelector('#matPrev').innerHTML='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>';
+  dateDlg.querySelector('#matNext').innerHTML='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>';
+  dateDlg.querySelector('#matPrev').onclick=function(){ shiftDate(-1); };
+  dateDlg.querySelector('#matNext').onclick=function(){ shiftDate(1); };
+  dateDlg.querySelector('#matMonth').addEventListener('change', function(){ if(this.value) paintDate(this.value); });
+  dateDlg.querySelector('#matGrid').addEventListener('click', function(e){
+   var b=e.target.closest&&e.target.closest('button.calday'); if(!b) return;
+   dateSt.iso=b.getAttribute('data-date'); paintDate(dateSt.iso.slice(0,7));
+  });
+  dateDlg.querySelector('#matDateCancel').onclick=function(){ dateDlg.close(); };
+  dateDlg.querySelector('#matDateOk').onclick=function(){
+   if(dateSt&&dateSt.input){ dateSt.input.value=dateSt.iso||''; dateSt.input.dispatchEvent(new Event('input',{bubbles:true})); dateSt.input.dispatchEvent(new Event('change',{bubbles:true})); }
+   dateDlg.close();
+  };
+  dateDlg.addEventListener('click', function(e){ if(e.target===dateDlg) dateDlg.close(); });
+  return dateDlg;
+ }
+ function fillDateMonths(sel, iso){
+  var y0=(iso?+iso.slice(0,4):new Date().getFullYear())-5, html='', y, m;
+  for(y=y0;y<y0+12;y++) for(m=1;m<=12;m++) html+='<option value="'+y+'-'+pad(m)+'">'+months[m-1]+' '+y+'</option>';
+  sel.innerHTML=html;
+ }
+ function paintDate(ym){
+  dateSt.ym=ym;
+  var y=+ym.slice(0,4), m=+ym.slice(5,7), sel=dateDlg.querySelector('#matMonth');
+  if(!sel.options.length) fillDateMonths(sel, dateSt.iso);
+  sel.value=ym;
+  dateDlg.querySelector('#matHeadline').textContent=headline(dateSt.iso);
+  var blanks=new Date(y, m-1, 1).getDay(), last=new Date(y, m, 0).getDate(), html='', day, iso, today=todayISO();
+  for(var i=0;i<blanks;i++) html+='<span class=calday></span>';
+  for(day=1;day<=last;day++){
+   iso=y+'-'+pad(m)+'-'+pad(day);
+   html+='<button type=button class="calday'+(iso===dateSt.iso?' on':'')+(iso===today?' today':'')+'" data-date="'+iso+'">'+day+'</button>';
+  }
+  dateDlg.querySelector('#matGrid').innerHTML=html;
+ }
+ function shiftDate(delta){
+  var y=+dateSt.ym.slice(0,4), m=+dateSt.ym.slice(5,7)+delta;
+  if(m<1){m=12;y--} if(m>12){m=1;y++}
+  paintDate(y+'-'+pad(m));
+ }
+ function makeTime(){
+  if(timeDlg) return timeDlg;
+  timeDlg=document.createElement('dialog');
+  timeDlg.className='matpick'; timeDlg.id='grunionsTimeDlg'; timeDlg.setAttribute('aria-label','Select time');
+  timeDlg.innerHTML='<div class=sheet><div class=matkicker>Select time</div><div class=timebig><button type=button id=timeH></button><span>:</span><button type=button id=timeM></button><div class=ampm><button type=button id=timeAM>AM</button><button type=button id=timePM>PM</button></div></div><div class=clock id=timeClock><div class=clockhand id=timeHand></div></div><div class=matactions><button type=button class=mattext id=timeCancel>Cancel</button><button type=button class=mattext id=timeOk>OK</button></div></div>';
+  document.body.appendChild(timeDlg);
+  timeDlg.querySelector('#timeH').onclick=function(){ timeSt.mode='h'; paintTime(); };
+  timeDlg.querySelector('#timeM').onclick=function(){ timeSt.mode='m'; paintTime(); };
+  timeDlg.querySelector('#timeAM').onclick=function(){ timeSt.pm=false; paintTime(); };
+  timeDlg.querySelector('#timePM').onclick=function(){ timeSt.pm=true; paintTime(); };
+  timeDlg.querySelector('#timeCancel').onclick=function(){ if(timeSt&&timeSt.input) timeSt.input.value=timeSt.prev; timeDlg.close(); };
+  timeDlg.querySelector('#timeOk').onclick=function(){
+   if(timeSt&&timeSt.input){ var h=timeSt.h%12; if(timeSt.pm) h+=12; timeSt.input.value=pad(h)+':'+pad(timeSt.m); timeSt.input.dispatchEvent(new Event('input',{bubbles:true})); timeSt.input.dispatchEvent(new Event('change',{bubbles:true})); }
+   timeDlg.close();
+  };
+  timeDlg.addEventListener('click', function(e){ if(e.target===timeDlg){ if(timeSt&&timeSt.input) timeSt.input.value=timeSt.prev; timeDlg.close(); } });
+  return timeDlg;
+ }
+ function paintTime(){
+  var hBtn=timeDlg.querySelector('#timeH'), mBtn=timeDlg.querySelector('#timeM');
+  hBtn.textContent=String(timeSt.h); mBtn.textContent=pad(timeSt.m);
+  hBtn.className=timeSt.mode==='h'?'on':''; mBtn.className=timeSt.mode==='m'?'on':'';
+  timeDlg.querySelector('#timeAM').className=timeSt.pm?'':'on';
+  timeDlg.querySelector('#timePM').className=timeSt.pm?'on':'';
+  var clock=timeDlg.querySelector('#timeClock'), hand=timeDlg.querySelector('#timeHand');
+  var labels=timeSt.mode==='h'?['12','1','2','3','4','5','6','7','8','9','10','11']:['00','05','10','15','20','25','30','35','40','45','50','55'];
+  var active=timeSt.mode==='h'?String(timeSt.h):(function(){ var q=Math.round(timeSt.m/5)*5; if(q===60) q=0; return pad(q); })();
+  var idx=labels.indexOf(active); if(idx<0) idx=0;
+  hand.style.transform='rotate('+(idx*30)+'deg)';
+  clock.querySelectorAll('button.clocknum').forEach(function(b){ b.remove(); });
+  labels.forEach(function(lab, i){
+   var b=document.createElement('button'); b.type='button'; b.className='clocknum'+(lab===active?' on':''); b.textContent=lab;
+   var ang=(i/12)*Math.PI*2 - Math.PI/2, r=38;
+   b.style.left=(50+r*Math.cos(ang))+'%'; b.style.top=(50+r*Math.sin(ang))+'%';
+   b.onclick=function(){
+    if(timeSt.mode==='h'){ timeSt.h=+lab||12; timeSt.mode='m'; }
+    else timeSt.m=+lab;
+    paintTime();
+   };
+   clock.appendChild(b);
+  });
+ }
+ window.grunionsOpenDate=function(input){
+  if(!input) return;
+  makeDate();
+  var iso=input.value||todayISO();
+  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(iso)) iso=todayISO();
+  dateSt={input:input, iso:iso, ym:iso.slice(0,7)};
+  fillDateMonths(dateDlg.querySelector('#matMonth'), iso);
+  paintDate(dateSt.ym);
+  if(!dateDlg.open) dateDlg.showModal();
+ };
+ window.grunionsOpenTime=function(input){
+  if(!input) return;
+  makeTime();
+  var v=input.value||'19:00', p=v.split(':'), hh=+p[0]||0, mm=+p[1]||0;
+  var h12=hh%12; if(!h12) h12=12;
+  timeSt={input:input, prev:input.value, h:h12, m:mm, pm:hh>=12, mode:'h'};
+  paintTime();
+  if(!timeDlg.open) timeDlg.showModal();
+ };
+ window.grunionsBindPickers=function(){
+  document.querySelectorAll('input[type=date],input[type=time]').forEach(function(input){
+   if(input.dataset.matarm||input.classList.contains('pickhold')) return;
+   input.dataset.matarm='1';
+   input.addEventListener('pointerdown', function(e){ e.preventDefault(); if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input); });
+   input.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '||e.key==='ArrowDown'){ e.preventDefault(); if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input); } });
+  });
+ };
+ document.addEventListener('click', function(e){
+  var b=e.target.closest&&e.target.closest('[data-matfor]'); if(!b) return;
+  var input=document.getElementById(b.getAttribute('data-matfor')); if(!input) return;
+  e.preventDefault();
+  if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input);
+ });
+ document.addEventListener('click', function(e){
+  var d=e.target; if(d&&d.matches&&d.matches('dialog.matpick')&&e.target===d) d.close();
+ });
+ grunionsBindPickers();
+})();
 grunionsPinHead();
 window.addEventListener('resize', grunionsPinHead);
 </script>
@@ -1717,9 +1882,9 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>
 <div class=seclabel>When</div>
 <div class=list>
-<button type=button class="li setrow" data-open=dateSheet><span class=grow>Date<span class="sum" id=dateSum> Add a date</span></span>""" + _CHEV + """</button>
-<button type=button class="li setrow" data-open=startSheet><span class=grow>Start<span class="sum" id=startSum> 7:00 PM</span></span>""" + _CHEV + """</button>
-<button type=button class="li setrow" data-open=endSheet><span class=grow>End<span class="sum" id=endSum> 8:30 PM</span></span>""" + _CHEV + """</button>
+<button type=button class="li setrow" data-matfor=dateInput><span class=grow>Date<span class="sum" id=dateSum> Add a date</span></span>""" + _CHEV + """</button>
+<button type=button class="li setrow" data-matfor=startInput><span class=grow>Start<span class="sum" id=startSum> 7:00 PM</span></span>""" + _CHEV + """</button>
+<button type=button class="li setrow" data-matfor=endInput><span class=grow>End<span class="sum" id=endSum> 8:30 PM</span></span>""" + _CHEV + """</button>
 </div>
 <label>Location<span id=locOk class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location id=locInput autocomplete=off placeholder="Pool or address"></label>
 <div class=seclabel>Additional settings</div>
@@ -1738,9 +1903,9 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <p class=pagesub id=destHint>{{ 'Appears on Lineup by default' if (not staff or lane == 'lineup') else 'Appears on Home by default' }}</p>
 <button class="btn btn-primary full" name=action value=preview>Preview event</button>
 </div>
-<dialog class=botsheet id=dateSheet><div class=sheet><div class=grab></div><h2>Date</h2><label>Date<input type=date name=date id=dateInput></label><button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
-<dialog class=botsheet id=startSheet><div class=sheet><div class=grab></div><h2>Start</h2><label>Start<input type=time name=start id=startInput value=19:00></label><button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
-<dialog class=botsheet id=endSheet><div class=sheet><div class=grab></div><h2>End</h2><label>End<input type=time name=end id=endInput value=20:30></label><button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
+<input class=pickhold type=date name=date id=dateInput>
+<input class=pickhold type=time name=start id=startInput value=19:00>
+<input class=pickhold type=time name=end id=endInput value=20:30>
 <dialog class=botsheet id=setLevels><div class=sheet><div class=grab></div><h2>Skill levels &amp; division</h2>
 <div class=checks>{% for pid, name, short, full in SPORTS.LEVELS %}<label><input type=checkbox name=level value="{{ pid }}"> {{ name }}</label>{% endfor %}</div>
 <div class=checks>{% for pid, name in SPORTS.DIVISIONS %}<label><input type=checkbox name=division value="{{ pid }}"> {{ name }}</label>{% endfor %}</div>
@@ -2124,11 +2289,13 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Schedule') }}
 <button type=button class=calbtn id=calOpen aria-haspopup=dialog aria-expanded=false aria-controls=calPop>""" + _CAL_I + """<span>{{ fmt_d(date).replace(' ', ', ', 1) }}</span></button>
 {% if next_href %}<a class=calnav href="{{ next_href }}" aria-label="Next event">""" + _CHEV_R + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Next event">""" + _CHEV_R + """</span>{% endif %}
 </div>
-<dialog class=botsheet id=calPop aria-label="Choose a date"><div class=sheet>
-<div class=grab aria-hidden=true></div>
+<dialog class=matpick id=calPop aria-label="Select date"><div class=sheet>
+<div class=matkicker>Select date</div>
+<div class=matheadline id=calHeadline>{{ fmt_d(date).replace(' ', ', ', 1) }}</div>
 <div id=calMonthView>
 <div class=calhead>
-<button type=button class=calmonth id=calPrevM aria-label="Previous month">""" + _CHEV_L + """</button><div class=lbl id=calLabel>{{ month.label }}</div>
+<select id=calLabel class=matmonth aria-label="Month and year"><option value="{{ month.ym }}">{{ month.label }}</option></select>
+<button type=button class=calmonth id=calPrevM aria-label="Previous month">""" + _CHEV_L + """</button>
 <button type=button class=calmonth id=calNextM aria-label="Next month">""" + _CHEV_R + """</button></div>
 <div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
 <div class=calgrid id=calGrid>{% for c in month.cells %}{% if c is none %}<span class=calday></span>{% elif c.has %}<a class="calday{% if c.on %} on{% endif %}{% if c.today %} today{% endif %}" href="/admin?date={{ c.iso }}{{ fbit }}{{ qbit }}" data-date="{{ c.iso }}">{{ c.day }}<i class=caldot></i></a>{% else %}<span class="calday{% if c.today %} today{% endif %}" aria-disabled=true>{{ c.day }}</span>{% endif %}{% endfor %}</div>
@@ -2136,6 +2303,10 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Schedule') }}
 <div id=calEventView hidden>
 <button type=button class=calback id=calBack aria-label="Back to the month">""" + _CHEV_L + """<span id=calEventLabel>Events</span></button>
 <div class=list id=calEventList></div>
+</div>
+<div class=matactions id=calActions>
+<button type=button class=mattext id=calCancel>Cancel</button>
+<button type=button class=mattext id=calOk>OK</button>
 </div>
 </div></dialog>
 <dialog class=modal id=evPick><div class=sheet><h2 style="margin:0 0 12px">Events</h2><div class=list id=evPickList>{% for ev in events %}<a class=li href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ ev.title }}</span><span class="t3 sm">{{ ev.when }}</span></span></a>{% endfor %}</div><button type=button class="btn btn-secondary full" onclick="this.closest('dialog').close()">Cancel</button></div></dialog>
@@ -2184,28 +2355,52 @@ var monthView=document.getElementById('calMonthView'), eventView=document.getEle
 var dates=[]; try{dates=JSON.parse(root.getAttribute('data-dates')||'[]')}catch(err){dates=[]}
 var catalog={}; try{catalog=JSON.parse(root.getAttribute('data-events')||'{}')}catch(err){catalog={}}
 var set={}; dates.forEach(function(d){set[d]=1});
-var q=root.getAttribute('data-q')||'', filt=root.getAttribute('data-filt')||'', selected=root.getAttribute('data-date')||'', today=root.getAttribute('data-today')||'', shown=selected.slice(0,7);
+var q=root.getAttribute('data-q')||'', filt=root.getAttribute('data-filt')||'', selected=root.getAttribute('data-date')||'', today=root.getAttribute('data-today')||'', shown=selected.slice(0,7), pending=selected;
+var head=document.getElementById('calHeadline'), actions=document.getElementById('calActions');
 function pad(n){return (n<10?'0':'')+n}
 function href(iso, ev){return '/admin?date='+iso+(ev?'&ev='+encodeURIComponent(ev):'')+(filt?'&filt='+encodeURIComponent(filt):'')+(q?'&q='+encodeURIComponent(q):'')}
-function showMonth(){ if(monthView) monthView.hidden=false; if(eventView) eventView.hidden=true; }
+function headline(iso){
+ if(!iso||iso.length<10) return '';
+ var p=iso.split('-'), dt=new Date(+p[0], +p[1]-1, +p[2]);
+ var w=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
+ var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt.getMonth()];
+ return w+', '+mo+' '+dt.getDate();
+}
+function showMonth(){ if(monthView) monthView.hidden=false; if(eventView) eventView.hidden=true; if(actions) actions.hidden=false; }
 function showEvents(iso, list){
  if(!eventView||!eventList) return;
  if(monthView) monthView.hidden=true;
  eventView.hidden=false;
- if(eventLabel) eventLabel.textContent=iso;
+ if(actions) actions.hidden=true;
+ if(eventLabel) eventLabel.textContent=headline(iso)||iso;
  eventList.innerHTML=list.map(function(ev){
   return '<a class=li href="'+href(iso, ev.key)+'" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">'+String(ev.title||'').replace(/[&<>]/g,'')+'</span><span class="t3 sm">'+String(ev.when||'').replace(/[&<>]/g,'')+'</span></span></a>';
  }).join('');
 }
 var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function fillMonths(extra){
+ if(!label||label.tagName!=='SELECT') return;
+ var years={}, i;
+ dates.forEach(function(d){ years[+d.slice(0,4)]=1; });
+ var nowY=new Date().getFullYear();
+ years[nowY-1]=1; years[nowY]=1; years[nowY+1]=1;
+ if(selected) years[+selected.slice(0,4)]=1;
+ if(extra) years[extra]=1;
+ var list=Object.keys(years).map(function(n){return +n}).sort(function(a,b){return a-b});
+ var html='';
+ list.forEach(function(yy){ for(i=1;i<=12;i++) html+='<option value="'+yy+'-'+pad(i)+'">'+months[i-1]+' '+yy+'</option>'; });
+ label.innerHTML=html;
+}
 function render(ym){
  shown=ym; var parts=ym.split('-'), y=+parts[0], m=+parts[1];
- label.textContent=months[m-1]+' '+y;
+ if(label&&label.tagName==='SELECT'){ if(!label.querySelector('option[value="'+y+'-'+pad(m)+'"]')) fillMonths(y); label.value=y+'-'+pad(m); }
+ else if(label) label.textContent=months[m-1]+' '+y;
+ if(head) head.textContent=headline(pending)||headline(selected);
  var blanks=new Date(y, m-1, 1).getDay(), last=new Date(y, m, 0).getDate(), html='', day, iso, cls;
  for(var i=0;i<blanks;i++) html+='<span class=calday></span>';
  for(day=1; day<=last; day++){
   iso=y+'-'+pad(m)+'-'+pad(day);
-  cls='calday'+(iso===selected?' on':'')+(iso===today?' today':'');
+  cls='calday'+(iso===pending?' on':'')+(iso===today?' today':'');
   if(set[iso]) html+='<a class="'+cls+'" data-date="'+iso+'" href="'+href(iso)+'">'+day+'<i class=caldot></i></a>';
   else html+='<span class="'+cls+'" aria-disabled=true>'+day+'</span>';
  }
@@ -2218,22 +2413,33 @@ function shift(delta){
 }
 document.getElementById('calPrevM').onclick=function(){shift(-1)};
 document.getElementById('calNextM').onclick=function(){shift(1)};
+if(label&&label.tagName==='SELECT') label.addEventListener('change', function(){ if(label.value) render(label.value); });
 var back=document.getElementById('calBack');
 if(back) back.onclick=function(){showMonth()};
+var cancelBtn=document.getElementById('calCancel'), okBtn=document.getElementById('calOk');
+if(cancelBtn) cancelBtn.onclick=function(){ pending=selected; pop.close(); };
+if(okBtn) okBtn.onclick=function(){
+ var iso=pending||selected; if(!iso){ pop.close(); return; }
+ var list=catalog[iso]||[];
+ if(list.length>1){ showEvents(iso, list); return; }
+ if(iso===selected){ pop.close(); return; }
+ location.href=href(iso);
+};
 openBtn.onclick=function(){
- showMonth();
+ pending=selected; showMonth();
  render(selected.slice(0,7)||shown);
- if(window.grunionsOpenSheet) grunionsOpenSheet(pop);
+ if(pop.showModal) pop.showModal();
  openBtn.setAttribute('aria-expanded','true');
 };
 pop.addEventListener('close', function(){ openBtn.setAttribute('aria-expanded','false'); showMonth(); });
 var countBtn=document.getElementById('evCount');
 if(countBtn) countBtn.onclick=function(){ var dlg=document.getElementById('evPick'); if(dlg&&dlg.showModal) dlg.showModal(); };
 grid.addEventListener('click', function(e){
- var a=e.target.closest&&e.target.closest('a.calday'); if(!a) return;
- var iso=a.getAttribute('data-date')||'';
- var list=catalog[iso]||[];
- if(list.length>1){ e.preventDefault(); showEvents(iso, list); }
+ var a=e.target.closest&&e.target.closest('a.calday'); if(!a||a.getAttribute('aria-disabled')) return;
+ e.preventDefault();
+ pending=a.getAttribute('data-date')||pending;
+ if(head) head.textContent=headline(pending);
+ render(pending.slice(0,7)||shown);
 });
 })();
 </script>"""
