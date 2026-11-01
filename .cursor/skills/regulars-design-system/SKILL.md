@@ -7,7 +7,7 @@ description: Use when changing Grunions UI. Tokens, shared classes, light and da
 
 Flask, Jinja, and vanilla CSS. Do not add React, Tailwind, or shadcn code.
 
-Figma file `9ZhrS5v7hQGSY7eGJwG19Y` is the structure. The product paints dark. `[data-theme=light]` is the light theme for the preview. Colors stay monochrome gray, blue `#3b82f6`, and the status dots. Icons stay Streamline Plump.
+The product paints dark. `[data-theme=light]` is the light theme for the preview. Colors are Forest Ink `#171C19`, Clubhouse `#303A33`, Chalk `#F7F8F3`, Electric Lime `#C7F464`, Clear Cyan `#5DDDE5`, Golden Yellow `#F4C95D`, Social Orange `#FF875D`, and Cloud Gray `#C3CACB`. Lime is the brand, not success. Cyan is cleared. Icons are Phosphor (Regular, Fill on the selected nav circle, Bold for emphasis) at 16, 20, or 24px. Headings use Space Grotesk. Everything else uses Plus Jakarta Sans.
 
 The Figma skill page (`2688:3905`) installs React, Tailwind, and `npx shadcn`. Do not run that. Map its roles onto the classes below.
 
@@ -18,7 +18,7 @@ All of these are in `regulars/foundation.css`. `:root` is dark. `[data-theme=lig
 | Change | Token |
 | --- | --- |
 | Font | `--font-sans` |
-| Blue | `--color-primary` (alias `--accent`) |
+| Lime brand | `--color-lime` (alias `--color-primary`, `--accent`) |
 | Background, surfaces, text, borders | `--color-bg`, `--color-surface`, `--color-surface-2`, `--color-text`, `--color-border` |
 | Map canvas and pin | `--color-map`, `--color-selected`, `--color-bg` |
 | Chat bubble | `--color-surface` for others, `--color-surface-2` for mine |
@@ -27,12 +27,13 @@ All of these are in `regulars/foundation.css`. `:root` is dark. `[data-theme=lig
 | Card gap (12px on Home) | `--space-card`. The Home dock gap stays the literal `12px`. |
 | Card, button, chip, field, sheet roundness | `--radius-card`, `--radius-button`, `--radius-chip`, `--radius-input`, `--radius-overlay` |
 | Button height, chip height, nav icon | `--size-button`, `--size-chip`, `--icon-nav` |
+| Nav offset, circle, and content clearance | `--nav-offset-bottom` (24px), `--nav-pad`, `--nav-gap`, `--nav-circle`, `--nav-clear` |
 | Selected chip or Schedule card | `--color-selected`, `--color-on-selected` |
 | Focus ring | `--color-focus` |
 
 Do not paste a new hex into a screen. Use a token or an existing class.
 
-Leave these as literals: the first-paint `background:#0a0a0b` on `html` and `body`, the date and time SVG icons (a variable cannot live inside the image), the Google mark, and the printed page.
+Leave these as literals: the first-paint `background:#171C19` on `html` and `body`, the date and time SVG icons (a variable cannot live inside the image; they use Chalk `#F7F8F3`), the Google mark, and the printed page.
 
 ## Classes
 
@@ -44,7 +45,7 @@ Leave these as literals: the first-paint `background:#0a0a0b` on `html` and `bod
 - Chat: `.m .txt`, `.m.mine .txt`
 - Sheets: `dialog.botsheet .sheet`, `dialog.modal .sheet`
 - Map: `.homemap` with `.mpin`
-- Nav: `nav.tabs` — Home, Lineup, Chat, and Admin for coaches and admins
+- Nav: `nav.tabs` — a floating pill of 52px circles, 8px gaps, 8px padding, 24px above the safe area. Members get Home, Lineup, Chat. Coaches and admins also get Admin. No text labels. Unselected circles are Clubhouse with Chalk Phosphor Regular icons. The selected circle is Electric Lime with a Forest Ink Phosphor Fill icon. Built by `_nav_anchor`.
 - Icons: `ICONS` in `ui.py`
 
 Figma roles: Button `72:2719`, Badge `72:2718`, Avatar `72:2717`, Card `72:2721`, Input `73:1977`, Tabs `73:2899`, Toggle group `73:2902`, Dialog `73:227`, Sheet `73:1988`.

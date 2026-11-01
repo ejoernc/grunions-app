@@ -11,7 +11,7 @@ Admins open `/design-system` to see type, color, buttons, chips, the status line
 | You want | Token |
 | --- | --- |
 | A different font | `--font-sans` |
-| A different blue | `--color-primary` |
+| A different lime | `--color-lime` (`--color-primary`) |
 | A different background | `--color-bg` |
 | Different text | `--color-text`, `--color-text-secondary`, `--color-text-tertiary` |
 | Status colors | `--color-status-cleared`, `--color-status-attention`, `--color-status-not-cleared` |
@@ -22,12 +22,13 @@ Admins open `/design-system` to see type, color, buttons, chips, the status line
 | More space between Home cards | `--space-card` (12px today). The Home dock gap stays the literal `12px`. |
 | Rounder cards | `--radius-card` |
 | Rounder buttons, chips, or sheets | `--radius-button`, `--radius-chip`, `--radius-overlay` |
+| How high the nav floats | `--nav-offset-bottom` (24px). Content clearance follows `--nav-clear`. |
 
 Older names still work: `--bg`, `--surface`, `--accent`, `--ok`, `--warn`, `--bad`, `--r`.
 
 ## What screens already use
 
-Buttons, chips, cards, inputs, sheets, avatars, the bottom nav, and Plump icons. Clearance rows use `roster_status`: one dot and one line, such as `Expiring soon · expires in 3 days`.
+Buttons, chips, cards, inputs, sheets, avatars, the bottom nav, and Phosphor icons. The nav is one floating pill (`nav.tabs`, built by `_nav_anchor`). Members get three circles: Home, Lineup, Chat. Coaches and admins get a fourth, Admin. There are no text labels. Circles are 52px with 8px gaps, so four circles are about two-thirds of a phone and three are narrower. The selected circle is Electric Lime with a Forest Ink icon. Clearance rows use `roster_status`: one dot and one line, such as `Expiring soon · expires in 3 days`.
 
 ## Screen audit
 
@@ -35,7 +36,7 @@ Buttons, chips, cards, inputs, sheets, avatars, the bottom nav, and Plump icons.
 
 | Screen | What it uses |
 | --- | --- |
-| Home | The map canvas, attribution, and pin read `--color-map` and the selected colors. Pin position, the 12px dock gap, the greeting crossfade, and the day chip stay as they are. |
+| Home | The map canvas, attribution, and pin read `--color-map` and the selected colors. Pin position, the 12px dock gap, the greeting crossfade, and the day chip stay as they are. Page padding uses `--nav-clear` so the pill does not cover the dock. |
 | Practice list | Schedule cards (`card`, date tile, RSVP pills). |
 | Practice page | Shared event layout: hero map, stat tiles, status dot, details list, who's going, location card. |
 | Lineup feed | Event cards, one gray type line, RSVP pills, filter chips. |
@@ -52,6 +53,6 @@ Reused: `btn`, `chip`, `card`, `actseg`, `list`, `st`, avatars, and the bottom n
 
 Adapted: semantic names, the type and spacing scale, radius roles, focus and disabled states, and a light theme. Map, chat, sheets, buttons, chips, and fields read the tokens.
 
-Kept custom: the map pin position, the greeting crossfade, day chips, Lineup cards, People rows, the Google mark, and every workflow. The first paint on `html` and `body` stays `#0a0a0b`. SVG icons in date and time fields stay encoded hex, because a CSS variable cannot live inside those images.
+Kept custom: the map pin position, the greeting crossfade, day chips, Lineup cards, People rows, the Google mark, and every workflow. The first paint on `html` and `body` stays `#171C19`. SVG icons in date and time fields stay encoded hex (`#F7F8F3`), because a CSS variable cannot live inside those images.
 
 Not copied: React, Tailwind, and `npx shadcn`. The Figma skill page (`2688:3905`) installs a React theme. Grunions keeps Flask and Jinja. Component pages in file `9ZhrS5v7hQGSY7eGJwG19Y` are the structure: Button `72:2719`, Badge `72:2718`, Avatar `72:2717`, Card `72:2721`, Input `73:1977`, Tabs `73:2899`, Toggle group `73:2902`, Dialog `73:227`, Sheet `73:1988`. Event types stay gray. They do not get a separate hue.

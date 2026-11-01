@@ -1,50 +1,76 @@
 /* Regulars foundation. Change fonts, colors, spacing, and radius here.
-   Figma reference (structure, not a visual copy): shadcn/ui library
-   https://www.figma.com/design/9ZhrS5v7hQGSY7eGJwG19Y
-   About the library 663:1166. Claude skill 2688:3905.
-   Button 72:2719, Badge 72:2718, Avatar 72:2717, Card 72:2721,
-   Input 73:1977, Tabs 73:2899, Dialog 73:227, Sheet 73:1988.
-   Values stay Grunions: monochrome grays, blue primary, status dots.
-   The app paints dark. [data-theme=light] is only for the design preview. */
+   The app paints dark. [data-theme=light] is the light theme.
+   Brand colors: Forest Ink, Clubhouse, Chalk, Electric Lime,
+   Clear Cyan, Golden Yellow, Social Orange, Cloud Gray.
+   Lime is the brand and the selected state. Cyan is cleared.
+   Text pairs below were checked at 7:1 (AAA) or better.
+   Icons are Phosphor. Headings use Space Grotesk.
+   Everything else uses Plus Jakarta Sans. */
+
+@font-face{font-family:"Space Grotesk";font-style:normal;font-weight:500;font-display:swap;src:url("/static/fonts/space-grotesk-500.woff2") format("woff2")}
+@font-face{font-family:"Space Grotesk";font-style:normal;font-weight:600;font-display:swap;src:url("/static/fonts/space-grotesk-600.woff2") format("woff2")}
+@font-face{font-family:"Space Grotesk";font-style:normal;font-weight:700;font-display:swap;src:url("/static/fonts/space-grotesk-700.woff2") format("woff2")}
+@font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:400;font-display:swap;src:url("/static/fonts/plus-jakarta-sans-400.woff2") format("woff2")}
+@font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:500;font-display:swap;src:url("/static/fonts/plus-jakarta-sans-500.woff2") format("woff2")}
+@font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:600;font-display:swap;src:url("/static/fonts/plus-jakarta-sans-600.woff2") format("woff2")}
+@font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:700;font-display:swap;src:url("/static/fonts/plus-jakarta-sans-700.woff2") format("woff2")}
 
 :root {
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
 
-  --color-bg: #0a0a0b;
-  --color-surface: #151517;
-  --color-surface-2: #1d1d20;
-  --color-border: #26262a;
-  --color-text: #ececee;
-  --color-text-secondary: #a0a0a8;
-  --color-text-tertiary: #6c6c74;
-  --color-primary: #3b82f6;
-  --color-on-primary: #fff;
-  --color-icon: #C8CDD3;
-  --color-chip: #2a2a2e;
-  --color-selected: #ececee;
-  --color-on-selected: #0a0a0b;
-  --color-status-cleared: #3fb950;
-  --color-status-attention: #e3a008;
-  --color-status-not-cleared: #f0524a;
-  --color-status-unknown: #6c6c74;
-  --color-hover: #1d1d20;
-  --color-pressed: #2a2a2e;
-  --color-disabled: #6c6c74;
-  --color-focus: #3b82f6;
-  --color-event: #a0a0a8;
-  --color-map: #1a1c20;
-  --color-scrim: rgba(10, 10, 11, .72);
+  --color-forest: #171C19;
+  --color-clubhouse: #303A33;
+  --color-chalk: #F7F8F3;
+  --color-lime: #C7F464;
+  --color-cyan: #5DDDE5;
+  --color-yellow: #F4C95D;
+  --color-orange: #FF875D;
+  --color-cloud: #C3CACB;
+
+  --color-bg: #171C19;
+  --color-surface: #303A33;
+  --color-surface-2: #3A4840;
+  --color-border: #46564C;
+  --color-text: #F7F8F3;
+  --color-text-secondary: #C4D2C8;
+  --color-text-tertiary: #C4D2C8;
+  --color-primary: #C7F464;
+  --color-on-primary: #171C19;
+  --color-icon: #F7F8F3;
+  --color-chip: #3A4840;
+  --color-selected: #C7F464;
+  --color-on-selected: #171C19;
+  --color-status-cleared: #5DDDE5;
+  --color-status-attention: #F4C95D;
+  --color-status-not-cleared: #FF875D;
+  --color-status-unknown: #C3CACB;
+  --color-hover: #3A4840;
+  --color-pressed: #46564C;
+  --color-disabled: #8AA396;
+  --color-focus: #C7F464;
+  --color-event: #C4D2C8;
+  --color-map: #1E2822;
+  --color-scrim: rgba(23, 28, 25, .72);
   --color-backdrop: rgba(0, 0, 0, .62);
   --color-lightbox: rgba(0, 0, 0, .92);
-  --color-sheet: #1c1c1f;
-  --color-sheet-border: #2e2e32;
-  --color-sheet-handle: #5a5a60;
-  --color-sheet-row: #2c2c2e;
-  --color-sheet-line: #3a3a3e;
-  --color-badge-border: #3a3a40;
-  --color-on-selected-muted: #3f3f46;
-  --color-status-attention-border: #8a6410;
-  --color-status-not-cleared-border: #7a302c;
+  --color-sheet: #24302A;
+  --color-sheet-border: #3E4C44;
+  --color-sheet-handle: #8AA396;
+  --color-sheet-row: #303A33;
+  --color-sheet-line: #46564C;
+  --color-badge-border: #46564C;
+  --color-on-selected-muted: #3A4840;
+  --color-status-attention-border: #F4C95D;
+  --color-status-not-cleared-border: #FF875D;
+  --color-bubble: #3A4840;
+  --color-bubble-mine: #46564C;
+  --color-nav: #101412;
+  --color-nav-border: #3A4840;
+  --color-nav-circle: #303A33;
+  --color-nav-icon: #F7F8F3;
+  --color-nav-circle-on: #C7F464;
+  --color-nav-icon-on: #171C19;
 
   --bg: var(--color-bg);
   --surface: var(--color-surface);
@@ -58,20 +84,47 @@
   --bad: var(--color-status-not-cleared);
   --warn: var(--color-status-attention);
 
-  --type-title-1-size: 28px;
-  --type-title-1-weight: 650;
-  --type-title-1-tracking: -.3px;
-  --type-title-2-size: 22px;
-  --type-title-2-weight: 650;
-  --type-title-3-size: 17px;
-  --type-title-3-weight: 650;
-  --type-body-1-size: 16px;
-  --type-body-1-leading: 1.5;
-  --type-body-2-size: 15px;
-  --type-label-size: 13px;
-  --type-caption-size: 12px;
-  --type-numeric-size: 22px;
-  --type-numeric-weight: 650;
+  /* 32/40/700, 24/32/600, 20/28/600, 16/24/600, 16/24/400, 14/20/400, 14/20/500, 12/16/500.
+     rem follows the browser font size, so these stay 32/24/20/16/14/12 at the default 16px root. */
+  --type-t1-size: 2rem;
+  --type-t1-line: 2.5rem;
+  --type-t1-weight: 700;
+  --type-t2-size: 1.5rem;
+  --type-t2-line: 2rem;
+  --type-t2-weight: 600;
+  --type-t3-size: 1.25rem;
+  --type-t3-line: 1.75rem;
+  --type-t3-weight: 600;
+  --type-t4-size: 1rem;
+  --type-t4-line: 1.5rem;
+  --type-t4-weight: 600;
+  --type-b1-size: 1rem;
+  --type-b1-line: 1.5rem;
+  --type-b1-weight: 400;
+  --type-b2-size: 0.875rem;
+  --type-b2-line: 1.25rem;
+  --type-b2-weight: 400;
+  --type-b3-size: 0.875rem;
+  --type-b3-line: 1.25rem;
+  --type-b3-weight: 500;
+  --type-b4-size: 0.75rem;
+  --type-b4-line: 1rem;
+  --type-b4-weight: 500;
+
+  --type-title-1-size: var(--type-t1-size);
+  --type-title-1-weight: var(--type-t1-weight);
+  --type-title-1-tracking: -.02em;
+  --type-title-2-size: var(--type-t2-size);
+  --type-title-2-weight: var(--type-t2-weight);
+  --type-title-3-size: var(--type-t3-size);
+  --type-title-3-weight: var(--type-t3-weight);
+  --type-body-1-size: var(--type-b1-size);
+  --type-body-1-leading: var(--type-b1-line);
+  --type-body-2-size: var(--type-b2-size);
+  --type-label-size: var(--type-b3-size);
+  --type-caption-size: var(--type-b4-size);
+  --type-numeric-size: var(--type-t2-size);
+  --type-numeric-weight: var(--type-t2-weight);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -90,45 +143,73 @@
   --r: var(--radius-card);
 
   --icon-nav: 24px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
   --shadow-overlay: 0 10px 28px rgba(0, 0, 0, .45);
   --size-button: 48px;
   --size-chip: 36px;
   --size-nav: 64px;
   --size-avatar: 44px;
+
+  --nav-offset-bottom: 24px;
+  --nav-pad: 8px;
+  --nav-gap: 8px;
+  --nav-circle: 52px;
+  --nav-clear: calc(var(--nav-circle) + 2 * var(--nav-pad) + 2px + var(--nav-offset-bottom));
 }
 
 [data-theme="light"] {
   color-scheme: light;
-  --color-bg: #f4f4f5;
-  --color-surface: #ffffff;
-  --color-surface-2: #ececee;
-  --color-border: #d4d4d8;
-  --color-text: #0a0a0b;
-  --color-text-secondary: #3f3f46;
-  --color-text-tertiary: #52525b;
-  --color-icon: #3f3f46;
-  --color-chip: #e4e4e7;
-  --color-selected: #0a0a0b;
-  --color-on-selected: #f4f4f5;
-  --color-status-cleared: #157f3d;
-  --color-status-attention: #8a5a00;
-  --color-status-not-cleared: #b42318;
-  --color-status-unknown: #52525b;
-  --color-hover: #ececee;
-  --color-pressed: #e4e4e7;
-  --color-disabled: #71717a;
-  --color-event: #3f3f46;
-  --color-map: #e4e4e7;
-  --color-scrim: rgba(255, 255, 255, .78);
-  --color-sheet: #ffffff;
-  --color-sheet-border: #d4d4d8;
-  --color-sheet-handle: #a1a1aa;
-  --color-sheet-row: #f4f4f5;
-  --color-sheet-line: #e4e4e7;
-  --color-badge-border: #d4d4d8;
-  --color-on-selected-muted: #d4d4d8;
-  --color-status-attention-border: #8a5a00;
-  --color-status-not-cleared-border: #b42318;
+  --bg: var(--color-bg);
+  --surface: var(--color-surface);
+  --surface2: var(--color-surface-2);
+  --line: var(--color-border);
+  --t1: var(--color-text);
+  --t2: var(--color-text-secondary);
+  --t3: var(--color-text-tertiary);
+  --accent: var(--color-primary);
+  --ok: var(--color-status-cleared);
+  --bad: var(--color-status-not-cleared);
+  --warn: var(--color-status-attention);
+  --color-bg: #F7F8F3;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #E6EBE3;
+  --color-border: #D5DDD4;
+  --color-text: #171C19;
+  --color-text-secondary: #425748;
+  --color-text-tertiary: #425748;
+  --color-icon: #171C19;
+  --color-chip: #E6EBE3;
+  --color-selected: #C7F464;
+  --color-on-selected: #171C19;
+  --color-status-cleared: #0E6C72;
+  --color-status-attention: #8A5E00;
+  --color-status-not-cleared: #C2410C;
+  --color-status-unknown: #5C6B66;
+  --color-hover: #E6EBE3;
+  --color-pressed: #D5DDD4;
+  --color-disabled: #8AA396;
+  --color-focus: #171C19;
+  --color-event: #425748;
+  --color-map: #E3EAE2;
+  --color-scrim: rgba(247, 248, 243, .78);
+  --color-sheet: #FFFFFF;
+  --color-sheet-border: #D5DDD4;
+  --color-sheet-handle: #425748;
+  --color-sheet-row: #F7F8F3;
+  --color-sheet-line: #D5DDD4;
+  --color-badge-border: #D5DDD4;
+  --color-on-selected-muted: #E6EBE3;
+  --color-status-attention-border: #8A5E00;
+  --color-status-not-cleared-border: #C2410C;
+  --color-bubble: #E6EBE3;
+  --color-bubble-mine: #FFFFFF;
+  --color-nav: #FFFFFF;
+  --color-nav-border: #D5DDD4;
+  --color-nav-circle: #E6EBE3;
+  --color-nav-icon: #171C19;
+  --color-nav-circle-on: #C7F464;
+  --color-nav-icon-on: #171C19;
   background: var(--color-bg);
   color: var(--color-text);
 }

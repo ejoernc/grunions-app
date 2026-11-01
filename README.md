@@ -35,7 +35,7 @@ Before production: SMTP configured, DEV_SHOW_LINKS=0, HTTPS, DB backups (copy $D
 
 ## UI
 Templates live in ui.py (restrained dark theme: one surface, gray text, blue only for primary actions and the active tab, status shown as a small dot + label).
-Tabs: Home, Schedule, Chat, plus Admin (Check-in for active coaches, and for admins People · Transfer · Expiring · Rules · QR). The bar is the same markup on every page, 64px tall, with inline icons. Switching tabs replaces the page content and leaves the bar mounted. The document background is #0a0a0b from the first bytes, and a full load keeps the bar still with a view transition. Chat and Schedule show a red unread count. The home-screen icon uses the Badging API (`setAppBadge` / `clearAppBadge`, including from the service worker when a push arrives) for the same total. Tap a name on check-in to open its details panel.
+Tabs: Home, Lineup, Chat, plus Admin for coaches and admins. The nav is one floating pill, the same markup on every page, with Phosphor icons and no text labels. Switching tabs replaces the page content and leaves the pill mounted. The document background is #171C19 from the first bytes, and a full load keeps the pill still with a view transition. Chat and Home show an unread count. The home-screen icon uses the Badging API (`setAppBadge` / `clearAppBadge`, including from the service worker when a push arrives) for the same total. Tap a name on check-in to open its details panel.
 
 ## Verification bot API
 - Home form or admin "Ask Grunions to verify" creates a verify_requests row (pending). The Home form, if one is already pending, updates that row's member_number instead of inserting another. Admin "Ask Grunions to verify" does not create a duplicate while one is pending.
