@@ -21,21 +21,37 @@ FEED_SUBTYPES = {
     "service": ("Fundraiser", "Charity", "Volunteering", "Partnership"),
     "travel": ("Tournament", "Trip", "Invitational", "Festival"),
 }
-EVENT_TYPES = ("Tournament", "Clinic", "Trip", "Social", "Volunteer")
+EVENT_TYPES = ("Tournament", "Competition", "Clinic", "Trip", "Social", "Volunteer", "Fundraiser", "Meeting", "Other")
 MEMBER_TYPES = ("Social", "Volunteer")
+TEAM_PLAN_TYPES = ("Tournament", "Competition", "Trip", "Clinic")
+TEAM_PLANS = ("considering", "planning", "committed")
+FILTER_GROUPS = (
+    ("competitions", "Competitions", ("Tournament", "Competition")),
+    ("training", "Training", ("Clinic",)),
+    ("trips", "Trips", ("Trip",)),
+    ("community", "Community", ("Social", "Volunteer", "Fundraiser", "Meeting", "Other")),
+)
 # Canonical storage: category slug, subtype column, legacy kind.
 TYPE_STORE = {
     "Tournament": ("travel", "Tournament", "Tournament"),
+    "Competition": ("travel", "Competition", "Competition"),
     "Clinic": ("learn", "Clinic", "Clinic"),
     "Trip": ("travel", "Trip", "Trip"),
     "Social": ("social", "", "Social"),
     "Volunteer": ("service", "Volunteering", "Volunteering"),
+    "Fundraiser": ("service", "Fundraiser", "Fundraiser"),
+    "Meeting": ("club", "Meeting", "Meeting"),
+    "Other": ("social", "Other", "Other"),
 }
 _SUBTYPE_TYPE = {
     "Tournament": "Tournament", "Invitational": "Tournament", "Festival": "Tournament",
     "Clinic": "Clinic", "Workshop": "Clinic", "Speaker": "Clinic", "Rules seminar": "Clinic", "Safety": "Clinic",
     "Trip": "Trip", "Team trip": "Trip",
-    "Volunteering": "Volunteer", "Fundraiser": "Volunteer", "Charity": "Volunteer", "Partnership": "Volunteer",
+    "Volunteering": "Volunteer", "Charity": "Volunteer", "Partnership": "Volunteer",
+    "Fundraiser": "Fundraiser",
+    "Competition": "Competition", "Meet": "Competition", "Race": "Competition", "League": "Competition", "Championship": "Competition",
+    "Meeting": "Meeting", "Workshop": "Meeting",
+    "Other": "Other",
     "Happy hour": "Social", "Party": "Social", "Dinner": "Social", "Community": "Social",
     "Run": "Social", "Hike": "Social", "Ride": "Social", "Beach volleyball": "Social",
     "Open-water swim": "Social", "Coffee": "Social",
@@ -95,7 +111,7 @@ def ensure_schema(d):
                  ("skill_levels", "TEXT"), ("divisions", "TEXT"), ("division_custom", "TEXT"),
                  ("comp_format", "TEXT"), ("sport", "TEXT"),
                  ("date_precision", "TEXT"), ("date_part", "TEXT"), ("host_org", "TEXT"),
-                 ("event_type", "TEXT"), ("lat", "REAL"), ("lng", "REAL")):
+                 ("event_type", "TEXT"), ("lat", "REAL"), ("lng", "REAL"), ("team_plan", "TEXT")):
         if c not in cols:
             d.execute("ALTER TABLE lineup_events ADD COLUMN %s %s" % (c, t))
     d.execute("UPDATE lineup_events SET date_precision='exact' WHERE date_precision IS NULL OR trim(date_precision)=''")
@@ -123,6 +139,11 @@ def ensure_schema(d):
         d.execute("""UPDATE lineup_events SET category_id=?, subtype=?, official=1, status='published',
             team_intent=?, start_time=COALESCE(NULLIF(trim(start_time),''), ?) WHERE id=?""",
             (ids.get(slug), sub, intent, start or "09:00", row["id"]))
+    d.execute("""UPDATE lineup_events SET team_plan='committed',
+        status=CASE WHEN status IS NULL OR trim(status)='' OR status='draft' THEN 'published' ELSE status END
+        WHERE team_intent='official' AND (team_plan IS NULL OR trim(team_plan)='')""")
+    d.execute("""UPDATE lineup_events SET team_plan='considering'
+        WHERE team_intent='considering' AND (team_plan IS NULL OR trim(team_plan)='')""")
     d.execute("""UPDATE lineup_rsvps SET state=CASE
         WHEN going=1 AND event_id IN (SELECT id FROM lineup_events WHERE team_intent='considering' OR stage='interest') THEN 'interested'
         WHEN going=1 THEN 'going' ELSE 'notgoing' END
@@ -166,6 +187,45 @@ def filter_type(cat):
     """Feed filter accepts a type name or an older category slug."""
     if cat in EVENT_TYPES: return cat
     return _SLUG_TYPE.get(cat, "")
+
+
+def filter_group(name):
+    """Discovery chips: Competitions, Training, Trips, Community."""
+    for slug, _label, types in FILTER_GROUPS:
+        if name == slug: return slug, types
+    return "", ()
+
+
+def hosting_label(value):
+    """Attending replaced Away. Hosting is unchanged."""
+    v = (value or "").strip()
+    if v in ("Away", "Attending"): return "Attending"
+    if v == "Hosting": return "Hosting"
+    return ""
+
+
+def normalize_hosting(value, default="Attending"):
+    label = hosting_label(value)
+    return label or default
+
+
+def team_plan_for(event_type, team_intent, form, existing=None):
+    """Team plan is separate from publication. Only competitions, trips, and clinics have one."""
+    if event_type not in TEAM_PLAN_TYPES:
+        return ""
+    posted = ""
+    if form is not None:
+        posted = (form.get("team_plan") or "").strip()
+    if posted in TEAM_PLANS:
+        return posted
+    if team_intent == "official":
+        return "committed"
+    if team_intent == "considering":
+        return "considering"
+    if existing is not None and "team_plan" in existing.keys():
+        prev = (existing["team_plan"] or "").strip()
+        if prev in TEAM_PLANS: return prev
+    return ""
 
 
 def event_type_from_parts(slug="", subtype="", kind="", stored=""):
@@ -277,12 +337,11 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
     link = (form.get("link") or "").strip()[:500]
     if link and not link.lower().startswith(("http://", "https://")):
         raise ValueError("Link must start with http:// or https://.")
-    hosting = (form.get("hosting") or "").strip()
     if explicit_type or cat["hosting_ok"]:
-        if hosting not in ("Away", "Hosting"): hosting = (existing["hosting"] if existing and existing["hosting"] in ("Away", "Hosting") else "Away")
+        hosting = normalize_hosting(form.get("hosting"), normalize_hosting(existing["hosting"]) if existing else "Attending")
     else:
-        hosting = existing["hosting"] if existing and existing["hosting"] in ("Away", "Hosting") else "Away"
-    host_org = _words(form.get("host_org"), 80) if hosting == "Away" and (explicit_type or cat["hosting_ok"]) else ""
+        hosting = normalize_hosting(existing["hosting"]) if existing else "Attending"
+    host_org = _words(form.get("host_org"), 80) if hosting == "Attending" and (explicit_type or cat["hosting_ok"]) else ""
     details = (form.get("details") or "").strip()[:2000]
     cost = _words(form.get("cost"), 80)
     cap_raw = (form.get("capacity") or "").strip()
@@ -296,7 +355,7 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
         if not deadline: raise ValueError("Registration deadline must be a date.")
         deadline = deadline.isoformat()
     review_note = existing["review_note"] if existing else ""
-    featured = 0
+    featured = 1 if existing and existing["featured"] else 0
     if not organizer:
         official, team_intent, host_id = 0, "", actor["id"]
         if existing and (existing["status"] or "") == "published":
@@ -342,10 +401,17 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
         if posted in ("considering", "official"): team_intent = posted
         elif mode == "propose": team_intent = "considering"
         else: team_intent = "official"
-    if organizer and status == "published" and form.get("featured") == "1":
+    if form.get("pin_present") == "1":
+        featured = 1 if organizer and status == "published" and form.get("featured") == "1" else 0
+    elif organizer and form.get("featured") == "1" and status == "published":
         featured = 1
     if existing and organizer and action not in ("draft", "cancel") and (existing["status"] or "") == "published" and status == "published":
         pass
+    plan = team_plan_for(event_type, team_intent, form, existing)
+    if plan == "committed":
+        team_intent = "official"
+    elif plan in ("considering", "planning"):
+        team_intent = "considering"
     kind, stage = legacy_kind(cat, subtype, team_intent)
     submitted = None
     if status == "pending":
@@ -367,12 +433,12 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
             or prev_precision != precision or prev_part != part)
     vals = (cat["id"], subtype, title, day.isoformat(), end.isoformat(), start_time, end_time, city, location,
             description, link, hosting, kind, stage, official, team_intent, status, host_id, actor["id"] if not existing else existing["created_by"],
-            banner_name, capacity, cost, details, deadline, review_note or "", submitted, featured, precision, part, host_org, event_type)
+            banner_name, capacity, cost, details, deadline, review_note or "", submitted, featured, precision, part, host_org, event_type, plan)
     if existing:
         d.execute("""UPDATE lineup_events SET category_id=?, subtype=?, title=?, date=?, end_date=?, start_time=?, end_time=?,
             city=?, venue=?, description=?, link=?, hosting=?, kind=?, stage=?, official=?, team_intent=?, status=?, host_id=?,
             created_by=?, banner=?, capacity=?, cost=?, details=?, reg_deadline=?, review_note=?, submitted_at=?, featured=?,
-            date_precision=?, date_part=?, host_org=?, event_type=? WHERE id=?""",
+            date_precision=?, date_part=?, host_org=?, event_type=?, team_plan=? WHERE id=?""",
             (*vals, existing["id"]))
         eid = existing["id"]
         if (existing["venue"] or "") != location or (existing["city"] or "") != city:
@@ -380,8 +446,8 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
     else:
         eid = d.execute("""INSERT INTO lineup_events(category_id, subtype, title, date, end_date, start_time, end_time,
             city, venue, description, link, hosting, kind, stage, official, team_intent, status, host_id, created_by,
-            banner, capacity, cost, details, reg_deadline, review_note, submitted_at, featured, date_precision, date_part, host_org, event_type)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", vals).lastrowid
+            banner, capacity, cost, details, reg_deadline, review_note, submitted_at, featured, date_precision, date_part, host_org, event_type, team_plan)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", vals).lastrowid
     became_pending = status == "pending" and (not existing or (existing["status"] or "") != "pending")
     promoted = team_intent == "official" and existing and (existing["team_intent"] or "") == "considering"
     return {"id": eid, "status": status, "submitted": became_pending, "date_changed": bool(date_changed),
@@ -427,7 +493,7 @@ def form_values(form=None, row=None, cat_slug="", mode="create"):
     if form is not None:
         return {"mode": mode, "category": form.get("category") or cat_slug, "subtype": form.get("subtype") or "",
             "event_type": event_type,
-            "hosting": form.get("hosting") or "Away", "title": form.get("title") or "", "date": form.get("date") or "",
+            "hosting": normalize_hosting(form.get("hosting")), "title": form.get("title") or "", "date": form.get("date") or "",
             "end_date": form.get("end_date") or "", "start_time": form.get("start_time") or "", "end_time": form.get("end_time") or "",
             "date_precision": precision, "month": month, "date_part": part,
             "host_org": form.get("host_org") or "",
@@ -437,7 +503,7 @@ def form_values(form=None, row=None, cat_slug="", mode="create"):
             "team_intent": form.get("team_intent") or ("considering" if mode == "propose" else ""), "official": form.get("official") or "", "featured": form.get("featured") or ""}
     if row:
         return {"mode": mode, "category": cat_slug, "subtype": row["subtype"] or "", "event_type": event_type,
-            "hosting": row["hosting"] or "Away",
+            "hosting": normalize_hosting(row["hosting"]),
             "title": row["title"] or "", "date": row["date"] or "", "end_date": row["end_date"] or "",
             "start_time": row["start_time"] or "", "end_time": row["end_time"] or "",
             "date_precision": precision, "month": month, "date_part": part,
@@ -449,7 +515,7 @@ def form_values(form=None, row=None, cat_slug="", mode="create"):
     intent = "considering" if mode == "propose" else ""
     return {"mode": mode, "category": "travel" if mode == "propose" else cat_slug, "subtype": "Tournament" if mode == "propose" else "",
         "event_type": event_type,
-        "hosting": "Away", "title": "", "date": "", "end_date": "", "start_time": "", "end_time": "",
+        "hosting": "Attending", "title": "", "date": "", "end_date": "", "start_time": "", "end_time": "",
         "date_precision": "exact", "month": "", "date_part": "", "host_org": "", "location": "", "city": "",
         "description": "", "link": "", "details": "", "cost": "", "capacity": "", "reg_deadline": "",
         "team_intent": intent, "official": "1" if mode in ("create", "propose") else "", "featured": ""}

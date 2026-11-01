@@ -161,6 +161,18 @@ def activity_title(activity, opponent="", segments="", custom=""):
     return "Practice"
 
 
+def session_title(sport, activity, opponent="", segments="", custom=""):
+    """Live team-schedule title. A custom title wins. Empty falls back to Sport + type."""
+    custom = " ".join(str(custom or "").split())[:120]
+    if custom: return custom
+    kind = str(activity or "practice").strip().lower()
+    if kind not in ACTIVITY_IDS: kind = "practice"
+    if kind == "hybrid":
+        return activity_title(kind, opponent, segments, "")
+    name = " ".join(str(sport or "").split()) or "Water Polo"
+    return "%s %s" % (name, ACTIVITY_NAME.get(kind, "Practice"))
+
+
 def sports_line(levels, divisions, custom="", comp=""):
     """One subtle line. Empty when nothing is set."""
     parts = [levels_label(levels), divisions_label(divisions, custom), format_label(comp)]
@@ -188,13 +200,13 @@ def sports_from_form(form):
     side = str(_get(form, "home_away") or "").strip().lower()
     if side not in ("home", "away"): side = ""
     segments = pack_segments(_getlist(form, "segment_type"), _getlist(form, "segment_start"), _getlist(form, "segment_end"))
-    title = " ".join(str(_get(form, "title") or "").split())[:120]
-    derived = activity_title(activity, opponent, segments, "")
-    if title == derived: title = ""
     comp = pack_format(_get(form, "comp_format"))
     if activity != "game": comp = ""
     divs, custom = pack_divisions(_getlist(form, "division"), _get(form, "division_custom"))
     sport = " ".join(str(_get(form, "sport") or "").split())[:40] or "Water Polo"
+    title = " ".join(str(_get(form, "title") or "").split())[:120]
+    derived = session_title(sport, activity, opponent, segments, "")
+    if title == derived or title == activity_title(activity, opponent, segments, ""): title = ""
     return {
         "activity_type": activity,
         "sport": sport,

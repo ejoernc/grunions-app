@@ -17,8 +17,12 @@ BASE = """<!doctype html><html lang=en style="background:#090D0B;color-scheme:da
 <style>{{ foundation_css|safe }}
 html,body{background:var(--color-bg);color:var(--color-text)}html{color-scheme:dark}
 @view-transition{navigation:auto}
-::view-transition-old(root),::view-transition-new(root){animation-duration:0s;mix-blend-mode:normal}
+::view-transition{background:#090D0B}
+::view-transition-group(root){animation:none;background:#090D0B}
+::view-transition-image-pair(root){isolation:auto}
+::view-transition-old(root),::view-transition-new(root){animation:none;animation-duration:0s;mix-blend-mode:normal}
 ::view-transition-group(grunions-nav),::view-transition-old(grunions-nav),::view-transition-new(grunions-nav){animation:none;mix-blend-mode:normal}
+::view-transition-group(grunions-header),::view-transition-old(grunions-header),::view-transition-new(grunions-header){animation:none;mix-blend-mode:normal}
 [hidden]{display:none!important}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--color-bg);color:var(--t1);font:var(--type-body-1-size)/var(--type-body-1-leading) var(--font-sans);overflow-wrap:break-word}
@@ -51,7 +55,8 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:var(--ty
 .nxicon{width:40px;height:40px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--color-icon)}
 .nxicon svg{display:block}
 .joinpill{flex:none}
-header.homehead{position:sticky;top:0;z-index:8;background:var(--color-bg);align-items:center;gap:var(--space-3);min-height:calc(76px + env(safe-area-inset-top));box-sizing:border-box;padding:calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) var(--space-4)}
+header.homehead{position:sticky;top:0;z-index:8;background:var(--color-bg);align-items:center;gap:var(--space-3);min-height:calc(76px + env(safe-area-inset-top));box-sizing:border-box;padding:calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) var(--space-4);border:0;box-shadow:none;view-transition-name:grunions-header}
+body:not(.homefull) header.homehead::before,body.homefull header.homehead.solid::before,header.profilebar::before{content:"";position:absolute;left:0;right:0;top:-2px;bottom:-1px;background:var(--color-bg);z-index:-1;pointer-events:none}
 header.homehead .headmain{flex:1;min-width:0;display:flex;align-items:center;padding-right:0}
 header.homehead h1{margin:0;font-size:var(--type-t2-size);line-height:var(--type-t2-line);font-weight:var(--type-t2-weight);letter-spacing:-.02em}
 header.homehead .headtabs{flex:1;min-width:0;margin:0;padding:0}
@@ -109,7 +114,7 @@ body.homefull header.homehead{position:sticky;top:0;z-index:8;background:transpa
 body.homefull header.homehead.solid{background:var(--color-bg)}
 body.homefull main{position:relative;z-index:1;padding:0 16px calc(var(--nav-clear) + 16px + env(safe-area-inset-bottom))}
 body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:0;height:auto;margin:0;z-index:0;border-radius:0;pointer-events:none}
-body.homefull .homedock{position:relative;left:auto;right:auto;bottom:auto;z-index:2;max-height:none;overflow:visible;pointer-events:auto;margin:0;padding:0 0 12px;min-height:calc(100dvh - var(--homehead, 76px) - var(--homealerts, 0px) - var(--nav-clear) - env(safe-area-inset-bottom) - var(--peek, 60px));display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
+body.homefull .homedock{position:relative;left:auto;right:auto;bottom:auto;z-index:2;max-height:none;overflow:visible;pointer-events:auto;margin:0;padding:0 0 12px;min-height:calc(100dvh - var(--homehead, 76px) - var(--homealerts, 0px) - var(--nav-clear) - env(safe-area-inset-bottom) - var(--peek, 24px));display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
 body.homefull .schedlist{position:relative;z-index:2}
 .schedsame{display:none}
 header.homehead .titlestack{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px}
@@ -128,7 +133,7 @@ body.schedopen .homemap{opacity:0}
 @media (prefers-reduced-motion:reduce){body.homefull .homemap{transition:none}}
 body.homefull .homemap .leaflet-marker-icon,body.homefull .homemap .leaflet-control-attribution{pointer-events:auto}
 body.profilepage main{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
-header.profilebar{position:sticky;top:0;z-index:5;background:var(--color-bg);display:grid;grid-template-columns:88px 1fr 88px;grid-template-rows:44px;align-items:center;padding:env(safe-area-inset-top) 6px 0;box-sizing:border-box;min-height:44px}
+header.profilebar{position:sticky;top:0;z-index:5;background:var(--color-bg);display:grid;grid-template-columns:88px 1fr 88px;grid-template-rows:44px;align-items:center;padding:env(safe-area-inset-top) 6px 0;box-sizing:border-box;min-height:44px;border:0;box-shadow:none;view-transition-name:grunions-header}
 header.profilebar h1{margin:0;text-align:center;font-size:var(--type-t4-size);font-weight:var(--type-t4-weight);line-height:44px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header.profilebar .left,header.profilebar .right{display:flex;align-items:center;height:44px;min-width:0}
 header.profilebar .left{justify-self:start;justify-content:flex-start}header.profilebar .right{justify-self:end;justify-content:flex-end}
@@ -385,6 +390,12 @@ span.avatar.ciav,span.avatar.ciav img{width:40px;height:40px;min-width:40px;max-
 .filt{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
 .filt.chiprow,.fchips.chiprow{flex-wrap:nowrap;margin-inline:-20px;padding:6px 20px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;touch-action:pan-x;scroll-padding-inline:20px}
 .lineupfilt.chiprow{margin-bottom:16px}
+.planask{margin:0 0 16px;font-size:var(--type-title-1-size);font-weight:var(--type-title-1-weight);letter-spacing:var(--type-title-1-tracking)}
+.planlane{display:flex;flex-direction:column;gap:12px}
+.planlane .card h2{margin:0 0 4px;font-size:1.0625rem;font-weight:650}
+.planlane .card p{margin:0 0 12px}
+.planlinks{display:flex;flex-wrap:wrap;gap:8px}
+.planlinks a.chip{text-decoration:none}
 .fchips.chiprow{margin-top:10px;margin-bottom:0}
 .profilehero .profswitch.chiprow{align-self:stretch;margin-top:16px;margin-bottom:8px;margin-inline:-20px}
 .filt button.chip:disabled{opacity:.4;color:var(--t3);cursor:default;pointer-events:none}
@@ -536,9 +547,43 @@ dialog.memberedit .help a{color:var(--t1)}
 {% elif not cl.ok %}{% set ns.tone = 'bad' %}{% set ns.word = 'Not cleared' %}
 {% elif ns.rest %}{% set ns.tone = 'warn' %}{% set ns.word = 'Expiring soon' %}{% endif %}
 {% set thru = '' %}{% if not (tw and tw.active and r.usawp_status != 'verified') and r.usawp_valid_until and (dl is none or dl < 0 or dl > EXPIRING_DAYS) %}{% set thru = ' · thru ' ~ fmt_long(r.usawp_valid_until) %}{% endif %}
-{% set n = r['visits'] if 'visits' in r.keys() else 0 %}
-<span class="psub ell st-{{ ns.tone }}"><span class=stword>{{ ns.word }}</span><span class=strest>{{ ns.rest }}{{ thru }} · {{ n }} practice{{ '' if n == 1 else 's' }}</span></span>{% endmacro %}
+{% set detail = (ns.rest or '') ~ thru %}
+<span class="psub ell st-{{ ns.tone }}"><span class=stword>{{ ns.word }}</span>{% if detail %}<span class=strest>{{ detail }}</span>{% endif %}</span>{% endmacro %}
 {% macro person_link(r) %}<a class=ci-name href="/admin/member/{{ r.id }}">{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ person_sub(r) }}{{ caller() }}</span></a>{% endmacro %}
+{% macro event_chooser(staff) %}
+<p class=planask>What are you planning?</p>
+<div class=planlane>
+{% if staff %}<div class=card>
+<h2>Team schedule</h2>
+<p class="t3 sm">Practice, scrimmage, and game. Shows on Home.</p>
+<div class=planlinks>
+<a class=chip href="/events/new?type=practice">Practice</a>
+<a class=chip href="/events/new?type=scrimmage">Scrimmage</a>
+<a class=chip href="/events/new?type=game">Game</a>
+</div>
+</div>{% endif %}
+<div class=card>
+<h2>Lineup event</h2>
+<p class="t3 sm">Tournaments, trips, and community events. Shows on Lineup.</p>
+<div class=planlinks>
+{% if staff %}
+<a class=chip href="/lineup/new?mode=create&amp;event_type=Tournament">Tournament</a>
+<a class=chip href="/lineup/new?mode=create&amp;event_type=Competition">Competition</a>
+<a class=chip href="/lineup/new?mode=create&amp;event_type=Clinic">Clinic/Camp</a>
+<a class=chip href="/lineup/new?mode=create&amp;event_type=Trip">Trip</a>
+<a class=chip href="/lineup/new?mode=create&amp;event_type=Social">Social/Activity</a>
+<a class=chip href="/lineup/new?mode=create&amp;event_type=Volunteer">Volunteer</a>
+<a class=chip href="/lineup/new?mode=create&amp;event_type=Fundraiser">Fundraiser</a>
+<a class=chip href="/lineup/new?mode=create&amp;event_type=Meeting">Meeting/Workshop</a>
+<a class=chip href="/lineup/new?mode=create&amp;event_type=Other">Other</a>
+{% else %}
+<a class=chip href="/lineup/new?mode=suggest&amp;event_type=Social">Social/Activity</a>
+<a class=chip href="/lineup/new?mode=suggest&amp;event_type=Volunteer">Volunteer</a>
+{% endif %}
+</div>
+</div>
+</div>
+{% endmacro %}
 {% macro detail_hiddens(r) %}{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}{% endmacro %}
 {% macro cred_side(iso) %}{% if iso %}<span class=cred><span class="dot {{ date_dot(iso) }}" aria-hidden=true></span>{{ fmt_long(iso) }}</span>{% else %}<span class=t3>Not on file</span>{% endif %}{% endmacro %}
 {% macro date_field(label, name, value) %}<label class="datefield{% if not value %} empty{% endif %}">{{ label }}<input type=date name={{ name }} value="{{ value or '' }}"><span class=dateph>Not on file · add date</span></label>{% endmacro %}
@@ -644,7 +689,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs chiprow" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs chiprow" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a>{% endif %}{% if can_host_practice() %}<a href=/admin/approvals class="chip{{' chip-active on' if ep=='approvals'}}">Events</a>{% endif %}{% if me().is_admin %}<a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div>{% if tab == 'lineup' %}<a class=headplus href="/lineup/new?mode=propose" aria-label="Propose an opportunity"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}<a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs chiprow" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs chiprow" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a>{% endif %}{% if can_host_practice() %}<a href=/admin/approvals class="chip{{' chip-active on' if ep=='approvals'}}">Events</a>{% endif %}{% if me().is_admin %}<a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div>{% if tab == 'lineup' %}<a class=headplus href="/events/new" aria-label="Create event"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}<a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -688,7 +733,7 @@ def _nav_icon(key):
 
 _HOME_ON = "tab=='home' or tab=='practices' or tab=='practice' or tab=='series_edit'"
 _LINEUP_ON = "tab=='lineup' or tab=='lineup_edit' or tab=='lineup_event'"
-TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav class="tabs noprint" data-total="{{ badges().total }}">"""
+TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab != 'event_new' %}<nav class="tabs noprint" data-total="{{ badges().total }}">"""
  + _nav_anchor("home", "/home", "Home", _HOME_ON, "schedule")
  + _nav_anchor("lineup", "/lineup", "Lineup", _LINEUP_ON)
  + _nav_anchor("chat", "/chat", "Chat", "tab=='chat'", "chat")
@@ -697,7 +742,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=64');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=65');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -812,7 +857,7 @@ window.grunionsMountMap=function(el, opts){
     map.setView([pool.lat, pool.lng], z, {animate:false});
     var pt=map.latLngToContainerPoint([pool.lat, pool.lng]);
     var targetX=el.clientWidth/2;
-    var targetY=padTop+(el.clientHeight-padTop-padBottom)/3;
+    var targetY=(cardTop*5/12)-box.top;
     map.panBy([pt.x-targetX, pt.y-targetY], {animate:false});
    }
    function fits(){
@@ -854,6 +899,7 @@ function grunionsApply(html,url,pop){
  grunionsClearPage();
  var scripts=[].slice.call(newMain.querySelectorAll('script'));
  scripts.forEach(function(s){if(s.parentNode) s.parentNode.removeChild(s);});
+ if(doc.body) document.body.className=doc.body.className;
  var main=document.querySelector('main');
  main.replaceChildren.apply(main, [].slice.call(newMain.childNodes));
  grunionsSyncNav(newNav);
@@ -861,7 +907,6 @@ function grunionsApply(html,url,pop){
  if(nextHead&&curHead&&curHead.outerHTML!==nextHead.outerHTML) curHead.replaceWith(nextHead);
  else if(nextHead&&!curHead) document.body.insertBefore(nextHead, document.querySelector('main'));
  document.title=doc.title||document.title;
- if(doc.body) document.body.className=doc.body.className;
  if(!pop) history.pushState({grunions:1},'',url);
  grunionsRunScripts(scripts);
  if(window.grunionsPinHead) grunionsPinHead();
@@ -1079,11 +1124,17 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
   document.documentElement.style.setProperty('--homealerts', ((alertsEl&&alertsEl.offsetHeight)||0)+'px');
   if(!card||!dock) return;
   var nav=document.querySelector('nav.tabs');
-  var navTop=nav?nav.getBoundingClientRect().top:(window.innerHeight-64);
-  var want=Math.round(card.offsetHeight*0.25);
-  document.documentElement.style.setProperty('--peek', want+'px');
+  var gap=24;
+  var root=getComputedStyle(document.documentElement);
+  var offset=parseFloat(root.getPropertyValue('--nav-offset-bottom'))||24;
+  var navH=nav?nav.getBoundingClientRect().height:((parseFloat(root.getPropertyValue('--nav-circle'))||52)+(parseFloat(root.getPropertyValue('--nav-pad'))||8)*2+2);
+  var safe=0;
+  if(nav) safe=Math.max(0, window.innerHeight-nav.getBoundingClientRect().bottom-offset);
+  else { var probe=document.createElement('div'); probe.style.cssText='position:fixed;left:0;bottom:0;width:0;height:0;padding-bottom:env(safe-area-inset-bottom);pointer-events:none;visibility:hidden'; document.body.appendChild(probe); safe=probe.offsetHeight; probe.remove(); }
+  var navTop=window.innerHeight-safe-offset-navH;
+  document.documentElement.style.setProperty('--peek', gap+'px');
   var top=card.getBoundingClientRect().top+window.scrollY;
-  var delta=(navTop-want)-top;
+  var delta=(navTop-gap)-top;
   dock.style.minHeight=Math.max(0, Math.round(dock.offsetHeight+delta))+'px';
   if(window.grunionsPlaceMap) window.grunionsPlaceMap();
  }
@@ -1137,7 +1188,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
 <p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p>
 <div class=stats><div class=stattile><b>{{ hist|length }}</b><span>Attended</span></div><div class=stattile><b>{{ nmonth }}</b><span>This month</span></div></div>
-<nav class="filt profswitch chiprow" aria-label="Profile"><a class="chip{{ ' chip-active on' if ptab == 'general' }}" href="/profile?tab=general">General</a><a class="chip{{ ' chip-active on' if ptab == 'interested' }}" href="/profile?tab=interested">Interested</a>{% if hosts %}<a class="chip{{ ' chip-active on' if ptab == 'mine' }}" href="/profile?tab=mine">My events</a>{% endif %}</nav>
+<nav class="filt profswitch chiprow" aria-label="Profile"><a class="chip{{ ' chip-active on' if ptab == 'general' }}" href="/profile?tab=general">General</a><a class="chip{{ ' chip-active on' if ptab == 'lineup' }}" href="/profile?tab=lineup">My Lineup</a>{% if hosts %}<a class="chip{{ ' chip-active on' if ptab == 'hosting' }}" href="/profile?tab=hosting">Hosting</a>{% endif %}</nav>
 </div>
 </form>
 {% if ptab == 'general' %}
@@ -1544,8 +1595,8 @@ _PRACTICE_JS = """<script>
 
 _RSVP_CHECK = '<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>'
 T["lineup"] = """{% macro lineup_months(groups) %}{% for g in groups %}<h2 class=lineupmonth>{{ g.label }}</h2>{% for e in g.events %}{{ lineup_card(e) }}{% endfor %}{% endfor %}{% endmacro %}
-<div class="filt lineupfilt chiprow" role=group aria-label="Type"><a class="chip{{ ' chip-active on' if not cat }}" href=/lineup>All</a>{% for name in filter_types %}<a class="chip{{ ' chip-active on' if cat == name }}" href="/lineup?cat={{ name }}">{{ name }}</a>{% endfor %}</div>
-{% if featured %}<h2 class=lineupmonth>Featured</h2>{% for e in featured %}{{ lineup_card(e) }}{% endfor %}{% endif %}
+<div class="filt lineupfilt chiprow" role=group aria-label="Type"><a class="chip{{ ' chip-active on' if not group }}" href=/lineup>All</a>{% for slug, label in filter_groups %}<a class="chip{{ ' chip-active on' if group == slug }}" href="/lineup?group={{ slug }}">{{ label }}</a>{% endfor %}</div>
+{% if featured %}<h2 class=lineupmonth>Pinned</h2>{% for e in featured %}{{ lineup_card(e) }}{% endfor %}{% endif %}
 {% if empty_public %}<p class=emptyfind>Nothing on the Lineup yet.</p>{% endif %}
 {{ lineup_months(upcoming) }}
 {% if past %}<details class=lineuppast><summary>Past <span class=t3>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}"""
@@ -1599,39 +1650,19 @@ T["approvals"] = """<h1>Events</h1>
 <label style="margin-top:12px">Note<textarea name=note rows=2 placeholder="Needed for changes or a decline"></textarea></label>
 <div class=row><button class="btn btn-secondary" name=action value=changes>Request Changes</button><button class="btn btn-danger" name=action value=decline>Decline</button></div>
 </form></div>{% endfor %}{% endif %}
-<div class="t3 xs">Create</div>
-<div class=actseg id=createKind role=radiogroup aria-label=Type>
-<label><input type=radio name=create_kind value=practice checked><span>Practice</span></label>
-<label><input type=radio name=create_kind value=scrimmage><span>Scrimmage</span></label>
-<label><input type=radio name=create_kind value=Clinic><span>Clinic</span></label>
-<label><input type=radio name=create_kind value=Tournament><span>Tournament</span></label>
-<label><input type=radio name=create_kind value=Trip><span>Trip</span></label>
-<label><input type=radio name=create_kind value=Social><span>Social</span></label>
-<label><input type=radio name=create_kind value=Volunteer><span>Volunteer</span></label>
-</div>
-<form id=sessionForm method=post action=/admin/approvals>{{ csrf_field() }}<input type=hidden name=action value=create_session><input type=hidden name=activity_type id=sessionKind value=practice>
+{{ event_chooser(true) }}
+{% for g in groups %}<h2>{{ g.label }}</h2><div class=list>{% for item in g['items'] %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endfor %}
+{% if not groups and not queue %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
+T["event_new"] = """{% if show_form %}
+<form id=planForm method=post action=/events/new>{{ csrf_field() }}
+<input type=hidden name=action value=create_schedule>
+<input type=hidden name=activity_type value="{{ activity }}">
+<p class="t3 sm">Shows on Home as {{ live_title }}.</p>
 <label>Date<input type=date name=date required></label>
 <div class=row><label>Start<input type=time name=start value=19:00 required></label><label>End<input type=time name=end value=20:30 required></label></div>
 <label>Location<input name=location required autocomplete=off></label>
-<button class="btn btn-primary full">Create</button></form>
-<a id=lineupCreate class="btn btn-primary full" hidden href="/lineup/new?mode=create&amp;event_type=Clinic">Create</a>
-<script>(function(){
- var form=document.getElementById('sessionForm'), link=document.getElementById('lineupCreate'), kind=document.getElementById('sessionKind');
- var session={practice:1,scrimmage:1};
- function sync(){
-  var on=document.querySelector('input[name=create_kind]:checked');
-  var value=on?on.value:'practice';
-  var local=!!session[value];
-  form.hidden=!local; link.hidden=local;
-  if(local) kind.value=value;
-  else link.href='/lineup/new?mode=create&event_type='+encodeURIComponent(value);
-  link.textContent='Create '+value;
- }
- document.querySelectorAll('input[name=create_kind]').forEach(function(r){r.addEventListener('change', sync)});
- sync();
-})();</script>
-{% for g in groups %}<h2>{{ g.label }}</h2><div class=list>{% for item in g['items'] %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endfor %}
-{% if not groups and not queue %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
+</form>
+{% else %}{{ event_chooser(staff) }}{% endif %}"""
 T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" enctype=multipart/form-data>{{ csrf_field() }}
 <input type=hidden name=mode value="{{ values.mode or mode }}">
 <button type=submit name=action value=save style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" tabindex=-1>{{ save_label or 'Save' }}</button>
@@ -1646,7 +1677,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <label>Type<select name=event_type id=lineType>{% for name in event_types %}<option value="{{ name }}" {% if values.event_type == name %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
 <div class="t3 xs">Where</div>
 <div class=actseg id=lineHost role=radiogroup aria-label=Where>
-<label><input type=radio name=hosting value=Away {% if values.hosting != 'Hosting' %}checked{% endif %}><span>Away</span></label>
+<label><input type=radio name=hosting value=Attending {% if values.hosting != 'Hosting' %}checked{% endif %}><span>Attending</span></label>
 <label><input type=radio name=hosting value=Hosting {% if values.hosting == 'Hosting' %}checked{% endif %}><span>Hosting</span></label>
 </div>
 <label id=lineOrg {% if values.hosting == 'Hosting' %}hidden{% endif %}>Host organization<input name=host_org value="{{ values.host_org }}" placeholder="IGLA+" autocomplete=off></label>
@@ -1682,7 +1713,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <label>Estimated cost<input name=cost value="{{ values.cost }}" autocomplete=off></label>
 <label>Register by<input type=date name=reg_deadline value="{{ values.reg_deadline }}"></label>
 <label>Extra details<textarea name=details rows=3>{{ values.details }}</textarea></label>
-{% if organizer %}<label><input type=checkbox name=featured value=1 {% if values.featured == '1' %}checked{% endif %}> Feature on the Lineup</label>{% endif %}
+{% if me().is_admin %}<input type=hidden name=pin_present value=1><label><input type=checkbox name=featured value=1 {% if values.featured == '1' %}checked{% endif %}> Pin</label>{% endif %}
 </details>
 {% if organizer and not event_id %}<button class="btn btn-secondary full" name=action value=draft>Save draft</button>{% endif %}
 {% if show_cancel %}<button class="btn btn-danger full" name=action value=cancel onclick="return confirm('Cancel this event?')">Cancel event</button>{% endif %}

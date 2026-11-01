@@ -224,6 +224,7 @@ def migrate_lineup(d):
         if pair:
             d.execute("UPDATE lineup_events SET hosting=?, kind=? WHERE id=?", (pair[0], pair[1], row[0]))
     d.execute("UPDATE lineup_events SET hosting='Away' WHERE hosting IS NULL OR trim(hosting)=''")
+    d.execute("UPDATE lineup_events SET hosting='Attending' WHERE hosting='Away'")
     d.execute("UPDATE lineup_events SET stage='going' WHERE stage='attending' AND kind IN ('Tournament', 'Clinic')")
     d.execute("UPDATE lineup_events SET stage='attending' WHERE kind IN ('Social', 'Volunteering')")
     d.execute("UPDATE lineup_events SET stage='interest' WHERE (stage IS NULL OR trim(stage)='') AND kind IN ('Tournament', 'Clinic')")
@@ -962,13 +963,13 @@ def profile():
     hist = d.execute("SELECT practice_date FROM checkins WHERE member_id=?", (m["id"],)).fetchall()
     month = today_pt().strftime("%Y-%m")
     vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
-    ptab = (request.args.get("tab") or "general").strip()
-    if ptab not in ("general", "interested", "mine"): ptab = "general"
+    ptab = {"interested": "lineup", "mine": "hosting"}.get((request.args.get("tab") or "general").strip(), (request.args.get("tab") or "general").strip())
+    if ptab not in ("general", "lineup", "hosting"): ptab = "general"
     hosts = d.execute("SELECT 1 FROM lineup_events WHERE created_by=? OR host_id=? LIMIT 1", (m["id"], m["id"])).fetchone() is not None
-    if ptab == "mine" and not hosts: ptab = "general"
+    if ptab == "hosting" and not hosts: ptab = "general"
     prof_upcoming, prof_past, prof_past_n = ([], [], 0)
-    if ptab in ("interested", "mine"):
-        prof_upcoming, prof_past, prof_past_n = profile_lineup(d, m["id"], ptab)
+    if ptab in ("lineup", "hosting"):
+        prof_upcoming, prof_past, prof_past_n = profile_lineup(d, m["id"], "mine" if ptab == "hosting" else "interested")
     return page(T["profile"], tab="profile", m=m, hist=hist, nmonth=sum(1 for h in hist if h["practice_date"].startswith(month)), vr_pending=vr_pending,
         ptab=ptab, hosts=hosts, prof_upcoming=prof_upcoming, prof_past=prof_past, prof_past_n=prof_past_n, prof_back="/profile?tab=" + ptab)
 
@@ -1506,10 +1507,10 @@ def fmt_card_date(s):
     """Tue, Nov 3. The comma sits on the Home time row."""
     d = dt.date.fromisoformat(str(s)[:10]); return d.strftime("%a, %b ") + str(d.day)
 def practice_title(p):
-    """Label from the activity type. A custom title wins. Unset rows are Practice."""
-    if not p: return "Practice"
+    """Live title is Sport + type. A custom title wins. Unset rows are Water Polo Practice."""
+    if not p: return "Water Polo Practice"
     data = sports.sports_from_row(p)
-    return sports.activity_title(data["activity_type"], data["opponent"], data["segments"], data["title"])
+    return sports.session_title(data["sport"], data["activity_type"], data["opponent"], data["segments"], data["title"])
 def practice_sports_line(p):
     if not p: return ""
     data = sports.sports_from_row(p)
@@ -1530,7 +1531,7 @@ def sports_editor(row=None, show_activity=True, show_format=False):
             checked = " checked" if data["activity_type"] == pid else ""
             parts.append('<label><input type=radio name=activity_type value="%s"%s><span>%s</span></label>' % (pid, checked, name))
         parts.append("</div>")
-        parts.append('<label>Title<input name=title id=actTitle value="%s" placeholder="%s" autocomplete=off></label>' % (escape(data["title"]), escape(sports.activity_title(data["activity_type"], data["opponent"], data["segments"], ""))))
+        parts.append('<label>Title<input name=title id=actTitle value="%s" placeholder="%s" autocomplete=off></label>' % (escape(data["title"]), escape(sports.session_title(data["sport"], data["activity_type"], data["opponent"], data["segments"], ""))))
         parts.append('<label>Sport<input name=sport value="%s" autocomplete=off></label>' % escape(data["sport"] or "Water Polo"))
     parts.append('<div class=checks role=group aria-label="Skill levels"><div class="t3 xs">Skill levels</div>')
     parts.append('<label><input type=checkbox id=allLevels> All levels</label>')
@@ -1568,7 +1569,7 @@ def sports_editor(row=None, show_activity=True, show_format=False):
  boxes.forEach(function(b){ b.addEventListener('change', syncAll); });
  syncAll();
  function kind(){ var r=document.querySelector('input[name=activity_type]:checked'); return r?r.value:'practice'; }
- function suggest(k, opp){ if(k==='scrimmage') return 'Scrimmage'; if(k==='game') return opp?('Game vs. '+opp):'Game'; if(k==='hybrid') return 'Practice + Scrimmage'; return 'Practice'; }
+ function suggest(k){ var sport=((document.querySelector('[name=sport]')||{}).value||'Water Polo').replace(/\\s+/g,' ').trim()||'Water Polo'; if(k==='scrimmage') return sport+' Scrimmage'; if(k==='game') return sport+' Game'; if(k==='hybrid') return 'Practice + Scrimmage'; return sport+' Practice'; }
  document.querySelectorAll('[data-act]').forEach(function(el){ el.hidden=(el.getAttribute('data-act')||'').split(' ').indexOf(kind())<0; });
  document.querySelectorAll('input[name=activity_type]').forEach(function(r){ r.addEventListener('change', function(){
   document.querySelectorAll('[data-act]').forEach(function(el){ el.hidden=(el.getAttribute('data-act')||'').split(' ').indexOf(kind())<0; });
@@ -2372,7 +2373,7 @@ def lineup_event_type(row):
     stored = row["event_type"] if "event_type" in row.keys() else ""
     return lineupfeed.event_type_from_parts(row["cat_slug"] or "", row["subtype"] or "", row["kind"] or "", stored or "")
 def lineup_tag(row):
-    hosting = row["hosting"] if (row["hosting"] or "") in ("Away", "Hosting") else ""
+    hosting = lineupfeed.hosting_label(row["hosting"])
     return " · ".join(part for part in (hosting, lineup_event_type(row)) if part)
 def lineup_host_line(row):
     if row["official"]: return "Official club event"
@@ -2431,7 +2432,7 @@ def lineup_pack(d, rows):
         out.append({"id": r["id"], "title": r["title"], "slug": r["cat_slug"] or "", "category": r["cat_name"] or r["kind"] or "Event",
             "event_type": etype, "tag": lineup_tag(r), "days": span, "pins": pins,
             "status_kind": status_kind, "status_text": status_text, "people": people,
-            "chip": r["cat_chip"] or "", "subtype": r["subtype"] or "", "hosting": r["hosting"] if r["hosting"] in ("Away", "Hosting") else "",
+            "chip": r["cat_chip"] or "", "subtype": r["subtype"] or "", "hosting": lineupfeed.hosting_label(r["hosting"]),
             "official": bool(r["official"]), "intent": intent, "status": r["status"] or "published", "status_label": lineup_status_label(r),
             "host_line": lineup_host_line(r), "member_event": not r["official"], "featured": bool(r["featured"]),
             "where": lineup_where(r["city"] or "", r["venue"] or ""), "map_href": lineup_map_href(r["city"] or "", r["venue"] or ""),
@@ -2440,7 +2441,7 @@ def lineup_pack(d, rows):
             "precision": r["date_precision"] if "date_precision" in r.keys() and r["date_precision"] else "exact",
             "tile": lineup_tile(r),
             "venue": r["venue"] or "", "city": r["city"] or "",
-            "host_org": (r["host_org"] or "") if "host_org" in r.keys() and r["hosting"] == "Away" else "",
+            "host_org": (r["host_org"] or "") if "host_org" in r.keys() and lineupfeed.hosting_label(r["hosting"]) == "Attending" else "",
             "description": r["description"] or "", "details": r["details"] or "", "link": r["link"] or "",
             "cost": r["cost"] or "", "capacity": cap, "full": full, "reg_deadline": r["reg_deadline"] or "",
             "review_note": r["review_note"] or "", "banner": r["banner"] or "",
@@ -2478,7 +2479,7 @@ def profile_lineup(d, member_id, kind):
 def _lineup_back(raw):
     raw = (raw or "").strip()
     if raw in ("/lineup", "/home", "/profile") or raw.startswith("/lineup/"): return raw
-    if raw in ("/profile?tab=general", "/profile?tab=interested", "/profile?tab=mine"): return raw
+    if raw in ("/profile?tab=general", "/profile?tab=interested", "/profile?tab=mine", "/profile?tab=lineup", "/profile?tab=hosting"): return raw
     return "/lineup"
 def notify_lineup_people(d, members, title, body, url="/lineup"):
     for m in members:
@@ -2633,7 +2634,7 @@ def lineup():
         if action == "official":
             if not can_host_practice(): abort(403)
             if (row["team_intent"] or "") == "considering":
-                d.execute("UPDATE lineup_events SET team_intent='official', stage='going' WHERE id=?", (eid,))
+                d.execute("UPDATE lineup_events SET team_intent='official', team_plan='committed', stage='going', status=CASE WHEN status IS NULL OR status='' OR status='draft' THEN 'published' ELSE status END WHERE id=?", (eid,))
                 d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "official"); d.commit()
             return redirect(back if back.startswith("/lineup/") else "/lineup/%d" % eid)
         try: set_lineup_rsvp(d, row, action)
@@ -2641,21 +2642,25 @@ def lineup():
             flash(str(e)); return redirect(back)
         d.commit()
         return redirect(back)
-    cat = lineupfeed.filter_type((request.args.get("cat") or "").strip())
+    group, group_types = lineupfeed.filter_group((request.args.get("group") or "").strip())
+    cat = "" if group_types else lineupfeed.filter_type((request.args.get("cat") or "").strip())
     raw = lineup_query(d)
     now = wall_pt()
     rows = lineup_pack(d, raw)
     by_id = {r["id"]: r for r in raw}
     def still_on(e):
         return event_window(by_id[e["id"]])[1] >= now
-    public = [e for e in rows if e["status"] == "published" and (not cat or e["event_type"] == cat)]
+    def shown(e):
+        if group_types: return e["event_type"] in group_types
+        return not cat or e["event_type"] == cat
+    public = [e for e in rows if e["status"] == "published" and shown(e)]
     def feed_key(e): return (e["date"], 0 if e.get("precision") == "month" else 1, e["id"])
     upcoming = sorted((e for e in public if still_on(e)), key=feed_key)
     past = sorted((e for e in public if not still_on(e)), key=feed_key, reverse=True)
     featured = [e for e in upcoming if e["featured"]]
     rest = [e for e in upcoming if not e["featured"]]
     return page(T["lineup"], tab="lineup", featured=featured, upcoming=lineup_groups(rest), past=lineup_groups(past), past_n=len(past),
-        cat=cat, filter_types=list(lineupfeed.EVENT_TYPES), empty_public=not upcoming and not past)
+        cat=cat, group=group, filter_groups=[(slug, label) for slug, label, _types in lineupfeed.FILTER_GROUPS], empty_public=not upcoming and not past)
 @app.route("/lineup/new", methods=["GET", "POST"])
 @login_required
 def lineup_new():
@@ -2687,7 +2692,7 @@ def lineup_detail(eid):
         if action == "official":
             if not can_host_practice(): abort(403)
             if (row["team_intent"] or "") == "considering":
-                d.execute("UPDATE lineup_events SET team_intent='official', stage='going' WHERE id=?", (eid,))
+                d.execute("UPDATE lineup_events SET team_intent='official', team_plan='committed', stage='going', status=CASE WHEN status IS NULL OR status='' OR status='draft' THEN 'published' ELSE status END WHERE id=?", (eid,))
                 d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "official"); d.commit()
             return redirect("/lineup/%d" % eid)
         try: set_lineup_rsvp(d, row, action)
@@ -2765,7 +2770,7 @@ def events_hub_groups(d):
             "href": "/lineup/%d?from=admin" % e["id"],
             "sort": (e["date"] or "", e["id"]),
         })
-    order = ["Practice", "Scrimmage", "Game", "Hybrid", "Clinic", "Tournament", "Trip", "Social", "Volunteer"]
+    order = ["Practice", "Scrimmage", "Game", "Hybrid", "Clinic", "Tournament", "Competition", "Trip", "Social", "Volunteer", "Fundraiser", "Meeting", "Other"]
     groups = []
     for label in order:
         if label in buckets:
@@ -2773,6 +2778,44 @@ def events_hub_groups(d):
     for label in sorted(buckets):
         groups.append({"label": label, "items": sorted(buckets[label], key=lambda item: item["sort"])})
     return groups
+@app.route("/events/new", methods=["GET", "POST"])
+@login_required
+def event_new():
+    """One create entry. Team schedule lands on Home. Lineup types open the lineup form."""
+    staff = can_host_practice()
+    activity = (request.form.get("activity_type") or request.args.get("type") or "").strip().lower()
+    if request.method == "POST":
+        if not staff: abort(403)
+        if (request.form.get("action") or "") != "create_schedule": abort(400)
+        if activity not in ("practice", "scrimmage", "game"):
+            flash("Choose Practice, Scrimmage, or Game.")
+            return redirect("/events/new")
+        day = parse_date(request.form.get("date"))
+        loc = " ".join((request.form.get("location") or "").split())[:300]
+        if not day or not loc:
+            flash("Add a date and a location.")
+            return redirect("/events/new?type=%s" % activity)
+        start = (request.form.get("start") or "19:00").strip() or "19:00"
+        end = (request.form.get("end") or "20:30").strip() or "20:30"
+        d = db()
+        try:
+            sp = sports.sports_from_form(request.form)
+            sp["activity_type"] = activity
+            sp["title"] = ""
+            cur = d.execute("""INSERT INTO practices(date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (day.isoformat(), start, end, loc, "", *sports.sports_tuple(sp)))
+            d.commit()
+            flash("Created", "toast")
+            return redirect("/practices/%d" % cur.lastrowid)
+        except sqlite3.IntegrityError:
+            flash("A practice already exists at that place on that date.")
+            return redirect("/events/new?type=%s" % activity)
+    show_form = staff and activity in ("practice", "scrimmage", "game")
+    live = sports.session_title("Water Polo", activity) if show_form else ""
+    return page(T["event_new"], tab="event_new", staff=staff, show_form=show_form, activity=activity if show_form else "",
+        plan_back="/events/new" if show_form else "/lineup", plan_title="Create event",
+        plan_save="Create" if show_form else "", live_title=live)
 @app.route("/admin/approvals", methods=["GET", "POST"])
 @login_required
 def approvals():
@@ -2799,7 +2842,7 @@ def approvals():
             return redirect("/admin/approvals")
         if action == "create_session":
             activity = (request.form.get("activity_type") or "practice").strip().lower()
-            if activity not in ("practice", "scrimmage"): activity = "practice"
+            if activity not in ("practice", "scrimmage", "game"): activity = "practice"
             day = parse_date(request.form.get("date"))
             loc = " ".join((request.form.get("location") or "").split())[:300]
             if not day: flash("Add a date."); return redirect("/admin/approvals")
@@ -4189,7 +4232,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-64 */
+SW_JS = """/* grunions-sw-65 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
