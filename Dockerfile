@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Every runtime module. A named list left lineupfeed.py and sports.py out of the image.
 COPY *.py ./
 COPY static ./static
+COPY regulars ./regulars
 RUN mkdir -p /data
 EXPOSE 10000
 # 1 worker + threads: SQLite on a single disk; chat polling is light.

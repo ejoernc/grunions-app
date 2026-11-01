@@ -151,6 +151,7 @@ def test_docker_context_imports_app():
     _materialize_image(dest)
     assert os.path.exists(os.path.join(dest, "lineupfeed.py"))
     assert os.path.exists(os.path.join(dest, "sports.py"))
+    assert os.path.exists(os.path.join(dest, "regulars", "foundation.css"))
     assert not os.path.exists(os.path.join(dest, "test_app.py"))
     env = os.environ.copy()
     env.pop("PYTHONPATH", None)
