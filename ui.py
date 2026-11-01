@@ -514,8 +514,8 @@ a.quietcheck,button.quietcheck{background:var(--surface2);color:var(--color-text
 .emptyfind{color:var(--t2);margin:8px 0 16px}
 details.lineuppast{margin-top:8px}details.lineuppast>summary{min-height:44px;padding:8px 0;font-size:17px;font-weight:600;justify-content:flex-start}
 .repeatblock .repeatopts{display:none}.repeatblock:has(input[name=repeat]:checked) .repeatopts{display:block}
-.tripcard{padding:0;overflow:hidden}.tripcard .evbody{padding:0 18px 18px}.tripcard .nxcardhead{flex-wrap:wrap;align-items:flex-start}.tripcard .nxcardhead .tripname{flex:1 1 100%;min-width:0}.tripcard .nxcardhead .chip-info{flex:none;margin-left:0}.lineupchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.lineupchips .chip-info{margin:0}
-div.card.tap.tripcard{padding:18px;overflow:visible}div.card.tap.tripcard .lineupchips{margin:0 0 8px}div.card.tap.tripcard .hostorg{margin:0 0 8px}div.card.tap.tripcard .nxcardhead{margin-bottom:6px}
+.tripcard{padding:0;overflow:hidden}.tripcard .evbody{padding:0 18px 18px}.tripcard .nxcardhead{display:flex;flex-direction:column;align-items:stretch;gap:2px;min-width:0}.tripcard .nxtitle{font-size:var(--type-t3-size);line-height:var(--type-t3-line);font-weight:var(--type-t3-weight)}.tripcard .cardsub{margin:0;color:var(--color-text-secondary);min-width:0;max-width:100%}.lineupchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.lineupchips .chip-info{margin:0}
+div.card.tap.tripcard{padding:18px;overflow:visible}div.card.tap.tripcard .nxcardhead{margin:0 0 10px}
 .tripcard .tripwhere{align-items:flex-start}.tripcard .tripwhere a{min-width:0}
 .evbanner{height:132px;display:flex;align-items:flex-end;padding:14px;position:relative;overflow:hidden;background:linear-gradient(160deg,var(--color-badge-border),var(--color-bg))}
 .evbanner img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.evbanner svg{position:relative;z-index:1;color:var(--color-text)}
@@ -815,9 +815,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro event_location(id, pins, name, sub, href) %}<div class=seclabel>Location</div><div class="list loccard">{{ mount_map(id, pins, 'still') }}<a class="li locrow" href="{{ href }}" target=_blank rel=noopener {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %}><span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ name }}</span>{% if sub and sub != name %}<span class="t3 sm">{{ sub }}</span>{% endif %}</span></a></div>{% endmacro %}
 {% macro lineup_card(e, back='/lineup') %}<div class="card tap tripcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
 <a class=cardlink href="/lineup/{{ e.id }}">
-<div class=nxcardhead><div class=nxtitle>{{ e.title }}</div></div>
-{% if e.tag %}<p class="eventtag">{{ e.tag }}</p>{% endif %}
-{% if e.host_org %}<div class="t3 sm hostorg">Hosted by {{ e.host_org }}</div>{% endif %}
+<div class=nxcardhead><div class=nxtitle>{{ e.title }}</div>{% if e.card_line %}<div class="cardsub ell">{{ e.card_line }}</div>{% endif %}</div>
 <div class=nxmain><div class=datetile>{% if e.tile.wd %}<span class=wd>{{ e.tile.wd }}</span>{% endif %}<span class=dn>{{ e.tile.dn }}</span><span class=mo>{{ e.tile.mo }}</span></div>
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
 {% if e.city %}<div class=nxrow>{{ glyph_pin() }}<span>{{ e.city }}</span></div>{% endif %}
@@ -891,7 +889,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=95');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=96');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -1734,8 +1732,8 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <a class="btn btn-secondary full" href=/logout>Log out</a>
 {% else %}
 {% if prof_upcoming or prof_past %}
-{% for g in prof_upcoming %}<h2 class=lineupmonth>{{ g.label }}</h2>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}
-{% if prof_past %}<details class=lineuppast><summary>Past <span class=t3>{{ prof_past_n }}</span></summary>{% for g in prof_past %}<h2 class=lineupmonth>{{ g.label }}</h2>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}</details>{% endif %}
+{% for g in prof_upcoming %}<div class=seclabel>{{ g.label }}</div>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}
+{% if prof_past %}<details class=lineuppast><summary>Past <span class=t3>{{ prof_past_n }}</span></summary>{% for g in prof_past %}<div class=seclabel>{{ g.label }}</div>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}</details>{% endif %}
 {% else %}<p class=emptyfind>Nothing yet.</p>{% endif %}
 {% endif %}
 <script>
@@ -2126,9 +2124,9 @@ _PRACTICE_JS = """<script>
 })();
 </script>"""
 
-T["lineup"] = """{% macro lineup_months(groups) %}{% for g in groups %}<h2 class=lineupmonth>{{ g.label }}</h2>{% for e in g.events %}{{ lineup_card(e) }}{% endfor %}{% endfor %}{% endmacro %}
+T["lineup"] = """{% macro lineup_months(groups) %}{% for g in groups %}<div class=seclabel>{{ g.label }}</div>{% for e in g.events %}{{ lineup_card(e) }}{% endfor %}{% endfor %}{% endmacro %}
 <div class="filt lineupfilt chiprow" role=group aria-label="Type"><a class="chip{{ ' chip-active on' if not group }}" href=/lineup>All</a>{% for slug, label in filter_groups %}<a class="chip{{ ' chip-active on' if group == slug }}" href="/lineup?group={{ slug }}">{{ label }}</a>{% endfor %}</div>
-{% if featured %}<h2 class=lineupmonth>Pinned</h2>{% for e in featured %}{{ lineup_card(e) }}{% endfor %}{% endif %}
+{% if featured %}<div class=seclabel>Pinned</div>{% for e in featured %}{{ lineup_card(e) }}{% endfor %}{% endif %}
 {% if empty_public %}<p class=emptyfind>Nothing on the Lineup yet.</p>{% endif %}
 {{ lineup_months(upcoming) }}
 {% if past %}<details class=lineuppast><summary>Past <span class=t3>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}"""

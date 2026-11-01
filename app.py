@@ -2630,6 +2630,12 @@ def lineup_event_type(row):
 def lineup_tag(row):
     hosting = lineupfeed.hosting_label(row["hosting"])
     return " · ".join(part for part in (hosting, lineup_event_type(row)) if part)
+def lineup_card_line(etype, host_org):
+    """One card subline: Clinic · Hosted by West Hollywood Aquatics."""
+    parts = []
+    if etype: parts.append(etype)
+    if host_org: parts.append("Hosted by %s" % host_org)
+    return " · ".join(parts)
 def lineup_host_line(row):
     if row["official"]: return "Official club event"
     who = display_first({"first": row["host_first"] or "", "last": row["host_last"] or "", "preferred_first": row["host_preferred"] or ""}) if row["host_first"] else ""
@@ -2685,7 +2691,7 @@ def lineup_pack(d, rows):
         full = bool(cap and going_n >= cap)
         start, end = event_window(r)
         out.append({"id": r["id"], "title": r["title"], "slug": r["cat_slug"] or "", "category": r["cat_name"] or r["kind"] or "Event",
-            "event_type": etype, "tag": lineup_tag(r), "days": span, "pins": pins,
+            "event_type": etype, "tag": lineup_tag(r), "card_line": lineup_card_line(etype, (r["host_org"] or "") if "host_org" in r.keys() and lineupfeed.hosting_label(r["hosting"]) == "Attending" else ""), "days": span, "pins": pins,
             "status_kind": status_kind, "status_text": status_text, "people": people,
             "chip": r["cat_chip"] or "", "subtype": r["subtype"] or "", "hosting": lineupfeed.hosting_label(r["hosting"]),
             "official": bool(r["official"]), "intent": intent, "status": r["status"] or "published", "status_label": lineup_status_label(r),
@@ -4764,7 +4770,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-95 */
+SW_JS = """/* grunions-sw-96 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
