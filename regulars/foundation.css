@@ -1,9 +1,9 @@
 /* Regulars foundation. Change fonts, colors, spacing, and radius here.
    The app paints dark. [data-theme=light] is the light theme.
-   Brand colors: Forest Ink, Clubhouse, Chalk, Electric Lime,
-   Clear Cyan, Golden Yellow, Social Orange, Cloud Gray.
-   Lime is the brand and the selected state. Cyan is cleared.
-   Text pairs below were checked at 7:1 (AAA) or better.
+   Dark surfaces: Deep Forest #090D0B, Dark Clubhouse #0F1512, Raised #131A16.
+   Subtle Border #1B221E is decorative. Interactive edges use --color-control.
+   Muted Lime #B2DE64 is the brand, not success. Deep Cyan is cleared.
+   Text on the dark surfaces and on the bright fills was checked at 7:1.
    Icons are Phosphor. Headings use Space Grotesk.
    Everything else uses Plus Jakarta Sans. */
 
@@ -19,58 +19,61 @@
   --font-display: "Space Grotesk", "Plus Jakarta Sans", system-ui, sans-serif;
   --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
 
-  --color-forest: #171C19;
-  --color-clubhouse: #303A33;
-  --color-chalk: #F7F8F3;
-  --color-lime: #C7F464;
-  --color-cyan: #5DDDE5;
-  --color-yellow: #F4C95D;
-  --color-orange: #FF875D;
-  --color-cloud: #C3CACB;
+  --color-forest: #090D0B;
+  --color-clubhouse: #0F1512;
+  --color-raised: #131A16;
+  --color-chalk: #F2F6F1;
+  --color-lime: #B2DE64;
+  --color-cyan: #50C6CF;
+  --color-yellow: #E4C84D;
+  --color-coral: #F48782;
+  --color-orange: var(--color-coral);
+  --color-cloud: #ADB5B1;
 
-  --color-bg: #171C19;
-  --color-surface: #303A33;
-  --color-surface-2: #3A4840;
-  --color-border: #46564C;
-  --color-text: #F7F8F3;
-  --color-text-secondary: #C4D2C8;
-  --color-text-tertiary: #C4D2C8;
-  --color-primary: #C7F464;
-  --color-on-primary: #171C19;
-  --color-icon: #F7F8F3;
-  --color-chip: #3A4840;
-  --color-selected: #C7F464;
-  --color-on-selected: #171C19;
-  --color-status-cleared: #5DDDE5;
-  --color-status-attention: #F4C95D;
-  --color-status-not-cleared: #FF875D;
-  --color-status-unknown: #C3CACB;
-  --color-hover: #3A4840;
-  --color-pressed: #46564C;
-  --color-disabled: #8AA396;
-  --color-focus: #C7F464;
-  --color-event: #C4D2C8;
-  --color-map: #1E2822;
-  --color-scrim: rgba(23, 28, 25, .72);
+  --color-bg: #090D0B;
+  --color-surface: #0F1512;
+  --color-surface-2: #131A16;
+  --color-border: #1B221E;
+  --color-control: color-mix(in srgb, var(--color-border) 60%, var(--color-text-secondary) 40%);
+  --color-text: #F2F6F1;
+  --color-text-secondary: #BEC9C1;
+  --color-text-tertiary: #BEC9C1;
+  --color-primary: var(--color-lime);
+  --color-on-primary: var(--color-forest);
+  --color-icon: var(--color-text);
+  --color-chip: var(--color-raised);
+  --color-selected: var(--color-lime);
+  --color-on-selected: var(--color-forest);
+  --color-status-cleared: var(--color-cyan);
+  --color-status-attention: var(--color-yellow);
+  --color-status-not-cleared: var(--color-coral);
+  --color-status-unknown: var(--color-cloud);
+  --color-hover: color-mix(in srgb, var(--color-raised) 82%, var(--color-text));
+  --color-pressed: color-mix(in srgb, var(--color-raised) 70%, var(--color-text));
+  --color-disabled: color-mix(in srgb, var(--color-text-secondary) 45%, var(--color-raised));
+  --color-focus: var(--color-lime);
+  --color-event: var(--color-text-secondary);
+  --color-map: var(--color-clubhouse);
+  --color-scrim: rgba(9, 13, 11, .72);
   --color-backdrop: rgba(0, 0, 0, .62);
   --color-lightbox: rgba(0, 0, 0, .92);
-  --color-sheet: #24302A;
-  --color-sheet-border: #3E4C44;
-  --color-sheet-handle: #8AA396;
-  --color-sheet-row: #303A33;
-  --color-sheet-line: #46564C;
-  --color-badge-border: #46564C;
-  --color-on-selected-muted: #3A4840;
-  --color-status-attention-border: #F4C95D;
-  --color-status-not-cleared-border: #FF875D;
-  --color-bubble: #3A4840;
-  --color-bubble-mine: #46564C;
-  --color-nav: #101412;
-  --color-nav-border: #3A4840;
-  --color-nav-circle: #303A33;
-  --color-nav-icon: #F7F8F3;
-  --color-nav-circle-on: #C7F464;
-  --color-nav-icon-on: #171C19;
+  --color-sheet: var(--color-raised);
+  --color-sheet-border: var(--color-border);
+  --color-sheet-handle: var(--color-text-secondary);
+  --color-sheet-row: var(--color-clubhouse);
+  --color-sheet-line: var(--color-border);
+  --color-badge-border: var(--color-border);
+  --color-on-selected-muted: var(--color-raised);
+  --color-status-attention-border: var(--color-yellow);
+  --color-status-not-cleared-border: var(--color-coral);
+  --color-bubble: var(--color-raised);
+  --color-bubble-mine: color-mix(in srgb, var(--color-raised) 82%, var(--color-text));
+  --color-nav: var(--color-clubhouse);
+  --color-nav-border: var(--color-border);
+  --color-nav-circle: var(--color-raised);
+  --color-nav-icon: var(--color-text);
+  --color-nav-circle-on: var(--color-lime);
+  --color-nav-icon-on: var(--color-forest);
 
   --bg: var(--color-bg);
   --surface: var(--color-surface);
@@ -131,15 +134,22 @@
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 20px;
-  --space-7: 28px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
   --space-card: var(--space-3);
   --space-gutter: var(--space-5);
+  --space-section: var(--space-8);
 
+  --radius-tiny: 4px;
+  --radius-compact: 8px;
   --radius-button: 12px;
+  --radius-input: 12px;
+  --radius-control: 16px;
+  --radius-card: 20px;
+  --radius-overlay: 24px;
   --radius-chip: 999px;
-  --radius-card: 14px;
-  --radius-input: 10px;
-  --radius-overlay: 18px;
   --r: var(--radius-card);
 
   --icon-nav: 24px;
@@ -171,45 +181,43 @@
   --ok: var(--color-status-cleared);
   --bad: var(--color-status-not-cleared);
   --warn: var(--color-status-attention);
-  --color-bg: #F7F8F3;
+  --color-bg: #F2F6F1;
   --color-surface: #FFFFFF;
-  --color-surface-2: #E6EBE3;
-  --color-border: #D5DDD4;
-  --color-text: #171C19;
-  --color-text-secondary: #425748;
-  --color-text-tertiary: #425748;
-  --color-icon: #171C19;
-  --color-chip: #E6EBE3;
-  --color-selected: #C7F464;
-  --color-on-selected: #171C19;
-  --color-status-cleared: #0E6C72;
-  --color-status-attention: #8A5E00;
-  --color-status-not-cleared: #C2410C;
-  --color-status-unknown: #5C6B66;
-  --color-hover: #E6EBE3;
-  --color-pressed: #D5DDD4;
-  --color-disabled: #8AA396;
-  --color-focus: #171C19;
-  --color-event: #425748;
-  --color-map: #E3EAE2;
-  --color-scrim: rgba(247, 248, 243, .78);
+  --color-surface-2: #E8EEE9;
+  --color-border: #D9E0DB;
+  --color-control: #5C665F;
+  --color-text: #090D0B;
+  --color-text-secondary: #3A4A40;
+  --color-text-tertiary: #3A4A40;
+  --color-icon: #090D0B;
+  --color-chip: #E8EEE9;
+  --color-on-primary: #090D0B;
+  --color-on-selected: #090D0B;
+  --color-status-cleared: #3F9AA0;
+  --color-status-attention: #9E8C38;
+  --color-status-not-cleared: #774643;
+  --color-status-unknown: #878E8B;
+  --color-hover: #E8EEE9;
+  --color-pressed: #D9E0DB;
+  --color-focus: #090D0B;
+  --color-event: #3A4A40;
+  --color-map: #E4EAE6;
+  --color-scrim: rgba(242, 246, 241, .78);
   --color-sheet: #FFFFFF;
-  --color-sheet-border: #D5DDD4;
-  --color-sheet-handle: #425748;
-  --color-sheet-row: #F7F8F3;
-  --color-sheet-line: #D5DDD4;
-  --color-badge-border: #D5DDD4;
-  --color-on-selected-muted: #E6EBE3;
-  --color-status-attention-border: #8A5E00;
-  --color-status-not-cleared-border: #C2410C;
-  --color-bubble: #E6EBE3;
-  --color-bubble-mine: #FFFFFF;
+  --color-sheet-border: #D9E0DB;
+  --color-sheet-handle: #3A4A40;
+  --color-sheet-row: #F2F6F1;
+  --color-sheet-line: #D9E0DB;
+  --color-badge-border: #D9E0DB;
+  --color-status-attention-border: #9E8C38;
+  --color-status-not-cleared-border: #774643;
+  --color-bubble: #E8EEE9;
+  --color-bubble-mine: #DDE5DF;
   --color-nav: #FFFFFF;
-  --color-nav-border: #D5DDD4;
-  --color-nav-circle: #E6EBE3;
-  --color-nav-icon: #171C19;
-  --color-nav-circle-on: #C7F464;
-  --color-nav-icon-on: #171C19;
+  --color-nav-border: #D9E0DB;
+  --color-nav-circle: #E8EEE9;
+  --color-nav-icon: #090D0B;
+  --color-nav-icon-on: #090D0B;
   background: var(--color-bg);
   color: var(--color-text);
 }

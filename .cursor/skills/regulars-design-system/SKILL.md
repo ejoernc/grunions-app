@@ -7,7 +7,7 @@ description: Use when changing Grunions UI. Tokens, shared classes, light and da
 
 Flask, Jinja, and vanilla CSS. Do not add React, Tailwind, or shadcn code.
 
-The product paints dark. `[data-theme=light]` is the light theme for the preview. Colors are Forest Ink `#171C19`, Clubhouse `#303A33`, Chalk `#F7F8F3`, Electric Lime `#C7F464`, Clear Cyan `#5DDDE5`, Golden Yellow `#F4C95D`, Social Orange `#FF875D`, and Cloud Gray `#C3CACB`. Lime is the brand, not success. Cyan is cleared. Icons are Phosphor (Regular, Fill on the selected nav circle, Bold for emphasis) at 16, 20, or 24px. Headings use Space Grotesk. Everything else uses Plus Jakarta Sans.
+The product paints dark. `[data-theme=light]` is the light theme for the preview. Colors are Deep Forest `#090D0B`, Dark Clubhouse `#0F1512`, Raised `#131A16`, Chalk text `#F2F6F1`, Muted Lime `#B2DE64`, Deep Cyan `#50C6CF`, Golden Yellow `#E4C84D`, Coral `#F48782`, and Cloud Gray `#ADB5B1`. Lime is the brand, not success. Cyan is cleared. Icons are Phosphor (Regular, Fill on the selected nav circle, Bold for emphasis) at 16, 20, or 24px. Headings use Space Grotesk. Everything else uses Plus Jakarta Sans.
 
 The Figma skill page (`2688:3905`) installs React, Tailwind, and `npx shadcn`. Do not run that. Map its roles onto the classes below.
 
@@ -25,7 +25,7 @@ All of these are in `regulars/foundation.css`. `:root` is dark. `[data-theme=lig
 | Sheet, handle, row | `--color-sheet`, `--color-sheet-border`, `--color-sheet-handle`, `--color-sheet-row` |
 | Cleared, attention, not cleared | `--color-status-cleared`, `--color-status-attention`, `--color-status-not-cleared` |
 | Card gap (12px on Home) | `--space-card`. The Home dock gap stays the literal `12px`. |
-| Card, button, chip, field, sheet roundness | `--radius-card`, `--radius-button`, `--radius-chip`, `--radius-input`, `--radius-overlay` |
+| Card, button, field, sheet, pill roundness | `--radius-card` 20, `--radius-button` 12, `--radius-input` 12, `--radius-control` 16, `--radius-overlay` 24, `--radius-chip` 999 |
 | Button height, chip height, nav icon | `--size-button`, `--size-chip`, `--icon-nav` |
 | Nav offset, circle, and content clearance | `--nav-offset-bottom` (24px), `--nav-pad`, `--nav-gap`, `--nav-circle`, `--nav-clear` |
 | Selected chip or Schedule card | `--color-selected`, `--color-on-selected` |
@@ -33,7 +33,7 @@ All of these are in `regulars/foundation.css`. `:root` is dark. `[data-theme=lig
 
 Do not paste a new hex into a screen. Use a token or an existing class.
 
-Leave these as literals: the first-paint `background:#171C19` on `html` and `body`, the date and time SVG icons (a variable cannot live inside the image; they use Chalk `#F7F8F3`), the Google mark, and the printed page.
+Leave these as literals: the first-paint `background:#090D0B` on `html` and `body`, the date and time SVG icons (a variable cannot live inside the image; they use `#F2F6F1`), the Google mark, and the printed page.
 
 ## Classes
 

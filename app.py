@@ -742,7 +742,7 @@ def page(body, tab="", **kw):
 def webmanifest():
     return Response(json.dumps({
         "name": "Grunions Water Polo", "short_name": "Grunions", "start_url": "/", "scope": "/", "display": "standalone",
-        "background_color": "#171C19", "theme_color": "#171C19",
+        "background_color": "#090D0B", "theme_color": "#090D0B",
         "icons": [
             {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
             {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
@@ -3305,23 +3305,23 @@ def growth_chart(joined, verified, today=None):
         seen_x.append(x)
         text = "%s %d" % (day.strftime("%b"), day.day) if kind in ("day", "week") or day.year == today.year else "%s %s" % (day.strftime("%b"), str(day.year)[2:])
         anchor = "start" if x < 40 else ("end" if x > W - 40 else "middle")
-        labels.append('<text x="%s" y="124" text-anchor="%s" fill="#C4D2C8" font-size="12">%s</text>' % (x, anchor, escape(text)))
+        labels.append('<text x="%s" y="124" text-anchor="%s" fill="#BEC9C1" font-size="12">%s</text>' % (x, anchor, escape(text)))
     parts = ['<svg viewBox="0 0 %d %d" role="img" aria-label="%s">' % (W, H, escape(head))]
     for frac in (0, 0.5, 1):
         y = round(B - (B - T) * frac, 1)
-        parts.append('<line x1="%d" y1="%s" x2="%d" y2="%s" stroke="#46564C" stroke-width="1"/>' % (L, y, R, y))
+        parts.append('<line x1="%d" y1="%s" x2="%d" y2="%s" stroke="#1B221E" stroke-width="1"/>' % (L, y, R, y))
     if any(v for _d, _n, v in points):
         if len(points) == 1:
             x, y = xy(points[0][0], points[0][2])
-            parts.append('<circle cx="%s" cy="%s" r="2.5" fill="#C4D2C8"/>' % (x, y))
+            parts.append('<circle cx="%s" cy="%s" r="2.5" fill="#BEC9C1"/>' % (x, y))
         else:
-            parts.append('<polyline points="%s" fill="none" stroke="#C4D2C8" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>' % ver_pts)
+            parts.append('<polyline points="%s" fill="none" stroke="#BEC9C1" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>' % ver_pts)
     if len(points) == 1:
         x, y = xy(points[0][0], points[0][1])
-        parts.append('<circle cx="%s" cy="%s" r="3.5" fill="#F7F8F3"/>' % (x, y))
+        parts.append('<circle cx="%s" cy="%s" r="3.5" fill="#F2F6F1"/>' % (x, y))
     else:
-        parts.append('<polyline points="%s" fill="none" stroke="#F7F8F3" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' % total_pts)
-    parts.append('<line id=growthMark x1="0" y1="%d" x2="0" y2="%d" stroke="#F7F8F3" stroke-width="1" opacity="0" pointer-events="none"/>' % (T, B))
+        parts.append('<polyline points="%s" fill="none" stroke="#F2F6F1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' % total_pts)
+    parts.append('<line id=growthMark x1="0" y1="%d" x2="0" y2="%d" stroke="#F2F6F1" stroke-width="1" opacity="0" pointer-events="none"/>' % (T, B))
     parts.extend(labels)
     parts.append("</svg>")
     payload = [{"x": xy(day, n)[0], "label": "%s %d" % (day.strftime("%b"), day.day), "total": n, "verified": v} for day, n, v in points]
@@ -4130,7 +4130,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-62 */
+SW_JS = """/* grunions-sw-63 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

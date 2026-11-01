@@ -100,10 +100,10 @@ def test_deploy_files():
     c = A.app.test_client()
     m = c.get("/manifest.webmanifest"); body = json.loads(m.get_data(as_text=True))
     assert m.content_type.startswith("application/manifest+json") and body["name"] == "Grunions Water Polo" and body["short_name"] == "Grunions" and body["display"] == "standalone"
-    assert body["theme_color"] == "#171C19" and body["background_color"] == "#171C19" and "maskable" in {i["purpose"] for i in body["icons"]}
+    assert body["theme_color"] == "#090D0B" and body["background_color"] == "#090D0B" and "maskable" in {i["purpose"] for i in body["icons"]}
     icon = c.get("/static/icons/icon-192.png"); assert icon.status_code == 200 and icon.data[:8] == b"\x89PNG\r\n\x1a\n"
     html = c.get("/join").get_data(as_text=True)
-    assert "rel=manifest" in html and "rel=icon" in html and "rel=apple-touch-icon" in html and 'name=theme-color content="#171C19"' in html
+    assert "rel=manifest" in html and "rel=icon" in html and "rel=apple-touch-icon" in html and 'name=theme-color content="#090D0B"' in html
 def _docker_ignored(rel):
     """True when .dockerignore would keep this path out of the build context."""
     rel = rel.replace(os.sep, "/").lstrip("/")

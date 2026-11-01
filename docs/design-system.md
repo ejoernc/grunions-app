@@ -20,8 +20,9 @@ Admins open `/design-system` to see type, color, buttons, chips, the status line
 | Sheets | `--color-sheet`, `--color-sheet-border`, `--color-sheet-handle`, `--color-sheet-row` |
 | Light theme | the same names under `[data-theme=light]` |
 | More space between Home cards | `--space-card` (12px today). The Home dock gap stays the literal `12px`. |
-| Rounder cards | `--radius-card` |
-| Rounder buttons, chips, or sheets | `--radius-button`, `--radius-chip`, `--radius-overlay` |
+| Rounder cards | `--radius-card` (20px) |
+| Rounder buttons, fields, or sheets | `--radius-button` (12px), `--radius-input` (12px), `--radius-overlay` (24px) |
+| Space | `--space-1` through `--space-6`, then `--space-8`, `--space-10`, `--space-12` (4, 8, 12, 16, 20, 24, 32, 40, 48) |
 | How high the nav floats | `--nav-offset-bottom` (24px). Content clearance follows `--nav-clear`. |
 
 Older names still work: `--bg`, `--surface`, `--accent`, `--ok`, `--warn`, `--bad`, `--r`.
@@ -53,6 +54,6 @@ Reused: `btn`, `chip`, `card`, `actseg`, `list`, `st`, avatars, and the bottom n
 
 Adapted: semantic names, the type and spacing scale, radius roles, focus and disabled states, and a light theme. Map, chat, sheets, buttons, chips, and fields read the tokens.
 
-Kept custom: the map pin position, the greeting crossfade, day chips, Lineup cards, People rows, the Google mark, and every workflow. The first paint on `html` and `body` stays `#171C19`. SVG icons in date and time fields stay encoded hex (`#F7F8F3`), because a CSS variable cannot live inside those images.
+Kept custom: the map pin position, the greeting crossfade, day chips, Lineup cards, People rows, the Google mark, and every workflow. The first paint on `html` and `body` stays `#090D0B`. SVG icons in date and time fields stay encoded hex (`#F2F6F1`), because a CSS variable cannot live inside those images.
 
 Not copied: React, Tailwind, and `npx shadcn`. The Figma skill page (`2688:3905`) installs a React theme. Grunions keeps Flask and Jinja. Component pages in file `9ZhrS5v7hQGSY7eGJwG19Y` are the structure: Button `72:2719`, Badge `72:2718`, Avatar `72:2717`, Card `72:2721`, Input `73:1977`, Tabs `73:2899`, Toggle group `73:2902`, Dialog `73:227`, Sheet `73:1988`. Event types stay gray. They do not get a separate hue.
