@@ -1764,6 +1764,16 @@ def practice_sports_line(p):
     if not p: return ""
     data = sports.sports_from_row(p)
     return sports.sports_line(data["skill_levels"], data["divisions"], data["division_custom"], data["comp_format"])
+def practice_going_line(n, p):
+    """People row on a practice card: the going count, then skill and division."""
+    parts = ["%d going" % int(n or 0)]
+    if p:
+        data = sports.sports_from_row(p)
+        level = sports.levels_label(data["skill_levels"])
+        division = sports.divisions_label(data["divisions"], data["division_custom"])
+        if level: parts.append(level)
+        if division: parts.append(division)
+    return " · ".join(parts)
 def sports_editor(row=None, show_activity=True, show_format=False):
     """Shared activity, level, and division fields. Levels are an exact set."""
     data = sports.sports_from_row(row) if row is not None else {
@@ -2005,9 +2015,7 @@ def admin_day_events(d, date):
     """Practices and published Lineup events that fall on this calendar day, earliest first."""
     events = []
     practices = d.execute("SELECT * FROM practices WHERE date=? AND cancelled=0 AND COALESCE(date_precision,'exact')!='month' ORDER BY start, id", (date,)).fetchall()
-    coach_map = practice_coach_rows(d, [p["id"] for p in practices])
     for p in practices:
-        labels = coach_labels(coach_map.get(p["id"], []))
         kind = (p["activity_type"] or "practice") if "activity_type" in p.keys() else "practice"
         if kind not in sports.ACTIVITY_IDS: kind = "practice"
         start = p["start"] or "19:00"
@@ -2016,7 +2024,7 @@ def admin_day_events(d, date):
             "start": start, "when": fmt_span(start, end), "pill": fmt_clock(start),
             "type_label": sports.ACTIVITY_NAME.get(kind, "Practice"), "place": p["location"] or "",
             "map_href": lineup_map_href("", p["location"] or ""),
-            "who": ("Coaches: " + ", ".join(labels)) if labels else "",
+            "who": "",
             "detail": "/practices/%d?from=admin" % p["id"]})
     for e in d.execute("""SELECT e.*, c.chip AS cat_chip, h.first AS host_first, h.last AS host_last, h.preferred_first AS host_preferred
         FROM lineup_events e LEFT JOIN lineup_categories c ON c.id=e.category_id
@@ -2224,7 +2232,7 @@ def hide_coaching_plan(p):
     data = dict(p)
     data["coaching_plan"] = ""
     return data
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
@@ -4786,7 +4794,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-97 */
+SW_JS = """/* grunions-sw-98 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
