@@ -1887,6 +1887,16 @@ ok("data-matfor=dateInput" in _new and "grunionsDateDlg" in _new and "grunionsTi
 _month = eli.post("/events/new", data=dict(csrf=csrf(eli, "/events/new?lane=lineup"), action="preview", lane="lineup", event_type="Social", line_title="Month TBA Dinner", description="A dinner sometime in April.", location="Marina High School", date_precision="month", month="2027-04", date_part=""), follow_redirects=True)
 _mrow = D.execute("SELECT date, end_date, date_precision, COALESCE(date_part,''), COALESCE(start_time,'') FROM lineup_events WHERE title='Month TBA Dinner'").fetchone()
 ok(_month.status_code == 200 and _mrow == ("2027-04-01", "2027-04-30", "month", "", "") and "April 2027 · Dates TBA" in _month.get_data(as_text=True), "Create event Month only saves TBA for the whole month")
+def _open_prec(html):
+    return "hidden" not in html.split("id=whenPrec", 1)[1].split(">", 1)[0]
+_sched_new = eli.get("/events/new?lane=schedule").get_data(as_text=True)
+_line_new = eli.get("/events/new?lane=lineup").get_data(as_text=True)
+_mid = eli.post("/events/new", data=dict(csrf=csrf(eli, "/events/new?lane=schedule"), action="preview", lane="schedule", activity_type="practice", sport="Water Polo", location="Month Pool", date_precision="month", month="2027-03", date_part="mid"), follow_redirects=True)
+_midrow = D.execute("SELECT date, end_date, date_precision, COALESCE(date_part,''), COALESCE(start,''), COALESCE(end,'') FROM practices WHERE location='Month Pool'").fetchone()
+_line_mid = eli.post("/events/new", data=dict(csrf=csrf(eli, "/events/new?lane=lineup"), action="preview", lane="lineup", event_type="Social", line_title="Mid March Social", description="Sometime in the middle of March.", location="Long Beach", date_precision="month", month="2027-03", date_part="mid"), follow_redirects=True)
+_home_mid = eli.get("/home").get_data(as_text=True)
+_admin_mid = eli.get("/admin").get_data(as_text=True)
+ok(_open_prec(_sched_new) and _open_prec(_line_new) and ">Exact dates</span>" in _sched_new and ">Month only</span>" in _sched_new and ">Month only</span>" in _line_new and _mid.status_code == 200 and _midrow == ("2027-03-11", "2027-03-20", "month", "mid", "", "") and "Mid March 2027" in _mid.get_data(as_text=True) and "7:00" not in _mid.get_data(as_text=True).split("pracemeta", 1)[1][:80] and "Mid March 2027" in _home_mid and "Mid March 2027" in _admin_mid and "2027-03-11" not in A.schedule_days(_sched) and "Mid March 2027" in _line_mid.get_data(as_text=True), "Team schedule and Lineup both offer Month only, and Mid March shows on Home, Schedule, and the event page")
 def _head(c, path):
     return c.get(path).get_data(as_text=True).split("<main>", 1)[0]
 _jane_new = jane.get("/events/new").get_data(as_text=True)

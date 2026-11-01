@@ -62,13 +62,16 @@ def wall_pt(when=None):
 def stamp_pt(timespec="seconds"):
     return wall_pt().isoformat(timespec=timespec)
 def upcoming_bounds(now=None):
-    """A practice stays on the schedule through its end minute (7:00–8:30 stays up at 8:30)."""
+    """A practice stays on the schedule through its end minute (7:00–8:30 stays up at 8:30).
+    A month-only session stays through the last day of its window."""
     n = wall_pt(now)
     day = n.date().isoformat()
-    return (day, day, "%02d:%02d" % (n.hour, n.minute))
+    return (day, day, "%02d:%02d" % (n.hour, n.minute), day)
 def upcoming_where(alias=""):
     p = (alias + ".") if alias else ""
-    return "(%sdate > ? OR (%sdate = ? AND COALESCE(%send, '20:30') >= ?))" % (p, p, p)
+    return ("((COALESCE(%sdate_precision,'exact')!='month' AND (%sdate > ? OR (%sdate = ? AND COALESCE(%send, '20:30') >= ?)))"
+            " OR (COALESCE(%sdate_precision,'exact')='month' AND COALESCE(NULLIF(%send_date,''), %sdate) >= ?))"
+            ) % (p, p, p, p, p, p, p)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS members(id INTEGER PRIMARY KEY, first TEXT NOT NULL, last TEXT NOT NULL,
@@ -157,7 +160,8 @@ def migrate_practices(d):
                  ("series_id", "INTEGER"), ("series_detached", "INTEGER DEFAULT 0"), ("skipped", "INTEGER DEFAULT 0"),
                  ("activity_type", "TEXT"), ("sport", "TEXT"), ("title", "TEXT"), ("skill_levels", "TEXT"),
                  ("divisions", "TEXT"), ("division_custom", "TEXT"), ("opponent", "TEXT"), ("home_away", "TEXT"),
-                 ("gameplay_notes", "TEXT"), ("segments", "TEXT"), ("comp_format", "TEXT")):
+                 ("gameplay_notes", "TEXT"), ("segments", "TEXT"), ("comp_format", "TEXT"),
+                 ("date_precision", "TEXT"), ("date_part", "TEXT"), ("end_date", "TEXT")):
         if c not in cols:
             d.execute("ALTER TABLE practices ADD COLUMN %s %s" % (c, t))
     d.execute("UPDATE practices SET activity_type='practice' WHERE activity_type IS NULL OR trim(activity_type)=''")
@@ -1506,6 +1510,40 @@ def fmt_d(s):
 def fmt_card_date(s):
     """Tue, Nov 3. The comma sits on the Home time row."""
     d = dt.date.fromisoformat(str(s)[:10]); return d.strftime("%a, %b ") + str(d.day)
+def practice_is_month(p):
+    if not p or not hasattr(p, "keys") or "date_precision" not in p.keys(): return False
+    return (p["date_precision"] or "exact") == "month"
+def practice_when(p):
+    """Mid March 2027. An exact practice keeps the weekday and the clock span."""
+    if not practice_is_month(p):
+        return "%s · %s – %s" % (fmt_card_date(p["date"]), fmt_clock(p["start"]), fmt_clock(p["end"]))
+    day = dt.date.fromisoformat(str(p["date"])[:10])
+    part = (p["date_part"] or "").strip().lower() if "date_part" in p.keys() else ""
+    label = day.strftime("%B") + " " + str(day.year)
+    if part in ("early", "mid", "late"): return part[:1].upper() + part[1:] + " " + label
+    return label + " · Dates TBA"
+def practice_chip(p):
+    if not practice_is_month(p): return relative_day(p["date"])
+    part = (p["date_part"] or "").strip().lower() if "date_part" in p.keys() else ""
+    return {"early": "EARLY", "mid": "MID", "late": "LATE"}.get(part, "TBA")
+def practice_tile(p):
+    if practice_is_month(p):
+        day = dt.date.fromisoformat(str(p["date"])[:10])
+        return {"wd": practice_chip(p), "dn": day.strftime("%b").upper(), "mo": str(day.year)}
+    return {"wd": weekday_abbr(p["date"]), "dn": str(day_num(p["date"])), "mo": month_abbr(p["date"])}
+def month_window(month, part):
+    """First and last day for Early, Mid, Late, or a whole month."""
+    month = (month or "").strip()
+    if not re.fullmatch(r"\d{4}-\d{2}", month): raise ValueError("Choose a month.")
+    year, mon = int(month[:4]), int(month[5:7])
+    if not 1 <= mon <= 12: raise ValueError("Choose a month.")
+    first = dt.date(year, mon, 1)
+    last = dt.date(year + 1, 1, 1) - dt.timedelta(days=1) if mon == 12 else dt.date(year, mon + 1, 1) - dt.timedelta(days=1)
+    part = (part or "").strip().lower()
+    if part == "early": return first, dt.date(year, mon, min(10, last.day)), "early"
+    if part == "mid": return dt.date(year, mon, min(11, last.day)), dt.date(year, mon, min(20, last.day)), "mid"
+    if part == "late": return dt.date(year, mon, min(21, last.day)), last, "late"
+    return first, last, ""
 def practice_title(p):
     """Live title is Sport + type. A custom title wins. Unset rows are Water Polo Practice."""
     if not p: return "Water Polo Practice"
@@ -1735,7 +1773,7 @@ def save_coach_note(d, pid, text):
         d.execute("UPDATE practices SET coach_note=?, coach_note_by=?, coach_note_at=? WHERE id=?", (text, who, stamp_pt("minutes"), pid))
 _MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
 def practice_days(d):
-    return [r["date"] for r in d.execute("SELECT DISTINCT date FROM practices WHERE cancelled=0 ORDER BY date").fetchall()]
+    return [r["date"] for r in d.execute("SELECT DISTINCT date FROM practices WHERE cancelled=0 AND COALESCE(date_precision,'exact')!='month' ORDER BY date").fetchall()]
 def schedule_days(d):
     """Practice days plus published Lineup days, so Schedule can open either."""
     days = set(practice_days(d))
@@ -1755,7 +1793,7 @@ def schedule_days(d):
 def admin_day_events(d, date):
     """Practices and published Lineup events that fall on this calendar day, earliest first."""
     events = []
-    practices = d.execute("SELECT * FROM practices WHERE date=? AND cancelled=0 ORDER BY start, id", (date,)).fetchall()
+    practices = d.execute("SELECT * FROM practices WHERE date=? AND cancelled=0 AND COALESCE(date_precision,'exact')!='month' ORDER BY start, id", (date,)).fetchall()
     coach_map = practice_coach_rows(d, [p["id"] for p in practices])
     for p in practices:
         labels = coach_labels(coach_map.get(p["id"], []))
@@ -1976,7 +2014,7 @@ def hide_coaching_plan(p):
     data = dict(p)
     data["coaching_plan"] = ""
     return data
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, SPORTS=sports)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, SPORTS=sports)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
@@ -2158,8 +2196,11 @@ def practice_bundle(d, p):
                 coaches=coaches, social_n=social_n, lead_id=next((c["id"] for c in raw_coaches if row_lead(c)), None),
                 focuses={c["id"]: (c["focus"] or "") for c in coaches})
 def upcoming_schedule(d, skip_id=None):
-    """Schedule cards after the featured next practice. The featured one stays in the home card."""
-    ps = d.execute("SELECT * FROM practices WHERE " + upcoming_where() + " ORDER BY date, start LIMIT 16", upcoming_bounds()).fetchall()
+    """Schedule cards after the featured next practice. The featured one stays in the home card.
+    Month-only sessions stay on the list even when dated practices fill the first page."""
+    ps = list(d.execute("SELECT * FROM practices WHERE COALESCE(date_precision,'exact')!='month' AND " + upcoming_where() + " ORDER BY date, start LIMIT 16", upcoming_bounds()).fetchall())
+    ps.extend(d.execute("SELECT * FROM practices WHERE COALESCE(date_precision,'exact')='month' AND " + upcoming_where() + " ORDER BY date, start", upcoming_bounds()).fetchall())
+    ps.sort(key=lambda p: ((p["date"] or ""), (p["start"] or ""), p["id"]))
     unseen = unread_for_me()["practices"]
     data = []
     for p in ps:
@@ -2176,7 +2217,7 @@ def combined_view(entry):
     ensure_schedule(d)
     picked = next_commitment(d, m["id"])
     next_kind, nextev = "practice", None
-    practice_row = d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where() + " ORDER BY date, start LIMIT 1", upcoming_bounds()).fetchone()
+    practice_row = d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where() + " ORDER BY CASE WHEN COALESCE(date_precision,'exact')='month' THEN 1 ELSE 0 END, date, start LIMIT 1", upcoming_bounds()).fetchone()
     if picked and picked[0] == "event":
         next_kind = "event"
         full = lineup_event_row(d, picked[1]["id"])
@@ -2807,12 +2848,15 @@ def events_hub_groups(d):
     def add(label, item):
         buckets.setdefault(label, []).append(item)
     today = today_pt().isoformat()
-    for p in d.execute("SELECT * FROM practices WHERE cancelled=0 AND date>=? ORDER BY date, start, id", (today,)):
+    for p in d.execute("""SELECT * FROM practices WHERE cancelled=0 AND (
+            (COALESCE(date_precision,'exact')!='month' AND date>=?)
+            OR (COALESCE(date_precision,'exact')='month' AND COALESCE(NULLIF(end_date,''), date)>=?)
+        ) ORDER BY date, start, id""", (today, today)):
         kind = (p["activity_type"] or "practice") if "activity_type" in p.keys() else "practice"
         if kind not in sports.ACTIVITY_IDS: kind = "practice"
         add(sports.ACTIVITY_NAME.get(kind, "Practice"), {
             "title": practice_title(p),
-            "when": "%s · %s" % (fmt_d(p["date"]), fmt_span(p["start"] or "19:00", p["end"] or "20:30")),
+            "when": practice_when(p) if practice_is_month(p) else "%s · %s" % (fmt_d(p["date"]), fmt_span(p["start"] or "19:00", p["end"] or "20:30")),
             "place": p["location"] or "",
             "href": "/practices/%d?from=admin" % p["id"],
             "sort": (p["date"] or "", p["start"] or "", p["id"]),
@@ -2874,22 +2918,30 @@ def event_new():
         day = parse_date(request.form.get("date"))
         loc = " ".join((request.form.get("location") or "").split())[:300]
         lane_now = (request.form.get("lane") or ("lineup" if not staff else lane))
-        month_line = lane_now == "lineup" and (request.form.get("date_precision") or "exact").strip().lower() == "month"
-        if not loc or (not month_line and not day):
-            flash("Add a location." if month_line else "Add a date and a location.")
-            return redirect("/events/new" + ("?lane=lineup" if month_line else ""))
+        month_mode = (request.form.get("date_precision") or "exact").strip().lower() == "month"
+        month_line = lane_now == "lineup" and month_mode
+        month_sched = lane_now != "lineup" and staff and month_mode
+        if not loc or (not month_mode and not day):
+            flash("Add a location." if month_mode else "Add a date and a location.")
+            return redirect("/events/new" + ("?lane=lineup" if month_line or (month_mode and not staff) else ""))
         d = db()
         if (request.form.get("lane") or lane) != "lineup" and staff:
-            start = (request.form.get("start") or "19:00").strip() or "19:00"
-            end = (request.form.get("end") or "20:30").strip() or "20:30"
             try:
                 sp = sports.sports_from_form(request.form)
                 sp["activity_type"] = activity
                 if request.form.get("title_mode") != "custom": sp["title"] = ""
                 note = request.form.get("note") or ""
-                cur = d.execute("""INSERT INTO practices(date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    (day.isoformat(), start, end, loc, note, *sports.sports_tuple(sp)))
+                if month_sched:
+                    start_day, end_day, part = month_window(request.form.get("month"), request.form.get("date_part"))
+                    cur = d.execute("""INSERT INTO practices(date,end_date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format,date_precision,date_part)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (start_day.isoformat(), end_day.isoformat(), "", "", loc, note, *sports.sports_tuple(sp), "month", part))
+                else:
+                    start = (request.form.get("start") or "19:00").strip() or "19:00"
+                    end = (request.form.get("end") or "20:30").strip() or "20:30"
+                    cur = d.execute("""INSERT INTO practices(date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (day.isoformat(), start, end, loc, note, *sports.sports_tuple(sp)))
                 pid = cur.lastrowid
                 save_practice_coaches(d, pid, request.form.getlist("coach"))
                 if request.form.getlist("social_kind"):
@@ -2899,6 +2951,9 @@ def event_new():
                 d.commit()
                 flash("Preview", "toast")
                 return redirect("/practices/%d" % pid)
+            except ValueError as e:
+                flash(str(e))
+                return redirect("/events/new")
             except sqlite3.IntegrityError:
                 flash("A practice already exists at that place on that date.")
                 return redirect("/events/new")
@@ -3046,6 +3101,10 @@ def next_commitment(d, mid):
     cands = []
     for p in d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where(), upcoming_bounds()):
         day = dt.date.fromisoformat(p["date"])
+        if practice_is_month(p):
+            start = dt.datetime.combine(day, dt.time(0, 0))
+            cands.append((2, start, 0, "practice", p))
+            continue
         sh, sm = [int(x) for x in (p["start"] or "19:00").split(":")[:2]]
         eh, em = [int(x) for x in (p["end"] or "20:30").split(":")[:2]]
         start = dt.datetime.combine(day, dt.time(sh, sm))

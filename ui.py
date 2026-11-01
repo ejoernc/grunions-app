@@ -764,7 +764,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <label>Reason<textarea name=reason required></textarea></label>
 <button class="btn btn-danger full" name=action value=cancel>Confirm</button></form></div></dialog>
 <dialog class=modal id=delete{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Delete this practice?</h2>
-<p class="t2 sm">{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.</p>
+<p class="t2 sm">{% if practice_is_month(p) %}{{ practice_when(p) }} at {{ p.location }}.{% else %}{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.{% endif %}</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
 <div class=row><button class="btn btn-danger" name=action value=delete>Delete practice</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% endmacro %}
@@ -1379,9 +1379,9 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {{ rsvp_btn('Not going', nextev.mine == 'notgoing', 'notgoing') }}</form>
 </div>{% elif nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'">
 {% if nextp.image %}<a class=cardlink href="/practices/{{nextp.id}}"><div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div></a>{% endif %}
-<div class=nxbody><div class=nxcardhead><a class=cardlink href="/practices/{{nextp.id}}"><div class=nxtitle>{{ practice_title(nextp) }}</div></a><span class="chip-info daychip">{{ relative_day(nextp.date) }}</span></div>
+<div class=nxbody><div class=nxcardhead><a class=cardlink href="/practices/{{nextp.id}}"><div class=nxtitle>{{ practice_title(nextp) }}</div></a><span class="chip-info daychip">{{ practice_chip(nextp) }}</span></div>
 <a class=cardlink href="/practices/{{nextp.id}}">
-<div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_card_date(nextp.date) }} · {{ fmt_clock(nextp.start) }} – {{ fmt_clock(nextp.end) }}</span></div>
+<div class=nxrow>{{ glyph_clock() }}<span>{% if practice_is_month(nextp) %}{{ practice_when(nextp) }}{% else %}{{ fmt_card_date(nextp.date) }} · {{ fmt_clock(nextp.start) }} – {{ fmt_clock(nextp.end) }}{% endif %}</span></div>
 <div class=nxrow>{{ glyph_pin() }}<span>{{ short_place(nextp.location) }}</span></div>
 <div class=nxrow>{{ glyph_people() }}<span>{{ nextp_n }} going{% if next_coaches %} · Coaches: {{ next_coaches }}{% endif %}</span></div>
 {% if practice_sports_line(nextp) %}<div class="t3 sm sportline">{{ practice_sports_line(nextp) }}</div>{% endif %}
@@ -1399,8 +1399,9 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {% for x in data %}{% set p = x.p %}<div class="card tap{% if nextp and p.id == nextp.id %} schedsame{% endif %}" id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">
 <div class=nxcardhead><div class=nxtitle>{{ practice_title(p) }}</div></div>
-<div class=nxmain><div class=datetile><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class=wd>{{ weekday_abbr(p.date) }}</span><span class=dn>{{ day_num(p.date) }}</span><span class=mo>{{ month_abbr(p.date) }}</span></div>
-<div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_span(p.start, p.end) }}</span></div>
+{% set tile = practice_tile(p) %}
+<div class=nxmain><div class=datetile><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class=wd>{{ tile.wd }}</span><span class=dn>{{ tile.dn }}</span><span class=mo>{{ tile.mo }}</span></div>
+<div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{% if practice_is_month(p) %}{{ practice_when(p) }}{% else %}{{ fmt_span(p.start, p.end) }}{% endif %}</span></div>
 <div class=nxrow>{{ glyph_pin() }}<span>{{ p.location }}</span></div>
 <div class=nxrow>{{ glyph_people() }}<span>{{ x.going|length }} going{% if x.coach_names %} · Coaches: {{ x.coach_names|join(', ') }}{% endif %}</span></div>
 {% if practice_sports_line(p) %}<div class="t3 sm sportline">{{ practice_sports_line(p) }}</div>{% endif %}</div></div>
@@ -2002,7 +2003,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label>Short description<textarea name=description id=lineDesc rows=3 placeholder="What should people know?"></textarea></label>
 </div>
 <div class=seclabel>When</div>
-<div class=actseg id=whenPrec role=radiogroup aria-label=Dates {% if staff and lane != 'lineup' %}hidden{% endif %}>
+<div class=actseg id=whenPrec role=radiogroup aria-label=Dates>
 <label><input type=radio name=date_precision value=exact checked><span>Exact dates</span></label>
 <label><input type=radio name=date_precision value=month><span>Month only</span></label>
 </div>
@@ -2098,15 +2099,15 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   paintTitle(); syncLine();
  }
  function syncPrec(){
-  var lineup=!staff || (lane && lane.value==='lineup');
   var prec=document.getElementById('whenPrec'), exact=document.getElementById('exactWhen'), month=document.getElementById('monthWhen');
-  if(prec) prec.hidden=!lineup;
+  if(prec) prec.hidden=false;
   var on=document.querySelector('input[name=date_precision]:checked');
-  var monthOn=!!(lineup && on && on.value==='month');
+  var monthOn=!!(on && on.value==='month');
   if(exact){ exact.hidden=monthOn; exact.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=monthOn; }); }
   if(month){ month.hidden=!monthOn; month.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=!monthOn; }); }
   var monthInput=document.getElementById('monthInput'); if(monthInput) monthInput.disabled=!monthOn;
   var dateInput=document.getElementById('dateInput'); if(dateInput) dateInput.disabled=monthOn;
+  ['startInput','endInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.disabled=monthOn; });
  }
  document.querySelectorAll('input[name=date_precision]').forEach(function(r){ r.addEventListener('change', syncPrec); });
  document.querySelectorAll('button.lanecard').forEach(function(b){ b.onclick=function(){ showLane(b.getAttribute('data-lane')); syncPrec(); }; });
@@ -2264,8 +2265,9 @@ T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp
 {% for x in data %}{% set p = x.p %}<div class="card tap" id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">
 <div class=nxcardhead><div class=nxtitle>{{ practice_title(p) }}</div></div>
-<div class=nxmain><div class=datetile><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class=wd>{{ weekday_abbr(p.date) }}</span><span class=dn>{{ day_num(p.date) }}</span><span class=mo>{{ month_abbr(p.date) }}</span></div>
-<div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ fmt_span(p.start, p.end) }}</span></div>
+{% set tile = practice_tile(p) %}
+<div class=nxmain><div class=datetile><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class=wd>{{ tile.wd }}</span><span class=dn>{{ tile.dn }}</span><span class=mo>{{ tile.mo }}</span></div>
+<div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{% if practice_is_month(p) %}{{ practice_when(p) }}{% else %}{{ fmt_span(p.start, p.end) }}{% endif %}</span></div>
 <div class=nxrow>{{ glyph_pin() }}<span>{{ p.location }}</span></div>
 <div class=nxrow>{{ glyph_people() }}<span>{{ x.going|length }} going{% if x.coach_names %} · Coaches: {{ x.coach_names|join(', ') }}{% endif %}</span></div>
 {% if practice_sports_line(p) %}<div class="t3 sm sportline">{{ practice_sports_line(p) }}</div>{% endif %}</div></div>
@@ -2285,7 +2287,7 @@ T["practice"] = """{% set p = x.p %}
 {% if practice_sports_line(p) %}<p class="t3 sm sportline">{{ practice_sports_line(p) }}</p>{% endif %}
 {% if p.activity_type == 'hybrid' %}{% for seg in SPORTS.parse_segments(p.segments) %}<p class="t3 sm">{{ SPORTS.ACTIVITY_NAME.get(seg.type, seg.type) }} · {{ fmt_span(seg.start, seg.end) }}</p>{% endfor %}{% endif %}
 {% if p.opponent and p.activity_type == 'game' %}<p class=pracemeta>{% if p.home_away == 'home' %}Home{% elif p.home_away == 'away' %}Away{% endif %}{% if p.home_away %} · {% endif %}vs. {{ p.opponent }}</p>{% endif %}
-<p class=pracemeta>{{ fmt_card_date(p.date) }} · {{ fmt_clock(p.start) }} – {{ fmt_clock(p.end) }}</p>
+<p class=pracemeta>{% if practice_is_month(p) %}{{ practice_when(p) }}{% else %}{{ fmt_card_date(p.date) }} · {{ fmt_clock(p.start) }} – {{ fmt_clock(p.end) }}{% endif %}</p>
 {% if p.location %}<p class=pracemeta>{{ p.location }}</p>{% endif %}
 <div class=pracestatus>{% if p.cancelled %}{{ st('bad','Cancelled') }}{% else %}{{ st('ok','Scheduled') }}{% endif %}</div>
 {% if p.cancelled and p.cancel_reason %}<p class="t3 sm" style="margin:6px 0 0">{{ p.cancel_reason }}</p>{% endif %}
@@ -2405,7 +2407,7 @@ T["practice"] = """{% set p = x.p %}
 <label>Reason<textarea name=reason required></textarea></label>
 <button class="btn btn-danger full" name=action value=cancel>Confirm</button></form></div></dialog>
 <dialog class=modal id=delete{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Delete this practice?</h2>
-<p class="t2 sm">{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.</p>
+<p class="t2 sm">{% if practice_is_month(p) %}{{ practice_when(p) }} at {{ p.location }}.{% else %}{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.{% endif %}</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
 <div class=row><button class="btn btn-danger" name=action value=delete>Delete practice</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% endif %}""" + _PRACTICE_JS
