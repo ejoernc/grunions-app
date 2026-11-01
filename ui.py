@@ -251,7 +251,7 @@ button.morebtn[aria-expanded=true]{background:var(--surface2);color:var(--t1)}
 .menu button{width:100%;height:40px;padding:0 12px;justify-content:flex-start;background:transparent;color:var(--t1);font-weight:500;font-size:15px;border-radius:8px}
 .menu button:disabled{color:var(--t3)}
 .li{display:flex;align-items:center;gap:12px;padding:14px 18px;min-height:60px;border-top:1px solid var(--line)}.li:first-child{border-top:0}
-.planrow{flex-wrap:wrap}.planline{flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.planlabel{font-weight:500;color:var(--color-text)}.plantext{flex:1 0 100%;white-space:pre-wrap;margin-top:4px}
+.planrow{flex-wrap:wrap;align-items:center}.planline{flex:1;min-width:0;display:flex;align-items:center;justify-content:flex-start;gap:8px;flex-wrap:wrap;text-align:left}.planlabel{font-weight:500;color:var(--color-text);text-align:left}.plantext{flex:1 0 100%;white-space:pre-wrap;margin-top:4px;text-align:left}
 textarea.planfield{height:auto;min-height:var(--field-plan-min);line-height:var(--type-b1-line);resize:vertical;field-sizing:content}
 .li.prow{padding-left:16px;padding-right:16px;gap:8px}
 .editonly,.li.editonly{display:none}
@@ -469,6 +469,8 @@ label:has(> .locok)>.placefield,label:has(> .locok)>input{flex:1 0 100%;min-widt
 .placedrop{position:absolute;z-index:25;left:0;right:0;top:calc(100% + 4px);max-height:min(320px,60vh);overflow:auto;background:var(--color-sheet);border:1px solid var(--color-sheet-border);border-radius:var(--radius-control);padding:4px;box-shadow:0 12px 32px rgba(0,0,0,.35)}
 button.placeopt{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;height:auto;margin:0;padding:8px 12px;background:transparent;color:var(--color-text);border-radius:12px;font-weight:400;text-align:left;justify-content:flex-start}
 button.placeopt.on{background:var(--color-raised)}
+.gcheck{width:18px;height:18px;border:1.5px solid var(--color-control);border-radius:4px;flex:none;box-sizing:border-box}
+button.placeopt.checked .gcheck{background:var(--color-lime);border-color:var(--color-lime);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath fill='%23090D0B' d='M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:center;background-size:12px}
 .placeopt .pin{flex:none;width:16px;height:16px;color:var(--color-icon)}
 .placeopt .grow{min-width:0;display:block}
 .placeopt .pname,.placeopt .plabel{display:block;font-weight:650;line-height:1.25}
@@ -889,7 +891,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=102');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=103');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -1561,8 +1563,75 @@ window.grunionsPlaces=function(input){
 function grunionsBindPlaces(){
  document.querySelectorAll('[data-places]').forEach(function(input){ if(window.grunionsPlaces) grunionsPlaces(input); });
 }
+window.grunionsGroups=function(input){
+ if(!input||input.dataset.groupbound) return;
+ input.dataset.groupbound='1';
+ input.setAttribute('autocomplete','off');
+ input.setAttribute('role','combobox');
+ input.setAttribute('aria-autocomplete','list');
+ input.setAttribute('aria-expanded','false');
+ var groups=(input.getAttribute('data-groups')||'').split(',').map(function(s){return s.trim()}).filter(Boolean);
+ var wrap=document.createElement('div');
+ wrap.className='placefield';
+ input.parentNode.insertBefore(wrap, input);
+ wrap.appendChild(input);
+ var drop=document.createElement('div');
+ drop.className='placedrop'; drop.hidden=true; drop.setAttribute('role','listbox');
+ wrap.appendChild(drop);
+ function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+ function selected(){ return input.value.split(',').map(function(s){return s.trim()}).filter(Boolean); }
+ function setSelected(list){
+  var seen={}, out=[];
+  list.forEach(function(s){ var k=s.toLowerCase(); if(!s||seen[k]) return; seen[k]=1; out.push(s); });
+  input.value=out.join(', ');
+ }
+ function has(name){ var k=name.toLowerCase(); return selected().some(function(s){return s.toLowerCase()===k}); }
+ function toggle(name){
+  var list=selected(), k=name.toLowerCase(), i=list.findIndex(function(s){return s.toLowerCase()===k});
+  if(i>=0) list.splice(i,1); else list.push(name);
+  setSelected(list); paint();
+ }
+ function close(){ drop.hidden=true; input.setAttribute('aria-expanded','false'); }
+ function paint(){
+  var parts=input.value.split(','), typing=(parts[parts.length-1]||'').trim().toLowerCase();
+  if(typing && has(typing)) typing='';
+  drop.innerHTML='';
+  groups.forEach(function(name){
+   if(typing && name.toLowerCase().indexOf(typing)<0 && !has(name)) return;
+   var b=document.createElement('button');
+   b.type='button'; b.className='placeopt'+(has(name)?' checked':''); b.setAttribute('role','option');
+   b.setAttribute('aria-selected', has(name)?'true':'false');
+   b.innerHTML='<span class=gcheck></span><span class=grow><span class=plabel>'+esc(name)+'</span></span>';
+   b.addEventListener('pointerdown', function(e){ e.preventDefault(); });
+   b.addEventListener('click', function(e){ e.preventDefault(); toggle(name); });
+   drop.appendChild(b);
+  });
+  if(typing && !groups.some(function(g){return g.toLowerCase()===typing})){
+   var add=document.createElement('button');
+   add.type='button'; add.className='placeopt'; add.setAttribute('role','option');
+   add.innerHTML='<span class=grow><span class=plabel>'+esc('Add “'+typing+'”')+'</span></span>';
+   add.addEventListener('pointerdown', function(e){ e.preventDefault(); });
+   add.addEventListener('click', function(e){
+    e.preventDefault();
+    var list=selected().filter(function(s){return s.toLowerCase()!==typing});
+    list.push(typing.replace(/\\s+/g,' ').trim());
+    setSelected(list); paint();
+   });
+   drop.appendChild(add);
+  }
+  var on=drop.children.length>0;
+  drop.hidden=!on; input.setAttribute('aria-expanded', on?'true':'false');
+ }
+ input.addEventListener('focus', paint);
+ input.addEventListener('input', paint);
+ input.addEventListener('keydown', function(e){ if(e.key==='Escape'){ e.preventDefault(); close(); } });
+ input.addEventListener('blur', function(){ setTimeout(close, 180); });
+ paint();
+};
 document.addEventListener('focusin', function(e){
- var input=e.target; if(input&&input.matches&&input.matches('[data-places]')) grunionsPlaces(input);
+ var input=e.target; if(!input||!input.matches) return;
+ if(input.matches('[data-places]')) grunionsPlaces(input);
+ if(input.matches('[data-groups]')) grunionsGroups(input);
 });
 document.addEventListener('DOMContentLoaded', function(){
  if(window.grunionsDropzones) grunionsDropzones();
@@ -2584,9 +2653,8 @@ T["practice"] = """{% set p = x.p %}
 {% for c in coach_choices %}<div style="padding:8px 0;border-top:1px solid var(--line)">
 <label style="margin:0"><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in x.coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
 <label style="margin:8px 0 0"><input type=radio name=lead value="{{ c.id }}" {% if c.id == x.lead_id %}checked{% endif %}>Head coach</label>
-<label style="margin:8px 0 0">Focus group<input name="focus-{{ c.id }}" list=focusGroups value="{{ x.focuses.get(c.id, '') }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
+<label style="margin:8px 0 0">Focus group<input name="focus-{{ c.id }}" data-groups="Beginners,Intermediate,Advanced,Goalies" value="{{ x.focuses.get(c.id, '') }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
 </div>{% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
-<datalist id=focusGroups><option value=Beginners><option value=Intermediate><option value=Advanced><option value=Goalies></datalist>
 <label>Practice plan<textarea class=planfield name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label>
 <input type=hidden name=plan_fields value=1>
 </form>
@@ -2629,9 +2697,8 @@ T["practice"] = """{% set p = x.p %}
 {% if x.coaches %}<div class=li><label style="margin:0"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}>No head coach</label></div>{% endif %}
 {% for c in x.coaches %}<div class=li><div class=grow>
 <label style="margin:0"><input type=radio name=lead value="{{ c.id }}" {% if c.is_lead %}checked{% endif %}>{{ display_first(c) }} {{ c.last }}</label>
-<label style="margin:8px 0 0">Plan<input name="focus-{{ c.id }}" list=focusGroups value="{{ c.focus or '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
+<label style="margin:8px 0 0">Plan<input name="focus-{{ c.id }}" data-groups="Beginners,Intermediate,Advanced,Goalies" value="{{ c.focus or '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
 </div></div>{% endfor %}
-<datalist id=focusGroups><option value=Beginners><option value=Intermediate><option value=Advanced><option value=Goalies></datalist>
 </form>
 {% else %}
 {% for c in x.coaches %}{% set editable = can_host_practice() and (me().is_admin or c.id == me().id) %}<div class="li personrow">{% if editable %}<button type=button class="coachopen coachbody" data-open="cfocus{{ p.id }}-{{ c.id }}">{% else %}<div class="grow coachbody">{% endif %}<span class=coachline>{% if can_host_practice() %}{{ person_mark(c) }}{% endif %}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Head coach</span>{% endif %}</span>{% if can_host_practice() and c.focus %}<span class="t3 sm coachplan">{{ c.focus }}</span>{% endif %}{% if editable %}</button>{% else %}</div>{% endif %}</div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}
@@ -2655,9 +2722,9 @@ T["practice"] = """{% set p = x.p %}
 {% for c in x.coaches %}{% if me().is_admin or c.id == me().id %}<dialog class=modal id="cfocus{{ p.id }}-{{ c.id }}"><div class=sheet><h2 style="margin:0 0 12px">{{ display_first(c) }} {{ c.last }}</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=coach_id value="{{ c.id }}">
 <label class=switchrow>Head coach<span class=switch><input type=checkbox name=head_coach value=1 {% if c.is_lead %}checked{% endif %}><span></span></span></label>
-<label>Plan<input name=focus list=planFocus value="{{ c.focus or '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
+<label>Groups<input name=focus data-groups="Beginners,Intermediate,Advanced,Goalies" value="{{ c.focus or '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
+<label>Plan details<textarea class=planfield name=plan_note rows=4>{{ c.plan_note or '' }}</textarea></label>
 <button class="btn btn-primary full" name=action value=coach_plan>Save</button></form></div></dialog>{% endif %}{% endfor %}
-<datalist id=planFocus><option value=Beginners><option value=Intermediate><option value=Advanced><option value=Goalies></datalist>
 {% endif %}
 {% if is_staff() and not me().is_admin %}
 <dialog class=modal id=hostedit{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Edit practice</h2>

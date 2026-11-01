@@ -184,6 +184,8 @@ def migrate_practice_coaches(d):
         d.execute("ALTER TABLE practice_coaches ADD COLUMN is_lead INTEGER NOT NULL DEFAULT 0")
     if "focus" not in cols:
         d.execute("ALTER TABLE practice_coaches ADD COLUMN focus TEXT")
+    if "plan_note" not in cols:
+        d.execute("ALTER TABLE practice_coaches ADD COLUMN plan_note TEXT")
 def migrate_members(d):
     """Add columns missing from a database created by an older version (production SQLite on /data)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
@@ -2188,7 +2190,7 @@ def practice_coach_rows(d, pids):
     out = {pid: [] for pid in pids}
     if not pids: return out
     marks = ",".join("?" * len(pids))
-    for r in d.execute("""SELECT pc.practice_id AS pid, pc.is_lead, pc.focus, m.id, m.first, m.last, m.preferred_first, m.email,
+    for r in d.execute("""SELECT pc.practice_id AS pid, pc.is_lead, pc.focus, pc.plan_note, m.id, m.first, m.last, m.preferred_first, m.email,
         m.membership_type, m.usawp_status, m.usawp_valid_until, m.trial_acknowledged_at
         FROM practice_coaches pc JOIN members m ON m.id=pc.member_id
         WHERE pc.practice_id IN (%s) AND COALESCE(m.role,'')!='system'
@@ -2196,7 +2198,7 @@ def practice_coach_rows(d, pids):
         out[r["pid"]].append(r)
     return out
 def clean_focus(text):
-    return " ".join((text or "").split())[:80]
+    return " ".join((text or "").split())[:160]
 def clean_plan(text):
     return (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()[:2000]
 def focus_map_from_form():
@@ -2218,8 +2220,8 @@ def save_practice_coaches(d, pid, raw, lead=None, focuses=None):
         except (TypeError, ValueError): continue
         if i in allowed and i not in chosen: chosen.append(i)
     prev = {}
-    for r in d.execute("SELECT member_id, is_lead, focus FROM practice_coaches WHERE practice_id=?", (pid,)):
-        prev[r["member_id"]] = (1 if r["is_lead"] else 0, r["focus"] or "")
+    for r in d.execute("SELECT member_id, is_lead, focus, plan_note FROM practice_coaches WHERE practice_id=?", (pid,)):
+        prev[r["member_id"]] = (1 if r["is_lead"] else 0, r["focus"] or "", r["plan_note"] or "")
     explicit = focuses is not None
     lead_id = None
     if explicit and lead:
@@ -2230,12 +2232,13 @@ def save_practice_coaches(d, pid, raw, lead=None, focuses=None):
     rows = []
     for i in chosen:
         if explicit:
-            flag, text = (1 if i == lead_id else 0), clean_focus((focuses or {}).get(i, ""))
+            old = prev.get(i, (0, "", ""))
+            flag, text, note = (1 if i == lead_id else 0), clean_focus((focuses or {}).get(i, "")), old[2]
         else:
-            flag, text = prev.get(i, (0, ""))
-        rows.append((pid, i, flag, text))
+            flag, text, note = prev.get(i, (0, "", ""))
+        rows.append((pid, i, flag, text, note))
     if rows:
-        d.executemany("INSERT INTO practice_coaches(practice_id, member_id, is_lead, focus) VALUES(?,?,?,?)", rows)
+        d.executemany("INSERT INTO practice_coaches(practice_id, member_id, is_lead, focus, plan_note) VALUES(?,?,?,?,?)", rows)
 def save_assigned_plan(d, pid, lead, focuses):
     """Update the lead and focus groups without changing who is assigned."""
     ids = [r["member_id"] for r in d.execute("SELECT member_id FROM practice_coaches WHERE practice_id=?", (pid,))]
@@ -2289,11 +2292,12 @@ def handle_practice_post(d):
         if not cid or not d.execute("SELECT 1 FROM practice_coaches WHERE practice_id=? AND member_id=?", (pid, cid)).fetchone():
             abort(404)
         focus = clean_focus(request.form.get("focus"))
+        note = clean_plan(request.form.get("plan_note"))[:1000]
         if request.form.get("head_coach") == "1":
             d.execute("UPDATE practice_coaches SET is_lead=0 WHERE practice_id=?", (pid,))
-            d.execute("UPDATE practice_coaches SET is_lead=1, focus=? WHERE practice_id=? AND member_id=?", (focus, pid, cid))
+            d.execute("UPDATE practice_coaches SET is_lead=1, focus=?, plan_note=? WHERE practice_id=? AND member_id=?", (focus, note, pid, cid))
         else:
-            d.execute("UPDATE practice_coaches SET is_lead=0, focus=? WHERE practice_id=? AND member_id=?", (focus, pid, cid))
+            d.execute("UPDATE practice_coaches SET is_lead=0, focus=?, plan_note=? WHERE practice_id=? AND member_id=?", (focus, note, pid, cid))
     elif a == "note" and pid:
         if not can_host_practice(): abort(403)
         old_note = d.execute("SELECT note FROM practices WHERE id=?", (pid,)).fetchone()
@@ -2381,9 +2385,11 @@ def handle_practice_post(d):
                 src["social_kind"], src["social_place"], src["social_address"], src["social_time"], src["social_note"],
                 src["image"], src["lat"], src["lng"], src["social_lat"], src["social_lng"], src["coaching_plan"] if "coaching_plan" in src.keys() else ""))
             new_id = cur.lastrowid
-            copied = d.execute("SELECT member_id, is_lead, focus FROM practice_coaches WHERE practice_id=?", (pid,)).fetchall()
+            copied = d.execute("SELECT member_id, is_lead, focus, plan_note FROM practice_coaches WHERE practice_id=?", (pid,)).fetchall()
             lead = next((r["member_id"] for r in copied if r["is_lead"]), None)
             save_practice_coaches(d, new_id, [r["member_id"] for r in copied], lead=lead, focuses={r["member_id"]: (r["focus"] or "") for r in copied})
+            for r in copied:
+                d.execute("UPDATE practice_coaches SET plan_note=? WHERE practice_id=? AND member_id=?", (r["plan_note"] or "", new_id, r["member_id"]))
             flash("Copied to %s." % fmt_d(new_date))
         except sqlite3.IntegrityError:
             flash("A practice is already on the schedule a week later at that place.")
@@ -4807,7 +4813,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-102 */
+SW_JS = """/* grunions-sw-103 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
