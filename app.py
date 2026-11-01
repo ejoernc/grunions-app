@@ -1544,6 +1544,29 @@ def month_window(month, part):
     if part == "mid": return dt.date(year, mon, min(11, last.day)), dt.date(year, mon, min(20, last.day)), "mid"
     if part == "late": return dt.date(year, mon, min(21, last.day)), last, "late"
     return first, last, ""
+def _row_val(row, *keys):
+    if row is None or not hasattr(row, "keys"): return ""
+    for key in keys:
+        if key in row.keys() and row[key] not in (None, ""): return row[key]
+    return ""
+def _month_last(day):
+    if day.month == 12: return dt.date(day.year, 12, 31)
+    return dt.date(day.year, day.month + 1, 1) - dt.timedelta(days=1)
+def effective_sort_date(row):
+    """Where a month-only event sits among real dates. Early is the 5th, Mid the 15th, Late the 25th, TBA the last day."""
+    raw = str(_row_val(row, "date") or "")[:10]
+    try:
+        day = dt.date.fromisoformat(raw)
+    except ValueError:
+        return raw or "9999-99-99"
+    precision = str(_row_val(row, "date_precision", "precision") or "exact").strip().lower()
+    if precision != "month": return day.isoformat()
+    part = str(_row_val(row, "date_part", "part") or "").strip().lower()
+    if part == "early": n = 5
+    elif part == "mid": n = 15
+    elif part == "late": n = min(25, _month_last(day).day)
+    else: return _month_last(day).isoformat()
+    return dt.date(day.year, day.month, n).isoformat()
 def practice_title(p):
     """Live title is Sport + type. A custom title wins. Unset rows are Water Polo Practice."""
     if not p: return "Water Polo Practice"
@@ -2200,7 +2223,7 @@ def upcoming_schedule(d, skip_id=None):
     Month-only sessions stay on the list even when dated practices fill the first page."""
     ps = list(d.execute("SELECT * FROM practices WHERE COALESCE(date_precision,'exact')!='month' AND " + upcoming_where() + " ORDER BY date, start LIMIT 16", upcoming_bounds()).fetchall())
     ps.extend(d.execute("SELECT * FROM practices WHERE COALESCE(date_precision,'exact')='month' AND " + upcoming_where() + " ORDER BY date, start", upcoming_bounds()).fetchall())
-    ps.sort(key=lambda p: ((p["date"] or ""), (p["start"] or ""), p["id"]))
+    ps.sort(key=lambda p: (effective_sort_date(p), p["start"] or "", p["id"]))
     unseen = unread_for_me()["practices"]
     data = []
     for p in ps:
@@ -2217,7 +2240,9 @@ def combined_view(entry):
     ensure_schedule(d)
     picked = next_commitment(d, m["id"])
     next_kind, nextev = "practice", None
-    practice_row = d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where() + " ORDER BY CASE WHEN COALESCE(date_precision,'exact')='month' THEN 1 ELSE 0 END, date, start LIMIT 1", upcoming_bounds()).fetchone()
+    _upcoming = d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where(), upcoming_bounds()).fetchall()
+    _upcoming.sort(key=lambda p: (effective_sort_date(p), p["start"] or "", p["id"]))
+    practice_row = _upcoming[0] if _upcoming else None
     if picked and picked[0] == "event":
         next_kind = "event"
         full = lineup_event_row(d, picked[1]["id"])
@@ -2494,6 +2519,8 @@ def lineup_pack(d, rows):
             "dir_href": lineup_dir_href(r["city"] or "", r["venue"] or ""),
             "when": lineup_when_label(r), "date": r["date"], "end_date": r["end_date"] or r["date"],
             "precision": r["date_precision"] if "date_precision" in r.keys() and r["date_precision"] else "exact",
+            "part": (r["date_part"] or "") if "date_part" in r.keys() else "",
+            "sort_date": effective_sort_date(r),
             "tile": lineup_tile(r),
             "venue": r["venue"] or "", "city": r["city"] or "",
             "host_org": (r["host_org"] or "") if "host_org" in r.keys() and lineupfeed.hosting_label(r["hosting"]) == "Attending" else "",
@@ -2528,8 +2555,8 @@ def profile_lineup(d, member_id, kind):
     today = today_pt().isoformat()
     def ends(e):
         return str(e.get("end_date") or e.get("date") or "")[:10]
-    upcoming = sorted((e for e in packed if ends(e) >= today), key=lambda e: (e["date"] or "", e["id"]))
-    past = sorted((e for e in packed if ends(e) < today), key=lambda e: (e["date"] or "", e["id"]), reverse=True)
+    upcoming = sorted((e for e in packed if ends(e) >= today), key=lambda e: (e.get("sort_date") or effective_sort_date(e), e["id"]))
+    past = sorted((e for e in packed if ends(e) < today), key=lambda e: (e.get("sort_date") or effective_sort_date(e), e["id"]), reverse=True)
     return lineup_groups(upcoming), lineup_groups(past), len(past)
 def _lineup_back(raw):
     raw = (raw or "").strip()
@@ -2757,7 +2784,7 @@ def lineup():
         if group_types: return e["event_type"] in group_types
         return not cat or e["event_type"] == cat
     public = [e for e in rows if e["status"] == "published" and shown(e)]
-    def feed_key(e): return (e["date"], 0 if e.get("precision") == "month" else 1, e["id"])
+    def feed_key(e): return (e.get("sort_date") or effective_sort_date(e), e["id"])
     upcoming = sorted((e for e in public if still_on(e)), key=feed_key)
     past = sorted((e for e in public if not still_on(e)), key=feed_key, reverse=True)
     featured = [e for e in upcoming if e["featured"]]
@@ -2907,7 +2934,7 @@ def events_hub_groups(d):
             "when": practice_when(p) if practice_is_month(p) else "%s · %s" % (fmt_d(p["date"]), fmt_span(p["start"] or "19:00", p["end"] or "20:30")),
             "place": p["location"] or "",
             "href": "/practices/%d?from=admin" % p["id"],
-            "sort": (p["date"] or "", p["start"] or "", p["id"]),
+            "sort": (effective_sort_date(p), p["start"] or "", p["id"]),
         })
     raw = []
     for r in lineup_query(d):
@@ -2923,7 +2950,7 @@ def events_hub_groups(d):
             "when": e["when"],
             "place": e["where"],
             "href": "/lineup/%d?from=admin" % e["id"],
-            "sort": (e["date"] or "", e["id"]),
+            "sort": (e.get("sort_date") or effective_sort_date(e), e["id"]),
         })
     order = ["Practice", "Scrimmage", "Game", "Hybrid", "Clinic", "Tournament", "Competition", "Trip", "Social", "Volunteer", "Fundraiser", "Meeting", "Other"]
     groups = []
@@ -3110,7 +3137,7 @@ def _request_rows(d, view):
         wanted = lambda e: (e["status"] or "") in ("pending", "changes_requested")
     packed = _request_people(d, lineup_pack(d, list(lineup_query(d))))
     rows = [e for e in packed if wanted(e)]
-    rows.sort(key=lambda e: (e.get("submitted") or e.get("date") or "", e["id"]), reverse=(view != "pending"))
+    rows.sort(key=lambda e: (e.get("submitted") or e.get("sort_date") or effective_sort_date(e), e["id"]), reverse=(view != "pending"))
     return view, rows
 @app.route("/manage")
 @login_required
@@ -3150,8 +3177,9 @@ def next_commitment(d, mid):
     for p in d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where(), upcoming_bounds()):
         day = dt.date.fromisoformat(p["date"])
         if practice_is_month(p):
-            start = dt.datetime.combine(day, dt.time(0, 0))
-            cands.append((2, start, 0, "practice", p))
+            sort_day = dt.date.fromisoformat(effective_sort_date(p))
+            start = dt.datetime.combine(sort_day, dt.time(0, 0))
+            cands.append((1, start, 0, "practice", p))
             continue
         sh, sm = [int(x) for x in (p["start"] or "19:00").split(":")[:2]]
         eh, em = [int(x) for x in (p["end"] or "20:30").split(":")[:2]]
@@ -3942,6 +3970,7 @@ def practice_sheet_tabs(d, practices=None):
     """Members, Practices, Attendance, and Practice Coaches."""
     if practices is None:
         practices = d.execute("SELECT * FROM practices ORDER BY date, start, id").fetchall()
+        practices = sorted(practices, key=lambda p: (effective_sort_date(p), p["start"] or "", p["id"]))
     rsvps, checkins, assigned = practice_export_bundle(d, practices)
     summary = [PRACTICE_CSV_HEADER]
     for p in practices: summary.append(practice_summary_row(d, p, rsvps, checkins, assigned.get(p["id"], [])))
@@ -4497,7 +4526,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-77 */
+SW_JS = """/* grunions-sw-78 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
