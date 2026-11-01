@@ -46,8 +46,9 @@ Buttons, chips, cards, inputs, sheets, avatars, the bottom nav, and Phosphor ico
 | Chat | Team and Coaches are the same pill chips as the Lineup filters. The composer sits above the nav. Bubbles use `--color-surface` and `--color-surface-2`. |
 | People | Rows, letter headers, and status dots. Sticky bars keep the page background. |
 | Member and profile | Shared lists, avatars, and the profile bar. Your profile switches General, My Lineup, and Hosting with the same pill chips. Hosting shows only after you have hosted. Another member's page stays on General. |
-| Admin Schedule | One card per event, selected with `--color-selected`. Filters and the check-in count stay in the filter row. |
-| Approvals, Expiring, Transfer, Rules, QR | Admin chips and the shared buttons, lists, and fields. |
+| Admin tabs | One page header (`admin_page`): chip row, then Title 1, an optional ghost action (`btn quiet pageact`), then an optional Body 2 subtitle. Schedule, People, Events, Expiring, Transfer, Rules, and Join QR use it. The gap from the chips to the title is `--space-5`. The gap from the header block to the first content is `--space-4`. |
+| Admin Schedule | The header title is Schedule, then the date bar. One card per event, selected with `--color-selected`. Filters and the check-in count stay in the filter row. |
+| Events, People, Expiring, Transfer, Rules, QR | Same page header. People puts Export CSV in the action slot. Events puts Create event there. Each page has one H1. |
 | Design preview | `/design-system`, admins only. |
 
 Reused: `btn`, `chip`, `card`, `actseg`, `list`, `st`, avatars, and the bottom nav.

@@ -2004,8 +2004,15 @@ def handle_practice_post(d):
         save_coach_note(d, pid, request.form.get("message"))
     elif a == "plan" and pid:
         if not can_host_practice(): abort(403)
-        save_assigned_plan(d, pid, request.form.get("lead"), focus_map_from_form())
+        if "lead" in request.form or any(str(k).startswith("focus-") for k in request.form):
+            save_assigned_plan(d, pid, request.form.get("lead"), focus_map_from_form())
         save_coaching_plan(d, pid, request.form.get("coaching_plan"))
+    elif a == "coach_plan" and pid:
+        if not can_host_practice(): abort(403)
+        cid = request.form.get("coach_id", type=int)
+        if not me()["is_admin"] and cid != me()["id"]: abort(403)
+        if cid and d.execute("SELECT 1 FROM practice_coaches WHERE practice_id=? AND member_id=?", (pid, cid)).fetchone():
+            d.execute("UPDATE practice_coaches SET focus=? WHERE practice_id=? AND member_id=?", (clean_focus(request.form.get("focus")), pid, cid))
     elif a == "note" and pid:
         if not can_host_practice(): abort(403)
         old_note = d.execute("SELECT note FROM practices WHERE id=?", (pid,)).fetchone()
@@ -4239,7 +4246,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-66 */
+SW_JS = """/* grunions-sw-67 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

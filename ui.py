@@ -151,7 +151,9 @@ button.cambadge svg{width:16px;height:16px;display:block}
 body.profile-edit button.cambadge.editonly{display:flex}
 button.textlink{background:transparent;color:var(--t1);height:auto;min-height:0;padding:6px 8px;border-radius:0;font-size:14px;font-weight:600}
 button.textlink.danger{color:var(--bad)}
-a.rowbtn,button.rowbtn{width:100%;height:auto;min-height:60px;padding:14px 18px;border-radius:0;background:transparent;color:var(--t1);font-weight:500;justify-content:flex-start;text-decoration:none;border-top:1px solid var(--line)}
+a.rowbtn,button.rowbtn,button.coachrow{width:100%;height:auto;min-height:60px;padding:14px 18px;border-radius:0;background:transparent;color:var(--t1);font-weight:500;justify-content:flex-start;text-align:left;text-decoration:none;border-top:1px solid var(--line)}
+button.coachrow{font-weight:400;align-items:flex-start;flex-direction:column;gap:2px}
+button.coachrow .coachline{display:flex;align-items:center;gap:8px;min-width:0;width:100%}
 .list>form{margin:0}
 .list>form:not(:first-child)>button.rowbtn{border-top:1px solid var(--line)}
 .pracemeta{color:var(--t2);text-align:center;margin:0;font-size:15px}
@@ -192,7 +194,13 @@ input[type=file].pick{position:absolute;width:1px;height:1px;padding:0;margin:-1
 .homedock .card{pointer-events:auto;background:var(--color-surface);margin:0}
 .menu a{display:flex;align-items:center;width:100%;height:40px;padding:0 12px;box-sizing:border-box;color:var(--t1);font-weight:500;font-size:15px;text-decoration:none;border-radius:8px}
 .card .menu,.pagehead .menu{left:auto;right:0;min-width:220px}
-.pagehead{display:flex;justify-content:space-between;align-items:center;gap:12px}.pagehead>h1{margin:0}
+.pagehead{display:flex;flex-direction:column;align-items:stretch;gap:var(--space-2);margin:0 0 var(--space-4)}
+.pagerow{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);min-width:0}
+.pagehead h1{margin:0;min-width:0;font-size:var(--type-t1-size);line-height:var(--type-t1-line);font-weight:var(--type-t1-weight);letter-spacing:var(--type-title-1-tracking)}
+.pagesub{margin:0;color:var(--color-text-secondary);font-size:var(--type-b2-size);line-height:var(--type-b2-line);font-weight:var(--type-b2-weight)}
+a.pageact,button.pageact{flex:none;height:auto;min-height:0;padding:var(--space-2) var(--space-3)}
+body.adminpage main{padding-top:var(--space-5)}
+.pagehead+.checkbar{padding-top:0}
 .usawp-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
 .list{background:var(--surface);border-radius:var(--r);margin:0 0 12px;overflow:hidden}
 .list.loose{overflow:visible}
@@ -392,7 +400,7 @@ span.avatar.ciav,span.avatar.ciav img{width:40px;height:40px;min-width:40px;max-
 .filt{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
 .filt.chiprow,.fchips.chiprow{flex-wrap:nowrap;margin-inline:-20px;padding:6px 20px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;touch-action:pan-x;scroll-padding-inline:20px}
 .lineupfilt.chiprow{margin-bottom:16px}
-.planask{margin:0 0 16px;font-size:var(--type-title-1-size);font-weight:var(--type-title-1-weight);letter-spacing:var(--type-title-1-tracking)}
+h2.planask{margin:0 0 var(--space-4);font-size:var(--type-t3-size);line-height:var(--type-t3-line);font-weight:var(--type-t3-weight)}
 .planlane{display:flex;flex-direction:column;gap:12px}
 .planlane .card h2{margin:0 0 4px;font-size:1.0625rem;font-weight:650}
 .planlane .card p{margin:0 0 12px}
@@ -490,7 +498,7 @@ dialog.memberedit .help a{color:var(--t1)}
 .datefield.empty input[type=date]{color:transparent}
 .datefield.empty input[type=date]::-webkit-datetime-edit,.datefield.empty input[type=date]::-webkit-datetime-edit-fields-wrapper{color:transparent}
 @media print{header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{background:#fff}}
-</style></head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% endif %}">
+</style></head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' %}adminpage{% endif %}">
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
@@ -558,8 +566,14 @@ dialog.memberedit .help a{color:var(--t1)}
 {% elif dl is not none and dl >= 0 and dl <= EXPIRING_DAYS %}{% set ns.tone = 'warn' %}{% endif %}
 <span class="psub st-{{ ns.tone }} coachmark" aria-hidden="true"></span>{% endmacro %}
 {% macro person_link(r) %}<a class=ci-name href="/admin/member/{{ r.id }}">{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ person_sub(r) }}{{ caller() }}</span></a>{% endmacro %}
+{% macro admin_page(title, subtitle='') %}
+<div class=pagehead>
+<div class=pagerow><h1>{{ title }}</h1>{% if caller is defined %}{{ caller() }}{% endif %}</div>
+{% if subtitle %}<p class=pagesub>{{ subtitle }}</p>{% endif %}
+</div>
+{% endmacro %}
 {% macro event_chooser(staff) %}
-<p class=planask>What are you planning?</p>
+<h2 class=planask>What are you planning?</h2>
 <div class=planlane>
 {% if staff %}<div class=card>
 <h2>Team schedule</h2>
@@ -754,7 +768,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=66');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=67');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1648,7 +1662,7 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="btn btn-primary full" name=action value=official>Make official</button></form>{% endif %}
 {% if e.venue or e.city %}{{ event_location('lineLoc', e.pins, e.venue or e.city, e.city if e.venue else '', e.dir_href) }}{% endif %}
 <script>(function(){var el=document.getElementById('evdesc'),btn=document.getElementById('evmore');if(!el||!btn)return;if(el.scrollHeight>el.clientHeight+2)btn.hidden=false;btn.onclick=function(){var open=el.classList.toggle('open');btn.textContent=open?'Less':'More';};})();</script>"""
-T["approvals"] = """<div class=pagehead><h1>Events</h1><a class="btn btn-primary" href="/events/new">Create event</a></div>
+T["approvals"] = """{% call admin_page('Events') %}<a class="btn quiet pageact" href="/events/new">Create event</a>{% endcall %}
 {% if queue %}<h2>Needs review ({{ queue|length }})</h2>
 {% for e in queue %}<div class=card>
 <div class=nxtitle>{{ e.title }}</div>
@@ -1876,22 +1890,19 @@ T["practice"] = """{% set p = x.p %}
 </div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>
 <div class=seclabel>Coaches</div>
 <div class=list>
-{% for c in x.coaches %}<div class=li><div class=grow><div style="display:flex;align-items:center;gap:8px;min-width:0">{% if can_host_practice() %}{{ person_mark(c) }}{% endif %}<span class=ell>{% if me().is_admin or is_staff() %}<a href="/admin/member/{{ c.id }}" style="color:inherit;text-decoration:none">{{ display_first(c) }} {{ c.last }}</a>{% else %}{{ display_first(c) }} {{ c.last }}{% endif %}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Lead</span>{% endif %}</div>{% if can_host_practice() and c.focus %}<div class="t3 sm">{{ c.focus }}</div>{% endif %}</div></div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}
-{% if can_host_practice() %}
 {% if plan_editing %}<form id=practiceForm method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=plan_fields value=1>
 <div class=li><span class="chip-info" style="margin:0">Coaches only</span></div>
 <div class=li><label class=prefedit style="width:100%;margin:0">Today's plan<textarea name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label></div>
 {% if x.coaches %}<div class=li><label style="margin:0"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}>No lead</label></div>{% endif %}
 {% for c in x.coaches %}<div class=li><div class=grow>
 <label style="margin:0"><input type=radio name=lead value="{{ c.id }}" {% if c.is_lead %}checked{% endif %}>{{ display_first(c) }} {{ c.last }}</label>
-<label style="margin:8px 0 0">Focus group<input name="focus-{{ c.id }}" list=focusGroups value="{{ c.focus or '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
+<label style="margin:8px 0 0">Plan<input name="focus-{{ c.id }}" list=focusGroups value="{{ c.focus or '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
 </div></div>{% endfor %}
 <datalist id=focusGroups><option value=Beginners><option value=Intermediate><option value=Advanced><option value=Goalies></datalist>
 </form>
 {% else %}
-<div class="li prow" style="align-items:flex-start"><span class=k>Today's plan <span class="chip-info" style="margin:0 0 0 8px">Coaches only</span></span><span class=v style="white-space:pre-wrap">{{ p.coaching_plan or '—' }}</span><button type=button class="btn btn-secondary" data-open="plan{{ p.id }}">{{ 'Edit' if p.coaching_plan else 'Add' }}</button></div>
-{% for c in x.coaches %}<div class="li prow"><span class=k>{{ display_first(c) }} {{ c.last }}{% if c.is_lead %} · Lead{% endif %}</span><span class=v>{{ c.focus or '—' }}</span></div>{% else %}<div class=li><span class=t3>Assign a coach to set a focus group.</span></div>{% endfor %}
-{% endif %}
+{% for c in x.coaches %}{% set editable = can_host_practice() and (me().is_admin or c.id == me().id) %}{% if editable %}<button type=button class="li coachrow" data-open="cfocus{{ p.id }}-{{ c.id }}"><span class=coachline>{{ person_mark(c) }}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Lead</span>{% endif %}</span>{% if c.focus %}<span class="t3 sm">{{ c.focus }}</span>{% endif %}</button>{% else %}<div class=li><div class=grow><div style="display:flex;align-items:center;gap:8px;min-width:0">{% if can_host_practice() %}{{ person_mark(c) }}{% endif %}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Lead</span>{% endif %}</div>{% if can_host_practice() and c.focus %}<div class="t3 sm">{{ c.focus }}</div>{% endif %}</div></div>{% endif %}{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}
+{% if can_host_practice() %}<div class="li" style="align-items:flex-start"><div class=grow><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:500">Today's plan</span><span class="chip-info" style="margin:0">Coaches only</span></div>{% if p.coaching_plan %}<div class="t3 sm" style="white-space:pre-wrap;margin-top:4px">{{ p.coaching_plan }}</div>{% endif %}</div><button type=button class="btn btn-secondary" data-open="plan{{ p.id }}">{{ 'Edit' if p.coaching_plan else 'Add' }}</button></div>{% endif %}
 {% endif %}
 </div>
 {{ whos_going(x.going) }}
@@ -1902,16 +1913,15 @@ T["practice"] = """{% set p = x.p %}
 {% if p.location %}{% set dest = (pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location) %}{{ event_location('practiceLoc', pins, p.location, p.address or '', 'https://www.google.com/maps/dir/?api=1&destination=' ~ (dest|urlencode)) }}{% endif %}
 {% endif %}
 {% if me().is_admin or is_staff() %}{{ practice_extra_dialogs(p, 'page') }}
-<dialog class=modal id=plan{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Coaching plan</h2>
+<dialog class=modal id=plan{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Today's plan</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <label>Today's plan<textarea name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label>
-{% if x.coaches %}<label style="margin:0 0 8px"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}>No lead</label>{% endif %}
-{% for c in x.coaches %}
-<label style="margin:8px 0 0"><input type=radio name=lead value="{{ c.id }}" {% if c.is_lead %}checked{% endif %}>{{ display_first(c) }} {{ c.last }}</label>
-<label style="margin:8px 0 0">Focus group<input name="focus-{{ c.id }}" list=planFocus value="{{ c.focus or '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
-{% endfor %}
+<button class="btn btn-primary full" name=action value=plan>Save</button></form></div></dialog>
+{% for c in x.coaches %}{% if me().is_admin or c.id == me().id %}<dialog class=modal id="cfocus{{ p.id }}-{{ c.id }}"><div class=sheet><h2 style="margin:0 0 12px">{{ display_first(c) }} {{ c.last }}</h2>
+<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=coach_id value="{{ c.id }}">
+<label>Plan<input name=focus list=planFocus value="{{ c.focus or '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
+<button class="btn btn-primary full" name=action value=coach_plan>Save</button></form></div></dialog>{% endif %}{% endfor %}
 <datalist id=planFocus><option value=Beginners><option value=Intermediate><option value=Advanced><option value=Goalies></datalist>
-<button class="btn btn-primary full" name=action value=plan style="margin-top:12px">Save</button></form></div></dialog>
 {% endif %}
 {% if is_staff() and not me().is_admin %}
 <dialog class=modal id=hostedit{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Edit practice</h2>
@@ -1941,7 +1951,7 @@ T["practice"] = """{% set p = x.p %}
 _CHEV_L = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>'
 _CHEV_R = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
 _CAL_I = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></svg>'
-T["admin"] = ADMIN_NAV + """
+T["admin"] = ADMIN_NAV + """{{ admin_page('Schedule') }}
 {%- set qbit -%}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{%- endset -%}
 {%- set fbit -%}{% if filt != 'going' %}&amp;filt={{ filt }}{% endif %}{%- endset -%}
 <div class=checkbar>
@@ -2065,8 +2075,7 @@ grid.addEventListener('click', function(e){
 })();
 </script>"""
 
-T["transfer"] = ADMIN_NAV + """<h1>Transfer</h1>
-<p class="t2 sm" style="margin-top:-8px">Bring in a Sport:80 export, or download the roster and attendance.</p>
+T["transfer"] = ADMIN_NAV + """{{ admin_page('Transfer', 'Bring in a Sport:80 export, or download the roster and attendance.') }}
 <h2>Import</h2>
 <div class=card><ol class="t2 sm" style="margin:0;padding-left:18px;line-height:1.7">
 <li>Log in at <a href=https://usawp.sport80.com>usawp.sport80.com</a> and switch to the Grunions club profile.</li>
@@ -2092,7 +2101,7 @@ T["transfer"] = ADMIN_NAV + """<h1>Transfer</h1>
 <p class="t3 sm">Members, Practices, and Attendance stay in sync after changes. A full rewrite also runs daily.</p>
 <form method=post action=/export/sheet>{{csrf_field()}}<button class="btn btn-secondary full">Sync to Google Sheet now</button></form></div>{% endif %}"""
 
-T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 sm" href=/members.csv>Export CSV</a></div>
+T["members"] = ADMIN_NAV + """{% call admin_page('People') %}<a class="btn quiet pageact" href=/members.csv>Export CSV</a>{% endcall %}
 {{ growth }}
 <div class=peoplebar>
 <form method=get action=/members><input name=q value="{{q}}" placeholder="Search people..." autocomplete=off>{% if view != 'members' %}<input type=hidden name=view value="{{view}}">{% endif %}</form>
@@ -2164,8 +2173,8 @@ T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 s
 })();
 </script>"""
 
-T["expiring"] = ADMIN_NAV + """<div class=expage><h1>Expiring</h1>
-<p class="t2 sm" style="margin-top:-8px">Membership, SafeSport, and other dated items. Tap a person to open them.</p>
+T["expiring"] = ADMIN_NAV + """{{ admin_page('Expiring', 'Membership, SafeSport, and other dated items. Tap a person to open them.') }}
+<div class=expage>
 <form class="row noprint" method=get action=/expiring style="align-items:center;margin-bottom:8px"><label class="t2 sm" style="flex:0 0 auto;margin:0">Window (days)<input name=days type=number min=1 value={{days}} onchange=this.form.submit() style="margin:6px 0 0;height:44px;width:96px"></label></form>
 {% for key, label in [('expired','Expired'),('within_7','Next 7 days'),('within_%d'%days,'Next %d days'%days)] %}<h2 class=egroup>{{label}} <span class=t3>{{rep[key]|length}}</span></h2>
 <div class=list>{% for r in rep[key] %}<div class=li><a class=grow href="/admin/member/{{ r.id }}" style="color:inherit;text-decoration:none;min-width:0"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span class=ell style="font-weight:500;flex:1">{{display_first(r)}} {{r.last}}</span>
@@ -2176,8 +2185,7 @@ T["expiring"] = ADMIN_NAV + """<div class=expage><h1>Expiring</h1>
 <p class="t3 sm" style="margin-top:10px">Asks Grunions to look up everyone listed. Daily report: <a href=/api/expiring>/api/expiring</a>.</p>
 </div>"""
 
-T["requirements_page"] = ADMIN_NAV + """<h1>Rules</h1>
-<p class="t2 sm" style="margin-top:-8px">Cleared to play means a current USAWP membership and current SafeSport.</p>
+T["requirements_page"] = ADMIN_NAV + """{{ admin_page('Rules', 'Cleared to play means a current USAWP membership and current SafeSport.') }}
 {% if not reqs %}<p class=emptyfind>No rules yet.</p>{% endif %}
 {% for q in reqs %}<details class=card><summary><span>{{q.name}}</span><span class="t3 sm" style="margin-left:auto;margin-right:10px">{{q.applies_to}}{{'' if q.active else ' · off'}}</span></summary>
 <form method=post class=body>{{csrf_field()}}<input type=hidden name=id value={{q.id}}>
@@ -2189,8 +2197,8 @@ T["requirements_page"] = ADMIN_NAV + """<h1>Rules</h1>
 <div class=row><label>Applies to<select name=applies_to><option>all</option><option>athlete</option><option>coach</option></select></label><label>Keywords<input name=keywords placeholder="cpr,firstaid"></label></div>
 <label><input type=checkbox name=expires checked>Has an expiration date</label><button class="btn btn-secondary full" name=action value=add>Add</button></form></details>"""
 
-T["qr_page"] = ADMIN_NAV + """<div style="text-align:center"><h1>Join QR</h1>
-<p class="t2 sm" style="margin-top:-8px">Anyone who scans this joins the team.</p>
+T["qr_page"] = ADMIN_NAV + """{{ admin_page('Join QR', 'Anyone who scans this joins the team.') }}
+<div style="text-align:center">
 {% if u %}<div style="background:#fff;border-radius:16px;padding:18px;display:inline-block;margin-top:8px"><img src=/qr.svg alt="Sign-up QR code" width="240" height="240" style="width:min(64vw,240px);height:auto;display:block"></div>
 <p class="t3 sm" id=joinLink style="margin-top:12px;word-break:break-all">{{u}}</p>
 <button class="btn btn-primary full noprint" type=button id=copyJoin>Copy link</button>
@@ -2261,6 +2269,9 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 <button type=button class="btn btn-primary" disabled>Disabled</button>
 <button type=button class="btn btn-primary" aria-busy=true>Saving</button>
 </div>
+<h2>Page header</h2>
+<p class="t3 sm">Admin tabs share one block under the chip row. Title 1 for the H1, a ghost action on the right, then an optional Body 2 subtitle. The gap above the title is --space-5. The gap below the block is --space-4.</p>
+{% call admin_page('People', 'One line in secondary text.') %}<a class="btn quiet pageact" href="#">Export CSV</a>{% endcall %}
 <h2>Filter chips</h2>
 <p class="t3 sm">Lime when selected, outlined when not. Sibling views (Chat, Admin, Profile) use the same pill, one at a time.</p>
 <div class=ds-row>
