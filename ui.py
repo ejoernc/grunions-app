@@ -222,7 +222,9 @@ button.dropempty{position:absolute;inset:0;width:100%;height:100%;min-height:0;p
 .mico svg{width:20px;height:20px;display:block}
 .mtitle{display:block;font-weight:600;font-size:16px;line-height:1.25}
 .mdesc{display:block;margin-top:1px;color:var(--t3);font-size:13px;line-height:1.3}
-.mbadge{min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--color-lime);color:var(--color-forest);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.mbadge{min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--color-badge-info);color:var(--color-badge-info-text);border:1px solid var(--color-badge-border);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.mbadge.info{background:var(--color-badge-info);color:var(--color-badge-info-text);border-color:var(--color-badge-border)}
+.mbadge.warn{background:var(--color-badge-warn);color:var(--color-badge-warn-text);border-color:transparent}
 .mchev{color:var(--t3);display:flex;flex:none}
 .mchev svg{display:block}
 header.homehead a.hubback{flex:none;width:44px;height:44px;margin-left:-10px;display:inline-flex;align-items:center;justify-content:center;color:var(--color-text)}
@@ -657,7 +659,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% if subtitle %}<p class=pagesub>{{ subtitle }}</p>{% endif %}
 </div>
 {% endmacro %}
-{% macro manage_row(href, title, desc, icon, count=0) %}<a class=mrow href="{{ href }}"><span class=mico aria-hidden=true>{{ icon|safe }}</span><span class=grow><span class=mtitle>{{ title }}</span>{% if desc %}<span class=mdesc>{{ desc }}</span>{% endif %}</span>{% if count %}<span class=mbadge>{{ count if count < 100 else '99+' }}</span>{% endif %}<span class=mchev aria-hidden=true><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg></span></a>{% endmacro %}
+{% macro manage_row(href, title, desc, icon, count=0, tone='info') %}<a class=mrow href="{{ href }}"><span class=mico aria-hidden=true>{{ icon|safe }}</span><span class=grow><span class=mtitle>{{ title }}</span>{% if desc %}<span class=mdesc>{{ desc }}</span>{% endif %}</span>{% if count %}<span class="mbadge {{ tone }}">{{ count if count < 100 else '99+' }}</span>{% endif %}<span class=mchev aria-hidden=true><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg></span></a>{% endmacro %}
 {% macro event_chooser(staff) %}
 <h2 class=planask>What are you planning?</h2>
 <div class=planlane>
@@ -865,7 +867,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=81');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=82');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -2080,7 +2082,7 @@ T["approvals"] = """{% call admin_page('Events') %}<a class="btn quiet pageact" 
 {% if not groups and not queue %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
 T["manage"] = ADMIN_NAV + """<p class=pagesub>Everything you need to run your club.</p>
 <div class=mgroups>
-{% for g in groups %}<section class=mgroup><h2>{{ g.label }}</h2><div class=mlist>{% for row in g.rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count) }}{% endfor %}</div></section>{% endfor %}
+{% for g in groups %}<section class=mgroup><h2>{{ g.label }}</h2><div class=mlist>{% for row in g.rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone) }}{% endfor %}</div></section>{% endfor %}
 </div>
 <script>(function(){var key='grunionsManageScroll';var y=0;try{y=+sessionStorage.getItem(key)||0}catch(e){}if(y)requestAnimationFrame(function(){scrollTo(0,y)});document.querySelectorAll('a.mrow').forEach(function(a){a.addEventListener('click',function(){try{sessionStorage.setItem(key,String(scrollY))}catch(e){}})});})();</script>"""
 T["manage_schedule"] = ADMIN_NAV + """{% call admin_page('Schedule', 'Practices, scrimmages, and games.') %}<a class="btn quiet pageact" href="/events/new?lane=schedule">Create</a>{% endcall %}
@@ -2876,10 +2878,11 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 <p class="t3 sm">One pill. Members get three circles. Coaches and admins get four. The fourth is Manage. Icons only. The selected circle is Electric Lime.</p>
 """ + _ds_nav("Member navigation", ("home", "lineup", "chat")) + _ds_nav("Coach navigation", ("home", "lineup", "chat", "manage")) + """
 <h2>Manage rows</h2>
-<p class="t3 sm">Grouped list rows on a raised surface. A leading icon, a title, one line of description, a count only when it is above zero, and a trailing chevron.</p>
+<p class="t3 sm">Grouped list rows on a raised surface. A leading icon, a title, one line of description, a count only when it is above zero, and a trailing chevron. A pending Requests count is the info badge. A Compliance count is the warning badge.</p>
 <div class=mgroup><h2>Activities</h2><div class=mlist>
 {{ manage_row('/manage', 'Schedule', 'Practices, scrimmages & games', '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></svg>', 0) }}
-{{ manage_row('/manage', 'Requests', 'Member-submitted events', '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V168H76.69a8,8,0,0,1,5.65,2.34l19.32,19.32a8,8,0,0,0,5.65,2.34h41.38a8,8,0,0,0,5.65-2.34l19.32-19.32a8,8,0,0,1,5.65-2.34H208Z"/></svg>', 2) }}
+{{ manage_row('/manage', 'Requests', 'Member-submitted events', '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V168H76.69a8,8,0,0,1,5.65,2.34l19.32,19.32a8,8,0,0,0,5.65,2.34h41.38a8,8,0,0,0,5.65-2.34l19.32-19.32a8,8,0,0,1,5.65-2.34H208Z"/></svg>', 2, 'info') }}
+{{ manage_row('/manage', 'Compliance', 'Memberships & certifications', '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,40H48A16,16,0,0,0,32,56v56c0,52.72,25.52,84.67,46.93,102.19,23.06,18.86,46,25.26,47,25.53a8,8,0,0,0,4.2,0c1-.27,23.91-6.67,47-25.53C198.48,196.67,224,164.72,224,112V56A16,16,0,0,0,208,40Z"/></svg>', 5, 'warn') }}
 </div></div>
 <h2>Segmented</h2>
 <p class="t3 sm">Same control as Exact dates / Month only. Figma role: Toggle group 73:2902.</p>

@@ -63,6 +63,10 @@
   --color-sheet-row: var(--color-clubhouse);
   --color-sheet-line: var(--color-border);
   --color-badge-border: var(--color-border);
+  --color-badge-info: var(--color-chip);
+  --color-badge-info-text: var(--color-text);
+  --color-badge-warn: var(--color-status-attention);
+  --color-badge-warn-text: var(--color-forest);
   --color-on-selected-muted: var(--color-raised);
   --color-status-attention-border: var(--color-yellow);
   --color-status-not-cleared-border: var(--color-coral);

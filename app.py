@@ -2890,8 +2890,8 @@ _MANAGE_ICONS = {
  "rules": "M88,48V16a8,8,0,0,1,16,0V48h48V16a8,8,0,0,1,16,0V48h16a16,16,0,0,1,16,16V208a16,16,0,0,1-16,16H72a16,16,0,0,1-16-16V64A16,16,0,0,1,72,48ZM72,64V208H184V64Zm36,40a8,8,0,0,1,8-8h48a8,8,0,0,1,0,16H116A8,8,0,0,1,108,104Zm0,32a8,8,0,0,1,8-8h48a8,8,0,0,1,0,16H116A8,8,0,0,1,108,136Z",
  "qr": "M104,40H56A16,16,0,0,0,40,56v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,104,40Zm0,64H56V56h48Zm96-64H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,64H152V56h48ZM104,136H56a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,104,136Zm0,64H56V152h48Zm96-64H152a8,8,0,0,0-8,8v48a8,8,0,0,0,8,8h16v16a8,8,0,0,0,16,0V184h24a8,8,0,0,0,0-16H184V152h16a8,8,0,0,0,0-16Z",
 }
-def _manage_row(title, desc, href, icon, count=0):
-    return {"title": title, "desc": desc, "href": href, "icon": _micon(_MANAGE_ICONS[icon]), "count": count or 0}
+def _manage_row(title, desc, href, icon, count=0, tone="info"):
+    return {"title": title, "desc": desc, "href": href, "icon": _micon(_MANAGE_ICONS[icon]), "count": count or 0, "tone": tone}
 def expiring_people_count(d):
     ids = set()
     for bucket in expiry_report(d, EXPIRING_DAYS).values():
@@ -2906,10 +2906,10 @@ def manage_home_groups(d):
         activities.append(_manage_row("Schedule", "Practices, scrimmages & games", "/admin" if staff else "/manage/schedule", "cal"))
     if host:
         activities.append(_manage_row("Lineup", "Events, tournaments & socials", "/manage/lineup", "people"))
-        activities.append(_manage_row("Requests", "Member-submitted events", "/manage/requests", "tray", approval_count()))
+        activities.append(_manage_row("Requests", "Member-submitted events", "/manage/requests", "tray", approval_count(), "info"))
     if admin:
         members.append(_manage_row("People", "Roster, roles & profiles", "/members", "user"))
-        members.append(_manage_row("Compliance", "Memberships & certifications", "/expiring", "shield", expiring_people_count(d)))
+        members.append(_manage_row("Compliance", "Memberships & certifications", "/expiring", "shield", expiring_people_count(d), "warn"))
         club.append(_manage_row("Data transfer", "Import & export", "/transfer", "swap"))
         club.append(_manage_row("Rules", "Policies & requirements", "/requirements", "rules"))
         club.append(_manage_row("QR codes", "Check-in & sharing", "/qr", "qr"))
@@ -4537,7 +4537,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-81 */
+SW_JS = """/* grunions-sw-82 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

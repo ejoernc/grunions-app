@@ -42,7 +42,7 @@ Leave these as literals: the first-paint `background:#090D0B` on `html` and `bod
 
 - Chips: `chip`, `chip chip-active on`, `chip-info`. Sibling views (Chat, Admin, Profile) use these pills. There is no underline tab.
 - Admin page header: `admin_page(title, subtitle)`. One Title 1 H1 with an optional `btn quiet pageact` on the right, then an optional Body 2 subtitle (`pagesub`). Gap from the header block to content is `--space-4` (`.pagehead` margin-bottom). Management pages use a back control to Manage. One H1 per page.
-- Manage rows: `manage_row` inside `.mlist` on `.mgroup`. Raised surface, 32px rounded icon, title, one description line, a lime count (`.mbadge`) only when it is above zero, and a trailing chevron. Groups are Activities, Members, and Club settings.
+- Manage rows: `manage_row` inside `.mlist` on `.mgroup`. Raised surface, 32px rounded icon, title, one description line, a count (`.mbadge`) only when it is above zero, and a trailing chevron. Requests uses `.mbadge info` (`--color-badge-info`). Compliance uses `.mbadge warn` (`--color-badge-warn`, the attention yellow). Groups are Activities, Members, and Club settings.
 - Segmented: `actseg` (Exact dates / Month only, Away / Hosting, Considering / Official)
 - Status line: `roster_status` (dot plus one line)
 - Cards: `card`. Event pages share the hero, stat tiles, and location card. Icon rows on Schedule, Lineup, and the Home next card use `.nxrow`. The gap between those rows is `--space-meta` (2px). The icon-to-text gap stays `--space-2`, and the sports subtext (`.sportline`) stays 6px. Location fields use `data-places`: a custom dropdown from `/api/places`, not a native datalist. Club pools come first. Picking a suggestion shows the verified check.
