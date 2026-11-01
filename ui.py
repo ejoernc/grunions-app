@@ -446,7 +446,9 @@ button.lanecard span{color:var(--color-text-secondary);font-size:var(--type-b2-s
 .livetitle strong{font-size:var(--type-t3-size);line-height:var(--type-t3-line);font-weight:var(--type-t3-weight)}
 button.setrow{width:100%;height:auto;min-height:60px;padding:14px 18px;border-radius:0;background:transparent;color:var(--color-text);font-weight:500;justify-content:space-between;text-align:left}
 button.setrow .sum{color:var(--color-text-secondary);font-weight:400;font-size:var(--type-b2-size)}
-.locok{display:inline-flex;align-items:center;gap:6px;color:var(--color-status-cleared);font-size:var(--type-b2-size);margin:-8px 0 var(--space-4)}
+label:has(> .locok){display:flex;flex-wrap:wrap;align-items:center;column-gap:8px}
+label:has(> .locok)>.placefield,label:has(> .locok)>input{flex:1 0 100%;min-width:100%}
+.locok{display:inline-flex;align-items:center;gap:6px;margin:0;color:var(--color-status-cleared);font-size:var(--type-b2-size);line-height:1}
 .placefield{position:relative;display:block}
 .placedrop{position:absolute;z-index:25;left:0;right:0;top:calc(100% + 4px);max-height:min(320px,60vh);overflow:auto;background:var(--color-sheet);border:1px solid var(--color-sheet-border);border-radius:var(--radius-control);padding:4px;box-shadow:0 12px 32px rgba(0,0,0,.35)}
 button.placeopt{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;height:auto;margin:0;padding:8px 12px;background:transparent;color:var(--color-text);border-radius:12px;font-weight:400;text-align:left;justify-content:flex-start}
@@ -879,7 +881,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=84');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=85');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
