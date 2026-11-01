@@ -2518,7 +2518,7 @@ def notify_lineup_review(d, event, kind):
         who = display_first(me()) if me() else "A member"
         body = "%s suggested %s." % (who, title)
         admins = d.execute("SELECT * FROM members WHERE is_admin=1 AND COALESCE(role,'')!='system'").fetchall()
-        notify_lineup_people(d, admins, "Lineup suggestion", body.strip(), "/admin/approvals")
+        notify_lineup_people(d, admins, "Lineup suggestion", body.strip(), "/manage/requests")
         return
     elif kind == "official":
         body = "%s is an official Grunions event. Your interest is saved." % title
@@ -2751,6 +2751,55 @@ def lineup_image(eid):
     resp = send_from_directory(UPLOADS, fn, max_age=86400)
     resp.headers["Cache-Control"] = "private, max-age=86400"
     return resp
+_SCHEDULE_KINDS = {"Practice", "Scrimmage", "Game", "Hybrid"}
+def manage_activity_lists(d):
+    """Upcoming sessions for Schedule, and lineup events for Lineup. No type tabs."""
+    schedule, lineup = [], []
+    for g in events_hub_groups(d):
+        (schedule if g["label"] in _SCHEDULE_KINDS else lineup).extend(g["items"])
+    schedule.sort(key=lambda item: item["sort"])
+    lineup.sort(key=lambda item: item["sort"])
+    return schedule, lineup
+def _micon(path):
+    return Markup('<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="%s"/></svg>' % path)
+_MANAGE_ICONS = {
+ "cal": "M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z",
+ "people": "M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.7a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,37.71A8,8,0,0,1,250.14,206.7Z",
+ "user": "M128,40a40,40,0,1,0,40,40A40,40,0,0,0,128,40Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,104Zm72,48H56a8,8,0,0,0-8,8v8a48,48,0,0,0,48,48h64a48,48,0,0,0,48-48v-8A8,8,0,0,0,200,152Zm-8,16a32,32,0,0,1-32,32H96a32,32,0,0,1-32-32v-8H192Z",
+ "shield": "M208,40H48A16,16,0,0,0,32,56v56c0,52.72,25.52,84.67,46.93,102.19,23.06,18.86,46,25.26,47,25.53a8,8,0,0,0,4.2,0c1-.27,23.91-6.67,47-25.53C198.48,196.67,224,164.72,224,112V56A16,16,0,0,0,208,40Zm0,72c0,37.07-13.66,67.16-40.6,89.42A129.3,129.3,0,0,1,128,223.62a128.25,128.25,0,0,1-38.92-21.81C61.82,179.51,48,149.3,48,112l0-56,160,0Z",
+ "tray": "M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V168H76.69a8,8,0,0,1,5.65,2.34l19.32,19.32a8,8,0,0,0,5.65,2.34h41.38a8,8,0,0,0,5.65-2.34l19.32-19.32a8,8,0,0,1,5.65-2.34H208Z",
+ "swap": "M213.66,181.66l-32,32a8,8,0,0,1-11.32-11.32L188.69,184H48a8,8,0,0,1,0-16H188.69l-18.35-18.34a8,8,0,0,1,11.32-11.32l32,32A8,8,0,0,1,213.66,181.66Zm-139.32-96L56,104H216a8,8,0,0,0,0-16H67.31L85.66,69.66A8,8,0,0,0,74.34,58.34l-32,32a8,8,0,0,0,0,11.32l32,32A8,8,0,0,0,74.34,145.66Z",
+ "rules": "M88,48V16a8,8,0,0,1,16,0V48h48V16a8,8,0,0,1,16,0V48h16a16,16,0,0,1,16,16V208a16,16,0,0,1-16,16H72a16,16,0,0,1-16-16V64A16,16,0,0,1,72,48ZM72,64V208H184V64Zm36,40a8,8,0,0,1,8-8h48a8,8,0,0,1,0,16H116A8,8,0,0,1,108,104Zm0,32a8,8,0,0,1,8-8h48a8,8,0,0,1,0,16H116A8,8,0,0,1,108,136Z",
+ "qr": "M104,40H56A16,16,0,0,0,40,56v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,104,40Zm0,64H56V56h48Zm96-64H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,64H152V56h48ZM104,136H56a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,104,136Zm0,64H56V152h48Zm96-64H152a8,8,0,0,0-8,8v48a8,8,0,0,0,8,8h16v16a8,8,0,0,0,16,0V184h24a8,8,0,0,0,0-16H184V152h16a8,8,0,0,0,0-16Z",
+}
+def _manage_row(title, desc, href, icon, count=0):
+    return {"title": title, "desc": desc, "href": href, "icon": _micon(_MANAGE_ICONS[icon]), "count": count or 0}
+def expiring_people_count(d):
+    ids = set()
+    for bucket in expiry_report(d, EXPIRING_DAYS).values():
+        for item in bucket:
+            ids.add(item["id"])
+    return len(ids)
+def manage_home_groups(d):
+    """Rows the signed-in coach or admin is allowed to open."""
+    host, staff, admin = can_host_practice(), is_staff(), bool(me()["is_admin"])
+    activities, members, club = [], [], []
+    if staff or admin:
+        activities.append(_manage_row("Schedule", "Practices, scrimmages & games", "/admin" if staff else "/manage/schedule", "cal"))
+    if host:
+        activities.append(_manage_row("Lineup", "Events, tournaments & socials", "/manage/lineup", "people"))
+        activities.append(_manage_row("Requests", "Member-submitted events", "/manage/requests", "tray", approval_count()))
+    if admin:
+        members.append(_manage_row("People", "Roster, roles & profiles", "/members", "user"))
+        members.append(_manage_row("Compliance", "Memberships & certifications", "/expiring", "shield", expiring_people_count(d)))
+        club.append(_manage_row("Data transfer", "Import & export", "/transfer", "swap"))
+        club.append(_manage_row("Rules", "Policies & requirements", "/requirements", "rules"))
+        club.append(_manage_row("QR codes", "Check-in & sharing", "/qr", "qr"))
+    groups = []
+    if activities: groups.append({"label": "Activities", "rows": activities})
+    if members: groups.append({"label": "Members", "rows": members})
+    if club: groups.append({"label": "Club settings", "rows": club})
+    return groups
 def events_hub_groups(d):
     """Upcoming practices and Lineup events, one group per type."""
     now = wall_pt()
@@ -2870,7 +2919,7 @@ def event_new():
         return redirect("/lineup/%d" % info["id"] if info["status"] == "published" else "/lineup")
     return page(T["event_new"], tab="event_new", staff=staff, lane=lane, activity=activity, line_types=line_types,
         coaches=coach_candidates(db()) if staff else [],
-        plan_back="/admin/approvals" if staff else "/lineup", plan_title="Create event", plan_save="Preview")
+        plan_back=("/manage/lineup" if lane == "lineup" else ("/admin" if is_staff() else "/manage/schedule")) if staff else "/lineup", plan_title="Create event", plan_save="Preview")
 @app.route("/admin/approvals", methods=["GET", "POST"])
 @login_required
 def approvals():
@@ -2934,10 +2983,61 @@ def approvals():
             d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "declined"); d.commit()
             flash("Declined", "toast")
         else: abort(400)
-        return redirect("/admin/approvals")
-    queue = lineup_pack(d, [r for r in lineup_query(d) if (r["status"] or "") in ("pending", "changes_requested")])
-    queue.sort(key=lambda e: (0 if e["status"] == "pending" else 1, e["submitted"], e["id"]))
-    return page(T["approvals"], tab="admin", queue=queue, groups=events_hub_groups(d))
+        return redirect("/manage/requests")
+    return redirect("/manage/requests")
+def _request_people(d, packed):
+    ids = sorted({e["created_by"] for e in packed if e.get("created_by")})
+    names = {}
+    if ids:
+        marks = ",".join("?" * len(ids))
+        for m in d.execute("SELECT id, first, last, preferred_first FROM members WHERE id IN (%s)" % marks, ids):
+            names[m["id"]] = "%s %s" % (display_first(m), m["last"] or "")
+    for e in packed:
+        e["submitter"] = names.get(e.get("created_by"), "")
+    return packed
+def _request_rows(d, view):
+    if view == "approved":
+        wanted = lambda e: (e["status"] or "") == "published" and (e.get("submitted") or "")
+    elif view == "declined":
+        wanted = lambda e: (e["status"] or "") == "declined"
+    else:
+        view = "pending"
+        wanted = lambda e: (e["status"] or "") in ("pending", "changes_requested")
+    packed = _request_people(d, lineup_pack(d, list(lineup_query(d))))
+    rows = [e for e in packed if wanted(e)]
+    rows.sort(key=lambda e: (e.get("submitted") or e.get("date") or "", e["id"]), reverse=(view != "pending"))
+    return view, rows
+@app.route("/manage")
+@login_required
+def manage_home():
+    if not can_host_practice(): abort(403)
+    return page(T["manage"], tab="manage", groups=manage_home_groups(db()))
+@app.route("/manage/schedule")
+@login_required
+def manage_schedule():
+    if not can_host_practice(): abort(403)
+    if is_staff(): return redirect("/admin")
+    if not me()["is_admin"]: abort(403)
+    return page(T["manage_schedule"], tab="admin", coming=manage_activity_lists(db())[0])
+@app.route("/manage/lineup")
+@login_required
+def manage_lineup():
+    if not can_host_practice(): abort(403)
+    return page(T["manage_lineup"], tab="admin", coming=manage_activity_lists(db())[1])
+@app.route("/manage/requests")
+@login_required
+def manage_requests():
+    if not can_host_practice(): abort(403)
+    view, rows = _request_rows(db(), (request.args.get("view") or "pending").strip())
+    return page(T["manage_requests"], tab="admin", view=view, rows=rows)
+@app.route("/manage/requests/<int:eid>")
+@login_required
+def manage_request(eid):
+    if not can_host_practice(): abort(403)
+    d = db()
+    rows = _request_people(d, lineup_pack(d, [r for r in lineup_query(d) if r["id"] == eid]))
+    if not rows: abort(404)
+    return page(T["manage_request"], tab="admin", e=rows[0])
 def next_commitment(d, mid):
     """Earliest committed thing: an in-progress item beats a later one. Interested and Considering stay off Home."""
     now = wall_pt()
@@ -3283,7 +3383,8 @@ def admin():
         ev_i=ev_i, ev_n=len(events),
         prev_href=admin_href(prev_step[0], prev_step[1], filt, q) if prev_step else "",
         next_href=admin_href(next_step[0], next_step[1], filt, q) if next_step else "",
-        days=days, catalog=admin_catalog(d, days), month=checkin_month(date, days), today=today_pt().isoformat())
+        days=days, catalog=admin_catalog(d, days), month=checkin_month(date, days), today=today_pt().isoformat(),
+        coming=manage_activity_lists(d)[0])
 
 def expiring_roster(d, rep):
     ids = []
@@ -4287,7 +4388,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-71 */
+SW_JS = """/* grunions-sw-72 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

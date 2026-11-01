@@ -29,7 +29,7 @@ Older names still work: `--bg`, `--surface`, `--accent`, `--ok`, `--warn`, `--ba
 
 ## What screens already use
 
-Buttons, chips, cards, inputs, sheets, avatars, the bottom nav, and Phosphor icons. The nav is one floating pill (`nav.tabs`, built by `_nav_anchor`). Members get three circles: Home, Lineup, Chat. Coaches and admins get a fourth, Admin. There are no text labels. Circles are 52px with 8px gaps, so four circles are about two-thirds of a phone and three are narrower. The selected circle is Electric Lime with a Forest Ink icon. Clearance rows use `roster_status`: one dot and one line, such as `Expiring soon · expires in 3 days`.
+Buttons, chips, cards, inputs, sheets, avatars, the bottom nav, and Phosphor icons. The nav is one floating pill (`nav.tabs`, built by `_nav_anchor`). Members get three circles: Home, Lineup, Chat. Coaches and admins get a fourth, Manage. There are no text labels. Circles are 52px with 8px gaps, so four circles are about two-thirds of a phone and three are narrower. The selected circle is Electric Lime with a Forest Ink icon. Clearance rows use `roster_status`: one dot and one line, such as `Expiring soon · expires in 3 days`. Manage uses grouped rows (`manage_row`): a raised list, a leading Phosphor icon in a rounded box, a title, one description line, a count badge only when it is above zero, and a trailing chevron.
 
 ## Screen audit
 
@@ -46,7 +46,7 @@ Buttons, chips, cards, inputs, sheets, avatars, the bottom nav, and Phosphor ico
 | Chat | Team and Coaches are the same pill chips as the Lineup filters. The composer sits above the nav. Bubbles use `--color-surface` and `--color-surface-2`. |
 | People | Rows, letter headers, and status dots. Sticky bars keep the page background. |
 | Member and profile | Shared lists, avatars, and the profile bar. Your profile switches General, My Lineup, and Hosting with the same pill chips. Hosting shows only after you have hosted. Another member's page stays on General. |
-| Admin tabs | One page header (`admin_page`): chip row, then Title 1, an optional ghost action (`btn quiet pageact`), then an optional Body 2 subtitle. Schedule, People, Events, Expiring, Transfer, Rules, and Join QR use it. The gap from the chips to the title is `--space-5`. The gap from the header block to the first content is `--space-4`. |
+| Manage | Grouped rows on a raised surface (`mlist`, `mrow`). Activities, Members, and Club settings. Coaches only see the rows they can open. Each management page has a back control to Manage. |
 | Admin Schedule | The header title is Schedule, then the date bar. The date control opens a bottom sheet: grab handle, month label with previous and next chevrons, a lime circle on the selected day, today outlined, event dots, past days muted, and days with no events disabled. Swipe down to dismiss. Done confirms the day. One card per event, selected with `--color-selected`. Filters and the check-in count stay in the filter row. |
 | Date and time | Every date, month, and time field opens the same bottom sheets (`grunionsOpenDate`, `grunionsOpenTime`). Form calendars mute past days and leave every day selectable; event dots are omitted unless a date list is passed in. Time is a 15-minute list with the selected row in lime and a Done button. A start time fills its end 90 minutes later. An end time cannot be earlier than the start. |
 | Events, People, Expiring, Transfer, Rules, QR | Same page header. People puts Export CSV in the action slot. Events puts Create event there. Each page has one H1. |

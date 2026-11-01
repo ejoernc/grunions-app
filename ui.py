@@ -195,6 +195,19 @@ input[type=file].pick{position:absolute;width:1px;height:1px;padding:0;margin:-1
 .menu a{display:flex;align-items:center;width:100%;height:40px;padding:0 12px;box-sizing:border-box;color:var(--t1);font-weight:500;font-size:15px;text-decoration:none;border-radius:8px}
 .card .menu,.pagehead .menu{left:auto;right:0;min-width:220px}
 .pagehead{display:flex;flex-direction:column;align-items:stretch;gap:var(--space-2);margin:0 0 var(--space-4)}
+.mgroups{display:flex;flex-direction:column;gap:var(--space-4)}
+.mgroup h2{margin:0 0 var(--space-2);padding:0 4px;font-size:13px;font-weight:650;letter-spacing:.01em;color:var(--t3)}
+.mlist{background:var(--color-raised);border-radius:16px;overflow:hidden}
+.mrow{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 12px 8px 10px;color:inherit;text-decoration:none;border-top:1px solid var(--line)}
+.mrow:first-child{border-top:0}
+.mico{width:32px;height:32px;border-radius:8px;background:var(--color-surface-2);color:var(--color-text);display:flex;align-items:center;justify-content:center;flex:none}
+.mico svg{width:20px;height:20px;display:block}
+.mtitle{display:block;font-weight:600;font-size:16px;line-height:1.25}
+.mdesc{display:block;margin-top:1px;color:var(--t3);font-size:13px;line-height:1.3}
+.mbadge{min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--color-lime);color:var(--color-forest);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.mchev{color:var(--t3);display:flex;flex:none}
+.mchev svg{display:block}
+header.homehead a.hubback{flex:none;width:44px;height:44px;margin-left:-10px;display:inline-flex;align-items:center;justify-content:center;color:var(--color-text)}
 .pagerow{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);min-width:0}
 .pagehead h1{margin:0;min-width:0;font-size:var(--type-t1-size);line-height:var(--type-t1-line);font-weight:var(--type-t1-weight);letter-spacing:var(--type-title-1-tracking)}
 .pagesub{margin:0;color:var(--color-text-secondary);font-size:var(--type-b2-size);line-height:var(--type-b2-line);font-weight:var(--type-b2-weight)}
@@ -540,7 +553,7 @@ dialog.memberedit .help a{color:var(--t1)}
 .datefield.empty input[type=date]{color:transparent}
 .datefield.empty input[type=date]::-webkit-datetime-edit,.datefield.empty input[type=date]::-webkit-datetime-edit-fields-wrapper{color:transparent}
 @media print{header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{background:#fff}}
-</style></head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' %}adminpage{% endif %}">
+</style></head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' or tab=='manage' %}adminpage{% endif %}">
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
@@ -614,6 +627,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% if subtitle %}<p class=pagesub>{{ subtitle }}</p>{% endif %}
 </div>
 {% endmacro %}
+{% macro manage_row(href, title, desc, icon, count=0) %}<a class=mrow href="{{ href }}"><span class=mico aria-hidden=true>{{ icon|safe }}</span><span class=grow><span class=mtitle>{{ title }}</span>{% if desc %}<span class=mdesc>{{ desc }}</span>{% endif %}</span>{% if count %}<span class=mbadge>{{ count if count < 100 else '99+' }}</span>{% endif %}<span class=mchev aria-hidden=true><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg></span></a>{% endmacro %}
 {% macro event_chooser(staff) %}
 <h2 class=planask>What are you planning?</h2>
 <div class=planlane>
@@ -760,7 +774,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs chiprow" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs chiprow" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a>{% endif %}{% if can_host_practice() %}<a href=/admin/approvals class="chip{{' chip-active on' if ep=='approvals'}}">Events</a>{% endif %}{% if me().is_admin %}<a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div>{% if tab == 'lineup' or (can_host_practice() and tab in ('home', 'practices', 'chat', 'admin')) %}<a class=headplus href="/events/new" aria-label="Create event"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}<a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs chiprow" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'manage' %}<h1>Manage</h1>{% elif tab == 'admin' %}<a class=hubback href=/manage aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div>{% if tab == 'lineup' or (can_host_practice() and tab in ('home', 'practices', 'chat', 'admin')) %}<a class=headplus href="/events/new" aria-label="Create event"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}<a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -778,6 +792,7 @@ ICONS = {
  "lineup": '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></svg>',
  "chat": '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm0,192a87.87,87.87,0,0,1-44.06-11.81,8,8,0,0,0-6.54-.67L40,216,52.47,178.6a8,8,0,0,0-.66-6.54A88,88,0,1,1,128,216Z"/></svg>',
  "admin": '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,40H48A16,16,0,0,0,32,56v56c0,52.72,25.52,84.67,46.93,102.19,23.06,18.86,46,25.26,47,25.53a8,8,0,0,0,4.2,0c1-.27,23.91-6.67,47-25.53C198.48,196.67,224,164.72,224,112V56A16,16,0,0,0,208,40Zm0,72c0,37.07-13.66,67.16-40.6,89.42A129.3,129.3,0,0,1,128,223.62a128.25,128.25,0,0,1-38.92-21.81C61.82,179.51,48,149.3,48,112l0-56,160,0ZM82.34,141.66a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32l-56,56a8,8,0,0,1-11.32,0Z"/></svg>',
+ "manage": '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,48V208a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V48a8,8,0,0,1,8-8H208A8,8,0,0,1,216,48ZM200,56H136v64h64Zm0,80H136v64h64ZM56,200H120V136H56Zm0-80H120V56H56Z"/></svg>',
 }
 
 def _nav_anchor(key, href, label, on, badge=""):
@@ -796,7 +811,8 @@ _NAV_FILL = {
  'home': '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,120v96a8,8,0,0,1-8,8H160a8,8,0,0,1-8-8V164a4,4,0,0,0-4-4H108a4,4,0,0,0-4,4v52a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V120a16,16,0,0,1,4.69-11.31l80-80a16,16,0,0,1,22.62,0l80,80A16,16,0,0,1,224,120Z"/></svg>',
  'lineup': '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,48H48V48H72v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24Z"/></svg>',
  'chat': '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232,128A104,104,0,0,1,79.12,219.82L45.07,231.17a16,16,0,0,1-20.24-20.24l11.35-34.05A104,104,0,1,1,232,128Z"/></svg>',
- 'admin': '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,40H48A16,16,0,0,0,32,56v56c0,52.72,25.52,84.67,46.93,102.19,23.06,18.86,46,25.26,47,25.53a8,8,0,0,0,4.2,0c1-.27,23.91-6.67,47-25.53C198.48,196.67,224,164.72,224,112V56A16,16,0,0,0,208,40Zm-34.32,69.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg>'
+ 'admin': '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,40H48A16,16,0,0,0,32,56v56c0,52.72,25.52,84.67,46.93,102.19,23.06,18.86,46,25.26,47,25.53a8,8,0,0,0,4.2,0c1-.27,23.91-6.67,47-25.53C198.48,196.67,224,164.72,224,112V56A16,16,0,0,0,208,40Zm-34.32,69.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg>',
+ 'manage': '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM112,208H48V136h64Zm0-88H48V48h64Zm96,88H128V136h80Zm0-88H128V48h80Z"/></svg>'
 }
 
 def _nav_icon(key):
@@ -808,12 +824,11 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + _nav_anchor("home", "/home", "Home", _HOME_ON, "schedule")
  + _nav_anchor("lineup", "/lineup", "Lineup", _LINEUP_ON)
  + _nav_anchor("chat", "/chat", "Chat", "tab=='chat'", "chat")
- + "{% if is_staff() %}" + _nav_anchor("admin", "/admin", "Admin", "tab=='admin'")
- + "{% elif me().is_admin %}" + _nav_anchor("admin", "/members", "Admin", "tab=='admin'")
+ + "{% if can_host_practice() %}" + _nav_anchor("manage", "/manage", "Manage", "tab=='admin' or tab=='manage'")
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=71');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=72');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1224,8 +1239,7 @@ window.addEventListener('resize', grunionsPinHead);
 <script>var PUSH_CSRF="{{csrf_token()}}",VAPID_PUBLIC="{{vapid_public_key()}}";</script>
 </body></html>""")
 
-ADMIN_NAV = """<script>(function(){var key='grunionsAdminTab';document.querySelectorAll('.admintabs a').forEach(function(a){a.addEventListener('click',function(){try{localStorage.setItem(key,a.getAttribute('href'))}catch(e){}})});var on=document.querySelector('.admintabs a.on');if(on&&on.parentNode){var sc=on.parentNode;if(on.offsetLeft+on.offsetWidth>sc.clientWidth+sc.scrollLeft)sc.scrollLeft=Math.max(0,on.offsetLeft-8);}})();</script>
-{% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% endfor %}"""
+ADMIN_NAV = """{% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% endfor %}"""
 
 T = {}
 T["join"] = """<h1>Join the Grunions</h1>
@@ -1866,6 +1880,28 @@ T["approvals"] = """{% call admin_page('Events') %}<a class="btn quiet pageact" 
 </form></div>{% endfor %}{% endif %}
 {% for g in groups %}<h2>{{ g.label }}</h2><div class=list>{% for item in g['items'] %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endfor %}
 {% if not groups and not queue %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
+T["manage"] = ADMIN_NAV + """<p class=pagesub>Everything you need to run your club.</p>
+<div class=mgroups>
+{% for g in groups %}<section class=mgroup><h2>{{ g.label }}</h2><div class=mlist>{% for row in g.rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count) }}{% endfor %}</div></section>{% endfor %}
+</div>
+<script>(function(){var key='grunionsManageScroll';var y=0;try{y=+sessionStorage.getItem(key)||0}catch(e){}if(y)requestAnimationFrame(function(){scrollTo(0,y)});document.querySelectorAll('a.mrow').forEach(function(a){a.addEventListener('click',function(){try{sessionStorage.setItem(key,String(scrollY))}catch(e){}})});})();</script>"""
+T["manage_schedule"] = ADMIN_NAV + """{% call admin_page('Schedule', 'Practices, scrimmages, and games.') %}<a class="btn quiet pageact" href="/events/new?lane=schedule">Create</a>{% endcall %}
+{% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
+T["manage_lineup"] = ADMIN_NAV + """{% call admin_page('Lineup', 'Events, tournaments, and socials.') %}<a class="btn quiet pageact" href="/events/new?lane=lineup">Create</a>{% endcall %}
+{% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
+T["manage_requests"] = ADMIN_NAV + """{{ admin_page('Requests', 'Member-submitted events.') }}
+<div class="filt chiprow" role=group aria-label="Status"><a class="chip{{ ' chip-active on' if view=='pending' }}" href="/manage/requests?view=pending">Pending</a><a class="chip{{ ' chip-active on' if view=='approved' }}" href="/manage/requests?view=approved">Approved</a><a class="chip{{ ' chip-active on' if view=='declined' }}" href="/manage/requests?view=declined">Declined</a></div>
+{% if rows %}<div class=list>{% for e in rows %}<a class=li href="/manage/requests/{{ e.id }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ e.title }}</span><span class="t3 sm ell" style="display:block">{{ e.category }}{% if e.submitter %} · {{ e.submitter }}{% endif %}{% if e.when %} · {{ e.when }}{% endif %}</span></span><span class="st st-{{ e.status_kind }}">{{ e.status_text }}</span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing here.</p>{% endif %}"""
+T["manage_request"] = ADMIN_NAV + """{{ admin_page(e.title) }}
+<p class="t2 sm" style="margin-top:0">{{ e.category }}{% if e.submitter %} · {{ e.submitter }}{% endif %}{% if e.when %} · {{ e.when }}{% endif %}</p>
+<p>{{ st(e.status_kind, e.status_text) }}</p>
+{% if e.description %}<p>{{ e.description }}</p>{% endif %}
+{% if e.review_note %}<div class=note>{{ e.review_note }}</div>{% endif %}
+{% if e.status in ('pending', 'changes_requested') %}<form method=post action=/admin/approvals>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>
+<button class="btn btn-primary full" name=action value=approve>Approve &amp; Publish</button>
+<label style="margin-top:12px">Note<textarea name=note rows=2 placeholder="Needed for changes or a decline"></textarea></label>
+<div class=row><button class="btn btn-secondary" name=action value=changes>Request Changes</button><button class="btn btn-danger" name=action value=decline>Decline</button></div>
+</form>{% elif e.status == 'published' %}<p style="margin-top:16px"><a class="btn btn-secondary" href="/lineup/{{ e.id }}">View on Lineup</a></p>{% endif %}"""
 _CHEV = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
 T["event_new"] = """<form id=planForm method=post action=/events/new enctype=multipart/form-data>{{ csrf_field() }}
 <input type=hidden name=lane id=laneVal value="{{ 'lineup' if not staff else lane }}">
@@ -2290,7 +2326,7 @@ T["practice"] = """{% set p = x.p %}
 _CHEV_L = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>'
 _CHEV_R = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
 _CAL_I = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></svg>'
-T["admin"] = ADMIN_NAV + """{{ admin_page('Schedule') }}
+T["admin"] = ADMIN_NAV + """{% call admin_page('Schedule') %}<a class="btn quiet pageact" href="/events/new?lane=schedule">Create</a>{% endcall %}
 {%- set qbit -%}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{%- endset -%}
 {%- set fbit -%}{% if filt != 'going' %}&amp;filt={{ filt }}{% endif %}{%- endset -%}
 <div class=checkbar>
@@ -2349,6 +2385,7 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Schedule') }}
 <h2>Everyone else <span class=t3>{{rest|length}}</span></h2>
 <div class=list>{% for r in rest %}{{ ci(r) }}{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 {% endif %}
+{% if coming %}<div class=seclabel>Coming up</div><div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endif %}
 <script>
 if(!window.grunionsConfirm){window.grunionsConfirm=1;
  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-confirm]');if(!b||b.dataset.ok)return;e.preventDefault();if(window.confirm(b.getAttribute('data-confirm'))){b.dataset.ok='1';b.click()}});
@@ -2582,7 +2619,7 @@ T["qr_page"] = ADMIN_NAV + """{{ admin_page('Join QR', 'Anyone who scans this jo
 </script>"""
 
 def _ds_nav(label, keys):
-    names = {"home": "Home", "lineup": "Lineup", "chat": "Chat", "admin": "Admin"}
+    names = {"home": "Home", "lineup": "Lineup", "chat": "Chat", "manage": "Manage"}
     links = "".join(_nav_anchor(key, "#ds-%s" % key, names[key], i == 0) for i, key in enumerate(keys))
     return '<nav class="tabs ds-sample" aria-label="%s">%s</nav>' % (label, links)
 
@@ -2626,7 +2663,7 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 <button type=button class="btn btn-primary" aria-busy=true>Saving</button>
 </div>
 <h2>Page header</h2>
-<p class="t3 sm">Admin tabs share one block under the chip row. Title 1 for the H1, a ghost action on the right, then an optional Body 2 subtitle. The gap above the title is --space-5. The gap below the block is --space-4.</p>
+<p class="t3 sm">Management pages use Title 1, a ghost action on the right, then an optional Body 2 subtitle. A back control returns to Manage. The gap below the block is --space-4.</p>
 {% call admin_page('People', 'One line in secondary text.') %}<a class="btn quiet pageact" href="#">Export CSV</a>{% endcall %}
 <h2>Filter chips</h2>
 <p class="t3 sm">Lime when selected, outlined when not. Sibling views (Chat, Admin, Profile) use the same pill, one at a time.</p>
@@ -2643,8 +2680,14 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 <span class="chip-info bad">Blocked</span>
 </div>
 <h2>Navigation</h2>
-<p class="t3 sm">One pill. Members get three circles. Coaches and admins get four. Icons only. The selected circle is Electric Lime.</p>
-""" + _ds_nav("Member navigation", ("home", "lineup", "chat")) + _ds_nav("Coach navigation", ("home", "lineup", "chat", "admin")) + """
+<p class="t3 sm">One pill. Members get three circles. Coaches and admins get four. The fourth is Manage. Icons only. The selected circle is Electric Lime.</p>
+""" + _ds_nav("Member navigation", ("home", "lineup", "chat")) + _ds_nav("Coach navigation", ("home", "lineup", "chat", "manage")) + """
+<h2>Manage rows</h2>
+<p class="t3 sm">Grouped list rows on a raised surface. A leading icon, a title, one line of description, a count only when it is above zero, and a trailing chevron.</p>
+<div class=mgroup><h2>Activities</h2><div class=mlist>
+{{ manage_row('/manage', 'Schedule', 'Practices, scrimmages & games', '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></svg>', 0) }}
+{{ manage_row('/manage', 'Requests', 'Member-submitted events', '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V168H76.69a8,8,0,0,1,5.65,2.34l19.32,19.32a8,8,0,0,0,5.65,2.34h41.38a8,8,0,0,0,5.65-2.34l19.32-19.32a8,8,0,0,1,5.65-2.34H208Z"/></svg>', 2) }}
+</div></div>
 <h2>Segmented</h2>
 <p class="t3 sm">Same control as Exact dates / Month only. Figma role: Toggle group 73:2902.</p>
 <div class=actseg role=radiogroup aria-label=Sample>

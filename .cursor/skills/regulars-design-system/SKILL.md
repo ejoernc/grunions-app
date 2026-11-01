@@ -40,14 +40,15 @@ Leave these as literals: the first-paint `background:#090D0B` on `html` and `bod
 - Buttons: `btn btn-primary`, `btn btn-secondary`, `btn btn-danger`, `btn quiet`, `iconbtn`. RSVP uses one macro, `rsvp_btn`: selected is lime `btn-primary` with a leading Phosphor check (`svg.rsvpcheck`); unselected is outlined `btn-secondary`. Labels are Going and Not going (Lineup also has Interested).
 
 - Chips: `chip`, `chip chip-active on`, `chip-info`. Sibling views (Chat, Admin, Profile) use these pills. There is no underline tab.
-- Admin page header: `admin_page(title, subtitle)`. Under the chip row, one Title 1 H1 with an optional `btn quiet pageact` on the right, then an optional Body 2 subtitle (`pagesub`). Gap from chips to title is `--space-5` (`body.adminpage main` padding-top). Gap from the header block to content is `--space-4` (`.pagehead` margin-bottom). Schedule, People, Events, Expiring, Transfer, Rules, and Join QR use it. One H1 per tab.
+- Admin page header: `admin_page(title, subtitle)`. One Title 1 H1 with an optional `btn quiet pageact` on the right, then an optional Body 2 subtitle (`pagesub`). Gap from the header block to content is `--space-4` (`.pagehead` margin-bottom). Management pages use a back control to Manage. One H1 per page.
+- Manage rows: `manage_row` inside `.mlist` on `.mgroup`. Raised surface, 32px rounded icon, title, one description line, a lime count (`.mbadge`) only when it is above zero, and a trailing chevron. Groups are Activities, Members, and Club settings.
 - Segmented: `actseg` (Exact dates / Month only, Away / Hosting, Considering / Official)
 - Status line: `roster_status` (dot plus one line)
 - Cards: `card`. Event pages share the hero, stat tiles, and location card.
 - Chat: `.m .txt`, `.m.mine .txt`
 - Sheets: `dialog.botsheet .sheet`, `dialog.modal .sheet`. Date and time pickers are bottom sheets (`dialog.botsheet`) with a grab handle, so a downward swipe dismisses them. The date sheet matches Schedule: month label, previous and next chevrons, a lime circle on the selected day, today outlined, past days muted. Event dots are optional and only appear when the sheet is given dates (Schedule). Days with no events are disabled on Schedule only. The time sheet is a 15-minute list (`timelist`) with the selected row in lime and a Done button. Choosing a start time sets the paired end 90 minutes later. An end time cannot be earlier than its start. `grunionsOpenDate` and `grunionsOpenTime` open them for every `input[type=date]`, `input[type=time]`, and `input[type=month]`.
 - Map: `.homemap` with `.mpin`
-- Nav: `nav.tabs` — a floating pill of 52px circles, 8px gaps, 8px padding, 24px above the safe area. Members get Home, Lineup, Chat. Coaches and admins also get Admin. No text labels. Unselected circles are Clubhouse with Chalk Phosphor Regular icons. The selected circle is Electric Lime with a Forest Ink Phosphor Fill icon. Built by `_nav_anchor`.
+- Nav: `nav.tabs` — a floating pill of 52px circles, 8px gaps, 8px padding, 24px above the safe area. Members get Home, Lineup, Chat. Coaches and admins also get Manage (SquaresFour). No text labels. Unselected circles are Clubhouse with Chalk Phosphor Regular icons. The selected circle is Electric Lime with a Forest Ink Phosphor Fill icon. Built by `_nav_anchor`.
 - Icons: `ICONS` in `ui.py`
 
 Figma roles: Button `72:2719`, Badge `72:2718`, Avatar `72:2717`, Card `72:2721`, Input `73:1977`, Tabs `73:2899`, Toggle group `73:2902`, Dialog `73:227`, Sheet `73:1988`.
