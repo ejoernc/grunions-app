@@ -1,0 +1,91 @@
+/* Regulars foundation. Change fonts, colors, spacing, and radius here.
+   Figma reference (structure, not a visual copy): shadcn/ui library
+   https://www.figma.com/design/9ZhrS5v7hQGSY7eGJwG19Y
+   About the library 663:1166. Claude skill 2688:3905.
+   Button 72:2719, Badge 72:2718, Avatar 72:2717, Card 72:2721,
+   Input 73:1977, Tabs 73:2899, Dialog 73:227, Sheet 73:1988.
+   Values stay Grunions: monochrome grays, blue primary, status dots.
+   The app paints dark. [data-theme=light] is only for the design preview. */
+
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+
+  --color-bg: #0a0a0b;
+  --color-surface: #151517;
+  --color-surface-2: #1d1d20;
+  --color-border: #26262a;
+  --color-text: #ececee;
+  --color-text-secondary: #a0a0a8;
+  --color-text-tertiary: #6c6c74;
+  --color-primary: #3b82f6;
+  --color-on-primary: #fff;
+  --color-icon: #C8CDD3;
+  --color-chip: #2a2a2e;
+  --color-selected: #ececee;
+  --color-on-selected: #0a0a0b;
+  --color-status-cleared: #3fb950;
+  --color-status-attention: #e3a008;
+  --color-status-not-cleared: #f0524a;
+  --color-status-unknown: #6c6c74;
+
+  --bg: var(--color-bg);
+  --surface: var(--color-surface);
+  --surface2: var(--color-surface-2);
+  --line: var(--color-border);
+  --t1: var(--color-text);
+  --t2: var(--color-text-secondary);
+  --t3: var(--color-text-tertiary);
+  --accent: var(--color-primary);
+  --ok: var(--color-status-cleared);
+  --bad: var(--color-status-not-cleared);
+  --warn: var(--color-status-attention);
+
+  --type-title-1-size: 28px;
+  --type-title-1-weight: 650;
+  --type-title-1-tracking: -.3px;
+  --type-body-1-size: 16px;
+  --type-body-1-leading: 1.5;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-7: 28px;
+  --space-card: var(--space-3);
+  --space-gutter: var(--space-5);
+
+  --radius-button: 12px;
+  --radius-chip: 999px;
+  --radius-card: 14px;
+  --radius-input: 10px;
+  --radius-overlay: 18px;
+  --r: var(--radius-card);
+
+  --icon-nav: 24px;
+  --size-button: 48px;
+  --size-chip: 36px;
+  --size-nav: 64px;
+  --size-avatar: 44px;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: #f4f4f5;
+  --color-surface: #ffffff;
+  --color-surface-2: #ececee;
+  --color-border: #d4d4d8;
+  --color-text: #0a0a0b;
+  --color-text-secondary: #3f3f46;
+  --color-text-tertiary: #52525b;
+  --color-icon: #3f3f46;
+  --color-chip: #e4e4e7;
+  --color-selected: #0a0a0b;
+  --color-on-selected: #f4f4f5;
+  --color-status-cleared: #157f3d;
+  --color-status-attention: #8a5a00;
+  --color-status-not-cleared: #b42318;
+  --color-status-unknown: #52525b;
+  background: var(--color-bg);
+  color: var(--color-text);
+}

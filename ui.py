@@ -1,4 +1,11 @@
-"""Templates (Jinja strings) for the Grunions app. Restrained dark UI: one surface, gray text, one blue accent."""
+"""Templates (Jinja strings) for the Grunions app. Restrained dark UI: one surface, gray text, one blue accent.
+
+Colors, type, spacing, and radius are defined in regulars/foundation.css.
+"""
+import os
+_FOUNDATION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "regulars", "foundation.css")
+with open(_FOUNDATION_PATH, encoding="utf-8") as _foundation_file:
+    FOUNDATION = _foundation_file.read()
 
 BASE = """<!doctype html><html lang=en style="background:#0a0a0b;color-scheme:dark"><head>
 <meta charset=utf-8><meta name=color-scheme content=dark><meta name=theme-color content="#0a0a0b">
@@ -7,15 +14,14 @@ BASE = """<!doctype html><html lang=en style="background:#0a0a0b;color-scheme:da
 <link rel=icon href=/static/icons/favicon-32.png sizes=32x32 type=image/png><link rel=apple-touch-icon href=/static/icons/apple-touch-icon-180.png>
 <title>Grunions</title>
 <style>{{ leaflet_css|safe }}</style>
-<style>html,body{background:#0a0a0b;color:#ececee}html{color-scheme:dark}
+<style>{{ foundation_css|safe }}
+html,body{background:var(--color-bg);color:var(--color-text)}html{color-scheme:dark}
 @view-transition{navigation:auto}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:0s;mix-blend-mode:normal}
 ::view-transition-group(grunions-nav),::view-transition-old(grunions-nav),::view-transition-new(grunions-nav){animation:none;mix-blend-mode:normal}
 [hidden]{display:none!important}
-:root{--bg:#0a0a0b;--surface:#151517;--surface2:#1d1d20;--line:#26262a;--t1:#ececee;--t2:#a0a0a8;--t3:#6c6c74;--accent:#3b82f6;
---ok:#3fb950;--bad:#f0524a;--warn:#e3a008;--r:14px}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
-body{margin:0;background:#0a0a0b;color:var(--t1);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif}
+body{margin:0;background:var(--color-bg);color:var(--t1);font:var(--type-body-1-size)/var(--type-body-1-leading) var(--font-sans)}
 a{color:var(--t1)}main{max-width:640px;margin:0 auto;padding:20px 20px calc(120px + env(safe-area-inset-bottom))}
 header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;max-width:640px;margin:0 auto}
 .brand{font-weight:600;letter-spacing:.2px;color:var(--t1);text-decoration:none}header a.sub{color:var(--t3);font-size:14px;text-decoration:none}
@@ -546,7 +552,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=55');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=56');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1983,3 +1989,56 @@ T["qr_page"] = ADMIN_NAV + """<div style="text-align:center"><h1>Join QR</h1>
  };
 })();
 </script>"""
+
+def _ds_nav(label, keys):
+    names = {"home": "Home", "lineup": "Lineup", "chat": "Chat", "admin": "Admin"}
+    links = []
+    for i, key in enumerate(keys):
+        links.append('<a class="%s" href="#ds-%s">%s%s</a>' % ("on" if i == 0 else "", key, ICONS[key], names[key]))
+    return '<nav class="tabs ds-sample" aria-label="%s">%s</nav>' % (label, "".join(links))
+
+T["design_system"] = """<style>
+.ds-swatches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-2)}
+.ds-swatch{height:48px;border-radius:var(--radius-input);border:1px solid var(--line)}
+.ds-name{margin:4px 0 var(--space-3);font-size:12px;color:var(--t3)}
+.ds-row{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center;margin:0 0 var(--space-4)}
+nav.tabs.ds-sample{position:static;width:100%;height:var(--size-nav);margin:0 0 var(--space-3);border:1px solid var(--line);border-radius:var(--radius-card)}
+[data-theme=light].card{color:var(--color-text)}
+</style>
+<h1>Regulars</h1>
+<p class="t2">Fonts, colors, spacing, and radius change in regulars/foundation.css.</p>
+<h2>Type</h2>
+<div class=card>
+<p style="font-size:var(--type-title-1-size);font-weight:var(--type-title-1-weight);letter-spacing:var(--type-title-1-tracking)">Title</p>
+<p>Body. The default reading size.</p>
+<p class="t3 sm">Caption and meta.</p>
+</div>
+<h2>Color</h2>
+<div class=ds-swatches>
+<div><div class=ds-swatch style="background:var(--color-bg)"></div><div class=ds-name>Background</div></div>
+<div><div class=ds-swatch style="background:var(--color-surface)"></div><div class=ds-name>Surface</div></div>
+<div><div class=ds-swatch style="background:var(--color-primary)"></div><div class=ds-name>Primary</div></div>
+<div><div class=ds-swatch style="background:var(--color-status-cleared)"></div><div class=ds-name>Cleared</div></div>
+<div><div class=ds-swatch style="background:var(--color-status-attention)"></div><div class=ds-name>Attention</div></div>
+<div><div class=ds-swatch style="background:var(--color-status-not-cleared)"></div><div class=ds-name>Not cleared</div></div>
+</div>
+<h2>Buttons and chips</h2>
+<div class=ds-row>
+<button type=button class="btn btn-primary">Primary</button>
+<button type=button class="btn btn-secondary">Secondary</button>
+<button type=button class="btn btn-danger">Danger</button>
+<span class="chip chip-active on">Selected</span>
+<span class=chip>Filter</span>
+<span class="st st-ok">Cleared</span>
+<span class="st st-warn">Expiring soon · expires in 3 days</span>
+<span class="st st-bad">Not cleared</span>
+</div>
+<h2>Navigation</h2>
+<p class="t3 sm">Members get three destinations. Coaches and admins get four. Icons stay Streamline Plump.</p>
+""" + _ds_nav("Member navigation", ("home", "lineup", "chat")) + _ds_nav("Coach navigation", ("home", "lineup", "chat", "admin")) + """
+<h2>Light</h2>
+<div class=card data-theme=light>
+<p style="font-weight:650">Same components, light surfaces.</p>
+<button type=button class="btn btn-primary">Primary</button>
+</div>
+"""

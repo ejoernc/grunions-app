@@ -727,7 +727,7 @@ def admin_notices():
 def leaflet_css():
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "leaflet", "leaflet.css")
     with open(path, encoding="utf-8") as f: return f.read()
-app.jinja_env.globals.update(REACTIONS=REACTIONS, csrf_token=csrf_token, csrf_field=csrf_field, admin_notices=admin_notices, me=me, leaflet_css=leaflet_css())
+app.jinja_env.globals.update(REACTIONS=REACTIONS, csrf_token=csrf_token, csrf_field=csrf_field, admin_notices=admin_notices, me=me, leaflet_css=leaflet_css(), foundation_css=ui.FOUNDATION)
 def start_session(mid):
     session.clear(); session.permanent = True; session["mid"] = mid; csrf_token()
 
@@ -3968,7 +3968,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-55 */
+SW_JS = """/* grunions-sw-56 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
@@ -3998,6 +3998,10 @@ self.addEventListener('notificationclick', function(event) {
   }));
 });
 """
+@app.route("/design-system")
+@admin_required
+def design_system_page():
+    return page(T["design_system"], tab="admin")
 @app.route("/sw.js")
 def service_worker():
     resp = Response(SW_JS, mimetype="application/javascript")
