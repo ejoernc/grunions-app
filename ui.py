@@ -897,7 +897,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=91');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=92');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -2563,7 +2563,7 @@ T["practice"] = """{% set p = x.p %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
 </div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>
 <div class=seclabel>Coaches</div>
-<div class="list loose">
+<div class=list>
 {% if plan_editing %}<form id=practiceForm method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=plan_fields value=1>
 <div class=li><span class="chip-info" style="margin:0">Coaches only</span></div>
 <div class=li><label class=prefedit style="width:100%;margin:0">Practice plan<textarea class=planfield name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label></div>
@@ -2575,7 +2575,7 @@ T["practice"] = """{% set p = x.p %}
 <datalist id=focusGroups><option value=Beginners><option value=Intermediate><option value=Advanced><option value=Goalies></datalist>
 </form>
 {% else %}
-{% for c in x.coaches %}{% set editable = can_host_practice() and (me().is_admin or c.id == me().id) %}<div class="li personrow">{% if editable %}<button type=button class="coachopen coachbody" data-open="cfocus{{ p.id }}-{{ c.id }}">{% else %}<div class="grow coachbody">{% endif %}<span class=coachline>{% if can_host_practice() %}{{ person_mark(c) }}{% endif %}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Head coach</span>{% endif %}</span>{% if can_host_practice() and c.focus %}<span class="t3 sm coachplan">{{ c.focus }}</span>{% endif %}{% if editable %}</button>{% else %}</div>{% endif %}{% if can_host_practice() %}<span class=more><button type=button class=morebtn aria-label="Actions for {{ display_first(c) }} {{ c.last }}" aria-haspopup=menu aria-expanded=false><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></button><div class=menu hidden role=menu>{% if c.is_lead %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=coach_id value={{ c.id }}><button name=action value=remove_lead>Remove lead</button></form>{% else %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=coach_id value={{ c.id }}><button name=action value=make_lead>Make lead</button></form>{% endif %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=coach_id value={{ c.id }}><button name=action value=unassign_coach>Remove from practice</button></form></div></span>{% endif %}</div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}
+{% for c in x.coaches %}{% set editable = can_host_practice() and (me().is_admin or c.id == me().id) %}<div class="li personrow">{% if editable %}<button type=button class="coachopen coachbody" data-open="cfocus{{ p.id }}-{{ c.id }}">{% else %}<div class="grow coachbody">{% endif %}<span class=coachline>{% if can_host_practice() %}{{ person_mark(c) }}{% endif %}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Head coach</span>{% endif %}</span>{% if can_host_practice() and c.focus %}<span class="t3 sm coachplan">{{ c.focus }}</span>{% endif %}{% if editable %}</button>{% else %}</div>{% endif %}</div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}
 {% if can_host_practice() %}<div class="li planrow"><div class=planline><span class=planlabel>Practice plan</span><span class="chip-info" style="margin:0">Coaches only</span></div><button type=button class="btn btn-secondary" data-open="plan{{ p.id }}">{{ 'Edit' if p.coaching_plan else 'Add' }}</button>{% if p.coaching_plan %}<div class="t3 sm plantext">{{ p.coaching_plan }}</div>{% endif %}</div>{% endif %}
 {% endif %}
 </div>
