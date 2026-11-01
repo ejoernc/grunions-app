@@ -435,8 +435,59 @@ def expiry_notes(member, cl=None):
     if safesport: skip.add("SafeSport training expired")
     rest = [r for r in (cl or {}).get("reasons") or [] if r not in skip]
     return {"membership": membership, "safesport": safesport, "lines": lines, "rest": rest}
-app.jinja_env.globals.update(clearance=lambda m: clearance(db(), m), expiry_notes=expiry_notes,
-    background_view=lambda m: background_view(db(), m), coach_clearance=lambda m: coach_clearance(db(), m))
+_STATUS_KEYS = ("usawp_status", "usawp_raw", "usawp_number", "usawp_valid_until", "usawp_updated",
+                "usawp_verified_by", "usawp_verified_at", "membership_type", "trial_acknowledged_at",
+                "sport80_contact_id")
+def can_see_member_status(member=None):
+    """Own clearance stays visible. Another person's clearance is for admins and active coaches."""
+    viewer = me()
+    if not viewer: return False
+    if member is None: return bool(viewer["is_admin"] or is_active_coach(viewer))
+    try: mid = member["id"]
+    except (TypeError, KeyError, IndexError): return False
+    if mid == viewer["id"]: return True
+    return bool(viewer["is_admin"] or is_active_coach(viewer))
+def _hidden_clearance():
+    return {"ok": False, "reasons": [], "checks": [], "hidden": True}
+def view_clearance(member):
+    if not can_see_member_status(member): return _hidden_clearance()
+    return clearance(db(), member)
+def view_expiry_notes(member, cl=None):
+    if not can_see_member_status(member): return {"membership": None, "safesport": None, "lines": [], "rest": []}
+    return expiry_notes(member, cl if cl is not None else view_clearance(member))
+def view_background(member):
+    if not can_see_member_status(member): return None
+    return background_view(db(), member)
+def view_coach_clearance(member):
+    if not can_see_member_status(member): return None
+    return coach_clearance(db(), member)
+def view_coach_eligibility(member):
+    if not can_see_member_status(member): return {"eligible": False, "expired": None, "text": ""}
+    return coach_eligibility(db(), member)
+def view_referee_eligibility(member):
+    if not can_see_member_status(member): return {"eligible": False, "expired": None, "text": ""}
+    return referee_eligibility(db(), member)
+def view_credential_dates(member):
+    if not can_see_member_status(member): return {}
+    return credential_dates(member)
+def view_coach_row_expiry(member):
+    if not can_see_member_status(member): return {"eligible": False, "date": "", "tone": ""}
+    return coach_row_expiry(db(), member)
+def view_panel_status(member):
+    if not can_see_member_status(member): return {"label": "", "dot": "", "reason": "", "hidden": True}
+    return panel_status(member)
+def view_usawp_coach_badge(member):
+    if not can_see_member_status(member): return False
+    return usawp_coach_badge(member)
+def redact_member_status(row):
+    """Drop clearance columns before a member-visible template or JSON payload sees the row."""
+    if row is None or can_see_member_status(row): return row
+    data = dict(row)
+    for key in _STATUS_KEYS:
+        if key in data: data[key] = None
+    return data
+app.jinja_env.globals.update(clearance=view_clearance, expiry_notes=view_expiry_notes,
+    background_view=view_background, coach_clearance=view_coach_clearance, can_see_member_status=can_see_member_status)
 def expire_sweep(d):
     """Auto-flip: anyone whose expires_on (usawp_valid_until) has passed becomes expired."""
     d.execute("UPDATE members SET usawp_status='expired', usawp_raw='Expired '||usawp_valid_until WHERE usawp_status IN ('verified','pending') AND usawp_valid_until IS NOT NULL AND usawp_valid_until < ?", (today_pt().isoformat(),)); d.commit()
@@ -717,7 +768,7 @@ def on_coaching_list(member):
     try: mid = member["id"]
     except (TypeError, KeyError, IndexError): return False
     return db().execute("SELECT 1 FROM coaching_list WHERE member_id=?", (mid,)).fetchone() is not None
-app.jinja_env.globals.update(is_staff=is_staff, can_host_practice=can_host_practice, approval_count=approval_count, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m), referee_eligibility=lambda m: referee_eligibility(db(), m), credential_dates=credential_dates, coach_row_expiry=lambda m: coach_row_expiry(db(), m), fmt_long=fmt_long, fmt_when=fmt_when, date_dot=date_dot, panel_status=panel_status, on_coaching_list=on_coaching_list)
+app.jinja_env.globals.update(is_staff=is_staff, can_host_practice=can_host_practice, approval_count=approval_count, role_label=role_label, usawp_coach_badge=view_usawp_coach_badge, coach_eligibility=view_coach_eligibility, referee_eligibility=view_referee_eligibility, credential_dates=view_credential_dates, coach_row_expiry=view_coach_row_expiry, fmt_long=fmt_long, fmt_when=fmt_when, date_dot=date_dot, panel_status=view_panel_status, on_coaching_list=on_coaching_list)
 def staff_required(f):
     @functools.wraps(f)
     def w(*a, **k):
@@ -2217,13 +2268,14 @@ def practice_bundle(d, p):
     for c in practice_people(raw_coaches):
         item = dict(c)
         if not host: item["focus"] = ""
-        coaches.append(item)
+        coaches.append(redact_member_status(item))
     shown = hide_coaching_plan(p)
     checked = d.execute("""SELECT m.id, m.first, m.last, m.preferred_first, COALESCE(m.photo,'') AS photo FROM checkins c JOIN members m ON m.id=c.member_id
         WHERE c.practice_date=? AND COALESCE(m.role,'')!='system'""", (p["date"],)).fetchall()
     social_n = d.execute("SELECT COUNT(*) FROM social_joins WHERE practice_id=?", (p["id"],)).fetchone()[0]
-    return dict(p=shown, going=practice_people([r for r in rv if r["going"]]), notgoing=practice_people([r for r in rv if not r["going"]]),
-                checked=practice_people(checked), mine=mine, coach_ids={c["id"] for c in coaches}, coach_names=coach_labels(raw_coaches),
+    return dict(p=shown, going=practice_people([redact_member_status(r) for r in rv if r["going"]]),
+                notgoing=practice_people([redact_member_status(r) for r in rv if not r["going"]]),
+                checked=practice_people([redact_member_status(r) for r in checked]), mine=mine, coach_ids={c["id"] for c in coaches}, coach_names=coach_labels(raw_coaches),
                 coaches=coaches, social_n=social_n, lead_id=next((c["id"] for c in raw_coaches if row_lead(c)), None),
                 focuses={c["id"]: (c["focus"] or "") for c in coaches})
 def upcoming_schedule(d, skip_id=None):
@@ -2487,7 +2539,7 @@ def lineup_pack(d, rows):
         for eid, first, last, preferred, mid_row, photo in d.execute("""SELECT r.event_id, m.first, m.last, m.preferred_first, m.id, COALESCE(m.photo,'')
             FROM lineup_rsvps r JOIN members m ON m.id=r.member_id
             WHERE r.state='going' AND r.event_id IN (%s)""" % marks, ids):
-            going_names.setdefault(eid, []).append({"id": mid_row, "first": first, "last": last, "preferred_first": preferred, "photo": photo})
+            going_names.setdefault(eid, []).append(redact_member_status({"id": mid_row, "first": first, "last": last, "preferred_first": preferred, "photo": photo}))
     out = []
     for r in rows:
         c = counts.get(r["id"], {})
@@ -4590,7 +4642,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-87 */
+SW_JS = """/* grunions-sw-88 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
