@@ -157,6 +157,14 @@ button.textlink.danger{color:var(--bad)}
 a.rowbtn,button.rowbtn,button.coachrow{width:100%;height:auto;min-height:60px;padding:14px 18px;border-radius:0;background:transparent;color:var(--t1);font-weight:500;justify-content:flex-start;text-align:left;text-decoration:none;border-top:1px solid var(--line)}
 button.coachrow{font-weight:400;align-items:flex-start;flex-direction:column;gap:2px}
 button.coachrow .coachline{display:flex;align-items:center;gap:8px;min-width:0;width:100%}
+.switchrow{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;margin:0 0 var(--space-4);color:var(--color-text);font-size:16px;font-weight:500}
+.switch{position:relative;width:44px;height:28px;flex:none}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.switch span{display:block;width:44px;height:28px;border-radius:999px;background:var(--color-surface-2);border:1px solid var(--color-control)}
+.switch span::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--color-text)}
+.switch input:checked+span{background:var(--color-lime);border-color:var(--color-lime)}
+.switch input:checked+span::after{transform:translateX(16px);background:var(--color-forest)}
+.switch input:focus-visible+span{outline:2px solid var(--color-focus);outline-offset:2px}
 .list>form{margin:0}
 .list>form:not(:first-child)>button.rowbtn{border-top:1px solid var(--line)}
 .pracemeta{color:var(--t2);text-align:center;margin:0;font-size:15px}
@@ -309,6 +317,8 @@ button:disabled,.btn:disabled{opacity:.45}
 dialog.modal{border:0;padding:0;background:transparent;color:var(--t1);width:min(440px,calc(100vw - 32px))}
 dialog.modal::backdrop{background:var(--color-backdrop)}
 dialog.modal .sheet{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px}
+dialog.modal .sheet form>.btn,dialog.modal .sheet form>button.btn,dialog.modal .sheet form>.row:last-child,dialog.botsheet .sheet form>.btn,dialog.botsheet .sheet form>button.btn,dialog.botsheet .sheet form>.row:last-child{margin-top:var(--space-form-action)}
+dialog.modal .sheet form>label:has(+.btn),dialog.modal .sheet form>label:has(+button.btn),dialog.modal .sheet form>label:has(+.row),dialog.modal .sheet form>textarea:has(+.btn),dialog.modal .sheet form>textarea:has(+button.btn),dialog.modal .sheet form>.checks:has(+.row),dialog.modal .sheet form>.checks:has(+.btn),dialog.botsheet .sheet form>label:has(+.btn),dialog.botsheet .sheet form>label:has(+button.btn),dialog.botsheet .sheet form>textarea:has(+.btn),dialog.botsheet .sheet form>textarea:has(+button.btn){margin-bottom:0}
 .note{background:var(--surface);border-radius:var(--r);padding:14px 18px;margin:0 0 12px;color:var(--t2);font-size:15px}.note b{color:var(--t1)}
 .toast{position:fixed;left:50%;bottom:calc(var(--nav-clear) + 12px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;background:var(--surface);color:var(--t1);border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:15px;line-height:1.4;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.5);max-width:min(440px,calc(100% - 32px))}
 body:has(.composer) .toast{bottom:calc(var(--nav-clear) + env(safe-area-inset-bottom) + var(--composer-h, 69px) + 12px)}
@@ -882,7 +892,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=86');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=87');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -2449,10 +2459,10 @@ T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ c
 <div class=row><label>Starts<input type=date name=start_date value="{{ values.start_date }}" required></label><label>Ends (optional)<input type=date name=end_date value="{{ values.end_date }}"></label></div>
 <p class="t3 sm">Dates are added through the end date, or for the next eight weeks when there is no end date.</p>
 <div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>
-<label style="margin:0 0 8px"><input type=radio name=lead value="" {% if not values.lead %}checked{% endif %}>No lead</label>
+<label style="margin:0 0 8px"><input type=radio name=lead value="" {% if not values.lead %}checked{% endif %}>No head coach</label>
 {% for c in coach_choices %}<div style="padding:8px 0;border-top:1px solid var(--line)">
 <label style="margin:0"><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in values.coaches %}checked{% endif %}>{{ display_first(c) }} {{ c.last }}</label>
-<label style="margin:8px 0 0"><input type=radio name=lead value="{{ c.id }}" {% if values.lead == c.id|string %}checked{% endif %}>Lead</label>
+<label style="margin:8px 0 0"><input type=radio name=lead value="{{ c.id }}" {% if values.lead == c.id|string %}checked{% endif %}>Head coach</label>
 </div>{% else %}<p class="t3 sm">No coaches on the coaching list yet.</p>{% endfor %}</div>
 </form>
 {% if skips %}<div class=seclabel>Skipped dates</div><div class=list>{% for day in skips %}<form method=post action="{{ action }}" class=li>{{ csrf_field() }}<input type=hidden name=action value=unskip><input type=hidden name=date value="{{ day }}"><span class=grow>{{ fmt_d(day) }}</span><button class="btn btn-secondary" type=submit>Undo skip</button></form>{% endfor %}</div>{% endif %}"""
@@ -2510,10 +2520,10 @@ T["practice"] = """{% set p = x.p %}
 <div class="t3 xs" style="margin:4px 0 8px">Practice image</div>
 {{ upload_field('image', src=('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', clear_name='image_clear') }}
 <div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>
-<label style="margin:0 0 8px"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}>No lead</label>
+<label style="margin:0 0 8px"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}>No head coach</label>
 {% for c in coach_choices %}<div style="padding:8px 0;border-top:1px solid var(--line)">
 <label style="margin:0"><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in x.coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
-<label style="margin:8px 0 0"><input type=radio name=lead value="{{ c.id }}" {% if c.id == x.lead_id %}checked{% endif %}>Lead</label>
+<label style="margin:8px 0 0"><input type=radio name=lead value="{{ c.id }}" {% if c.id == x.lead_id %}checked{% endif %}>Head coach</label>
 <label style="margin:8px 0 0">Focus group<input name="focus-{{ c.id }}" list=focusGroups value="{{ x.focuses.get(c.id, '') }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
 </div>{% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
 <datalist id=focusGroups><option value=Beginners><option value=Intermediate><option value=Advanced><option value=Goalies></datalist>
@@ -2552,7 +2562,7 @@ T["practice"] = """{% set p = x.p %}
 {% if plan_editing %}<form id=practiceForm method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=plan_fields value=1>
 <div class=li><span class="chip-info" style="margin:0">Coaches only</span></div>
 <div class=li><label class=prefedit style="width:100%;margin:0">Practice plan<textarea class=planfield name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label></div>
-{% if x.coaches %}<div class=li><label style="margin:0"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}>No lead</label></div>{% endif %}
+{% if x.coaches %}<div class=li><label style="margin:0"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}>No head coach</label></div>{% endif %}
 {% for c in x.coaches %}<div class=li><div class=grow>
 <label style="margin:0"><input type=radio name=lead value="{{ c.id }}" {% if c.is_lead %}checked{% endif %}>{{ display_first(c) }} {{ c.last }}</label>
 <label style="margin:8px 0 0">Plan<input name="focus-{{ c.id }}" list=focusGroups value="{{ c.focus or '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
@@ -2560,7 +2570,7 @@ T["practice"] = """{% set p = x.p %}
 <datalist id=focusGroups><option value=Beginners><option value=Intermediate><option value=Advanced><option value=Goalies></datalist>
 </form>
 {% else %}
-{% for c in x.coaches %}{% set editable = can_host_practice() and (me().is_admin or c.id == me().id) %}{% if editable %}<button type=button class="li coachrow" data-open="cfocus{{ p.id }}-{{ c.id }}"><span class=coachline>{{ person_mark(c) }}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Lead</span>{% endif %}</span>{% if c.focus %}<span class="t3 sm">{{ c.focus }}</span>{% endif %}</button>{% else %}<div class=li><div class=grow><div style="display:flex;align-items:center;gap:8px;min-width:0">{% if can_host_practice() %}{{ person_mark(c) }}{% endif %}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Lead</span>{% endif %}</div>{% if can_host_practice() and c.focus %}<div class="t3 sm">{{ c.focus }}</div>{% endif %}</div></div>{% endif %}{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}
+{% for c in x.coaches %}{% set editable = can_host_practice() and (me().is_admin or c.id == me().id) %}{% if editable %}<button type=button class="li coachrow" data-open="cfocus{{ p.id }}-{{ c.id }}"><span class=coachline>{{ person_mark(c) }}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Head coach</span>{% endif %}</span>{% if c.focus %}<span class="t3 sm">{{ c.focus }}</span>{% endif %}</button>{% else %}<div class=li><div class=grow><div style="display:flex;align-items:center;gap:8px;min-width:0">{% if can_host_practice() %}{{ person_mark(c) }}{% endif %}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Head coach</span>{% endif %}</div>{% if can_host_practice() and c.focus %}<div class="t3 sm">{{ c.focus }}</div>{% endif %}</div></div>{% endif %}{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}
 {% if can_host_practice() %}<div class="li planrow"><div class=planline><span class=planlabel>Practice plan</span><span class="chip-info" style="margin:0">Coaches only</span></div><button type=button class="btn btn-secondary" data-open="plan{{ p.id }}">{{ 'Edit' if p.coaching_plan else 'Add' }}</button>{% if p.coaching_plan %}<div class="t3 sm plantext">{{ p.coaching_plan }}</div>{% endif %}</div>{% endif %}
 {% endif %}
 </div>
@@ -2578,6 +2588,7 @@ T["practice"] = """{% set p = x.p %}
 <button class="btn btn-primary full" name=action value=plan>Save</button></form></div></dialog>
 {% for c in x.coaches %}{% if me().is_admin or c.id == me().id %}<dialog class=modal id="cfocus{{ p.id }}-{{ c.id }}"><div class=sheet><h2 style="margin:0 0 12px">{{ display_first(c) }} {{ c.last }}</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=coach_id value="{{ c.id }}">
+<label class=switchrow>Head coach<span class=switch><input type=checkbox name=head_coach value=1 {% if c.is_lead %}checked{% endif %}><span></span></span></label>
 <label>Plan<input name=focus list=planFocus value="{{ c.focus or '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
 <button class="btn btn-primary full" name=action value=coach_plan>Save</button></form></div></dialog>{% endif %}{% endfor %}
 <datalist id=planFocus><option value=Beginners><option value=Intermediate><option value=Advanced><option value=Goalies></datalist>

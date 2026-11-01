@@ -144,6 +144,7 @@
   --space-meta: 2px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-form-action: var(--space-4);
   --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
