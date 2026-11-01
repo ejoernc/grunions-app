@@ -1116,50 +1116,56 @@ document.addEventListener('click',function(e){
 });
 document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&t.matches('.datefield input[type=date]')) t.closest('.datefield').classList.toggle('empty',!t.value);});
 (function(){
- var CHEV_L='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>';
- var CHEV_R='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>';
  function pad(n){return (n<10?'0':'')+n}
  function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+ function headline(iso){
+  if(!iso||iso.length<10) return 'Select date';
+  var p=iso.split('-'), dt=new Date(+p[0], +p[1]-1, +p[2]);
+  var w=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
+  var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt.getMonth()];
+  return w+', '+mo+' '+dt.getDate();
+ }
  var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
  var dateDlg, timeDlg, dateSt, timeSt;
- function openSheet(dlg){ if(window.grunionsOpenSheet) grunionsOpenSheet(dlg); else if(!dlg.open) dlg.showModal(); }
- function closeSheet(dlg){ if(window.grunionsCloseSheet) grunionsCloseSheet(dlg); else dlg.close(); }
  function makeDate(){
   if(dateDlg) return dateDlg;
   dateDlg=document.createElement('dialog');
-  dateDlg.className='botsheet'; dateDlg.id='grunionsDateDlg'; dateDlg.setAttribute('aria-label','Select date');
-  dateDlg.innerHTML='<div class=sheet><div class=grab aria-hidden=true></div><div class=calhead><button type=button class=calmonth id=matPrev aria-label="Previous month"></button><div class=lbl id=matLabel></div><button type=button class=calmonth id=matNext aria-label="Next month"></button></div><div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class=calgrid id=matGrid></div><button type=button class="btn btn-primary sheetwide" id=matDateDone>Done</button></div>';
+  dateDlg.className='matpick'; dateDlg.id='grunionsDateDlg'; dateDlg.setAttribute('aria-label','Select date');
+  dateDlg.innerHTML='<div class=sheet><div class=matkicker>Select date</div><div class=matheadline id=matHeadline></div><div class=calhead><select id=matMonth class=matmonth aria-label="Month and year"></select><button type=button class=calmonth id=matPrev aria-label="Previous month"></button><button type=button class=calmonth id=matNext aria-label="Next month"></button></div><div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class=calgrid id=matGrid></div><div class=matactions><button type=button class=mattext id=matDateCancel>Cancel</button><button type=button class=mattext id=matDateOk>OK</button></div></div>';
   document.body.appendChild(dateDlg);
-  dateDlg.querySelector('#matPrev').innerHTML=CHEV_L;
-  dateDlg.querySelector('#matNext').innerHTML=CHEV_R;
+  dateDlg.querySelector('#matPrev').innerHTML='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>';
+  dateDlg.querySelector('#matNext').innerHTML='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>';
   dateDlg.querySelector('#matPrev').onclick=function(){ shiftDate(-1); };
   dateDlg.querySelector('#matNext').onclick=function(){ shiftDate(1); };
+  dateDlg.querySelector('#matMonth').addEventListener('change', function(){ if(this.value) paintDate(this.value); });
   dateDlg.querySelector('#matGrid').addEventListener('click', function(e){
-   var b=e.target.closest&&e.target.closest('button.calday'); if(!b||b.disabled) return;
+   var b=e.target.closest&&e.target.closest('button.calday'); if(!b) return;
    dateSt.iso=b.getAttribute('data-date'); paintDate(dateSt.iso.slice(0,7));
   });
-  dateDlg.querySelector('#matDateDone').onclick=function(){
-   var input=dateSt&&dateSt.input; if(!input){ closeSheet(dateDlg); return; }
-   input.value=input.type==='month'?(dateSt.iso||'').slice(0,7):(dateSt.iso||'');
-   input.dispatchEvent(new Event('input',{bubbles:true}));
-   input.dispatchEvent(new Event('change',{bubbles:true}));
-   closeSheet(dateDlg);
+  dateDlg.querySelector('#matDateCancel').onclick=function(){ dateDlg.close(); };
+  dateDlg.querySelector('#matDateOk').onclick=function(){
+   if(dateSt&&dateSt.input){ dateSt.input.value=dateSt.monthOnly?(dateSt.iso||'').slice(0,7):(dateSt.iso||''); dateSt.input.dispatchEvent(new Event('input',{bubbles:true})); dateSt.input.dispatchEvent(new Event('change',{bubbles:true})); }
+   dateDlg.close();
   };
+  dateDlg.addEventListener('click', function(e){ if(e.target===dateDlg) dateDlg.close(); });
   return dateDlg;
+ }
+ function fillDateMonths(sel, iso){
+  var y0=(iso?+iso.slice(0,4):new Date().getFullYear())-5, html='', y, m;
+  for(y=y0;y<y0+12;y++) for(m=1;m<=12;m++) html+='<option value="'+y+'-'+pad(m)+'">'+months[m-1]+' '+y+'</option>';
+  sel.innerHTML=html;
  }
  function paintDate(ym){
   dateSt.ym=ym;
-  var y=+ym.slice(0,4), m=+ym.slice(5,7);
-  dateDlg.querySelector('#matLabel').textContent=months[m-1]+' '+y;
-  var blanks=new Date(y, m-1, 1).getDay(), last=new Date(y, m, 0).getDate(), html='', day, iso, today=todayISO(), dots=dateSt.dots||{};
+  var y=+ym.slice(0,4), m=+ym.slice(5,7), sel=dateDlg.querySelector('#matMonth');
+  if(!sel.querySelector('option[value="'+ym+'"]')) fillDateMonths(sel, ym+'-01');
+  sel.value=ym;
+  dateDlg.querySelector('#matHeadline').textContent=headline(dateSt.iso);
+  var blanks=new Date(y, m-1, 1).getDay(), last=new Date(y, m, 0).getDate(), html='', day, iso, today=todayISO();
   for(var i=0;i<blanks;i++) html+='<span class=calday></span>';
   for(day=1;day<=last;day++){
    iso=y+'-'+pad(m)+'-'+pad(day);
-   var past=iso<today?' past':'';
-   var on=iso===dateSt.iso?' on':'';
-   var tod=iso===today?' today':'';
-   var dot=dots[iso]?'<i class=caldot></i>':'';
-   html+='<button type=button class="calday'+on+tod+past+'" data-date="'+iso+'">'+day+dot+'</button>';
+   html+='<button type=button class="calday'+(iso===dateSt.iso?' on':'')+(iso===today?' today':'')+'" data-date="'+iso+'">'+day+'</button>';
   }
   dateDlg.querySelector('#matGrid').innerHTML=html;
  }
@@ -1168,85 +1174,74 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   if(m<1){m=12;y--} if(m>12){m=1;y++}
   paintDate(y+'-'+pad(m));
  }
- function minsOf(v){ var p=String(v||'').split(':'); if(p.length<2) return null; var h=+p[0], m=+p[1]; if(isNaN(h)||isNaN(m)) return null; return h*60+m; }
- function snap15(v){ var n=minsOf(v); if(n==null) n=19*60; n=Math.round(n/15)*15; if(n>=1440) n=1440-15; if(n<0) n=0; return pad(Math.floor(n/60))+':'+pad(n%60); }
- function plus90(v){ var n=minsOf(v); if(n==null) return '20:30'; n+=90; if(n>=1440) n=1440-15; return snap15(pad(Math.floor(n/60))+':'+pad(n%60)); }
- function clockLabel(v){ var n=minsOf(v)||0, h=Math.floor(n/60), m=n%60, pm=h>=12, h12=h%12; if(!h12) h12=12; return h12+':'+pad(m)+' '+(pm?'PM':'AM'); }
- function pairOf(input){
-  if(!input||!input.form) return null;
-  var name=input.name;
-  if(name==='segment_start'||name==='segment_end'){
-   var row=input.closest('.row')||input.parentNode;
-   return row?row.querySelector('input[name='+(name==='segment_start'?'segment_end':'segment_start')+']'):null;
-  }
-  var map={start:'end', end:'start', start_time:'end_time', end_time:'start_time'};
-  if(!map[name]) return null;
-  return input.form.querySelector('input[name='+map[name]+']');
- }
  function makeTime(){
   if(timeDlg) return timeDlg;
   timeDlg=document.createElement('dialog');
-  timeDlg.className='botsheet'; timeDlg.id='grunionsTimeDlg'; timeDlg.setAttribute('aria-label','Select time');
-  timeDlg.innerHTML='<div class=sheet><div class=grab aria-hidden=true></div><div class=calhead><div class=lbl id=timeTitle>Select time</div></div><div class=timelist id=timeList role=listbox></div><button type=button class="btn btn-primary sheetwide" id=timeDone>Done</button></div>';
+  timeDlg.className='matpick'; timeDlg.id='grunionsTimeDlg'; timeDlg.setAttribute('aria-label','Select time');
+  timeDlg.innerHTML='<div class=sheet><div class=matkicker>Select time</div><div class=timebig><button type=button id=timeH></button><span>:</span><button type=button id=timeM></button><div class=ampm><button type=button id=timeAM>AM</button><button type=button id=timePM>PM</button></div></div><div class=clock id=timeClock><div class=clockhand id=timeHand></div></div><div class=matactions><button type=button class=mattext id=timeCancel>Cancel</button><button type=button class=mattext id=timeOk>OK</button></div></div>';
   document.body.appendChild(timeDlg);
-  timeDlg.querySelector('#timeList').addEventListener('click', function(e){
-   var b=e.target.closest&&e.target.closest('button'); if(!b||b.disabled) return;
-   timeSt.value=b.getAttribute('data-value'); paintTime();
-  });
-  timeDlg.querySelector('#timeDone').onclick=function(){
-   var input=timeSt&&timeSt.input; if(!input){ closeSheet(timeDlg); return; }
-   input.value=timeSt.value;
-   input.dispatchEvent(new Event('input',{bubbles:true}));
-   input.dispatchEvent(new Event('change',{bubbles:true}));
-   var end=pairOf(input);
-   if(end && (input.name==='start'||input.name==='start_time'||input.name==='segment_start')){
-    end.value=plus90(timeSt.value);
-    end.dispatchEvent(new Event('input',{bubbles:true}));
-    end.dispatchEvent(new Event('change',{bubbles:true}));
-   }
-   closeSheet(timeDlg);
+  timeDlg.querySelector('#timeH').onclick=function(){ timeSt.mode='h'; paintTime(); };
+  timeDlg.querySelector('#timeM').onclick=function(){ timeSt.mode='m'; paintTime(); };
+  timeDlg.querySelector('#timeAM').onclick=function(){ timeSt.pm=false; paintTime(); };
+  timeDlg.querySelector('#timePM').onclick=function(){ timeSt.pm=true; paintTime(); };
+  timeDlg.querySelector('#timeCancel').onclick=function(){ if(timeSt&&timeSt.input) timeSt.input.value=timeSt.prev; timeDlg.close(); };
+  timeDlg.querySelector('#timeOk').onclick=function(){
+   if(timeSt&&timeSt.input){ var h=timeSt.h%12; if(timeSt.pm) h+=12; timeSt.input.value=pad(h)+':'+pad(timeSt.m); timeSt.input.dispatchEvent(new Event('input',{bubbles:true})); timeSt.input.dispatchEvent(new Event('change',{bubbles:true})); }
+   timeDlg.close();
   };
+  timeDlg.addEventListener('click', function(e){ if(e.target===timeDlg){ if(timeSt&&timeSt.input) timeSt.input.value=timeSt.prev; timeDlg.close(); } });
   return timeDlg;
  }
  function paintTime(){
-  var list=timeDlg.querySelector('#timeList'), html='', min=timeSt.min, i, v, on;
-  for(i=0;i<24*60;i+=15){
-   v=pad(Math.floor(i/60))+':'+pad(i%60);
-   on=v===timeSt.value?' on':'';
-   html+='<button type=button class="'+on.trim()+'" data-value="'+v+'"'+(min&&v<min?' disabled':'')+'>'+clockLabel(v)+'</button>';
-  }
-  list.innerHTML=html;
-  var cur=list.querySelector('button.on'); if(cur&&cur.scrollIntoView) cur.scrollIntoView({block:'center'});
+  var hBtn=timeDlg.querySelector('#timeH'), mBtn=timeDlg.querySelector('#timeM');
+  hBtn.textContent=String(timeSt.h); mBtn.textContent=pad(timeSt.m);
+  hBtn.className=timeSt.mode==='h'?'on':''; mBtn.className=timeSt.mode==='m'?'on':'';
+  timeDlg.querySelector('#timeAM').className=timeSt.pm?'':'on';
+  timeDlg.querySelector('#timePM').className=timeSt.pm?'on':'';
+  var clock=timeDlg.querySelector('#timeClock'), hand=timeDlg.querySelector('#timeHand');
+  var labels=timeSt.mode==='h'?['12','1','2','3','4','5','6','7','8','9','10','11']:['00','05','10','15','20','25','30','35','40','45','50','55'];
+  var active=timeSt.mode==='h'?String(timeSt.h):(function(){ var q=Math.round(timeSt.m/5)*5; if(q===60) q=0; return pad(q); })();
+  var idx=labels.indexOf(active); if(idx<0) idx=0;
+  hand.style.transform='rotate('+(idx*30)+'deg)';
+  clock.querySelectorAll('button.clocknum').forEach(function(b){ b.remove(); });
+  labels.forEach(function(lab, i){
+   var b=document.createElement('button'); b.type='button'; b.className='clocknum'+(lab===active?' on':''); b.textContent=lab;
+   var ang=(i/12)*Math.PI*2 - Math.PI/2, r=38;
+   b.style.left=(50+r*Math.cos(ang))+'%'; b.style.top=(50+r*Math.sin(ang))+'%';
+   b.onclick=function(){
+    if(timeSt.mode==='h'){ timeSt.h=+lab||12; timeSt.mode='m'; }
+    else timeSt.m=+lab;
+    paintTime();
+   };
+   clock.appendChild(b);
+  });
  }
- window.grunionsOpenDate=function(input, dots){
+ window.grunionsOpenDate=function(input){
   if(!input) return;
   makeDate();
   var raw=input.value||'';
-  var iso=input.type==='month'&&/^\\d{4}-\\d{2}$/.test(raw)?raw+'-01':raw;
+  var iso=(input.type==='month' && /^\\d{4}-\\d{2}$/.test(raw))?raw+'-01':raw;
   if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(iso)) iso=todayISO();
-  dateSt={input:input, iso:iso, ym:iso.slice(0,7), dots:dots||null};
+  dateSt={input:input, iso:iso, ym:iso.slice(0,7), monthOnly:input.type==='month'};
+  fillDateMonths(dateDlg.querySelector('#matMonth'), iso);
   paintDate(dateSt.ym);
-  openSheet(dateDlg);
+  if(!dateDlg.open) dateDlg.showModal();
  };
  window.grunionsOpenTime=function(input){
   if(!input) return;
   makeTime();
-  var start=pairOf(input);
-  var min=(input.name==='end'||input.name==='end_time'||input.name==='segment_end')&&start&&start.value?snap15(start.value):'';
-  var value=snap15(input.value||(min||'19:00'));
-  if(min&&value<min) value=min;
-  timeSt={input:input, value:value, min:min};
-  timeDlg.querySelector('#timeTitle').textContent=input.name.indexOf('end')>=0?'End time':'Start time';
+  var v=input.value||'19:00', p=v.split(':'), hh=+p[0]||0, mm=+p[1]||0;
+  var h12=hh%12; if(!h12) h12=12;
+  timeSt={input:input, prev:input.value, h:h12, m:mm, pm:hh>=12, mode:'h'};
   paintTime();
-  openSheet(timeDlg);
+  if(!timeDlg.open) timeDlg.showModal();
  };
  window.grunionsBindPickers=function(){
   document.querySelectorAll('input[type=date],input[type=time],input[type=month]').forEach(function(input){
    if(input.dataset.matarm||input.classList.contains('pickhold')) return;
    input.dataset.matarm='1';
-   function openIt(e){ if(e) e.preventDefault(); if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input); }
-   input.addEventListener('pointerdown', openIt);
-   input.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '||e.key==='ArrowDown') openIt(e); });
+   input.addEventListener('pointerdown', function(e){ e.preventDefault(); if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input); });
+   input.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '||e.key==='ArrowDown'){ e.preventDefault(); if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input); } });
   });
  };
  document.addEventListener('click', function(e){
@@ -1255,8 +1250,12 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   e.preventDefault();
   if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input);
  });
+ document.addEventListener('click', function(e){
+  var d=e.target; if(d&&d.matches&&d.matches('dialog.matpick')&&e.target===d) d.close();
+ });
  grunionsBindPickers();
 })();
+
 window.grunionsDropzones=function(){
  document.querySelectorAll('[data-dropzone]').forEach(function(zone){
   if(zone.dataset.bound) return; zone.dataset.bound='1';
@@ -1985,7 +1984,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <h2 class=planask>What are you planning?</h2>
 <div class=lanepick role=radiogroup aria-label="What are you planning?">
 {% if staff %}<button type=button class="lanecard{{ ' on' if lane != 'lineup' }}" data-lane=schedule><b>Team schedule</b><span>Practices, scrimmages &amp; games</span></button>{% endif %}
-<button type=button class="lanecard{{ ' on' if (not staff) or lane == 'lineup' }}" data-lane=lineup><b>Lineup event</b><span>{{ 'Trips, socials, and community' if not staff else 'Tournaments, trips, socials &amp; more' }}</span></button>
+<button type=button class="lanecard{{ ' on' if (not staff) or lane == 'lineup' }}" data-lane=lineup><b>Lineup event</b><span>{{ 'Trips, socials, and community' if not staff else 'Tournaments, trips, socials & more' }}</span></button>
 </div>
 {% if staff %}<div id=schedBlock {% if lane == 'lineup' %}hidden{% endif %}>
 <div class=actseg role=radiogroup aria-label="Session type">
@@ -2003,10 +2002,18 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label>Short description<textarea name=description id=lineDesc rows=3 placeholder="What should people know?"></textarea></label>
 </div>
 <div class=seclabel>When</div>
-<div class=list>
+<div class=actseg id=whenPrec role=radiogroup aria-label=Dates {% if staff and lane != 'lineup' %}hidden{% endif %}>
+<label><input type=radio name=date_precision value=exact checked><span>Exact dates</span></label>
+<label><input type=radio name=date_precision value=month><span>Month only</span></label>
+</div>
+<div class=list id=exactWhen>
 <button type=button class="li setrow" data-matfor=dateInput><span class=grow>Date<span class="sum" id=dateSum> Add a date</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" data-matfor=startInput><span class=grow>Start<span class="sum" id=startSum> 7:00 PM</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" data-matfor=endInput><span class=grow>End<span class="sum" id=endSum> 8:30 PM</span></span>""" + _CHEV + """</button>
+</div>
+<div class=list id=monthWhen hidden>
+<button type=button class="li setrow" data-matfor=monthInput><span class=grow>Month<span class=sum id=monthSum> Choose a month</span></span>""" + _CHEV + """</button>
+<label>Part of the month<select name=date_part><option value="">TBA</option><option value=early>Early</option><option value=mid>Mid</option><option value=late>Late</option></select></label>
 </div>
 <label>Location<span id=locOk class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location id=locInput autocomplete=off placeholder="Pool or address"></label>
 <div class=seclabel>Additional settings</div>
@@ -2028,6 +2035,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <input class=pickhold type=date name=date id=dateInput>
 <input class=pickhold type=time name=start id=startInput value=19:00>
 <input class=pickhold type=time name=end id=endInput value=20:30>
+<input class=pickhold type=month name=month id=monthInput>
 <dialog class=botsheet id=setLevels><div class=sheet><div class=grab></div><h2>Skill levels &amp; division</h2>
 <div class=checks>{% for pid, name, short, full in SPORTS.LEVELS %}<label><input type=checkbox name=level value="{{ pid }}"> {{ name }}</label>{% endfor %}</div>
 <div class=checks>{% for pid, name in SPORTS.DIVISIONS %}<label><input type=checkbox name=division value="{{ pid }}"> {{ name }}</label>{% endfor %}</div>
@@ -2089,21 +2097,36 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   document.querySelectorAll('button.lanecard').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-lane')===name); });
   paintTitle(); syncLine();
  }
- document.querySelectorAll('button.lanecard').forEach(function(b){ b.onclick=function(){ showLane(b.getAttribute('data-lane')); }; });
+ function syncPrec(){
+  var lineup=!staff || (lane && lane.value==='lineup');
+  var prec=document.getElementById('whenPrec'), exact=document.getElementById('exactWhen'), month=document.getElementById('monthWhen');
+  if(prec) prec.hidden=!lineup;
+  var on=document.querySelector('input[name=date_precision]:checked');
+  var monthOn=!!(lineup && on && on.value==='month');
+  if(exact){ exact.hidden=monthOn; exact.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=monthOn; }); }
+  if(month){ month.hidden=!monthOn; month.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=!monthOn; }); }
+  var monthInput=document.getElementById('monthInput'); if(monthInput) monthInput.disabled=!monthOn;
+  var dateInput=document.getElementById('dateInput'); if(dateInput) dateInput.disabled=monthOn;
+ }
+ document.querySelectorAll('input[name=date_precision]').forEach(function(r){ r.addEventListener('change', syncPrec); });
+ document.querySelectorAll('button.lanecard').forEach(function(b){ b.onclick=function(){ showLane(b.getAttribute('data-lane')); syncPrec(); }; });
+ syncPrec();
  document.querySelectorAll('input[name=activity_type]').forEach(function(r){ r.addEventListener('change', paintTitle); });
  var sport=document.getElementById('sportSel'); if(sport) sport.addEventListener('change', paintTitle);
  var custom=document.getElementById('customize'), reset=document.getElementById('titleReset');
  if(custom) custom.onclick=function(){ titleMode.value='custom'; titleField.hidden=false; titleInput.value=live.textContent; titleInput.focus(); };
  if(reset) reset.onclick=function(){ titleMode.value='auto'; titleField.hidden=true; titleInput.value=''; paintTitle(); };
- function clock(v){ if(!v) return ''; var p=v.split(':'); var h=parseInt(p[0],10), m=p[1]||'00'; var ap=h>=12?'PM':'AM'; h=h%12; if(!h) h=12; return h+':'+m+' '+ap; }
+  function clock(v){ if(!v) return ''; var p=v.split(':'); var h=parseInt(p[0],10), m=p[1]||'00'; var ap=h>=12?'PM':'AM'; h=h%12; if(!h) h=12; return h+':'+m+' '+ap; }
+ function monthLabel(v){ if(!v||v.length<7) return ' Choose a month'; var names=['January','February','March','April','May','June','July','August','September','October','November','December']; return ' '+names[(parseInt(v.slice(5,7),10)||1)-1]+' '+v.slice(0,4); }
  function syncWhen(){
-  var d=document.getElementById('dateInput'), s=document.getElementById('startInput'), e=document.getElementById('endInput');
-  var ds=document.getElementById('dateSum'), ss=document.getElementById('startSum'), es=document.getElementById('endSum');
+  var d=document.getElementById('dateInput'), s=document.getElementById('startInput'), e=document.getElementById('endInput'), mo=document.getElementById('monthInput');
+  var ds=document.getElementById('dateSum'), ss=document.getElementById('startSum'), es=document.getElementById('endSum'), ms=document.getElementById('monthSum');
   if(ds) ds.textContent=d&&d.value?(' '+d.value):' Add a date';
   if(ss) ss.textContent=s&&s.value?(' '+clock(s.value)):'';
   if(es) es.textContent=e&&e.value?(' '+clock(e.value)):'';
+  if(ms) ms.textContent=monthLabel(mo&&mo.value);
  }
- ['dateInput','startInput','endInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change', syncWhen); });
+ ['dateInput','startInput','endInput','monthInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change', syncWhen); });
  syncWhen();
  function syncLine(){
   var type=document.getElementById('lineType'); var name=type?type.value:'Social';
@@ -2171,7 +2194,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 </div>
 <div id=monthDates {% if values.date_precision != 'month' %}hidden{% endif %}>
 <label>Month<input type=month name=month value="{{ values.month }}"></label>
-<label>Part of the month<select name=date_part><option value="">Whole month</option><option value=early {% if values.date_part == 'early' %}selected{% endif %}>Early</option><option value=mid {% if values.date_part == 'mid' %}selected{% endif %}>Mid</option><option value=late {% if values.date_part == 'late' %}selected{% endif %}>Late</option></select></label>
+<label>Part of the month<select name=date_part><option value="">TBA</option><option value=early {% if values.date_part == 'early' %}selected{% endif %}>Early</option><option value=mid {% if values.date_part == 'mid' %}selected{% endif %}>Mid</option><option value=late {% if values.date_part == 'late' %}selected{% endif %}>Late</option></select></label>
 </div>
 <label>City<input name=city value="{{ values.city }}" required placeholder="Toronto, Canada" list=citySuggest autocomplete=off></label>
 <datalist id=citySuggest>{% for c in cities %}<option value="{{ c }}">{% endfor %}</datalist>
@@ -2400,8 +2423,9 @@ T["admin"] = ADMIN_NAV + """{% call admin_page('Schedule') %}<a class="btn quiet
 <button type=button class=calbtn id=calOpen aria-haspopup=dialog aria-expanded=false aria-controls=calPop>""" + _CAL_I + """<span>{{ fmt_d(date).replace(' ', ', ', 1) }}</span></button>
 {% if next_href %}<a class=calnav href="{{ next_href }}" aria-label="Next event">""" + _CHEV_R + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Next event">""" + _CHEV_R + """</span>{% endif %}
 </div>
-<dialog class=botsheet id=calPop aria-label="Choose a date"><div class=sheet>
-<div class=grab aria-hidden=true></div>
+<dialog class=matpick id=calPop aria-label="Select date"><div class=sheet>
+<div class=matkicker>Select date</div>
+<div class=matheadline id=calHeadline>{{ fmt_d(date).replace(' ', ', ', 1) }}</div>
 <div id=calMonthView>
 <div class=calhead>
 <button type=button class=calmonth id=calPrevM aria-label="Previous month">""" + _CHEV_L + """</button>
@@ -2414,7 +2438,10 @@ T["admin"] = ADMIN_NAV + """{% call admin_page('Schedule') %}<a class="btn quiet
 <button type=button class=calback id=calBack aria-label="Back to the month">""" + _CHEV_L + """<span id=calEventLabel>Events</span></button>
 <div class=list id=calEventList></div>
 </div>
-<button type=button class="btn btn-primary full" id=calOk>Done</button>
+<div class=matactions>
+<button type=button class=mattext id=calCancel>Cancel</button>
+<button type=button class=mattext id=calOk>OK</button>
+</div>
 </div></dialog>
 <dialog class=modal id=evPick><div class=sheet><h2 style="margin:0 0 12px">Events</h2><div class=list id=evPickList>{% for ev in events %}<a class=li href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ ev.title }}</span><span class="t3 sm">{{ ev.when }}</span></span></a>{% endfor %}</div><button type=button class="btn btn-secondary full" onclick="this.closest('dialog').close()">Cancel</button></div></dialog>
 </div>
@@ -2506,7 +2533,9 @@ document.getElementById('calPrevM').onclick=function(){shift(-1)};
 document.getElementById('calNextM').onclick=function(){shift(1)};
 var back=document.getElementById('calBack');
 if(back) back.onclick=function(){showMonth()};
-var okBtn=document.getElementById('calOk');
+var okBtn=document.getElementById('calOk'), cancelBtn=document.getElementById('calCancel'), head=document.getElementById('calHeadline');
+function setHead(iso){ if(head) head.textContent=headline(iso)||'Select date'; }
+if(cancelBtn) cancelBtn.onclick=function(){ pop.close(); };
 if(okBtn) okBtn.onclick=function(){
  var iso=pending||selected; if(!iso){ pop.close(); return; }
  var list=catalog[iso]||[];
@@ -2515,11 +2544,12 @@ if(okBtn) okBtn.onclick=function(){
  location.href=href(iso);
 };
 openBtn.onclick=function(){
- pending=selected; showMonth();
+ pending=selected; showMonth(); setHead(pending);
  render(selected.slice(0,7)||shown);
- if(window.grunionsOpenSheet) grunionsOpenSheet(pop); else if(pop.showModal) pop.showModal();
+ if(pop.showModal) pop.showModal();
  openBtn.setAttribute('aria-expanded','true');
 };
+pop.addEventListener('click', function(e){ if(e.target===pop) pop.close(); });
 pop.addEventListener('close', function(){ openBtn.setAttribute('aria-expanded','false'); showMonth(); });
 var countBtn=document.getElementById('evCount');
 if(countBtn) countBtn.onclick=function(){ var dlg=document.getElementById('evPick'); if(dlg&&dlg.showModal) dlg.showModal(); };
@@ -2527,6 +2557,7 @@ grid.addEventListener('click', function(e){
  var a=e.target.closest&&e.target.closest('a.calday'); if(!a||a.getAttribute('aria-disabled')) return;
  e.preventDefault();
  pending=a.getAttribute('data-date')||pending;
+ setHead(pending);
  render(pending.slice(0,7)||shown);
 });
 })();
@@ -2778,13 +2809,14 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 <p class="t3 sm">Disabled</p>
 <div class=ds-row><button type=button class="btn btn-primary" disabled>Primary</button></div>
 <h2>Date and time</h2>
-<p class="t3 sm">Bottom sheets, the same ones as Schedule and every date or time field. Grab the handle or swipe down to dismiss. Past days are muted. Event dots are only for Schedule. Time is a 15-minute list. Choosing a start sets the end 90 minutes later, and the end cannot be earlier.</p>
-<div class=ds-sheet><span class=grab aria-hidden=true></span>
+<p class="t3 sm">A centered dialog, the same one as Schedule and every date or time field. Schedule ghosts days with no events and shows a dot. Form calendars leave every day selectable. Time is a clock. Cancel and OK confirm.</p>
+<div class="sheet" style="border:1px solid var(--color-sheet-border);border-radius:var(--radius-overlay);padding:20px 12px 8px;background:var(--color-sheet)">
+<div class=matkicker>Select date</div>
+<div class=matheadline>Tue, Nov 3</div>
 <div class=calhead><button type=button class=calmonth aria-label="Previous month"><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg></button><div class=lbl>November 2026</div><button type=button class=calmonth aria-label="Next month"><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg></button></div>
 <div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
-<div class=calgrid><span class=calday></span><button type=button class="calday past">1</button><button type=button class="calday on">3</button><button type=button class=calday>4<i class=caldot></i></button></div>
-<button type=button class="btn btn-primary full">Done</button>
-<div class=timelist><button type=button>6:45 PM</button><button type=button class=on>7:00 PM</button><button type=button>7:15 PM</button></div>
+<div class=calgrid><span class=calday></span><span class="calday past" aria-disabled=true>1</span><button type=button class="calday on">3</button><button type=button class=calday>4<i class=caldot></i></button></div>
+<div class=matactions><button type=button class=mattext>Cancel</button><button type=button class=mattext>OK</button></div>
 </div>
 <h2>Map, chat, and sheet</h2>
 <p class="t3 sm">Dark is the app. Light uses the same components.</p>

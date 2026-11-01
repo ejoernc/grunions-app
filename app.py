@@ -2873,9 +2873,11 @@ def event_new():
             if posted_type and posted_type not in lineupfeed.MEMBER_TYPES: abort(403)
         day = parse_date(request.form.get("date"))
         loc = " ".join((request.form.get("location") or "").split())[:300]
-        if not day or not loc:
-            flash("Add a date and a location.")
-            return redirect("/events/new")
+        lane_now = (request.form.get("lane") or ("lineup" if not staff else lane))
+        month_line = lane_now == "lineup" and (request.form.get("date_precision") or "exact").strip().lower() == "month"
+        if not loc or (not month_line and not day):
+            flash("Add a location." if month_line else "Add a date and a location.")
+            return redirect("/events/new" + ("?lane=lineup" if month_line else ""))
         d = db()
         if (request.form.get("lane") or lane) != "lineup" and staff:
             start = (request.form.get("start") or "19:00").strip() or "19:00"
