@@ -37,7 +37,8 @@ Leave these as literals: the first-paint `background:#090D0B` on `html` and `bod
 
 ## Classes
 
-- Buttons: `btn btn-primary`, `btn btn-secondary`, `btn btn-danger`, `btn quiet`, `iconbtn`
+- Buttons: `btn btn-primary`, `btn btn-secondary`, `btn btn-danger`, `btn quiet`, `iconbtn`. RSVP uses one macro, `rsvp_btn`: selected is lime `btn-primary` with a leading Phosphor check (`svg.rsvpcheck`); unselected is outlined `btn-secondary`. Labels are Going and Not going (Lineup also has Interested).
+
 - Chips: `chip`, `chip chip-active on`, `chip-info`. Sibling views (Chat, Admin, Profile) use these pills. There is no underline tab.
 - Admin page header: `admin_page(title, subtitle)`. Under the chip row, one Title 1 H1 with an optional `btn quiet pageact` on the right, then an optional Body 2 subtitle (`pagesub`). Gap from chips to title is `--space-5` (`body.adminpage main` padding-top). Gap from the header block to content is `--space-4` (`.pagehead` margin-bottom). Schedule, People, Events, Expiring, Transfer, Rules, and Join QR use it. One H1 per tab.
 - Segmented: `actseg` (Exact dates / Month only, Away / Hosting, Considering / Official)

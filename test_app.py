@@ -122,7 +122,7 @@ ok(john.post("/api/messages?c=coaches", json={"body":"Coaches only: lineup for F
 ok(jane.get("/api/messages?c=coaches").status_code == 403 and jane.get("/chat?c=coaches").status_code == 403, "#coaches private from members")
 ok(len(eli.get("/api/messages?c=coaches").get_json()) == 1 and all("Coaches only" not in m["body"] for m in jane.get("/api/messages").get_json()), "channels separated")
 ok(john.get("/admin").status_code == 200 and john.get("/import").status_code == 403 and john.post("/admin", data=dict(csrf=tj, member_id=2, action="verify")).status_code == 403 and 'class="usawpcall' not in john.get("/admin").get_data(as_text=True), "coach can check in but not use admin tools")
-p = jane.get("/practices").get_data(as_text=True); ok("Marina High School" in p and "Westminster High School" in p and "class=datetile" in p and "I'm going" in p and "I'm not going" in p, "recurring Tue/Fri practices generated")
+p = jane.get("/practices").get_data(as_text=True); ok("Marina High School" in p and "Westminster High School" in p and "class=datetile" in p and ">Going</button>" in p and ">Not going</button>" in p and "I'm going" not in p, "recurring Tue/Fri practices generated")
 sched = eli.get("/admin").get_data(as_text=True)
 sched_head = sched.split("<main>", 1)[0]
 past_day = (A.today_pt() - dt.timedelta(days=9)).isoformat()
@@ -248,7 +248,7 @@ eli.post("/api/messages?c=coaches", data={"body": "lineup", "image": (img_bytes(
 cm = eli.get("/api/messages?c=coaches").get_json()[-1]
 ok(eli.get(cm["image"]["thumb"]).status_code == 200 and jane.get(cm["image"]["full"]).status_code == 403 and jane.get(cm["image"]["thumb"]).status_code == 403, "#coaches images private")
 pg = jane.get("/practices").get_data(as_text=True)
-ok('href="/practices/' in pg and " going</span>" in pg and "class=nxtitle>Water Polo Practice</div>" in pg and "class=nxhead" not in pg and "class=datetile" in pg and "I'm going" in pg and "Edit practice" not in pg and "Assign coaches" not in pg and 'class=morebtn' not in pg, "a practice card links to its page, and a member has no More menu")
+ok('href="/practices/' in pg and " going</span>" in pg and "class=nxtitle>Water Polo Practice</div>" in pg and "class=nxhead" not in pg and "class=datetile" in pg and ">Going</button>" in pg and "I'm going" not in pg and "Edit practice" not in pg and "Assign coaches" not in pg and 'class=morebtn' not in pg, "a practice card links to its page, and a member has no More menu")
 ch = jane.get("/chat").get_data(as_text=True)
 ca = eli.get("/chat").get_data(as_text=True)
 cc = eli.get("/chat?c=coaches").get_data(as_text=True)
@@ -649,7 +649,7 @@ try:
     sched = jane.get("/practices").get_data(as_text=True)
     home = jane.get("/home").get_data(as_text=True)
     nxt = home[home.find('class="card tap nextcard"'):]
-    nxt = nxt[:nxt.find("I'm going")]
+    nxt = nxt[:nxt.find("class=pills")]
     adm = eli.get("/admin").get_data(as_text=True)
     ok("class=dn>23<" in sched and "class=mo>OCT<" in sched and "7:00 – 8:30 PM" in sched and "Westminster High School" in sched and "class=nxtitle>Water Polo Practice</div>" in nxt and "Fri, Oct 23 · 7:00 PM" in nxt and "7:00 PM" in nxt and ("Westminster HS" in nxt or "Past Pool" in nxt) and "class=datetile" not in nxt and 'value="2026-10-23"' in adm, "at 5:30pm Pacific, Friday's practice is on the schedule and check-in uses that date")
     ok(D.execute("SELECT COUNT(*) FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()[0] == 1, "opening the schedule does not delete Friday's practice")
@@ -659,7 +659,7 @@ try:
     late = jane.get("/practices").get_data(as_text=True)
     late_home = jane.get("/home").get_data(as_text=True)
     late_i = late_home.find('class="card tap nextcard"')
-    late_j = late_home.find("I'm going", late_i) if late_i >= 0 else -1
+    late_j = late_home.find("class=pills", late_i) if late_i >= 0 else -1
     late_next = late_home[late_i:late_j] if late_j >= 0 else (late_home[late_i:late_i + 500] if late_i >= 0 else "")
     ok("class=dn>23<" not in late and "Westminster HS" not in late_next and 'value="2026-10-23"' in eli.get("/admin").get_data(as_text=True) and D.execute("SELECT COUNT(*) FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()[0] == 1, "after 8:30pm Pacific the practice leaves the schedule and the row is still there")
     eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=fri, start="19:00", end="20:30", location="Pacific Pool"))
@@ -1372,7 +1372,7 @@ D.execute("INSERT INTO checkins(member_id,practice_date,location) VALUES(?,?,?)"
 sched_j = jane.get("/practices").get_data(as_text=True)
 sched_e = eli.get("/practices").get_data(as_text=True)
 card_e = sched_e.split("id=p%d " % dpid, 1)[1].split("id=p")[0]
-ok(('href="/practices/%d"' % dpid) in sched_j and " going</span>" in card_e and "class=nxtitle>Water Polo Practice</div>" in card_e and "class=nxhead" not in card_e and "class=datetile" in card_e and "class=mo>" in card_e and "class=pills" in card_e and "I'm going" in card_e and "I'm not going" in card_e and "class=nxchev" not in card_e and "class=pimg" not in card_e and "class=nxicon" not in card_e and "class=morebtn" not in card_e and "Assign coaches" not in card_e and "Delete practice" not in card_e and "class=morebtn" not in sched_e and "class=morebtn" not in sched_j, "a schedule card shows the date tile and icon rows and has no More menu")
+ok(('href="/practices/%d"' % dpid) in sched_j and " going</span>" in card_e and "class=nxtitle>Water Polo Practice</div>" in card_e and "class=nxhead" not in card_e and "class=datetile" in card_e and "class=mo>" in card_e and "class=pills" in card_e and ">Going</button>" in card_e and ">Not going</button>" in card_e and "I'm going" not in card_e and "class=nxchev" not in card_e and "class=pimg" not in card_e and "class=nxicon" not in card_e and "class=morebtn" not in card_e and "Assign coaches" not in card_e and "Delete practice" not in card_e and "class=morebtn" not in sched_e and "class=morebtn" not in sched_j, "a schedule card shows the date tile and icon rows and has no More menu")
 page_j = jane.get("/practices/%d" % dpid).get_data(as_text=True)
 page_e = eli.get("/practices/%d" % dpid).get_data(as_text=True)
 ok(jane.get("/practices/999999").status_code == 404 and "Detail Pool" in page_j and "Bring caps" in page_j and "Jay Doe" in page_j and "Eli Joern" in page_j and "Checked in" in page_j and "Can't make it" in page_j and "maps.google.com/maps?q=" not in page_j and "class=\"homemap cardmap banner\"" in page_j and "mode:'card'" in page_j and "google.com/maps/dir/" in page_j and "btn btn-secondary" in page_j and "loccard" in page_j and "practiceLoc" in page_j and "Scheduled" in page_j and ">Edit</a>" not in page_j and "Assign coaches" not in page_j and "class=morebtn" not in page_j and "No assigned coach is coach-eligible" not in page_j and "No coaches assigned." in page_e and "No assigned coach is coach-eligible" not in page_e and 'href="/admin/member/' in page_e and 'href="/admin/member/' not in page_j and ">Edit</a>" in page_e and "class=morebtn" not in page_e and "Assign coaches" in page_e and "Delete practice" in page_e, "the practice page shows who's coming, the map banner, and an admin edit action and coach warning")
@@ -1435,7 +1435,7 @@ card_at = home0.find('class="card tap nextcard"')
 nchunk = home0[card_at:home0.find("</form>", card_at)]
 nid = int(re.search(r'href="/practices/(\d+)"', nchunk).group(1))
 nrow = D.execute("SELECT date, start, end, location, COALESCE(note,'') FROM practices WHERE id=?", (nid,)).fetchone()
-ok("I'm going" in nchunk and "I'm not going" in nchunk and ('href="/practices/%d"' % nid) in nchunk and "card tap" in nchunk and "🍻" not in nchunk and "After-practice social" not in jane.get("/practices").get_data(as_text=True), "the next practice card links to the practice and offers I'm going and I'm not going")
+ok(">Going</button>" in nchunk and ">Not going</button>" in nchunk and "I'm going" not in nchunk and ('href="/practices/%d"' % nid) in nchunk and "card tap" in nchunk and "🍻" not in nchunk and "After-practice social" not in jane.get("/practices").get_data(as_text=True), "the next practice card links to the practice and offers Going and Not going")
 ok(jane.post("/practices/%d" % nid, data=dict(csrf=csrf(jane, "/home"), pid=nid, action="social", social_kind="Drinks", social_place="The Harp")).status_code == 403 and jane.post("/practices/%d" % nid, data=dict(csrf=csrf(jane, "/home"), pid=nid, action="message", message="hi")).status_code == 403, "a member cannot set a social or a coach message")
 missing = eli.post("/practices/%d" % nid, data=dict(csrf=csrf(eli, "/practices"), pid=nid, action="social", back="page", social_kind="Dinner", social_place=""), follow_redirects=True).get_data(as_text=True)
 empty_host = pat.get("/practices/%d" % nid).get_data(as_text=True)
@@ -1455,9 +1455,18 @@ pat_page = pat.get("/practices/%d" % nid).get_data(as_text=True)
 eli_page = eli.get("/practices/%d" % nid).get_data(as_text=True)
 ok((line + " · 8:30pm") in page_s and "Cash bar" in page_s and 'href="https://maps.example/harp"' in page_s and line not in card_s and "class=nxicon" not in card_s and "class=nxicon" in page_s and "class=nxicon" in home_s and "M237.66,45.66" in page_s and "M237.66,45.66" in home_s and 'fill="#FFFFFF"' not in home_s and "🍽️" not in home_s and "🍽️" not in page_s and "Cash bar" not in card_s and "Bring dark caps" in card_s and noted[0] == "Pat Host" and stamp in card_s and "Drinks after" in home_s and "The Harp" in home_s and "Bring dark caps" in home_s and stamp in home_s and "class=morebtn" not in pat_card and "class=morebtn" not in eli_card and "After-practice social" in pat_page and "Coach message" in pat_page and "Delete practice" not in pat_page and "After-practice social" in eli_page and "Delete practice" in eli_page and "name=date" not in pat.get("/practices/%d?edit=1" % nid).get_data(as_text=True), "a social shows on the practice page and home, not the schedule, and a coach message still shows on the schedule")
 jane.post("/practices", data=dict(csrf=csrf(jane, "/home"), pid=nid, action="notgoing"))
-ok(">I'm not going ✓<" in jane.get("/home").get_data(as_text=True) and ">I'm not going ✓<" in jane.get("/practices/%d" % nid).get_data(as_text=True) and ">I'm not going ✓<" in jane.get("/practices").get_data(as_text=True).split("id=p%d " % nid, 1)[1].split("id=p")[0], "I'm not going on home is the same RSVP as the practice page and the schedule")
+def _rsvp_slice(kind):
+    if kind == "home":
+        h = jane.get("/home").get_data(as_text=True)
+        return h.split('class="card tap nextcard"', 1)[1].split("id=schedule", 1)[0]
+    if kind == "page":
+        return jane.get("/practices/%d" % nid).get_data(as_text=True).split("class=pills", 1)[1].split("</form>", 1)[0]
+    return jane.get("/practices").get_data(as_text=True).split("id=p%d " % nid, 1)[1].split("id=p")[0]
+_ng = [_rsvp_slice(k) for k in ("home", "page", "sched")]
+ok(all("</svg>Not going</button>" in s and "class=rsvpcheck" in s and "M229.66,77.66" in s and 'class="btn btn-primary"' in s and ">Going</button>" in s and "I'm not going" not in s and " ✓" not in s for s in _ng), "Not going on home is the same RSVP as the practice page and the schedule")
 jane.post("/practices/%d" % nid, data=dict(csrf=csrf(jane, "/practices/%d" % nid), pid=nid, action="going", back="page"))
-ok(">I'm going ✓<" in jane.get("/home").get_data(as_text=True) and ">I'm going ✓<" in jane.get("/practices/%d" % nid).get_data(as_text=True) and ">I'm going ✓<" in jane.get("/practices").get_data(as_text=True).split("id=p%d " % nid, 1)[1].split("id=p")[0], "I'm going on the practice page shows on home and the schedule")
+_gg = [_rsvp_slice(k) for k in ("home", "page", "sched")]
+ok(all("</svg>Going</button>" in s and "class=rsvpcheck" in s and ">Not going</button>" in s and "</svg>Not going" not in s and "I'm going" not in s and " ✓" not in s for s in _gg), "Going on the practice page shows on home and the schedule")
 pat.post("/practices/%d" % nid, data=dict(csrf=csrf(pat, "/practices"), pid=nid, action="social", back="page", social_kind=["Dinner", "Drinks"], social_place="The Harp", social_address="https://maps.example/harp", social_time="20:30", social_note="Cash bar"))
 combo = "Dinner &amp; drinks after at The Harp"
 member_page = jane.get("/practices/%d" % nid).get_data(as_text=True)
@@ -1515,7 +1524,7 @@ badge = "TODAY" if pic_date == A.today_pt().isoformat() else A.fmt_d(pic_date)
 ok(jane.post("/practices/%d" % pic_id, data={"csrf": csrf(jane, "/home"), "pid": pic_id, "action": "image", "image": (img_bytes(), "pool.png")}, content_type="multipart/form-data").status_code == 403 and "class=pimg" not in jane.get("/home").get_data(as_text=True), "a member cannot set the practice image, and Home omits the image area")
 pat.post("/practices/%d" % pic_id, data={"csrf": csrf(pat, "/practices/%d" % pic_id), "pid": pic_id, "action": "image", "back": "page", "image": (img_bytes("PNG", (640, 400)), "pool.png")}, content_type="multipart/form-data")
 pictured = jane.get("/home").get_data(as_text=True)
-pcard = pictured[pictured.find('class="card tap nextcard"'):pictured.find("I'm going", pictured.find('class="card tap nextcard"'))]
+pcard = pictured[pictured.find('class="card tap nextcard"'):pictured.find("class=pills", pictured.find('class="card tap nextcard"'))]
 sched_pic = jane.get("/practices").get_data(as_text=True)
 ok("class=pimg" in pcard and ("/practice-image/%d" % pic_id) in pcard and (">%s<" % badge) in pcard and "class=pimg" not in sched_pic.split("id=schedule",1)[-1] and ("/practice-image/") not in sched_pic.split("id=schedule",1)[-1] and jane.get("/practice-image/%d" % pic_id).status_code == 200 and "Practice image" in pat.get("/practices/%d" % pic_id).get_data(as_text=True) and 'type=file name=image' in eli.get("/practices/%d?edit=1" % pic_id).get_data(as_text=True), "a coach image shows on the Home card with a monochrome date badge and stays off the schedule")
 pat.post("/practices/%d" % pic_id, data=dict(csrf=csrf(pat, "/practices/%d" % pic_id), pid=pic_id, action="image", back="page", image_clear="1"))
@@ -1646,7 +1655,7 @@ jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=sun_id, acti
 bumped = jane.get("/home").get_data(as_text=True)
 _b0 = bumped.find('class="card tap nextcard"')
 bumped_card = bumped[_b0:bumped.find("id=schedule", _b0)]
-ok("Sunday Cup" in bumped_card and "Official club event" in bumped_card and "I'm going ✓" in bumped_card and "HAPPENING NOW" in bumped_card and "nxsocial" not in bumped_card, "Going on an official trip can become the Home card")
+ok("Sunday Cup" in bumped_card and "Official club event" in bumped_card and "</svg>Going</button>" in bumped_card and "I'm going" not in bumped_card and "HAPPENING NOW" in bumped_card and "nxsocial" not in bumped_card, "Going on an official trip can become the Home card")
 eli.post("/lineup/%d/edit" % sun_id, data=dict(csrf=csrf(eli, "/lineup/%d/edit" % sun_id), mode="edit", category="travel", subtype="Tournament", hosting="Away", team_intent="official", official="1", title="Sunday Cup", location="Moved Pool", description="A multi-day trip.", date=early, end_date=early_end, start_time="%02d:%02d" % (_estart.hour, _estart.minute), end_time="%02d:%02d" % (_eend.hour, _eend.minute)))
 moved_note = D.execute("SELECT body FROM notices WHERE member_id=? AND body LIKE '%Sunday Cup%' ORDER BY id DESC LIMIT 1", (jane_id,)).fetchone()
 ok(moved_note and "new date or location" in moved_note[0], "moving a published event tells people who were going")
@@ -1856,7 +1865,7 @@ if not all(_sched_bits.values()):
     print("SCHED BITS", {k: v for k, v in _sched_bits.items() if not v})
 ok(all(_sched_bits.values()), "each event that day is its own card, and the check-in count sits with the filters")
 ds = eli.get("/design-system").get_data(as_text=True)
-ok(jane.get("/design-system").status_code == 403 and "<h1>Regulars</h1>" in ds and "--color-bg: #090D0B" in ds and "--color-lime: #B2DE64" in ds and "--color-coral: #F48782" in ds and "--radius-card: 20px" in ds and "--radius-overlay: 24px" in ds and "--space-card: var(--space-3)" in ds and "btn-tertiary" in ds and "Expiring soon · expires in 3 days" in ds and "aria-label=\"Coach navigation\"" in ds and "aria-label=\"Member navigation\"" in ds and "aria-label=\"Admin\"" in ds and "aria-label=\"Home\"" in ds and "--nav-offset-bottom: 24px" in ds and "--nav-circle: 52px" in ds and "<h2>Segmented</h2>" in ds and "<h2>Field</h2>" in ds and "I'm going ✓" in ds and "--color-focus" in ds and "--color-map: var(--color-clubhouse)" in ds and "--color-sheet: var(--color-raised)" in ds and "<h2>Map, chat, and sheet</h2>" in ds and "data-theme=light" in ds, "admins can open the Regulars preview")
+ok(jane.get("/design-system").status_code == 403 and "<h1>Regulars</h1>" in ds and "--color-bg: #090D0B" in ds and "--color-lime: #B2DE64" in ds and "--color-coral: #F48782" in ds and "--radius-card: 20px" in ds and "--radius-overlay: 24px" in ds and "--space-card: var(--space-3)" in ds and "btn-tertiary" in ds and "Expiring soon · expires in 3 days" in ds and "aria-label=\"Coach navigation\"" in ds and "aria-label=\"Member navigation\"" in ds and "aria-label=\"Admin\"" in ds and "aria-label=\"Home\"" in ds and "--nav-offset-bottom: 24px" in ds and "--nav-circle: 52px" in ds and "<h2>Segmented</h2>" in ds and "<h2>Field</h2>" in ds and "class=rsvpcheck" in ds and "</svg>Going</button>" in ds and ">Not going</button>" in ds and "I'm going" not in ds and "--color-focus" in ds and "--color-map: var(--color-clubhouse)" in ds and "--color-sheet: var(--color-raised)" in ds and "<h2>Map, chat, and sheet</h2>" in ds and "data-theme=light" in ds, "admins can open the Regulars preview")
 _wide = io.BytesIO(); Image.new("RGB", (4000, 2000), (12, 40, 80)).save(_wide, "PNG"); _wide.seek(0)
 _bday = (A.today_pt() + dt.timedelta(days=16)).isoformat()
 eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), mode="create", event_type="Tournament", hosting="Away", team_intent="official", title="Banner Cup", location="Banner Pool", description="A wide picture.", date=_bday, start_time="09:00", banner=(_wide, "wide.png")), follow_redirects=True)
