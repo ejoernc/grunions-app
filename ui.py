@@ -889,7 +889,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=98');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=99');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -1040,6 +1040,32 @@ function grunionsPinHead(){
  document.documentElement.style.setProperty('--headh', sticky ? (h.offsetHeight+'px') : '0px');
 }
 window.grunionsPinHead=grunionsPinHead;
+function grunionsScrollId(url){try{var u=new URL(url,location.origin);return u.pathname+u.search}catch(e){return ''}}
+function grunionsChildBack(from,dest){
+ var fp=(from||'').split('?')[0], dp=(dest||'').split('?')[0];
+ if(dp==='/manage') return fp==='/admin'||fp==='/members'||fp==='/expiring'||fp==='/transfer'||fp==='/requirements'||fp==='/qr'||fp.indexOf('/manage/')===0;
+ if(dp==='/lineup'&&fp.indexOf('/lineup/')===0) return true;
+ if((dp==='/practices'||dp==='/home')&&fp.indexOf('/practices/')===0) return true;
+ if(dp==='/members'&&fp.indexOf('/admin/member/')===0) return true;
+ if(dp==='/admin'&&fp.indexOf('/practices/')===0) return true;
+ return false;
+}
+function grunionsSaveScroll(){
+ try{
+  var map=JSON.parse(sessionStorage.getItem('grunionsScroll')||'{}')||{};
+  map[grunionsScrollId(location.href)]=window.scrollY||0;
+  sessionStorage.setItem('grunionsScroll', JSON.stringify(map));
+  sessionStorage.setItem('grunionsNavFrom', grunionsScrollId(location.href));
+ }catch(e){}
+}
+function grunionsMarkBack(url){try{sessionStorage.setItem('grunionsBackNav', grunionsScrollId(url))}catch(e){}}
+function grunionsTakeBack(url){
+ var id=grunionsScrollId(url), flag='';
+ try{flag=sessionStorage.getItem('grunionsBackNav')||''; sessionStorage.removeItem('grunionsBackNav')}catch(e){}
+ if(!flag||flag!==id) return null;
+ try{var map=JSON.parse(sessionStorage.getItem('grunionsScroll')||'{}')||{}; var y=+map[id]; return y>0?y:0}catch(e){return 0}
+}
+function grunionsIsBackLink(a){return !!(a&&(a.classList.contains('hubback')||a.classList.contains('profileback')||a.getAttribute('aria-label')==='Back'))}
 function grunionsApply(html,url,pop){
  var doc=new DOMParser().parseFromString(html,'text/html');
  var newMain=doc.querySelector('main'), newNav=doc.querySelector('nav.tabs');
@@ -1056,6 +1082,8 @@ function grunionsApply(html,url,pop){
  else if(nextHead&&!curHead) document.body.insertBefore(nextHead, document.querySelector('main'));
  document.title=doc.title||document.title;
  if(!pop) history.pushState({grunions:1},'',url);
+ var backY=grunionsTakeBack(url);
+ window.grunionsRestoreY=backY;
  grunionsRunScripts(scripts);
  if(window.grunionsBindPickers) grunionsBindPickers();
  if(window.grunionsDropzones) grunionsDropzones();
@@ -1063,7 +1091,10 @@ function grunionsApply(html,url,pop){
  grunionsPushCard();
  if(window.grunionsRefresh) grunionsRefresh();
  var hash=url.split('#')[1]||'';
- if(hash){var el=document.getElementById(hash); if(el) el.scrollIntoView(); else scrollTo(0,0);} else scrollTo(0,0);
+ if(hash){var el=document.getElementById(hash); if(el) el.scrollIntoView(); else scrollTo(0,0);}
+ else if(typeof window.grunionsRestoreY==='number') scrollTo(0, window.grunionsRestoreY);
+ else scrollTo(0,0);
+ try{sessionStorage.setItem('grunionsNavFrom', grunionsScrollId(url))}catch(e){}
  var seen=/^#p(\\d+)$/.exec(location.hash);
  if(seen&&location.pathname==='/practices') grunionsSeen(seen[1]);
 }
@@ -1087,12 +1118,17 @@ if(document.querySelector('nav.tabs')){
   if(adminLink&&adminLast&&['/admin','/members','/expiring','/transfer','/requirements','/qr'].indexOf(adminLast)>=0) adminLink.setAttribute('href', adminLast);}catch(e){}
  history.scrollRestoration='manual';
  history.replaceState({grunions:1},'',location.href);
+ try{sessionStorage.setItem('grunionsNavFrom', grunionsScrollId(location.href))}catch(e){}
+ if((function(){try{return sessionStorage.getItem('grunionsBackNav')||''}catch(e){return ''}})()===grunionsScrollId(location.href)){window.grunionsRestoreY=grunionsTakeBack(location.href); if(typeof window.grunionsRestoreY==='number') scrollTo(0, window.grunionsRestoreY)}
  document.addEventListener('click',function(e){
   if(e.defaultPrevented||e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey) return;
   var a=e.target.closest&&e.target.closest('a'); if(!a||!a.href||a.hasAttribute('download')) return;
   if(a.target&&a.target!=='_self') return;
   var abs; try{abs=new URL(a.href,location.href);}catch(err){return;}
   if(abs.origin!==location.origin) return;
+  grunionsSaveScroll();
+  if(grunionsIsBackLink(a)) grunionsMarkBack(abs.href);
+  else try{sessionStorage.removeItem('grunionsBackNav')}catch(err){}
   if(/^\\/(logout|login|join|profile|admin\\/member|auth\\/|static\\/|api\\/)/.test(abs.pathname)) return;
   if(/\\.(csv|svg|png|webp|jpe?g|gif)$/i.test(abs.pathname)) return;
   if(abs.pathname===location.pathname&&abs.search===location.search){
@@ -1109,8 +1145,14 @@ if(document.querySelector('nav.tabs')){
   if(nav){nav.querySelectorAll('a').forEach(function(x){x.classList.remove('on');}); a.classList.add('on');}
   grunionsGo(abs.href,false);
  });
- window.addEventListener('popstate',function(){if(document.querySelector('nav.tabs')) grunionsGo(location.href,true);});
 }
+window.addEventListener('popstate',function(){
+ var from=''; try{from=sessionStorage.getItem('grunionsNavFrom')||''}catch(e){}
+ var dest=location.pathname+location.search;
+ if(grunionsChildBack(from, dest)) grunionsMarkBack(location.href);
+ else try{sessionStorage.removeItem('grunionsBackNav')}catch(e){}
+ if(document.querySelector('nav.tabs')) grunionsGo(location.href,true);
+});
 window.grunionsOpenSheet=function(d){
  if(!d||d.classList.contains('closing')) return;
  var panel=d.querySelector('.sheet');
@@ -1685,6 +1727,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
  if(window.ResizeObserver&&alerts) new ResizeObserver(function(){ measure(); }).observe(alerts);
  function land(){
   var hash=location.hash;
+  if(typeof window.grunionsRestoreY==='number') return;
   if(head.getAttribute('data-entry')==='schedule' && (!hash || hash==='#schedule')) window.scrollTo(0, range());
   document.body.classList.remove('schedopen');
   paint();
@@ -2201,12 +2244,10 @@ T["approvals"] = """{% call admin_page('Events') %}<a class="btn quiet pageact" 
 </form></div>{% endfor %}{% endif %}
 {% for g in groups %}<h2>{{ g.label }}</h2><div class=list>{% for item in g['items'] %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endfor %}
 {% if not groups and not queue %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
-T["manage"] = ADMIN_NAV + """<p class=pagesub>Everything you need to run your club.</p>
-{% if growth %}{{ growth }}{% endif %}
+T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
 <div class=mgroups>
 {% for g in groups %}<section class=mgroup><h2>{{ g.label }}</h2><div class=mlist>{% for row in g.rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone) }}{% endfor %}</div></section>{% endfor %}
-</div>
-<script>(function(){var key='grunionsManageScroll';var y=0;try{y=+sessionStorage.getItem(key)||0}catch(e){}if(y)requestAnimationFrame(function(){scrollTo(0,y)});document.querySelectorAll('a.mrow').forEach(function(a){a.addEventListener('click',function(){try{sessionStorage.setItem(key,String(scrollY))}catch(e){}})});})();</script>"""
+</div>"""
 T["manage_schedule"] = ADMIN_NAV + """{{ admin_page('Schedule', 'Practices, scrimmages, and games.') }}
 {% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
 T["manage_lineup"] = ADMIN_NAV + """{{ admin_page('Lineup', 'Events, tournaments, camps, and socials.') }}
