@@ -681,6 +681,114 @@ def referee_eligibility(d, member):
     return empty
 def usawp_coach_badge(m):
     return coach_eligibility(db(), m)["eligible"]
+def _req_blob(q):
+    return ((q["name"] or "") + " " + (q["keywords"] or "")).lower()
+def _req_kind(q):
+    blob = _req_blob(q)
+    if "concussion" in blob: return "concussion"
+    if "safesport" in blob: return "safesport"
+    if "background" in blob: return "background"
+    if "referee certification" in blob or "refereecert" in blob: return "referee"
+    return "other"
+def _req_label(q, kind):
+    if kind == "safesport": return "SafeSport"
+    if kind == "background": return "Background screening"
+    if kind == "referee": return "Referee certification"
+    return " ".join((q["name"] or "Requirement").split()) or "Requirement"
+def _people_req_index(d):
+    """Active rules and saved expiry dates for the people lists. Cached for this request."""
+    try:
+        cached = getattr(g, "_people_reqs", None)
+        if cached and cached[0] is d: return cached[1]
+    except RuntimeError:
+        cached = None
+    reqs = [q for q in d.execute("SELECT * FROM requirements WHERE active=1 ORDER BY id") if _req_kind(q) != "concussion"]
+    dates = {}
+    for mid, rid, exp in d.execute("SELECT member_id, req_id, expires_on FROM member_reqs"):
+        if exp: dates[(mid, rid)] = str(exp)[:10]
+    payload = (reqs, dates)
+    try: g._people_reqs = (d, payload)
+    except RuntimeError: pass
+    return payload
+def _counts_on_list(kind, applies, view, member):
+    """Which Rules rows count on each People page. Concussion is already dropped."""
+    applies = (applies or "all").lower()
+    if view == "members":
+        if kind in ("background", "referee"): return False
+        if kind == "safesport": return True
+        return applies in ("all", "athlete")
+    if view == "coaches":
+        if kind == "referee": return False
+        if kind in ("safesport", "background"): return True
+        return applies == "coach"
+    if view == "admins":
+        if kind == "safesport": return True
+        if kind == "background": return background_required(member)
+        return False
+    if view == "referees":
+        return kind in ("safesport", "referee")
+    return False
+def list_status(d, member, view):
+    """Earliest requirement for one People page. Tone, word, and the named date stay together."""
+    view = view if view in ("members", "coaches", "admins", "referees") else "members"
+    today = today_pt().isoformat()
+    items = []
+    def add(name, date, state, order):
+        items.append({"name": name, "date": date or "", "state": state, "order": order})
+    until = ""
+    status = ""
+    try:
+        keys = member.keys()
+        if "usawp_valid_until" in keys and member["usawp_valid_until"]: until = str(member["usawp_valid_until"])[:10]
+        if "usawp_status" in keys: status = member["usawp_status"] or ""
+        mid = member["id"]
+    except (TypeError, KeyError, IndexError):
+        return {"tone": "bad", "word": "Not cleared", "rest": "", "ok": False}
+    tw = trial_window(member) if view == "members" else None
+    if tw and tw["active"] and status != "verified":
+        left = tw.get("days_left")
+        state = "expiring" if left is not None and left <= EXPIRING_DAYS else "ok"
+        add("Membership", tw["end"], state, 0)
+    elif until and until < today:
+        add("Membership", until, "expired", 0)
+    elif until:
+        left = days_left(until)
+        add("Membership", until, "expiring" if left is not None and left <= EXPIRING_DAYS else "ok", 0)
+    elif status != "verified":
+        add("Membership", "", "missing", 0)
+    reqs, dates = _people_req_index(d)
+    order = 1
+    for q in reqs:
+        kind = _req_kind(q)
+        if not _counts_on_list(kind, q["applies_to"], view, member): continue
+        if not q["expires"]: continue
+        date = dates.get((mid, q["id"]), "")
+        if not date: state = "missing"
+        elif date < today: state = "expired"
+        else:
+            left = days_left(date)
+            state = "expiring" if left is not None and left <= EXPIRING_DAYS else "ok"
+        add(_req_label(q, kind), date, state, order)
+        order += 1
+    blocking = [it for it in items if it["state"] in ("missing", "expired")]
+    if blocking:
+        missing = [it for it in blocking if it["state"] == "missing"]
+        if missing:
+            it = missing[0]
+            return {"tone": "bad", "word": "Not cleared", "rest": " · %s missing" % it["name"], "ok": False}
+        it = min((it for it in blocking if it["date"]), key=lambda it: (it["date"], it["order"]))
+        return {"tone": "bad", "word": "Not cleared", "rest": " · %s expired %s" % (it["name"], fmt_long(it["date"])), "ok": False}
+    dated = [it for it in items if it["date"]]
+    if not dated:
+        return {"tone": "ok", "word": "Cleared", "rest": "", "ok": True}
+    it = min(dated, key=lambda it: (it["date"], it["order"]))
+    tone = "warn" if it["state"] == "expiring" else "ok"
+    word = "Expiring soon" if tone == "warn" else "Cleared"
+    return {"tone": tone, "word": word, "rest": " · %s thru %s" % (it["name"], fmt_long(it["date"])), "ok": True}
+def view_list_status(member, view):
+    if not can_see_member_status(member): return {"tone": "ok", "word": "", "rest": "", "ok": True, "hidden": True}
+    return list_status(db(), member, view)
+app.jinja_env.globals.update(list_row_status=view_list_status)
 def coach_row_expiry(d, member):
     """Earliest membership, SafeSport, or background date for the Coaches list chip."""
     until = ""
@@ -3958,11 +4066,9 @@ def members():
         needle = q.casefold()
         rows = [r for r in rows if needle in " ".join(x for x in (r["first"], r["preferred_first"], r["last"], r["email"]) if x).casefold()]
     if filt == "expiring":
-        rep = expiry_report(d)
-        ids = {item["id"] for bucket in rep.values() for item in bucket}
-        rows = [r for r in rows if r["id"] in ids]
+        rows = [r for r in rows if list_status(d, r, view)["tone"] == "warn"]
     elif filt == "uncleared":
-        rows = [r for r in rows if not clearance(d, r)["ok"]]
+        rows = [r for r in rows if list_status(d, r, view)["tone"] == "bad"]
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
     titles = {"members": "Members", "coaches": "Coaches", "admins": "Admins", "referees": "Referees"}
     return page(T["members"],
@@ -4658,7 +4764,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-94 */
+SW_JS = """/* grunions-sw-95 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

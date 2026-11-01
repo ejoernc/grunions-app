@@ -333,7 +333,7 @@ header.homehead .headtabs.chiprow{height:44px;margin:0;width:auto;padding:0;alig
 .admintabs a.chip,header.homehead .headtabs a.chip{flex:none;height:var(--size-chip);min-height:var(--size-chip);padding:0 14px;border-radius:var(--radius-chip);border:1px solid var(--color-control);background:transparent;color:var(--color-text);box-shadow:none}
 .admintabs a.chip.on,header.homehead .headtabs a.chip.on,header.homehead .headtabs a.chip.chip-active.on{background:var(--color-selected);color:var(--color-on-selected);border-color:var(--color-selected);box-shadow:none}
 .pagetitle{display:flex;justify-content:space-between;align-items:baseline;gap:12px}.pagetitle h1{margin-bottom:12px}
-.peoplebar{position:sticky;top:var(--headh,0px);z-index:6;background:var(--color-bg);margin:0 -20px 8px;padding:0 20px 10px}
+.peoplebar{position:sticky;top:var(--headh,0px);z-index:6;background:var(--color-bg);margin:0 -20px 0;padding:0 20px 18px}
 .peoplebar input{height:48px;margin:0}
 .fchips{margin-top:10px;margin-bottom:0}
 .expage h2.egroup{position:sticky;top:var(--headh,0px);z-index:4;background:var(--color-bg);margin:18px 0 8px;padding:8px 0}
@@ -341,7 +341,8 @@ header.homehead .headtabs.chiprow{height:44px;margin:0;width:auto;padding:0;alig
 .people h2{position:sticky;top:calc(var(--headh,0px) + var(--peoplepin,0px));z-index:4;background:var(--color-bg);padding:8px 0;margin-top:12px}
 .lgroup{margin:0 0 14px}
 .lgroup .list{margin:0}
-h3.alpha{margin:0;padding:8px 0 6px;font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--t3);position:sticky;top:calc(var(--headh,0px) + var(--peoplepin,0px));z-index:4;background:var(--color-bg)}
+h3.alpha{margin:0 -20px;padding:12px 20px 14px;font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--t3);position:sticky;top:calc(var(--headh,0px) + var(--peoplepin,0px));z-index:5;background:var(--color-bg);line-height:1.2}
+.lgroup .list{position:relative;z-index:0;margin-top:0;scroll-margin-top:calc(var(--headh,0px) + var(--peoplepin,0px) + 44px)}
 .psub{display:block;margin-top:2px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-text-secondary);font-size:var(--type-b2-size);line-height:var(--type-b2-line);font-weight:var(--type-b2-weight)}
 .psub .stword{color:var(--color-text)}
 .psub.st-ok::before,.psub.st-warn::before,.psub.st-bad::before,.psub.st-unknown::before{content:"";display:inline-block;width:16px;height:16px;margin-right:8px;vertical-align:-3px;-webkit-mask:var(--pico) center/contain no-repeat;mask:var(--pico) center/contain no-repeat}
@@ -669,7 +670,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro member_status(r) %}{{ roster_status(r) }}{% endmacro %}
 {% macro status_dot(s) %}{% set kind = {'verified':'ok','expired':'bad','pending':'warn'}.get(s, '') %}<span class="dot{% if kind %} {{kind}}{% endif %}" aria-hidden=true></span>{% endmacro %}
 {% macro checkin_status(r) %}{{ person_sub(r) }}{% endmacro %}
-{% macro person_sub(r) %}{% if can_see_member_status(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}{% set ns = namespace(tone='ok', word='Cleared', rest='') %}
+{% macro person_sub(r) %}{% if can_see_member_status(r) %}{% if view is defined and view in ('members', 'coaches', 'admins', 'referees') %}{% set st = list_row_status(r, view) %}<span class="psub ell st-{{ st.tone }}"><span class=stword>{{ st.word }}</span>{% if st.rest %}<span class=strest>{{ st.rest }}</span>{% endif %}</span>{% else %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}{% set ns = namespace(tone='ok', word='Cleared', rest='') %}
 {% if dl is not none and dl >= 0 and dl <= EXPIRING_DAYS %}{% if dl == 0 %}{% set ns.rest = ' · expires today' %}{% elif dl == 1 %}{% set ns.rest = ' · expires in 1 day' %}{% else %}{% set ns.rest = ' · expires in ' ~ dl ~ ' days' %}{% endif %}{% endif %}
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{% set ns.tone = 'warn' %}{% set ns.word = 'Trial' %}{% set ns.rest = ' · ' ~ trial_left_phrase(tw) %}
 {% elif tw and tw.expired and r.usawp_status != 'verified' %}{% set ns.tone = 'bad' %}{% set ns.word = 'Trial ended ' ~ tw.ends %}{% set ns.rest = '' %}
@@ -677,7 +678,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% elif ns.rest %}{% set ns.tone = 'warn' %}{% set ns.word = 'Expiring soon' %}{% endif %}
 {% set thru = '' %}{% if not (tw and tw.active and r.usawp_status != 'verified') and r.usawp_valid_until and (dl is none or dl < 0 or dl > EXPIRING_DAYS) %}{% set thru = ' · thru ' ~ fmt_long(r.usawp_valid_until) %}{% endif %}
 {% set detail = (ns.rest or '') ~ thru %}
-<span class="psub ell st-{{ ns.tone }}"><span class=stword>{{ ns.word }}</span>{% if detail %}<span class=strest>{{ detail }}</span>{% endif %}</span>{% endif %}{% endmacro %}
+<span class="psub ell st-{{ ns.tone }}"><span class=stword>{{ ns.word }}</span>{% if detail %}<span class=strest>{{ detail }}</span>{% endif %}</span>{% endif %}{% endif %}{% endmacro %}
 {% macro person_mark(r) %}{% if can_see_member_status(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}{% set ns = namespace(tone='ok') %}
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{% set ns.tone = 'warn' %}
 {% elif tw and tw.expired and r.usawp_status != 'verified' %}{% set ns.tone = 'bad' %}
@@ -890,7 +891,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=94');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=95');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -2808,9 +2809,7 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pa
 </div>
 <p class="t2 sm peoplesum">{{ rows|length }} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}</p>
 </div>
-{% macro prow(r, kind) %}<div class="li personrow">{% call person_link(r) %}
-<div class=eligs>{% if r.is_admin %}<span class=chip-info>Admin</span>{% endif %}{% set chip = coach_row_expiry(r) %}{% set ce = coach_eligibility(r) %}{% if r.role=='coach' or r.id in listed or ce.eligible or ce.text %}<span class="chip-info{{ ' ' ~ chip.tone if chip.tone else '' }}">Coach{% if chip.date %} · expires {{ chip.date }}{% endif %}</span>{% endif %}{% if r.id in referees %}<span class=chip-info>Referee</span>{% endif %}{{ referee_tag(r) }}</div>
-{% endcall %}
+{% macro prow(r, kind) %}<div class="li personrow">{% call person_link(r) %}{% endcall %}
 <span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></button>
 <div class=menu hidden role=menu>
 {% if kind == 'members' %}
@@ -2836,7 +2835,7 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pa
 {{ lettered() }}
 </div>
 <script>
-(function(){var bar=document.querySelector('.peoplebar'); function pin(){ if(bar) document.documentElement.style.setProperty('--peoplepin', bar.offsetHeight+'px'); } pin(); window.addEventListener('resize', pin);})();
+(function(){var bar=document.querySelector('.peoplebar'); function pin(){ if(bar) document.documentElement.style.setProperty('--peoplepin', bar.offsetHeight+'px'); } pin(); window.addEventListener('resize', pin); if(window.ResizeObserver&&bar) new ResizeObserver(pin).observe(bar);})();
 </script>
 <script>
 (function(){
