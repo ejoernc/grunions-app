@@ -317,8 +317,14 @@ a.quietcheck,button.quietcheck{background:var(--surface2);color:#fff;border:0;bo
 .emptyfind{color:var(--t2);margin:8px 0 16px}
 details.lineuppast{margin-top:8px}details.lineuppast>summary{min-height:44px;padding:8px 0;font-size:17px;font-weight:600;justify-content:flex-start}
 .repeatblock .repeatopts{display:none}.repeatblock:has(input[name=repeat]:checked) .repeatopts{display:block}
-.tripcard .nxcardhead .tripname{flex:1;min-width:0}.tripcard .nxcardhead .chip-info{flex:none;margin-left:0}.lineupchips{display:flex;gap:6px;flex:none;align-items:center}.lineupchips .chip-info{margin:0}
+.tripcard{padding:0;overflow:hidden}.tripcard .evbody{padding:0 18px 18px}.tripcard .nxcardhead{flex-wrap:wrap;align-items:flex-start}.tripcard .nxcardhead .tripname{flex:1 1 100%;min-width:0}.tripcard .nxcardhead .chip-info{flex:none;margin-left:0}.lineupchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.lineupchips .chip-info{margin:0}
 .tripcard .tripwhere{align-items:flex-start}.tripcard .tripwhere a{min-width:0}
+.evbanner{height:132px;display:flex;align-items:flex-end;padding:14px;position:relative;overflow:hidden;background:linear-gradient(160deg,#3a3a40,#141416)}
+.evbanner.cat-activities{background:linear-gradient(165deg,#2e3238,#141416)}.evbanner.cat-club{background:linear-gradient(150deg,#34343a,#121214)}.evbanner.cat-learn{background:linear-gradient(170deg,#32363c,#141418)}.evbanner.cat-service{background:linear-gradient(155deg,#2c3036,#121214)}.evbanner.cat-travel{background:linear-gradient(160deg,#3a3e46,#101014)}.evbanner.cat-social{background:linear-gradient(160deg,#3a3a40,#16161a)}
+.evbanner img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.evbanner svg{position:relative;z-index:1;color:#ececee}
+.lineupacts{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}.lineupacts .btn{width:auto;padding:0 14px}
+.evhost{color:var(--t2);font-size:14px;margin:2px 0 8px}.evnote{color:var(--t2);font-size:15px;line-height:1.4;margin:8px 0}
+details.moredetails{margin:8px 0 12px}details.moredetails>summary{min-height:44px;padding:8px 0;font-weight:600}
 .growthcard{position:relative;padding:14px 14px 8px;margin:0 0 12px}
 .growthhead{font-size:15px;font-weight:650;line-height:1.3;margin:0 0 6px}
 .growthcard svg{width:100%;height:auto;display:block;touch-action:none}
@@ -493,7 +499,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm>Save</button></div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>{% endif %}</div><h1>Practice</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left><a class=profileback href=/lineup aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>{% endif %}</div><h1>Practice</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if can_host_practice() %}<a href=/admin/approvals class="chip{{' chip-active on' if ep=='approvals'}}">Approvals ({{ approval_count() }})</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -514,12 +520,12 @@ ICONS = {
 }
 TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav class="tabs noprint" data-total="{{ badges().total }}">
 <a href=/home class="{{'on' if tab=='home' or tab=='practices' or tab=='practice' or tab=='series_edit'}}" data-badge=schedule>""" + ICONS["home"] + """Home{{ bubble(badges().schedule) }}</a>
-<a href=/lineup class="{{'on' if tab=='lineup' or tab=='lineup_edit'}}">""" + ICONS["lineup"] + """Lineup</a>
+<a href=/lineup class="{{'on' if tab=='lineup' or tab=='lineup_edit' or tab=='lineup_event'}}">""" + ICONS["lineup"] + """Lineup</a>
 <a href=/chat class="{{'on' if tab=='chat'}}" data-badge=chat>""" + ICONS["chat"] + """Chat{{ bubble(badges().chat) }}</a>
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=48');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=49');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -842,7 +848,16 @@ T["home"] = """{% if pins %}
 <script>document.getElementById('trialOpen').onclick=function(){document.getElementById('trialDialog').showModal()};
 document.getElementById('trialDialog').addEventListener('click',function(e){if(e.target===this)this.close()});</script>{% endif %}
 </div>{% endif %}
-{% if nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'">
+{% if next_kind == 'event' and nextev %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ nextev.id }}'">
+<div class=nxbody><div class=nxcardhead><a class=cardlink href="/lineup/{{ nextev.id }}"><div class=nxtitle>{{ nextev.title }}</div></a><span class="chip-info daychip">{{ nextev.chip_label }}</span></div>
+<a class=cardlink href="/lineup/{{ nextev.id }}">
+<div class=nxrow>{{ glyph_clock() }}<span>{{ nextev.when }}</span></div>
+{% if nextev.where %}<div class=nxrow>{{ glyph_pin() }}<span>{{ nextev.where }}</span></div>{% endif %}
+<div class=nxrow>{{ glyph_people() }}<span>{{ nextev.count_line }} · {{ nextev.host_line }}</span></div></a></div>
+<form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ nextev.id }}><input type=hidden name=back value=/home>
+<button class="btn {{ 'btn-primary' if nextev.mine == 'going' else 'btn-secondary' }}" name=action value="{{ 'clear' if nextev.mine == 'going' else 'going' }}">I'm going{% if nextev.mine == 'going' %} ✓{% endif %}</button>
+<button class="btn {{ 'btn-primary' if nextev.mine == 'notgoing' else 'btn-secondary' }}" name=action value="{{ 'clear' if nextev.mine == 'notgoing' else 'notgoing' }}">I'm not going{% if nextev.mine == 'notgoing' %} ✓{% endif %}</button></form>
+</div>{% elif nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'">
 {% if nextp.image %}<a class=cardlink href="/practices/{{nextp.id}}"><div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div></a>{% endif %}
 <div class=nxbody><div class=nxcardhead><a class=cardlink href="/practices/{{nextp.id}}"><div class=nxtitle>{{ practice_title(nextp) }}</div></a><span class="chip-info daychip">{{ relative_day(nextp.date) }}</span></div>
 <a class=cardlink href="/practices/{{nextp.id}}">
@@ -1351,39 +1366,130 @@ _PRACTICE_JS = """<script>
 })();
 </script>"""
 
-T["lineup"] = """{% macro lineup_card(e) %}<div class="card tripcard"><div class=nxcardhead><div class=tripname><div class=nxtitle>{{ e.title }}</div></div><span class=lineupchips><span class=chip-info>{{ e.hosting }}</span><span class=chip-info>{{ e.kind }}</span></span></div>
-{% if e.stage == 'interest' %}<div style="margin:-4px 0 8px"><span class="chip-info" style="margin:0">Gauging interest</span></div>{% endif %}
+T["lineup"] = """{% macro ev_icon() %}<svg width="28" height="28" viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"><path d="M8 10h32v28H8z"/><path d="M8 18h32M16 6v8M32 6v8"/></g></svg>{% endmacro %}
+{% macro lineup_card(e) %}<div class="card tap tripcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'"><div class="evbanner cat-{{ e.slug }}">{% if e.banner %}<img src="/lineup-image/{{ e.id }}?v={{ e.banner }}" alt="">{% else %}{{ ev_icon() }}{% endif %}</div><div class=evbody>
+<div class=nxcardhead><div class=tripname><a class=cardlink href="/lineup/{{ e.id }}"><div class=nxtitle>{{ e.title }}</div></a></div><span class=lineupchips>{% if e.hosting %}<span class=chip-info>{{ e.hosting }}</span>{% endif %}{% if e.subtype %}<span class=chip-info>{{ e.subtype }}</span>{% endif %}<span class=chip-info>{{ e.chip or e.category }}</span>{% if e.intent == 'considering' %}<span class=chip-info>Considering</span>{% elif e.intent == 'official' %}<span class=chip-info>Official</span>{% endif %}</span></div>
+<div class=evhost>{% if e.member_event %}Member event · {% endif %}{{ e.host_line }}</div>
 {% if e.where %}<div class="nxrow tripwhere">{{ glyph_pin() }}<a href="{{ e.map_href }}" target=_blank rel="noopener noreferrer">{{ e.where }}</a></div>{% endif %}
 <div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
-{% if e.description %}<div class=nxnote>{{ e.description }}</div>{% endif %}
-{% if e.link %}<div class=nxnote><a href="{{ e.link }}" target=_blank rel="noopener noreferrer">{{ e.link }}</a></div>{% endif %}
-<div class="t3 sm" style="margin-top:8px">{{ e.going_n }} {{ e.count_word }}</div>
+{% if e.description %}<div class=evnote>{{ e.description }}</div>{% endif %}
+<div class="t3 sm" style="margin-top:8px">{{ e.count_line }}</div>
 {% if e.roster %}<div class="t2 sm">{{ e.roster|join(', ') }}</div>{% endif %}
-<form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>
-<button class="btn {{ 'btn-primary' if e.mine == 1 else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 1 else 'going' }}">{{ e.yes_label|safe }}{% if e.mine == 1 %} ✓{% endif %}</button>
-<button class="btn {{ 'btn-primary' if e.mine == 0 else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 0 else 'notgoing' }}">{{ e.no_label|safe }}{% if e.mine == 0 %} ✓{% endif %}</button></form>
-{% if can_host_practice() and e.stage == 'interest' %}<form method=post action=/lineup style="margin-top:10px">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><button class="btn btn-primary full" name=action value=commit>We're going</button></form>{% endif %}
-{% if can_host_practice() %}<a class="btn btn-secondary full" style="margin-top:10px" href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div>{% endmacro %}
+<form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><input type=hidden name=back value=/lineup>
+{% if e.intent == 'considering' %}
+<button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">I'm Interested{% if e.mine == 'interested' %} ✓{% endif %}</button>
+<button class="btn {{ 'btn-primary' if e.mine == 'going' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">Going{% if e.mine == 'going' %} ✓{% endif %}</button>
+{% else %}
+<button class="btn {{ 'btn-primary' if e.mine == 'going' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">I'm Going{% if e.mine == 'going' %} ✓{% endif %}</button>
+<button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">Interested{% if e.mine == 'interested' %} ✓{% endif %}</button>
+{% endif %}
+<button class="btn {{ 'btn-primary' if e.mine == 'notgoing' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'notgoing' else 'notgoing' }}">Not going{% if e.mine == 'notgoing' %} ✓{% endif %}</button></form>
+{% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="btn btn-secondary full" name=action value=official>Make official</button></form>{% endif %}
+{% if e.can_edit %}<a class="btn btn-secondary full" style="margin-top:10px" href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}
+</div></div>{% endmacro %}
 {% macro lineup_months(groups) %}{% for g in groups %}<h2 class=lineupmonth>{{ g.label }}</h2>{% for e in g.events %}{{ lineup_card(e) }}{% endfor %}{% endfor %}{% endmacro %}
-{% if can_host_practice() %}<a class="btn btn-primary full" href=/lineup/new style="margin-bottom:16px">Add event</a>{% endif %}
-{% if not upcoming and not past %}<p class=emptyfind>Nothing on the Lineup yet.</p>{% endif %}
+<div class=lineupacts>{% if can_host_practice() %}<a class="btn btn-secondary" href="/lineup/new?mode=create">Create event</a><a class="btn btn-secondary" href="/lineup/new?mode=propose">Propose opportunity</a>{% else %}<a class="btn btn-secondary" href="/lineup/new?mode=suggest">Suggest an event</a>{% endif %}</div>
+<div class=filt role=group aria-label="Category"><a class="chip{{ ' chip-active on' if not cat }}" href=/lineup>All</a>{% for c in filter_chips %}<a class="chip{{ ' chip-active on' if cat == c.slug }}" href="/lineup?cat={{ c.slug }}">{{ c.chip }}</a>{% endfor %}</div>
+{% if featured %}<h2 class=lineupmonth>Featured</h2>{% for e in featured %}{{ lineup_card(e) }}{% endfor %}{% endif %}
+{% if empty_public %}<p class=emptyfind>Nothing on the Lineup yet.</p>{% endif %}
 {{ lineup_months(upcoming) }}
-{% if past %}<details class=lineuppast><summary>Past <span class=t3>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}"""
-T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}">{{ csrf_field() }}
-<label>Hosting<select name=hosting id=lineHost><option value=Away {% if values.hosting != 'Hosting' %}selected{% endif %}>Away</option><option value=Hosting {% if values.hosting == 'Hosting' %}selected{% endif %}>Hosting</option></select></label>
-<label>Type<select name=kind id=lineKind><option value=Tournament {% if values.kind == 'Tournament' %}selected{% endif %}>Tournament</option><option value=Clinic {% if values.kind == 'Clinic' %}selected{% endif %}>Clinic</option><option value=Social {% if values.kind == 'Social' %}selected{% endif %}>Social</option><option value=Volunteering {% if values.kind == 'Volunteering' %}selected{% endif %}>Volunteering</option></select></label>
-<label id=lineStage>Status<select name=stage><option value=interest {% if values.stage != 'going' %}selected{% endif %}>Gauging interest</option><option value=going {% if values.stage == 'going' %}selected{% endif %}>We're going</option></select></label>
+{% if past %}<details class=lineuppast><summary>Past <span class=t3>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}
+{% if mine %}<h2>My events</h2>{% for e in mine %}<a class="card" href="/lineup/{{ e.id }}" style="display:block;color:inherit;text-decoration:none"><div class=nxtitle>{{ e.title }}</div><div class="t3 sm">{{ e.status_label }}{% if e.review_note %} · {{ e.review_note }}{% endif %}</div></a>{% endfor %}{% endif %}
+{% if interested %}<h2>Interested</h2>{% for e in interested %}<a class="li" href="/lineup/{{ e.id }}" style="display:flex;color:inherit;text-decoration:none"><span class=grow>{{ e.title }}</span><span class=t3>{{ e.when }}</span></a>{% endfor %}{% endif %}"""
+T["lineup_event"] = """<div class="card tripcard" style="padding:0"><div class="evbanner cat-{{ e.slug }}">{% if e.banner %}<img src="/lineup-image/{{ e.id }}?v={{ e.banner }}" alt="">{% endif %}</div>
+<div class=evbody>
+<div class=lineupchips style="margin-bottom:8px">{% if e.member_event %}<span class=chip-info>Member event</span>{% else %}<span class=chip-info>Club</span>{% endif %}{% if e.hosting %}<span class=chip-info>{{ e.hosting }}</span>{% endif %}{% if e.subtype %}<span class=chip-info>{{ e.subtype }}</span>{% endif %}<span class=chip-info>{{ e.category }}</span>{% if e.intent == 'considering' %}<span class=chip-info>Considering</span>{% elif e.intent == 'official' %}<span class=chip-info>Official</span>{% endif %}{% if e.status != 'published' %}<span class=chip-info>{{ e.status_label }}</span>{% endif %}</div>
+<div class=profilename style="font-size:28px;font-weight:650;letter-spacing:-.3px">{{ e.title }}</div>
+<div class=evhost>{{ e.host_line }}</div>
+<div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
+{% if e.where %}<div class="nxrow tripwhere">{{ glyph_pin() }}<a href="{{ e.map_href }}" target=_blank rel="noopener noreferrer">{{ e.where }}</a></div>{% endif %}
+{% if e.description %}<div class=evnote>{{ e.description }}</div>{% endif %}
+{% if e.details %}<div class=evnote>{{ e.details }}</div>{% endif %}
+{% if e.link %}<div class=evnote><a href="{{ e.link }}" target=_blank rel="noopener noreferrer">Registration</a></div>{% endif %}
+{% if e.cost %}<div class="t3 sm">About {{ e.cost }}</div>{% endif %}
+{% if e.capacity %}<div class="t3 sm">{{ e.going_n }} of {{ e.capacity }} spots{% if e.wait_n %} · {{ e.wait_n }} waitlisted{% endif %}</div>{% endif %}
+{% if e.reg_deadline %}<div class="t3 sm">Register by {{ e.reg_deadline }}</div>{% endif %}
+{% if e.review_note and e.status in ('changes_requested', 'declined') %}<div class=note>{{ e.review_note }}</div>{% endif %}
+<div class="t2 sm" style="margin-top:10px">{{ e.count_line }}</div>
+{% if e.roster %}<div class="t2 sm">{{ e.roster|join(', ') }}</div>{% endif %}
+{% if e.status == 'published' %}<form method=post action="/lineup/{{ e.id }}" class=pills>{{ csrf_field() }}
+{% if e.intent == 'considering' %}
+<button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">I'm Interested{% if e.mine == 'interested' %} ✓{% endif %}</button>
+<button class="btn {{ 'btn-primary' if e.mine == 'going' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">{% if e.full and e.mine != 'going' %}Join waitlist{% else %}Going{% endif %}{% if e.mine == 'going' or e.mine == 'waitlist' %} ✓{% endif %}</button>
+{% else %}
+<button class="btn {{ 'btn-primary' if e.mine == 'going' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">{% if e.full and e.mine != 'going' %}Join waitlist{% else %}I'm Going{% endif %}{% if e.mine == 'going' or e.mine == 'waitlist' %} ✓{% endif %}</button>
+<button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">Interested{% if e.mine == 'interested' %} ✓{% endif %}</button>
+{% endif %}
+<button class="btn {{ 'btn-primary' if e.mine == 'notgoing' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'notgoing' else 'notgoing' }}">Not going{% if e.mine == 'notgoing' %} ✓{% endif %}</button></form>{% endif %}
+{% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="btn btn-primary full" name=action value=official>Make official</button></form>{% endif %}
+</div></div>"""
+T["approvals"] = """<h1>Approvals</h1>
+{% for e in queue %}<div class="card tripcard"><div class="evbanner cat-{{ e.slug }}">{% if e.banner %}<img src="/lineup-image/{{ e.id }}?v={{ e.banner }}" alt="">{% endif %}</div><div class=evbody>
+<div class=nxtitle>{{ e.title }}</div>
+<div class="t3 sm">{{ e.status_label }} · {{ e.category }}{% if e.subtype %} · {{ e.subtype }}{% endif %}</div>
+<div class=evhost>{{ e.host_line }}</div>
+<div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
+{% if e.where %}<div class=nxrow>{{ glyph_pin() }}<span>{{ e.where }}</span></div>{% endif %}
+{% if e.description %}<div class=evnote>{{ e.description }}</div>{% endif %}
+{% if e.submitted %}<div class="t3 sm">Submitted {{ e.submitted }}</div>{% endif %}
+{% if e.review_note %}<div class=note>{{ e.review_note }}</div>{% endif %}
+<form method=post action=/admin/approvals style="margin-top:12px">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>
+<button class="btn btn-primary full" name=action value=approve>Approve &amp; Publish</button>
+<label style="margin-top:12px">Note<textarea name=note rows=2 placeholder="Needed for changes or a decline"></textarea></label>
+<div class=row><button class="btn btn-secondary" name=action value=changes>Request Changes</button><button class="btn btn-danger" name=action value=decline>Decline</button></div>
+</form></div></div>{% else %}<p class=emptyfind>No events waiting for review.</p>{% endfor %}
+<details class=card><summary>Categories</summary><div class=body>
+{% for c in categories %}<form method=post action=/admin/approvals class=li>{{ csrf_field() }}<input type=hidden name=action value=category_toggle><input type=hidden name=category_id value={{ c.id }}><span class=grow>{{ c.name }} · {{ c.chip }}{% if not c.active %} · hidden{% endif %}</span><button class="btn btn-secondary">{{ 'Show' if not c.active else 'Hide' }}</button></form>{% endfor %}
+<form method=post action=/admin/approvals>{{ csrf_field() }}<input type=hidden name=action value=category_add>
+<label>Name<input name=name required></label><label>Filter label<input name=chip required placeholder="Social"></label>
+<label><input type=checkbox name=member_ok value=1 checked> Members can suggest</label>
+<label><input type=checkbox name=intent_ok value=1> Team intent</label>
+<label><input type=checkbox name=hosting_ok value=1> Away / Hosting</label>
+<button class="btn btn-primary full">Add category</button></form></div></details>"""
+T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" enctype=multipart/form-data>{{ csrf_field() }}
+<input type=hidden name=mode value="{{ values.mode or mode }}">
+<button type=submit name=action value=save style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" tabindex=-1>{{ save_label or 'Save' }}</button>
+<label>Category<select name=category id=lineCat>{% for c in categories %}<option value="{{ c.slug }}" data-hosting="{{ c.hosting_ok }}" data-intent="{{ c.intent_ok }}" {% if values.category == c.slug %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+<label id=lineSub>Subtype<select name=subtype id=lineSubSel><option value="">None</option>{% for name in subtypes.get(values.category, []) %}<option value="{{ name }}" {% if values.subtype == name %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+<label id=lineHost>Away / Hosting<select name=hosting><option value=Away {% if values.hosting != 'Hosting' %}selected{% endif %}>Away</option><option value=Hosting {% if values.hosting == 'Hosting' %}selected{% endif %}>Hosting</option></select></label>
+{% if organizer %}<label id=lineIntent>Team intent<select name=team_intent><option value=considering {% if values.team_intent != 'official' %}selected{% endif %}>Considering</option><option value=official {% if values.team_intent == 'official' %}selected{% endif %}>Official</option></select></label>
+<input type=hidden name=official value=0><label id=lineOfficial><input type=checkbox name=official value=1 {% if values.official == '1' or mode == 'create' or mode == 'propose' %}checked{% endif %}> Official club event</label>{% endif %}
 <label>Title<input name=title value="{{ values.title }}" required autocomplete=off></label>
-<label>City<input name=city value="{{ values.city }}" required autocomplete=off></label>
-<label>Venue<input name=venue value="{{ values.venue }}" required autocomplete=off></label>
-<div class=row><label>Starts<input type=date name=date value="{{ values.date }}" required></label><label>Ends<input type=date name=end_date value="{{ values.end_date }}" required></label></div>
-<label>Description<textarea name=description rows=4>{{ values.description }}</textarea></label>
-<label>Link (optional)<input name=link value="{{ values.link }}" inputmode=url autocomplete=off placeholder="https://"></label>
-{% if event_id %}<button class="btn btn-danger full" name=action value=delete onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
+<div class=row><label>Date<input type=date name=date value="{{ values.date }}" required></label><label>Start<input type=time name=start_time value="{{ values.start_time or '09:00' }}" required></label></div>
+<label>Location / meeting point<input name=location value="{{ values.location }}" required autocomplete=off></label>
+<label>Short description<textarea name=description rows=3 required>{{ values.description }}</textarea></label>
+<details class=moredetails><summary>More details</summary>
+<label>Subtype is set above. End date<input type=date name=end_date value="{{ values.end_date }}"></label>
+<label>End time<input type=time name=end_time value="{{ values.end_time }}"></label>
+<label>City<input name=city value="{{ values.city }}" autocomplete=off></label>
+<label>Banner<input type=file name=banner accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic"></label>
+<label>Link<input name=link value="{{ values.link }}" inputmode=url autocomplete=off placeholder="https://"></label>
+<label>Capacity<input name=capacity inputmode=numeric value="{{ values.capacity }}" autocomplete=off></label>
+<label>Estimated cost<input name=cost value="{{ values.cost }}" autocomplete=off></label>
+<label>Register by<input type=date name=reg_deadline value="{{ values.reg_deadline }}"></label>
+<label>Extra details<textarea name=details rows=3>{{ values.details }}</textarea></label>
+{% if organizer %}<label><input type=checkbox name=featured value=1 {% if values.featured == '1' %}checked{% endif %}> Feature on the Lineup</label>{% endif %}
+</details>
+{% if organizer and not event_id %}<button class="btn btn-secondary full" name=action value=draft>Save draft</button>{% endif %}
+{% if show_cancel %}<button class="btn btn-danger full" name=action value=cancel onclick="return confirm('Cancel this event?')">Cancel event</button>{% endif %}
+{% if show_delete %}<button class="btn btn-danger full" name=action value=delete onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
 </form>
-<script>(function(){var kind=document.getElementById('lineKind'), stage=document.getElementById('lineStage'); if(!kind||!stage) return;
- function sync(){var interest=kind.value==='Tournament'||kind.value==='Clinic'; stage.hidden=!interest; var sel=stage.querySelector('select'); if(sel) sel.disabled=!interest;}
- kind.addEventListener('change', sync); sync();})();</script>"""
+<script>(function(){
+ var cat=document.getElementById('lineCat'), sub=document.getElementById('lineSub'), sel=document.getElementById('lineSubSel');
+ var host=document.getElementById('lineHost'), intent=document.getElementById('lineIntent'), official=document.getElementById('lineOfficial');
+ var subtypes={{ subtypes|tojson }}, current={{ values.subtype|tojson }}, mode={{ mode|tojson }};
+ function sync(){
+  var opt=cat.options[cat.selectedIndex], slug=cat.value;
+  var names=subtypes[slug]||[], html='<option value="">None</option>';
+  names.forEach(function(n){html+='<option'+(n===current?' selected':'')+'>'+n.replace(/</g,'')+'</option>'});
+  sel.innerHTML=html; if(current && names.indexOf(current)<0){var o=document.createElement('option'); o.textContent=current; o.selected=true; sel.appendChild(o);}
+  var showHost=opt&&opt.getAttribute('data-hosting')==='1'; host.hidden=!showHost;
+  var showIntent=opt&&opt.getAttribute('data-intent')==='1';
+  if(intent) intent.hidden=!showIntent;
+  if(mode==='propose'&&showIntent){cat.value='travel';}
+ }
+ cat.addEventListener('change', function(){current=sel.value; sync()}); sync();
+})();</script>"""
 T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ csrf_field() }}
 <div class=checks role=group aria-label="Weekdays"><div class="t3 xs">Weekdays</div>
 {% for value, label in values.labels %}<label style="margin:8px 0"><input type=checkbox name=weekday value="{{ value }}" {% if value in values.weekdays %}checked{% endif %}>{{ label }}</label>{% endfor %}</div>

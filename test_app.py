@@ -727,7 +727,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=48" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=49" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
@@ -1555,47 +1555,90 @@ D.commit()
 ok(moved_row[0] is None and moved_row[1] is None and moved_row[2] == 33.6 and D.execute("SELECT social_lat FROM practices WHERE id=?", (pic_id,)).fetchone()[0] is None, "changing the pool or social address clears the cached coordinates")
 empty_line = jane.get("/lineup").get_data(as_text=True)
 nav = empty_line.split("</main>", 1)[-1]
-ok("Nothing on the Lineup yet." in empty_line and "No team trips yet." not in empty_line and "Add event" not in empty_line and "Water Polo Practice" not in empty_line and "I'm going" not in empty_line and ">Lineup</a>" in nav and 'href="/practices#schedule"' not in nav and "data-badge=schedule" in nav and jane.get("/lineup/new").status_code == 403 and jane.post("/lineup/new", data=dict(csrf=csrf(jane, "/home"), kind="Hosted social", title="Secret", city="Huntington Beach", venue="Pool", date=A.today_pt().isoformat(), end_date=A.today_pt().isoformat())).status_code == 403 and A.app.test_client().get("/lineup/new").status_code == 302, "Lineup replaces Schedule and members cannot add events")
+ok("Nothing on the Lineup yet." in empty_line and "No team trips yet." not in empty_line and "Add event" not in empty_line and ">Suggest an event</a>" in empty_line and "btn-primary full" not in empty_line.split("<h2>My events", 1)[0] and "Water Polo Practice" not in empty_line and ">Lineup</a>" in nav and 'href="/practices#schedule"' not in nav and "data-badge=schedule" in nav and ">All</a>" in empty_line and ">Social</a>" in empty_line and ">Tournaments &amp; Travel</a>" in empty_line and jane.post("/lineup/new", data=dict(csrf=csrf(jane, "/lineup/new"), mode="create", category="social", title="Secret", location="Pool", description="Nope.", date=A.today_pt().isoformat(), start_time="09:00")).status_code == 403 and A.app.test_client().get("/lineup/new").status_code == 302, "Lineup replaces Schedule and members cannot publish events")
 soon_day = (A.today_pt() + dt.timedelta(days=10)).isoformat()
 soon_end = (A.today_pt() + dt.timedelta(days=13)).isoformat()
 later_day = (A.today_pt() + dt.timedelta(days=40)).isoformat()
-later_end = (A.today_pt() + dt.timedelta(days=42)).isoformat()
 past_ev = (A.today_pt() - dt.timedelta(days=20)).isoformat()
-past_end = (A.today_pt() - dt.timedelta(days=19)).isoformat()
-live_start = (A.today_pt() - dt.timedelta(days=1)).isoformat()
-live_end = (A.today_pt() + dt.timedelta(days=2)).isoformat()
-one_day = (A.today_pt() + dt.timedelta(days=3)).isoformat()
-trip = dict(description="Bring caps.", link="https://example.com/cup")
-made = eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), hosting="Away", kind="Tournament", title="Winter Cup", city="Long Beach", venue="Belmont Plaza", date=soon_day, end_date=soon_end, stage="going", **trip), follow_redirects=True).get_data(as_text=True)
-eid = D.execute("SELECT id FROM lineup_events WHERE title='Winter Cup'").fetchone()[0]
-eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), hosting="Away", kind="Clinic", title="Phoenix Dinner", city="Phoenix", venue="https://maps.example/dinner", date=later_day, end_date=later_end, description="", link=""))
-eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), hosting="Hosting", kind="Social", title="Santa Barbara Picnic", city="Santa Barbara", venue="Leadbetter Beach", date=past_ev, end_date=past_end, description="Already happened.", link=""))
-eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), hosting="Hosting", kind="Tournament", title="Odyssey Weekend", city="San Diego", venue="Morley Field", date=live_start, end_date=live_end, description="", link=""))
-eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), hosting="Hosting", kind="Clinic", title="Day Hop", city="Palm Springs", venue="Palm Springs Pavilion", date=one_day, end_date=one_day, description="", link=""))
-backwards = eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), hosting="Away", kind="Tournament", title="Backwards", city="Reno", venue="Pool", date=later_day, end_date=soon_day), follow_redirects=True).get_data(as_text=True)
-rejected = eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), hosting="Away", kind="Practice", title="Local Game", city="Huntington Beach", venue="Marina High School", date=soon_day, end_date=soon_end), follow_redirects=True).get_data(as_text=True)
+def ev(**kw):
+    base = dict(category="social", subtype="Happy hour", hosting="Hosting", title="Club Hour", location="Grunions Pool", city="Huntington Beach", description="Come by.", date=soon_day, start_time="18:00", end_time="20:00", official="1", mode="create")
+    base.update(kw)
+    return base
+made = eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(title="Club Hour")), follow_redirects=True).get_data(as_text=True)
+eid = D.execute("SELECT id, official, status, team_intent FROM lineup_events WHERE title='Club Hour'").fetchone()
+ok("Club Hour" in made and eid[1] == 1 and eid[2] == "published" and eid[3] in ("", None) and "Official club event" in made and "class=chip-info>Hosting</span>" in made and "class=chip-info>Happy hour</span>" in made, "an organizer publishes an official club event directly")
+eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(category="travel", subtype="Tournament", hosting="Away", title="Winter Cup", team_intent="official", city="Long Beach", location="Belmont Plaza", date=soon_day, end_date=soon_end, start_time="09:00", link="https://example.com/cup", description="Bring caps.")))
+cup_id = D.execute("SELECT id FROM lineup_events WHERE title='Winter Cup'").fetchone()[0]
+eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(category="service", subtype="Volunteering", title="Beach Cleanup", date=past_ev, end_date=past_ev, start_time="10:00", location="Leadbetter Beach", city="Santa Barbara", description="Already happened.")))
+backwards = eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(title="Backwards", date=later_day, end_date=soon_day, location="Reno Pool")), follow_redirects=True).get_data(as_text=True)
+rejected = eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(category="practice", title="Local Game", location="Marina High School")), follow_redirects=True).get_data(as_text=True)
 listed = eli.get("/lineup").get_data(as_text=True)
-soon_label = (A.today_pt() + dt.timedelta(days=10)).strftime("%B ") + str((A.today_pt() + dt.timedelta(days=10)).year)
-later_label = (A.today_pt() + dt.timedelta(days=40)).strftime("%B ") + str((A.today_pt() + dt.timedelta(days=40)).year)
-upcoming_html = listed.split("<details class=lineuppast>", 1)[0]
-past_html = listed.split("<details class=lineuppast>", 1)[-1]
-one_label = A.fmt_d(one_day)
-span = "%s – %s" % (A.fmt_d(soon_day), A.fmt_d(soon_end))
-cup_card = listed.split("Winter Cup", 1)[1].split('class="card tripcard"', 1)[0]
-host_card = listed.split("Odyssey Weekend", 1)[1].split('class="card tripcard"', 1)[0]
-ok("Winter Cup" in made and "class=chip-info>Away</span>" in cup_card and "class=chip-info>Tournament</span>" in cup_card and "Away tournament" not in cup_card and "class=chip-info>Hosting</span>" in host_card and "class=chip-info>Tournament</span>" in host_card and "Gauging interest" in host_card and ">We're going</button>" in host_card and "I'm attending" not in host_card and "class=chip-info>Clinic</span>" in listed and "class=chip-info>Social</span>" in past_html and "Water Polo Practice" not in listed and "I'm going" not in listed and "Marina High School" not in listed and listed.find(soon_label) < listed.find("Winter Cup") < listed.find(later_label) < listed.find("Phoenix Dinner") and "Santa Barbara Picnic" not in upcoming_html and "Santa Barbara Picnic" in past_html and "Odyssey Weekend" in upcoming_html and "Long Beach · Belmont Plaza" in listed and span in listed and one_label in listed and ("%s – %s" % (one_label, one_label)) not in listed and "<details class=lineuppast open" not in listed and "maps/search/?api=1&amp;query=Belmont%20Plaza%2C%20Long%20Beach" in listed and 'href="https://maps.example/dinner"' in listed and ">Phoenix</a>" in listed and 'href="https://example.com/cup"' in listed and "Bring caps." in listed and "End date must be on or after the start date." in backwards and "Practices and local games stay off the Lineup." in rejected and not D.execute("SELECT 1 FROM lineup_events WHERE title='Backwards' OR title='Local Game'").fetchone(), "Lineup cards show Away or Hosting and the type as chips")
-jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=eid, action="going"))
-eli.post("/lineup", data=dict(csrf=csrf(eli, "/lineup"), event_id=eid, action="notgoing"))
-rsvp = jane.get("/lineup").get_data(as_text=True)
-cup = rsvp.split("Winter Cup", 1)[1].split('class="card tripcard"', 1)[0]
-ok(">I'm in ✓<" in cup and ">Not this time<" in cup and ">1 in<" in cup and ">I'm going" not in cup and D.execute("SELECT going FROM lineup_rsvps WHERE event_id=? AND member_id=(SELECT id FROM members WHERE email='eli@example.com')", (eid,)).fetchone()[0] == 0, "members RSVP I'm in or Not this time on a trip")
-edit = eli.get("/lineup/%d/edit" % eid).get_data(as_text=True)
+ok("End date must be on or after the start date." in backwards and "Practices and local games stay off the Lineup." in rejected and not D.execute("SELECT 1 FROM lineup_events WHERE title='Backwards' OR title='Local Game'").fetchone() and "Winter Cup" in listed and "Beach Cleanup" in listed.split("<details class=lineuppast>", 1)[-1] and "Beach Cleanup" not in listed.split("<details class=lineuppast>", 1)[0] and "maps/search/?api=1&amp;query=Belmont%20Plaza%2C%20Long%20Beach" in listed and "Bring caps." in listed and "Water Polo Practice" not in listed, "Lineup cards keep practices off the feed and file past events away")
+jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=cup_id, action="going"))
+eli.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=cup_id, action="interested"))
+cup = jane.get("/lineup").get_data(as_text=True).split("Winter Cup", 1)[1].split('class="card tap tripcard"', 1)[0]
+ok(">I'm Going ✓<" in cup and D.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=(SELECT id FROM members WHERE email='jane@example.com')", (cup_id,)).fetchone()[0] == "going", "Going and Interested are separate RSVPs")
+edit = eli.get("/lineup/%d/edit" % cup_id).get_data(as_text=True)
 edit_head = edit.split("<main>", 1)[0]
-ok(">Cancel</a>" in edit_head and ">Save</button>" in edit_head and "<h1>Event</h1>" in edit_head and "button.savebtn{color:var(--accent)" in edit and 'value="Winter Cup"' in edit and 'value="Long Beach"' in edit and "name=hosting" in edit and ">Clinic</option>" in edit and ">Social</option>" in edit and ">Volunteering</option>" in edit and jane.get("/lineup/%d/edit" % eid).status_code == 403 and jane.post("/lineup/%d/edit" % eid, data=dict(csrf=csrf(jane, "/lineup"), hosting="Away", kind="Tournament", title="Hijack", city="X", venue="Y", date=soon_day, end_date=soon_end)).status_code == 403 and jane.post("/lineup/%d/edit" % eid, data=dict(csrf=csrf(jane, "/lineup"), action="delete")).status_code == 403 and D.execute("SELECT title FROM lineup_events WHERE id=?", (eid,)).fetchone()[0] == "Winter Cup", "admins edit an event with Cancel on the left and blue Save on the right")
-eli.post("/lineup/%d/edit" % eid, data=dict(csrf=csrf(eli, "/lineup/%d/edit" % eid), hosting="Hosting", kind="Clinic", title="Winter Classic", city="Long Beach", venue="Belmont Plaza", date=soon_day, end_date=later_end, description="Bring caps.", link="https://example.com/cup"))
-ok(D.execute("SELECT title, city, end_date, hosting, kind FROM lineup_events WHERE id=?", (eid,)).fetchone() == ("Winter Classic", "Long Beach", later_end, "Hosting", "Clinic"), "saving an event keeps the new title, city, end date, hosting, and kind")
-eli.post("/lineup/%d/edit" % eid, data=dict(csrf=csrf(eli, "/lineup/%d/edit" % eid), action="delete", hosting="Hosting", kind="Clinic", title="Winter Classic", city="Long Beach", venue="Belmont Plaza", date=soon_day, end_date=later_end))
-ok(not D.execute("SELECT 1 FROM lineup_events WHERE id=?", (eid,)).fetchone() and not D.execute("SELECT 1 FROM lineup_rsvps WHERE event_id=?", (eid,)).fetchone() and "Winter Classic" not in eli.get("/lineup").get_data(as_text=True), "deleting a trip removes it and its RSVPs")
+ok(">Cancel</a>" in edit_head and ">Save</button>" in edit_head and "<h1>Event</h1>" in edit_head and "button.savebtn{color:var(--accent)" in edit and 'value="Winter Cup"' in edit and "name=category" in edit and ">Tournament</option>" in edit and jane.get("/lineup/%d/edit" % cup_id).status_code == 403 and jane.post("/lineup/%d/edit" % cup_id, data=dict(csrf=csrf(jane, "/lineup"), mode="edit", category="social", title="Hijack", location="X", description="No.", date=soon_day, start_time="09:00")).status_code == 403, "admins edit an event with Cancel on the left and blue Save on the right")
+detail = jane.get("/lineup/%d" % cup_id).get_data(as_text=True)
+ok(">Event</h1>" in detail.split("<main>", 1)[0] and "Official club event" in detail and "Belmont Plaza" in detail and ">Registration</a>" in detail, "the event page reads like a practice profile")
+sug = jane.post("/lineup/new", data=dict(csrf=csrf(jane, "/lineup/new?mode=suggest"), mode="suggest", category="social", subtype="Party", title="Birthday Party", location="Jane's place", description="Cake after practice.", date=soon_day, start_time="20:00", official="1", team_intent="official"), follow_redirects=True)
+pid_party = D.execute("SELECT id, status, official, host_id, team_intent FROM lineup_events WHERE title='Birthday Party'").fetchone()
+jane_id = D.execute("SELECT id FROM members WHERE email='jane@example.com'").fetchone()[0]
+public = eli.get("/lineup").get_data(as_text=True)
+ok(sug.status_code == 200 and pid_party[1] == "pending" and pid_party[2] == 0 and pid_party[3] == jane_id and (pid_party[4] or "") == "" and "Birthday Party" not in public and "Birthday Party" in jane.get("/lineup").get_data(as_text=True) and "Pending approval" in jane.get("/lineup").get_data(as_text=True), "a member suggestion stays pending, unofficial, and off the public Lineup")
+ok(jane.post("/lineup/new", data=dict(csrf=csrf(jane, "/lineup/new?mode=suggest"), mode="suggest", category="travel", subtype="Tournament", title="Sneaky Cup", location="Pool", description="No.", date=soon_day, start_time="09:00"), follow_redirects=True).get_data(as_text=True).find("for organizers") >= 0 and not D.execute("SELECT 1 FROM lineup_events WHERE title='Sneaky Cup'").fetchone(), "members cannot suggest a tournament")
+queue = eli.get("/admin/approvals").get_data(as_text=True)
+ok("Approvals (" in eli.get("/admin").get_data(as_text=True).split("<main>", 1)[0] and "Birthday Party" in queue and "Approve &amp; Publish" in queue and jane.get("/admin/approvals").status_code == 403, "admins review suggestions from an Approvals chip")
+eli.post("/admin/approvals", data=dict(csrf=csrf(eli, "/admin/approvals"), event_id=pid_party[0], action="changes", note="Add a meeting point"))
+ok(D.execute("SELECT status, review_note FROM lineup_events WHERE id=?", (pid_party[0],)).fetchone() == ("changes_requested", "Add a meeting point") and "Changes requested" in jane.get("/lineup").get_data(as_text=True), "requesting changes tells the host and hides the event")
+jane.post("/lineup/%d/edit" % pid_party[0], data=dict(csrf=csrf(jane, "/lineup/%d/edit" % pid_party[0]), mode="edit", category="social", subtype="Party", title="Birthday Party", location="Pier", description="Cake after practice.", date=soon_day, start_time="20:00", official="1"))
+ok(D.execute("SELECT status, official, venue FROM lineup_events WHERE id=?", (pid_party[0],)).fetchone() == ("pending", 0, "Pier"), "resubmitting keeps the event unofficial")
+eli.post("/admin/approvals", data=dict(csrf=csrf(eli, "/admin/approvals"), event_id=pid_party[0], action="approve"))
+approved = jane.get("/lineup").get_data(as_text=True)
+ok(D.execute("SELECT status, official FROM lineup_events WHERE id=?", (pid_party[0],)).fetchone() == ("published", 0) and "Hosted by Jay" in approved and "Member event" in approved and "Birthday Party" in approved, "approving publishes a member event without making it official")
+note = D.execute("SELECT body FROM notices WHERE member_id=? ORDER BY id DESC LIMIT 1", (jane_id,)).fetchone()
+ok(note and "Birthday Party" in note[0] and "on the Lineup" in note[0], "the host is told their event was approved")
+prev_john = D.execute("SELECT role, is_admin FROM members WHERE email='john@example.com'").fetchone()
+D.execute("UPDATE members SET role='coach', is_admin=0 WHERE email='john@example.com'"); D.commit()
+prop = john.post("/lineup/new", data=dict(csrf=csrf(john, "/lineup/new?mode=propose"), mode="propose", category="social", title="IGLA", location="San Diego", description="Gauging a trip.", date=later_day, start_time="09:00", end_date=later_day, hosting="Away"), follow_redirects=True).get_data(as_text=True)
+igla = D.execute("SELECT id, status, official, team_intent, category_id FROM lineup_events WHERE title='IGLA'").fetchone()
+travel_id = D.execute("SELECT id FROM lineup_categories WHERE slug='travel'").fetchone()[0]
+ok(igla[1] == "published" and igla[2] == 1 and igla[3] == "considering" and igla[4] == travel_id and ">I'm Interested<" in prop and "Make official" in prop and ">Create event</a>" in john.get("/lineup").get_data(as_text=True), "a coach can propose a tournament that starts as Considering")
+jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=igla[0], action="interested"))
+home_before = jane.get("/home").get_data(as_text=True)
+card_before = home_before[home_before.find('class="card tap nextcard"'):home_before.find("id=schedule")]
+john.post("/lineup/%d" % igla[0], data=dict(csrf=csrf(john, "/lineup/%d" % igla[0]), action="official"))
+ok(D.execute("SELECT team_intent FROM lineup_events WHERE id=?", (igla[0],)).fetchone()[0] == "official" and D.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=?", (igla[0], jane_id)).fetchone()[0] == "interested" and "official Grunions event" in D.execute("SELECT body FROM notices WHERE member_id=? ORDER BY id DESC LIMIT 1", (jane_id,)).fetchone()[0] and "IGLA" not in card_before, "promoting to Official keeps the Interested RSVP and does not put it on Home")
+_now = A.wall_pt().replace(second=0, microsecond=0)
+_estart = dt.datetime.combine(_now.date(), dt.time(0, 0))
+_eend = dt.datetime.combine(_now.date(), dt.time(23, 30))
+if _now >= _eend:
+    _estart, _eend = _now - dt.timedelta(minutes=20), _now + dt.timedelta(hours=1)
+early, early_end = _estart.date().isoformat(), _eend.date().isoformat()
+eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(category="travel", subtype="Tournament", hosting="Away", title="Sunday Cup", team_intent="official", date=early, end_date=early_end, start_time="%02d:%02d" % (_estart.hour, _estart.minute), end_time="%02d:%02d" % (_eend.hour, _eend.minute), location="Early Pool", description="A multi-day trip.")))
+sun_id = D.execute("SELECT id FROM lineup_events WHERE title='Sunday Cup'").fetchone()[0]
+jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=sun_id, action="interested"))
+still = jane.get("/home").get_data(as_text=True)
+still_card = still[still.find('class="card tap nextcard"'):still.find("id=schedule")]
+ok("Sunday Cup" not in still_card and "Water Polo Practice" in still_card, "Interested does not replace the practice on Home")
+jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=sun_id, action="going"))
+bumped = jane.get("/home").get_data(as_text=True)
+_b0 = bumped.find('class="card tap nextcard"')
+bumped_card = bumped[_b0:bumped.find("id=schedule", _b0)]
+ok("Sunday Cup" in bumped_card and "Official club event" in bumped_card and "I'm going ✓" in bumped_card and "HAPPENING NOW" in bumped_card and "nxsocial" not in bumped_card, "Going on an official trip can become the Home card")
+eli.post("/lineup/%d/edit" % sun_id, data=dict(csrf=csrf(eli, "/lineup/%d/edit" % sun_id), mode="edit", category="travel", subtype="Tournament", hosting="Away", team_intent="official", official="1", title="Sunday Cup", location="Moved Pool", description="A multi-day trip.", date=early, end_date=early_end, start_time="%02d:%02d" % (_estart.hour, _estart.minute), end_time="%02d:%02d" % (_eend.hour, _eend.minute)))
+moved_note = D.execute("SELECT body FROM notices WHERE member_id=? AND body LIKE '%Sunday Cup%' ORDER BY id DESC LIMIT 1", (jane_id,)).fetchone()
+ok(moved_note and "new date or location" in moved_note[0], "moving a published event tells people who were going")
+jane.post("/lineup", data=dict(csrf=csrf(jane, "/home"), event_id=sun_id, action="clear", back="/home"))
+restored = jane.get("/home").get_data(as_text=True)
+ok("Sunday Cup" not in restored[restored.find('class="card tap nextcard"'):restored.find("id=schedule")] and "Water Polo Practice" in restored, "clearing Going puts the practice back on Home")
+eli.post("/lineup/%d/edit" % sun_id, data=dict(csrf=csrf(eli, "/lineup/%d/edit" % sun_id), action="cancel", mode="edit", category="travel", title="Sunday Cup", location="Moved Pool", description="A multi-day trip.", date=early, start_time="%02d:%02d" % (_estart.hour, _estart.minute)))
+ok(D.execute("SELECT status FROM lineup_events WHERE id=?", (sun_id,)).fetchone()[0] == "canceled" and "Sunday Cup" not in eli.get("/lineup").get_data(as_text=True).split("<h2>My events", 1)[0], "canceling removes the event from the public Lineup")
+john.post("/lineup/%d/edit" % igla[0], data=dict(csrf=csrf(john, "/lineup/%d/edit" % igla[0]), action="delete"))
+ok(not D.execute("SELECT 1 FROM lineup_events WHERE id=?", (igla[0],)).fetchone(), "a coach can delete a lineup event")
+D.execute("UPDATE members SET role=?, is_admin=? WHERE email='john@example.com'", (prev_john[0], prev_john[1])); D.commit()
 old = sqlite3.connect(":memory:")
 old.execute("CREATE TABLE lineup_events(id INTEGER PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL, date TEXT NOT NULL, start TEXT, location TEXT, description TEXT, link TEXT)")
 old.execute("INSERT INTO lineup_events(kind, title, date, start, location) VALUES('Social','Old','2026-01-01','12:00','Park')")
@@ -1603,48 +1646,16 @@ old.execute("INSERT INTO lineup_events(kind, title, date, start, location) VALUE
 old.execute("INSERT INTO lineup_events(kind, title, date, start, location) VALUES('Team trip/Social','Dinner','2026-03-01','18:00','Hall')")
 A.migrate_lineup(old)
 ok(old.execute("SELECT hosting, kind, stage FROM lineup_events ORDER BY id").fetchall() == [("Away", "Clinic", "going"), ("Away", "Tournament", "going"), ("Away", "Clinic", "going")], "older lineup rows become Away clinics or tournaments")
-interest_day = (A.today_pt() + dt.timedelta(days=21)).isoformat()
-interest_end = (A.today_pt() + dt.timedelta(days=23)).isoformat()
-eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), hosting="Away", kind="Tournament", title="Interest Cup", city="Denver", venue="Denver Pool", date=interest_day, end_date=interest_end))
-iid = D.execute("SELECT id FROM lineup_events WHERE title='Interest Cup'").fetchone()[0]
-gauge = eli.get("/lineup").get_data(as_text=True).split("Interest Cup", 1)[1].split('class="card tripcard"', 1)[0]
-ok("Gauging interest" in gauge and ">Interested<" in gauge and ">Not interested<" in gauge and ">We're going</button>" in gauge and "I'm in" not in gauge and jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=iid, action="commit")).status_code == 403, "a new tournament starts by gauging interest")
-jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=iid, action="going"))
-eli.post("/lineup", data=dict(csrf=csrf(eli, "/lineup"), event_id=iid, action="notgoing"))
-admin_card = eli.get("/lineup").get_data(as_text=True).split("Interest Cup", 1)[1].split('class="card tripcard"', 1)[0]
-member_card = jane.get("/lineup").get_data(as_text=True).split("Interest Cup", 1)[1].split('class="card tripcard"', 1)[0]
-ok(">Interested ✓<" in member_card and "1 interested" in admin_card and "Jay Doe" in admin_card and "Jay Doe" not in member_card, "admins see who is interested")
-eli.post("/lineup", data=dict(csrf=csrf(eli, "/lineup"), event_id=iid, action="commit"))
-committed = jane.get("/lineup").get_data(as_text=True).split("Interest Cup", 1)[1].split('class="card tripcard"', 1)[0]
-note = D.execute("SELECT body FROM notices WHERE member_id=(SELECT id FROM members WHERE email='jane@example.com') ORDER BY id DESC LIMIT 1").fetchone()
-ok("Gauging interest" not in committed and ">I'm in ✓<" in committed and ">Not this time<" in committed and note and "We're going to Interest Cup." in note[0] and not D.execute("SELECT 1 FROM notices WHERE member_id=(SELECT id FROM members WHERE email='eli@example.com') AND body LIKE '%Interest Cup%'").fetchone(), "We're going switches the RSVP and tells interested members")
-social_day = (A.today_pt() + dt.timedelta(days=25)).isoformat()
-eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), hosting="Hosting", kind="Social", title="Beach Social", city="Huntington Beach", venue="Grunions Pool", date=social_day, end_date=social_day))
-sid_ev = D.execute("SELECT id FROM lineup_events WHERE title='Beach Social'").fetchone()[0]
-def _event_card(html, title):
-    i = html.find(title)
-    start = html.rfind('<div class="card tripcard"', 0, i)
-    nxt = html.find('<div class="card tripcard"', i)
-    return html[start:nxt if nxt > 0 else None]
-admin_social = _event_card(eli.get("/lineup").get_data(as_text=True), "Beach Social")
-member_social = _event_card(jane.get("/lineup").get_data(as_text=True), "Beach Social")
-ok(">I'm attending<" in member_social and ">Can't make it<" in member_social and "Gauging interest" not in member_social and "Interested" not in member_social and "We're going" not in admin_social and ">Edit</a>" not in member_social and "Add event" not in jane.get("/lineup").get_data(as_text=True) and "class=chip-info>Hosting</span>" in admin_social and "class=chip-info>Social</span>" in admin_social and jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=sid_ev, action="commit")).status_code == 403 and eli.post("/lineup", data=dict(csrf=csrf(eli, "/lineup"), event_id=sid_ev, action="commit")).status_code == 400, "socials use I'm attending, and only tournaments and clinics can be committed")
-probe_day = (A.today_pt() + dt.timedelta(days=30)).isoformat()
-prev_john = D.execute("SELECT role, is_admin FROM members WHERE email='john@example.com'").fetchone()
-D.execute("UPDATE members SET role='coach', is_admin=0 WHERE email='john@example.com'"); D.commit()
-coach_line = john.get("/lineup").get_data(as_text=True)
-ok(john.get("/lineup/new").status_code == 200 and ">Add event</a>" in coach_line and ">Edit</a>" in coach_line and D.execute("SELECT is_admin, role FROM members WHERE email='john@example.com'").fetchone() == (0, "coach"), "a non-admin coach sees Add event and Edit")
-john.post("/lineup/new", data=dict(csrf=csrf(john, "/lineup/new"), hosting="Away", kind="Tournament", title="Coach Probe", city="Irvine", venue="Irvine Pool", date=probe_day, end_date=probe_day))
-probe_id = D.execute("SELECT id FROM lineup_events WHERE title='Coach Probe'").fetchone()[0]
-john.post("/lineup/%d/edit" % probe_id, data=dict(csrf=csrf(john, "/lineup/%d/edit" % probe_id), hosting="Hosting", kind="Clinic", title="Coach Probe Edited", city="Irvine", venue="Irvine Pool", date=probe_day, end_date=probe_day))
-ok(D.execute("SELECT hosting, kind, title, stage FROM lineup_events WHERE id=?", (probe_id,)).fetchone() == ("Hosting", "Clinic", "Coach Probe Edited", "interest"), "a coach can create and edit a lineup event")
-john.post("/lineup", data=dict(csrf=csrf(john, "/lineup"), event_id=probe_id, action="commit"))
-ok(D.execute("SELECT stage FROM lineup_events WHERE id=?", (probe_id,)).fetchone()[0] == "going", "a coach can mark a clinic as We're going")
-jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=probe_id, action="going"))
-ok(D.execute("SELECT going FROM lineup_rsvps WHERE event_id=? AND member_id=(SELECT id FROM members WHERE email='jane@example.com')", (probe_id,)).fetchone()[0] == 1, "a member can still RSVP after a coach commits")
-john.post("/lineup/%d/edit" % probe_id, data=dict(csrf=csrf(john, "/lineup/%d/edit" % probe_id), action="delete"))
-ok(not D.execute("SELECT 1 FROM lineup_events WHERE id=?", (probe_id,)).fetchone() and not D.execute("SELECT 1 FROM lineup_rsvps WHERE event_id=?", (probe_id,)).fetchone(), "a coach can delete a lineup event")
-D.execute("UPDATE members SET role=?, is_admin=? WHERE email='john@example.com'", (prev_john[0], prev_john[1])); D.commit()
+ok(old.execute("SELECT status FROM lineup_events WHERE title='Cup'").fetchone()[0] == "published", "older lineup rows are published into the feed")
+draft = eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(title="Quiet Draft", action="draft", mode="draft")), follow_redirects=True)
+draft_id = D.execute("SELECT id, status FROM lineup_events WHERE title='Quiet Draft'").fetchone()
+ok(draft_id[1] == "draft" and jane.get("/lineup/%d" % draft_id[0]).status_code == 404 and "Quiet Draft" not in jane.get("/lineup").get_data(as_text=True), "a draft stays off the Lineup for members")
+cap_day = (A.today_pt() + dt.timedelta(days=12)).isoformat()
+eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(title="Tiny Social", capacity="1", date=cap_day, location="Small Room", description="One spot.")))
+tiny = D.execute("SELECT id FROM lineup_events WHERE title='Tiny Social'").fetchone()[0]
+jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=tiny, action="going"))
+eli.post("/lineup", data=dict(csrf=csrf(eli, "/lineup"), event_id=tiny, action="going"))
+ok(D.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=(SELECT id FROM members WHERE email='eli@example.com')", (tiny,)).fetchone()[0] == "waitlist", "a full event waitlists the next Going reply")
 sched = eli.get("/practices").get_data(as_text=True)
 repeat_input = sched.split("name=repeat value=1", 1)[1][:40]
 repeat_opts = sched.split("class=repeatopts", 1)[1].split("Add practice", 1)[0]

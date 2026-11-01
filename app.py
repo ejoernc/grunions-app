@@ -6,6 +6,7 @@ from google.oauth2.service_account import Credentials
 from zoneinfo import ZoneInfo
 import qrcode, qrcode.image.svg
 from markupsafe import Markup, escape
+import lineupfeed
 import ui
 from ui import T
 from flask import (Flask, request, redirect, url_for, session, g, render_template_string, Response, abort, flash, jsonify, send_from_directory)
@@ -221,6 +222,7 @@ def migrate_lineup(d):
     d.execute("UPDATE lineup_events SET stage='attending' WHERE kind IN ('Social', 'Volunteering')")
     d.execute("UPDATE lineup_events SET stage='interest' WHERE (stage IS NULL OR trim(stage)='') AND kind IN ('Tournament', 'Clinic')")
     d.execute("UPDATE lineup_events SET stage='attending' WHERE stage IS NULL OR trim(stage)=''")
+    lineupfeed.ensure_schema(d)
 def migrate_series(d):
     """Practice series, their coaches, and skipped dates. Existing one-off practices stay unattached."""
     d.execute("""CREATE TABLE IF NOT EXISTS practice_series(id INTEGER PRIMARY KEY, weekdays TEXT NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL,
@@ -677,11 +679,16 @@ def panel_status(member):
     if left is not None and left <= EXPIRING_DAYS:
         return {"label": _expiring_label(left), "dot": "warn", "reason": "SafeSport expires " + fmt_long(ss)}
     return {"label": "Cleared", "dot": "ok", "reason": ""}
+def approval_count():
+    m = me()
+    if not m or not can_host_practice(m): return 0
+    try: return db().execute("SELECT COUNT(*) FROM lineup_events WHERE status='pending'").fetchone()[0]
+    except sqlite3.OperationalError: return 0
 def on_coaching_list(member):
     try: mid = member["id"]
     except (TypeError, KeyError, IndexError): return False
     return db().execute("SELECT 1 FROM coaching_list WHERE member_id=?", (mid,)).fetchone() is not None
-app.jinja_env.globals.update(is_staff=is_staff, can_host_practice=can_host_practice, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m), referee_eligibility=lambda m: referee_eligibility(db(), m), credential_dates=credential_dates, coach_row_expiry=lambda m: coach_row_expiry(db(), m), fmt_long=fmt_long, fmt_when=fmt_when, date_dot=date_dot, panel_status=panel_status, on_coaching_list=on_coaching_list)
+app.jinja_env.globals.update(is_staff=is_staff, can_host_practice=can_host_practice, approval_count=approval_count, role_label=role_label, usawp_coach_badge=usawp_coach_badge, coach_eligibility=lambda m: coach_eligibility(db(), m), referee_eligibility=lambda m: referee_eligibility(db(), m), credential_dates=credential_dates, coach_row_expiry=lambda m: coach_row_expiry(db(), m), fmt_long=fmt_long, fmt_when=fmt_when, date_dot=date_dot, panel_status=panel_status, on_coaching_list=on_coaching_list)
 def staff_required(f):
     @functools.wraps(f)
     def w(*a, **k):
@@ -1899,7 +1906,17 @@ def combined_view(entry):
     hist = d.execute("SELECT practice_date, location FROM checkins WHERE member_id=? ORDER BY practice_date DESC", (m["id"],)).fetchall()
     month = today_pt().strftime("%Y-%m")
     ensure_schedule(d)
-    nextp = d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where() + " ORDER BY date, start LIMIT 1", upcoming_bounds()).fetchone()
+    picked = next_commitment(d, m["id"])
+    next_kind, nextev = "practice", None
+    practice_row = d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where() + " ORDER BY date, start LIMIT 1", upcoming_bounds()).fetchone()
+    if picked and picked[0] == "event":
+        next_kind = "event"
+        full = lineup_event_row(d, picked[1]["id"])
+        nextev = lineup_pack(d, [full])[0] if full else None
+        if not nextev: next_kind = "practice"
+    if picked and picked[0] == "practice":
+        practice_row = picked[1]
+    nextp = practice_row
     if nextp: nextp = ensure_map_coords(d, nextp)
     nextp_n = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (nextp["id"],)).fetchone()[0] if nextp else 0
     nextp_mine = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (nextp["id"], m["id"])).fetchone() if nextp else None
@@ -1916,7 +1933,7 @@ def combined_view(entry):
     data = upcoming_schedule(d)
     return page(T["home"], tab="practices" if entry == "practices" else "home",
         m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices,
-        nextp=nextp, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined,
+        nextp=nextp, next_kind=next_kind, nextev=nextev, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined,
         vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, data=data, coach_choices=coach_candidates(d) if m["is_admin"] else [])
 @app.route("/practices", methods=["GET", "POST"])
 @login_required
@@ -1971,20 +1988,6 @@ def series_page(sid):
             flash(str(e)); values = series_form_values(form=request.form)
     skips = [r["date"] for r in d.execute("SELECT date FROM series_skips WHERE series_id=? ORDER BY date", (sid,))]
     return page(T["series_edit"], tab="series_edit", action="/practices/series/%d" % sid, values=values, series_id=sid, skips=skips, coach_choices=coach_candidates(d))
-LINEUP_HOSTING = ("Away", "Hosting")
-LINEUP_KINDS = ("Tournament", "Clinic", "Social", "Volunteering")
-LINEUP_INTEREST = ("Tournament", "Clinic")
-def lineup_stage_value(kind, form, existing=None):
-    """Tournaments, and clinics when chosen, gauge interest. Socials and volunteering are attending."""
-    if kind not in LINEUP_INTEREST: return "attending"
-    posted = (form.get("stage") or "").strip()
-    if posted in ("interest", "going"): return posted
-    if existing in ("interest", "going"): return existing
-    return "interest"
-def lineup_rsvp_words(stage):
-    if stage == "interest": return "Interested", "Not interested", "interested"
-    if stage == "attending": return "I'm attending", "Can't make it", "attending"
-    return "I'm in", "Not this time", "in"
 def lineup_where(city, venue):
     city = " ".join(str(city or "").split())
     venue = " ".join(str(venue or "").split())
@@ -2006,6 +2009,121 @@ def lineup_range(start, end):
 def lineup_month(iso):
     day = dt.date.fromisoformat(str(iso)[:10])
     return day.strftime("%B ") + str(day.year)
+def _form_last():
+    """Last value wins, so a checkbox after a hidden 0 is the one that counts."""
+    return {k: request.form.getlist(k)[-1] for k in request.form}
+def lineup_event_row(d, eid):
+    return d.execute("""SELECT e.*, c.slug AS cat_slug, c.name AS cat_name, c.chip AS cat_chip,
+        c.member_ok, c.intent_ok, c.hosting_ok, c.active AS cat_active,
+        h.first AS host_first, h.last AS host_last, h.preferred_first AS host_preferred
+        FROM lineup_events e
+        LEFT JOIN lineup_categories c ON c.id=e.category_id
+        LEFT JOIN members h ON h.id=e.host_id WHERE e.id=?""", (eid,)).fetchone()
+def lineup_query(d):
+    return d.execute("""SELECT e.*, c.slug AS cat_slug, c.name AS cat_name, c.chip AS cat_chip,
+        c.member_ok, c.intent_ok, c.hosting_ok, c.active AS cat_active,
+        h.first AS host_first, h.last AS host_last, h.preferred_first AS host_preferred
+        FROM lineup_events e
+        LEFT JOIN lineup_categories c ON c.id=e.category_id
+        LEFT JOIN members h ON h.id=e.host_id""").fetchall()
+def event_window(e):
+    day = dt.date.fromisoformat(str(e["date"])[:10])
+    end_day = dt.date.fromisoformat(str(e["end_date"] or e["date"])[:10])
+    def hm(v, default):
+        raw = (v or default).strip() or default
+        parts = raw.split(":")
+        return int(parts[0]), int(parts[1] if len(parts) > 1 else 0)
+    sh, sm = hm(e["start_time"] if "start_time" in e.keys() else "", "00:00")
+    eh, em = hm(e["end_time"] if "end_time" in e.keys() else "", "23:59")
+    start = dt.datetime.combine(day, dt.time(sh, sm))
+    end = dt.datetime.combine(end_day, dt.time(eh, em))
+    if end < start: end = dt.datetime.combine(end_day, dt.time(23, 59))
+    return start, end
+def event_chip_label(start, end, now=None):
+    """Day chip for a committed event: happening now, day N of M, or the usual relative day."""
+    now = wall_pt(now)
+    if start <= now <= end:
+        span = (end.date() - start.date()).days + 1
+        if span <= 1: return "HAPPENING NOW"
+        if now.date() >= end.date(): return "FINAL DAY"
+        return "DAY %d OF %d" % ((now.date() - start.date()).days + 1, span)
+    left = (start.date() - now.date()).days
+    if left <= 6: return relative_day(start.date().isoformat())
+    return "UP NEXT"
+def lineup_public(row):
+    return (row["status"] or "") == "published"
+def lineup_seen(row, actor):
+    if not row: return False
+    if lineup_public(row): return True
+    if not actor: return False
+    if can_host_practice(actor): return True
+    return actor["id"] in ((row["created_by"] or 0), (row["host_id"] or 0))
+def lineup_when_label(row):
+    start, end = str(row["date"])[:10], str(row["end_date"] or row["date"])[:10]
+    if end > start: base = lineup_range(start, end)
+    else: base = fmt_d(start)
+    st, et = row["start_time"] or "", row["end_time"] or ""
+    if st and et: return "%s · %s" % (base, fmt_span(st, et))
+    if st: return "%s · %s" % (base, fmt_clock(st))
+    return base
+def lineup_host_line(row):
+    if row["official"]: return "Official club event"
+    who = display_first({"first": row["host_first"] or "", "last": row["host_last"] or "", "preferred_first": row["host_preferred"] or ""}) if row["host_first"] else ""
+    return "Hosted by %s" % who if who else "Hosted by a member"
+def lineup_status_label(row, now=None):
+    status = row["status"] or "published"
+    if status == "published":
+        _start, end = event_window(row)
+        if end < wall_pt(now): return "Completed"
+    return lineupfeed.STATUS_LABEL.get(status, status)
+def lineup_pack(d, rows):
+    mid = me()["id"] if me() else 0
+    organizer = can_host_practice() if me() else False
+    ids = [r["id"] for r in rows]
+    counts, mine, going_names = {}, {}, {}
+    if ids:
+        marks = ",".join("?" * len(ids))
+        for eid, state, n in d.execute("SELECT event_id, state, COUNT(*) FROM lineup_rsvps WHERE event_id IN (%s) GROUP BY event_id, state" % marks, ids):
+            counts.setdefault(eid, {})[state or "going"] = n
+        for eid, state in d.execute("SELECT event_id, state FROM lineup_rsvps WHERE member_id=? AND event_id IN (%s)" % marks, (mid, *ids)):
+            mine[eid] = state
+        for eid, first, last, preferred, mid_row in d.execute("""SELECT r.event_id, m.first, m.last, m.preferred_first, m.id
+            FROM lineup_rsvps r JOIN members m ON m.id=r.member_id
+            WHERE r.state='going' AND r.event_id IN (%s)""" % marks, ids):
+            going_names.setdefault(eid, []).append({"id": mid_row, "first": first, "last": last, "preferred_first": preferred})
+    out = []
+    for r in rows:
+        c = counts.get(r["id"], {})
+        going_n, interested_n = c.get("going", 0), c.get("interested", 0)
+        wait_n = c.get("waitlist", 0)
+        intent = r["team_intent"] or ""
+        names = [("%s %s" % (display_first(p), p["last"] or "")).strip() for p in practice_people(going_names.get(r["id"], []))]
+        if intent == "considering":
+            count_line = "%d interested" % interested_n
+            if going_n: count_line += " · %d going" % going_n
+        elif interested_n:
+            count_line = "%d going · %d interested" % (going_n, interested_n)
+        else:
+            count_line = "%d going" % going_n
+        if wait_n: count_line += " · %d waitlisted" % wait_n
+        cap = r["capacity"]
+        full = bool(cap and going_n >= cap)
+        start, end = event_window(r)
+        out.append({"id": r["id"], "title": r["title"], "slug": r["cat_slug"] or "", "category": r["cat_name"] or r["kind"] or "Event",
+            "chip": r["cat_chip"] or "", "subtype": r["subtype"] or "", "hosting": r["hosting"] if (r["hosting_ok"] and r["hosting"] in ("Away", "Hosting")) else "",
+            "official": bool(r["official"]), "intent": intent, "status": r["status"] or "published", "status_label": lineup_status_label(r),
+            "host_line": lineup_host_line(r), "member_event": not r["official"], "featured": bool(r["featured"]),
+            "where": lineup_where(r["city"] or "", r["venue"] or ""), "map_href": lineup_map_href(r["city"] or "", r["venue"] or ""),
+            "when": lineup_when_label(r), "date": r["date"], "end_date": r["end_date"] or r["date"],
+            "description": r["description"] or "", "details": r["details"] or "", "link": r["link"] or "",
+            "cost": r["cost"] or "", "capacity": cap, "full": full, "reg_deadline": r["reg_deadline"] or "",
+            "review_note": r["review_note"] or "", "banner": r["banner"] or "",
+            "going_n": going_n, "interested_n": interested_n, "wait_n": wait_n, "count_line": count_line,
+            "roster": names, "mine": mine.get(r["id"]), "created_by": r["created_by"], "host_id": r["host_id"],
+            "can_edit": lineupfeed.can_edit_event(me(), r, organizer) if me() else False,
+            "can_review": organizer, "chip_label": event_chip_label(start, end),
+            "submitted": (r["submitted_at"] or "")[:10]})
+    return out
 def lineup_groups(rows):
     groups = []
     for e in rows:
@@ -2013,154 +2131,295 @@ def lineup_groups(rows):
         if not groups or groups[-1]["label"] != label: groups.append({"label": label, "events": []})
         groups[-1]["events"].append(e)
     return groups
-def lineup_pack(d, rows):
-    mid = me()["id"]
-    ids = [r["id"] for r in rows]
-    counts, mine, roster = {}, {}, {}
-    if ids:
-        marks = ",".join("?" * len(ids))
-        for eid, n in d.execute("SELECT event_id, COUNT(*) FROM lineup_rsvps WHERE going=1 AND event_id IN (%s) GROUP BY event_id" % marks, ids):
-            counts[eid] = n
-        for eid, going in d.execute("SELECT event_id, going FROM lineup_rsvps WHERE member_id=? AND event_id IN (%s)" % marks, (mid, *ids)):
-            mine[eid] = going
-        for eid, first, last, preferred, mid_row in d.execute("""SELECT r.event_id, m.first, m.last, m.preferred_first, m.id
-            FROM lineup_rsvps r JOIN members m ON m.id=r.member_id
-            WHERE r.going=1 AND r.event_id IN (%s)""" % marks, ids):
-            roster.setdefault(eid, []).append({"id": mid_row, "first": first, "last": last, "preferred_first": preferred})
-    out = []
-    for r in rows:
-        end = r["end_date"] or r["date"]
-        city, venue = r["city"] or "", r["venue"] or ""
-        hosting = r["hosting"] or "Away"
-        kind = r["kind"] or "Tournament"
-        stage = r["stage"] or ("interest" if kind in LINEUP_INTEREST else "attending")
-        if stage == "attending" and kind in LINEUP_INTEREST: stage = "going"
-        if kind not in LINEUP_INTEREST: stage = "attending"
-        yes, no, unit = lineup_rsvp_words(stage)
-        names = [("%s %s" % (display_first(p), p["last"] or "")).strip() for p in practice_people(roster.get(r["id"], []))]
-        out.append({"id": r["id"], "kind": kind, "hosting": hosting, "stage": stage,
-            "yes_label": yes, "no_label": no, "count_word": unit,
-            "roster": names if stage != "interest" or me()["is_admin"] else [],
-            "title": r["title"], "date": r["date"], "end_date": end,
-            "city": city, "venue": venue, "where": lineup_where(city, venue), "map_href": lineup_map_href(city, venue),
-            "when": lineup_range(r["date"], end), "description": r["description"] or "", "link": r["link"] or "",
-            "going_n": counts.get(r["id"], 0), "mine": mine.get(r["id"])})
-    return out
-def lineup_form_values(row=None, form=None):
-    blank = {"hosting": "Away", "kind": "Tournament", "title": "", "date": "", "end_date": "", "city": "", "venue": "", "description": "", "link": "", "stage": "interest"}
-    if form is not None:
-        return {"hosting": form.get("hosting") or "Away", "kind": form.get("kind") or "Tournament", "title": form.get("title") or "", "date": form.get("date") or "",
-            "end_date": form.get("end_date") or "", "city": form.get("city") or "", "venue": form.get("venue") or "",
-            "description": form.get("description") or "", "link": form.get("link") or "", "stage": form.get("stage") or "interest"}
-    if row:
-        stage = row["stage"] or "interest"
-        if (row["kind"] or "") not in LINEUP_INTEREST: stage = "attending"
-        elif stage == "attending": stage = "going"
-        return {"hosting": row["hosting"] or "Away", "kind": row["kind"] or "Tournament", "title": row["title"], "date": row["date"], "end_date": row["end_date"] or row["date"],
-            "city": row["city"] or "", "venue": row["venue"] or "", "description": row["description"] or "", "link": row["link"] or "",
-            "stage": stage}
-    return blank
-def save_lineup_event(d, eid=None):
-    hosting = (request.form.get("hosting") or "").strip()
-    kind = (request.form.get("kind") or "").strip()
-    if hosting not in LINEUP_HOSTING or kind not in LINEUP_KINDS:
-        raise ValueError("Choose Tournament, Clinic, Social, or Volunteering. Practices and local games stay off the Lineup.")
-    title = " ".join((request.form.get("title") or "").split())[:120]
-    if not title: raise ValueError("Add a title.")
-    city = " ".join((request.form.get("city") or "").split())[:80]
-    if not city: raise ValueError("Add a city.")
-    venue = " ".join((request.form.get("venue") or "").split())[:300]
-    if not venue: raise ValueError("Add a venue.")
-    day = parse_date(request.form.get("date"))
-    if not day: raise ValueError("Add a start date.")
-    end = parse_date(request.form.get("end_date"))
-    if not end: raise ValueError("Add an end date.")
-    if end < day: raise ValueError("End date must be on or after the start date.")
-    description = (request.form.get("description") or "").strip()[:2000]
-    link = (request.form.get("link") or "").strip()[:500]
-    if link and not link.lower().startswith(("http://", "https://")): raise ValueError("Link must start with http:// or https://.")
-    prev = d.execute("SELECT stage FROM lineup_events WHERE id=?", (eid,)).fetchone() if eid else None
-    stage = lineup_stage_value(kind, request.form, prev["stage"] if prev else None)
-    became_going = stage == "going" and kind in LINEUP_INTEREST and (not prev or prev["stage"] != "going")
-    vals = (hosting, kind, title, day.isoformat(), end.isoformat(), city, venue, description, link, stage)
-    if eid:
-        d.execute("UPDATE lineup_events SET hosting=?, kind=?, title=?, date=?, end_date=?, city=?, venue=?, description=?, link=?, stage=? WHERE id=?", (*vals, eid))
-        return eid, became_going
-    eid = d.execute("INSERT INTO lineup_events(hosting, kind, title, date, end_date, city, venue, description, link, stage) VALUES(?,?,?,?,?,?,?,?,?,?)", vals).lastrowid
-    return eid, became_going
-def notify_lineup_committed(d, event):
-    """Tell members who were interested that the tournament is on. Their Interested answer stays as I'm in."""
-    if not event: return
-    title = event["title"]
-    body = "We're going to %s." % title
-    for m in d.execute("""SELECT m.* FROM lineup_rsvps r JOIN members m ON m.id=r.member_id
-        WHERE r.event_id=? AND r.going=1 AND COALESCE(m.role,'')!='system'""", (event["id"],)):
+def _lineup_back(raw):
+    raw = (raw or "").strip()
+    if raw in ("/lineup", "/home") or raw.startswith("/lineup/"): return raw
+    return "/lineup"
+def notify_lineup_people(d, members, title, body, url="/lineup"):
+    for m in members:
+        if not m or (m["role"] or "") == "system": continue
         d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (m["id"], body))
-        try: push_member(d, m, "lineup", "We're going", body, "/lineup")
+        try: push_member(d, m, "lineup", title, body, url)
         except Exception as e: app.logger.warning("lineup notify failed: %s", e)
+def lineup_rsvp_members(d, eid, states):
+    marks = ",".join("?" * len(states))
+    return d.execute("""SELECT m.* FROM lineup_rsvps r JOIN members m ON m.id=r.member_id
+        WHERE r.event_id=? AND r.state IN (%s) AND COALESCE(m.role,'')!='system'""" % marks, (eid, *states)).fetchall()
+def notify_lineup_review(d, event, kind):
+    creator = d.execute("SELECT * FROM members WHERE id=?", (event["created_by"],)).fetchone() if event["created_by"] else None
+    title = event["title"]
+    if kind == "approved":
+        body = "Your event %s is on the Lineup." % title
+    elif kind == "changes":
+        body = "Changes requested for %s. %s" % (title, event["review_note"] or "")
+    elif kind == "declined":
+        body = "%s was declined. %s" % (title, event["review_note"] or "")
+    elif kind == "submitted":
+        who = display_first(me()) if me() else "A member"
+        body = "%s suggested %s." % (who, title)
+        admins = d.execute("SELECT * FROM members WHERE is_admin=1 AND COALESCE(role,'')!='system'").fetchall()
+        notify_lineup_people(d, admins, "Lineup suggestion", body.strip(), "/admin/approvals")
+        return
+    elif kind == "official":
+        body = "%s is an official Grunions event. Your interest is saved." % title
+        notify_lineup_people(d, lineup_rsvp_members(d, event["id"], ("interested",)), "We're official", body, "/lineup/%d" % event["id"])
+        return
+    elif kind == "changed":
+        body = "%s has a new date or location." % title
+        notify_lineup_people(d, lineup_rsvp_members(d, event["id"], ("going", "interested", "waitlist")), "Event updated", body, "/lineup/%d" % event["id"])
+        if creator and (not me() or creator["id"] != me()["id"]):
+            notify_lineup_people(d, [creator], "Event updated", body, "/lineup/%d" % event["id"])
+        return
+    elif kind == "canceled":
+        body = "%s was canceled." % title
+        people = list(lineup_rsvp_members(d, event["id"], ("going", "interested", "waitlist")))
+        if creator and (not me() or creator["id"] != me()["id"]): people.append(creator)
+        notify_lineup_people(d, people, "Event canceled", body, "/lineup/%d" % event["id"])
+        return
+    else:
+        return
+    if creator: notify_lineup_people(d, [creator], "Lineup", body.strip(), "/lineup/%d" % event["id"])
+def apply_lineup_side_effects(d, info, before):
+    row = lineup_event_row(d, info["id"])
+    if info.get("submitted"): notify_lineup_review(d, row, "submitted")
+    if info.get("promoted"): notify_lineup_review(d, row, "official")
+    if info.get("date_changed"): notify_lineup_review(d, row, "changed")
+    if info.get("canceled"): notify_lineup_review(d, row, "canceled")
+    return row
+def set_lineup_rsvp(d, row, action):
+    if (row["status"] or "") != "published": abort(400)
+    eid, mid = row["id"], me()["id"]
+    if action == "clear":
+        prev = d.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=?", (eid, mid)).fetchone()
+        d.execute("DELETE FROM lineup_rsvps WHERE event_id=? AND member_id=?", (eid, mid))
+        if prev and prev["state"] == "going": _promote_waitlist(d, row)
+        return
+    if action not in ("interested", "going", "notgoing"): abort(400)
+    state = action
+    if action == "going":
+        deadline = (row["reg_deadline"] or "")[:10]
+        if deadline and deadline < today_pt().isoformat():
+            raise ValueError("Registration is closed.")
+        cap = row["capacity"]
+        already = d.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=?", (eid, mid)).fetchone()
+        going_now = d.execute("SELECT COUNT(*) FROM lineup_rsvps WHERE event_id=? AND state='going' AND member_id!=?", (eid, mid)).fetchone()[0]
+        if cap and going_now >= cap and not (already and already["state"] == "going"):
+            state = "waitlist"
+    going_col = 1 if state == "going" else 0
+    prev = d.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=?", (eid, mid)).fetchone()
+    d.execute("""INSERT INTO lineup_rsvps(event_id, member_id, going, state) VALUES(?,?,?,?)
+        ON CONFLICT(event_id, member_id) DO UPDATE SET going=excluded.going, state=excluded.state, at=CURRENT_TIMESTAMP""",
+        (eid, mid, going_col, state))
+    if prev and prev["state"] == "going" and state != "going": _promote_waitlist(d, row)
+def _promote_waitlist(d, row):
+    cap = row["capacity"]
+    if not cap: return
+    going_now = d.execute("SELECT COUNT(*) FROM lineup_rsvps WHERE event_id=? AND state='going'", (row["id"],)).fetchone()[0]
+    if going_now >= cap: return
+    nxt = d.execute("""SELECT member_id FROM lineup_rsvps WHERE event_id=? AND state='waitlist' ORDER BY at, member_id LIMIT 1""", (row["id"],)).fetchone()
+    if not nxt: return
+    d.execute("UPDATE lineup_rsvps SET state='going', going=1 WHERE event_id=? AND member_id=?", (row["id"], nxt["member_id"]))
+    member = d.execute("SELECT * FROM members WHERE id=?", (nxt["member_id"],)).fetchone()
+    notify_lineup_people(d, [member], "You're in", "A spot opened for %s. You're going." % row["title"], "/lineup/%d" % row["id"])
+def lineup_template_ctx(d, mode, values, event_id=None):
+    cats = [dict(id=c["id"], slug=c["slug"], name=c["name"], chip=c["chip"], member_ok=c["member_ok"], intent_ok=c["intent_ok"], hosting_ok=c["hosting_ok"]) for c in lineupfeed.categories(d, active_only=True)]
+    if not can_host_practice():
+        cats = [c for c in cats if c["member_ok"]]
+    return dict(categories=cats, subtypes=lineupfeed.subtypes_for(d), values=values, mode=mode, event_id=event_id,
+        organizer=can_host_practice(), save_label=("Submit" if mode == "suggest" else "Save"))
+def _save_lineup(d, existing=None):
+    form = _form_last()
+    banner = None
+    f = request.files.get("banner") if request.files else None
+    if f and f.filename: banner = save_image(f)
+    try:
+        info = lineupfeed.save_event(d, form, me(), can_host_practice(), existing=existing, banner=banner,
+            banner_clear=form.get("banner_clear") == "1", parse_date=parse_date)
+    except PermissionError:
+        abort(403)
+    apply_lineup_side_effects(d, info, existing)
     d.commit()
+    return info
 @app.route("/lineup", methods=["GET", "POST"])
 @login_required
 def lineup():
     d = db()
     if request.method == "POST":
-        a = request.form.get("action")
+        action = (request.form.get("action") or "").strip()
         eid = request.form.get("event_id", type=int)
-        if a == "commit":
+        row = lineup_event_row(d, eid) if eid else None
+        if not row: abort(404)
+        back = _lineup_back(request.form.get("back"))
+        if action == "official":
             if not can_host_practice(): abort(403)
-            if not eid: abort(400)
-            row = d.execute("SELECT * FROM lineup_events WHERE id=?", (eid,)).fetchone()
-            if not row: abort(404)
-            if row["kind"] not in LINEUP_INTEREST: abort(400)
-            if (row["stage"] or "interest") != "going":
-                d.execute("UPDATE lineup_events SET stage='going' WHERE id=?", (eid,))
-                d.commit(); notify_lineup_committed(d, row)
-            return redirect("/lineup")
-        if a not in ("going", "notgoing", "clear") or not eid: abort(400)
-        if not d.execute("SELECT 1 FROM lineup_events WHERE id=?", (eid,)).fetchone(): abort(404)
-        if a == "clear": d.execute("DELETE FROM lineup_rsvps WHERE event_id=? AND member_id=?", (eid, me()["id"]))
-        else: d.execute("""INSERT INTO lineup_rsvps(event_id, member_id, going) VALUES(?,?,?)
-            ON CONFLICT(event_id, member_id) DO UPDATE SET going=excluded.going, at=CURRENT_TIMESTAMP""",
-            (eid, me()["id"], 1 if a == "going" else 0))
+            if (row["team_intent"] or "") == "considering":
+                d.execute("UPDATE lineup_events SET team_intent='official', stage='going' WHERE id=?", (eid,))
+                d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "official"); d.commit()
+            return redirect(back if back.startswith("/lineup/") else "/lineup/%d" % eid)
+        try: set_lineup_rsvp(d, row, action)
+        except ValueError as e:
+            flash(str(e)); return redirect(back)
         d.commit()
-        return redirect("/lineup")
-    today = today_pt().isoformat()
-    packed = lineup_pack(d, d.execute("SELECT * FROM lineup_events").fetchall())
-    upcoming = sorted((e for e in packed if e["end_date"] >= today), key=lambda e: (e["date"], e["id"]))
-    past = sorted((e for e in packed if e["end_date"] < today), key=lambda e: (e["date"], e["id"]), reverse=True)
-    return page(T["lineup"], tab="lineup", upcoming=lineup_groups(upcoming), past=lineup_groups(past), past_n=len(past))
+        return redirect(back)
+    cat = (request.args.get("cat") or "").strip()
+    raw = lineup_query(d)
+    now = wall_pt()
+    rows = lineup_pack(d, raw)
+    by_id = {r["id"]: r for r in raw}
+    def still_on(e):
+        return event_window(by_id[e["id"]])[1] >= now
+    public = [e for e in rows if e["status"] == "published" and (not cat or e["slug"] == cat)]
+    upcoming = sorted((e for e in public if still_on(e)), key=lambda e: (e["date"], e["id"]))
+    past = sorted((e for e in public if not still_on(e)), key=lambda e: (e["date"], e["id"]), reverse=True)
+    featured = [e for e in upcoming if e["featured"]]
+    rest = [e for e in upcoming if not e["featured"]]
+    mid = me()["id"]
+    mine = [e for e in rows if e["created_by"] == mid or e["host_id"] == mid]
+    interested = [e for e in rows if e["mine"] == "interested" and e["status"] == "published"]
+    chips = lineupfeed.categories(d, active_only=True)
+    return page(T["lineup"], tab="lineup", featured=featured, upcoming=lineup_groups(rest), past=lineup_groups(past), past_n=len(past),
+        mine=mine, interested=interested, cat=cat, filter_chips=chips, empty_public=not upcoming and not past)
 @app.route("/lineup/new", methods=["GET", "POST"])
-@lineup_organizer_required
+@login_required
 def lineup_new():
     d = db()
-    values = lineup_form_values()
+    mode = (request.args.get("mode") or request.form.get("mode") or ("create" if can_host_practice() else "suggest")).strip()
+    if request.method == "GET" and mode in ("create", "propose", "draft") and not can_host_practice(): abort(403)
+    if not can_host_practice() and mode != "suggest": abort(403)
+    values = lineupfeed.form_values(mode=mode)
     if request.method == "POST":
         try:
-            eid, going = save_lineup_event(d); d.commit()
-            if going: notify_lineup_committed(d, d.execute("SELECT * FROM lineup_events WHERE id=?", (eid,)).fetchone())
-            flash("Saved", "toast"); return redirect("/lineup")
+            info = _save_lineup(d)
+            flash("Submitted" if info["status"] == "pending" else "Saved", "toast")
+            return redirect("/lineup/%d" % info["id"] if info["status"] == "published" else "/lineup")
         except ValueError as e:
-            flash(str(e)); values = lineup_form_values(form=request.form)
-    return page(T["lineup_edit"], tab="lineup_edit", action="/lineup/new", values=values, event_id=None)
+            flash(str(e)); values = lineupfeed.form_values(_form_last(), mode=mode)
+    ctx = lineup_template_ctx(d, mode, values)
+    return page(T["lineup_edit"], tab="lineup_edit", action="/lineup/new", **ctx)
+@app.route("/lineup/<int:eid>", methods=["GET", "POST"])
+@login_required
+def lineup_detail(eid):
+    d = db()
+    row = lineup_event_row(d, eid)
+    if not row or not lineup_seen(row, me()): abort(404)
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip()
+        if action == "official":
+            if not can_host_practice(): abort(403)
+            if (row["team_intent"] or "") == "considering":
+                d.execute("UPDATE lineup_events SET team_intent='official', stage='going' WHERE id=?", (eid,))
+                d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "official"); d.commit()
+            return redirect("/lineup/%d" % eid)
+        try: set_lineup_rsvp(d, row, action)
+        except ValueError as e:
+            flash(str(e)); return redirect("/lineup/%d" % eid)
+        d.commit(); return redirect("/lineup/%d" % eid)
+    packed = lineup_pack(d, [row])[0]
+    return page(T["lineup_event"], tab="lineup_event", e=packed)
 @app.route("/lineup/<int:eid>/edit", methods=["GET", "POST"])
-@lineup_organizer_required
+@login_required
 def lineup_edit(eid):
     d = db()
-    row = d.execute("SELECT * FROM lineup_events WHERE id=?", (eid,)).fetchone()
+    row = lineup_event_row(d, eid)
     if not row: abort(404)
+    if not lineupfeed.can_edit_event(me(), row, can_host_practice()): abort(403)
     if request.method == "POST" and request.form.get("action") == "delete":
+        if not can_host_practice() and (row["status"] or "") not in ("draft", "declined", "changes_requested"): abort(403)
         d.execute("DELETE FROM lineup_rsvps WHERE event_id=?", (eid,))
         d.execute("DELETE FROM lineup_events WHERE id=?", (eid,))
         d.commit(); flash("Deleted", "toast"); return redirect("/lineup")
-    values = lineup_form_values(row)
+    values = lineupfeed.form_values(row=row, cat_slug=row["cat_slug"] or "", mode="edit")
     if request.method == "POST":
         try:
-            _, going = save_lineup_event(d, eid); d.commit()
-            if going: notify_lineup_committed(d, d.execute("SELECT * FROM lineup_events WHERE id=?", (eid,)).fetchone())
-            flash("Saved", "toast"); return redirect("/lineup")
+            info = _save_lineup(d, row)
+            flash("Submitted" if info["status"] == "pending" else "Saved", "toast")
+            return redirect("/lineup/%d" % eid if info["status"] == "published" else "/lineup")
         except ValueError as e:
-            flash(str(e)); values = lineup_form_values(form=request.form)
-    return page(T["lineup_edit"], tab="lineup_edit", action="/lineup/%d/edit" % eid, values=values, event_id=eid)
+            flash(str(e)); values = lineupfeed.form_values(_form_last(), mode="edit")
+    ctx = lineup_template_ctx(d, "edit", values, event_id=eid)
+    ctx["show_cancel"] = can_host_practice() and (row["status"] or "") == "published"
+    ctx["show_delete"] = can_host_practice() or (row["created_by"] == me()["id"] and (row["status"] or "") in ("draft", "declined", "changes_requested"))
+    return page(T["lineup_edit"], tab="lineup_edit", action="/lineup/%d/edit" % eid, **ctx)
+@app.route("/lineup-image/<int:eid>")
+@login_required
+def lineup_image(eid):
+    row = lineup_event_row(db(), eid)
+    if not row or not lineup_seen(row, me()): abort(404)
+    fn = _stored_file(row["banner"] or "")
+    if not fn: abort(404)
+    resp = send_from_directory(UPLOADS, fn, max_age=86400)
+    resp.headers["Cache-Control"] = "private, max-age=86400"
+    return resp
+@app.route("/admin/approvals", methods=["GET", "POST"])
+@login_required
+def approvals():
+    if not can_host_practice(): abort(403)
+    d = db()
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip()
+        if action == "category_add":
+            name = " ".join((request.form.get("name") or "").split())[:80]
+            chip = " ".join((request.form.get("chip") or "").split())[:40]
+            if not name or not chip: flash("Add a name and a short filter label."); return redirect("/admin/approvals")
+            slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:40] or "category"
+            base, n = slug, 2
+            while d.execute("SELECT 1 FROM lineup_categories WHERE slug=?", (slug,)).fetchone():
+                slug = "%s-%d" % (base, n); n += 1
+            sort = (d.execute("SELECT COALESCE(MAX(sort),0) FROM lineup_categories").fetchone()[0] or 0) + 1
+            d.execute("""INSERT INTO lineup_categories(slug, name, chip, member_ok, intent_ok, hosting_ok, sort, active)
+                VALUES(?,?,?,?,?,?,?,1)""", (slug, name, chip, 1 if request.form.get("member_ok") else 0,
+                1 if request.form.get("intent_ok") else 0, 1 if request.form.get("hosting_ok") else 0, sort))
+            d.commit(); flash("Category added", "toast"); return redirect("/admin/approvals")
+        if action == "category_toggle":
+            cid = request.form.get("category_id", type=int)
+            if cid: d.execute("UPDATE lineup_categories SET active=CASE WHEN active=1 THEN 0 ELSE 1 END WHERE id=?", (cid,)); d.commit()
+            return redirect("/admin/approvals")
+        eid = request.form.get("event_id", type=int)
+        row = lineup_event_row(d, eid) if eid else None
+        if not row: abort(404)
+        if action == "approve":
+            d.execute("UPDATE lineup_events SET status='published', official=0, review_note='' WHERE id=?", (eid,))
+            d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "approved"); d.commit()
+            flash("Published", "toast")
+        elif action == "changes":
+            note = (request.form.get("note") or "").strip()[:500]
+            if not note: flash("Add a note for the host."); return redirect("/admin/approvals")
+            d.execute("UPDATE lineup_events SET status='changes_requested', review_note=? WHERE id=?", (note, eid))
+            d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "changes"); d.commit()
+            flash("Sent back", "toast")
+        elif action == "decline":
+            note = (request.form.get("note") or "").strip()[:500]
+            if not note: flash("Add a reason."); return redirect("/admin/approvals")
+            d.execute("UPDATE lineup_events SET status='declined', review_note=? WHERE id=?", (note, eid))
+            d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "declined"); d.commit()
+            flash("Declined", "toast")
+        else: abort(400)
+        return redirect("/admin/approvals")
+    queue = lineup_pack(d, [r for r in lineup_query(d) if (r["status"] or "") in ("pending", "changes_requested")])
+    queue.sort(key=lambda e: (0 if e["status"] == "pending" else 1, e["submitted"], e["id"]))
+    return page(T["approvals"], tab="admin", queue=queue, categories=lineupfeed.categories(d))
+def next_commitment(d, mid):
+    """Earliest committed thing: an in-progress item beats a later one. Interested and Considering stay off Home."""
+    now = wall_pt()
+    cands = []
+    for p in d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where(), upcoming_bounds()):
+        day = dt.date.fromisoformat(p["date"])
+        sh, sm = [int(x) for x in (p["start"] or "19:00").split(":")[:2]]
+        eh, em = [int(x) for x in (p["end"] or "20:30").split(":")[:2]]
+        start = dt.datetime.combine(day, dt.time(sh, sm))
+        end = dt.datetime.combine(day, dt.time(eh, em))
+        cands.append((0 if start <= now <= end else 1, start, 0, "practice", p))
+    for e in d.execute("""SELECT e.*, c.intent_ok, r.state FROM lineup_events e
+        JOIN lineup_categories c ON c.id=e.category_id
+        JOIN lineup_rsvps r ON r.event_id=e.id AND r.member_id=? AND r.state='going'
+        WHERE e.status='published'""", (mid,)):
+        if e["intent_ok"] and (e["team_intent"] or "") != "official": continue
+        start, end = event_window(e)
+        if end < now: continue
+        cands.append((0 if start <= now <= end else 1, start, 1, "event", e))
+    if not cands: return None
+    cands.sort(key=lambda c: (c[0], c[1], c[2]))
+    return cands[0][3], cands[0][4]
 @app.route("/api/unread")
 @login_required
 def api_unread():
@@ -3490,7 +3749,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-48 */
+SW_JS = """/* grunions-sw-49 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
