@@ -34,7 +34,7 @@ DIVISION_NAME = {row[0]: row[1] for row in DIVISIONS}
 
 FORMATS = (
     ("scramble", "Scramble", "Players are placed on teams at the event."),
-    ("per_team", "Per Team", "Clubs enter as a team."),
+    ("per_team", "per team", "Clubs enter as a team."),
     ("both", "Both", "Teams and individual players can enter."),
     ("tba", "TBA", "The registration format is not set yet."),
 )

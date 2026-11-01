@@ -203,7 +203,9 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
     """Insert or update one event. Does not commit. Members cannot publish an official event."""
     mode = (form.get("mode") or ("create" if organizer else "suggest")).strip()
     action = (form.get("action") or "save").strip()
-    if not existing and not organizer and mode in ("create", "propose", "draft"):
+    if not existing and not organizer and mode == "propose":
+        mode = "suggest"
+    if not existing and not organizer and mode in ("create", "draft"):
         raise PermissionError()
     if not existing and organizer and mode not in ("create", "propose", "draft", "suggest"):
         mode = "create"
@@ -261,9 +263,15 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
         end_time = _time(form.get("end_time"), "the end")
         if end_time and end == day and end_time < start_time:
             raise ValueError("End time must be at or after the start time.")
-    location = _words(form.get("location") or form.get("venue"), 300)
-    if not location: raise ValueError("Add a location.")
-    city = _words(form.get("city"), 80)
+    city = _words(form.get("city"), 120)
+    venue = _words(form.get("venue"), 300)
+    legacy = _words(form.get("location"), 300)
+    if not venue and legacy: venue = legacy
+    if not city and venue:
+        city, venue = venue, ""
+    if city and venue and city.casefold() == venue.casefold(): venue = ""
+    if not city: raise ValueError("Add a city.")
+    location = venue
     description = (form.get("description") or "").strip()[:2000]
     if not description: raise ValueError("Add a short description.")
     link = (form.get("link") or "").strip()[:500]
@@ -367,6 +375,8 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
             date_precision=?, date_part=?, host_org=?, event_type=? WHERE id=?""",
             (*vals, existing["id"]))
         eid = existing["id"]
+        if (existing["venue"] or "") != location or (existing["city"] or "") != city:
+            d.execute("UPDATE lineup_events SET lat=NULL, lng=NULL WHERE id=?", (eid,))
     else:
         eid = d.execute("""INSERT INTO lineup_events(category_id, subtype, title, date, end_date, start_time, end_time,
             city, venue, description, link, hosting, kind, stage, official, team_intent, status, host_id, created_by,

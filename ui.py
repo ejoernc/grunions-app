@@ -22,7 +22,7 @@ html,body{background:var(--color-bg);color:var(--color-text)}html{color-scheme:d
 [hidden]{display:none!important}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--color-bg);color:var(--t1);font:var(--type-body-1-size)/var(--type-body-1-leading) var(--font-sans);overflow-wrap:break-word}
-a{color:var(--t1)}main{max-width:640px;margin:0 auto;padding:20px 20px calc(var(--nav-clear) + var(--space-4) + env(safe-area-inset-bottom))}
+a{color:var(--t1)}main{max-width:640px;margin:0 auto;padding:20px 20px calc(var(--nav-clear) + 16px + env(safe-area-inset-bottom))}
 header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;max-width:640px;margin:0 auto}
 .brand{font-family:var(--font-display);font-weight:700;letter-spacing:-.02em;color:var(--t1);text-decoration:none}header a.sub{color:var(--t3);font-size:14px;text-decoration:none}
 h1,h2,h3,.nxtitle,.datetile .dn{font-family:var(--font-display)}h1{font-size:var(--type-t1-size);line-height:var(--type-t1-line);font-weight:var(--type-t1-weight);letter-spacing:var(--type-title-1-tracking);margin:4px 0 20px}h2{font-size:var(--type-t3-size);line-height:var(--type-t3-line);font-weight:var(--type-t3-weight);margin:32px 0 12px}
@@ -41,6 +41,9 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:var(--ty
 .nxchev{color:var(--t3);font-size:22px;line-height:1;flex:none}
 .nxnote{margin-top:10px;color:var(--t3);font-size:13px;line-height:1.4}
 .pills{display:flex;gap:var(--space-2);margin-top:var(--space-4)}
+.rsvprow{flex-wrap:nowrap}
+.rsvprow .btn{white-space:nowrap;padding:0 8px;min-width:0}
+.rsvpcheck{width:16px;height:16px;flex:none;display:block}
 .pills .btn{flex:1;min-width:0}
 .pills button.on{background:var(--accent);color:var(--color-on-primary)}
 .nxdiv{height:1px;background:var(--line);margin:14px 0}
@@ -53,6 +56,9 @@ header.homehead .headmain{flex:1;min-width:0;display:flex;align-items:center;pad
 header.homehead h1{margin:0;font-size:var(--type-t2-size);line-height:var(--type-t2-line);font-weight:var(--type-t2-weight);letter-spacing:-.02em}
 header.homehead .headtabs{flex:1;min-width:0;margin:0;padding:0}
 header.homehead a.avatar{position:static;flex:none;z-index:1}
+header.homehead .headplus{position:relative;flex:none;width:44px;height:44px;margin-right:calc(8px - var(--space-3));border-radius:50%;background:var(--color-raised);color:var(--color-text);display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+header.homehead .headplus svg{width:24px;height:24px;display:block}
+header.homehead .headplus::after{content:"";position:absolute;inset:-2px}
 a.avatar,button.avatar,span.avatar{width:44px;height:44px;min-width:44px;max-width:44px;min-height:44px;max-height:44px;border-radius:50%;padding:0;background:var(--surface2);color:var(--t1);font-size:14px;font-weight:650;letter-spacing:.2px;overflow:hidden;flex:0 0 44px;border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center}
 a.avatar img,button.avatar img,span.avatar img{width:44px;height:44px;max-width:44px;max-height:44px;object-fit:cover;border-radius:50%;display:block;flex-shrink:0}
 .profhead{display:flex;align-items:center;gap:14px;margin:0 0 16px}.profhead .avatar{width:64px;height:64px;font-size:20px}
@@ -101,7 +107,7 @@ body.practicepage main{padding-top:0}
 .homemap .leaflet-marker-icon.mpin.social{background:var(--color-bg);border:3px solid var(--color-selected);box-shadow:none}
 body.homefull header.homehead{position:sticky;top:0;z-index:8;background:transparent}
 body.homefull header.homehead.solid{background:var(--color-bg)}
-body.homefull main{position:relative;z-index:1;padding:0 16px calc(var(--nav-clear) + env(safe-area-inset-bottom))}
+body.homefull main{position:relative;z-index:1;padding:0 16px calc(var(--nav-clear) + 16px + env(safe-area-inset-bottom))}
 body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:0;height:auto;margin:0;z-index:0;border-radius:0;pointer-events:none}
 body.homefull .homedock{position:relative;left:auto;right:auto;bottom:auto;z-index:2;max-height:none;overflow:visible;pointer-events:auto;margin:0;padding:0 0 12px;min-height:calc(100dvh - var(--homehead, 76px) - var(--homealerts, 0px) - var(--nav-clear) - env(safe-area-inset-bottom) - var(--peek, 60px));display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
 body.homefull .schedlist{position:relative;z-index:2}
@@ -231,7 +237,7 @@ button:disabled,.btn:disabled{opacity:.45}
 @keyframes grunions-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.btn,.btn[aria-busy=true]::after{transition:none;animation:none}}
 .btn.compact,button.compact{padding:0 14px}.full{width:100%}.row{display:flex;gap:var(--space-2)}.row>*{flex:1}
-.chip,a.chip,button.chip{position:relative;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:var(--size-chip);min-height:var(--size-chip);padding:0 14px;border-radius:var(--radius-chip);border:1px solid var(--line);background:transparent;color:var(--t2);font-size:var(--type-b3-size);font-weight:var(--type-b3-weight);line-height:1;text-decoration:none;white-space:nowrap;flex:none;cursor:pointer}
+.chip,a.chip,button.chip{position:relative;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:var(--size-chip);min-height:var(--size-chip);padding:0 14px;border-radius:var(--radius-chip);border:1px solid var(--color-control);background:transparent;color:var(--color-text);font-size:var(--type-b3-size);font-weight:var(--type-b3-weight);line-height:1;text-decoration:none;white-space:nowrap;flex:none;cursor:pointer}
 .chip::after,a.chip::after,button.chip::after{content:"";position:absolute;left:0;right:0;top:-4px;bottom:-4px}
 .chip-active,a.chip-active,button.chip-active,.chip.on,a.chip.on,button.chip.on{background:var(--color-selected);color:var(--color-on-selected);border-color:var(--color-selected)}
 .chip-info,.coach-tag{display:inline-flex;align-items:center;gap:var(--space-2);height:28px;margin-left:var(--space-2);padding:0 var(--space-2);border-radius:var(--radius-chip);border:1px solid var(--line);background:var(--color-chip);color:var(--t1);font-size:var(--type-b4-size);font-weight:var(--type-b4-weight);line-height:1;white-space:nowrap;vertical-align:1px}
@@ -256,40 +262,62 @@ dialog.modal::backdrop{background:var(--color-backdrop)}
 dialog.modal .sheet{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px}
 .note{background:var(--surface);border-radius:var(--r);padding:14px 18px;margin:0 0 12px;color:var(--t2);font-size:15px}.note b{color:var(--t1)}
 .toast{position:fixed;left:50%;bottom:calc(var(--nav-clear) + 12px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;background:var(--surface);color:var(--t1);border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:15px;line-height:1.4;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.5);max-width:min(440px,calc(100% - 32px))}
+body:has(.composer) .toast{bottom:calc(var(--nav-clear) + env(safe-area-inset-bottom) + var(--composer-h, 69px) + 12px)}
 details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;min-height:56px;padding:0 18px;color:var(--t1)}
 details>summary::-webkit-details-marker{display:none}details>summary::after{content:"›";color:var(--t3);font-size:22px;transition:transform .15s}
 details[open]>summary::after{transform:rotate(90deg)}details.card{padding:0}details.card>.body{padding:0 18px 16px}
 details.checkin{margin:4px 0 20px}details.checkin>summary{min-height:0;padding:18px 0 8px;font-size:17px;font-weight:600;justify-content:flex-start;gap:8px}
 .kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}.kv:first-child{border-top:0}.kv span:first-child{color:var(--t2)}
-.admintabs,header.homehead .headtabs{display:flex;gap:var(--space-2);overflow-x:auto;min-width:0;margin:0;padding:0;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.admintabs::-webkit-scrollbar,header.homehead .headtabs::-webkit-scrollbar{display:none}
-.admintabs a.chip,header.homehead .headtabs a.chip{flex:none;height:44px;min-height:44px;padding:0 var(--space-2);border:0;border-radius:0;background:transparent;color:var(--color-text-secondary);box-shadow:inset 0 -2px 0 transparent}
-.admintabs a.chip.on,header.homehead .headtabs a.chip.on,header.homehead .headtabs a.chip.chip-active.on{background:transparent;color:var(--color-text);border-color:transparent;box-shadow:inset 0 -2px 0 var(--color-lime)}
-.admintabs a.chip::after,header.homehead .headtabs a.chip::after{display:none}
+.chiprow{display:flex;flex-wrap:nowrap;align-items:center;gap:var(--space-2);box-sizing:border-box;min-width:0;margin-inline:-20px;padding:6px 20px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none;scroll-padding-inline:20px;-webkit-overflow-scrolling:touch}
+.chiprow::-webkit-scrollbar{display:none}
+.chip:focus-visible,a.chip:focus-visible,button.chip:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
+.admintabs,header.homehead .headtabs{flex:1;min-width:0;margin:0}
+header.homehead .headtabs.chiprow{margin:0 0 0 -20px;width:calc(100% + 20px);padding:6px 12px 6px 20px}
+.admintabs a.chip,header.homehead .headtabs a.chip{flex:none;height:var(--size-chip);min-height:var(--size-chip);padding:0 14px;border-radius:var(--radius-chip);border:1px solid var(--color-control);background:transparent;color:var(--color-text);box-shadow:none}
+.admintabs a.chip.on,header.homehead .headtabs a.chip.on,header.homehead .headtabs a.chip.chip-active.on{background:var(--color-selected);color:var(--color-on-selected);border-color:var(--color-selected);box-shadow:none}
 .pagetitle{display:flex;justify-content:space-between;align-items:baseline;gap:12px}.pagetitle h1{margin-bottom:12px}
 .peoplebar{position:sticky;top:var(--headh,0px);z-index:6;background:var(--color-bg);margin:0 -20px 8px;padding:0 20px 10px}
 .peoplebar input{height:48px;margin:0}
-.fchips{display:flex;gap:8px;margin:10px 0 0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.fchips::-webkit-scrollbar{display:none}
-.fchips a.chip{flex:none}
+.fchips{margin-top:10px;margin-bottom:0}
 .expage h2.egroup{position:sticky;top:var(--headh,0px);z-index:4;background:var(--color-bg);margin:18px 0 8px;padding:8px 0}
 .daybadge{height:28px;padding:0 10px;margin:0;flex:none;font-weight:700}
 .people h2{position:sticky;top:calc(var(--headh,0px) + var(--peoplepin,0px));z-index:4;background:var(--color-bg);padding:8px 0;margin-top:12px}
 .lgroup{margin:0 0 14px}
 .lgroup .list{margin:0}
 h3.alpha{margin:0;padding:8px 0 6px;font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--t3);position:sticky;top:calc(var(--headh,0px) + var(--peoplepin,0px));z-index:4;background:var(--color-bg)}
-.psub{display:block;margin-top:1px;color:var(--t2);font-size:14px;line-height:1.35;min-width:0}
+.psub{display:block;margin-top:2px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-text-secondary);font-size:var(--type-b2-size);line-height:var(--type-b2-line);font-weight:var(--type-b2-weight)}
+.psub .stword{color:var(--color-text)}
+.psub.st-ok::before,.psub.st-warn::before,.psub.st-bad::before,.psub.st-unknown::before{content:"";display:inline-block;width:16px;height:16px;margin-right:8px;vertical-align:-3px;-webkit-mask:var(--pico) center/contain no-repeat;mask:var(--pico) center/contain no-repeat}
+.psub.st-ok{--pico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath fill='%23000' d='M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E")}
+.psub.st-warn{--pico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath fill='%23000' d='M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z'/%3E%3C/svg%3E")}
+.psub.st-bad{--pico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath fill='%23000' d='M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm37.66,130.34a8,8,0,0,1-11.32,11.32L128,139.31l-26.34,26.35a8,8,0,0,1-11.32-11.32L116.69,128,90.34,101.66a8,8,0,0,1,11.32-11.32L128,116.69l26.34-26.35a8,8,0,0,1,11.32,11.32L139.31,128Z'/%3E%3C/svg%3E")}
+.psub.st-unknown{--pico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath fill='%23000' d='M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,168a12,12,0,1,1,12-12A12,12,0,0,1,128,192Zm8-48.72V144a8,8,0,0,1-16,0v-8a8,8,0,0,1,8-8c13.23,0,24-9,24-20s-10.77-20-24-20-24,9-24,20v4a8,8,0,0,1-16,0v-4c0-19.85,17.94-36,40-36s40,16.15,40,36C168,125.38,154.24,139.93,136,143.28Z'/%3E%3C/svg%3E")}
+.psub.st-ok::before{background:var(--color-status-cleared)}
+.psub.st-warn::before{background:var(--color-status-attention)}
+.psub.st-bad::before{background:var(--color-status-not-cleared)}
+.psub.st-unknown::before{background:var(--color-status-unknown)}
 .peoplebar .peoplesum{margin:12px 0 0;line-height:1.35}
-.seg{display:flex;gap:8px;margin:0 0 16px;overflow-x:auto;scrollbar-width:none}
+.seg{display:flex;gap:8px;margin:0}
 .seg::-webkit-scrollbar{display:none}
 nav.tabs{position:fixed;left:0;right:0;bottom:calc(var(--nav-offset-bottom) + env(safe-area-inset-bottom));z-index:9;box-sizing:border-box;
-width:max-content;max-width:calc(100vw - 16px);margin-inline:auto;padding:var(--nav-pad);background:var(--color-nav);
-border:1px solid var(--color-nav-border);border-radius:999px;box-shadow:var(--shadow-overlay);
+width:max-content;max-width:calc(100vw - 16px);margin-inline:auto;padding:var(--nav-pad);background:var(--nav-glass-bg);
+-webkit-backdrop-filter:var(--nav-glass-blur);backdrop-filter:var(--nav-glass-blur);
+border:1px solid var(--nav-glass-line);border-radius:999px;box-shadow:0 8px 28px rgba(0,0,0,.28);
 display:flex;justify-content:center;align-items:center;gap:var(--nav-gap);view-transition-name:grunions-nav}
 nav.tabs a{position:relative;flex:none;width:var(--nav-circle);height:var(--nav-circle);min-width:48px;min-height:48px;box-sizing:border-box;
-display:flex;align-items:center;justify-content:center;padding:0;margin:0;border-radius:50%;
-background:var(--color-nav-circle);color:var(--color-nav-icon);text-decoration:none;transition:background-color 180ms ease,color 180ms ease}
-nav.tabs a.on{background:var(--color-nav-circle-on);color:var(--color-nav-icon-on)}
+display:flex;align-items:center;justify-content:center;padding:0;margin:0;border-radius:50%;border:1px solid var(--nav-item-line);
+background:var(--nav-item-glass);color:var(--color-nav-icon);text-decoration:none;transition:background-color 180ms ease,color 180ms ease}
+nav.tabs a.on{background:var(--color-nav-circle-on);color:var(--color-nav-icon-on);border-color:transparent}
+@media (hover:hover){nav.tabs a:not(.on):hover{background:var(--nav-item-glass-hover)}}
+nav.tabs a:not(.on):active{background:var(--nav-item-glass-hover)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+nav.tabs{background:var(--color-nav);-webkit-backdrop-filter:none;backdrop-filter:none;border-color:var(--color-nav-border)}
+nav.tabs a:not(.on){background:var(--color-nav-circle);border-color:transparent}
+}
+@media (prefers-reduced-transparency:reduce){
+nav.tabs{background:var(--color-nav);-webkit-backdrop-filter:none;backdrop-filter:none;border-color:var(--color-nav-border)}
+nav.tabs a:not(.on){background:var(--color-nav-circle);border-color:transparent}
+}
 nav.tabs .ico-reg,nav.tabs .ico-fill{display:flex;align-items:center;justify-content:center}
 nav.tabs .ico-fill{display:none}
 nav.tabs a.on .ico-reg{display:none}
@@ -309,7 +337,8 @@ nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:bloc
 .m.mine .more{left:0;right:auto}
 @media (hover:hover) and (pointer:fine){.m:hover .more{display:inline-flex}}
 .m .editbox textarea{min-height:72px;height:auto;margin:0}
-.composer{position:fixed;left:0;right:0;bottom:calc(var(--nav-clear) + env(safe-area-inset-bottom));background:var(--bg);padding:10px 20px;border-top:1px solid var(--line);z-index:8}
+.composer{position:fixed;left:0;right:0;bottom:calc(var(--nav-clear) + env(safe-area-inset-bottom));background:var(--bg);padding:10px 20px;border-top:1px solid var(--line);z-index:10}
+.chatpad{height:calc(var(--composer-h, 69px) + 16px)}
 .composer form{max-width:600px;margin:auto;display:flex;gap:8px;align-items:flex-end}
 .composer textarea{margin:0;height:48px;min-height:48px;max-height:136px;resize:none;line-height:22px;padding:12px 14px;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
 .composer textarea::-webkit-scrollbar{display:none}.iconbtn{width:48px;padding:0;flex:none;color:var(--t2)}.iconbtn svg{width:24px;height:24px;display:block}
@@ -350,12 +379,14 @@ dialog.botsheet .sheet{background:var(--color-sheet);border:1px solid var(--colo
 .lightbox{position:fixed;inset:0;background:var(--color-lightbox);display:flex;align-items:center;justify-content:center;z-index:20}.lightbox img{max-width:96vw;max-height:92vh;border-radius:8px}
 .gobtn{background:none;height:auto;padding:4px 0;color:var(--t2);font-weight:500;font-size:14px}.gobtn::after{content:" ›";color:var(--t3)}
 .ci-name,a.ci-name{flex:1;min-width:0;height:auto;padding:0;background:none;display:flex;align-items:center;gap:12px;text-align:left;font-weight:400;color:inherit;text-decoration:none}
-.rowstatus{max-width:100%}
-.cirow .rowstatus{display:block;position:relative;padding-left:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cirow .rowstatus::before{position:absolute;left:0;top:50%;width:8px;height:8px;margin-top:-4px}
-.psub .rowstatus{display:inline-flex;vertical-align:baseline}
+.personrow .ci-name{align-items:center}
+.personrow>form,.personrow>.more{flex:none}
 span.avatar.ciav,span.avatar.ciav img{width:40px;height:40px;min-width:40px;max-width:40px;min-height:40px;max-height:40px;flex:0 0 40px;font-size:13px}
 .filt{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
+.filt.chiprow,.fchips.chiprow{flex-wrap:nowrap;margin-inline:-20px;padding:6px 20px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;touch-action:pan-x;scroll-padding-inline:20px}
+.lineupfilt.chiprow{margin-bottom:16px}
+.fchips.chiprow{margin-top:10px;margin-bottom:0}
+.profilehero .profswitch.chiprow{align-self:stretch;margin-top:16px;margin-bottom:8px;margin-inline:-20px}
 .filt button.chip:disabled{opacity:.4;color:var(--t3);cursor:default;pointer-events:none}
 .checkbar{position:sticky;top:var(--headh,0px);z-index:6;background:var(--color-bg);margin:0 -20px 8px;padding:8px 20px 10px;overflow-x:auto}
 .checkbar form.row{flex-wrap:nowrap;align-items:center;gap:var(--space-2);width:100%;min-width:0;max-width:100%}
@@ -372,7 +403,7 @@ span.evcount{color:var(--color-text-secondary)}
 .checkbar .calbtn span{overflow:visible;text-overflow:clip}
 .checkbar input[name=q]{flex:1 1 auto;width:auto;min-width:0;margin:0;height:48px;font-size:14px}
 .checkmeta{display:flex;flex-direction:column;gap:8px;margin:0 0 16px}
-.checkmeta .filt{margin:0;align-items:center}
+.checkmeta .filt.chiprow{margin:0 -20px;align-items:center;padding:6px 20px}
 .evstack{display:flex;flex-direction:column;gap:8px;margin:4px 0 12px}
 .evcard{padding:var(--space-4);margin:0}
 .evcard .evhit{display:block;color:inherit;text-decoration:none}
@@ -412,15 +443,19 @@ details.moredetails{margin:8px 0 12px}details.moredetails>summary{min-height:44p
 .calnav svg,.calmonth svg,.calbtn svg{display:block}.calnav svg,.calmonth svg{width:20px;height:20px}
 .calbtn{flex:1;min-width:0;height:48px;min-height:48px;margin:0;padding:0 10px;background:var(--surface2);border:1px solid var(--line);color:var(--t1);border-radius:12px;font:inherit;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
 .calbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.calpop{position:absolute;z-index:12;top:calc(100% + 6px);left:0;width:min(300px,calc(100vw - 40px));background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-control);padding:var(--space-3);box-shadow:var(--shadow-overlay);color:var(--t1)}
-.calhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
-.calhead .lbl{font-weight:600;color:var(--t1)}
-.calwd,.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
-.calwd{color:var(--t3);font-size:12px;margin-bottom:4px}
-.calday{display:flex;align-items:center;justify-content:center;height:36px;border-radius:var(--radius-compact);font-size:14px;font-weight:600;text-decoration:none;color:var(--t1)}
-a.calday:hover{background:var(--surface2)}
-a.calday.on{background:var(--accent);color:var(--color-on-primary)}
+.calhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 12px}
+.calhead .lbl{font-weight:650;color:var(--color-text);font-size:17px}
+.calwd,.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.calwd{color:var(--color-text-secondary);font-size:12px;font-weight:650;margin-bottom:6px}
+.calday{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:44px;border-radius:var(--radius-compact);font-size:15px;font-weight:650;text-decoration:none;color:var(--color-text);background:transparent}
+a.calday:hover{background:var(--color-raised)}
+a.calday.on,a.calday.on:hover{background:var(--color-lime);color:var(--color-forest)}
+.calday.today:not(.on){box-shadow:inset 0 0 0 1.5px var(--color-lime)}
+.caldot{width:5px;height:5px;border-radius:50%;background:var(--color-lime);display:block}
+a.calday.on .caldot{background:var(--color-forest)}
 span.calday{color:var(--t3);opacity:.4;font-weight:500}
+span.calday.today{opacity:1;color:var(--color-text)}
+.calback{display:flex;align-items:center;gap:6px;height:40px;margin:0 0 8px;padding:0;background:none;color:var(--color-text);font-weight:650}
 .panel{padding:4px 18px 18px;border-top:1px solid var(--line);background:var(--surface)}.panel h3{font-size:15px;font-weight:600;margin:18px 0 10px}
 .pstat{padding:14px 0 2px}.pstatline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pstat .dot{width:10px;height:10px}.pstitle{font-size:20px;font-weight:650;letter-spacing:-.2px;line-height:1.2}
@@ -493,7 +528,17 @@ dialog.memberedit .help a{color:var(--t1)}
 <span class="st st-{{ ns.tone }} rowstatus">{{ ns.text }}{% if ns.when %} · {{ ns.when }}{% endif %}</span>{% endmacro %}
 {% macro member_status(r) %}{{ roster_status(r) }}{% endmacro %}
 {% macro status_dot(s) %}{% set kind = {'verified':'ok','expired':'bad','pending':'warn'}.get(s, '') %}<span class="dot{% if kind %} {{kind}}{% endif %}" aria-hidden=true></span>{% endmacro %}
-{% macro checkin_status(r) %}{{ roster_status(r) }}{% endmacro %}
+{% macro checkin_status(r) %}{{ person_sub(r) }}{% endmacro %}
+{% macro person_sub(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}{% set ns = namespace(tone='ok', word='Cleared', rest='') %}
+{% if dl is not none and dl >= 0 and dl <= EXPIRING_DAYS %}{% if dl == 0 %}{% set ns.rest = ' · expires today' %}{% elif dl == 1 %}{% set ns.rest = ' · expires in 1 day' %}{% else %}{% set ns.rest = ' · expires in ' ~ dl ~ ' days' %}{% endif %}{% endif %}
+{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{% set ns.tone = 'warn' %}{% set ns.word = 'Trial' %}{% set ns.rest = ' · ' ~ trial_left_phrase(tw) %}
+{% elif tw and tw.expired and r.usawp_status != 'verified' %}{% set ns.tone = 'bad' %}{% set ns.word = 'Trial ended ' ~ tw.ends %}{% set ns.rest = '' %}
+{% elif not cl.ok %}{% set ns.tone = 'bad' %}{% set ns.word = 'Not cleared' %}
+{% elif ns.rest %}{% set ns.tone = 'warn' %}{% set ns.word = 'Expiring soon' %}{% endif %}
+{% set thru = '' %}{% if not (tw and tw.active and r.usawp_status != 'verified') and r.usawp_valid_until and (dl is none or dl < 0 or dl > EXPIRING_DAYS) %}{% set thru = ' · thru ' ~ fmt_long(r.usawp_valid_until) %}{% endif %}
+{% set n = r['visits'] if 'visits' in r.keys() else 0 %}
+<span class="psub ell st-{{ ns.tone }}"><span class=stword>{{ ns.word }}</span><span class=strest>{{ ns.rest }}{{ thru }} · {{ n }} practice{{ '' if n == 1 else 's' }}</span></span>{% endmacro %}
+{% macro person_link(r) %}<a class=ci-name href="/admin/member/{{ r.id }}">{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ person_sub(r) }}{{ caller() }}</span></a>{% endmacro %}
 {% macro detail_hiddens(r) %}{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}{% endmacro %}
 {% macro cred_side(iso) %}{% if iso %}<span class=cred><span class="dot {{ date_dot(iso) }}" aria-hidden=true></span>{{ fmt_long(iso) }}</span>{% else %}<span class=t3>Not on file</span>{% endif %}{% endmacro %}
 {% macro date_field(label, name, value) %}<label class="datefield{% if not value %} empty{% endif %}">{{ label }}<input type=date name={{ name }} value="{{ value or '' }}"><span class=dateph>Not on file · add date</span></label>{% endmacro %}
@@ -576,6 +621,21 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro event_hero(id, pins, banner_src, label) %}{% if banner_src %}<div class=evhero><img src="{{ banner_src }}" alt=""></div>{% else %}{{ mount_map(id, pins, 'card') }}{% endif %}{% endmacro %}
 {% macro whos_going(people) %}<div class=seclabel>Who's going</div><div class=list>{% for r in people %}<div class=li>{% if me().is_admin or is_staff() %}<a class=ci-name href="/admin/member/{{ r.id }}">{% else %}<span class=ci-name>{% endif %}{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span></span>{% if me().is_admin or is_staff() %}</a>{% else %}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>{% endmacro %}
 {% macro event_location(id, pins, name, sub, href) %}<div class=seclabel>Location</div><div class="list loccard">{{ mount_map(id, pins, 'still') }}<a class="li locrow" href="{{ href }}" target=_blank rel=noopener {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %}><span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ name }}</span>{% if sub and sub != name %}<span class="t3 sm">{{ sub }}</span>{% endif %}</span></a></div>{% endmacro %}
+{% macro lineup_card(e, back='/lineup') %}<div class="card tap tripcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
+<a class=cardlink href="/lineup/{{ e.id }}">
+<div class=nxcardhead><div class=nxtitle>{{ e.title }}</div></div>
+{% if e.tag %}<p class="eventtag">{{ e.tag }}</p>{% endif %}
+{% if e.host_org %}<div class="t3 sm hostorg">Hosted by {{ e.host_org }}</div>{% endif %}
+<div class=nxmain><div class=datetile>{% if e.tile.wd %}<span class=wd>{{ e.tile.wd }}</span>{% endif %}<span class=dn>{{ e.tile.dn }}</span><span class=mo>{{ e.tile.mo }}</span></div>
+<div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
+{% if e.city %}<div class=nxrow>{{ glyph_pin() }}<span>{{ e.city }}</span></div>{% endif %}
+<div class=nxrow>{{ glyph_people() }}<span>{{ e.count_line }}</span></div></div></div></a>
+{% if e.status != 'published' %}<div class="t3 sm">{{ e.status_label }}{% if e.review_note %} · {{ e.review_note }}{% endif %}</div>{% else %}
+<form method=post action=/lineup class="pills rsvprow">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><input type=hidden name=back value="{{ back }}">
+<button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">{% if e.mine == 'interested' %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}Interested</button>
+<button class="btn {{ 'btn-primary' if e.mine == 'going' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">{% if e.mine == 'going' %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}Going</button>
+<button class="btn {{ 'btn-primary' if e.mine == 'notgoing' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'notgoing' else 'notgoing' }}">{% if e.mine == 'notgoing' %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}Not going</button></form>{% endif %}
+</div>{% endmacro %}
 {% if tab == 'profile' and me() %}<header class=profilebar>
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
 <h1>Profile</h1>
@@ -584,7 +644,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a>{% endif %}{% if can_host_practice() %}<a href=/admin/approvals class="chip{{' chip-active on' if ep=='approvals'}}">Events</a>{% endif %}{% if me().is_admin %}<a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs chiprow" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs chiprow" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a>{% endif %}{% if can_host_practice() %}<a href=/admin/approvals class="chip{{' chip-active on' if ep=='approvals'}}">Events</a>{% endif %}{% if me().is_admin %}<a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div>{% if tab == 'lineup' %}<a class=headplus href="/lineup/new?mode=propose" aria-label="Propose an opportunity"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}<a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -637,7 +697,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=63');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=64');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1004,17 +1064,6 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <button class="btn {{ 'btn-primary' if x.mine == 1 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==1 else 'going' }}">I'm going{% if x.mine==1 %} ✓{% endif %}</button>
 <button class="btn {{ 'btn-primary' if x.mine == 0 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==0 else 'notgoing' }}">I'm not going{% if x.mine==0 %} ✓{% endif %}</button></form>
 {% endif %}</div>{% endfor %}
-{% if me().is_admin %}<details class=card><summary>Add a practice</summary><form method=post class=body>{{csrf_field()}}{{ sports_editor() }}<label>Date<input type=date name=date required></label>
-<div class=row><label>Start<input type=time name=start value=19:00></label><label>End<input type=time name=end value=20:30></label></div>
-<label>Location<input name=location required></label><label>Note<input name=note></label>
-<div class=repeatblock><label class=repeatline><input type=checkbox name=repeat value=1> Repeat</label>
-<div class=repeatopts><div class=checks role=group aria-label="Weekdays"><div class="t3 xs">Weekdays</div>
-<label style="margin:8px 0"><input type=checkbox name=weekday value=0> Mon</label><label style="margin:8px 0"><input type=checkbox name=weekday value=1> Tue</label><label style="margin:8px 0"><input type=checkbox name=weekday value=2> Wed</label><label style="margin:8px 0"><input type=checkbox name=weekday value=3> Thu</label><label style="margin:8px 0"><input type=checkbox name=weekday value=4> Fri</label><label style="margin:8px 0"><input type=checkbox name=weekday value=5> Sat</label><label style="margin:8px 0"><input type=checkbox name=weekday value=6> Sun</label></div>
-<label>Ends (optional)<input type=date name=end_date></label>
-<p class="t3 sm">Starts on the date above. Occurrences fall on the weekdays you pick, through the end date, or for the next eight weeks.</p>
-{% if coach_choices %}<div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>{% for c in coach_choices %}<label style="margin:8px 0"><input type=checkbox name=coach value="{{ c.id }}">{{ display_first(c) }} {{ c.last }}</label>{% endfor %}</div>{% endif %}
-</div></div>
-<button class="btn btn-primary full" name=action value=add>Add practice</button></form></details>{% endif %}
 </div>
 <script>
 (function(){
@@ -1088,8 +1137,10 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
 <p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p>
 <div class=stats><div class=stattile><b>{{ hist|length }}</b><span>Attended</span></div><div class=stattile><b>{{ nmonth }}</b><span>This month</span></div></div>
+<nav class="filt profswitch chiprow" aria-label="Profile"><a class="chip{{ ' chip-active on' if ptab == 'general' }}" href="/profile?tab=general">General</a><a class="chip{{ ' chip-active on' if ptab == 'interested' }}" href="/profile?tab=interested">Interested</a>{% if hosts %}<a class="chip{{ ' chip-active on' if ptab == 'mine' }}" href="/profile?tab=mine">My events</a>{% endif %}</nav>
 </div>
 </form>
+{% if ptab == 'general' %}
 {{ membership_section(m, vr_pending) }}
 <div class=seclabel>Personal</div>
 <div class=list>
@@ -1106,6 +1157,12 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class=list><a class="li prow chevrow" href=/notifications><span>Notifications</span><span class=nxchev aria-hidden=true>›</span></a></div>
 <div class=seclabel>Account</div>
 <a class="btn btn-secondary full" href=/logout>Log out</a>
+{% else %}
+{% if prof_upcoming or prof_past %}
+{% for g in prof_upcoming %}<h2 class=lineupmonth>{{ g.label }}</h2>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}
+{% if prof_past %}<details class=lineuppast><summary>Past <span class=t3>{{ prof_past_n }}</span></summary>{% for g in prof_past %}<h2 class=lineupmonth>{{ g.label }}</h2>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}</details>{% endif %}
+{% else %}<p class=emptyfind>Nothing yet.</p>{% endif %}
+{% endif %}
 <script>
 (function(){
  var file=document.getElementById('photoFile'), clear=document.getElementById('photoClear'), img=document.getElementById('avatarImg'), letters=document.getElementById('avatarLetters'), pref=document.getElementById('prefName'), phone=document.getElementById('phoneInput'), removeBtn=document.getElementById('removePhoto'), usawp=document.getElementById('usawpNumber');
@@ -1126,13 +1183,14 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
   document.body.classList.remove('profile-edit');
   if(preview){URL.revokeObjectURL(preview); preview=null;}
   file.value=''; clear.value='';
-  pref.value=pref.getAttribute('data-original')||'';
+  if(pref) pref.value=pref.getAttribute('data-original')||'';
   if(phone) phone.value=phone.getAttribute('data-original')||'';
   if(usawp) usawp.value=usawp.getAttribute('data-original')||'';
   if(hadPhoto&&originalSrc) showPhoto(originalSrc); else showLetters();
   if(hadPhoto) removeBtn.hidden=false;
  }
- document.getElementById('profileEdit').onclick=enter;
+ document.getElementById('profileEdit').onclick=function(){ if(/tab=(interested|mine)/.test(location.search)){ location.href='/profile?tab=general&edit=1'; return; } enter(); };
+ if(/[?&]edit=1/.test(location.search)) enter();
  document.getElementById('profileCancel').onclick=leave;
  document.getElementById('profileBack').onclick=function(){ if(history.length>1) history.back(); else location.href='/home'; };
  function pick(){ file.click(); }
@@ -1214,7 +1272,7 @@ T["notifications"] = """
 <p class="t3 sm">These emails go out 7 days before, 1 day before, and on the day it expires. Practice cancellation emails always send.</p>
 <button class="btn btn-primary full">Save</button></form>"""
 
-T["chat"] = """<div class=chat id=chat></div><div style=height:90px></div>
+T["chat"] = """<div class=chat id=chat></div><div class=chatpad></div>
 <div class="composer noprint"><div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=preview id=prev hidden><img id=prevImg alt=""><span id=prevName></span><button type=button class="quiet compact" id=prevX>Remove</button></div>
 <form id=f><input type=file id=file accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic" hidden>
 <button type=button class="iconbtn" id=attach title="Attach image" aria-label="Attach image"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z"/></svg></button>
@@ -1437,7 +1495,8 @@ box.addEventListener('click',async e=>{
  if(b.dataset.act){openSheet(+b.dataset.act);return}
  if(b.dataset.e){if(b.dataset.held){delete b.dataset.held;return}pollGen++;await fetch('/api/messages/'+b.dataset.m+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:b.dataset.e})});poll()}});
 const ta=document.getElementById('body'),file=document.getElementById('file'),prev=document.getElementById('prev');
-function grow(){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,136)+'px'}ta.addEventListener('input',grow);
+function syncComposer(){var c=document.querySelector('.composer');if(c)document.documentElement.style.setProperty('--composer-h',c.offsetHeight+'px')}
+function grow(){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,136)+'px';syncComposer()}ta.addEventListener('input',grow);grow();if(window.ResizeObserver){var comp=document.querySelector('.composer');if(comp)new ResizeObserver(syncComposer).observe(comp)}
 document.getElementById('attach').onclick=()=>file.click();
 file.onchange=()=>{const f=file.files[0];if(!f)return;if(f.size>8*1024*1024){alert('Image is larger than 8 MB.');file.value='';return}
  prev.hidden=false;document.getElementById('prevName').textContent=f.name;document.getElementById('prevImg').src=URL.createObjectURL(f)};
@@ -1483,41 +1542,19 @@ _PRACTICE_JS = """<script>
 })();
 </script>"""
 
-T["lineup"] = """{% macro ev_icon() %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></svg>{% endmacro %}
-{% macro lineup_card(e) %}<div class="card tap tripcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
-<a class=cardlink href="/lineup/{{ e.id }}">
-<div class=nxcardhead><div class=nxtitle>{{ e.title }}</div></div>
-{% if e.tag %}<p class="eventtag">{{ e.tag }}</p>{% endif %}
-{% if e.host_org %}<div class="t3 sm hostorg">Hosted by {{ e.host_org }}</div>{% endif %}
-<div class=nxmain><div class=datetile>{% if e.tile.wd %}<span class=wd>{{ e.tile.wd }}</span>{% endif %}<span class=dn>{{ e.tile.dn }}</span><span class=mo>{{ e.tile.mo }}</span></div>
-<div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
-{% if e.where %}<div class=nxrow>{{ glyph_pin() }}<span>{{ e.where }}</span></div>{% endif %}
-<div class=nxrow>{{ glyph_people() }}<span>{{ e.count_line }}</span></div>
-{% if e.sports_line %}<div class="t3 sm sportline">{{ e.sports_line }}</div>{% endif %}</div></div></a>
-<form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><input type=hidden name=back value=/lineup>
-{% if e.intent == 'considering' %}
-<button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">I'm Interested{% if e.mine == 'interested' %} ✓{% endif %}</button>
-<button class="btn {{ 'btn-primary' if e.mine == 'going' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">Going{% if e.mine == 'going' %} ✓{% endif %}</button>
-{% else %}
-<button class="btn {{ 'btn-primary' if e.mine == 'going' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">I'm Going{% if e.mine == 'going' %} ✓{% endif %}</button>
-<button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">Interested{% if e.mine == 'interested' %} ✓{% endif %}</button>
-{% endif %}
-<button class="btn {{ 'btn-primary' if e.mine == 'notgoing' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'notgoing' else 'notgoing' }}">Not going{% if e.mine == 'notgoing' %} ✓{% endif %}</button></form>
-</div>{% endmacro %}
-{% macro lineup_months(groups) %}{% for g in groups %}<h2 class=lineupmonth>{{ g.label }}</h2>{% for e in g.events %}{{ lineup_card(e) }}{% endfor %}{% endfor %}{% endmacro %}
-<div class=lineupacts>{% if can_host_practice() %}<a class="btn btn-secondary" href="/lineup/new?mode=create">Create event</a><a class="btn btn-secondary" href="/lineup/new?mode=propose">Propose opportunity</a>{% else %}<a class="btn btn-secondary" href="/lineup/new?mode=suggest">Suggest an event</a>{% endif %}</div>
-<div class=filt role=group aria-label="Type"><a class="chip{{ ' chip-active on' if not cat }}" href=/lineup>All</a>{% for name in filter_types %}<a class="chip{{ ' chip-active on' if cat == name }}" href="/lineup?cat={{ name }}">{{ name }}</a>{% endfor %}</div>
+_RSVP_CHECK = '<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>'
+T["lineup"] = """{% macro lineup_months(groups) %}{% for g in groups %}<h2 class=lineupmonth>{{ g.label }}</h2>{% for e in g.events %}{{ lineup_card(e) }}{% endfor %}{% endfor %}{% endmacro %}
+<div class="filt lineupfilt chiprow" role=group aria-label="Type"><a class="chip{{ ' chip-active on' if not cat }}" href=/lineup>All</a>{% for name in filter_types %}<a class="chip{{ ' chip-active on' if cat == name }}" href="/lineup?cat={{ name }}">{{ name }}</a>{% endfor %}</div>
 {% if featured %}<h2 class=lineupmonth>Featured</h2>{% for e in featured %}{{ lineup_card(e) }}{% endfor %}{% endif %}
 {% if empty_public %}<p class=emptyfind>Nothing on the Lineup yet.</p>{% endif %}
 {{ lineup_months(upcoming) }}
-{% if past %}<details class=lineuppast><summary>Past <span class=t3>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}
-{% if mine %}<h2>My events</h2>{% for e in mine %}<a class="card" href="/lineup/{{ e.id }}" style="display:block;color:inherit;text-decoration:none"><div class=nxtitle>{{ e.title }}</div><div class="t3 sm">{{ e.status_label }}{% if e.review_note %} · {{ e.review_note }}{% endif %}</div></a>{% endfor %}{% endif %}
-{% if interested %}<h2>Interested</h2>{% for e in interested %}<a class="li" href="/lineup/{{ e.id }}" style="display:flex;color:inherit;text-decoration:none"><span class=grow>{{ e.title }}</span><span class=t3>{{ e.when }}</span></a>{% endfor %}{% endif %}"""
+{% if past %}<details class=lineuppast><summary>Past <span class=t3>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}"""
 T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
 <div class=profilehero>
 <div class=profilename>{{ e.title }}</div>
 {% if e.when %}<p class=pracemeta>{{ e.when }}</p>{% endif %}
-{% if e.where %}<p class=pracemeta>{{ e.where }}</p>{% endif %}
+{% if e.venue %}<p class=pracemeta>{{ e.venue }}</p>{% endif %}
+{% if e.city %}<p class=pracemeta>{{ e.city }}</p>{% endif %}
 {% if e.tag %}<p class="pracemeta eventtag">{{ e.tag }}</p>{% endif %}
 <div class=pracestatus>{{ st(e.status_kind, e.status_text) }}</div>
 <div class="stats trio">
@@ -1526,10 +1563,10 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.capacity %}<div class=stattile><b>{{ e.capacity }}</b><span>Spots</span></div>{% else %}<div class=stattile><b>{{ e.days }}</b><span>Days</span></div>{% endif %}
 </div>
 </div>
-{% if e.status == 'published' %}<form method=post action="/lineup/{{ e.id }}" class=pills>{{ csrf_field() }}
-<button class="btn {{ 'btn-primary' if e.mine == 'going' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">{% if e.full and e.mine != 'going' %}Join waitlist{% else %}I'm going{% endif %}{% if e.mine == 'going' or e.mine == 'waitlist' %} ✓{% endif %}</button>
-<button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">Interested{% if e.mine == 'interested' %} ✓{% endif %}</button>
-<button class="btn {{ 'btn-primary' if e.mine == 'notgoing' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'notgoing' else 'notgoing' }}">Not going{% if e.mine == 'notgoing' %} ✓{% endif %}</button></form>{% endif %}
+{% if e.status == 'published' %}<form method=post action="/lineup/{{ e.id }}" class="pills rsvprow">{{ csrf_field() }}
+<button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">{% if e.mine == 'interested' %}""" + _RSVP_CHECK + """{% endif %}Interested</button>
+<button class="btn {{ 'btn-primary' if e.mine == 'going' or e.mine == 'waitlist' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'going' or e.mine == 'waitlist' else 'going' }}">{% if e.mine == 'going' or e.mine == 'waitlist' %}""" + _RSVP_CHECK + """{% endif %}{% if e.full and e.mine != 'going' and e.mine != 'waitlist' %}Join waitlist{% elif e.mine == 'waitlist' %}Waitlist{% else %}Going{% endif %}</button>
+<button class="btn {{ 'btn-primary' if e.mine == 'notgoing' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'notgoing' else 'notgoing' }}">{% if e.mine == 'notgoing' %}""" + _RSVP_CHECK + """{% endif %}Not going</button></form>{% endif %}
 <div class=seclabel>Details</div>
 <div class=list>
 {% if e.description %}<div class="li evdescrow"><div class=clamp id=evdesc>{{ e.description }}</div><button type=button class=textlink id=evmore hidden>More</button></div>{% endif %}
@@ -1542,11 +1579,11 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.capacity %}<div class="li prow"><span class=k>Spots</span><span class=v>{{ e.going_n }} of {{ e.capacity }}{% if e.wait_n %} · {{ e.wait_n }} waitlisted{% endif %}</span></div>{% endif %}
 {% if e.reg_deadline %}<div class="li prow"><span class=k>Register by</span><span class=v>{{ e.reg_deadline }}</span></div>{% endif %}
 </div>
-{% if e.levels_raw %}<details class=card><summary>Skill levels</summary>{% for row in SPORTS.LEVELS %}<p><b>{{ row[1] }}</b> {{ row[3] }}</p>{% endfor %}</details>{% endif %}
+{% if e.levels_raw %}<details class=card><summary>Skill levels</summary>{% for row in SPORTS.LEVELS %}{% if row[0] in e.levels_raw.split(',') %}<p><b>{{ row[1] }}</b> {{ row[2] }}</p>{% endif %}{% endfor %}</details>{% endif %}
 {% if e.review_note and e.status in ('changes_requested', 'declined') %}<div class=note>{{ e.review_note }}</div>{% endif %}
 {{ whos_going(e.people) }}
 {% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="btn btn-primary full" name=action value=official>Make official</button></form>{% endif %}
-{% if e.where %}{{ event_location('lineLoc', e.pins, e.venue or e.where, e.city, e.dir_href) }}{% endif %}
+{% if e.venue or e.city %}{{ event_location('lineLoc', e.pins, e.venue or e.city, e.city if e.venue else '', e.dir_href) }}{% endif %}
 <script>(function(){var el=document.getElementById('evdesc'),btn=document.getElementById('evmore');if(!el||!btn)return;if(el.scrollHeight>el.clientHeight+2)btn.hidden=false;btn.onclick=function(){var open=el.classList.toggle('open');btn.textContent=open?'Less':'More';};})();</script>"""
 T["approvals"] = """<h1>Events</h1>
 {% if queue %}<h2>Needs review ({{ queue|length }})</h2>
@@ -1634,11 +1671,12 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <label>Month<input type=month name=month value="{{ values.month }}"></label>
 <label>Part of the month<select name=date_part><option value="">Whole month</option><option value=early {% if values.date_part == 'early' %}selected{% endif %}>Early</option><option value=mid {% if values.date_part == 'mid' %}selected{% endif %}>Mid</option><option value=late {% if values.date_part == 'late' %}selected{% endif %}>Late</option></select></label>
 </div>
-<label>Location / meeting point<input name=location value="{{ values.location }}" required autocomplete=off></label>
+<label>City<input name=city value="{{ values.city }}" required placeholder="Toronto, Canada" list=citySuggest autocomplete=off></label>
+<datalist id=citySuggest>{% for c in cities %}<option value="{{ c }}">{% endfor %}</datalist>
+<label>Venue<input name=venue value="{{ values.location }}" placeholder="Name and address, optional" autocomplete=off></label>
 <label>Short description<textarea name=description rows=3 required>{{ values.description }}</textarea></label>
 <details class=moredetails><summary>More details</summary>
 {{ sports_editor(sports_row, false, true) }}
-<label>City<input name=city value="{{ values.city }}" autocomplete=off></label>
 <label>Link<input name=link value="{{ values.link }}" inputmode=url autocomplete=off placeholder="https://"></label>
 <label>Capacity<input name=capacity inputmode=numeric value="{{ values.capacity }}" autocomplete=off></label>
 <label>Estimated cost<input name=cost value="{{ values.cost }}" autocomplete=off></label>
@@ -1675,6 +1713,18 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
  }
  document.querySelectorAll('input[name=date_precision]').forEach(function(r){r.addEventListener('change', datesMode)});
  datesMode();
+ var city=document.querySelector('input[name=city]'), list=document.getElementById('citySuggest'), wait;
+ if(city&&list) city.addEventListener('input', function(){
+  clearTimeout(wait);
+  var q=city.value.trim();
+  if(q.length<3) return;
+  wait=setTimeout(function(){
+   fetch('/api/places?q='+encodeURIComponent(q)).then(function(r){return r.json()}).then(function(rows){
+    list.innerHTML='';
+    (rows||[]).forEach(function(name){var o=document.createElement('option'); o.value=name; list.appendChild(o);});
+   }).catch(function(){});
+  }, 280);
+ });
 })();</script>"""
 T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ csrf_field() }}
 {{ sports_editor(series) }}
@@ -1708,17 +1758,7 @@ T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp
 <button class="btn {{ 'btn-primary' if x.mine == 1 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==1 else 'going' }}">I'm going{% if x.mine==1 %} ✓{% endif %}</button>
 <button class="btn {{ 'btn-primary' if x.mine == 0 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==0 else 'notgoing' }}">I'm not going{% if x.mine==0 %} ✓{% endif %}</button></form>
 {% endif %}</div>{% endfor %}
-{% if me().is_admin %}<details class=card><summary>Add a practice</summary><form method=post class=body>{{csrf_field()}}{{ sports_editor() }}<label>Date<input type=date name=date required></label>
-<div class=row><label>Start<input type=time name=start value=19:00></label><label>End<input type=time name=end value=20:30></label></div>
-<label>Location<input name=location required></label><label>Note<input name=note></label>
-<div class=repeatblock><label class=repeatline><input type=checkbox name=repeat value=1> Repeat</label>
-<div class=repeatopts><div class=checks role=group aria-label="Weekdays"><div class="t3 xs">Weekdays</div>
-<label style="margin:8px 0"><input type=checkbox name=weekday value=0> Mon</label><label style="margin:8px 0"><input type=checkbox name=weekday value=1> Tue</label><label style="margin:8px 0"><input type=checkbox name=weekday value=2> Wed</label><label style="margin:8px 0"><input type=checkbox name=weekday value=3> Thu</label><label style="margin:8px 0"><input type=checkbox name=weekday value=4> Fri</label><label style="margin:8px 0"><input type=checkbox name=weekday value=5> Sat</label><label style="margin:8px 0"><input type=checkbox name=weekday value=6> Sun</label></div>
-<label>Ends (optional)<input type=date name=end_date></label>
-<p class="t3 sm">Starts on the date above. Occurrences fall on the weekdays you pick, through the end date, or for the next eight weeks.</p>
-{% if coach_choices %}<div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>{% for c in coach_choices %}<label style="margin:8px 0"><input type=checkbox name=coach value="{{ c.id }}">{{ display_first(c) }} {{ c.last }}</label>{% endfor %}</div>{% endif %}
-</div></div>
-<button class="btn btn-primary full" name=action value=add>Add practice</button></form></details>{% endif %}""" + _PRACTICE_JS
+""" + _PRACTICE_JS
 
 T["practice"] = """{% set p = x.p %}
 {{ event_hero('practiceMap', pins if not p.image else [], ('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', p.location or 'Practice') }}
@@ -1845,24 +1885,33 @@ T["practice"] = """{% set p = x.p %}
 <div class=row><button class="btn btn-danger" name=action value=delete>Delete practice</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% endif %}""" + _PRACTICE_JS
 
-_CHEV_L = '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg>'
+_CHEV_L = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>'
 _CHEV_R = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
 _CAL_I = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></svg>'
 T["admin"] = ADMIN_NAV + """
 {%- set qbit -%}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{%- endset -%}
 {%- set fbit -%}{% if filt != 'going' %}&amp;filt={{ filt }}{% endif %}{%- endset -%}
 <div class=checkbar>
-<div class=calpick id=calPick data-date="{{date}}" data-q="{{q}}" data-filt="{{ '' if filt=='going' else filt }}" data-dates='{{ days|tojson }}' data-events='{{ catalog|tojson }}'>
+<div class=calpick id=calPick data-date="{{date}}" data-today="{{ today }}" data-q="{{q}}" data-filt="{{ '' if filt=='going' else filt }}" data-dates='{{ days|tojson }}' data-events='{{ catalog|tojson }}'>
 {% if prev_href %}<a class=calnav href="{{ prev_href }}" aria-label="Previous event">""" + _CHEV_L + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Previous event">""" + _CHEV_L + """</span>{% endif %}
 {% if ev_n > 1 %}<button type=button class=evcount id=evCount aria-haspopup=dialog aria-controls=evPick>{{ ev_i }}/{{ ev_n }}</button>{% elif ev_n == 1 %}<span class=evcount>{{ ev_i }}/{{ ev_n }}</span>{% endif %}
 <button type=button class=calbtn id=calOpen aria-haspopup=dialog aria-expanded=false aria-controls=calPop>""" + _CAL_I + """<span>{{ fmt_d(date).replace(' ', ', ', 1) }}</span></button>
 {% if next_href %}<a class=calnav href="{{ next_href }}" aria-label="Next event">""" + _CHEV_R + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Next event">""" + _CHEV_R + """</span>{% endif %}
-<div class=calpop id=calPop hidden role=dialog aria-label="Choose a date"><div class=calhead>
-<button type=button class=calmonth id=calPrevM aria-label="Previous month">""" + _CHEV_L + """</button><div class=lbl id=calLabel>{{month.label}}</div>
+</div>
+<dialog class=botsheet id=calPop aria-label="Choose a date"><div class=sheet>
+<div class=grab aria-hidden=true></div>
+<div id=calMonthView>
+<div class=calhead>
+<button type=button class=calmonth id=calPrevM aria-label="Previous month">""" + _CHEV_L + """</button><div class=lbl id=calLabel>{{ month.label }}</div>
 <button type=button class=calmonth id=calNextM aria-label="Next month">""" + _CHEV_R + """</button></div>
 <div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
-<div class=calgrid id=calGrid>{% for c in month.cells %}{% if c is none %}<span class=calday></span>{% elif c.has %}<a class="calday{{' on' if c.on}}" href="/admin?date={{ c.iso }}{{ fbit }}{{ qbit }}" data-date="{{ c.iso }}">{{c.day}}</a>{% else %}<span class=calday aria-disabled=true>{{c.day}}</span>{% endif %}{% endfor %}</div></div></div>
+<div class=calgrid id=calGrid>{% for c in month.cells %}{% if c is none %}<span class=calday></span>{% elif c.has %}<a class="calday{% if c.on %} on{% endif %}{% if c.today %} today{% endif %}" href="/admin?date={{ c.iso }}{{ fbit }}{{ qbit }}" data-date="{{ c.iso }}">{{ c.day }}<i class=caldot></i></a>{% else %}<span class="calday{% if c.today %} today{% endif %}" aria-disabled=true>{{ c.day }}</span>{% endif %}{% endfor %}</div>
 </div>
+<div id=calEventView hidden>
+<button type=button class=calback id=calBack aria-label="Back to the month">""" + _CHEV_L + """<span id=calEventLabel>Events</span></button>
+<div class=list id=calEventList></div>
+</div>
+</div></dialog>
 <dialog class=modal id=evPick><div class=sheet><h2 style="margin:0 0 12px">Events</h2><div class=list id=evPickList>{% for ev in events %}<a class=li href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ ev.title }}</span><span class="t3 sm">{{ ev.when }}</span></span></a>{% endfor %}</div><button type=button class="btn btn-secondary full" onclick="this.closest('dialog').close()">Cancel</button></div></dialog>
 </div>
 {% if sel %}<a class="card evcard" href="{{ sel.detail }}">
@@ -1872,7 +1921,7 @@ T["admin"] = ADMIN_NAV + """
 {% if sel.who %}<p class="t3 sm">{{ sel.who }}</p>{% endif %}
 </a>{% else %}<p class=emptyfind>No events on this day</p>{% endif %}
 <div class=checkmeta>
-<div class="filt checkfilt" role=group aria-label="RSVP">
+<div class="filt checkfilt chiprow" role=group aria-label="RSVP">
 <a class="chip{{ ' chip-active on' if filt=='going' }}" href="/admin?date={{ date }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Going ({{ going|length }})</a>
 {% if n_not %}<a class="chip{{ ' chip-active on' if filt=='not' }}" href="/admin?date={{ date }}&amp;filt=not{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Not Going ({{ n_not }})</a>{% else %}<button type=button class=chip disabled aria-disabled=true>Not Going (0)</button>{% endif %}
 {% if n %}<a class="chip{{ ' chip-active on' if filt=='in' }}" href="/admin?date={{ date }}&amp;filt=in{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Checked in ({{ n }})</a>{% else %}<button type=button class=chip disabled aria-disabled=true>Checked in (0)</button>{% endif %}
@@ -1880,9 +1929,7 @@ T["admin"] = ADMIN_NAV + """
 <form class=playersearch method=get action=/admin><input type=hidden name=date value="{{ date }}">{% if filt != 'going' %}<input type=hidden name=filt value="{{ filt }}">{% endif %}{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}<input name=q value="{{ q }}" placeholder="Search players..." style="margin:0"></form>
 </div>
 {% macro ci(r) %}
-<div class="li cirow" data-rsvp="{{ 'going' if r.going==1 else ('not' if r.going==0 else 'none') }}" data-checked="{{ 1 if r.cid else 0 }}"><a class=ci-name href="/admin/member/{{ r.id }}">
-{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}
-<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ checkin_status(r) }}</span></a>
+<div class="li personrow cirow" data-rsvp="{{ 'going' if r.going==1 else ('not' if r.going==0 else 'none') }}" data-checked="{{ 1 if r.cid else 0 }}">{% call person_link(r) %}{% endcall %}
 <form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{filt}}">{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}
 {% if r.cid %}<button class="btn btn-secondary" name=action value=undo title="Undo check-in">✓ Checked in</button>{% else %}<button class="btn btn-primary" {% if not clearance(r).ok %}data-confirm="Not cleared — check in anyway?"{% endif %}>Check in</button>{% endif %}</form></div>{% endmacro %}
 {% if q and ((filt=='not' and not not_going) or (filt=='in' and not checked) or (filt=='going' and not going and not rest)) %}<p class=emptyfind>No players match “{{ q }}”.</p>{% endif %}
@@ -1907,31 +1954,34 @@ if(!window.grunionsConfirm){window.grunionsConfirm=1;
 (function(){
 var root=document.getElementById('calPick'); if(!root) return;
 var pop=document.getElementById('calPop'), openBtn=document.getElementById('calOpen'), grid=document.getElementById('calGrid'), label=document.getElementById('calLabel');
+var monthView=document.getElementById('calMonthView'), eventView=document.getElementById('calEventView'), eventList=document.getElementById('calEventList'), eventLabel=document.getElementById('calEventLabel');
 var dates=[]; try{dates=JSON.parse(root.getAttribute('data-dates')||'[]')}catch(err){dates=[]}
 var catalog={}; try{catalog=JSON.parse(root.getAttribute('data-events')||'{}')}catch(err){catalog={}}
 var set={}; dates.forEach(function(d){set[d]=1});
-var q=root.getAttribute('data-q')||'', filt=root.getAttribute('data-filt')||'', selected=root.getAttribute('data-date')||'', shown=selected.slice(0,7);
+var q=root.getAttribute('data-q')||'', filt=root.getAttribute('data-filt')||'', selected=root.getAttribute('data-date')||'', today=root.getAttribute('data-today')||'', shown=selected.slice(0,7);
 function pad(n){return (n<10?'0':'')+n}
 function href(iso, ev){return '/admin?date='+iso+(ev?'&ev='+encodeURIComponent(ev):'')+(filt?'&filt='+encodeURIComponent(filt):'')+(q?'&q='+encodeURIComponent(q):'')}
-function openPick(iso, list){
- var dlg=document.getElementById('evPick'), box=document.getElementById('evPickList');
- if(!dlg||!box) return;
- box.innerHTML=list.map(function(ev){
-  return '<a class=li href="'+href(iso, ev.key)+'" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">'+String(ev.title||'').replace(/</g,'')+'</span><span class="t3 sm">'+String(ev.when||'').replace(/</g,'')+'</span></span></a>';
+function showMonth(){ if(monthView) monthView.hidden=false; if(eventView) eventView.hidden=true; }
+function showEvents(iso, list){
+ if(!eventView||!eventList) return;
+ if(monthView) monthView.hidden=true;
+ eventView.hidden=false;
+ if(eventLabel) eventLabel.textContent=iso;
+ eventList.innerHTML=list.map(function(ev){
+  return '<a class=li href="'+href(iso, ev.key)+'" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">'+String(ev.title||'').replace(/[&<>]/g,'')+'</span><span class="t3 sm">'+String(ev.when||'').replace(/[&<>]/g,'')+'</span></span></a>';
  }).join('');
- if(pop){pop.hidden=true; if(openBtn) openBtn.setAttribute('aria-expanded','false')}
- if(dlg.showModal) dlg.showModal();
 }
 var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
 function render(ym){
  shown=ym; var parts=ym.split('-'), y=+parts[0], m=+parts[1];
  label.textContent=months[m-1]+' '+y;
- var blanks=new Date(y, m-1, 1).getDay(), last=new Date(y, m, 0).getDate(), html='', day, iso;
+ var blanks=new Date(y, m-1, 1).getDay(), last=new Date(y, m, 0).getDate(), html='', day, iso, cls;
  for(var i=0;i<blanks;i++) html+='<span class=calday></span>';
  for(day=1; day<=last; day++){
   iso=y+'-'+pad(m)+'-'+pad(day);
-  if(set[iso]) html+='<a class="calday'+(iso===selected?' on':'')+'" data-date="'+iso+'" href="'+href(iso)+'">'+day+'</a>';
-  else html+='<span class=calday aria-disabled=true>'+day+'</span>';
+  cls='calday'+(iso===selected?' on':'')+(iso===today?' today':'');
+  if(set[iso]) html+='<a class="'+cls+'" data-date="'+iso+'" href="'+href(iso)+'">'+day+'<i class=caldot></i></a>';
+  else html+='<span class="'+cls+'" aria-disabled=true>'+day+'</span>';
  }
  grid.innerHTML=html;
 }
@@ -1942,32 +1992,23 @@ function shift(delta){
 }
 document.getElementById('calPrevM').onclick=function(){shift(-1)};
 document.getElementById('calNextM').onclick=function(){shift(1)};
+var back=document.getElementById('calBack');
+if(back) back.onclick=function(){showMonth()};
 openBtn.onclick=function(){
- var show=pop.hidden; pop.hidden=!show; openBtn.setAttribute('aria-expanded', show?'true':'false');
- if(show) render(selected.slice(0,7)||shown);
+ showMonth();
+ render(selected.slice(0,7)||shown);
+ if(window.grunionsOpenSheet) grunionsOpenSheet(pop);
+ openBtn.setAttribute('aria-expanded','true');
 };
+pop.addEventListener('close', function(){ openBtn.setAttribute('aria-expanded','false'); showMonth(); });
 var countBtn=document.getElementById('evCount');
 if(countBtn) countBtn.onclick=function(){ var dlg=document.getElementById('evPick'); if(dlg&&dlg.showModal) dlg.showModal(); };
 grid.addEventListener('click', function(e){
  var a=e.target.closest&&e.target.closest('a.calday'); if(!a) return;
  var iso=a.getAttribute('data-date')||'';
  var list=catalog[iso]||[];
- if(list.length>1){ e.preventDefault(); openPick(iso, list); }
+ if(list.length>1){ e.preventDefault(); showEvents(iso, list); }
 });
-if(!window.grunionsCalDoc){
- window.grunionsCalDoc=1;
- document.addEventListener('click', function(e){
-  var box=document.getElementById('calPick'), panel=document.getElementById('calPop'), btn=document.getElementById('calOpen');
-  if(!box||!panel||panel.hidden) return;
-  if(!box.contains(e.target)){panel.hidden=true; if(btn) btn.setAttribute('aria-expanded','false')}
- });
- document.addEventListener('keydown', function(e){
-  if(e.key!=='Escape') return;
-  var panel=document.getElementById('calPop'), btn=document.getElementById('calOpen');
-  if(!panel||panel.hidden) return;
-  panel.hidden=true; if(btn){btn.setAttribute('aria-expanded','false'); btn.focus()}
- });
-}
 })();
 </script>"""
 
@@ -2002,7 +2043,7 @@ T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 s
 {{ growth }}
 <div class=peoplebar>
 <form method=get action=/members><input name=q value="{{q}}" placeholder="Search people..." autocomplete=off>{% if view != 'members' %}<input type=hidden name=view value="{{view}}">{% endif %}</form>
-<div class=fchips>
+<div class="fchips chiprow">
 <a href="/members{% if q %}?q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='members' }}">All</a>
 <a href="/members?view=coaches{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='coaches' }}">Coaches</a>
 <a href="/members?view=admins{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if view=='admins' }}">Admins</a>
@@ -2013,12 +2054,9 @@ T["members"] = ADMIN_NAV + """<div class=pagetitle><h1>People</h1><a class="t2 s
 {% if view == 'admins' %}<p class="t2 sm peoplesum">{{ n_admins }} admin{{ 's' if n_admins != 1 }}</p>
 {% elif view != 'coaches' and view != 'referees' %}<p class="t2 sm peoplesum">{% if view=='expiring' %}Expiring or expired{% elif view=='uncleared' %}Not cleared to play{% else %}{{rows|length}} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}{% endif %}</p>{% endif %}
 </div>
-{% macro people_sub(r) %}{% set tw = trial_window(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set extra = '' %}
-{% if not (tw and tw.active and r.usawp_status != 'verified') and r.usawp_valid_until and (dl is none or dl < 0 or dl > EXPIRING_DAYS) %}{% set extra = ' · thru ' ~ fmt_long(r.usawp_valid_until) %}{% endif %}
-<span class="psub ell">{{ roster_status(r) }}{{ extra }} · {{ r.visits }} practice{{ '' if r.visits == 1 else 's' }}</span>{% endmacro %}
-{% macro prow(r, kind) %}<div class=li><a class=ci-name href="/admin/member/{{ r.id }}">{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ people_sub(r) }}
+{% macro prow(r, kind) %}<div class="li personrow">{% call person_link(r) %}
 <div class=eligs>{% if r.is_admin %}<span class=chip-info>Admin</span>{% endif %}{% set chip = coach_row_expiry(r) %}{% set ce = coach_eligibility(r) %}{% if r.role=='coach' or r.id in listed or ce.eligible or ce.text %}<span class="chip-info{{ ' ' ~ chip.tone if chip.tone else '' }}">Coach{% if chip.date %} · expires {{ chip.date }}{% endif %}</span>{% endif %}{% if r.id in referees %}<span class=chip-info>Referee</span>{% endif %}{{ referee_tag(r) }}</div>
-</span></a>
+{% endcall %}
 <span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></button>
 <div class=menu hidden role=menu>
 {% if kind == 'members' %}
@@ -2171,7 +2209,7 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 <button type=button class="btn btn-primary" aria-busy=true>Saving</button>
 </div>
 <h2>Filter chips</h2>
-<p class="t3 sm">Multi-select. Lime when selected. The hit area is taller than the pill.</p>
+<p class="t3 sm">Lime when selected, outlined when not. Sibling views (Chat, Admin, Profile) use the same pill, one at a time.</p>
 <div class=ds-row>
 <span class="chip on">Selected</span>
 <span class=chip>Open</span>
@@ -2183,13 +2221,6 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 <span class="st st-bad">Not cleared</span>
 <span class="chip-info warn">Expiring</span>
 <span class="chip-info bad">Blocked</span>
-</div>
-<h2>Tabs</h2>
-<p class="t3 sm">One active tab. The indicator is a line, not a pill.</p>
-<div class="admintabs" role=tablist>
-<a class="chip on" href="#ds-tab">Schedule</a>
-<a class=chip href="#ds-tab">People</a>
-<a class=chip href="#ds-tab">Events</a>
 </div>
 <h2>Navigation</h2>
 <p class="t3 sm">One pill. Members get three circles. Coaches and admins get four. Icons only. The selected circle is Electric Lime.</p>

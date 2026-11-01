@@ -229,6 +229,14 @@ def migrate_lineup(d):
     d.execute("UPDATE lineup_events SET stage='interest' WHERE (stage IS NULL OR trim(stage)='') AND kind IN ('Tournament', 'Clinic')")
     d.execute("UPDATE lineup_events SET stage='attending' WHERE stage IS NULL OR trim(stage)=''")
     lineupfeed.ensure_schema(d)
+    for row in d.execute("SELECT id, city, venue FROM lineup_events"):
+        city = " ".join(str((row["city"] if hasattr(row, "keys") else row[1]) or "").split())
+        venue = " ".join(str((row["venue"] if hasattr(row, "keys") else row[2]) or "").split())
+        eid = row["id"] if hasattr(row, "keys") else row[0]
+        if city and venue and city.casefold() == venue.casefold():
+            d.execute("UPDATE lineup_events SET city=?, venue='', lat=NULL, lng=NULL WHERE id=?", (city, eid))
+        elif venue and not city:
+            d.execute("UPDATE lineup_events SET city=?, venue='', lat=NULL, lng=NULL WHERE id=?", (venue, eid))
 def migrate_series(d):
     """Practice series, their coaches, and skipped dates. Existing one-off practices stay unattached."""
     d.execute("""CREATE TABLE IF NOT EXISTS practice_series(id INTEGER PRIMARY KEY, weekdays TEXT NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL,
@@ -954,7 +962,15 @@ def profile():
     hist = d.execute("SELECT practice_date FROM checkins WHERE member_id=?", (m["id"],)).fetchall()
     month = today_pt().strftime("%Y-%m")
     vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
-    return page(T["profile"], tab="profile", m=m, hist=hist, nmonth=sum(1 for h in hist if h["practice_date"].startswith(month)), vr_pending=vr_pending)
+    ptab = (request.args.get("tab") or "general").strip()
+    if ptab not in ("general", "interested", "mine"): ptab = "general"
+    hosts = d.execute("SELECT 1 FROM lineup_events WHERE created_by=? OR host_id=? LIMIT 1", (m["id"], m["id"])).fetchone() is not None
+    if ptab == "mine" and not hosts: ptab = "general"
+    prof_upcoming, prof_past, prof_past_n = ([], [], 0)
+    if ptab in ("interested", "mine"):
+        prof_upcoming, prof_past, prof_past_n = profile_lineup(d, m["id"], ptab)
+    return page(T["profile"], tab="profile", m=m, hist=hist, nmonth=sum(1 for h in hist if h["practice_date"].startswith(month)), vr_pending=vr_pending,
+        ptab=ptab, hosts=hosts, prof_upcoming=prof_upcoming, prof_past=prof_past, prof_past_n=prof_past_n, prof_back="/profile?tab=" + ptab)
 
 # ---------- unread badges ----------
 def empty_unread():
@@ -1773,6 +1789,7 @@ def admin_people(d, date, event, q):
     if event and event["kind"] == "lineup":
         rows = d.execute("""SELECT m.*, c.id AS cid,
           CASE rv.state WHEN 'going' THEN 1 WHEN 'notgoing' THEN 0 ELSE NULL END AS going,
+          (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits,
           (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status,
           (SELECT note FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_note
           FROM members m LEFT JOIN checkins c ON c.member_id=m.id AND c.practice_date=?
@@ -1782,6 +1799,7 @@ def admin_people(d, date, event, q):
     else:
         pid = event["id"] if event else -1
         rows = d.execute("""SELECT m.*, c.id AS cid, rv.going AS going,
+          (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits,
           (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status,
           (SELECT note FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_note
           FROM members m LEFT JOIN checkins c ON c.member_id=m.id AND c.practice_date=?
@@ -1839,17 +1857,18 @@ def neighbor_practice(days, date, step):
     later = [x for x in days if x > date]
     if step < 0: return earlier[-1] if earlier else None
     return later[0] if later else None
-def checkin_month(date_iso, days):
+def checkin_month(date_iso, days, today=None):
     """Sunday-first month grid. Cells are None (leading blank) or day dicts."""
     try: cur = dt.date.fromisoformat(date_iso)
     except ValueError: cur = today_pt()
+    today = today or today_pt().isoformat()
     first = cur.replace(day=1)
     nxt = dt.date(first.year + 1, 1, 1) if first.month == 12 else dt.date(first.year, first.month + 1, 1)
     have = set(days or [])
     cells, day = [None] * ((first.weekday() + 1) % 7), first
     while day < nxt:
         iso = day.isoformat()
-        cells.append({"iso": iso, "day": day.day, "has": iso in have, "on": iso == date_iso})
+        cells.append({"iso": iso, "day": day.day, "has": iso in have, "on": iso == date_iso, "today": iso == today})
         day += dt.timedelta(days=1)
     return {"label": _MONTHS[first.month - 1] + " " + str(first.year), "ym": "%04d-%02d" % (first.year, first.month), "cells": cells}
 def add_coaching(d, mid, source):
@@ -2223,11 +2242,11 @@ def series_page(sid):
     skips = [r["date"] for r in d.execute("SELECT date FROM series_skips WHERE series_id=? ORDER BY date", (sid,))]
     return page(T["series_edit"], tab="series_edit", action="/practices/series/%d" % sid, values=values, series_id=sid, skips=skips, coach_choices=coach_candidates(d), series=row)
 def lineup_where(city, venue):
+    """Cards show the city. A venue-only legacy row falls back to that name."""
     city = " ".join(str(city or "").split())
     venue = " ".join(str(venue or "").split())
     if venue.lower().startswith(("http://", "https://")): return city or venue
-    if city and venue: return "%s · %s" % (city, venue)
-    return venue or city
+    return city or venue
 def lineup_map_href(city, venue):
     city = " ".join(str(city or "").split())
     venue = " ".join(str(venue or "").split())
@@ -2252,8 +2271,10 @@ def ensure_lineup_coords(d, row):
     if row["lat"] is not None and row["lng"] is not None: return row
     venue = " ".join(str(row["venue"] or "").split())
     city = " ".join(str(row["city"] or "").split())
-    if venue.lower().startswith(("http://", "https://")): return row
-    hit = geocode_address(", ".join(part for part in (venue, city) if part))
+    if venue.lower().startswith(("http://", "https://")): venue = ""
+    query = venue or city
+    if not query: return row
+    hit = geocode_address(query)
     if not hit: return row
     d.execute("UPDATE lineup_events SET lat=?, lng=? WHERE id=?", (hit[0], hit[1], row["id"]))
     d.commit()
@@ -2438,9 +2459,26 @@ def lineup_groups(rows):
         if not groups or groups[-1]["label"] != label: groups.append({"label": label, "events": []})
         groups[-1]["events"].append(e)
     return groups
+def profile_lineup(d, member_id, kind):
+    """Events for the profile chips. Interested is Going or Interested. Mine is created or hosted."""
+    rows = lineup_query(d)
+    if kind == "mine":
+        raw = [r for r in rows if r["created_by"] == member_id or r["host_id"] == member_id]
+    else:
+        wanted = {r[0] for r in d.execute(
+            "SELECT event_id FROM lineup_rsvps WHERE member_id=? AND state IN ('interested','going','waitlist')", (member_id,))}
+        raw = [r for r in rows if r["id"] in wanted and (r["status"] or "") == "published"]
+    packed = lineup_pack(d, raw)
+    today = today_pt().isoformat()
+    def ends(e):
+        return str(e.get("end_date") or e.get("date") or "")[:10]
+    upcoming = sorted((e for e in packed if ends(e) >= today), key=lambda e: (e["date"] or "", e["id"]))
+    past = sorted((e for e in packed if ends(e) < today), key=lambda e: (e["date"] or "", e["id"]), reverse=True)
+    return lineup_groups(upcoming), lineup_groups(past), len(past)
 def _lineup_back(raw):
     raw = (raw or "").strip()
-    if raw in ("/lineup", "/home") or raw.startswith("/lineup/"): return raw
+    if raw in ("/lineup", "/home", "/profile") or raw.startswith("/lineup/"): return raw
+    if raw in ("/profile?tab=general", "/profile?tab=interested", "/profile?tab=mine"): return raw
     return "/lineup"
 def notify_lineup_people(d, members, title, body, url="/lineup"):
     for m in members:
@@ -2535,8 +2573,28 @@ def _promote_waitlist(d, row):
     notify_lineup_people(d, [member], "You're in", "A spot opened for %s. You're going." % row["title"], "/lineup/%d" % row["id"])
 def lineup_template_ctx(d, mode, values, event_id=None, banner=""):
     types = list(lineupfeed.MEMBER_TYPES if not can_host_practice() else lineupfeed.EVENT_TYPES)
+    cities = [r[0] for r in d.execute("SELECT DISTINCT trim(city) FROM lineup_events WHERE trim(COALESCE(city,''))!='' ORDER BY 1")]
     return dict(event_types=types, values=values, mode=mode, event_id=event_id, banner=banner or "",
-        organizer=can_host_practice(), save_label=("Submit" if mode == "suggest" else "Save"), sports_row=None)
+        organizer=can_host_practice(), save_label=("Submit" if mode == "suggest" else "Save"), sports_row=None, cities=cities)
+def suggest_places(q):
+    """Place names for the city field. A map link is not a place."""
+    q = " ".join(str(q or "").split())
+    if len(q) < 3 or q.lower().startswith(("http://", "https://")): return []
+    key = "suggest:" + q.casefold()
+    if key in _GEO_CACHE: return _GEO_CACHE[key]
+    url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode({"q": q, "format": "jsonv2", "limit": "5"})
+    req = urllib.request.Request(url, headers={"User-Agent": "GrunionsWaterPolo/1.0 (team practice map)", "Accept": "application/json"})
+    names = []
+    try:
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read().decode() or "[]")
+        for item in data:
+            name = " ".join(str(item.get("display_name") or "").split())
+            if name and name not in names: names.append(name)
+    except Exception as e:
+        app.logger.info("place suggest failed: %s", e)
+    _GEO_CACHE[key] = names[:5]
+    return names[:5]
 def _save_lineup(d, existing=None):
     form = _form_last()
     banner = None
@@ -2558,6 +2616,10 @@ def _save_lineup(d, existing=None):
               (levels, divs, custom, comp, sport or "Water Polo", info["id"]))
     d.commit()
     return info
+@app.route("/api/places")
+@login_required
+def api_places():
+    return jsonify(suggest_places(request.args.get("q")))
 @app.route("/lineup", methods=["GET", "POST"])
 @login_required
 def lineup():
@@ -2592,18 +2654,15 @@ def lineup():
     past = sorted((e for e in public if not still_on(e)), key=feed_key, reverse=True)
     featured = [e for e in upcoming if e["featured"]]
     rest = [e for e in upcoming if not e["featured"]]
-    mid = me()["id"]
-    mine = [e for e in rows if e["created_by"] == mid or e["host_id"] == mid]
-    interested = [e for e in rows if e["mine"] == "interested" and e["status"] == "published"]
     return page(T["lineup"], tab="lineup", featured=featured, upcoming=lineup_groups(rest), past=lineup_groups(past), past_n=len(past),
-        mine=mine, interested=interested, cat=cat, filter_types=list(lineupfeed.EVENT_TYPES), empty_public=not upcoming and not past)
+        cat=cat, filter_types=list(lineupfeed.EVENT_TYPES), empty_public=not upcoming and not past)
 @app.route("/lineup/new", methods=["GET", "POST"])
 @login_required
 def lineup_new():
     d = db()
     mode = (request.args.get("mode") or request.form.get("mode") or ("create" if can_host_practice() else "suggest")).strip()
-    if request.method == "GET" and mode in ("create", "propose", "draft") and not can_host_practice(): abort(403)
-    if not can_host_practice() and mode != "suggest": abort(403)
+    if not can_host_practice() and mode not in ("suggest", "propose"): abort(403)
+    if not can_host_practice() and mode == "propose": mode = "suggest"
     values = lineupfeed.form_values(mode=mode)
     asked = (request.args.get("event_type") or "").strip()
     if request.method == "GET" and asked in lineupfeed.EVENT_TYPES:
@@ -3126,7 +3185,7 @@ def admin():
         ev_i=ev_i, ev_n=len(events),
         prev_href=admin_href(prev_step[0], prev_step[1], filt, q) if prev_step else "",
         next_href=admin_href(next_step[0], next_step[1], filt, q) if next_step else "",
-        days=days, catalog=admin_catalog(d, days), month=checkin_month(date, days))
+        days=days, catalog=admin_catalog(d, days), month=checkin_month(date, days), today=today_pt().isoformat())
 
 def expiring_roster(d, rep):
     ids = []
@@ -4130,7 +4189,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-63 */
+SW_JS = """/* grunions-sw-64 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

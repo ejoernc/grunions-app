@@ -38,7 +38,7 @@ Leave these as literals: the first-paint `background:#090D0B` on `html` and `bod
 ## Classes
 
 - Buttons: `btn btn-primary`, `btn btn-secondary`, `btn btn-danger`, `btn quiet`, `iconbtn`
-- Chips: `chip`, `chip chip-active on`, `chip-info`
+- Chips: `chip`, `chip chip-active on`, `chip-info`. Sibling views (Chat, Admin, Profile) use these pills. There is no underline tab.
 - Segmented: `actseg` (Exact dates / Month only, Away / Hosting, Considering / Official)
 - Status line: `roster_status` (dot plus one line)
 - Cards: `card`. Event pages share the hero, stat tiles, and location card.

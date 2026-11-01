@@ -40,12 +40,12 @@ Buttons, chips, cards, inputs, sheets, avatars, the bottom nav, and Phosphor ico
 | Home | The map canvas, attribution, and pin read `--color-map` and the selected colors. Pin position, the 12px dock gap, the greeting crossfade, and the day chip stay as they are. Page padding uses `--nav-clear` so the pill does not cover the dock. |
 | Practice list | Schedule cards (`card`, date tile, RSVP pills). |
 | Practice page | Shared event layout: hero map, stat tiles, status dot, details list, who's going, location card. |
-| Lineup feed | Event cards, one gray type line, RSVP pills, filter chips. |
+| Lineup feed | Event cards, RSVP pills, and one scrolling row of filter chips. My events and Interested live on the profile. |
 | Lineup event | Same event layout as Practice. Status is Official trip, Considering, Community, or Pending approval. |
 | Lineup form | Segmented controls (`actseg`) for Where, Status, and Exact dates / Month only. Inputs use the shared field. |
-| Chat | Bubbles use `--color-surface` and `--color-surface-2`. The message sheet uses the sheet tokens. Links use the primary blue. |
+| Chat | Team and Coaches are the same pill chips as the Lineup filters. The composer sits above the nav. Bubbles use `--color-surface` and `--color-surface-2`. |
 | People | Rows, letter headers, and status dots. Sticky bars keep the page background. |
-| Member and profile | Shared lists, avatars, and the profile bar. |
+| Member and profile | Shared lists, avatars, and the profile bar. Your profile switches General, Interested, and My events with the same pill chips. Another member's page stays on General. |
 | Admin Schedule | One card per event, selected with `--color-selected`. Filters and the check-in count stay in the filter row. |
 | Approvals, Expiring, Transfer, Rules, QR | Admin chips and the shared buttons, lists, and fields. |
 | Design preview | `/design-system`, admins only. |

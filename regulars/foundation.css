@@ -74,6 +74,12 @@
   --color-nav-icon: var(--color-text);
   --color-nav-circle-on: var(--color-lime);
   --color-nav-icon-on: var(--color-forest);
+  --nav-glass-bg: rgba(9, 13, 11, 0.68);
+  --nav-glass-blur: blur(20px) saturate(140%);
+  --nav-item-glass: rgba(242, 246, 241, 0.08);
+  --nav-glass-line: rgba(242, 246, 241, 0.08);
+  --nav-item-line: rgba(242, 246, 241, 0.06);
+  --nav-item-glass-hover: rgba(242, 246, 241, 0.12);
 
   --bg: var(--color-bg);
   --surface: var(--color-surface);
