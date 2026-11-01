@@ -1888,8 +1888,7 @@ def admin_day_events(d, date):
         LEFT JOIN members h ON h.id=e.host_id
         WHERE e.status='published' AND COALESCE(e.date_precision,'exact')!='month' AND e.date<=? AND COALESCE(NULLIF(e.end_date,''), e.date)>=?""", (date, date)):
         start = (e["start_time"] or "09:00")[:5]
-        end = (e["end_time"] or "")[:5]
-        when = fmt_span(start, end) if len(end) == 5 else fmt_clock(start)
+        when = lineup_when_label(e)
         who = ""
         events.append({"key": "l-%d" % e["id"], "kind": "lineup", "id": e["id"], "title": e["title"],
             "start": start, "when": when, "pill": fmt_clock(start), "type_label": e["cat_chip"] or "Event",
@@ -2496,20 +2495,17 @@ def lineup_dir_href(city, venue):
     if not query: return ""
     return "https://www.google.com/maps/dir/?api=1&destination=" + urllib.parse.quote(query)
 def lineup_when_label(row):
+    """Month-only is Mid March 2027 or March 2027. Exact dates are the weekday range, with no start time."""
     precision = row["date_precision"] if "date_precision" in row.keys() and row["date_precision"] else "exact"
     if precision == "month":
         day = dt.date.fromisoformat(str(row["date"])[:10])
         label = day.strftime("%B") + " " + str(day.year)
         part = (row["date_part"] or "").strip().lower() if "date_part" in row.keys() else ""
         if part in ("early", "mid", "late"): label = part[:1].upper() + part[1:] + " " + label
-        return label + " · Dates TBA"
+        return label
     start, end = str(row["date"])[:10], str(row["end_date"] or row["date"])[:10]
-    if end > start: base = lineup_range(start, end)
-    else: base = fmt_d(start)
-    st, et = row["start_time"] or "", row["end_time"] or ""
-    if st and et: return "%s · %s" % (base, fmt_span(st, et))
-    if st: return "%s · %s" % (base, fmt_clock(st))
-    return base
+    if end > start: return lineup_range(start, end)
+    return fmt_d(start)
 def lineup_status_text(row):
     """Dotted status on the event page. Chips do not repeat it."""
     status = row["status"] or "published"
@@ -4654,7 +4650,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-90 */
+SW_JS = """/* grunions-sw-91 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
