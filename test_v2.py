@@ -1,5 +1,5 @@
 """Tests for roles page, login emails, reset_real, import tolerance, deploy config. Run: .venv/bin/python -m pytest -q test_v2.py"""
-import os, re, sys, json, tempfile, sqlite3, subprocess, datetime as dt
+import os, re, sys, json, tempfile, sqlite3, subprocess, datetime as dt, shutil, fnmatch, glob
 D = tempfile.mkdtemp()
 os.environ.update(DATA_DIR=D, ADMIN_EMAIL="boss@example.com, second@example.com", DEV_SHOW_LINKS="0",
                   SMTP_HOST="smtp.test", SMTP_PORT="587", SMTP_USER="u", SMTP_PASSWORD="p", MAIL_FROM="Grunions <team@test>")
@@ -104,6 +104,60 @@ def test_deploy_files():
     icon = c.get("/static/icons/icon-192.png"); assert icon.status_code == 200 and icon.data[:8] == b"\x89PNG\r\n\x1a\n"
     html = c.get("/join").get_data(as_text=True)
     assert "rel=manifest" in html and "rel=icon" in html and "rel=apple-touch-icon" in html and 'name=theme-color content="#0a0a0b"' in html
+def _docker_ignored(rel):
+    """True when .dockerignore would keep this path out of the build context."""
+    rel = rel.replace(os.sep, "/").lstrip("/")
+    rules = []
+    with open(os.path.join(HERE, ".dockerignore"), encoding="utf-8") as f:
+        for line in f:
+            line = line.split("#", 1)[0].strip()
+            if line: rules.append(line)
+    ignored = False
+    for rule in rules:
+        neg = rule.startswith("!")
+        pat = rule[1:] if neg else rule
+        pat = pat.rstrip("/")
+        name = rel.split("/")[-1]
+        hit = fnmatch.fnmatch(name, pat) or fnmatch.fnmatch(rel, pat) or rel == pat or rel.startswith(pat + "/")
+        if hit: ignored = not neg
+    return ignored
+def _materialize_image(dest):
+    """Copy only what the Dockerfile COPY lines would place in the image."""
+    os.makedirs(dest, exist_ok=True)
+    docker = open(os.path.join(HERE, "Dockerfile"), encoding="utf-8").read()
+    for raw in docker.splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line.startswith("COPY "): continue
+        parts = line.split()
+        sources, target = parts[1:-1], parts[-1]
+        for src in sources:
+            matches = glob.glob(os.path.join(HERE, src))
+            if not matches and "*" not in src and "?" not in src:
+                matches = [os.path.join(HERE, src)]
+            for path in matches:
+                rel = os.path.relpath(path, HERE)
+                if _docker_ignored(rel): continue
+                if os.path.isdir(path):
+                    out = dest if target in (".", "./") else os.path.join(dest, target)
+                    shutil.copytree(path, out, dirs_exist_ok=True, ignore=lambda d, names: [n for n in names if _docker_ignored(os.path.relpath(os.path.join(d, n), HERE))])
+                else:
+                    out_dir = dest if target in (".", "./") else os.path.join(dest, os.path.dirname(target))
+                    os.makedirs(out_dir, exist_ok=True)
+                    shutil.copy2(path, os.path.join(out_dir, os.path.basename(path)))
+def test_docker_context_imports_app():
+    """The files that land in the image must be enough to import the app."""
+    dest = tempfile.mkdtemp()
+    data = tempfile.mkdtemp()
+    _materialize_image(dest)
+    assert os.path.exists(os.path.join(dest, "lineupfeed.py"))
+    assert os.path.exists(os.path.join(dest, "sports.py"))
+    assert not os.path.exists(os.path.join(dest, "test_app.py"))
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    env.update(GRUNIONS_SCHEDULER="0", GRUNIONS_SHEET_SYNC="0", DATA_DIR=data,
+               GRUNIONS_DB=os.path.join(data, "app.db"), SECRET_KEY="docker-context")
+    proc = subprocess.run([sys.executable, "-c", "import app"], cwd=dest, env=env, capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
 def test_utf8_and_no_dash_strftime():
     for f in os.listdir(HERE):
         if f.endswith((".py", ".md", ".txt", ".yaml")) or f in ("Dockerfile",):
