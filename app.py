@@ -3593,8 +3593,16 @@ def checkin_filter(raw, n_not, n_in):
     if filt == "not" and n_not <= 0: return "going"
     if filt == "in" and n_in <= 0: return "going"
     return filt
+def checkin_required(f):
+    """Admins and active coaches open Manage Schedule check-in."""
+    @functools.wraps(f)
+    def w(*a, **k):
+        if not me(): return redirect(url_for("login", next=request.path))
+        if not can_host_practice(): abort(403)
+        return f(*a, **k)
+    return w
 @app.route("/admin", methods=["GET", "POST"])
-@staff_required
+@checkin_required
 def admin():
     d = db(); posted = request.values.get("date")
     if request.method == "POST" and request.form.get("action") == "walkin":
@@ -3631,6 +3639,7 @@ def admin():
     events = admin_day_events(d, date)
     ev = (request.args.get("ev") or "").strip()
     selected = next((e for e in events if e["key"] == ev), events[0] if events else None)
+    ev_pinned = bool(ev and selected and selected["key"] == ev)
     going, not_going, rest, checked = admin_people(d, date, selected, q)
     n_not, n = len(not_going), len(checked)
     filt = checkin_filter(request.args.get("filt"), n_not, n)
@@ -3641,7 +3650,7 @@ def admin():
     next_step = admin_step(d, days, date, events, evkey, 1)
     return page(T["admin"],
         tab="admin", date=date, q=q, going=going, rest=rest, not_going=not_going, checked=checked, n=n, n_not=n_not, filt=filt,
-        loc=(selected["place"] if selected else ""), pr=pr, sel=selected, events=events, evkey=evkey,
+        loc=(selected["place"] if selected else ""), pr=pr, sel=selected, events=events, evkey=evkey, ev_pinned=ev_pinned,
         ev_i=ev_i, ev_n=len(events),
         prev_href=admin_href(prev_step[0], prev_step[1], filt, q) if prev_step else "",
         next_href=admin_href(next_step[0], next_step[1], filt, q) if next_step else "",
@@ -4649,7 +4658,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-93 */
+SW_JS = """/* grunions-sw-94 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

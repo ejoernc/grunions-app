@@ -505,7 +505,9 @@ span.evcount{color:var(--color-text-secondary)}
 .evcard .t2{margin:2px 0 0;font-weight:400;font-size:15px}
 .evcard .t3{margin:2px 0 0}
 a.evcard{display:block;color:inherit;text-decoration:none;background:var(--color-surface)}
-.evcard.on{box-shadow:inset 0 0 0 1px var(--color-text-secondary)}
+.evcard.on{box-shadow:inset 0 0 0 2px var(--color-lime);scroll-margin-top:calc(var(--headh, 76px) + 88px)}
+.sechead.checkhead{align-items:center}
+.sechead.checkhead .btn{flex:none}
 button.dock,a.dock{background:var(--accent);color:var(--color-on-primary)}
 a.quietcheck,button.quietcheck{background:var(--surface2);color:var(--color-text);border:0;border-radius:var(--radius-button)}
 .emptyfind{color:var(--t2);margin:8px 0 16px}
@@ -888,7 +890,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=93');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=94');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -2573,8 +2575,10 @@ T["practice"] = """{% set p = x.p %}
 {{ whos_going(x.going) }}
 <div class=seclabel>Can't make it</div>
 <div class=list>{% for r in x.notgoing %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
-<div class=seclabel>Checked in</div>
-<div class=list>{% for r in x.checked %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
+{% set check_href = '/admin?date=' ~ p.date ~ '&ev=p-' ~ p.id ~ '#ev-p-' ~ p.id %}
+{% if can_host_practice() and x.checked %}<div class="sechead checkhead"><span class=seclabel>Checked in</span><a class="btn btn-secondary" href="{{ check_href }}">Check in</a></div>
+{% else %}<div class=seclabel>Checked in</div>{% endif %}
+<div class=list>{% for r in x.checked %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class="t3 grow">No one yet.</span>{% if can_host_practice() %}<a class="btn btn-secondary" href="{{ check_href }}">Check in</a>{% endif %}</div>{% endfor %}</div>
 {% if p.location %}{% set dest = (pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location) %}{{ event_location('practiceLoc', pins, p.location, p.address or '', 'https://www.google.com/maps/dir/?api=1&destination=' ~ (dest|urlencode)) }}{% endif %}
 {% endif %}
 {% if me().is_admin or is_staff() %}{{ practice_extra_dialogs(p, 'page') }}
@@ -2649,7 +2653,7 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Schedule') }}
 </div></dialog>
 <dialog class=modal id=evPick><div class=sheet><h2 style="margin:0 0 12px">Events</h2><div class=list id=evPickList>{% for ev in events %}<a class=li href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ ev.title }}</span><span class="t3 sm">{{ ev.when }}</span></span></a>{% endfor %}</div><button type=button class="btn btn-secondary full" onclick="this.closest('dialog').close()">Cancel</button></div></dialog>
 </div>
-{% if sel %}<a class="card evcard" href="{{ sel.detail }}">
+{% if sel %}<a class="card evcard{% if ev_pinned %} on{% endif %}" id="ev-{{ sel.key }}" href="{{ sel.detail }}">
 <div class=nxtitle>{{ sel.title }}</div>
 <p class=t2>{{ sel.when }}</p>
 {% if sel.place %}<p class=t2>{{ sel.place }}</p>{% endif %}
@@ -2680,6 +2684,7 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Schedule') }}
 <h2>Everyone else <span class=t3>{{rest|length}}</span></h2>
 <div class=list>{% for r in rest %}{{ ci(r) }}{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 {% endif %}
+{% if ev_pinned %}<script>(function(){var el=document.querySelector('.evcard.on'); if(el) el.scrollIntoView({block:'center'});})();</script>{% endif %}
 {% if coming %}<div class=seclabel>Coming up</div><div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endif %}
 <script>
 if(!window.grunionsConfirm){window.grunionsConfirm=1;
