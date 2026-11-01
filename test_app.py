@@ -49,7 +49,7 @@ eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date="2026-10-27")); eli.p
 h = x.get("/home").get_data(as_text=True)
 xp = x.get("/profile").get_data(as_text=True)
 ok("USAWP #1234567" in h and "expires 2027-08-31" in xp and "1234567" in h and "2027-08-31" in xp and "2 practices attended" in xp and "<summary>Attendance</summary>" not in h and "Cleared for water polo" not in h and A.fmt_phone("7205355925") == "(720) 535-5925", "member home shows the membership number on the practice card, and the practice count lives on the profile page")
-ok("Checked in 1 / Going" in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "check-in count per practice")
+ok("Checked in (1)" in eli.get("/admin?date=2026-10-27").get_data(as_text=True) and "Checked in 1 / Going" not in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "check-in count per practice")
 ok(eli.get("/qr.svg").data.startswith(b"<?xml"), "QR svg")
 qr_page = eli.get("/qr").get_data(as_text=True)
 ok("<h1>Join QR</h1>" in qr_page and "Anyone who scans this joins the team." in qr_page and "src=/qr.svg" in qr_page and ">Copy link</button>" in qr_page and ">Share</button>" in qr_page and ">Print</button>" in qr_page, "QR page has the code, share, and copy link")
@@ -130,7 +130,7 @@ past_id = D.execute("SELECT id FROM practices WHERE date=? AND cancelled=0", (pa
 past_admin = eli.get("/admin?date=" + past_day).get_data(as_text=True)
 linked = eli.get("/practices/%d?from=admin" % past_id).get_data(as_text=True)
 plain = eli.get("/practices/%d" % past_id).get_data(as_text=True)
-ok(">Schedule</a>" in sched_head and ">Check-in</a>" not in sched_head and ">Check in</button>" in sched and "class=schedlink" in sched and "class=calpick" in sched and 'placeholder="Search players..."' in sched and ">Going (" in sched and ('class=schedlink href="/practices/%d?from=admin"' % past_id) in past_admin and "Past Pool" in past_admin and ('href="/admin?date=%s"' % past_day) in linked.split("<main>", 1)[0] and 'href="/practices"' in plain.split("<main>", 1)[0] and ('href="/admin?date=%s"' % past_day) not in plain.split("<main>", 1)[0], "admin Schedule opens any practice, and Back returns to that date")
+ok(">Schedule</a>" in sched_head and ">People</a>" in sched_head and sched_head.find(">Schedule</a>") < sched_head.find(">People</a>") < sched_head.find(">Events</a>") < sched_head.find(">Expiring</a>") and ">Check-in</a>" not in sched_head and ">Check in</button>" in sched and "evcard" in sched and ">Details</a>" not in sched and "class=calpick" in sched and 'placeholder="Search players..."' in sched and ">Going (" in sched and "checkprog" not in sched and ('href="/practices/%d?from=admin"' % past_id) in past_admin and "Past Pool" in past_admin and ('href="/admin?date=%s"' % past_day) in linked.split("<main>", 1)[0] and 'href="/practices"' in plain.split("<main>", 1)[0] and ('href="/admin?date=%s"' % past_day) not in plain.split("<main>", 1)[0], "admin Schedule opens any practice, and Back returns to that date")
 pid = D.execute("SELECT id, date FROM practices WHERE location='Marina High School' ORDER BY date LIMIT 1").fetchone()
 tj2 = csrf(jane, "/practices"); jane.post("/practices", data=dict(csrf=tj2, pid=pid[0], action="going"))
 john.post("/practices", data=dict(csrf=tj, pid=pid[0], action="notgoing"))
@@ -727,7 +727,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=59" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=60" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
@@ -1601,7 +1601,7 @@ public = eli.get("/lineup").get_data(as_text=True)
 ok(sug.status_code == 200 and pid_party[1] == "pending" and pid_party[2] == 0 and pid_party[3] == jane_id and (pid_party[4] or "") == "" and "Birthday Party" not in public and "Birthday Party" in jane.get("/lineup").get_data(as_text=True) and "Pending approval" in jane.get("/lineup").get_data(as_text=True), "a member suggestion stays pending, unofficial, and off the public Lineup")
 ok(jane.post("/lineup/new", data=dict(csrf=csrf(jane, "/lineup/new?mode=suggest"), mode="suggest", category="travel", subtype="Tournament", title="Sneaky Cup", location="Pool", description="No.", date=soon_day, start_time="09:00"), follow_redirects=True).get_data(as_text=True).find("for organizers") >= 0 and not D.execute("SELECT 1 FROM lineup_events WHERE title='Sneaky Cup'").fetchone(), "members cannot suggest a tournament")
 queue = eli.get("/admin/approvals").get_data(as_text=True)
-ok("Approvals (" in eli.get("/admin").get_data(as_text=True).split("<main>", 1)[0] and "Birthday Party" in queue and "Approve &amp; Publish" in queue and jane.get("/admin/approvals").status_code == 403, "admins review suggestions from an Approvals chip")
+ok(">Events</a>" in eli.get("/admin").get_data(as_text=True).split("<main>", 1)[0] and "Needs review" in queue and "Birthday Party" in queue and "Approve &amp; Publish" in queue and ">Scrimmage</span>" in queue and "<h1>Events</h1>" in queue and jane.get("/admin/approvals").status_code == 403, "admins review suggestions from the Events tab")
 eli.post("/admin/approvals", data=dict(csrf=csrf(eli, "/admin/approvals"), event_id=pid_party[0], action="changes", note="Add a meeting point"))
 ok(D.execute("SELECT status, review_note FROM lineup_events WHERE id=?", (pid_party[0],)).fetchone() == ("changes_requested", "Add a meeting point") and "Changes requested" in jane.get("/lineup").get_data(as_text=True), "requesting changes tells the host and hides the event")
 jane.post("/lineup/%d/edit" % pid_party[0], data=dict(csrf=csrf(jane, "/lineup/%d/edit" % pid_party[0]), mode="edit", category="social", subtype="Party", title="Birthday Party", location="Pier", description="Cake after practice.", date=soon_day, start_time="20:00", official="1"))
@@ -1831,15 +1831,15 @@ _sched_bits = {
  "scrimmage": "class=nxtitle>Scrimmage" in both,
  "social": "class=nxtitle>Twin Social" in both,
  "pool": "Twin Practice Pool" in both,
- "details": ">Details</a>" in both,
+ "details": ">Details</a>" not in both,
  "no_chev": "›" not in _stack,
- "link": ('class=schedlink href="/practices/%d?from=admin"' % prac_id) in both,
+ "link": ('href="/practices/%d?from=admin"' % prac_id) in _stack,
  "selected": "evcard on" in both,
- "scr_href": ("ev=p-%d" % scr_id) in _stack,
- "line_href": ("ev=l-%d" % line_id) in _stack,
+ "scr_href": ('href="/practices/%d?from=admin"' % scr_id) in _stack,
+ "line_href": ('href="/lineup/%d?from=admin' % line_id) in _stack,
  "scr_on": "evcard on" in scr_admin,
  "scr_title": "class=nxtitle>Scrimmage" in scr_admin,
- "count": "Checked in " in _filt and " / Going " in _filt,
+ "count": "checkprog" not in _filt and "Going (" in _filt and "Checked in (" in _filt,
  "no_official": "Official club event" not in _stack,
  "jane_scr": ('href="/admin/member/%d"' % jane_id) in _going(scr_admin),
  "jane_default": ('href="/admin/member/%d"' % jane_id) not in _going(both),

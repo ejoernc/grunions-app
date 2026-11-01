@@ -341,10 +341,8 @@ span.avatar.ciav,span.avatar.ciav img{width:40px;height:40px;min-width:40px;max-
 .evcard .nxtitle{font-size:16px;font-weight:650;line-height:1.3}
 .evcard .t2{margin:2px 0 0;font-weight:400;font-size:15px}
 .evcard .t3{margin:2px 0 0}
-.evcard.on{background:var(--color-selected);color:var(--color-on-selected)}
-.evcard.on .t2,.evcard.on .t3{color:var(--color-on-selected-muted)}
-a.schedlink{display:inline-block;margin-top:8px;color:var(--accent);font-weight:600;text-decoration:none;font-size:15px}
-.checkprog{margin:0 0 0 auto;color:var(--t2);font-size:14px;font-weight:600}
+a.evcard{display:block;color:inherit;text-decoration:none;background:var(--color-surface)}
+.evcard.on{box-shadow:inset 0 0 0 1px var(--color-text-secondary)}
 button.dock,a.dock{background:var(--accent);color:var(--color-on-primary)}
 a.quietcheck,button.quietcheck{background:var(--surface2);color:var(--color-on-primary);border:0;border-radius:var(--radius-button)}
 .emptyfind{color:var(--t2);margin:8px 0 16px}
@@ -548,7 +546,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if can_host_practice() %}<a href=/admin/approvals class="chip{{' chip-active on' if ep=='approvals'}}">Approvals ({{ approval_count() }})</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a><a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() %}<header class="homehead{% if tab=='home' or tab=='practices' %} homefade{% endif %}"{% if tab=='home' or tab=='practices' %} data-entry="{{ 'schedule' if tab=='practices' else 'home' }}"{% endif %}><div class=headmain>{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs" role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'admin' %}<div class="admintabs noprint headtabs" role=tablist>{% set ep = request.endpoint %}{% if is_staff() %}<a href=/admin class="chip{{' chip-active on' if ep=='admin'}}">Schedule</a>{% endif %}{% if me().is_admin %}<a href=/members class="chip{{' chip-active on' if ep=='members'}}">People</a>{% endif %}{% if can_host_practice() %}<a href=/admin/approvals class="chip{{' chip-active on' if ep=='approvals'}}">Events</a>{% endif %}{% if me().is_admin %}<a href=/expiring class="chip{{' chip-active on' if ep=='expiring'}}">Expiring</a><a href=/transfer class="chip{{' chip-active on' if ep=='transfer_page'}}">Transfer</a><a href=/requirements class="chip{{' chip-active on' if ep=='requirements_page'}}">Rules</a><a href=/qr class="chip{{' chip-active on' if ep=='qr_page'}}">QR</a>{% endif %}</div>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}</div><a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% else %}<header><a class=brand href=/>Grunions</a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -574,7 +572,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=59');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=60');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1483,29 +1481,53 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="btn btn-primary full" name=action value=official>Make official</button></form>{% endif %}
 {% if e.where %}{{ event_location('lineLoc', e.pins, e.venue or e.where, e.city, e.dir_href) }}{% endif %}
 <script>(function(){var el=document.getElementById('evdesc'),btn=document.getElementById('evmore');if(!el||!btn)return;if(el.scrollHeight>el.clientHeight+2)btn.hidden=false;btn.onclick=function(){var open=el.classList.toggle('open');btn.textContent=open?'Less':'More';};})();</script>"""
-T["approvals"] = """<h1>Approvals</h1>
-{% for e in queue %}<div class="card tripcard"><div class="evbanner cat-{{ e.slug }}">{% if e.banner %}<img src="/lineup-image/{{ e.id }}?v={{ e.banner }}" alt="">{% endif %}</div><div class=evbody>
+T["approvals"] = """<h1>Events</h1>
+{% if queue %}<h2>Needs review ({{ queue|length }})</h2>
+{% for e in queue %}<div class=card>
 <div class=nxtitle>{{ e.title }}</div>
-<div class="t3 sm">{{ e.status_label }} · {{ e.category }}{% if e.subtype %} · {{ e.subtype }}{% endif %}</div>
-<div class=evhost>{{ e.host_line }}</div>
+<div class="t3 sm">{{ e.status_text or e.status_label }}{% if e.tag %} · {{ e.tag }}{% endif %}</div>
 <div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
 {% if e.where %}<div class=nxrow>{{ glyph_pin() }}<span>{{ e.where }}</span></div>{% endif %}
 {% if e.description %}<div class=evnote>{{ e.description }}</div>{% endif %}
-{% if e.submitted %}<div class="t3 sm">Submitted {{ e.submitted }}</div>{% endif %}
 {% if e.review_note %}<div class=note>{{ e.review_note }}</div>{% endif %}
 <form method=post action=/admin/approvals style="margin-top:12px">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>
 <button class="btn btn-primary full" name=action value=approve>Approve &amp; Publish</button>
 <label style="margin-top:12px">Note<textarea name=note rows=2 placeholder="Needed for changes or a decline"></textarea></label>
 <div class=row><button class="btn btn-secondary" name=action value=changes>Request Changes</button><button class="btn btn-danger" name=action value=decline>Decline</button></div>
-</form></div></div>{% else %}<p class=emptyfind>No events waiting for review.</p>{% endfor %}
-<details class=card><summary>Categories</summary><div class=body>
-{% for c in categories %}<form method=post action=/admin/approvals class=li>{{ csrf_field() }}<input type=hidden name=action value=category_toggle><input type=hidden name=category_id value={{ c.id }}><span class=grow>{{ c.name }} · {{ c.chip }}{% if not c.active %} · hidden{% endif %}</span><button class="btn btn-secondary">{{ 'Show' if not c.active else 'Hide' }}</button></form>{% endfor %}
-<form method=post action=/admin/approvals>{{ csrf_field() }}<input type=hidden name=action value=category_add>
-<label>Name<input name=name required></label><label>Filter label<input name=chip required placeholder="Social"></label>
-<label><input type=checkbox name=member_ok value=1 checked> Members can suggest</label>
-<label><input type=checkbox name=intent_ok value=1> Team intent</label>
-<label><input type=checkbox name=hosting_ok value=1> Away / Hosting</label>
-<button class="btn btn-primary full">Add category</button></form></div></details>"""
+</form></div>{% endfor %}{% endif %}
+<div class="t3 xs">Create</div>
+<div class=actseg id=createKind role=radiogroup aria-label=Type>
+<label><input type=radio name=create_kind value=practice checked><span>Practice</span></label>
+<label><input type=radio name=create_kind value=scrimmage><span>Scrimmage</span></label>
+<label><input type=radio name=create_kind value=Clinic><span>Clinic</span></label>
+<label><input type=radio name=create_kind value=Tournament><span>Tournament</span></label>
+<label><input type=radio name=create_kind value=Trip><span>Trip</span></label>
+<label><input type=radio name=create_kind value=Social><span>Social</span></label>
+<label><input type=radio name=create_kind value=Volunteer><span>Volunteer</span></label>
+</div>
+<form id=sessionForm method=post action=/admin/approvals>{{ csrf_field() }}<input type=hidden name=action value=create_session><input type=hidden name=activity_type id=sessionKind value=practice>
+<label>Date<input type=date name=date required></label>
+<div class=row><label>Start<input type=time name=start value=19:00 required></label><label>End<input type=time name=end value=20:30 required></label></div>
+<label>Location<input name=location required autocomplete=off></label>
+<button class="btn btn-primary full">Create</button></form>
+<a id=lineupCreate class="btn btn-primary full" hidden href="/lineup/new?mode=create&amp;event_type=Clinic">Create</a>
+<script>(function(){
+ var form=document.getElementById('sessionForm'), link=document.getElementById('lineupCreate'), kind=document.getElementById('sessionKind');
+ var session={practice:1,scrimmage:1};
+ function sync(){
+  var on=document.querySelector('input[name=create_kind]:checked');
+  var value=on?on.value:'practice';
+  var local=!!session[value];
+  form.hidden=!local; link.hidden=local;
+  if(local) kind.value=value;
+  else link.href='/lineup/new?mode=create&event_type='+encodeURIComponent(value);
+  link.textContent='Create '+value;
+ }
+ document.querySelectorAll('input[name=create_kind]').forEach(function(r){r.addEventListener('change', sync)});
+ sync();
+})();</script>
+{% for g in groups %}<h2>{{ g.label }}</h2><div class=list>{% for item in g['items'] %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endfor %}
+{% if not groups and not queue %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
 T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" enctype=multipart/form-data>{{ csrf_field() }}
 <input type=hidden name=mode value="{{ values.mode or mode }}">
 <button type=submit name=action value=save style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" tabindex=-1>{{ save_label or 'Save' }}</button>
@@ -1774,20 +1796,17 @@ T["admin"] = ADMIN_NAV + """
 <div class=calgrid id=calGrid>{% for c in month.cells %}{% if c is none %}<span class=calday></span>{% elif c.has %}<a class="calday{{' on' if c.on}}" href="/admin?date={{c.iso}}{{ fbit }}{{ qbit }}">{{c.day}}</a>{% else %}<span class=calday aria-disabled=true>{{c.day}}</span>{% endif %}{% endfor %}</div></div></div>
 <input type=hidden name=date value="{{date}}">{% if filt != 'going' %}<input type=hidden name=filt value="{{filt}}">{% endif %}{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}<input name=q value="{{q}}" placeholder="Search players..." style="margin:0"></form>
 </div>
-{% if events %}<div class=evstack>{% for ev in events %}{% set picked = sel and ev.key == sel.key %}<div class="card evcard{{ ' on' if picked }}">{% if events|length > 1 %}<a class=evhit href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}">{% endif %}
+{% if events %}<div class=evstack>{% for ev in events %}{% set picked = events|length > 1 and sel and ev.key == sel.key %}<a class="card evcard{{ ' on' if picked }}" href="{{ ev.detail }}">
 <div class=nxtitle>{{ ev.title }}</div>
 <p class=t2>{{ ev.when }}</p>
 {% if ev.place %}<p class=t2>{{ ev.place }}</p>{% endif %}
 {% if ev.who %}<p class="t3 sm">{{ ev.who }}</p>{% endif %}
-{% if events|length > 1 %}</a>{% endif %}
-<a class=schedlink href="{{ ev.detail }}">Details</a>
-</div>{% endfor %}</div>{% else %}<p class=emptyfind>No events on this day</p>{% endif %}
+</a>{% endfor %}</div>{% else %}<p class=emptyfind>No events on this day</p>{% endif %}
 <div class=checkmeta>
 <div class="filt checkfilt" role=group aria-label="RSVP">
 <a class="chip{{ ' chip-active on' if filt=='going' }}" href="/admin?date={{ date }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Going ({{ going|length }})</a>
 {% if n_not %}<a class="chip{{ ' chip-active on' if filt=='not' }}" href="/admin?date={{ date }}&amp;filt=not{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Not Going ({{ n_not }})</a>{% else %}<button type=button class=chip disabled aria-disabled=true>Not Going (0)</button>{% endif %}
 {% if n %}<a class="chip{{ ' chip-active on' if filt=='in' }}" href="/admin?date={{ date }}&amp;filt=in{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Checked in ({{ n }})</a>{% else %}<button type=button class=chip disabled aria-disabled=true>Checked in (0)</button>{% endif %}
-<span class=checkprog>Checked in {{ n }} / Going {{ going|length }}</span>
 </div>
 </div>
 {% macro ci(r) %}

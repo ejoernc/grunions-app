@@ -2575,6 +2575,9 @@ def lineup_new():
     if request.method == "GET" and mode in ("create", "propose", "draft") and not can_host_practice(): abort(403)
     if not can_host_practice() and mode != "suggest": abort(403)
     values = lineupfeed.form_values(mode=mode)
+    asked = (request.args.get("event_type") or "").strip()
+    if request.method == "GET" and asked in lineupfeed.EVENT_TYPES:
+        values["event_type"] = asked
     if request.method == "POST":
         try:
             info = _save_lineup(d)
@@ -2640,6 +2643,47 @@ def lineup_image(eid):
     resp = send_from_directory(UPLOADS, fn, max_age=86400)
     resp.headers["Cache-Control"] = "private, max-age=86400"
     return resp
+def events_hub_groups(d):
+    """Upcoming practices and Lineup events, one group per type."""
+    now = wall_pt()
+    buckets = {}
+    def add(label, item):
+        buckets.setdefault(label, []).append(item)
+    today = today_pt().isoformat()
+    for p in d.execute("SELECT * FROM practices WHERE cancelled=0 AND date>=? ORDER BY date, start, id", (today,)):
+        kind = (p["activity_type"] or "practice") if "activity_type" in p.keys() else "practice"
+        if kind not in sports.ACTIVITY_IDS: kind = "practice"
+        add(sports.ACTIVITY_NAME.get(kind, "Practice"), {
+            "title": practice_title(p),
+            "when": "%s · %s" % (fmt_d(p["date"]), fmt_span(p["start"] or "19:00", p["end"] or "20:30")),
+            "place": p["location"] or "",
+            "href": "/practices/%d?from=admin" % p["id"],
+            "sort": (p["date"] or "", p["start"] or "", p["id"]),
+        })
+    raw = []
+    for r in lineup_query(d):
+        if (r["status"] or "") != "published": continue
+        try:
+            if event_window(r)[1] < now: continue
+        except (TypeError, ValueError):
+            continue
+        raw.append(r)
+    for e in lineup_pack(d, raw):
+        add(e.get("event_type") or "Event", {
+            "title": e["title"],
+            "when": e["when"],
+            "place": e["where"],
+            "href": "/lineup/%d?from=admin" % e["id"],
+            "sort": (e["date"] or "", e["id"]),
+        })
+    order = ["Practice", "Scrimmage", "Game", "Hybrid", "Clinic", "Tournament", "Trip", "Social", "Volunteer"]
+    groups = []
+    for label in order:
+        if label in buckets:
+            groups.append({"label": label, "items": sorted(buckets.pop(label), key=lambda item: item["sort"])})
+    for label in sorted(buckets):
+        groups.append({"label": label, "items": sorted(buckets[label], key=lambda item: item["sort"])})
+    return groups
 @app.route("/admin/approvals", methods=["GET", "POST"])
 @login_required
 def approvals():
@@ -2664,6 +2708,25 @@ def approvals():
             cid = request.form.get("category_id", type=int)
             if cid: d.execute("UPDATE lineup_categories SET active=CASE WHEN active=1 THEN 0 ELSE 1 END WHERE id=?", (cid,)); d.commit()
             return redirect("/admin/approvals")
+        if action == "create_session":
+            activity = (request.form.get("activity_type") or "practice").strip().lower()
+            if activity not in ("practice", "scrimmage"): activity = "practice"
+            day = parse_date(request.form.get("date"))
+            loc = " ".join((request.form.get("location") or "").split())[:300]
+            if not day: flash("Add a date."); return redirect("/admin/approvals")
+            if not loc: flash("Add a location."); return redirect("/admin/approvals")
+            start = (request.form.get("start") or "19:00").strip() or "19:00"
+            end = (request.form.get("end") or "20:30").strip() or "20:30"
+            try:
+                sp = sports.sports_from_form(request.form)
+                sp["activity_type"] = activity
+                d.execute("""INSERT INTO practices(date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (day.isoformat(), start, end, loc, "", *sports.sports_tuple(sp)))
+                d.commit(); flash("Created", "toast")
+            except sqlite3.IntegrityError:
+                flash("A practice already exists at that place on that date.")
+            return redirect("/admin/approvals")
         eid = request.form.get("event_id", type=int)
         row = lineup_event_row(d, eid) if eid else None
         if not row: abort(404)
@@ -2687,7 +2750,7 @@ def approvals():
         return redirect("/admin/approvals")
     queue = lineup_pack(d, [r for r in lineup_query(d) if (r["status"] or "") in ("pending", "changes_requested")])
     queue.sort(key=lambda e: (0 if e["status"] == "pending" else 1, e["submitted"], e["id"]))
-    return page(T["approvals"], tab="admin", queue=queue, categories=lineupfeed.categories(d))
+    return page(T["approvals"], tab="admin", queue=queue, groups=events_hub_groups(d))
 def next_commitment(d, mid):
     """Earliest committed thing: an in-progress item beats a later one. Interested and Considering stay off Home."""
     now = wall_pt()
@@ -4030,7 +4093,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-59 */
+SW_JS = """/* grunions-sw-60 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
