@@ -441,6 +441,14 @@ button.lanecard span{color:var(--color-text-secondary);font-size:var(--type-b2-s
 button.setrow{width:100%;height:auto;min-height:60px;padding:14px 18px;border-radius:0;background:transparent;color:var(--color-text);font-weight:500;justify-content:space-between;text-align:left}
 button.setrow .sum{color:var(--color-text-secondary);font-weight:400;font-size:var(--type-b2-size)}
 .locok{display:inline-flex;align-items:center;gap:6px;color:var(--color-status-cleared);font-size:var(--type-b2-size);margin:-8px 0 var(--space-4)}
+.placefield{position:relative;display:block}
+.placedrop{position:absolute;z-index:25;left:0;right:0;top:calc(100% + 4px);max-height:min(320px,60vh);overflow:auto;background:var(--color-sheet);border:1px solid var(--color-sheet-border);border-radius:var(--radius-control);padding:4px;box-shadow:0 12px 32px rgba(0,0,0,.35)}
+button.placeopt{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;height:auto;margin:0;padding:8px 12px;background:transparent;color:var(--color-text);border-radius:12px;font-weight:400;text-align:left;justify-content:flex-start}
+button.placeopt.on{background:var(--color-raised)}
+.placeopt .pin{flex:none;width:16px;height:16px;color:var(--color-icon)}
+.placeopt .grow{min-width:0;display:block}
+.placeopt .pname,.placeopt .plabel{display:block;font-weight:650;line-height:1.25}
+.placeopt .pdetail{display:block;margin-top:2px;color:var(--color-text-secondary);font-size:13px;line-height:1.25;font-weight:400}
 .createfoot{margin-top:var(--space-5)}
 .createfoot .pagesub{margin:0 0 var(--space-3)}
 .planlane{display:flex;flex-direction:column;gap:12px}
@@ -851,7 +859,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=75');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=76');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -1307,7 +1315,88 @@ window.grunionsDropzones=function(){
   });
  });
 };
-document.addEventListener('DOMContentLoaded', function(){ if(window.grunionsDropzones) grunionsDropzones(); });
+window.grunionsPlaces=function(input){
+ if(!input||input.dataset.placebound) return;
+ input.dataset.placebound='1';
+ input.setAttribute('autocomplete','off');
+ input.setAttribute('role','combobox');
+ input.setAttribute('aria-autocomplete','list');
+ input.setAttribute('aria-expanded','false');
+ var wrap=document.createElement('div');
+ wrap.className='placefield';
+ input.parentNode.insertBefore(wrap, input);
+ wrap.appendChild(input);
+ var drop=document.createElement('div');
+ drop.className='placedrop'; drop.hidden=true; drop.setAttribute('role','listbox');
+ wrap.appendChild(drop);
+ var label=input.closest('label');
+ var badge=label?label.querySelector('.locok'):null;
+ var wait, seq=0, items=[], active=-1, open=false;
+ var pin='<svg class=pin viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,64a40,40,0,1,0,40,40A40,40,0,0,0,128,64Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,128Zm0-112a88.1,88.1,0,0,0-88,88c0,31.4,14.51,64.68,42,96.25a254.19,254.19,0,0,0,41.45,38.3,8,8,0,0,0,9.18,0A254.19,254.19,0,0,0,174,200.25c27.45-31.57,42-64.85,42-96.25A88.1,88.1,0,0,0,128,16Zm0,206c-16.53-13-72-60.75-72-118a72,72,0,0,1,144,0C200,161.23,144.53,209,128,222Z"/></svg>';
+ function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+ function setBadge(on){ if(badge) badge.hidden=!on; }
+ function close(){ open=false; drop.hidden=true; input.setAttribute('aria-expanded','false'); active=-1; }
+ function paint(){
+  drop.innerHTML='';
+  items.forEach(function(item, i){
+   var b=document.createElement('button');
+   b.type='button'; b.className='placeopt'+(i===active?' on':''); b.setAttribute('role','option');
+   b.setAttribute('aria-selected', i===active?'true':'false');
+   if(item.custom) b.innerHTML='<span class=grow><span class=plabel>'+esc(item.label)+'</span></span>';
+   else b.innerHTML=pin+'<span class=grow><span class=pname>'+esc(item.name)+'</span>'+(item.detail?'<span class=pdetail>'+esc(item.detail)+'</span>':'')+'</span>';
+   b.addEventListener('pointerdown', function(e){ e.preventDefault(); });
+   b.addEventListener('click', function(e){ e.preventDefault(); choose(i); });
+   drop.appendChild(b);
+  });
+  var on=items.length>0;
+  open=on; drop.hidden=!on; input.setAttribute('aria-expanded', on?'true':'false');
+ }
+ function choose(i){
+  var item=items[i]; if(!item) return;
+  input.value=item.name;
+  setBadge(!!item.verified);
+  input.dispatchEvent(new Event('change',{bubbles:true}));
+  close();
+ }
+ function show(q){
+  var mine=++seq;
+  fetch('/api/places?q='+encodeURIComponent(q)).then(function(r){ return r.json(); }).then(function(rows){
+   if(mine!==seq||input.value.trim()!==q) return;
+   items=(rows||[]).map(function(row){ return {name:row.name||'', detail:row.detail||'', verified:row.verified!==false, custom:false}; }).filter(function(row){ return row.name; });
+   var typed=q;
+   items.push({name:typed, detail:'', verified:false, custom:true, label:'Use “'+typed+'”'});
+   active=items.length?0:-1;
+   paint();
+  }).catch(function(){});
+ }
+ input.addEventListener('input', function(){
+  setBadge(false);
+  clearTimeout(wait);
+  var q=input.value.trim();
+  if(q.length<2){ seq++; items=[]; close(); return; }
+  wait=setTimeout(function(){ show(q); }, 250);
+ });
+ input.addEventListener('keydown', function(e){
+  if(drop.hidden) return;
+  if(e.key==='ArrowDown'){ e.preventDefault(); active=active<0?0:Math.min(items.length-1, active+1); paint(); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); active=Math.max(0, active-1); paint(); }
+  else if(e.key==='Enter'){ e.preventDefault(); if(active<0) active=0; choose(active); }
+  else if(e.key==='Escape'){ e.preventDefault(); close(); }
+ });
+ if(input.form) input.form.addEventListener('submit', function(e){ if(!drop.hidden) e.preventDefault(); });
+ input.addEventListener('blur', function(){ setTimeout(close, 180); });
+ document.addEventListener('keydown', function(e){ if(e.key==='Escape'&&open) close(); });
+};
+function grunionsBindPlaces(){
+ document.querySelectorAll('[data-places]').forEach(function(input){ if(window.grunionsPlaces) grunionsPlaces(input); });
+}
+document.addEventListener('focusin', function(e){
+ var input=e.target; if(input&&input.matches&&input.matches('[data-places]')) grunionsPlaces(input);
+});
+document.addEventListener('DOMContentLoaded', function(){
+ if(window.grunionsDropzones) grunionsDropzones();
+ grunionsBindPlaces();
+});
 grunionsPinHead();
 window.addEventListener('resize', grunionsPinHead);
 </script>
@@ -2017,7 +2106,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button class="li setrow" data-matfor=monthInput><span class=grow>Month<span class=sum id=monthSum> Choose a month</span></span>""" + _CHEV + """</button>
 <label>Part of the month<select name=date_part><option value="">TBA</option><option value=early>Early</option><option value=mid>Mid</option><option value=late>Late</option></select></label>
 </div>
-<label>Location<span id=locOk class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location id=locInput autocomplete=off placeholder="Pool or address"></label>
+<label>Location<span id=locOk class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location id=locInput data-places autocomplete=off placeholder="Pool or address"></label>
 <div class=seclabel>Additional settings</div>
 {% if staff %}<div class=list id=schedSets {% if lane == 'lineup' %}hidden{% endif %}>
 <button type=button class="li setrow" data-open=setLevels><span class=grow>Skill levels &amp; division<span class=sum id=lvlSum> Not set</span></span>""" + _CHEV + """</button>
@@ -2144,21 +2233,6 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   }
  }
  var lt=document.getElementById('lineType'); if(lt) lt.addEventListener('change', syncLine);
- var loc=document.getElementById('locInput'), ok=document.getElementById('locOk'), wait;
- if(loc) loc.addEventListener('input', function(){
-  if(ok) ok.hidden=true;
-  clearTimeout(wait);
-  var q=loc.value.trim(); if(q.length<3) return;
-  wait=setTimeout(function(){
-    fetch('/api/places?q='+encodeURIComponent(q)).then(function(r){return r.json()}).then(function(names){
-      var list=document.getElementById('locSuggest');
-      if(!list){ list=document.createElement('datalist'); list.id='locSuggest'; loc.setAttribute('list','locSuggest'); loc.parentNode.appendChild(list); }
-      list.innerHTML='';
-      (names||[]).forEach(function(n){ var o=document.createElement('option'); o.value=n; list.appendChild(o); if(n===loc.value && ok) ok.hidden=false; });
-    }).catch(function(){});
-  }, 250);
- });
- if(loc) loc.addEventListener('change', function(){ if(ok && loc.value.trim().length>3) ok.hidden=false; });
  paintTitle();
 })();
 </script>
@@ -2198,9 +2272,8 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <label>Month<input type=month name=month value="{{ values.month }}"></label>
 <label>Part of the month<select name=date_part><option value="">TBA</option><option value=early {% if values.date_part == 'early' %}selected{% endif %}>Early</option><option value=mid {% if values.date_part == 'mid' %}selected{% endif %}>Mid</option><option value=late {% if values.date_part == 'late' %}selected{% endif %}>Late</option></select></label>
 </div>
-<label>City<input name=city value="{{ values.city }}" required placeholder="Toronto, Canada" list=citySuggest autocomplete=off></label>
-<datalist id=citySuggest>{% for c in cities %}<option value="{{ c }}">{% endfor %}</datalist>
-<label>Venue<input name=venue value="{{ values.location }}" placeholder="Name and address, optional" autocomplete=off></label>
+<label>City<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=city value="{{ values.city }}" data-places required placeholder="Toronto, Canada" autocomplete=off></label>
+<label>Venue<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=venue value="{{ values.location }}" data-places placeholder="Name and address, optional" autocomplete=off></label>
 <label>Short description<textarea name=description rows=3 required>{{ values.description }}</textarea></label>
 <details class=moredetails><summary>More details</summary>
 {{ sports_editor(sports_row, false, true) }}
@@ -2233,25 +2306,13 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
  }
  document.querySelectorAll('input[name=date_precision]').forEach(function(r){r.addEventListener('change', datesMode)});
  datesMode();
- var city=document.querySelector('input[name=city]'), list=document.getElementById('citySuggest'), wait;
- if(city&&list) city.addEventListener('input', function(){
-  clearTimeout(wait);
-  var q=city.value.trim();
-  if(q.length<3) return;
-  wait=setTimeout(function(){
-   fetch('/api/places?q='+encodeURIComponent(q)).then(function(r){return r.json()}).then(function(rows){
-    list.innerHTML='';
-    (rows||[]).forEach(function(name){var o=document.createElement('option'); o.value=name; list.appendChild(o);});
-   }).catch(function(){});
-  }, 280);
- });
 })();</script>"""
 T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ csrf_field() }}
 {{ sports_editor(series) }}
 <div class=checks role=group aria-label="Weekdays"><div class="t3 xs">Weekdays</div>
 {% for value, label in values.labels %}<label style="margin:8px 0"><input type=checkbox name=weekday value="{{ value }}" {% if value in values.weekdays %}checked{% endif %}>{{ label }}</label>{% endfor %}</div>
 <div class=row><label>Start<input type=time name=start value="{{ values.start }}" required></label><label>End<input type=time name=end value="{{ values.end }}" required></label></div>
-<label>Location<input name=location value="{{ values.location }}" required autocomplete=off></label>
+<label>Location<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location value="{{ values.location }}" data-places required autocomplete=off></label>
 <div class=row><label>Starts<input type=date name=start_date value="{{ values.start_date }}" required></label><label>Ends (optional)<input type=date name=end_date value="{{ values.end_date }}"></label></div>
 <p class="t3 sm">Dates are added through the end date, or for the next eight weeks when there is no end date.</p>
 <div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>
@@ -2308,7 +2369,7 @@ T["practice"] = """{% set p = x.p %}
 <label>Date<input type=date name=date value="{{ p.date }}" required></label>
 {% if p.series_id %}<label>Apply changes to<select name=series_scope><option value=once>Only this date</option><option value=following>This and following</option></select></label>{% endif %}
 <div class=row><label>Start<input type=time name=start value="{{ p.start }}" required></label><label>End<input type=time name=end value="{{ p.end }}" required></label></div>
-<label>Location / address<input name=location value="{{ p.location or '' }}" required></label>
+<label>Location / address<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location value="{{ p.location or '' }}" data-places required autocomplete=off></label>
 <label>Notes<textarea name=note>{{ p.note or '' }}</textarea></label>
 <div class="t3 xs" style="margin:4px 0 8px">After-practice social</div>
 {{ social_fields(p) }}

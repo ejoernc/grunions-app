@@ -2632,25 +2632,73 @@ def lineup_template_ctx(d, mode, values, event_id=None, banner=""):
     cities = [r[0] for r in d.execute("SELECT DISTINCT trim(city) FROM lineup_events WHERE trim(COALESCE(city,''))!='' ORDER BY 1")]
     return dict(event_types=types, values=values, mode=mode, event_id=event_id, banner=banner or "",
         organizer=can_host_practice(), save_label=("Submit" if mode == "suggest" else "Save"), sports_row=None, cities=cities)
-def suggest_places(q):
-    """Place names for the city field. A map link is not a place."""
-    q = " ".join(str(q or "").split())
-    if len(q) < 3 or q.lower().startswith(("http://", "https://")): return []
-    key = "suggest:" + q.casefold()
-    if key in _GEO_CACHE: return _GEO_CACHE[key]
-    url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode({"q": q, "format": "jsonv2", "limit": "5"})
+def _place_fold(text):
+    """High School and HS match the same query."""
+    n = " ".join(str(text or "").casefold().split())
+    return n.replace("high school", "hs").replace("middle school", "ms").replace("elementary school", "es")
+def _place_hit(q, name, detail=""):
+    needle = _place_fold(q)
+    if not needle: return False
+    blob = _place_fold(name) + " " + _place_fold(detail)
+    if needle in blob: return True
+    return all(part in blob for part in needle.split())
+def _place_add(rows, name, detail):
+    name = " ".join(str(name or "").split())[:120]
+    detail = " ".join(str(detail or "").split())[:180]
+    if not name: return
+    if any(name.casefold() == row["name"].casefold() and detail.casefold() == row["detail"].casefold() for row in rows): return
+    rows.append({"name": name, "detail": detail, "verified": True})
+def local_places(d, q):
+    """Club pools first, then places the club has already saved."""
+    rows = []
+    for place in POOLS:
+        if _place_hit(q, place["name"], place["address"]):
+            _place_add(rows, place["name"], place["address"])
+    if d is not None:
+        for row in d.execute("""SELECT location FROM practices
+            WHERE trim(COALESCE(location,''))!='' GROUP BY lower(trim(location))
+            ORDER BY MAX(date) DESC LIMIT 24"""):
+            known = pool_place(row["location"])
+            name = known["name"] if known else row["location"]
+            detail = known["address"] if known else ""
+            if _place_hit(q, name, detail): _place_add(rows, name, detail)
+        for row in d.execute("""SELECT city, venue FROM lineup_events
+            WHERE trim(COALESCE(city,''))!='' GROUP BY lower(trim(city))
+            ORDER BY MAX(date) DESC LIMIT 24"""):
+            if _place_hit(q, row["city"], row["venue"] or ""):
+                _place_add(rows, row["city"], row["venue"] or "")
+    return rows
+def nominatim_places(q):
+    url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode({
+        "q": q, "format": "jsonv2", "limit": "5", "addressdetails": "1"})
     req = urllib.request.Request(url, headers={"User-Agent": "GrunionsWaterPolo/1.0 (team practice map)", "Accept": "application/json"})
-    names = []
+    rows = []
     try:
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with urllib.request.urlopen(req, timeout=4) as resp:
             data = json.loads(resp.read().decode() or "[]")
         for item in data:
-            name = " ".join(str(item.get("display_name") or "").split())
-            if name and name not in names: names.append(name)
+            disp = " ".join(str(item.get("display_name") or "").split())
+            name = " ".join(str(item.get("name") or "").split()) or disp.split(",")[0].strip()
+            detail = disp
+            if name and detail.casefold().startswith(name.casefold()):
+                detail = detail[len(name):].lstrip(" ,")
+            _place_add(rows, name, detail)
     except Exception as e:
         app.logger.info("place suggest failed: %s", e)
-    _GEO_CACHE[key] = names[:5]
-    return names[:5]
+    return rows
+def suggest_places(q, d=None):
+    """Up to five places. Saved club pools come before the map search."""
+    q = " ".join(str(q or "").split())
+    if len(q) < 2 or q.lower().startswith(("http://", "https://")): return []
+    key = "suggest2:" + q.casefold()
+    if key in _GEO_CACHE: return _GEO_CACHE[key]
+    rows = local_places(d, q)[:5]
+    if len(rows) < 5:
+        for item in nominatim_places(q):
+            if len(rows) >= 5: break
+            _place_add(rows, item["name"], item["detail"])
+    _GEO_CACHE[key] = rows[:5]
+    return rows[:5]
 def _save_lineup(d, existing=None):
     form = _form_last()
     banner = None
@@ -2675,7 +2723,7 @@ def _save_lineup(d, existing=None):
 @app.route("/api/places")
 @login_required
 def api_places():
-    return jsonify(suggest_places(request.args.get("q")))
+    return jsonify(suggest_places(request.args.get("q"), db()))
 @app.route("/lineup", methods=["GET", "POST"])
 @login_required
 def lineup():
@@ -4449,7 +4497,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-75 */
+SW_JS = """/* grunions-sw-76 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
