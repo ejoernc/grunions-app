@@ -328,7 +328,15 @@ span.avatar.ciav,span.avatar.ciav img{width:40px;height:40px;min-width:40px;max-
 .filt{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
 .filt button.chip:disabled{opacity:.4;color:var(--t3);cursor:default;pointer-events:none}
 .checkbar{position:sticky;top:var(--headh,0px);z-index:6;background:var(--color-bg);margin:0 -20px 8px;padding:8px 20px 10px}
-.checkbar form.row{flex-wrap:nowrap;align-items:center;gap:8px}
+.checkbar form.row{flex-wrap:nowrap;align-items:center;gap:8px;width:100%}
+.checkbar .calpick{flex:1 1 auto;width:100%}
+.checkbar .calnav{width:44px;height:44px;min-width:44px;min-height:44px}
+.checkbar .calbtn{height:44px;min-height:44px}
+.evcount{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:44px;min-width:44px;padding:0 12px;border-radius:var(--radius-chip);border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-text);font-weight:650;font-size:15px;flex:none}
+button.evcount{cursor:pointer}
+span.evcount{color:var(--color-text-secondary)}
+.playersearch{margin:0 0 12px}
+.playersearch input{margin:0;height:44px}
 .checkbar .calpick{flex:0 0 auto}
 .checkbar .calbtn{flex:0 0 auto}
 .checkbar .calbtn span{overflow:visible;text-overflow:clip}
@@ -572,7 +580,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=60');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=61');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1785,29 +1793,32 @@ T["admin"] = ADMIN_NAV + """
 {%- set qbit -%}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{%- endset -%}
 {%- set fbit -%}{% if filt != 'going' %}&amp;filt={{ filt }}{% endif %}{%- endset -%}
 <div class=checkbar>
-<form class="row noprint" method=get action=/admin style="margin-bottom:0"><div class=calpick id=calPick data-date="{{date}}" data-q="{{q}}" data-filt="{{ '' if filt=='going' else filt }}" data-dates='{{ days|tojson }}'>
-{% if prev_d %}<a class=calnav href="/admin?date={{prev_d}}{{ fbit }}{{ qbit }}" aria-label="Previous practice">""" + _CHEV_L + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Previous practice">""" + _CHEV_L + """</span>{% endif %}
+<div class=calpick id=calPick data-date="{{date}}" data-q="{{q}}" data-filt="{{ '' if filt=='going' else filt }}" data-dates='{{ days|tojson }}' data-events='{{ catalog|tojson }}'>
+{% if prev_href %}<a class=calnav href="{{ prev_href }}" aria-label="Previous event">""" + _CHEV_L + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Previous event">""" + _CHEV_L + """</span>{% endif %}
+{% if ev_n > 1 %}<button type=button class=evcount id=evCount aria-haspopup=dialog aria-controls=evPick>{{ ev_i }}/{{ ev_n }}</button>{% elif ev_n == 1 %}<span class=evcount>{{ ev_i }}/{{ ev_n }}</span>{% endif %}
 <button type=button class=calbtn id=calOpen aria-haspopup=dialog aria-expanded=false aria-controls=calPop>""" + _CAL_I + """<span>{{ fmt_d(date).replace(' ', ', ', 1) }}</span></button>
-{% if next_d %}<a class=calnav href="/admin?date={{next_d}}{{ fbit }}{{ qbit }}" aria-label="Next practice">""" + _CHEV_R + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Next practice">""" + _CHEV_R + """</span>{% endif %}
-<div class=calpop id=calPop hidden role=dialog aria-label="Choose a practice"><div class=calhead>
+{% if next_href %}<a class=calnav href="{{ next_href }}" aria-label="Next event">""" + _CHEV_R + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Next event">""" + _CHEV_R + """</span>{% endif %}
+<div class=calpop id=calPop hidden role=dialog aria-label="Choose a date"><div class=calhead>
 <button type=button class=calmonth id=calPrevM aria-label="Previous month">""" + _CHEV_L + """</button><div class=lbl id=calLabel>{{month.label}}</div>
 <button type=button class=calmonth id=calNextM aria-label="Next month">""" + _CHEV_R + """</button></div>
 <div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
-<div class=calgrid id=calGrid>{% for c in month.cells %}{% if c is none %}<span class=calday></span>{% elif c.has %}<a class="calday{{' on' if c.on}}" href="/admin?date={{c.iso}}{{ fbit }}{{ qbit }}">{{c.day}}</a>{% else %}<span class=calday aria-disabled=true>{{c.day}}</span>{% endif %}{% endfor %}</div></div></div>
-<input type=hidden name=date value="{{date}}">{% if filt != 'going' %}<input type=hidden name=filt value="{{filt}}">{% endif %}{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}<input name=q value="{{q}}" placeholder="Search players..." style="margin:0"></form>
+<div class=calgrid id=calGrid>{% for c in month.cells %}{% if c is none %}<span class=calday></span>{% elif c.has %}<a class="calday{{' on' if c.on}}" href="/admin?date={{ c.iso }}{{ fbit }}{{ qbit }}" data-date="{{ c.iso }}">{{c.day}}</a>{% else %}<span class=calday aria-disabled=true>{{c.day}}</span>{% endif %}{% endfor %}</div></div></div>
 </div>
-{% if events %}<div class=evstack>{% for ev in events %}{% set picked = events|length > 1 and sel and ev.key == sel.key %}<a class="card evcard{{ ' on' if picked }}" href="{{ ev.detail }}">
-<div class=nxtitle>{{ ev.title }}</div>
-<p class=t2>{{ ev.when }}</p>
-{% if ev.place %}<p class=t2>{{ ev.place }}</p>{% endif %}
-{% if ev.who %}<p class="t3 sm">{{ ev.who }}</p>{% endif %}
-</a>{% endfor %}</div>{% else %}<p class=emptyfind>No events on this day</p>{% endif %}
+<dialog class=modal id=evPick><div class=sheet><h2 style="margin:0 0 12px">Events</h2><div class=list id=evPickList>{% for ev in events %}<a class=li href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ ev.title }}</span><span class="t3 sm">{{ ev.when }}</span></span></a>{% endfor %}</div><button type=button class="btn btn-secondary full" onclick="this.closest('dialog').close()">Cancel</button></div></dialog>
+</div>
+{% if sel %}<a class="card evcard" href="{{ sel.detail }}">
+<div class=nxtitle>{{ sel.title }}</div>
+<p class=t2>{{ sel.when }}</p>
+{% if sel.place %}<p class=t2>{{ sel.place }}</p>{% endif %}
+{% if sel.who %}<p class="t3 sm">{{ sel.who }}</p>{% endif %}
+</a>{% else %}<p class=emptyfind>No events on this day</p>{% endif %}
 <div class=checkmeta>
 <div class="filt checkfilt" role=group aria-label="RSVP">
 <a class="chip{{ ' chip-active on' if filt=='going' }}" href="/admin?date={{ date }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Going ({{ going|length }})</a>
 {% if n_not %}<a class="chip{{ ' chip-active on' if filt=='not' }}" href="/admin?date={{ date }}&amp;filt=not{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Not Going ({{ n_not }})</a>{% else %}<button type=button class=chip disabled aria-disabled=true>Not Going (0)</button>{% endif %}
 {% if n %}<a class="chip{{ ' chip-active on' if filt=='in' }}" href="/admin?date={{ date }}&amp;filt=in{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Checked in ({{ n }})</a>{% else %}<button type=button class=chip disabled aria-disabled=true>Checked in (0)</button>{% endif %}
 </div>
+<form class=playersearch method=get action=/admin><input type=hidden name=date value="{{ date }}">{% if filt != 'going' %}<input type=hidden name=filt value="{{ filt }}">{% endif %}{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}<input name=q value="{{ q }}" placeholder="Search players..." style="margin:0"></form>
 </div>
 {% macro ci(r) %}
 <div class="li cirow" data-rsvp="{{ 'going' if r.going==1 else ('not' if r.going==0 else 'none') }}" data-checked="{{ 1 if r.cid else 0 }}"><a class=ci-name href="/admin/member/{{ r.id }}">
@@ -1838,10 +1849,20 @@ if(!window.grunionsConfirm){window.grunionsConfirm=1;
 var root=document.getElementById('calPick'); if(!root) return;
 var pop=document.getElementById('calPop'), openBtn=document.getElementById('calOpen'), grid=document.getElementById('calGrid'), label=document.getElementById('calLabel');
 var dates=[]; try{dates=JSON.parse(root.getAttribute('data-dates')||'[]')}catch(err){dates=[]}
+var catalog={}; try{catalog=JSON.parse(root.getAttribute('data-events')||'{}')}catch(err){catalog={}}
 var set={}; dates.forEach(function(d){set[d]=1});
 var q=root.getAttribute('data-q')||'', filt=root.getAttribute('data-filt')||'', selected=root.getAttribute('data-date')||'', shown=selected.slice(0,7);
 function pad(n){return (n<10?'0':'')+n}
-function href(iso){return '/admin?date='+iso+(filt?'&filt='+encodeURIComponent(filt):'')+(q?'&q='+encodeURIComponent(q):'')}
+function href(iso, ev){return '/admin?date='+iso+(ev?'&ev='+encodeURIComponent(ev):'')+(filt?'&filt='+encodeURIComponent(filt):'')+(q?'&q='+encodeURIComponent(q):'')}
+function openPick(iso, list){
+ var dlg=document.getElementById('evPick'), box=document.getElementById('evPickList');
+ if(!dlg||!box) return;
+ box.innerHTML=list.map(function(ev){
+  return '<a class=li href="'+href(iso, ev.key)+'" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">'+String(ev.title||'').replace(/</g,'')+'</span><span class="t3 sm">'+String(ev.when||'').replace(/</g,'')+'</span></span></a>';
+ }).join('');
+ if(pop){pop.hidden=true; if(openBtn) openBtn.setAttribute('aria-expanded','false')}
+ if(dlg.showModal) dlg.showModal();
+}
 var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
 function render(ym){
  shown=ym; var parts=ym.split('-'), y=+parts[0], m=+parts[1];
@@ -1850,7 +1871,7 @@ function render(ym){
  for(var i=0;i<blanks;i++) html+='<span class=calday></span>';
  for(day=1; day<=last; day++){
   iso=y+'-'+pad(m)+'-'+pad(day);
-  if(set[iso]) html+='<a class="calday'+(iso===selected?' on':'')+'" href="'+href(iso)+'">'+day+'</a>';
+  if(set[iso]) html+='<a class="calday'+(iso===selected?' on':'')+'" data-date="'+iso+'" href="'+href(iso)+'">'+day+'</a>';
   else html+='<span class=calday aria-disabled=true>'+day+'</span>';
  }
  grid.innerHTML=html;
@@ -1866,6 +1887,14 @@ openBtn.onclick=function(){
  var show=pop.hidden; pop.hidden=!show; openBtn.setAttribute('aria-expanded', show?'true':'false');
  if(show) render(selected.slice(0,7)||shown);
 };
+var countBtn=document.getElementById('evCount');
+if(countBtn) countBtn.onclick=function(){ var dlg=document.getElementById('evPick'); if(dlg&&dlg.showModal) dlg.showModal(); };
+grid.addEventListener('click', function(e){
+ var a=e.target.closest&&e.target.closest('a.calday'); if(!a) return;
+ var iso=a.getAttribute('data-date')||'';
+ var list=catalog[iso]||[];
+ if(list.length>1){ e.preventDefault(); openPick(iso, list); }
+});
 if(!window.grunionsCalDoc){
  window.grunionsCalDoc=1;
  document.addEventListener('click', function(e){

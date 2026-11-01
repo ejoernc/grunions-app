@@ -1801,6 +1801,36 @@ def default_checkin_date(days, today=None):
     for day in days:
         if day > today: return day
     return days[-1] if days else today
+def admin_href(date, ev="", filt="going", q=""):
+    """Schedule URL that keeps the selected date and event."""
+    parts = [("date", date)]
+    if ev: parts.append(("ev", ev))
+    if filt and filt != "going": parts.append(("filt", filt))
+    if q: parts.append(("q", q))
+    return "/admin?" + urllib.parse.urlencode(parts)
+def admin_step(d, days, date, events, selected_key, step):
+    """Move to the next or previous event, then to the neighboring date.
+    Forward lands on the first event of a new date. Back lands on the last."""
+    keys = [e["key"] for e in events]
+    if keys and selected_key in keys:
+        idx = keys.index(selected_key)
+        if step > 0 and idx < len(keys) - 1:
+            return date, keys[idx + 1]
+        if step < 0 and idx > 0:
+            return date, keys[idx - 1]
+    nxt = neighbor_practice(days, date, step)
+    if not nxt:
+        return None
+    nxt_events = admin_day_events(d, nxt)
+    if not nxt_events:
+        return nxt, ""
+    return nxt, nxt_events[0 if step > 0 else -1]["key"]
+def admin_catalog(d, days):
+    """Short event lists for the date picker, keyed by day."""
+    out = {}
+    for day in days or []:
+        out[day] = [{"key": e["key"], "title": e["title"], "when": e["when"]} for e in admin_day_events(d, day)]
+    return out
 def neighbor_practice(days, date, step):
     if date in days:
         i = days.index(date) + step
@@ -3086,10 +3116,17 @@ def admin():
     n_not, n = len(not_going), len(checked)
     filt = checkin_filter(request.args.get("filt"), n_not, n)
     pr = d.execute("SELECT * FROM practices WHERE id=?", (selected["id"],)).fetchone() if selected and selected["kind"] == "practice" else None
+    evkey = selected["key"] if selected else ""
+    ev_i = ([e["key"] for e in events].index(evkey) + 1) if evkey and events else 0
+    prev_step = admin_step(d, days, date, events, evkey, -1)
+    next_step = admin_step(d, days, date, events, evkey, 1)
     return page(T["admin"],
         tab="admin", date=date, q=q, going=going, rest=rest, not_going=not_going, checked=checked, n=n, n_not=n_not, filt=filt,
-        loc=(selected["place"] if selected else ""), pr=pr, sel=selected, events=events, evkey=(selected["key"] if selected else ""),
-        days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days))
+        loc=(selected["place"] if selected else ""), pr=pr, sel=selected, events=events, evkey=evkey,
+        ev_i=ev_i, ev_n=len(events),
+        prev_href=admin_href(prev_step[0], prev_step[1], filt, q) if prev_step else "",
+        next_href=admin_href(next_step[0], next_step[1], filt, q) if next_step else "",
+        days=days, catalog=admin_catalog(d, days), month=checkin_month(date, days))
 
 def expiring_roster(d, rep):
     ids = []
@@ -4093,7 +4130,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-60 */
+SW_JS = """/* grunions-sw-61 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

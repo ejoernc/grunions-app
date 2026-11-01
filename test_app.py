@@ -727,7 +727,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=60" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=61" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
@@ -1230,10 +1230,10 @@ try:
     next_d = days[i + 1] if i + 1 < len(days) else None
     grid = adm.split("id=calGrid", 1)[1].split("</div>", 1)[0]
     ok('value="2026-10-20"' in adm and "id=calPick" in adm and "id=calPop hidden" in adm and 'stroke="currentColor"' in adm and ".calpop{position:absolute" in adm and "span.calday{color:var(--t3)" in adm and not re.search(r"<input[^>]*type=date[^>]*name=date|<input[^>]*name=date[^>]*type=date", adm), "check-in opens a dark practice calendar on the next practice when today has none")
-    ok('aria-disabled=true>19</span>' in grid and 'aria-disabled=true>21</span>' in grid and 'class="calday on" href="/admin?date=2026-10-20"' in grid and 'href="/admin?date=2026-10-16"' in grid and "2026-10-21" not in grid and ('href="/admin?date=%s" aria-label="Previous practice"' % prev_d) in adm and ('href="/admin?date=%s" aria-label="Next practice"' % next_d) in adm, "only practice days are selectable, including past ones, and the arrows use those days")
+    ok('aria-disabled=true>19</span>' in grid and 'aria-disabled=true>21</span>' in grid and 'class="calday on" href="/admin?date=2026-10-20"' in grid and 'href="/admin?date=2026-10-16"' in grid and "2026-10-21" not in grid and ('date=%s' % prev_d) in adm and 'aria-label="Previous event"' in adm and ('date=%s' % next_d) in adm and 'aria-label="Next event"' in adm, "only practice days are selectable, including past ones, and the arrows use those days")
     kept = eli.get("/admin?date=2026-10-23&q=Jane").get_data(as_text=True)
     odd = eli.get("/admin?date=2026-10-19").get_data(as_text=True)
-    ok('value="2026-10-23"' in kept and 'value="Jane"' in kept and "date=2026-10-20&amp;q=Jane" in kept and 'value="2026-10-19"' in odd and "No events on this day" in odd and "grunionsCalDoc" in odd, "a chosen date stays put, and practice links keep the search")
+    ok('value="2026-10-23"' in kept and 'value="Jane"' in kept and "date=2026-10-20" in kept and "q=Jane" in kept and 'value="2026-10-19"' in odd and "No events on this day" in odd and "grunionsCalDoc" in odd, "a chosen date stays put, and practice links keep the search")
 finally:
     A.now_pt = real_now
 
@@ -1823,24 +1823,22 @@ scr_admin = eli.get("/admin?date=%s&ev=p-%d" % (twin, scr_id)).get_data(as_text=
 line_admin = eli.get("/admin?date=%s&ev=l-%d" % (twin, line_id)).get_data(as_text=True)
 def _going(html):
     return html[html.find(">Going <"):html.find(">Everyone else <")]
-_stack = both.split("class=evstack", 1)[1].split("class=checkmeta", 1)[0]
+_card = both.split('class="card evcard"', 1)[1].split("checkmeta", 1)[0]
 _filt = both.split('aria-label="RSVP"', 1)[1].split("</div>", 1)[0]
 _sched_bits = {
- "cards": "evcard" in both,
- "practice": "class=nxtitle>Practice" in both,
- "scrimmage": "class=nxtitle>Scrimmage" in both,
- "social": "class=nxtitle>Twin Social" in both,
- "pool": "Twin Practice Pool" in both,
+ "cards": both.count('class="card evcard"') == 1,
+ "practice": "class=nxtitle>Practice" in _card,
+ "scrimmage": "Scrimmage" in both and "class=nxtitle>Scrimmage" not in _card,
+ "social": "Twin Social" in both and "class=nxtitle>Twin Social" not in _card,
+ "pool": "Twin Practice Pool" in _card,
  "details": ">Details</a>" not in both,
- "no_chev": "›" not in _stack,
- "link": ('href="/practices/%d?from=admin"' % prac_id) in _stack,
- "selected": "evcard on" in both,
- "scr_href": ('href="/practices/%d?from=admin"' % scr_id) in _stack,
- "line_href": ('href="/lineup/%d?from=admin' % line_id) in _stack,
- "scr_on": "evcard on" in scr_admin,
+ "counter": ">1/3<" in both and ">2/3<" in scr_admin,
+ "next": ("ev=p-%d" % scr_id) in both[max(0, both.find('aria-label="Next event"')-220):both.find('aria-label="Next event"')],
+ "link": ('href="/practices/%d?from=admin"' % prac_id) in _card,
  "scr_title": "class=nxtitle>Scrimmage" in scr_admin,
+ "line_title": "class=nxtitle>Twin Social" in line_admin,
  "count": "checkprog" not in _filt and "Going (" in _filt and "Checked in (" in _filt,
- "no_official": "Official club event" not in _stack,
+ "search": both.find('aria-label="RSVP"') < both.find('placeholder="Search players..."') < both.find(">Going <"),
  "jane_scr": ('href="/admin/member/%d"' % jane_id) in _going(scr_admin),
  "jane_default": ('href="/admin/member/%d"' % jane_id) not in _going(both),
 }
