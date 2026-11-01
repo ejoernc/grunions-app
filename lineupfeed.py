@@ -33,10 +33,11 @@ TEAM_PLAN_TYPES = ("Tournament", "Competition", "Trip", "Clinic")
 TEAM_PLANS = ("considering", "planning", "committed")
 FILTER_GROUPS = (
     ("competitions", "Competitions", ("Tournament", "Competition")),
-    ("training", "Training", ("Clinic",)),
+    ("camps", "Camps", ("Clinic",)),
     ("trips", "Trips", ("Trip",)),
     ("community", "Community", ("Social", "Volunteer", "Fundraiser", "Meeting", "Other")),
 )
+_FILTER_ALIAS = {"training": "camps"}
 # Canonical storage: category slug, subtype column, legacy kind.
 TYPE_STORE = {
     "Tournament": ("travel", "Tournament", "Tournament"),
@@ -198,10 +199,21 @@ def filter_type(cat):
 
 
 def filter_group(name):
-    """Discovery chips: Competitions, Training, Trips, Community."""
+    """Discovery chips: Competitions, Camps, Trips, Community. training is the old Camps slug."""
+    name = _FILTER_ALIAS.get((name or "").strip(), (name or "").strip())
     for slug, _label, types in FILTER_GROUPS:
         if name == slug: return slug, types
     return "", ()
+
+
+def type_groups(pairs):
+    """Group create-form types under Competitions, Camps, Trips, and Community."""
+    allowed = dict(pairs or ())
+    groups = []
+    for _slug, label, types in FILTER_GROUPS:
+        opts = [(name, allowed[name]) for name in types if name in allowed]
+        if opts: groups.append((label, opts))
+    return groups
 
 
 def hosting_label(value):

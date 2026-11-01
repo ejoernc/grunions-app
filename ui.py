@@ -690,6 +690,7 @@ dialog.memberedit .help a{color:var(--t1)}
 </div>
 {% endmacro %}
 {% macro manage_row(href, title, desc, icon, count=0, tone='info') %}<a class=mrow href="{{ href }}"><span class=mico aria-hidden=true>{{ icon|safe }}</span><span class=grow><span class=mtitle>{{ title }}</span>{% if desc %}<span class=mdesc>{{ desc }}</span>{% endif %}</span>{% if count %}<span class="mbadge {{ tone }}">{{ count if count < 100 else '99+' }}</span>{% endif %}<span class=mchev aria-hidden=true><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg></span></a>{% endmacro %}
+{% macro type_select(types, selected='') %}<select name=event_type id=lineType>{% for glabel, options in lineup_type_groups(types) %}<optgroup label="{{ glabel }}">{% for name, label in options %}<option value="{{ name }}" {% if selected == name %}selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>{% endfor %}</select>{% endmacro %}
 {% macro event_chooser(staff) %}
 <h2 class=planask>What are you planning?</h2>
 <div class=planlane>
@@ -704,23 +705,13 @@ dialog.memberedit .help a{color:var(--t1)}
 </div>{% endif %}
 <div class=card>
 <h2>Lineup event</h2>
-<p class="t3 sm">Tournaments, trips, and community events. Shows on Lineup.</p>
+<p class="t3 sm">Tournaments, camps, trips, and community events. Shows on Lineup.</p>
+{% for glabel, options in lineup_type_groups(EVENT_TYPE_LABELS if staff else MEMBER_TYPE_LABELS) %}
+<div class="t3 xs" style="margin:8px 0 4px">{{ glabel }}</div>
 <div class=planlinks>
-{% if staff %}
-<a class=chip href="/lineup/new?mode=create&amp;event_type=Tournament">Tournament</a>
-<a class=chip href="/lineup/new?mode=create&amp;event_type=Competition">Competition</a>
-<a class=chip href="/lineup/new?mode=create&amp;event_type=Clinic">Clinic/Camp</a>
-<a class=chip href="/lineup/new?mode=create&amp;event_type=Trip">Trip</a>
-<a class=chip href="/lineup/new?mode=create&amp;event_type=Social">Social/Activity</a>
-<a class=chip href="/lineup/new?mode=create&amp;event_type=Volunteer">Volunteer</a>
-<a class=chip href="/lineup/new?mode=create&amp;event_type=Fundraiser">Fundraiser</a>
-<a class=chip href="/lineup/new?mode=create&amp;event_type=Meeting">Meeting/Workshop</a>
-<a class=chip href="/lineup/new?mode=create&amp;event_type=Other">Other</a>
-{% else %}
-<a class=chip href="/lineup/new?mode=suggest&amp;event_type=Social">Social/Activity</a>
-<a class=chip href="/lineup/new?mode=suggest&amp;event_type=Volunteer">Volunteer</a>
-{% endif %}
+{% for name, label in options %}<a class=chip href="/lineup/new?mode={{ 'create' if staff else 'suggest' }}&amp;event_type={{ name }}">{{ label }}</a>{% endfor %}
 </div>
+{% endfor %}
 </div>
 </div>
 {% endmacro %}
@@ -897,7 +888,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=92');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=93');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -2199,7 +2190,7 @@ T["manage"] = ADMIN_NAV + """<p class=pagesub>Everything you need to run your cl
 <script>(function(){var key='grunionsManageScroll';var y=0;try{y=+sessionStorage.getItem(key)||0}catch(e){}if(y)requestAnimationFrame(function(){scrollTo(0,y)});document.querySelectorAll('a.mrow').forEach(function(a){a.addEventListener('click',function(){try{sessionStorage.setItem(key,String(scrollY))}catch(e){}})});})();</script>"""
 T["manage_schedule"] = ADMIN_NAV + """{{ admin_page('Schedule', 'Practices, scrimmages, and games.') }}
 {% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
-T["manage_lineup"] = ADMIN_NAV + """{{ admin_page('Lineup', 'Events, tournaments, and socials.') }}
+T["manage_lineup"] = ADMIN_NAV + """{{ admin_page('Lineup', 'Events, tournaments, camps, and socials.') }}
 {% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
 T["manage_requests"] = ADMIN_NAV + """{{ admin_page('Requests', 'Member-submitted events.') }}
 <div class="filt chiprow" role=group aria-label="Status"><a class="chip{{ ' chip-active on' if view=='pending' }}" href="/manage/requests?view=pending">Pending</a><a class="chip{{ ' chip-active on' if view=='approved' }}" href="/manage/requests?view=approved">Approved</a><a class="chip{{ ' chip-active on' if view=='declined' }}" href="/manage/requests?view=declined">Declined</a></div>
@@ -2222,7 +2213,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 {% if staff %}<h2 class=planask>What are you planning?</h2>
 <div class=lanepick role=radiogroup aria-label="What are you planning?">
 <button type=button class="lanecard{{ ' on' if lane != 'lineup' }}" data-lane=schedule><b>Team schedule</b><span>Practices, scrimmages &amp; games</span></button>
-<button type=button class="lanecard{{ ' on' if lane == 'lineup' }}" data-lane=lineup><b>Lineup event</b><span>Tournaments, trips, socials &amp; more</span></button>
+<button type=button class="lanecard{{ ' on' if lane == 'lineup' }}" data-lane=lineup><b>Lineup event</b><span>Tournaments, camps, trips &amp; socials</span></button>
 </div>{% endif %}
 {% if staff %}<div id=schedBlock {% if lane == 'lineup' %}hidden{% endif %}>
 <div class=actseg role=radiogroup aria-label="Session type">
@@ -2235,7 +2226,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label id=titleField hidden>Event name<input name=title id=titleInput autocomplete=off><button type=button class="btn quiet" id=titleReset>Reset to automatic</button></label>
 </div>{% endif %}
 <div id=lineBlock {% if staff and lane != 'lineup' %}hidden{% endif %}>
-<label>Type<select name=event_type id=lineType>{% for name, label in line_types %}<option value="{{ name }}">{{ label }}</option>{% endfor %}</select></label>
+<label>Type{{ type_select(line_types) }}</label>
 <label>Event name<input name=line_title id=lineTitle autocomplete=off placeholder="IGLA 2027"></label>
 <label>Short description<textarea name=description id=lineDesc rows=3 placeholder="What should people know?"></textarea></label>
 </div>
@@ -2391,7 +2382,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <div class="t3 xs">Banner image</div>
 {{ upload_field('banner', src=('/lineup-image/' ~ event_id ~ '?v=' ~ banner) if banner and event_id else '', clear_name='banner_clear') }}
 </div>
-<label>Type<select name=event_type id=lineType>{% for name, label in event_types %}<option value="{{ name }}" {% if values.event_type == name %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+<label>Type{{ type_select(event_types, values.event_type) }}</label>
 <div class="t3 xs">Where</div>
 <div class=actseg id=lineHost role=radiogroup aria-label=Where>
 <label><input type=radio name=hosting value=Attending {% if values.hosting != 'Hosting' %}checked{% endif %}><span>Attending</span></label>
