@@ -75,6 +75,22 @@ a.usawpchip.bad{color:var(--bad)}
 .homemap.cardmap{height:220px;margin:0 0 12px;border-radius:14px;overflow:hidden;cursor:pointer;touch-action:pan-y}
 .homemap.banner{height:220px;margin:0 -20px 0;border-radius:0;overflow:hidden;position:relative}
 .homemap.banner::after{content:"";position:absolute;left:0;right:0;bottom:0;height:84px;background:linear-gradient(transparent,#0a0a0b);z-index:450;pointer-events:none}
+.homemap.still{height:180px;margin:0;border-radius:0;cursor:default;pointer-events:none}
+.evhero{height:220px;margin:0 -20px 0;position:relative;overflow:hidden;background:#1a1c20}
+.evhero img{width:100%;height:100%;object-fit:cover;display:block}
+.evhero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:84px;background:linear-gradient(transparent,#0a0a0b);pointer-events:none}
+.eventtag{color:var(--t2);font-size:15px;font-weight:400;margin:2px 0 0}
+.profilehero .eventtag{text-align:center}
+.loccard{padding:0}
+a.locrow,span.locrow{display:flex;align-items:center;gap:12px;padding:14px 16px;color:inherit;text-decoration:none;width:100%}
+.li.evdescrow{flex-direction:column;align-items:stretch;gap:2px}
+.li.evdescrow .textlink{align-self:flex-start;padding:4px 0 0}
+.clamp{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.clamp.open{display:block;-webkit-line-clamp:unset}
+a.reglink{color:var(--accent);text-decoration:none;font-weight:600}
+.bannerprev{margin:0 0 10px;border-radius:var(--radius-card,14px);overflow:hidden;background:var(--surface);aspect-ratio:3/2}
+.bannerprev img{width:100%;height:100%;object-fit:cover;display:block}
+.bannerpick .btn{position:relative;overflow:hidden}
 body.practicepage main{padding-top:0}
 .homemap.leaflet-container,.homemap .leaflet-container{background:#1a1c20}
 .homemap .leaflet-tile-pane{filter:grayscale(1) invert(1) contrast(.9) brightness(.82);opacity:0;transition:opacity .45s ease}
@@ -389,7 +405,7 @@ dialog.memberedit .help a{color:var(--t1)}
 .datefield.empty input[type=date]{color:transparent}
 .datefield.empty input[type=date]::-webkit-datetime-edit,.datefield.empty input[type=date]::-webkit-datetime-edit-fields-wrapper{color:transparent}
 @media print{header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{background:#fff}}
-</style></head><body style="background:#0a0a0b;color:#ececee;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' %}practicepage{% endif %}">
+</style></head><body style="background:#0a0a0b;color:#ececee;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% endif %}">
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
@@ -518,6 +534,11 @@ dialog.memberedit .help a{color:var(--t1)}
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
 <div class=row><button class="btn btn-danger" name=action value=delete>Delete practice</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% endmacro %}
+{% macro mount_map(id, pins, mode) %}<section class="homemap cardmap {{ 'banner' if mode == 'card' else 'still' }}" id="{{ id }}" {% if mode == 'still' %}aria-hidden=true{% else %}aria-label="Map"{% endif %}></section>
+<script>(function(){var pins={{ pins|tojson }};function start(){var el=document.getElementById({{ id|tojson }});if(el&&window.grunionsMountMap)grunionsMountMap(el,{pins:pins,mode:'{{ mode }}'});}if(window.grunionsMountMap)start();else document.addEventListener('DOMContentLoaded',start);})();</script>{% endmacro %}
+{% macro event_hero(id, pins, banner_src, label) %}{% if banner_src %}<div class=evhero><img src="{{ banner_src }}" alt=""></div>{% else %}{{ mount_map(id, pins, 'card') }}{% endif %}{% endmacro %}
+{% macro whos_going(people) %}<div class=seclabel>Who's going</div><div class=list>{% for r in people %}<div class=li>{% if me().is_admin or is_staff() %}<a class=ci-name href="/admin/member/{{ r.id }}">{% else %}<span class=ci-name>{% endif %}{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span></span>{% if me().is_admin or is_staff() %}</a>{% else %}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>{% endmacro %}
+{% macro event_location(id, pins, name, sub, href) %}<div class=seclabel>Location</div><div class="list loccard">{{ mount_map(id, pins, 'still') }}<a class="li locrow" href="{{ href }}" target=_blank rel=noopener {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %}><span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ name }}</span>{% if sub and sub != name %}<span class="t3 sm">{{ sub }}</span>{% endif %}</span></a></div>{% endmacro %}
 {% if tab == 'profile' and me() %}<header class=profilebar>
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
 <h1>Profile</h1>
@@ -552,7 +573,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=56');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=57');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -633,7 +654,8 @@ window.grunionsMountMap=function(el, opts){
   var pins=opts.pins||[];
   if(!pins.length) return;
   el.dataset.mapon='1';
-  var map=L.map(el,{zoomControl:false,attributionControl:true,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false});
+  var still=opts.mode==='still';
+  var map=L.map(el,{zoomControl:false,attributionControl:!still,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false});
   var tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
   var faded=false; tiles.on('tileload',function(){if(!faded){faded=true;el.classList.add('tiles')}});
   function icon(kind){return L.divIcon({className:'mpin'+(kind==='social'?' social':''),html:'',iconSize:[18,18],iconAnchor:[9,9]});}
@@ -642,13 +664,13 @@ window.grunionsMountMap=function(el, opts){
   if(!pool) pool=pins[0];
   function go(p){ var t=opts.mode==='card'?pool:p; grunionsDirections(t.lat, t.lng); }
   pins.forEach(function(p){
-   var m=L.marker([p.lat,p.lng],{icon:icon(p.kind),title:p.label||'Directions',zIndexOffset:p.kind==='pool'?800:0}).addTo(map);
-   m.on('click',function(ev){ if(L.DomEvent) L.DomEvent.stopPropagation(ev); go(p); });
+   var m=L.marker([p.lat,p.lng],{icon:icon(p.kind),interactive:!still,title:p.label||'Directions',zIndexOffset:p.kind==='pool'?800:0}).addTo(map);
+   if(!still) m.on('click',function(ev){ if(L.DomEvent) L.DomEvent.stopPropagation(ev); go(p); });
   });
   if(opts.mode==='card') map.on('click',function(){ go(pool); });
   function place(){
    if(!el.clientHeight||!pool) return;
-   if(opts.mode==='card'){
+   if(opts.mode==='card'||still){
     if(bounds.length>1) map.fitBounds(bounds,{padding:[24,24],maxZoom:16,animate:false});
     else map.setView([pool.lat, pool.lng], 15, {animate:false});
     return;
@@ -1399,7 +1421,7 @@ T["lineup"] = """{% macro ev_icon() %}<svg width="28" height="28" viewBox="0 0 4
 {% macro lineup_card(e) %}<div class="card tap tripcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
 <a class=cardlink href="/lineup/{{ e.id }}">
 <div class=nxcardhead><div class=nxtitle>{{ e.title }}</div></div>
-<div class=lineupchips>{% if e.hosting %}<span class=chip-info>{{ e.hosting }}</span>{% endif %}{% if e.subtype %}<span class=chip-info>{{ e.subtype }}</span>{% endif %}{% if e.intent == 'considering' %}<span class=chip-info>Considering</span>{% elif e.intent == 'official' %}<span class=chip-info>Official</span>{% endif %}</div>
+{% if e.tag %}<p class="eventtag">{{ e.tag }}</p>{% endif %}
 {% if e.host_org %}<div class="t3 sm hostorg">Hosted by {{ e.host_org }}</div>{% endif %}
 <div class=nxmain><div class=datetile>{% if e.tile.wd %}<span class=wd>{{ e.tile.wd }}</span>{% endif %}<span class=dn>{{ e.tile.dn }}</span><span class=mo>{{ e.tile.mo }}</span></div>
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
@@ -1418,44 +1440,48 @@ T["lineup"] = """{% macro ev_icon() %}<svg width="28" height="28" viewBox="0 0 4
 </div>{% endmacro %}
 {% macro lineup_months(groups) %}{% for g in groups %}<h2 class=lineupmonth>{{ g.label }}</h2>{% for e in g.events %}{{ lineup_card(e) }}{% endfor %}{% endfor %}{% endmacro %}
 <div class=lineupacts>{% if can_host_practice() %}<a class="btn btn-secondary" href="/lineup/new?mode=create">Create event</a><a class="btn btn-secondary" href="/lineup/new?mode=propose">Propose opportunity</a>{% else %}<a class="btn btn-secondary" href="/lineup/new?mode=suggest">Suggest an event</a>{% endif %}</div>
-<div class=filt role=group aria-label="Category"><a class="chip{{ ' chip-active on' if not cat }}" href=/lineup>All</a>{% for c in filter_chips %}<a class="chip{{ ' chip-active on' if cat == c.slug }}" href="/lineup?cat={{ c.slug }}">{{ c.chip }}</a>{% endfor %}</div>
+<div class=filt role=group aria-label="Type"><a class="chip{{ ' chip-active on' if not cat }}" href=/lineup>All</a>{% for name in filter_types %}<a class="chip{{ ' chip-active on' if cat == name }}" href="/lineup?cat={{ name }}">{{ name }}</a>{% endfor %}</div>
 {% if featured %}<h2 class=lineupmonth>Featured</h2>{% for e in featured %}{{ lineup_card(e) }}{% endfor %}{% endif %}
 {% if empty_public %}<p class=emptyfind>Nothing on the Lineup yet.</p>{% endif %}
 {{ lineup_months(upcoming) }}
 {% if past %}<details class=lineuppast><summary>Past <span class=t3>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}
 {% if mine %}<h2>My events</h2>{% for e in mine %}<a class="card" href="/lineup/{{ e.id }}" style="display:block;color:inherit;text-decoration:none"><div class=nxtitle>{{ e.title }}</div><div class="t3 sm">{{ e.status_label }}{% if e.review_note %} · {{ e.review_note }}{% endif %}</div></a>{% endfor %}{% endif %}
 {% if interested %}<h2>Interested</h2>{% for e in interested %}<a class="li" href="/lineup/{{ e.id }}" style="display:flex;color:inherit;text-decoration:none"><span class=grow>{{ e.title }}</span><span class=t3>{{ e.when }}</span></a>{% endfor %}{% endif %}"""
-T["lineup_event"] = """<div class="card tripcard" style="padding:0"><div class="evbanner cat-{{ e.slug }}">{% if e.banner %}<img src="/lineup-image/{{ e.id }}?v={{ e.banner }}" alt="">{% endif %}</div>
-<div class=evbody>
-<div class=lineupchips style="margin-bottom:8px">{% if e.member_event %}<span class=chip-info>Member event</span>{% else %}<span class=chip-info>Club</span>{% endif %}{% if e.hosting %}<span class=chip-info>{{ e.hosting }}</span>{% endif %}{% if e.subtype %}<span class=chip-info>{{ e.subtype }}</span>{% endif %}<span class=chip-info>{{ e.category }}</span>{% if e.intent == 'considering' %}<span class=chip-info>Considering</span>{% elif e.intent == 'official' %}<span class=chip-info>Official</span>{% endif %}{% if e.status != 'published' %}<span class=chip-info>{{ e.status_label }}</span>{% endif %}</div>
-<div class=profilename style="font-size:28px;font-weight:650;letter-spacing:-.3px">{{ e.title }}</div>
-<div class=evhost>{{ e.host_line }}</div>
-{% if e.host_org %}<div class=evhost>Hosted by {{ e.host_org }}</div>{% endif %}
-<div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
-{% if e.where %}<div class=nxrow>{{ glyph_pin() }}<span>{{ e.where }}</span></div>
-<a class="li prow chevrow" href="{{ e.dir_href }}" target=_blank rel="noopener noreferrer"><span>Directions</span><span class=nxchev aria-hidden=true>›</span></a>{% endif %}
-{% if e.description %}<div class=evnote>{{ e.description }}</div>{% endif %}
-{% if e.sports_line %}<div class="t3 sm sportline">{{ e.sports_line }}</div>{% endif %}
-{% if e.details %}<div class=evnote>{{ e.details }}</div>{% endif %}
-{% if e.levels_raw %}<details class=card><summary>Skill levels</summary>{% for row in SPORTS.LEVELS %}<p><b>{{ row[1] }}</b> {{ row[3] }}</p>{% endfor %}</details>{% endif %}
-{% if e.link %}<div class=evnote><a href="{{ e.link }}" target=_blank rel="noopener noreferrer">Registration</a></div>{% endif %}
-{% if e.cost %}<div class="t3 sm">About {{ e.cost }}</div>{% endif %}
-{% if e.capacity %}<div class="t3 sm">{{ e.going_n }} of {{ e.capacity }} spots{% if e.wait_n %} · {{ e.wait_n }} waitlisted{% endif %}</div>{% endif %}
-{% if e.reg_deadline %}<div class="t3 sm">Register by {{ e.reg_deadline }}</div>{% endif %}
-{% if e.review_note and e.status in ('changes_requested', 'declined') %}<div class=note>{{ e.review_note }}</div>{% endif %}
-<div class="t2 sm" style="margin-top:10px">{{ e.count_line }}</div>
-{% if e.roster %}<h2>Who's in</h2><div class="t2 sm">{{ e.roster|join(', ') }}</div>{% endif %}
+T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
+<div class=profilehero>
+<div class=profilename>{{ e.title }}</div>
+{% if e.when %}<p class=pracemeta>{{ e.when }}</p>{% endif %}
+{% if e.where %}<p class=pracemeta>{{ e.where }}</p>{% endif %}
+{% if e.tag %}<p class="pracemeta eventtag">{{ e.tag }}</p>{% endif %}
+<div class=pracestatus>{{ st(e.status_kind, e.status_text) }}</div>
+<div class="stats trio">
+<div class=stattile><b>{{ e.going_n }}</b><span>Going</span></div>
+<div class=stattile><b>{{ e.interested_n }}</b><span>Interested</span></div>
+{% if e.capacity %}<div class=stattile><b>{{ e.capacity }}</b><span>Spots</span></div>{% else %}<div class=stattile><b>{{ e.days }}</b><span>Days</span></div>{% endif %}
+</div>
+</div>
 {% if e.status == 'published' %}<form method=post action="/lineup/{{ e.id }}" class=pills>{{ csrf_field() }}
-{% if e.intent == 'considering' %}
-<button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">I'm Interested{% if e.mine == 'interested' %} ✓{% endif %}</button>
-<button class="btn {{ 'btn-primary' if e.mine == 'going' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">{% if e.full and e.mine != 'going' %}Join waitlist{% else %}Going{% endif %}{% if e.mine == 'going' or e.mine == 'waitlist' %} ✓{% endif %}</button>
-{% else %}
-<button class="btn {{ 'btn-primary' if e.mine == 'going' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">{% if e.full and e.mine != 'going' %}Join waitlist{% else %}I'm Going{% endif %}{% if e.mine == 'going' or e.mine == 'waitlist' %} ✓{% endif %}</button>
+<button class="btn {{ 'btn-primary' if e.mine == 'going' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">{% if e.full and e.mine != 'going' %}Join waitlist{% else %}I'm going{% endif %}{% if e.mine == 'going' or e.mine == 'waitlist' %} ✓{% endif %}</button>
 <button class="btn {{ 'btn-primary' if e.mine == 'interested' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">Interested{% if e.mine == 'interested' %} ✓{% endif %}</button>
-{% endif %}
 <button class="btn {{ 'btn-primary' if e.mine == 'notgoing' else 'btn-secondary' }}" name=action value="{{ 'clear' if e.mine == 'notgoing' else 'notgoing' }}">Not going{% if e.mine == 'notgoing' %} ✓{% endif %}</button></form>{% endif %}
+<div class=seclabel>Details</div>
+<div class=list>
+{% if e.description %}<div class="li evdescrow"><div class=clamp id=evdesc>{{ e.description }}</div><button type=button class=textlink id=evmore hidden>More</button></div>{% endif %}
+{% if e.host_org %}<div class="li prow"><span class=k>Host organization</span><span class=v>Hosted by {{ e.host_org }}</span></div>{% endif %}
+{% if e.link %}<div class="li prow"><span class=k>Registration</span><span class=v><a class=reglink href="{{ e.link }}" target=_blank rel="noopener noreferrer">Registration</a></span></div>{% endif %}
+{% if e.event_type %}<div class="li prow"><span class=k>Type</span><span class=v>{{ e.event_type }}</span></div>{% endif %}
+{% if e.sports_line %}<div class="li prow"><span class=k>Session</span><span class=v>{{ e.sports_line }}</span></div>{% endif %}
+{% if e.details %}<div class=li>{{ e.details }}</div>{% endif %}
+{% if e.cost %}<div class="li prow"><span class=k>Cost</span><span class=v>About {{ e.cost }}</span></div>{% endif %}
+{% if e.capacity %}<div class="li prow"><span class=k>Spots</span><span class=v>{{ e.going_n }} of {{ e.capacity }}{% if e.wait_n %} · {{ e.wait_n }} waitlisted{% endif %}</span></div>{% endif %}
+{% if e.reg_deadline %}<div class="li prow"><span class=k>Register by</span><span class=v>{{ e.reg_deadline }}</span></div>{% endif %}
+</div>
+{% if e.levels_raw %}<details class=card><summary>Skill levels</summary>{% for row in SPORTS.LEVELS %}<p><b>{{ row[1] }}</b> {{ row[3] }}</p>{% endfor %}</details>{% endif %}
+{% if e.review_note and e.status in ('changes_requested', 'declined') %}<div class=note>{{ e.review_note }}</div>{% endif %}
+{{ whos_going(e.people) }}
 {% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="btn btn-primary full" name=action value=official>Make official</button></form>{% endif %}
-</div></div>"""
+{% if e.where %}{{ event_location('lineLoc', e.pins, e.venue or e.where, e.city, e.dir_href) }}{% endif %}
+<script>(function(){var el=document.getElementById('evdesc'),btn=document.getElementById('evmore');if(!el||!btn)return;if(el.scrollHeight>el.clientHeight+2)btn.hidden=false;btn.onclick=function(){var open=el.classList.toggle('open');btn.textContent=open?'Less':'More';};})();</script>"""
 T["approvals"] = """<h1>Approvals</h1>
 {% for e in queue %}<div class="card tripcard"><div class="evbanner cat-{{ e.slug }}">{% if e.banner %}<img src="/lineup-image/{{ e.id }}?v={{ e.banner }}" alt="">{% endif %}</div><div class=evbody>
 <div class=nxtitle>{{ e.title }}</div>
@@ -1482,12 +1508,28 @@ T["approvals"] = """<h1>Approvals</h1>
 T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" enctype=multipart/form-data>{{ csrf_field() }}
 <input type=hidden name=mode value="{{ values.mode or mode }}">
 <button type=submit name=action value=save style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" tabindex=-1>{{ save_label or 'Save' }}</button>
-<label>Category<select name=category id=lineCat>{% for c in categories %}<option value="{{ c.slug }}" data-hosting="{{ c.hosting_ok }}" data-intent="{{ c.intent_ok }}" {% if values.category == c.slug %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
-<label id=lineSub>Subtype<select name=subtype id=lineSubSel><option value="">None</option>{% for name in subtypes.get(values.category, []) %}<option value="{{ name }}" {% if values.subtype == name %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
-<label id=lineHost>Away / Hosting<select name=hosting id=lineHostSel><option value=Away {% if values.hosting != 'Hosting' %}selected{% endif %}>Away</option><option value=Hosting {% if values.hosting == 'Hosting' %}selected{% endif %}>Hosting</option></select></label>
+<div class=bannerpick>
+<div class="t3 xs">Banner image</div>
+<div class=bannerprev id=bannerPrevWrap {% if not banner %}hidden{% endif %}><img id=bannerPrev alt="" {% if banner and event_id %}src="/lineup-image/{{ event_id }}?v={{ banner }}"{% endif %}></div>
+<div class=row>
+<label class="btn btn-secondary"><span id=bannerBtn>{{ 'Replace' if banner else 'Choose image' }}</span><input type=file name=banner id=bannerFile class=pick accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic"></label>
+{% if banner %}<label style="margin:0"><input type=checkbox name=banner_clear value=1 id=bannerClear> Remove</label>{% endif %}
+</div>
+</div>
+<label>Type<select name=event_type id=lineType>{% for name in event_types %}<option value="{{ name }}" {% if values.event_type == name %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+<div class="t3 xs">Where</div>
+<div class=actseg id=lineHost role=radiogroup aria-label=Where>
+<label><input type=radio name=hosting value=Away {% if values.hosting != 'Hosting' %}checked{% endif %}><span>Away</span></label>
+<label><input type=radio name=hosting value=Hosting {% if values.hosting == 'Hosting' %}checked{% endif %}><span>Hosting</span></label>
+</div>
 <label id=lineOrg {% if values.hosting == 'Hosting' %}hidden{% endif %}>Host organization<input name=host_org value="{{ values.host_org }}" placeholder="IGLA+" autocomplete=off></label>
-{% if organizer %}<label id=lineIntent>Team intent<select name=team_intent><option value=considering {% if values.team_intent != 'official' %}selected{% endif %}>Considering</option><option value=official {% if values.team_intent == 'official' %}selected{% endif %}>Official</option></select></label>
-<input type=hidden name=official value=0><label id=lineOfficial><input type=checkbox name=official value=1 {% if values.official == '1' or mode == 'create' or mode == 'propose' %}checked{% endif %}> Official club event</label>{% endif %}
+{% if organizer %}
+<div class="t3 xs">Status</div>
+<div class=actseg role=radiogroup aria-label=Status>
+<label><input type=radio name=team_intent value=considering {% if values.team_intent == 'considering' %}checked{% endif %}><span>Considering</span></label>
+<label><input type=radio name=team_intent value=official {% if values.team_intent != 'considering' %}checked{% endif %}><span>Official</span></label>
+</div>
+{% endif %}
 <label>Title<input name=title value="{{ values.title }}" required autocomplete=off></label>
 <div class="t3 xs">Dates</div>
 <div class=actseg role=radiogroup aria-label=Dates>
@@ -1507,7 +1549,6 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <details class=moredetails><summary>More details</summary>
 {{ sports_editor(sports_row, false, true) }}
 <label>City<input name=city value="{{ values.city }}" autocomplete=off></label>
-<label>Banner<input type=file name=banner accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic"></label>
 <label>Link<input name=link value="{{ values.link }}" inputmode=url autocomplete=off placeholder="https://"></label>
 <label>Capacity<input name=capacity inputmode=numeric value="{{ values.capacity }}" autocomplete=off></label>
 <label>Estimated cost<input name=cost value="{{ values.cost }}" autocomplete=off></label>
@@ -1520,25 +1561,21 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 {% if show_delete %}<button class="btn btn-danger full" name=action value=delete onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
 </form>
 <script>(function(){
- var cat=document.getElementById('lineCat'), sub=document.getElementById('lineSub'), sel=document.getElementById('lineSubSel');
- var host=document.getElementById('lineHost'), hostSel=document.getElementById('lineHostSel'), org=document.getElementById('lineOrg');
- var intent=document.getElementById('lineIntent'), official=document.getElementById('lineOfficial');
- var subtypes={{ subtypes|tojson }}, current={{ values.subtype|tojson }}, mode={{ mode|tojson }};
+ var org=document.getElementById('lineOrg');
  function sync(){
-  var opt=cat.options[cat.selectedIndex], slug=cat.value;
-  var names=subtypes[slug]||[], html='<option value="">None</option>';
-  names.forEach(function(n){html+='<option'+(n===current?' selected':'')+'>'+n.replace(/</g,'')+'</option>'});
-  sel.innerHTML=html; if(current && names.indexOf(current)<0){var o=document.createElement('option'); o.textContent=current; o.selected=true; sel.appendChild(o);}
-  var showHost=opt&&opt.getAttribute('data-hosting')==='1'; host.hidden=!showHost;
-  var away=!!(showHost&&hostSel&&hostSel.value!=='Hosting');
+  var on=document.querySelector('input[name=hosting]:checked');
+  var away=!(on&&on.value==='Hosting');
   if(org){org.hidden=!away; var field=org.querySelector('input'); if(field) field.disabled=!away;}
-  var showIntent=opt&&opt.getAttribute('data-intent')==='1';
-  if(intent) intent.hidden=!showIntent;
-  if(mode==='propose'&&showIntent){cat.value='travel';}
  }
- cat.addEventListener('change', function(){current=sel.value; sync()});
- if(hostSel) hostSel.addEventListener('change', sync);
+ document.querySelectorAll('input[name=hosting]').forEach(function(r){r.addEventListener('change', sync)});
  sync();
+ var file=document.getElementById('bannerFile'), img=document.getElementById('bannerPrev'), wrap=document.getElementById('bannerPrevWrap'), clear=document.getElementById('bannerClear'), btn=document.getElementById('bannerBtn');
+ if(file) file.addEventListener('change', function(){
+  var f=file.files&&file.files[0]; if(!f) return;
+  if(f.size>8*1024*1024){alert('Image is larger than 8 MB.'); file.value=''; return;}
+  img.src=URL.createObjectURL(f); wrap.hidden=false; if(clear) clear.checked=false; if(btn) btn.textContent='Replace';
+ });
+ if(clear) clear.addEventListener('change', function(){ if(clear.checked){ wrap.hidden=true; if(file) file.value=''; } else if(img.getAttribute('src')) wrap.hidden=false; });
  var exactBox=document.getElementById('exactDates'), monthBox=document.getElementById('monthDates');
  function datesMode(){
   var on=document.querySelector('input[name=date_precision]:checked');
@@ -1594,14 +1631,7 @@ T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp
 <button class="btn btn-primary full" name=action value=add>Add practice</button></form></details>{% endif %}""" + _PRACTICE_JS
 
 T["practice"] = """{% set p = x.p %}
-{% if p.location %}<section class="homemap cardmap banner" id=practiceMap aria-label="Map of {{ p.location }}"></section>
-<script>
-(function(){
- var pins={{ pins|tojson }};
- function start(){ var el=document.getElementById('practiceMap'); if(el&&window.grunionsMountMap) grunionsMountMap(el,{pins:pins,mode:'card'}); }
- if(window.grunionsMountMap) start(); else document.addEventListener('DOMContentLoaded', start);
-})();
-</script>{% endif %}
+{{ event_hero('practiceMap', pins if not p.image else [], ('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', p.location or 'Practice') }}
 <div class=profilehero>
 <div class=profilename>{{ practice_title(p) }}</div>
 {% if practice_sports_line(p) %}<p class="t3 sm sportline">{{ practice_sports_line(p) }}</p>{% endif %}
@@ -1660,11 +1690,9 @@ T["practice"] = """{% set p = x.p %}
 <button class="btn {{ 'btn-primary' if x.mine == 0 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==0 else 'notgoing' }}">I'm not going{% if x.mine==0 %} ✓{% endif %}</button></form>{% endif %}
 <div class=seclabel>Details</div>
 <div class=list>
-<div class="li prow"><span class=k>Time</span><span class=v>{{ fmt_clock(p.start) }} – {{ fmt_clock(p.end) }}</span></div>
-<div class="li prow"><span class=k>Location</span><span class=v>{{ p.address or p.location or '—' }}</span></div>
-{% if p.location %}<a class="li prow chevrow" {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %} href="https://www.google.com/maps/dir/?api=1&amp;destination={{ ((pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location))|urlencode }}" target=_blank rel=noopener><span>Directions</span><span class=nxchev aria-hidden=true>›</span></a>{% endif %}
 {% if p.note %}<div class="li prow"><span class=k>Notes</span><span class=v>{{ p.note }}</span></div>{% endif %}
 {% if p.coach_note %}<div class="li prow"><span class=k>Coach note</span><span class=v>{{ p.coach_note }} · {{ p.coach_note_by }}{% if p.coach_note_at %} · {{ fmt_stamp(p.coach_note_at) }}{% endif %}</span></div>{% endif %}
+{% if not p.note and not p.coach_note %}<div class=li><span class=t3>No notes yet.</span></div>{% endif %}
 </div>
 <div class=seclabel>After-practice social</div>
 <div class=list><div class=li>{% if social_line(p) %}{{ social_icon() }}{% endif %}<div class=grow>
@@ -1694,12 +1722,12 @@ T["practice"] = """{% set p = x.p %}
 {% for c in x.coaches %}<div class="li prow"><span class=k>{{ display_first(c) }} {{ c.last }}{% if c.is_lead %} · Lead{% endif %}</span><span class=v>{{ c.focus or '—' }}</span></div>{% else %}<div class=li><span class=t3>Assign a coach to set a focus group.</span></div>{% endfor %}
 </div>{% endif %}
 {% endif %}
-<div class=seclabel>Going</div>
-<div class=list>{% for r in x.going %}<div class=li><div class=grow>{% if me().is_admin or is_staff() %}<a href="/admin/member/{{ r.id }}" style="color:inherit;text-decoration:none">{{ display_first(r) }} {{ r.last }}</a>{% else %}{{ display_first(r) }} {{ r.last }}{% endif %}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
+{{ whos_going(x.going) }}
 <div class=seclabel>Can't make it</div>
 <div class=list>{% for r in x.notgoing %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 <div class=seclabel>Checked in</div>
 <div class=list>{% for r in x.checked %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
+{% if p.location %}{% set dest = (pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location) %}{{ event_location('practiceLoc', pins, p.location, p.address or '', 'https://www.google.com/maps/dir/?api=1&destination=' ~ (dest|urlencode)) }}{% endif %}
 {% endif %}
 {% if me().is_admin or is_staff() %}{{ practice_extra_dialogs(p, 'page') }}{% endif %}
 {% if is_staff() and not me().is_admin %}

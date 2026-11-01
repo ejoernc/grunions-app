@@ -1108,6 +1108,30 @@ def save_image(f):
     th = Image.open(os.path.join(UPLOADS, f"{name}.{ext}")); th = th.convert("RGBA" if th.mode in ("RGBA", "P") else "RGB"); th.thumbnail((480, 480))
     th.save(os.path.join(UPLOADS, name + "_t.webp"), "WEBP", quality=80)
     return f"{name}.{ext}"
+def save_banner(f):
+    """Event banner: center-crop to 3:2, longest edge 1600, stored on the uploads disk."""
+    from PIL import Image, ImageOps
+    try:
+        import pillow_heif; pillow_heif.register_heif_opener()
+    except ImportError: pass
+    data = f.read(MAX_UPLOAD + 1)
+    if len(data) > MAX_UPLOAD: raise ValueError("Image is larger than 8 MB.")
+    try:
+        im = Image.open(io.BytesIO(data)); fmt = (im.format or "").upper(); im.load()
+    except Exception: raise ValueError("That file isn't a supported image.")
+    if fmt not in ("JPEG", "PNG", "GIF", "WEBP", "HEIF", "HEIC"): raise ValueError("Use JPG, PNG, GIF, WEBP or HEIC.")
+    im = ImageOps.exif_transpose(im)
+    im = im.convert("RGB")
+    w, h = im.size
+    if w < 1 or h < 1: raise ValueError("That file isn't a supported image.")
+    if w / h > 1.5:
+        nw = int(round(h * 1.5)); left = max(0, (w - nw) // 2); im = im.crop((left, 0, left + nw, h))
+    elif h / w > (2 / 3):
+        nh = int(round(w / 1.5)); top = max(0, (h - nh) // 2); im = im.crop((0, top, w, top + nh))
+    im.thumbnail((1600, 1600))
+    os.makedirs(UPLOADS, exist_ok=True); name = secrets.token_hex(12)
+    im.save(os.path.join(UPLOADS, name + ".webp"), "WEBP", quality=82)
+    return name + ".webp"
 @app.route("/media/<int:mid>/<kind>")
 @login_required
 def media(mid, kind):
@@ -2055,7 +2079,7 @@ def handle_practice_post(d):
     return redirect_practice(pid, a)
 def practice_bundle(d, p):
     """RSVP lists, check-ins, and assigned coaches for one practice page or card."""
-    rv = d.execute("SELECT r.going, m.first, m.last, m.preferred_first, m.id FROM rsvps r JOIN members m ON m.id=r.member_id WHERE practice_id=?", (p["id"],)).fetchall()
+    rv = d.execute("SELECT r.going, m.first, m.last, m.preferred_first, m.id, COALESCE(m.photo,'') AS photo FROM rsvps r JOIN members m ON m.id=r.member_id WHERE practice_id=?", (p["id"],)).fetchall()
     mine = next((r["going"] for r in rv if r["id"] == me()["id"]), None)
     raw_coaches = practice_coach_rows(d, [p["id"]]).get(p["id"], [])
     host = can_host_practice()
@@ -2065,7 +2089,7 @@ def practice_bundle(d, p):
         if not host: item["focus"] = ""
         coaches.append(item)
     shown = hide_coaching_plan(p)
-    checked = d.execute("""SELECT m.id, m.first, m.last, m.preferred_first FROM checkins c JOIN members m ON m.id=c.member_id
+    checked = d.execute("""SELECT m.id, m.first, m.last, m.preferred_first, COALESCE(m.photo,'') AS photo FROM checkins c JOIN members m ON m.id=c.member_id
         WHERE c.practice_date=? AND COALESCE(m.role,'')!='system'""", (p["date"],)).fetchall()
     social_n = d.execute("SELECT COUNT(*) FROM social_joins WHERE practice_id=?", (p["id"],)).fetchone()[0]
     return dict(p=shown, going=practice_people([r for r in rv if r["going"]]), notgoing=practice_people([r for r in rv if not r["going"]]),
@@ -2195,6 +2219,18 @@ def lineup_month(iso):
 def _form_last():
     """Last value wins, so a checkbox after a hidden 0 is the one that counts."""
     return {k: request.form.getlist(k)[-1] for k in request.form}
+def ensure_lineup_coords(d, row):
+    """Cache a pin for the venue so the event map can draw without another lookup."""
+    if not row or "lat" not in row.keys(): return row
+    if row["lat"] is not None and row["lng"] is not None: return row
+    venue = " ".join(str(row["venue"] or "").split())
+    city = " ".join(str(row["city"] or "").split())
+    if venue.lower().startswith(("http://", "https://")): return row
+    hit = geocode_address(", ".join(part for part in (venue, city) if part))
+    if not hit: return row
+    d.execute("UPDATE lineup_events SET lat=?, lng=? WHERE id=?", (hit[0], hit[1], row["id"]))
+    d.commit()
+    return lineup_event_row(d, row["id"])
 def lineup_event_row(d, eid):
     return d.execute("""SELECT e.*, c.slug AS cat_slug, c.name AS cat_name, c.chip AS cat_chip,
         c.member_ok, c.intent_ok, c.hosting_ok, c.active AS cat_active,
@@ -2273,6 +2309,23 @@ def lineup_when_label(row):
     if st and et: return "%s · %s" % (base, fmt_span(st, et))
     if st: return "%s · %s" % (base, fmt_clock(st))
     return base
+def lineup_status_text(row):
+    """Dotted status on the event page. Chips do not repeat it."""
+    status = row["status"] or "published"
+    if status == "pending": return "warn", "Pending approval"
+    if status == "canceled": return "bad", "Canceled"
+    if status == "declined": return "bad", "Declined"
+    if status == "changes_requested": return "warn", "Changes requested"
+    if status == "draft": return "warn", "Draft"
+    if not row["official"]: return "ok", "Community"
+    if (row["team_intent"] or "") == "considering": return "warn", "Considering"
+    return "ok", "Official trip"
+def lineup_event_type(row):
+    stored = row["event_type"] if "event_type" in row.keys() else ""
+    return lineupfeed.event_type_from_parts(row["cat_slug"] or "", row["subtype"] or "", row["kind"] or "", stored or "")
+def lineup_tag(row):
+    hosting = row["hosting"] if (row["hosting"] or "") in ("Away", "Hosting") else ""
+    return " · ".join(part for part in (hosting, lineup_event_type(row)) if part)
 def lineup_host_line(row):
     if row["official"]: return "Official club event"
     who = display_first({"first": row["host_first"] or "", "last": row["host_last"] or "", "preferred_first": row["host_preferred"] or ""}) if row["host_first"] else ""
@@ -2294,17 +2347,28 @@ def lineup_pack(d, rows):
             counts.setdefault(eid, {})[state or "going"] = n
         for eid, state in d.execute("SELECT event_id, state FROM lineup_rsvps WHERE member_id=? AND event_id IN (%s)" % marks, (mid, *ids)):
             mine[eid] = state
-        for eid, first, last, preferred, mid_row in d.execute("""SELECT r.event_id, m.first, m.last, m.preferred_first, m.id
+        for eid, first, last, preferred, mid_row, photo in d.execute("""SELECT r.event_id, m.first, m.last, m.preferred_first, m.id, COALESCE(m.photo,'')
             FROM lineup_rsvps r JOIN members m ON m.id=r.member_id
             WHERE r.state='going' AND r.event_id IN (%s)""" % marks, ids):
-            going_names.setdefault(eid, []).append({"id": mid_row, "first": first, "last": last, "preferred_first": preferred})
+            going_names.setdefault(eid, []).append({"id": mid_row, "first": first, "last": last, "preferred_first": preferred, "photo": photo})
     out = []
     for r in rows:
         c = counts.get(r["id"], {})
         going_n, interested_n = c.get("going", 0), c.get("interested", 0)
         wait_n = c.get("waitlist", 0)
         intent = r["team_intent"] or ""
-        names = [("%s %s" % (display_first(p), p["last"] or "")).strip() for p in practice_people(going_names.get(r["id"], []))]
+        people = practice_people(going_names.get(r["id"], []))
+        names = [("%s %s" % (display_first(p), p["last"] or "")).strip() for p in people]
+        try:
+            span = (dt.date.fromisoformat(str(r["end_date"] or r["date"])[:10]) - dt.date.fromisoformat(str(r["date"])[:10])).days + 1
+        except ValueError:
+            span = 1
+        if span < 1: span = 1
+        status_kind, status_text = lineup_status_text(r)
+        etype = lineup_event_type(r)
+        pins = []
+        if "lat" in r.keys() and r["lat"] is not None and r["lng"] is not None:
+            pins = [{"lat": r["lat"], "lng": r["lng"], "kind": "pool", "label": r["venue"] or r["city"] or ""}]
         if intent == "considering":
             count_line = "%d interested" % interested_n
             if going_n: count_line += " · %d going" % going_n
@@ -2317,7 +2381,9 @@ def lineup_pack(d, rows):
         full = bool(cap and going_n >= cap)
         start, end = event_window(r)
         out.append({"id": r["id"], "title": r["title"], "slug": r["cat_slug"] or "", "category": r["cat_name"] or r["kind"] or "Event",
-            "chip": r["cat_chip"] or "", "subtype": r["subtype"] or "", "hosting": r["hosting"] if (r["hosting_ok"] and r["hosting"] in ("Away", "Hosting")) else "",
+            "event_type": etype, "tag": lineup_tag(r), "days": span, "pins": pins,
+            "status_kind": status_kind, "status_text": status_text, "people": people,
+            "chip": r["cat_chip"] or "", "subtype": r["subtype"] or "", "hosting": r["hosting"] if r["hosting"] in ("Away", "Hosting") else "",
             "official": bool(r["official"]), "intent": intent, "status": r["status"] or "published", "status_label": lineup_status_label(r),
             "host_line": lineup_host_line(r), "member_event": not r["official"], "featured": bool(r["featured"]),
             "where": lineup_where(r["city"] or "", r["venue"] or ""), "map_href": lineup_map_href(r["city"] or "", r["venue"] or ""),
@@ -2325,6 +2391,7 @@ def lineup_pack(d, rows):
             "when": lineup_when_label(r), "date": r["date"], "end_date": r["end_date"] or r["date"],
             "precision": r["date_precision"] if "date_precision" in r.keys() and r["date_precision"] else "exact",
             "tile": lineup_tile(r),
+            "venue": r["venue"] or "", "city": r["city"] or "",
             "host_org": (r["host_org"] or "") if "host_org" in r.keys() and r["hosting"] == "Away" else "",
             "description": r["description"] or "", "details": r["details"] or "", "link": r["link"] or "",
             "cost": r["cost"] or "", "capacity": cap, "full": full, "reg_deadline": r["reg_deadline"] or "",
@@ -2439,17 +2506,15 @@ def _promote_waitlist(d, row):
     d.execute("UPDATE lineup_rsvps SET state='going', going=1 WHERE event_id=? AND member_id=?", (row["id"], nxt["member_id"]))
     member = d.execute("SELECT * FROM members WHERE id=?", (nxt["member_id"],)).fetchone()
     notify_lineup_people(d, [member], "You're in", "A spot opened for %s. You're going." % row["title"], "/lineup/%d" % row["id"])
-def lineup_template_ctx(d, mode, values, event_id=None):
-    cats = [dict(id=c["id"], slug=c["slug"], name=c["name"], chip=c["chip"], member_ok=c["member_ok"], intent_ok=c["intent_ok"], hosting_ok=c["hosting_ok"]) for c in lineupfeed.categories(d, active_only=True)]
-    if not can_host_practice():
-        cats = [c for c in cats if c["member_ok"]]
-    return dict(categories=cats, subtypes=lineupfeed.subtypes_for(d), values=values, mode=mode, event_id=event_id,
+def lineup_template_ctx(d, mode, values, event_id=None, banner=""):
+    types = list(lineupfeed.MEMBER_TYPES if not can_host_practice() else lineupfeed.EVENT_TYPES)
+    return dict(event_types=types, values=values, mode=mode, event_id=event_id, banner=banner or "",
         organizer=can_host_practice(), save_label=("Submit" if mode == "suggest" else "Save"), sports_row=None)
 def _save_lineup(d, existing=None):
     form = _form_last()
     banner = None
     f = request.files.get("banner") if request.files else None
-    if f and f.filename: banner = save_image(f)
+    if f and f.filename: banner = save_banner(f)
     try:
         info = lineupfeed.save_event(d, form, me(), can_host_practice(), existing=existing, banner=banner,
             banner_clear=form.get("banner_clear") == "1", parse_date=parse_date)
@@ -2487,14 +2552,14 @@ def lineup():
             flash(str(e)); return redirect(back)
         d.commit()
         return redirect(back)
-    cat = (request.args.get("cat") or "").strip()
+    cat = lineupfeed.filter_type((request.args.get("cat") or "").strip())
     raw = lineup_query(d)
     now = wall_pt()
     rows = lineup_pack(d, raw)
     by_id = {r["id"]: r for r in raw}
     def still_on(e):
         return event_window(by_id[e["id"]])[1] >= now
-    public = [e for e in rows if e["status"] == "published" and (not cat or e["slug"] == cat)]
+    public = [e for e in rows if e["status"] == "published" and (not cat or e["event_type"] == cat)]
     def feed_key(e): return (e["date"], 0 if e.get("precision") == "month" else 1, e["id"])
     upcoming = sorted((e for e in public if still_on(e)), key=feed_key)
     past = sorted((e for e in public if not still_on(e)), key=feed_key, reverse=True)
@@ -2503,9 +2568,8 @@ def lineup():
     mid = me()["id"]
     mine = [e for e in rows if e["created_by"] == mid or e["host_id"] == mid]
     interested = [e for e in rows if e["mine"] == "interested" and e["status"] == "published"]
-    chips = lineupfeed.categories(d, active_only=True)
     return page(T["lineup"], tab="lineup", featured=featured, upcoming=lineup_groups(rest), past=lineup_groups(past), past_n=len(past),
-        mine=mine, interested=interested, cat=cat, filter_chips=chips, empty_public=not upcoming and not past)
+        mine=mine, interested=interested, cat=cat, filter_types=list(lineupfeed.EVENT_TYPES), empty_public=not upcoming and not past)
 @app.route("/lineup/new", methods=["GET", "POST"])
 @login_required
 def lineup_new():
@@ -2541,6 +2605,7 @@ def lineup_detail(eid):
         except ValueError as e:
             flash(str(e)); return redirect("/lineup/%d" % eid)
         d.commit(); return redirect("/lineup/%d" % eid)
+    row = ensure_lineup_coords(d, row)
     packed = lineup_pack(d, [row])[0]
     return page(T["lineup_event"], tab="lineup_event", e=packed, from_admin=request.args.get("from") == "admin", admin_date=(request.args.get("date") or row["date"] or "")[:10])
 @app.route("/lineup/<int:eid>/edit", methods=["GET", "POST"])
@@ -2563,7 +2628,7 @@ def lineup_edit(eid):
             return redirect("/lineup/%d" % eid if info["status"] == "published" else "/lineup")
         except ValueError as e:
             flash(str(e)); values = lineupfeed.form_values(_form_last(), mode="edit")
-    ctx = lineup_template_ctx(d, "edit", values, event_id=eid)
+    ctx = lineup_template_ctx(d, "edit", values, event_id=eid, banner=row["banner"] or "")
     ctx["sports_row"] = row
     ctx["show_cancel"] = can_host_practice() and (row["status"] or "") == "published"
     ctx["show_delete"] = can_host_practice() or (row["created_by"] == me()["id"] and (row["status"] or "") in ("draft", "declined", "changes_requested"))
@@ -3968,7 +4033,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-56 */
+SW_JS = """/* grunions-sw-57 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
