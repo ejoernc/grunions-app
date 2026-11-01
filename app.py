@@ -2792,44 +2792,83 @@ def events_hub_groups(d):
     for label in sorted(buckets):
         groups.append({"label": label, "items": sorted(buckets[label], key=lambda item: item["sort"])})
     return groups
+class _FormWrap:
+    """Request form plus a few keys the lineup saver expects."""
+    def __init__(self, form, **over):
+        self.form, self.over = form, over
+    def get(self, key, default=None):
+        if key in self.over: return self.over[key]
+        return self.form.get(key, default)
+    def getlist(self, key):
+        return self.form.getlist(key)
 @app.route("/events/new", methods=["GET", "POST"])
 @login_required
 def event_new():
-    """One create entry. Team schedule lands on Home. Lineup types open the lineup form."""
+    """One create screen. Team schedule lands on Home. Lineup events land on Lineup."""
     staff = can_host_practice()
-    activity = (request.form.get("activity_type") or request.args.get("type") or "").strip().lower()
+    activity = (request.form.get("activity_type") or request.args.get("type") or "practice").strip().lower()
+    if activity not in ("practice", "scrimmage", "game"): activity = "practice"
+    lane = (request.form.get("lane") or request.args.get("lane") or "").strip().lower()
+    if not staff: lane = "lineup"
+    elif lane not in ("schedule", "lineup"):
+        lane = "lineup" if request.args.get("event_type") else "schedule"
+    line_types = [("Trip", "Trip"), ("Social", "Social/Activity"), ("Volunteer", "Volunteer"),
+                  ("Fundraiser", "Fundraiser"), ("Meeting", "Meeting/Workshop"), ("Other", "Other")]
+    if staff:
+        line_types = [("Tournament", "Tournament"), ("Competition", "Competition"), ("Clinic", "Clinic/Camp")] + line_types
     if request.method == "POST":
-        if not staff: abort(403)
-        if (request.form.get("action") or "") != "create_schedule": abort(400)
-        if activity not in ("practice", "scrimmage", "game"):
-            flash("Choose Practice, Scrimmage, or Game.")
-            return redirect("/events/new")
+        action = (request.form.get("action") or "").strip()
+        if action not in ("preview", "create_schedule"): abort(400)
+        if request.form.get("lane") == "schedule" and not staff: abort(403)
         day = parse_date(request.form.get("date"))
         loc = " ".join((request.form.get("location") or "").split())[:300]
         if not day or not loc:
             flash("Add a date and a location.")
-            return redirect("/events/new?type=%s" % activity)
-        start = (request.form.get("start") or "19:00").strip() or "19:00"
-        end = (request.form.get("end") or "20:30").strip() or "20:30"
+            return redirect("/events/new")
         d = db()
+        if (request.form.get("lane") or lane) != "lineup" and staff:
+            start = (request.form.get("start") or "19:00").strip() or "19:00"
+            end = (request.form.get("end") or "20:30").strip() or "20:30"
+            try:
+                sp = sports.sports_from_form(request.form)
+                sp["activity_type"] = activity
+                if request.form.get("title_mode") != "custom": sp["title"] = ""
+                note = request.form.get("note") or ""
+                cur = d.execute("""INSERT INTO practices(date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (day.isoformat(), start, end, loc, note, *sports.sports_tuple(sp)))
+                pid = cur.lastrowid
+                save_practice_coaches(d, pid, request.form.getlist("coach"))
+                if request.form.getlist("social_kind"):
+                    if not save_social(d, pid, request.form): flash("Add a place for the social.")
+                try: apply_practice_image(d, pid)
+                except ValueError as e: flash(str(e))
+                d.commit()
+                flash("Preview", "toast")
+                return redirect("/practices/%d" % pid)
+            except sqlite3.IntegrityError:
+                flash("A practice already exists at that place on that date.")
+                return redirect("/events/new")
+        title = " ".join((request.form.get("line_title") or "").split())
+        if not title:
+            flash("Add an event name.")
+            return redirect("/events/new?lane=lineup")
+        wrapped = _FormWrap(request.form, title=title, start_time=request.form.get("start") or "19:00",
+            mode="create" if staff else "suggest", event_type=request.form.get("event_type") or "Social",
+            team_intent="official" if request.form.get("team_plan") == "committed" else "considering")
         try:
-            sp = sports.sports_from_form(request.form)
-            sp["activity_type"] = activity
-            sp["title"] = ""
-            cur = d.execute("""INSERT INTO practices(date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (day.isoformat(), start, end, loc, "", *sports.sports_tuple(sp)))
-            d.commit()
-            flash("Created", "toast")
-            return redirect("/practices/%d" % cur.lastrowid)
-        except sqlite3.IntegrityError:
-            flash("A practice already exists at that place on that date.")
-            return redirect("/events/new?type=%s" % activity)
-    show_form = staff and activity in ("practice", "scrimmage", "game")
-    live = sports.session_title("Water Polo", activity) if show_form else ""
-    return page(T["event_new"], tab="event_new", staff=staff, show_form=show_form, activity=activity if show_form else "",
-        plan_back="/events/new" if show_form else "/lineup", plan_title="Create event",
-        plan_save="Create" if show_form else "", live_title=live)
+            info = lineupfeed.save_event(d, wrapped, me(), staff, parse_date=parse_date)
+        except ValueError as e:
+            flash(str(e))
+            return redirect("/events/new?lane=lineup")
+        except PermissionError:
+            abort(403)
+        d.commit()
+        flash("Preview", "toast")
+        return redirect("/lineup/%d" % info["id"] if info["status"] == "published" else "/lineup")
+    return page(T["event_new"], tab="event_new", staff=staff, lane=lane, activity=activity, line_types=line_types,
+        coaches=coach_candidates(db()) if staff else [],
+        plan_back="/admin/approvals" if staff else "/lineup", plan_title="Create event", plan_save="Preview")
 @app.route("/admin/approvals", methods=["GET", "POST"])
 @login_required
 def approvals():
@@ -4246,7 +4285,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-67 */
+SW_JS = """/* grunions-sw-68 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
