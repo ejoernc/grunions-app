@@ -1714,11 +1714,30 @@ def practice_chip(p):
     if not practice_is_month(p): return relative_day(p["date"])
     part = (p["date_part"] or "").strip().lower() if "date_part" in p.keys() else ""
     return {"early": "EARLY", "mid": "MID", "late": "LATE"}.get(part, "TBA")
+def tile_weekday(iso):
+    """TODAY replaces the weekday abbreviation on the date square."""
+    day = str(iso or "")[:10]
+    if day == today_pt().isoformat(): return "TODAY"
+    return weekday_abbr(day)
+def practice_live_chip(p, now=None):
+    """Upcoming until the session starts, In progress through its end minute."""
+    if not p or practice_is_month(p): return "Upcoming"
+    now = wall_pt(now)
+    day = dt.date.fromisoformat(str(p["date"])[:10])
+    def hm(raw, default):
+        parts = str(raw or default).split(":")
+        return int(parts[0]), int(parts[1] if len(parts) > 1 else 0)
+    sh, sm = hm(p["start"], "19:00")
+    eh, em = hm(p["end"], "20:30")
+    start = dt.datetime.combine(day, dt.time(sh, sm))
+    end = dt.datetime.combine(day, dt.time(eh, em))
+    if start <= now <= end: return "In progress"
+    return "Upcoming"
 def practice_tile(p):
     if practice_is_month(p):
         day = dt.date.fromisoformat(str(p["date"])[:10])
         return {"wd": practice_chip(p), "dn": day.strftime("%b").upper(), "mo": str(day.year)}
-    return {"wd": weekday_abbr(p["date"]), "dn": str(day_num(p["date"])), "mo": month_abbr(p["date"])}
+    return {"wd": tile_weekday(p["date"]), "dn": str(day_num(p["date"])), "mo": month_abbr(p["date"])}
 def month_window(month, part):
     """First and last day for Early, Mid, Late, or a whole month."""
     month = (month or "").strip()
@@ -2232,7 +2251,7 @@ def hide_coaching_plan(p):
     data = dict(p)
     data["coaching_plan"] = ""
     return data
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_live_chip=practice_live_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
@@ -2590,16 +2609,10 @@ def event_window(e):
     if end < start: end = dt.datetime.combine(end_day, dt.time(23, 59))
     return start, end
 def event_chip_label(start, end, now=None):
-    """Day chip for a committed event: happening now, day N of M, or the usual relative day."""
+    """Upcoming until the event starts, In progress through its end."""
     now = wall_pt(now)
-    if start <= now <= end:
-        span = (end.date() - start.date()).days + 1
-        if span <= 1: return "HAPPENING NOW"
-        if now.date() >= end.date(): return "FINAL DAY"
-        return "DAY %d OF %d" % ((now.date() - start.date()).days + 1, span)
-    left = (start.date() - now.date()).days
-    if left <= 6: return relative_day(start.date().isoformat())
-    return "UP NEXT"
+    if start <= now <= end: return "In progress"
+    return "Upcoming"
 def lineup_public(row):
     return (row["status"] or "") == "published"
 def lineup_seen(row, actor):
@@ -2616,7 +2629,7 @@ def lineup_tile(row):
         part = (row["date_part"] or "").strip().lower() if "date_part" in row.keys() else ""
         top = {"early": "EARLY", "mid": "MID", "late": "LATE"}.get(part, "")
         return {"wd": top, "dn": day.strftime("%b").upper(), "mo": str(day.year)}
-    return {"wd": weekday_abbr(day.isoformat()), "dn": str(day.day), "mo": month_abbr(day.isoformat())}
+    return {"wd": tile_weekday(day.isoformat()), "dn": str(day.day), "mo": month_abbr(day.isoformat())}
 def lineup_dir_href(city, venue):
     """Directions link. A pasted map URL is used as-is."""
     venue = " ".join(str(venue or "").split())
@@ -4794,7 +4807,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-101 */
+SW_JS = """/* grunions-sw-102 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

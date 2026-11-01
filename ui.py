@@ -69,8 +69,7 @@ a.avatar,button.avatar,span.avatar{width:44px;height:44px;min-width:44px;max-wid
 a.avatar img,button.avatar img,span.avatar img{width:44px;height:44px;max-width:44px;max-height:44px;object-fit:cover;border-radius:50%;display:block;flex-shrink:0}
 .profhead{display:flex;align-items:center;gap:14px;margin:0 0 16px}.profhead .avatar{width:64px;height:64px;font-size:20px}
 .nextcard{padding:0;overflow:hidden}
-.nextcard .nxbody{padding:16px 16px 0}.nextcard .nxtitle{font-size:var(--type-t3-size);line-height:var(--type-t3-line);font-weight:var(--type-t3-weight)}
-.nextcard .nxcardhead{margin:0 0 2px}
+.nextcard .nxbody{padding:16px 16px 0}.nextcard .nxtitle{font-size:var(--type-t4-size);line-height:var(--type-t4-line);font-weight:var(--type-t4-weight)}
 .nextcard .nxcardhead .cardlink{flex:1;min-width:0}
 a.usawpchip{display:inline-flex;align-items:center;gap:6px;margin-left:auto;color:var(--t2);font-size:13px;font-weight:500;line-height:1.2;text-decoration:none;white-space:nowrap;flex:none}
 a.usawpchip .usawpok{width:16px;height:16px;flex:none;color:var(--color-status-cleared)}
@@ -890,7 +889,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=101');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=102');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -1631,21 +1630,24 @@ T["home"] = """{% if pins %}
 document.getElementById('trialDialog').addEventListener('click',function(e){if(e.target===this)this.close()});</script>{% endif %}
 </div>{% endif %}
 {% if next_kind == 'event' and nextev %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ nextev.id }}'">
-<div class=nxbody><div class=nxcardhead><a class=cardlink href="/lineup/{{ nextev.id }}"><div class=nxtitle>{{ nextev.title }}</div></a><span class="chip-info daychip">{{ nextev.chip_label }}</span></div>
-<a class=cardlink href="/lineup/{{ nextev.id }}">
-<div class=nxrow>{{ glyph_clock() }}<span>{{ nextev.when }}</span></div>
+<div class=nxbody><a class=cardlink href="/lineup/{{ nextev.id }}">
+<div class=nxcardhead><div class=nxtitle>{{ nextev.title }}</div><span class="chip-info daychip">{{ nextev.chip_label }}</span></div>
+<div class=nxmain><div class=datetile>{% if nextev.tile.wd %}<span class=wd>{{ nextev.tile.wd }}</span>{% endif %}<span class=dn>{{ nextev.tile.dn }}</span><span class=mo>{{ nextev.tile.mo }}</span></div>
+<div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ nextev.when }}</span></div>
 {% if nextev.where %}<div class=nxrow>{{ glyph_pin() }}<span>{{ nextev.where }}</span></div>{% endif %}
-<div class=nxrow>{{ glyph_people() }}<span>{{ nextev.count_line }} · {{ nextev.host_line }}</span></div></a></div>
+<div class=nxrow>{{ glyph_people() }}<span>{{ nextev.count_line }} · {{ nextev.host_line }}</span></div></div></div></a></div>
 <form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ nextev.id }}><input type=hidden name=back value=/home>
 {{ rsvp_btn('Going', nextev.mine == 'going', 'going') }}
 {{ rsvp_btn('Not going', nextev.mine == 'notgoing', 'notgoing') }}</form>
 </div>{% elif nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'">
 {% if nextp.image %}<a class=cardlink href="/practices/{{nextp.id}}"><div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div></a>{% endif %}
-<div class=nxbody><div class=nxcardhead><a class=cardlink href="/practices/{{nextp.id}}"><div class=nxtitle>{{ practice_title(nextp) }}</div></a><span class="chip-info daychip">{{ practice_chip(nextp) }}</span></div>
-<a class=cardlink href="/practices/{{nextp.id}}">
-<div class=nxrow>{{ glyph_clock() }}<span>{% if practice_is_month(nextp) %}{{ practice_when(nextp) }}{% else %}{{ fmt_card_date(nextp.date) }} · {{ fmt_clock(nextp.start) }} – {{ fmt_clock(nextp.end) }}{% endif %}</span></div>
-<div class=nxrow>{{ glyph_pin() }}<span>{{ short_place(nextp.location) }}</span></div>
-<div class=nxrow>{{ glyph_people() }}<span>{{ practice_going_line(nextp_n, nextp) }}</span></div>
+<div class=nxbody><a class=cardlink href="/practices/{{nextp.id}}">
+<div class=nxcardhead><div class=nxtitle>{{ practice_title(nextp) }}</div><span class="chip-info daychip">{{ practice_live_chip(nextp) }}</span></div>
+{% set tile = practice_tile(nextp) %}
+<div class=nxmain><div class=datetile><span class=wd>{{ tile.wd }}</span><span class=dn>{{ tile.dn }}</span><span class=mo>{{ tile.mo }}</span></div>
+<div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{% if practice_is_month(nextp) %}{{ practice_when(nextp) }}{% else %}{{ fmt_span(nextp.start, nextp.end) }}{% endif %}</span></div>
+<div class=nxrow>{{ glyph_pin() }}<span>{{ nextp.location }}</span></div>
+<div class=nxrow>{{ glyph_people() }}<span>{{ practice_going_line(nextp_n, nextp) }}</span></div></div></div>
 {% if nextp.coach_note %}<div class=nxnote>{{ nextp.coach_note }} · {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</div>{% endif %}</a></div>
 <form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
 {{ rsvp_btn('Going', nextp_mine==1, 'going') }}
