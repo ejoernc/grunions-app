@@ -630,6 +630,28 @@ eli.post("/api/messages?c=coaches", json={"body": "Seen coaches"}, headers={"X-C
 coach_seen = _seen(eli, "coaches")
 coach_page = eli.get("/chat?c=coaches").get_data(as_text=True)
 ok(janie not in {p["id"] for p in coach_seen["seen"]} and coach_seen["total"] == len(_audience("coaches") - {eli_id_seen}) and "seenline" in eli.get("/chat").get_data(as_text=True) and "id=seenSheet" in coach_page and "class=botsheet" in coach_page and ">Not yet</h3>" not in coach_page and "grunionsOpenSheet" in coach_page, "coaches read receipts count coaches and admins, not players")
+def _seen_hdr(c, channel, after=None):
+    import json as _jsonseen
+    url = "/api/messages?c=%s" % channel
+    if after is not None: url += "&after=%d" % after
+    resp = c.get(url)
+    return resp, _jsonseen.loads(resp.headers["X-Chat-Seen"])
+_blank, _chdr = _seen_hdr(eli, "coaches", 999999999)
+_tblank, _thdr = _seen_hdr(eli, "team", 999999999)
+_tsnap = _seen(eli, "team")
+ok(_blank.get_json() == [] and _tblank.get_json() == [] and _chdr["label"] == coach_seen["label"] and _chdr["n"] == coach_seen["n"] and _chdr["total"] == coach_seen["total"] and _chdr["id"] == coach_seen["id"] and _thdr["label"] == _tsnap["label"] and _thdr["total"] == _tsnap["total"], "an empty poll still carries the same receipt for coaches and team")
+_coach_snaps, _team_snaps = [], []
+for _ in range(8):
+    _cs, _ts = _seen(eli, "coaches"), _seen(eli, "team")
+    _coach_snaps.append((_cs["label"], _cs["n"], _cs["total"], _cs["id"], tuple(p["id"] for p in _cs["seen"])))
+    _team_snaps.append((_ts["label"], _ts["n"], _ts["total"], _ts["id"], tuple(p["id"] for p in _ts["seen"])))
+ok(len(set(_coach_snaps)) == 1 and len(set(_team_snaps)) == 1, "coaches and team receipts stay the same across repeated polls")
+_jane_role = D.execute("SELECT role, is_admin FROM members WHERE id=?", (janie,)).fetchone()
+D.execute("UPDATE members SET is_admin=1 WHERE id=?", (janie,)); D.commit()
+_with_admin = _seen(eli, "coaches")
+D.execute("UPDATE members SET role=?, is_admin=? WHERE id=?", (_jane_role[0], _jane_role[1], janie)); D.commit()
+_restored = _seen(eli, "coaches")
+ok(_with_admin["total"] == coach_seen["total"] + 1 and _restored["total"] == coach_seen["total"] and _restored["n"] == coach_seen["n"] and _restored["label"] == coach_seen["label"], "the coaches denominator is coaches plus admins and does not flicker when that set is unchanged")
 dayb = (A.today_pt() + dt.timedelta(days=9)).isoformat()
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=dayb, start="19:00", end="20:30", location="Badge Pool", note=""))
 bpid = D.execute("SELECT id FROM practices WHERE location='Badge Pool'").fetchone()[0]
@@ -750,7 +772,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=96" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=97" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
@@ -796,12 +818,16 @@ msgs[9]={id:9,seen:{id:9,n:1,total:8,label:"Seen by 1",seen:[]}};
 delete msgs[5].seen;
 paintSeen([msgs[9]]);
 var moved=node.parentNode&&node.parentNode.id==="msg9" && document.getElementById("msg5").querySelectorAll(".seenline").length===0;
-console.log(JSON.stringify({count:document.querySelectorAll(".seenline").length, afterDup:afterDup, same:same, quiet:quiet, moved:moved, label:node.textContent, node:!!node}));
+var sets=node.textSets;
+paintSeen([]);
+paintSeen([{id:1,body:"no receipt"}]);
+var kept=document.getElementById("seenLine")===node && node.parentNode&&node.parentNode.id==="msg9" && node.textContent==="Seen by 1" && node.textSets===sets;
+console.log(JSON.stringify({count:document.querySelectorAll(".seenline").length, afterDup:afterDup, same:same, quiet:quiet, moved:moved, kept:kept, label:node.textContent, node:!!node}));
 '''], capture_output=True, text=True)
 _seen_out = {}
 try: _seen_out = json.loads(_seen_proc.stdout or "{}")
 except ValueError: _seen_out = {}
-ok(_seen_proc.returncode == 0 and _seen_out.get("afterDup") == 1 and _seen_out.get("count") == 1 and _seen_out.get("same") and _seen_out.get("quiet") and _seen_out.get("moved") and _seen_out.get("label") == "Seen by 1", "several seen polls leave one stable line and do not rewrite it")
+ok(_seen_proc.returncode == 0 and _seen_out.get("afterDup") == 1 and _seen_out.get("count") == 1 and _seen_out.get("same") and _seen_out.get("quiet") and _seen_out.get("moved") and _seen_out.get("kept") and _seen_out.get("label") == "Seen by 1", "several seen polls leave one stable line and do not rewrite it")
 _grp_src = chui[chui.find("function sameGroup"):chui.find("function placeWho")]
 _grp_proc = subprocess.run(["node", "-e", _grp_src + r'''
 function chain(times, uids){
@@ -1965,7 +1991,7 @@ if not all(_sched_bits.values()):
     print("SCHED BITS", {k: v for k, v in _sched_bits.items() if not v})
 ok(all(_sched_bits.values()), "each event that day is its own card, and the check-in count sits with the filters")
 ds = eli.get("/design-system").get_data(as_text=True)
-ok(jane.get("/design-system").status_code == 403 and "<h1>Regulars</h1>" in ds and "--color-bg: #090D0B" in ds and "--color-lime: #B2DE64" in ds and "--color-coral: #F48782" in ds and "--radius-card: 20px" in ds and "--radius-overlay: 24px" in ds and "--space-card: var(--space-3)" in ds and "btn-tertiary" in ds and "Expiring soon · expires in 3 days" in ds and "aria-label=\"Coach navigation\"" in ds and "aria-label=\"Member navigation\"" in ds and "aria-label=\"Manage\"" in ds and "aria-label=\"Home\"" in ds and "class=mrow" in ds and "class=mico" in ds and "--nav-offset-bottom: 24px" in ds and "--nav-circle: 52px" in ds and "<h2>Segmented</h2>" in ds and "<h2>Field</h2>" in ds and "<h2>Upload</h2>" in ds and 'class="dropzone' in ds and "Upload an image" in ds and "PNG or JPG" in ds and "Upload a file" in ds and 'data-mode="file"' in ds and "CSV" in ds and "class=rsvpcheck" in ds and "</svg>Going</button>" in ds and ">Not going</button>" in ds and "I'm going" not in ds and "--color-focus" in ds and "--color-map: var(--color-clubhouse)" in ds and "--color-sheet: var(--color-raised)" in ds and "<h2>Map, chat, and sheet</h2>" in ds and "data-theme=light" in ds and "--space-meta: 2px" in ds and ".nxrow+.nxrow{margin-top:var(--space-meta)}" in ds and ".sportline{margin-top:6px" in ds and ".nxrow{display:flex;align-items:center;gap:var(--space-2)" in ds and "/sw.js?v=96" in ds and "button.placeopt{display:flex" in ds and "grunionsPlaces" in ds, "admins can open the Regulars preview, and event cards share the tighter icon-row gap")
+ok(jane.get("/design-system").status_code == 403 and "<h1>Regulars</h1>" in ds and "--color-bg: #090D0B" in ds and "--color-lime: #B2DE64" in ds and "--color-coral: #F48782" in ds and "--radius-card: 20px" in ds and "--radius-overlay: 24px" in ds and "--space-card: var(--space-3)" in ds and "btn-tertiary" in ds and "Expiring soon · expires in 3 days" in ds and "aria-label=\"Coach navigation\"" in ds and "aria-label=\"Member navigation\"" in ds and "aria-label=\"Manage\"" in ds and "aria-label=\"Home\"" in ds and "class=mrow" in ds and "class=mico" in ds and "--nav-offset-bottom: 24px" in ds and "--nav-circle: 52px" in ds and "<h2>Segmented</h2>" in ds and "<h2>Field</h2>" in ds and "<h2>Upload</h2>" in ds and 'class="dropzone' in ds and "Upload an image" in ds and "PNG or JPG" in ds and "Upload a file" in ds and 'data-mode="file"' in ds and "CSV" in ds and "class=rsvpcheck" in ds and "</svg>Going</button>" in ds and ">Not going</button>" in ds and "I'm going" not in ds and "--color-focus" in ds and "--color-map: var(--color-clubhouse)" in ds and "--color-sheet: var(--color-raised)" in ds and "<h2>Map, chat, and sheet</h2>" in ds and "data-theme=light" in ds and "--space-meta: 2px" in ds and ".nxrow+.nxrow{margin-top:var(--space-meta)}" in ds and ".sportline{margin-top:6px" in ds and ".nxrow{display:flex;align-items:center;gap:var(--space-2)" in ds and "/sw.js?v=97" in ds and "button.placeopt{display:flex" in ds and "grunionsPlaces" in ds, "admins can open the Regulars preview, and event cards share the tighter icon-row gap")
 _wide = io.BytesIO(); Image.new("RGB", (4000, 2000), (12, 40, 80)).save(_wide, "PNG"); _wide.seek(0)
 _bday = (A.today_pt() + dt.timedelta(days=16)).isoformat()
 eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), mode="create", event_type="Tournament", hosting="Away", team_intent="official", title="Banner Cup", location="Banner Pool", description="A wide picture.", date=_bday, start_time="09:00", banner=(_wide, "wide.png")), follow_redirects=True)

@@ -1244,13 +1244,6 @@ def reply_target(d, ch, raw):
     if not src or src["deleted"] or (src["channel"] or "team") != ch: return None
     return src["id"]
 def can_read(ch): return ch == "team" or (ch == "coaches" and is_staff())
-def channel_members(d, channel):
-    """Who a read receipt counts. Team is everyone. Coaches is coaches and admins."""
-    rows = d.execute("""SELECT id, first, last, preferred_first, photo, role, is_admin FROM members
-        WHERE COALESCE(role,'')!='system'""").fetchall()
-    if channel == "coaches":
-        return [r for r in rows if (r["role"] or "") == "coach" or r["is_admin"]]
-    return list(rows)
 def member_brief(m):
     photo = ""
     try:
@@ -1260,26 +1253,48 @@ def member_brief(m):
     return {"id": m["id"], "name": ("%s %s" % (display_first(m), m["last"] or "")).strip(),
             "initials": initials(m), "photo": ("/avatar/%d?v=%s" % (m["id"], photo)) if photo else ""}
 def seen_summary(d, channel, message_id, sender_id):
-    """Who else in the channel has a last-read at or past this message. The sender is never counted."""
-    others = [m for m in channel_members(d, channel) if m["id"] != sender_id]
+    """Who else in the channel has a last-read at or past this message. The sender is never counted.
+    One query supplies the audience and the reads, so the count cannot change mid-computation.
+    Coaches counts coaches and admins. Team counts every member."""
+    if not message_id: return None
+    where = ""
+    if channel == "coaches":
+        where = "AND (COALESCE(m.role,'')='coach' OR COALESCE(m.is_admin,0)=1)"
+    rows = d.execute("""SELECT m.id, m.first, m.last, m.preferred_first, m.photo,
+        COALESCE(r.last_read,0) AS last_read
+        FROM members m
+        LEFT JOIN chat_reads r ON r.member_id=m.id AND r.channel=?
+        WHERE COALESCE(m.role,'')!='system' """ + where + " ORDER BY m.id", (channel,)).fetchall()
+    others = [m for m in rows if m["id"] != sender_id]
+    if not others: return None
     others.sort(key=lambda m: (display_first(m).casefold(), (m["last"] or "").casefold(), m["id"]))
-    if not others or not message_id: return None
-    reads = {r["member_id"]: r["last_read"] for r in d.execute(
-        "SELECT member_id, last_read FROM chat_reads WHERE channel=?", (channel,))}
-    seen = [member_brief(m) for m in others if reads.get(m["id"], 0) >= message_id]
-    n = len(seen)
-    label = "Seen by everyone" if n == len(others) else "Seen by %d" % n
-    return {"id": message_id, "n": n, "total": len(others), "label": label, "seen": seen}
-def with_seen(d, channel, rows):
+    mid = int(message_id)
+    seen = [member_brief(m) for m in others if int(m["last_read"] or 0) >= mid]
+    n, total = len(seen), len(others)
+    label = "Seen by everyone" if n == total else "Seen by %d" % n
+    return {"id": mid, "n": n, "total": total, "label": label, "seen": seen}
+def latest_seen(d, channel):
     latest = d.execute("""SELECT id, member_id FROM messages WHERE channel=? AND COALESCE(deleted,0)=0
         ORDER BY id DESC LIMIT 1""", (channel,)).fetchone()
-    info = seen_summary(d, channel, latest["id"], latest["member_id"]) if latest else None
+    if not latest: return None
+    return seen_summary(d, channel, latest["id"], latest["member_id"])
+def with_seen(d, channel, rows, info=None):
+    if info is None: info = latest_seen(d, channel)
     out = []
     for r in rows:
         item = msg_dict(r)
-        if info and item["id"] == info["id"]: item["seen"] = info
+        if info and int(item["id"]) == int(info["id"]): item["seen"] = info
         out.append(item)
     return out
+def messages_json(rows, seen):
+    resp = jsonify(rows)
+    if seen:
+        resp.headers["X-Chat-Seen"] = json.dumps(
+            {"id": seen["id"], "n": seen["n"], "total": seen["total"], "label": seen["label"]},
+            separators=(",", ":"))
+    else:
+        resp.headers["X-Chat-Seen"] = "null"
+    return resp
 def save_image(f):
     """Validate + re-encode an upload. Returns stored base name. Strips metadata, fixes rotation, resizes (max 1600px, thumb 480px)."""
     from PIL import Image, ImageOps
@@ -1460,18 +1475,19 @@ def api_messages():
         except Exception as e: app.logger.warning("chat push failed: %s", e)
         return jsonify(ok=True)
     mark_chat_read(d, me()["id"], ch)
+    info = latest_seen(d, ch)
     if request.args.get("sync") == "1":
         rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first,
           rm.body AS reply_body, rm.deleted AS reply_deleted, rm.image AS reply_image,
           rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM + """
           WHERE m.channel=? ORDER BY m.id DESC LIMIT 80""", (ch,)).fetchall()
-        return jsonify(with_seen(d, ch, list(reversed(rows))))
+        return messages_json(with_seen(d, ch, list(reversed(rows)), info), info)
     after = request.args.get("after", 0, type=int)
     rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first,
       rm.body AS reply_body, rm.deleted AS reply_deleted, rm.image AS reply_image,
       rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM + """
       WHERE m.id>? AND m.channel=? ORDER BY m.id DESC LIMIT 200""", (after, ch)).fetchall()
-    return jsonify(with_seen(d, ch, list(reversed(rows))))
+    return messages_json(with_seen(d, ch, list(reversed(rows)), info), info)
 
 # ---------- practices ----------
 RECURRING = {1: ("Marina High School", "19:00", "20:30"), 4: ("Westminster High School", "19:00", "20:30")}  # Tue, Fri
@@ -4770,7 +4786,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-96 */
+SW_JS = """/* grunions-sw-97 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
