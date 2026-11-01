@@ -1698,7 +1698,8 @@ def practice_days(d):
 def schedule_days(d):
     """Practice days plus published Lineup days, so Schedule can open either."""
     days = set(practice_days(d))
-    for start, end in d.execute("SELECT date, end_date FROM lineup_events WHERE status='published'"):
+    for start, end, precision in d.execute("SELECT date, end_date, COALESCE(date_precision,'exact') FROM lineup_events WHERE status='published'"):
+        if precision == "month": continue
         try: a = dt.date.fromisoformat(str(start)[:10])
         except ValueError: continue
         try: b = dt.date.fromisoformat(str(end or start)[:10])
@@ -1730,7 +1731,7 @@ def admin_day_events(d, date):
     for e in d.execute("""SELECT e.*, c.chip AS cat_chip, h.first AS host_first, h.last AS host_last, h.preferred_first AS host_preferred
         FROM lineup_events e LEFT JOIN lineup_categories c ON c.id=e.category_id
         LEFT JOIN members h ON h.id=e.host_id
-        WHERE e.status='published' AND e.date<=? AND COALESCE(NULLIF(e.end_date,''), e.date)>=?""", (date, date)):
+        WHERE e.status='published' AND COALESCE(e.date_precision,'exact')!='month' AND e.date<=? AND COALESCE(NULLIF(e.end_date,''), e.date)>=?""", (date, date)):
         start = (e["start_time"] or "09:00")[:5]
         end = (e["end_time"] or "")[:5]
         when = fmt_span(start, end) if len(end) == 5 else fmt_clock(start)
@@ -2241,6 +2242,13 @@ def lineup_seen(row, actor):
     if can_host_practice(actor): return True
     return actor["id"] in ((row["created_by"] or 0), (row["host_id"] or 0))
 def lineup_when_label(row):
+    precision = row["date_precision"] if "date_precision" in row.keys() and row["date_precision"] else "exact"
+    if precision == "month":
+        day = dt.date.fromisoformat(str(row["date"])[:10])
+        label = day.strftime("%B") + " " + str(day.year)
+        part = (row["date_part"] or "").strip().lower() if "date_part" in row.keys() else ""
+        if part in ("early", "mid", "late"): label = part[:1].upper() + part[1:] + " " + label
+        return label + " · Dates TBA"
     start, end = str(row["date"])[:10], str(row["end_date"] or row["date"])[:10]
     if end > start: base = lineup_range(start, end)
     else: base = fmt_d(start)
@@ -2297,6 +2305,7 @@ def lineup_pack(d, rows):
             "host_line": lineup_host_line(r), "member_event": not r["official"], "featured": bool(r["featured"]),
             "where": lineup_where(r["city"] or "", r["venue"] or ""), "map_href": lineup_map_href(r["city"] or "", r["venue"] or ""),
             "when": lineup_when_label(r), "date": r["date"], "end_date": r["end_date"] or r["date"],
+            "precision": r["date_precision"] if "date_precision" in r.keys() and r["date_precision"] else "exact",
             "description": r["description"] or "", "details": r["details"] or "", "link": r["link"] or "",
             "cost": r["cost"] or "", "capacity": cap, "full": full, "reg_deadline": r["reg_deadline"] or "",
             "review_note": r["review_note"] or "", "banner": r["banner"] or "",
@@ -2348,6 +2357,10 @@ def notify_lineup_review(d, event, kind):
         body = "%s is an official Grunions event. Your interest is saved." % title
         notify_lineup_people(d, lineup_rsvp_members(d, event["id"], ("interested",)), "We're official", body, "/lineup/%d" % event["id"])
         return
+    elif kind == "dated":
+        body = "%s now has dates: %s." % (title, lineup_when_label(event))
+        notify_lineup_people(d, lineup_rsvp_members(d, event["id"], ("going", "interested")), "Dates are set", body, "/lineup/%d" % event["id"])
+        return
     elif kind == "changed":
         body = "%s has a new date or location." % title
         notify_lineup_people(d, lineup_rsvp_members(d, event["id"], ("going", "interested", "waitlist")), "Event updated", body, "/lineup/%d" % event["id"])
@@ -2367,7 +2380,8 @@ def apply_lineup_side_effects(d, info, before):
     row = lineup_event_row(d, info["id"])
     if info.get("submitted"): notify_lineup_review(d, row, "submitted")
     if info.get("promoted"): notify_lineup_review(d, row, "official")
-    if info.get("date_changed"): notify_lineup_review(d, row, "changed")
+    if info.get("dates_set"): notify_lineup_review(d, row, "dated")
+    elif info.get("date_changed"): notify_lineup_review(d, row, "changed")
     if info.get("canceled"): notify_lineup_review(d, row, "canceled")
     return row
 def set_lineup_rsvp(d, row, action):
@@ -2461,8 +2475,9 @@ def lineup():
     def still_on(e):
         return event_window(by_id[e["id"]])[1] >= now
     public = [e for e in rows if e["status"] == "published" and (not cat or e["slug"] == cat)]
-    upcoming = sorted((e for e in public if still_on(e)), key=lambda e: (e["date"], e["id"]))
-    past = sorted((e for e in public if not still_on(e)), key=lambda e: (e["date"], e["id"]), reverse=True)
+    def feed_key(e): return (e["date"], 0 if e.get("precision") == "month" else 1, e["id"])
+    upcoming = sorted((e for e in public if still_on(e)), key=feed_key)
+    past = sorted((e for e in public if not still_on(e)), key=feed_key, reverse=True)
     featured = [e for e in upcoming if e["featured"]]
     rest = [e for e in upcoming if not e["featured"]]
     mid = me()["id"]
@@ -2607,6 +2622,7 @@ def next_commitment(d, mid):
         JOIN lineup_rsvps r ON r.event_id=e.id AND r.member_id=? AND r.state='going'
         WHERE e.status='published'""", (mid,)):
         if e["intent_ok"] and (e["team_intent"] or "") != "official": continue
+        if (e["date_precision"] or "") == "month": continue
         start, end = event_window(e)
         if end < now: continue
         cands.append((0 if start <= now <= end else 1, start, 1, "event", e))
@@ -3932,7 +3948,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-51 */
+SW_JS = """/* grunions-sw-52 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

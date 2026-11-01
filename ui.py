@@ -543,7 +543,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' %}<nav cla
 {% if is_staff() %}<a href=/admin class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% elif me().is_admin %}<a href=/members class="{{'on' if tab=='admin'}}">""" + ICONS["admin"] + """Admin</a>{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=51');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=52');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1478,13 +1478,23 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 {% if organizer %}<label id=lineIntent>Team intent<select name=team_intent><option value=considering {% if values.team_intent != 'official' %}selected{% endif %}>Considering</option><option value=official {% if values.team_intent == 'official' %}selected{% endif %}>Official</option></select></label>
 <input type=hidden name=official value=0><label id=lineOfficial><input type=checkbox name=official value=1 {% if values.official == '1' or mode == 'create' or mode == 'propose' %}checked{% endif %}> Official club event</label>{% endif %}
 <label>Title<input name=title value="{{ values.title }}" required autocomplete=off></label>
-<div class=row><label>Date<input type=date name=date value="{{ values.date }}" required></label><label>Start<input type=time name=start_time value="{{ values.start_time or '09:00' }}" required></label></div>
+<div class="t3 xs">Dates</div>
+<div class=actseg role=radiogroup aria-label=Dates>
+<label><input type=radio name=date_precision value=exact {% if values.date_precision != 'month' %}checked{% endif %}><span>Exact dates</span></label>
+<label><input type=radio name=date_precision value=month {% if values.date_precision == 'month' %}checked{% endif %}><span>Month only</span></label>
+</div>
+<div id=exactDates {% if values.date_precision == 'month' %}hidden{% endif %}>
+<div class=row><label>Starts<input type=date name=date value="{{ values.date }}"></label><label>Ends<input type=date name=end_date value="{{ values.end_date }}"></label></div>
+<div class=row><label>Start time<input type=time name=start_time value="{{ values.start_time or '09:00' }}"></label><label>End time<input type=time name=end_time value="{{ values.end_time }}"></label></div>
+</div>
+<div id=monthDates {% if values.date_precision != 'month' %}hidden{% endif %}>
+<label>Month<input type=month name=month value="{{ values.month }}"></label>
+<label>Part of the month<select name=date_part><option value="">Whole month</option><option value=early {% if values.date_part == 'early' %}selected{% endif %}>Early</option><option value=mid {% if values.date_part == 'mid' %}selected{% endif %}>Mid</option><option value=late {% if values.date_part == 'late' %}selected{% endif %}>Late</option></select></label>
+</div>
 <label>Location / meeting point<input name=location value="{{ values.location }}" required autocomplete=off></label>
 <label>Short description<textarea name=description rows=3 required>{{ values.description }}</textarea></label>
 <details class=moredetails><summary>More details</summary>
 {{ sports_editor(sports_row, false, true) }}
-<label>Subtype is set above. End date<input type=date name=end_date value="{{ values.end_date }}"></label>
-<label>End time<input type=time name=end_time value="{{ values.end_time }}"></label>
 <label>City<input name=city value="{{ values.city }}" autocomplete=off></label>
 <label>Banner<input type=file name=banner accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic"></label>
 <label>Link<input name=link value="{{ values.link }}" inputmode=url autocomplete=off placeholder="https://"></label>
@@ -1513,6 +1523,15 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
   if(mode==='propose'&&showIntent){cat.value='travel';}
  }
  cat.addEventListener('change', function(){current=sel.value; sync()}); sync();
+ var exactBox=document.getElementById('exactDates'), monthBox=document.getElementById('monthDates');
+ function datesMode(){
+  var on=document.querySelector('input[name=date_precision]:checked');
+  var month=!!(on&&on.value==='month');
+  if(exactBox){exactBox.hidden=month; exactBox.querySelectorAll('input,select').forEach(function(el){el.disabled=month});}
+  if(monthBox){monthBox.hidden=!month; monthBox.querySelectorAll('input,select').forEach(function(el){el.disabled=!month});}
+ }
+ document.querySelectorAll('input[name=date_precision]').forEach(function(r){r.addEventListener('change', datesMode)});
+ datesMode();
 })();</script>"""
 T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ csrf_field() }}
 {{ sports_editor(series) }}

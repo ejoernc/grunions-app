@@ -727,7 +727,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=51" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=52" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
@@ -1650,6 +1650,81 @@ ok(old.execute("SELECT status FROM lineup_events WHERE title='Cup'").fetchone()[
 draft = eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(title="Quiet Draft", action="draft", mode="draft")), follow_redirects=True)
 draft_id = D.execute("SELECT id, status FROM lineup_events WHERE title='Quiet Draft'").fetchone()
 ok(draft_id[1] == "draft" and jane.get("/lineup/%d" % draft_id[0]).status_code == 404 and "Quiet Draft" not in jane.get("/lineup").get_data(as_text=True), "a draft stays off the Lineup for members")
+date_form = eli.get("/lineup/new").get_data(as_text=True)
+ok(">Exact dates</span>" in date_form and ">Month only</span>" in date_form and "type=month name=month" in date_form and "name=date_part" in date_form and ">Early</option>" in date_form and ">Mid</option>" in date_form and ">Late</option>" in date_form and "id=exactDates" in date_form and "id=monthDates" in date_form, "the event form toggles exact dates and a month")
+ok(D.execute("SELECT date_precision FROM lineup_events WHERE title='Club Hour'").fetchone()[0] == "exact", "an event without a precision stays on exact dates")
+_tba = A.today_pt().replace(day=1)
+_tba_end = (dt.date(_tba.year + 1, 1, 1) if _tba.month == 12 else dt.date(_tba.year, _tba.month + 1, 1)) - dt.timedelta(days=1)
+_tba_label = _tba.strftime("%B") + " " + str(_tba.year) + " · Dates TBA"
+eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(title="March First Cup", category="travel", subtype="Tournament", hosting="Away", team_intent="official", date="2027-03-01", end_date="2027-03-01", start_time="09:00", location="First Pool", description="Opening day.")))
+eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(title="Early Spring Cup", category="travel", subtype="Tournament", hosting="Away", team_intent="official", date_precision="month", month="2027-03", date_part="early", date="", start_time="", location="Spring Pool", description="Early in March.")))
+eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(title="Late March Meet", category="travel", subtype="Tournament", hosting="Away", team_intent="official", date="2027-03-18", end_date="2027-03-18", start_time="09:00", location="Late Pool", description="Later in March.")))
+eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(title="Dates Later Cup", category="travel", subtype="Tournament", hosting="Away", team_intent="official", date_precision="month", month=_tba.strftime("%Y-%m"), date="", start_time="", location="Somewhere", description="Dates later.")))
+bad_month = eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(title="No Month", date_precision="month", month="2027-13", date="", start_time="")), follow_redirects=True).get_data(as_text=True)
+spring = D.execute("SELECT date, end_date, date_precision, date_part, COALESCE(start_time,'') FROM lineup_events WHERE title='Early Spring Cup'").fetchone()
+later_row = D.execute("SELECT id, date, end_date, date_precision, date_part, COALESCE(start_time,'') FROM lineup_events WHERE title='Dates Later Cup'").fetchone()
+later_id = later_row[0]
+feed = eli.get("/lineup").get_data(as_text=True)
+feed_up = feed.split("<details class=lineuppast>", 1)[0]
+early_card = feed_up.split("Early Spring Cup", 1)[1].split('class="card tap tripcard"', 1)[0]
+later_card = feed_up.split("Dates Later Cup", 1)[1].split('class="card tap tripcard"', 1)[0]
+first_card = feed_up.split("March First Cup", 1)[1].split('class="card tap tripcard"', 1)[0]
+month_edit = eli.get("/lineup/%d/edit" % later_id).get_data(as_text=True)
+ok("Choose a month." in bad_month and not D.execute("SELECT 1 FROM lineup_events WHERE title='No Month'").fetchone() and spring == ("2027-03-01", "2027-03-31", "month", "early", "") and later_row[1] == _tba.isoformat() and later_row[2] == _tba_end.isoformat() and later_row[3] == "month" and (later_row[4] or "") == "" and later_row[5] == "" and "Early March 2027 · Dates TBA" in early_card and _tba_label in later_card and "Early " + _tba_label not in later_card and "Dates TBA" not in first_card and "9:00 AM" in first_card and feed_up.find("Early Spring Cup") < feed_up.find("March First Cup") < feed_up.find("Late March Meet") and "name=date_precision value=month checked" in month_edit and ('value="%s"' % _tba.strftime("%Y-%m")) in month_edit, "month-only events say dates are TBA and sort at the start of that month")
+jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=later_id, action="interested"))
+home_interest = jane.get("/home").get_data(as_text=True)
+hi = home_interest.find('class="card tap nextcard"')
+interest_card = home_interest[hi:home_interest.find("id=schedule", hi)]
+ok(D.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=?", (later_id, jane_id)).fetchone()[0] == "interested" and "Dates Later Cup" not in interest_card, "Interested is allowed on a month-only event and stays off Home")
+jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=later_id, action="going"))
+sam.post("/lineup", data=dict(csrf=csrf(sam, "/lineup"), event_id=later_id, action="interested"))
+D.execute("UPDATE lineup_events SET capacity=1 WHERE id=?", (later_id,)); D.commit()
+eli.post("/lineup", data=dict(csrf=csrf(eli, "/lineup"), event_id=later_id, action="going"))
+home_going = jane.get("/home").get_data(as_text=True)
+hg = home_going.find('class="card tap nextcard"')
+going_card = home_going[hg:home_going.find("id=schedule", hg)]
+_busy = {r[0] for r in D.execute("SELECT date FROM practices WHERE cancelled=0")}
+for _start, _end in D.execute("SELECT date, COALESCE(NULLIF(end_date,''), date) FROM lineup_events WHERE status='published' AND COALESCE(date_precision,'exact')!='month'"):
+    _a, _b = dt.date.fromisoformat(str(_start)[:10]), dt.date.fromisoformat(str(_end)[:10])
+    if (_b - _a).days > 21: _b = _a + dt.timedelta(days=21)
+    while _a <= _b:
+        _busy.add(_a.isoformat()); _a += dt.timedelta(days=1)
+_probe, _cursor = None, _tba
+while _cursor <= _tba_end:
+    if _cursor.isoformat() not in _busy:
+        _probe = _cursor.isoformat(); break
+    _cursor += dt.timedelta(days=1)
+admin_mid = eli.get("/admin?date=" + _probe).get_data(as_text=True)
+_sched = sqlite3.connect(os.environ["GRUNIONS_DB"]); _sched.row_factory = sqlite3.Row
+ok(_probe and D.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=?", (later_id, jane_id)).fetchone()[0] == "going" and D.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=(SELECT id FROM members WHERE email='eli@example.com')", (later_id,)).fetchone()[0] == "waitlist" and "Dates Later Cup" not in going_card and "class=nxtitle>Practice</div>" in going_card and "Dates Later Cup" not in admin_mid and _probe not in A.schedule_days(_sched), "a month-only event never becomes Next Up or a schedule day")
+_now = A.wall_pt().replace(second=0, microsecond=0)
+_estart = dt.datetime.combine(_now.date(), dt.time(0, 0))
+_eend = dt.datetime.combine(_now.date(), dt.time(23, 30))
+if _now >= _eend:
+    _estart, _eend = _now - dt.timedelta(minutes=20), _now + dt.timedelta(hours=1)
+_jane_prev = D.execute("SELECT COALESCE(MAX(id),0) FROM notices WHERE member_id=?", (jane_id,)).fetchone()[0]
+_sam_id = D.execute("SELECT id FROM members WHERE email='sam@example.com'").fetchone()[0]
+_eli_id = D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0]
+_sam_prev = D.execute("SELECT COALESCE(MAX(id),0) FROM notices WHERE member_id=?", (_sam_id,)).fetchone()[0]
+_eli_prev = D.execute("SELECT COALESCE(MAX(id),0) FROM notices WHERE member_id=?", (_eli_id,)).fetchone()[0]
+eli.post("/lineup/%d/edit" % later_id, data=dict(csrf=csrf(eli, "/lineup/%d/edit" % later_id), mode="edit", category="travel", subtype="Tournament", hosting="Away", team_intent="official", official="1", title="Dates Later Cup", location="Somewhere", description="Dates later.", date_precision="exact", date=_estart.date().isoformat(), end_date=_eend.date().isoformat(), start_time="%02d:%02d" % (_estart.hour, _estart.minute), end_time="%02d:%02d" % (_eend.hour, _eend.minute)))
+_when = A.lineup_when_label(_sched.execute("SELECT * FROM lineup_events WHERE id=?", (later_id,)).fetchone())
+_jane_notes = [r[0] for r in D.execute("SELECT body FROM notices WHERE member_id=? AND id>?", (jane_id, _jane_prev))]
+_sam_notes = [r[0] for r in D.execute("SELECT body FROM notices WHERE member_id=? AND id>?", (_sam_id, _sam_prev))]
+_eli_notes = [r[0] for r in D.execute("SELECT body FROM notices WHERE member_id=? AND id>?", (_eli_id, _eli_prev))]
+_dated = "Dates Later Cup now has dates: %s." % _when
+home_dated = jane.get("/home").get_data(as_text=True)
+hd = home_dated.find('class="card tap nextcard"')
+dated_card = home_dated[hd:home_dated.find("id=schedule", hd)]
+admin_exact = eli.get("/admin?date=" + _estart.date().isoformat()).get_data(as_text=True)
+ok(_jane_notes == [_dated] and _sam_notes == [_dated] and _dated not in _eli_notes and "new date or location" not in " ".join(_jane_notes + _sam_notes + _eli_notes) and "Dates Later Cup" in dated_card and "Dates Later Cup" in admin_exact, "setting exact dates tells Interested and Going members and can then lead Home")
+jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=later_id, action="clear"))
+home_cleared = jane.get("/home").get_data(as_text=True)
+hc = home_cleared.find('class="card tap nextcard"')
+ok("Dates Later Cup" not in home_cleared[hc:home_cleared.find("id=schedule", hc)] and "class=nxtitle>Practice</div>" in home_cleared, "clearing the dated event puts the practice back on Home")
+for _title in ("Dates Later Cup", "Early Spring Cup", "Late March Meet", "March First Cup"):
+    _rid = D.execute("SELECT id FROM lineup_events WHERE title=?", (_title,)).fetchone()[0]
+    eli.post("/lineup/%d/edit" % _rid, data=dict(csrf=csrf(eli, "/lineup/%d/edit" % _rid), action="delete"))
 cap_day = (A.today_pt() + dt.timedelta(days=12)).isoformat()
 eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), **ev(title="Tiny Social", capacity="1", date=cap_day, location="Small Room", description="One spot.")))
 tiny = D.execute("SELECT id FROM lineup_events WHERE title='Tiny Social'").fetchone()[0]
