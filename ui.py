@@ -491,6 +491,12 @@ a.calday.on::before,button.calday.on::before{background:var(--color-lime)}
 a.calday.on .caldot,button.calday.on .caldot{background:var(--color-lime)}
 span.calday{color:var(--t3);opacity:.4;font-weight:500}
 span.calday.today{opacity:1;color:var(--color-text)}
+a.calday.past:not(.on),button.calday.past:not(.on){color:var(--t3)}
+.timelist{max-height:280px;overflow:auto;margin:0 0 12px;scroll-snap-type:y mandatory}
+.timelist button{width:100%;height:48px;min-height:48px;margin:0;padding:0 16px;background:transparent;color:var(--color-text);border-radius:12px;font-weight:500;scroll-snap-align:center;justify-content:flex-start}
+.timelist button.on{background:var(--color-lime);color:var(--color-forest)}
+.timelist button:disabled{color:var(--t3);opacity:.45}
+button.sheetwide{width:100%}
 button.calday{width:100%;height:48px;min-height:0;padding:8px 0 0;background:transparent;color:var(--color-text);font-weight:650;border-radius:0;position:relative}
 .calhead select.matmonth{flex:1;min-width:0;height:40px;margin:0;padding:0 28px 0 4px;border:0;border-radius:8px;background-color:transparent;color:var(--color-text);font-weight:650;font-size:16px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20256%20256'%3E%3Cpath%20fill%3D'%23F2F6F1'%20d%3D'M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'%2F%3E%3C%2Fsvg%3E");background-repeat:no-repeat;background-position:right 2px center;background-size:18px}
 dialog.matpick{position:fixed;z-index:40;inset:0;margin:auto;width:min(360px,calc(100% - 32px));height:fit-content;max-height:min(640px,calc(100dvh - 32px));border:0;padding:0;background:transparent;color:var(--color-text);overflow:visible}
@@ -804,7 +810,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=70');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=71');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1068,57 +1074,50 @@ document.addEventListener('click',function(e){
 });
 document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&t.matches('.datefield input[type=date]')) t.closest('.datefield').classList.toggle('empty',!t.value);});
 (function(){
+ var CHEV_L='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>';
+ var CHEV_R='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>';
  function pad(n){return (n<10?'0':'')+n}
  function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
- function headline(iso){
-  if(!iso||iso.length<10) return 'Select date';
-  var p=iso.split('-'), dt=new Date(+p[0], +p[1]-1, +p[2]);
-  var w=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
-  var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt.getMonth()];
-  return w+', '+mo+' '+dt.getDate();
- }
  var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
  var dateDlg, timeDlg, dateSt, timeSt;
- function sheet(dlg){ return dlg.querySelector('.sheet'); }
+ function openSheet(dlg){ if(window.grunionsOpenSheet) grunionsOpenSheet(dlg); else if(!dlg.open) dlg.showModal(); }
+ function closeSheet(dlg){ if(window.grunionsCloseSheet) grunionsCloseSheet(dlg); else dlg.close(); }
  function makeDate(){
   if(dateDlg) return dateDlg;
   dateDlg=document.createElement('dialog');
-  dateDlg.className='matpick'; dateDlg.id='grunionsDateDlg'; dateDlg.setAttribute('aria-label','Select date');
-  dateDlg.innerHTML='<div class=sheet><div class=matkicker>Select date</div><div class=matheadline id=matHeadline></div><div class=calhead><select id=matMonth class=matmonth aria-label="Month and year"></select><button type=button class=calmonth id=matPrev aria-label="Previous month"></button><button type=button class=calmonth id=matNext aria-label="Next month"></button></div><div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class=calgrid id=matGrid></div><div class=matactions><button type=button class=mattext id=matDateCancel>Cancel</button><button type=button class=mattext id=matDateOk>OK</button></div></div>';
+  dateDlg.className='botsheet'; dateDlg.id='grunionsDateDlg'; dateDlg.setAttribute('aria-label','Select date');
+  dateDlg.innerHTML='<div class=sheet><div class=grab aria-hidden=true></div><div class=calhead><button type=button class=calmonth id=matPrev aria-label="Previous month"></button><div class=lbl id=matLabel></div><button type=button class=calmonth id=matNext aria-label="Next month"></button></div><div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class=calgrid id=matGrid></div><button type=button class="btn btn-primary sheetwide" id=matDateDone>Done</button></div>';
   document.body.appendChild(dateDlg);
-  dateDlg.querySelector('#matPrev').innerHTML='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>';
-  dateDlg.querySelector('#matNext').innerHTML='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>';
+  dateDlg.querySelector('#matPrev').innerHTML=CHEV_L;
+  dateDlg.querySelector('#matNext').innerHTML=CHEV_R;
   dateDlg.querySelector('#matPrev').onclick=function(){ shiftDate(-1); };
   dateDlg.querySelector('#matNext').onclick=function(){ shiftDate(1); };
-  dateDlg.querySelector('#matMonth').addEventListener('change', function(){ if(this.value) paintDate(this.value); });
   dateDlg.querySelector('#matGrid').addEventListener('click', function(e){
-   var b=e.target.closest&&e.target.closest('button.calday'); if(!b) return;
+   var b=e.target.closest&&e.target.closest('button.calday'); if(!b||b.disabled) return;
    dateSt.iso=b.getAttribute('data-date'); paintDate(dateSt.iso.slice(0,7));
   });
-  dateDlg.querySelector('#matDateCancel').onclick=function(){ dateDlg.close(); };
-  dateDlg.querySelector('#matDateOk').onclick=function(){
-   if(dateSt&&dateSt.input){ dateSt.input.value=dateSt.iso||''; dateSt.input.dispatchEvent(new Event('input',{bubbles:true})); dateSt.input.dispatchEvent(new Event('change',{bubbles:true})); }
-   dateDlg.close();
+  dateDlg.querySelector('#matDateDone').onclick=function(){
+   var input=dateSt&&dateSt.input; if(!input){ closeSheet(dateDlg); return; }
+   input.value=input.type==='month'?(dateSt.iso||'').slice(0,7):(dateSt.iso||'');
+   input.dispatchEvent(new Event('input',{bubbles:true}));
+   input.dispatchEvent(new Event('change',{bubbles:true}));
+   closeSheet(dateDlg);
   };
-  dateDlg.addEventListener('click', function(e){ if(e.target===dateDlg) dateDlg.close(); });
   return dateDlg;
- }
- function fillDateMonths(sel, iso){
-  var y0=(iso?+iso.slice(0,4):new Date().getFullYear())-5, html='', y, m;
-  for(y=y0;y<y0+12;y++) for(m=1;m<=12;m++) html+='<option value="'+y+'-'+pad(m)+'">'+months[m-1]+' '+y+'</option>';
-  sel.innerHTML=html;
  }
  function paintDate(ym){
   dateSt.ym=ym;
-  var y=+ym.slice(0,4), m=+ym.slice(5,7), sel=dateDlg.querySelector('#matMonth');
-  if(!sel.options.length) fillDateMonths(sel, dateSt.iso);
-  sel.value=ym;
-  dateDlg.querySelector('#matHeadline').textContent=headline(dateSt.iso);
-  var blanks=new Date(y, m-1, 1).getDay(), last=new Date(y, m, 0).getDate(), html='', day, iso, today=todayISO();
+  var y=+ym.slice(0,4), m=+ym.slice(5,7);
+  dateDlg.querySelector('#matLabel').textContent=months[m-1]+' '+y;
+  var blanks=new Date(y, m-1, 1).getDay(), last=new Date(y, m, 0).getDate(), html='', day, iso, today=todayISO(), dots=dateSt.dots||{};
   for(var i=0;i<blanks;i++) html+='<span class=calday></span>';
   for(day=1;day<=last;day++){
    iso=y+'-'+pad(m)+'-'+pad(day);
-   html+='<button type=button class="calday'+(iso===dateSt.iso?' on':'')+(iso===today?' today':'')+'" data-date="'+iso+'">'+day+'</button>';
+   var past=iso<today?' past':'';
+   var on=iso===dateSt.iso?' on':'';
+   var tod=iso===today?' today':'';
+   var dot=dots[iso]?'<i class=caldot></i>':'';
+   html+='<button type=button class="calday'+on+tod+past+'" data-date="'+iso+'">'+day+dot+'</button>';
   }
   dateDlg.querySelector('#matGrid').innerHTML=html;
  }
@@ -1127,73 +1126,85 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   if(m<1){m=12;y--} if(m>12){m=1;y++}
   paintDate(y+'-'+pad(m));
  }
+ function minsOf(v){ var p=String(v||'').split(':'); if(p.length<2) return null; var h=+p[0], m=+p[1]; if(isNaN(h)||isNaN(m)) return null; return h*60+m; }
+ function snap15(v){ var n=minsOf(v); if(n==null) n=19*60; n=Math.round(n/15)*15; if(n>=1440) n=1440-15; if(n<0) n=0; return pad(Math.floor(n/60))+':'+pad(n%60); }
+ function plus90(v){ var n=minsOf(v); if(n==null) return '20:30'; n+=90; if(n>=1440) n=1440-15; return snap15(pad(Math.floor(n/60))+':'+pad(n%60)); }
+ function clockLabel(v){ var n=minsOf(v)||0, h=Math.floor(n/60), m=n%60, pm=h>=12, h12=h%12; if(!h12) h12=12; return h12+':'+pad(m)+' '+(pm?'PM':'AM'); }
+ function pairOf(input){
+  if(!input||!input.form) return null;
+  var name=input.name;
+  if(name==='segment_start'||name==='segment_end'){
+   var row=input.closest('.row')||input.parentNode;
+   return row?row.querySelector('input[name='+(name==='segment_start'?'segment_end':'segment_start')+']'):null;
+  }
+  var map={start:'end', end:'start', start_time:'end_time', end_time:'start_time'};
+  if(!map[name]) return null;
+  return input.form.querySelector('input[name='+map[name]+']');
+ }
  function makeTime(){
   if(timeDlg) return timeDlg;
   timeDlg=document.createElement('dialog');
-  timeDlg.className='matpick'; timeDlg.id='grunionsTimeDlg'; timeDlg.setAttribute('aria-label','Select time');
-  timeDlg.innerHTML='<div class=sheet><div class=matkicker>Select time</div><div class=timebig><button type=button id=timeH></button><span>:</span><button type=button id=timeM></button><div class=ampm><button type=button id=timeAM>AM</button><button type=button id=timePM>PM</button></div></div><div class=clock id=timeClock><div class=clockhand id=timeHand></div></div><div class=matactions><button type=button class=mattext id=timeCancel>Cancel</button><button type=button class=mattext id=timeOk>OK</button></div></div>';
+  timeDlg.className='botsheet'; timeDlg.id='grunionsTimeDlg'; timeDlg.setAttribute('aria-label','Select time');
+  timeDlg.innerHTML='<div class=sheet><div class=grab aria-hidden=true></div><div class=calhead><div class=lbl id=timeTitle>Select time</div></div><div class=timelist id=timeList role=listbox></div><button type=button class="btn btn-primary sheetwide" id=timeDone>Done</button></div>';
   document.body.appendChild(timeDlg);
-  timeDlg.querySelector('#timeH').onclick=function(){ timeSt.mode='h'; paintTime(); };
-  timeDlg.querySelector('#timeM').onclick=function(){ timeSt.mode='m'; paintTime(); };
-  timeDlg.querySelector('#timeAM').onclick=function(){ timeSt.pm=false; paintTime(); };
-  timeDlg.querySelector('#timePM').onclick=function(){ timeSt.pm=true; paintTime(); };
-  timeDlg.querySelector('#timeCancel').onclick=function(){ if(timeSt&&timeSt.input) timeSt.input.value=timeSt.prev; timeDlg.close(); };
-  timeDlg.querySelector('#timeOk').onclick=function(){
-   if(timeSt&&timeSt.input){ var h=timeSt.h%12; if(timeSt.pm) h+=12; timeSt.input.value=pad(h)+':'+pad(timeSt.m); timeSt.input.dispatchEvent(new Event('input',{bubbles:true})); timeSt.input.dispatchEvent(new Event('change',{bubbles:true})); }
-   timeDlg.close();
+  timeDlg.querySelector('#timeList').addEventListener('click', function(e){
+   var b=e.target.closest&&e.target.closest('button'); if(!b||b.disabled) return;
+   timeSt.value=b.getAttribute('data-value'); paintTime();
+  });
+  timeDlg.querySelector('#timeDone').onclick=function(){
+   var input=timeSt&&timeSt.input; if(!input){ closeSheet(timeDlg); return; }
+   input.value=timeSt.value;
+   input.dispatchEvent(new Event('input',{bubbles:true}));
+   input.dispatchEvent(new Event('change',{bubbles:true}));
+   var end=pairOf(input);
+   if(end && (input.name==='start'||input.name==='start_time'||input.name==='segment_start')){
+    end.value=plus90(timeSt.value);
+    end.dispatchEvent(new Event('input',{bubbles:true}));
+    end.dispatchEvent(new Event('change',{bubbles:true}));
+   }
+   closeSheet(timeDlg);
   };
-  timeDlg.addEventListener('click', function(e){ if(e.target===timeDlg){ if(timeSt&&timeSt.input) timeSt.input.value=timeSt.prev; timeDlg.close(); } });
   return timeDlg;
  }
  function paintTime(){
-  var hBtn=timeDlg.querySelector('#timeH'), mBtn=timeDlg.querySelector('#timeM');
-  hBtn.textContent=String(timeSt.h); mBtn.textContent=pad(timeSt.m);
-  hBtn.className=timeSt.mode==='h'?'on':''; mBtn.className=timeSt.mode==='m'?'on':'';
-  timeDlg.querySelector('#timeAM').className=timeSt.pm?'':'on';
-  timeDlg.querySelector('#timePM').className=timeSt.pm?'on':'';
-  var clock=timeDlg.querySelector('#timeClock'), hand=timeDlg.querySelector('#timeHand');
-  var labels=timeSt.mode==='h'?['12','1','2','3','4','5','6','7','8','9','10','11']:['00','05','10','15','20','25','30','35','40','45','50','55'];
-  var active=timeSt.mode==='h'?String(timeSt.h):(function(){ var q=Math.round(timeSt.m/5)*5; if(q===60) q=0; return pad(q); })();
-  var idx=labels.indexOf(active); if(idx<0) idx=0;
-  hand.style.transform='rotate('+(idx*30)+'deg)';
-  clock.querySelectorAll('button.clocknum').forEach(function(b){ b.remove(); });
-  labels.forEach(function(lab, i){
-   var b=document.createElement('button'); b.type='button'; b.className='clocknum'+(lab===active?' on':''); b.textContent=lab;
-   var ang=(i/12)*Math.PI*2 - Math.PI/2, r=38;
-   b.style.left=(50+r*Math.cos(ang))+'%'; b.style.top=(50+r*Math.sin(ang))+'%';
-   b.onclick=function(){
-    if(timeSt.mode==='h'){ timeSt.h=+lab||12; timeSt.mode='m'; }
-    else timeSt.m=+lab;
-    paintTime();
-   };
-   clock.appendChild(b);
-  });
+  var list=timeDlg.querySelector('#timeList'), html='', min=timeSt.min, i, v, on;
+  for(i=0;i<24*60;i+=15){
+   v=pad(Math.floor(i/60))+':'+pad(i%60);
+   on=v===timeSt.value?' on':'';
+   html+='<button type=button class="'+on.trim()+'" data-value="'+v+'"'+(min&&v<min?' disabled':'')+'>'+clockLabel(v)+'</button>';
+  }
+  list.innerHTML=html;
+  var cur=list.querySelector('button.on'); if(cur&&cur.scrollIntoView) cur.scrollIntoView({block:'center'});
  }
- window.grunionsOpenDate=function(input){
+ window.grunionsOpenDate=function(input, dots){
   if(!input) return;
   makeDate();
-  var iso=input.value||todayISO();
+  var raw=input.value||'';
+  var iso=input.type==='month'&&/^\\d{4}-\\d{2}$/.test(raw)?raw+'-01':raw;
   if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(iso)) iso=todayISO();
-  dateSt={input:input, iso:iso, ym:iso.slice(0,7)};
-  fillDateMonths(dateDlg.querySelector('#matMonth'), iso);
+  dateSt={input:input, iso:iso, ym:iso.slice(0,7), dots:dots||null};
   paintDate(dateSt.ym);
-  if(!dateDlg.open) dateDlg.showModal();
+  openSheet(dateDlg);
  };
  window.grunionsOpenTime=function(input){
   if(!input) return;
   makeTime();
-  var v=input.value||'19:00', p=v.split(':'), hh=+p[0]||0, mm=+p[1]||0;
-  var h12=hh%12; if(!h12) h12=12;
-  timeSt={input:input, prev:input.value, h:h12, m:mm, pm:hh>=12, mode:'h'};
+  var start=pairOf(input);
+  var min=(input.name==='end'||input.name==='end_time'||input.name==='segment_end')&&start&&start.value?snap15(start.value):'';
+  var value=snap15(input.value||(min||'19:00'));
+  if(min&&value<min) value=min;
+  timeSt={input:input, value:value, min:min};
+  timeDlg.querySelector('#timeTitle').textContent=input.name.indexOf('end')>=0?'End time':'Start time';
   paintTime();
-  if(!timeDlg.open) timeDlg.showModal();
+  openSheet(timeDlg);
  };
  window.grunionsBindPickers=function(){
-  document.querySelectorAll('input[type=date],input[type=time]').forEach(function(input){
+  document.querySelectorAll('input[type=date],input[type=time],input[type=month]').forEach(function(input){
    if(input.dataset.matarm||input.classList.contains('pickhold')) return;
    input.dataset.matarm='1';
-   input.addEventListener('pointerdown', function(e){ e.preventDefault(); if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input); });
-   input.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '||e.key==='ArrowDown'){ e.preventDefault(); if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input); } });
+   function openIt(e){ if(e) e.preventDefault(); if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input); }
+   input.addEventListener('pointerdown', openIt);
+   input.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '||e.key==='ArrowDown') openIt(e); });
   });
  };
  document.addEventListener('click', function(e){
@@ -1201,9 +1212,6 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   var input=document.getElementById(b.getAttribute('data-matfor')); if(!input) return;
   e.preventDefault();
   if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input);
- });
- document.addEventListener('click', function(e){
-  var d=e.target; if(d&&d.matches&&d.matches('dialog.matpick')&&e.target===d) d.close();
  });
  grunionsBindPickers();
 })();
@@ -2289,25 +2297,21 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Schedule') }}
 <button type=button class=calbtn id=calOpen aria-haspopup=dialog aria-expanded=false aria-controls=calPop>""" + _CAL_I + """<span>{{ fmt_d(date).replace(' ', ', ', 1) }}</span></button>
 {% if next_href %}<a class=calnav href="{{ next_href }}" aria-label="Next event">""" + _CHEV_R + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Next event">""" + _CHEV_R + """</span>{% endif %}
 </div>
-<dialog class=matpick id=calPop aria-label="Select date"><div class=sheet>
-<div class=matkicker>Select date</div>
-<div class=matheadline id=calHeadline>{{ fmt_d(date).replace(' ', ', ', 1) }}</div>
+<dialog class=botsheet id=calPop aria-label="Choose a date"><div class=sheet>
+<div class=grab aria-hidden=true></div>
 <div id=calMonthView>
 <div class=calhead>
-<select id=calLabel class=matmonth aria-label="Month and year"><option value="{{ month.ym }}">{{ month.label }}</option></select>
 <button type=button class=calmonth id=calPrevM aria-label="Previous month">""" + _CHEV_L + """</button>
+<div class=lbl id=calLabel>{{ month.label }}</div>
 <button type=button class=calmonth id=calNextM aria-label="Next month">""" + _CHEV_R + """</button></div>
 <div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
-<div class=calgrid id=calGrid>{% for c in month.cells %}{% if c is none %}<span class=calday></span>{% elif c.has %}<a class="calday{% if c.on %} on{% endif %}{% if c.today %} today{% endif %}" href="/admin?date={{ c.iso }}{{ fbit }}{{ qbit }}" data-date="{{ c.iso }}">{{ c.day }}<i class=caldot></i></a>{% else %}<span class="calday{% if c.today %} today{% endif %}" aria-disabled=true>{{ c.day }}</span>{% endif %}{% endfor %}</div>
+<div class=calgrid id=calGrid>{% for c in month.cells %}{% if c is none %}<span class=calday></span>{% elif c.has %}<a class="calday{% if c.on %} on{% endif %}{% if c.today %} today{% endif %}{% if c.past %} past{% endif %}" href="/admin?date={{ c.iso }}{{ fbit }}{{ qbit }}" data-date="{{ c.iso }}">{{ c.day }}<i class=caldot></i></a>{% else %}<span class="calday{% if c.today %} today{% endif %}{% if c.past %} past{% endif %}" aria-disabled=true>{{ c.day }}</span>{% endif %}{% endfor %}</div>
 </div>
 <div id=calEventView hidden>
 <button type=button class=calback id=calBack aria-label="Back to the month">""" + _CHEV_L + """<span id=calEventLabel>Events</span></button>
 <div class=list id=calEventList></div>
 </div>
-<div class=matactions id=calActions>
-<button type=button class=mattext id=calCancel>Cancel</button>
-<button type=button class=mattext id=calOk>OK</button>
-</div>
+<button type=button class="btn btn-primary full" id=calOk>Done</button>
 </div></dialog>
 <dialog class=modal id=evPick><div class=sheet><h2 style="margin:0 0 12px">Events</h2><div class=list id=evPickList>{% for ev in events %}<a class=li href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ ev.title }}</span><span class="t3 sm">{{ ev.when }}</span></span></a>{% endfor %}</div><button type=button class="btn btn-secondary full" onclick="this.closest('dialog').close()">Cancel</button></div></dialog>
 </div>
@@ -2356,7 +2360,6 @@ var dates=[]; try{dates=JSON.parse(root.getAttribute('data-dates')||'[]')}catch(
 var catalog={}; try{catalog=JSON.parse(root.getAttribute('data-events')||'{}')}catch(err){catalog={}}
 var set={}; dates.forEach(function(d){set[d]=1});
 var q=root.getAttribute('data-q')||'', filt=root.getAttribute('data-filt')||'', selected=root.getAttribute('data-date')||'', today=root.getAttribute('data-today')||'', shown=selected.slice(0,7), pending=selected;
-var head=document.getElementById('calHeadline'), actions=document.getElementById('calActions');
 function pad(n){return (n<10?'0':'')+n}
 function href(iso, ev){return '/admin?date='+iso+(ev?'&ev='+encodeURIComponent(ev):'')+(filt?'&filt='+encodeURIComponent(filt):'')+(q?'&q='+encodeURIComponent(q):'')}
 function headline(iso){
@@ -2366,41 +2369,25 @@ function headline(iso){
  var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt.getMonth()];
  return w+', '+mo+' '+dt.getDate();
 }
-function showMonth(){ if(monthView) monthView.hidden=false; if(eventView) eventView.hidden=true; if(actions) actions.hidden=false; }
+function showMonth(){ if(monthView) monthView.hidden=false; if(eventView) eventView.hidden=true; }
 function showEvents(iso, list){
  if(!eventView||!eventList) return;
  if(monthView) monthView.hidden=true;
  eventView.hidden=false;
- if(actions) actions.hidden=true;
  if(eventLabel) eventLabel.textContent=headline(iso)||iso;
  eventList.innerHTML=list.map(function(ev){
   return '<a class=li href="'+href(iso, ev.key)+'" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">'+String(ev.title||'').replace(/[&<>]/g,'')+'</span><span class="t3 sm">'+String(ev.when||'').replace(/[&<>]/g,'')+'</span></span></a>';
  }).join('');
 }
 var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
-function fillMonths(extra){
- if(!label||label.tagName!=='SELECT') return;
- var years={}, i;
- dates.forEach(function(d){ years[+d.slice(0,4)]=1; });
- var nowY=new Date().getFullYear();
- years[nowY-1]=1; years[nowY]=1; years[nowY+1]=1;
- if(selected) years[+selected.slice(0,4)]=1;
- if(extra) years[extra]=1;
- var list=Object.keys(years).map(function(n){return +n}).sort(function(a,b){return a-b});
- var html='';
- list.forEach(function(yy){ for(i=1;i<=12;i++) html+='<option value="'+yy+'-'+pad(i)+'">'+months[i-1]+' '+yy+'</option>'; });
- label.innerHTML=html;
-}
 function render(ym){
  shown=ym; var parts=ym.split('-'), y=+parts[0], m=+parts[1];
- if(label&&label.tagName==='SELECT'){ if(!label.querySelector('option[value="'+y+'-'+pad(m)+'"]')) fillMonths(y); label.value=y+'-'+pad(m); }
- else if(label) label.textContent=months[m-1]+' '+y;
- if(head) head.textContent=headline(pending)||headline(selected);
+ if(label) label.textContent=months[m-1]+' '+y;
  var blanks=new Date(y, m-1, 1).getDay(), last=new Date(y, m, 0).getDate(), html='', day, iso, cls;
  for(var i=0;i<blanks;i++) html+='<span class=calday></span>';
  for(day=1; day<=last; day++){
   iso=y+'-'+pad(m)+'-'+pad(day);
-  cls='calday'+(iso===pending?' on':'')+(iso===today?' today':'');
+  cls='calday'+(iso===pending?' on':'')+(iso===today?' today':'')+(iso<today?' past':'');
   if(set[iso]) html+='<a class="'+cls+'" data-date="'+iso+'" href="'+href(iso)+'">'+day+'<i class=caldot></i></a>';
   else html+='<span class="'+cls+'" aria-disabled=true>'+day+'</span>';
  }
@@ -2413,11 +2400,9 @@ function shift(delta){
 }
 document.getElementById('calPrevM').onclick=function(){shift(-1)};
 document.getElementById('calNextM').onclick=function(){shift(1)};
-if(label&&label.tagName==='SELECT') label.addEventListener('change', function(){ if(label.value) render(label.value); });
 var back=document.getElementById('calBack');
 if(back) back.onclick=function(){showMonth()};
-var cancelBtn=document.getElementById('calCancel'), okBtn=document.getElementById('calOk');
-if(cancelBtn) cancelBtn.onclick=function(){ pending=selected; pop.close(); };
+var okBtn=document.getElementById('calOk');
 if(okBtn) okBtn.onclick=function(){
  var iso=pending||selected; if(!iso){ pop.close(); return; }
  var list=catalog[iso]||[];
@@ -2428,7 +2413,7 @@ if(okBtn) okBtn.onclick=function(){
 openBtn.onclick=function(){
  pending=selected; showMonth();
  render(selected.slice(0,7)||shown);
- if(pop.showModal) pop.showModal();
+ if(window.grunionsOpenSheet) grunionsOpenSheet(pop); else if(pop.showModal) pop.showModal();
  openBtn.setAttribute('aria-expanded','true');
 };
 pop.addEventListener('close', function(){ openBtn.setAttribute('aria-expanded','false'); showMonth(); });
@@ -2438,7 +2423,6 @@ grid.addEventListener('click', function(e){
  var a=e.target.closest&&e.target.closest('a.calday'); if(!a||a.getAttribute('aria-disabled')) return;
  e.preventDefault();
  pending=a.getAttribute('data-date')||pending;
- if(head) head.textContent=headline(pending);
  render(pending.slice(0,7)||shown);
 });
 })();
@@ -2678,6 +2662,15 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 </div>
 <p class="t3 sm">Disabled</p>
 <div class=ds-row><button type=button class="btn btn-primary" disabled>Primary</button></div>
+<h2>Date and time</h2>
+<p class="t3 sm">Bottom sheets, the same ones as Schedule and every date or time field. Grab the handle or swipe down to dismiss. Past days are muted. Event dots are only for Schedule. Time is a 15-minute list. Choosing a start sets the end 90 minutes later, and the end cannot be earlier.</p>
+<div class=ds-sheet><span class=grab aria-hidden=true></span>
+<div class=calhead><button type=button class=calmonth aria-label="Previous month"><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg></button><div class=lbl>November 2026</div><button type=button class=calmonth aria-label="Next month"><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg></button></div>
+<div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+<div class=calgrid><span class=calday></span><button type=button class="calday past">1</button><button type=button class="calday on">3</button><button type=button class=calday>4<i class=caldot></i></button></div>
+<button type=button class="btn btn-primary full">Done</button>
+<div class=timelist><button type=button>6:45 PM</button><button type=button class=on>7:00 PM</button><button type=button>7:15 PM</button></div>
+</div>
 <h2>Map, chat, and sheet</h2>
 <p class="t3 sm">Dark is the app. Light uses the same components.</p>
 <div class=card>

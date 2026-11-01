@@ -1869,7 +1869,7 @@ def checkin_month(date_iso, days, today=None):
     cells, day = [None] * ((first.weekday() + 1) % 7), first
     while day < nxt:
         iso = day.isoformat()
-        cells.append({"iso": iso, "day": day.day, "has": iso in have, "on": iso == date_iso, "today": iso == today})
+        cells.append({"iso": iso, "day": day.day, "has": iso in have, "on": iso == date_iso, "today": iso == today, "past": iso < today})
         day += dt.timedelta(days=1)
     return {"label": _MONTHS[first.month - 1] + " " + str(first.year), "ym": "%04d-%02d" % (first.year, first.month), "cells": cells}
 def add_coaching(d, mid, source):
@@ -4287,7 +4287,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-70 */
+SW_JS = """/* grunions-sw-71 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
