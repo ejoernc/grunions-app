@@ -216,7 +216,7 @@ def sports_from_form(form):
         "division_custom": custom,
         "opponent": opponent if activity == "game" else "",
         "home_away": side if activity == "game" else "",
-        "gameplay_notes": (" ".join(str(_get(form, "gameplay_notes") or "").split())[:500] if activity == "scrimmage" else ""),
+        "gameplay_notes": ((str(_get(form, "gameplay_notes") or "").replace("\r\n", "\n").replace("\r", "\n").strip()[:500]) if activity == "scrimmage" else ""),
         "segments": segments if activity == "hybrid" else "",
         "comp_format": comp,
     }

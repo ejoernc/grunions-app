@@ -1807,7 +1807,7 @@ def sports_editor(row=None, show_activity=True, show_format=False):
         parts.append('<div data-act=game><label>Opponent<input name=opponent value="%s" autocomplete=off placeholder="Squid"></label>' % escape(data["opponent"]))
         parts.append('<label>Home / away<select name=home_away><option value="">Not set</option><option value=home%s>Home</option><option value=away%s>Away</option></select></label></div>' % (
             " selected" if data["home_away"] == "home" else "", " selected" if data["home_away"] == "away" else ""))
-        parts.append('<div data-act=scrimmage><label>Gameplay notes<textarea name=gameplay_notes rows=2>%s</textarea></label></div>' % escape(data["gameplay_notes"]))
+        parts.append('<div data-act=scrimmage><label>Gameplay notes<textarea class=planfield name=gameplay_notes rows=4>%s</textarea></label></div>' % escape(data["gameplay_notes"]))
         parts.append('<div data-act=hybrid><div class="t3 xs">Segments</div>')
         for seg in segs[:3]:
             opts = "".join('<option value="%s"%s>%s</option>' % (pid, " selected" if seg["type"] == pid else "", name) for pid, name in sports.ACTIVITIES if pid != "hybrid")
@@ -1882,7 +1882,7 @@ def clean_social(form):
     kind = ",".join(k for k in SOCIAL_KINDS if k in raw)
     place = " ".join((form.get("social_place") or "").split())[:80]
     address = " ".join((form.get("social_address") or "").split())[:300]
-    note = " ".join((form.get("social_note") or "").split())[:200]
+    note = (form.get("social_note") or "").replace("\r\n", "\n").replace("\r", "\n").strip()[:500]
     raw = (form.get("social_time") or "").strip()
     social_time = ""
     if raw:
@@ -4794,7 +4794,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-100 */
+SW_JS = """/* grunions-sw-101 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

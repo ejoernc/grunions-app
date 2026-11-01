@@ -316,8 +316,8 @@ button:disabled,.btn:disabled{opacity:.45}
 dialog.modal{border:0;padding:0;background:transparent;color:var(--t1);width:min(440px,calc(100vw - 32px))}
 dialog.modal::backdrop{background:var(--color-backdrop)}
 dialog.modal .sheet{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px}
-dialog.modal .sheet form>.btn,dialog.modal .sheet form>button.btn,dialog.modal .sheet form>.row:last-child,dialog.botsheet .sheet form>.btn,dialog.botsheet .sheet form>button.btn,dialog.botsheet .sheet form>.row:last-child{margin-top:var(--space-form-action)}
-dialog.modal .sheet form>label:has(+.btn),dialog.modal .sheet form>label:has(+button.btn),dialog.modal .sheet form>label:has(+.row),dialog.modal .sheet form>textarea:has(+.btn),dialog.modal .sheet form>textarea:has(+button.btn),dialog.modal .sheet form>.checks:has(+.row),dialog.modal .sheet form>.checks:has(+.btn),dialog.botsheet .sheet form>label:has(+.btn),dialog.botsheet .sheet form>label:has(+button.btn),dialog.botsheet .sheet form>textarea:has(+.btn),dialog.botsheet .sheet form>textarea:has(+button.btn){margin-bottom:0}
+dialog.modal .sheet form>.btn,dialog.modal .sheet form>button.btn,dialog.modal .sheet form>.row:last-child,dialog.botsheet .sheet form>.btn,dialog.botsheet .sheet form>button.btn,dialog.botsheet .sheet form>.row:last-child,dialog.modal .sheet>.btn,dialog.botsheet .sheet>.btn{margin-top:var(--space-form-action)}
+dialog.modal .sheet form>:has(+.btn),dialog.modal .sheet form>:has(+button.btn),dialog.modal .sheet form>:has(+.row),dialog.botsheet .sheet form>:has(+.btn),dialog.botsheet .sheet form>:has(+button.btn),dialog.modal .sheet>:has(+.btn),dialog.botsheet .sheet>:has(+.btn){margin-bottom:0}
 .note{background:var(--surface);border-radius:var(--r);padding:14px 18px;margin:0 0 12px;color:var(--t2);font-size:15px}.note b{color:var(--t1)}
 .toast{position:fixed;left:50%;bottom:calc(var(--nav-clear) + 12px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;background:var(--surface);color:var(--t1);border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:15px;line-height:1.4;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.5);max-width:min(440px,calc(100% - 32px))}
 body:has(.composer) .toast{bottom:calc(var(--nav-clear) + env(safe-area-inset-bottom) + var(--composer-h, 69px) + 12px)}
@@ -744,10 +744,10 @@ dialog.memberedit .help a{color:var(--t1)}
 <label>Place<input name=social_place value="{{ p.social_place or '' }}" autocomplete=off></label>
 <label>Address or map link (optional)<input name=social_address value="{{ p.social_address or '' }}" autocomplete=off></label>
 <label>Time (optional)<input type=time name=social_time value="{{ p.social_time or '' }}"></label>
-<label>Note (optional)<input name=social_note value="{{ p.social_note or '' }}" autocomplete=off></label>
+<label>Note (optional)<textarea class=planfield name=social_note rows=4>{{ p.social_note or '' }}</textarea></label>
 {% endmacro %}
 {% macro message_fields(p) %}
-<label>Coach message<textarea name=message maxlength=280>{{ p.coach_note or '' }}</textarea></label>
+<label>Coach message<textarea class=planfield name=message maxlength=280 rows=4>{{ p.coach_note or '' }}</textarea></label>
 <p class="t3 sm">Leave blank to clear it.{% if p.coach_note_by %} Last set by {{ p.coach_note_by }}{% if p.coach_note_at %} · {{ fmt_stamp(p.coach_note_at) }}{% endif %}.{% endif %}</p>
 {% endmacro %}
 {% macro practice_extra_dialogs(p, back) %}
@@ -766,7 +766,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <button class="btn btn-primary full" name=action value=image>Save</button></form></div></dialog>
 <dialog class=modal id=notes{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Notes</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
-<label>Notes<textarea name=note rows=4>{{ p.note or '' }}</textarea></label>
+<label>Notes<textarea class=planfield name=note rows=4>{{ p.note or '' }}</textarea></label>
 <button class="btn btn-primary full" name=action value=note>Save</button></form></div></dialog>
 {% endmacro %}
 {% macro practice_host_more(p, back) %}
@@ -802,7 +802,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <dialog class=modal id=cancel{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Send cancellation</h2>
 <p class="t2 sm">Members get an email and a push that include this reason.</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
-<label>Reason<textarea name=reason required></textarea></label>
+<label>Reason<textarea class=planfield name=reason rows=4 required></textarea></label>
 <button class="btn btn-danger full" name=action value=cancel>Confirm</button></form></div></dialog>
 <dialog class=modal id=delete{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Delete this practice?</h2>
 <p class="t2 sm">{% if practice_is_month(p) %}{{ practice_when(p) }} at {{ p.location }}.{% else %}{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.{% endif %}</p>
@@ -890,7 +890,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=100');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=101');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -1843,7 +1843,7 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 <div class="li editonly">{{ date_field('SafeSport expires', 'safesport_expires', cred.safesport) }}</div>
 <div class="li editonly">{{ date_field('Background screening expires', 'background_expires', cred.background) }}</div>
 <div class="li editonly">{{ date_field('Referee certification expires', 'referee_expires', cred.referee) }}</div>
-<div class="li editonly"><label class=prefedit style="width:100%;margin:0">Note<textarea name=note rows=2 placeholder="Recorded from Sport:80"></textarea></label></div>
+<div class="li editonly"><label class=prefedit style="width:100%;margin:0">Note<textarea class=planfield name=note rows=4 placeholder="Recorded from Sport:80"></textarea></label></div>
 {% endif %}
 </div>
 {% if not on_trial and ps.reason %}<p class="sm viewonly" style="margin:8px 0 0">{{ ps.reason }}</p>{% endif %}
@@ -2240,7 +2240,7 @@ T["approvals"] = """{% call admin_page('Events') %}<a class="btn quiet pageact" 
 {% if e.review_note %}<div class=note>{{ e.review_note }}</div>{% endif %}
 <form method=post action=/admin/approvals style="margin-top:12px">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>
 <button class="btn btn-primary full" name=action value=approve>Approve &amp; Publish</button>
-<label style="margin-top:12px">Note<textarea name=note rows=2 placeholder="Needed for changes or a decline"></textarea></label>
+<label style="margin-top:12px">Note<textarea class=planfield name=note rows=4 placeholder="Needed for changes or a decline"></textarea></label>
 <div class=row><button class="btn btn-secondary" name=action value=changes>Request Changes</button><button class="btn btn-danger" name=action value=decline>Decline</button></div>
 </form></div>{% endfor %}{% endif %}
 {% for g in groups %}<h2>{{ g.label }}</h2><div class=list>{% for item in g['items'] %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endfor %}
@@ -2263,7 +2263,7 @@ T["manage_request"] = ADMIN_NAV + """{{ admin_page(e.title) }}
 {% if e.review_note %}<div class=note>{{ e.review_note }}</div>{% endif %}
 {% if e.status in ('pending', 'changes_requested') %}<form method=post action=/admin/approvals>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>
 <button class="btn btn-primary full" name=action value=approve>Approve &amp; Publish</button>
-<label style="margin-top:12px">Note<textarea name=note rows=2 placeholder="Needed for changes or a decline"></textarea></label>
+<label style="margin-top:12px">Note<textarea class=planfield name=note rows=4 placeholder="Needed for changes or a decline"></textarea></label>
 <div class=row><button class="btn btn-secondary" name=action value=changes>Request Changes</button><button class="btn btn-danger" name=action value=decline>Decline</button></div>
 </form>{% elif e.status == 'published' %}<p style="margin-top:16px"><a class="btn btn-secondary" href="/lineup/{{ e.id }}">View on Lineup</a></p>{% endif %}"""
 _CHEV = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
@@ -2335,11 +2335,11 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
 <dialog class=botsheet id=setSocial><div class=sheet><div class=grab></div><h2>After-session social</h2>
 <label>Place<input name=social_place id=socPlace autocomplete=off></label>
-<label>Note<input name=social_note autocomplete=off></label>
+<label>Note<textarea class=planfield name=social_note rows=4></textarea></label>
 <div class=checks>{% for kind in SOCIAL_KINDS %}<label><input type=checkbox name=social_kind value="{{ kind }}"> {{ kind }}</label>{% endfor %}</div>
 <button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
 <dialog class=botsheet id=setNotes><div class=sheet><div class=grab></div><h2>Notes &amp; media</h2>
-<label>Notes<textarea name=note id=noteInput rows=3></textarea></label>
+<label>Notes<textarea class=planfield name=note id=noteInput rows=4></textarea></label>
 {{ upload_field('image') }}
 <button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
 {% if staff %}<dialog class=botsheet id=setPlan><div class=sheet><div class=grab></div><h2>Team plan</h2>
@@ -2480,7 +2480,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <label>Capacity<input name=capacity inputmode=numeric value="{{ values.capacity }}" autocomplete=off></label>
 <label>Estimated cost<input name=cost value="{{ values.cost }}" autocomplete=off></label>
 <label>Register by<input type=date name=reg_deadline value="{{ values.reg_deadline }}"></label>
-<label>Extra details<textarea name=details rows=3>{{ values.details }}</textarea></label>
+<label>Extra details<textarea class=planfield name=details rows=4>{{ values.details }}</textarea></label>
 {% if me().is_admin %}<input type=hidden name=pin_present value=1><label><input type=checkbox name=featured value=1 {% if values.featured == '1' %}checked{% endif %}> Pin</label>{% endif %}
 </details>
 {% if organizer and not event_id %}<button class="btn btn-secondary full" name=action value=draft>Save draft</button>{% endif %}
@@ -2615,7 +2615,7 @@ T["practice"] = """{% set p = x.p %}
 <div class=list><div class=li>{% if social_line(p) %}{{ social_icon() }}{% endif %}<div class=grow>
 {% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
 <div class="t3 sm">{{ x.social_n }} joining</div>
-{% if p.social_note %}<div class="t2 sm">{{ p.social_note }}</div>{% endif %}
+{% if p.social_note %}<div class="t2 sm" style="white-space:pre-wrap">{{ p.social_note }}</div>{% endif %}
 {% if p.social_address %}{% if p.social_address.lower().startswith('http://') or p.social_address.lower().startswith('https://') %}<div class="sm"><a href="{{ p.social_address }}" target=_blank rel=noopener>Map</a></div>{% else %}<div class="t2 sm">{{ p.social_address }} · <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ p.social_address|urlencode }}" target=_blank rel=noopener>Map</a></div>{% endif %}{% endif %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
 </div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>
@@ -2674,7 +2674,7 @@ T["practice"] = """{% set p = x.p %}
 <dialog class=modal id=cancel{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Send cancellation</h2>
 <p class="t2 sm">Members get an email and a push that include this reason.</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
-<label>Reason<textarea name=reason required></textarea></label>
+<label>Reason<textarea class=planfield name=reason rows=4 required></textarea></label>
 <button class="btn btn-danger full" name=action value=cancel>Confirm</button></form></div></dialog>
 <dialog class=modal id=delete{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Delete this practice?</h2>
 <p class="t2 sm">{% if practice_is_month(p) %}{{ practice_when(p) }} at {{ p.location }}.{% else %}{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.{% endif %}</p>
