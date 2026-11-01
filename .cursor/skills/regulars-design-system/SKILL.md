@@ -22,8 +22,13 @@ All of these are in `regulars/foundation.css`.
 | Card gap (12px) | `--space-card` |
 | Card roundness | `--radius-card` |
 | Button, chip, field roundness | `--radius-button`, `--radius-chip`, `--radius-input` |
+| Button height, chip height, nav icon | `--size-button`, `--size-chip`, `--icon-nav` |
+| Selected chip or Schedule card | `--color-selected`, `--color-on-selected` |
+| Focus ring | `--color-focus` |
 
 Do not paste a new hex into a screen. Use a token or an existing class.
+
+The Figma file's Claude skill page installs React, Tailwind, and `npx shadcn`. Do not do that. Map the library's roles onto the classes below. Event types stay gray (`--color-event`). They do not get their own hues.
 
 ## Classes
 

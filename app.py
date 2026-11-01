@@ -1759,10 +1759,7 @@ def admin_day_events(d, date):
         start = (e["start_time"] or "09:00")[:5]
         end = (e["end_time"] or "")[:5]
         when = fmt_span(start, end) if len(end) == 5 else fmt_clock(start)
-        if e["official"]: who = "Official club event"
-        elif e["host_first"]:
-            who = "Hosted by " + display_first({"first": e["host_first"], "last": e["host_last"] or "", "preferred_first": e["host_preferred"] or ""})
-        else: who = ""
+        who = ""
         events.append({"key": "l-%d" % e["id"], "kind": "lineup", "id": e["id"], "title": e["title"],
             "start": start, "when": when, "pill": fmt_clock(start), "type_label": e["cat_chip"] or "Event",
             "place": lineup_where(e["city"] or "", e["venue"] or ""),
@@ -4033,7 +4030,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-57 */
+SW_JS = """/* grunions-sw-58 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
