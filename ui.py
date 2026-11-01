@@ -551,6 +551,17 @@ dialog.matpick .sheet{background:var(--color-sheet);border:1px solid var(--color
 .matkicker{margin:0 12px 4px;color:var(--color-text-secondary);font-size:var(--type-b2-size);line-height:var(--type-b2-line)}
 .matheadline{margin:0 12px 16px;font-size:2rem;line-height:1.15;font-weight:400;letter-spacing:-.02em}
 .matactions{display:flex;justify-content:flex-end;gap:4px;margin:8px 4px 4px}
+.yearrow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 4px 12px}
+.yearrow .yearbtn{flex:1;height:40px;min-height:40px;margin:0;padding:0 8px;background:transparent;color:var(--color-text);font-size:16px;font-weight:650;border-radius:999px}
+.yearrow .yearbtn.on{background:var(--color-lime);color:var(--color-forest)}
+.yearrow button.calmonth:disabled{color:var(--t3);opacity:.35}
+.monthgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 8px;margin:4px 8px 8px}
+button.monthchip{width:100%;height:40px;min-height:40px;margin:0;padding:0 8px;border-radius:999px;background:transparent;color:var(--color-text);font-weight:650;font-size:14px}
+button.monthchip.on{background:var(--color-lime);color:var(--color-forest);opacity:1}
+button.monthchip:disabled:not(.on){background:transparent;color:var(--t3);opacity:.4}
+.yearlist{max-height:220px;overflow:auto;margin:0 12px 8px;display:flex;flex-direction:column;gap:2px}
+button.yearopt{width:100%;height:40px;min-height:40px;margin:0;border-radius:999px;background:transparent;color:var(--color-text);font-weight:650}
+button.yearopt.on{background:var(--color-lime);color:var(--color-forest)}
 button.mattext{height:40px;min-height:40px;padding:0 12px;background:none;color:var(--color-lime);font-weight:650}
 .timebig{display:flex;align-items:center;gap:2px;margin:0 12px 8px;font-size:3rem;font-weight:400;line-height:1}
 .timebig button{height:auto;min-height:0;padding:0 2px;background:none;color:var(--color-text-secondary);font:inherit;font-weight:400}
@@ -868,7 +879,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=83');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=84');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -1149,12 +1160,28 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   if(dateDlg) return dateDlg;
   dateDlg=document.createElement('dialog');
   dateDlg.className='matpick'; dateDlg.id='grunionsDateDlg'; dateDlg.setAttribute('aria-label','Select date');
-  dateDlg.innerHTML='<div class=sheet><div class=matkicker id=matKicker>Select date</div><div class=matheadline id=matHeadline></div><div class=calhead><select id=matMonth class=matmonth aria-label="Month and year"></select><button type=button class=calmonth id=matPrev aria-label="Previous month"></button><button type=button class=calmonth id=matNext aria-label="Next month"></button></div><div class=calwd id=matWd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class=calgrid id=matGrid></div><div class="actseg matpart" id=matPart role=radiogroup aria-label="Part of the month" hidden><label><input type=radio name=mat_part value=all checked><span>All month</span></label><label><input type=radio name=mat_part value=early><span>Early</span></label><label><input type=radio name=mat_part value=mid><span>Mid</span></label><label><input type=radio name=mat_part value=late><span>Late</span></label></div><div class=matactions><button type=button class=mattext id=matDateCancel>Cancel</button><button type=button class=mattext id=matDateOk>OK</button></div></div>';
+  dateDlg.innerHTML='<div class=sheet><div class=matkicker id=matKicker>Select date</div><div class=matheadline id=matHeadline></div><div class=calhead id=matCalHead><select id=matMonth class=matmonth aria-label="Month and year"></select><button type=button class=calmonth id=matPrev aria-label="Previous month"></button><button type=button class=calmonth id=matNext aria-label="Next month"></button></div><div class=yearrow id=matYearRow hidden><button type=button class=calmonth id=yearPrev aria-label="Previous year"></button><button type=button class=yearbtn id=yearBtn aria-label="Choose year">2027</button><button type=button class=calmonth id=yearNext aria-label="Next year"></button></div><div class=yearlist id=yearList hidden role=listbox aria-label=Years></div><div class=calwd id=matWd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class=calgrid id=matGrid></div><div class=monthgrid id=matMonths hidden></div><div class="actseg matpart" id=matPart role=radiogroup aria-label="Part of the month" hidden><label><input type=radio name=mat_part value=all checked><span>All month</span></label><label><input type=radio name=mat_part value=early><span>Early</span></label><label><input type=radio name=mat_part value=mid><span>Mid</span></label><label><input type=radio name=mat_part value=late><span>Late</span></label></div><div class=matactions><button type=button class=mattext id=matDateCancel>Cancel</button><button type=button class=mattext id=matDateOk>OK</button></div></div>';
   document.body.appendChild(dateDlg);
-  dateDlg.querySelector('#matPrev').innerHTML='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>';
-  dateDlg.querySelector('#matNext').innerHTML='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>';
+  var prevSvg='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>';
+  var nextSvg='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>';
+  dateDlg.querySelector('#matPrev').innerHTML=prevSvg;
+  dateDlg.querySelector('#matNext').innerHTML=nextSvg;
+  dateDlg.querySelector('#yearPrev').innerHTML=prevSvg;
+  dateDlg.querySelector('#yearNext').innerHTML=nextSvg;
   dateDlg.querySelector('#matPrev').onclick=function(){ shiftDate(-1); };
   dateDlg.querySelector('#matNext').onclick=function(){ shiftDate(1); };
+  dateDlg.querySelector('#yearPrev').onclick=function(){ shiftYear(-1); };
+  dateDlg.querySelector('#yearNext').onclick=function(){ shiftYear(1); };
+  dateDlg.querySelector('#yearBtn').onclick=function(){ if(!dateSt) return; dateSt.yearOpen=!dateSt.yearOpen; paintMonth(); };
+  dateDlg.querySelector('#yearList').addEventListener('click', function(e){
+   var b=e.target.closest&&e.target.closest('button.yearopt'); if(!b||!dateSt) return;
+   dateSt.viewYear=+b.getAttribute('data-year'); dateSt.yearOpen=false; paintMonth();
+  });
+  dateDlg.querySelector('#matMonths').addEventListener('click', function(e){
+   var b=e.target.closest&&e.target.closest('button.monthchip'); if(!b||b.disabled||!dateSt) return;
+   var ym=dateSt.viewYear+'-'+pad(+b.getAttribute('data-month'));
+   dateSt.iso=ym+'-01'; dateSt.ym=ym; paintMonth();
+  });
   dateDlg.querySelector('#matMonth').addEventListener('change', function(){ if(!this.value) return; if(dateSt.monthOnly) dateSt.iso=this.value+'-01'; paintDate(this.value); });
   dateDlg.querySelector('#matGrid').addEventListener('click', function(e){
    var b=e.target.closest&&e.target.closest('button.calday'); if(!b||dateSt.monthOnly) return;
@@ -1162,7 +1189,8 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   });
   dateDlg.querySelector('#matPart').addEventListener('change', function(e){
    var r=e.target; if(!r||r.name!=='mat_part'||!dateSt) return;
-   dateSt.part=r.value; paintDate(dateSt.ym);
+   dateSt.part=r.value;
+   if(dateSt.monthOnly) paintMonth(); else paintDate(dateSt.ym);
   });
   dateDlg.querySelector('#matDateCancel').onclick=function(){ dateDlg.close(); };
   dateDlg.querySelector('#matDateOk').onclick=function(){
@@ -1189,15 +1217,66 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   if(part==='early'||part==='mid'||part==='late') return part.charAt(0).toUpperCase()+part.slice(1)+' '+label;
   return label;
  }
+ var shortMonths=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+ function showMonthChrome(on){
+  dateDlg.querySelector('#matCalHead').hidden=!!on;
+  dateDlg.querySelector('#matWd').hidden=!!on;
+  dateDlg.querySelector('#matGrid').hidden=!!on;
+  dateDlg.querySelector('#matYearRow').hidden=!on;
+  if(!on){
+   dateDlg.querySelector('#yearList').hidden=true;
+   dateDlg.querySelector('#matMonths').hidden=true;
+   if(dateSt) dateSt.yearOpen=false;
+  }
+ }
+ function yearBounds(){
+  var nowY=new Date().getFullYear(), sel=dateSt.iso?+dateSt.iso.slice(0,4):nowY;
+  return {min:Math.min(nowY-1, sel), max:Math.max(nowY+15, sel)};
+ }
+ function paintMonth(){
+  showMonthChrome(true);
+  var y=dateSt.viewYear, bounds=yearBounds(), open=!!dateSt.yearOpen;
+  var yearBtn=dateDlg.querySelector('#yearBtn');
+  yearBtn.textContent=String(y);
+  yearBtn.className='yearbtn'+(open?' on':'');
+  yearBtn.setAttribute('aria-expanded', open?'true':'false');
+  dateDlg.querySelector('#yearPrev').disabled=y<=bounds.min;
+  dateDlg.querySelector('#yearNext').disabled=y>=bounds.max;
+  var partBox=dateDlg.querySelector('#matPart'), kick=dateDlg.querySelector('#matKicker');
+  if(partBox) partBox.hidden=open;
+  if(kick) kick.textContent='Select month';
+  dateDlg.querySelector('#matHeadline').textContent=monthHead((dateSt.iso||'').slice(0,7), dateSt.part);
+  var list=dateDlg.querySelector('#yearList'), grid=dateDlg.querySelector('#matMonths');
+  list.hidden=!open; grid.hidden=open;
+  if(open){
+   var html='', yy, onBtn;
+   for(yy=bounds.min; yy<=bounds.max; yy++) html+='<button type=button class="yearopt'+(yy===y?' on':'')+'" data-year="'+yy+'">'+yy+'</button>';
+   list.innerHTML=html;
+   onBtn=list.querySelector('.on');
+   if(onBtn) list.scrollTop=Math.max(0, onBtn.offsetTop-list.clientHeight/2);
+   return;
+  }
+  var now=new Date(), ny=now.getFullYear(), nm=now.getMonth()+1;
+  var selY=+(dateSt.iso||'').slice(0,4), selM=+(dateSt.iso||'').slice(5,7);
+  var cells='', m, past, on;
+  for(m=1;m<=12;m++){
+   past=y<ny||(y===ny&&m<nm);
+   on=y===selY&&m===selM;
+   cells+='<button type=button class="monthchip'+(on?' on':'')+'" data-month="'+m+'"'+(past?' disabled':'')+'>'+shortMonths[m-1]+'</button>';
+  }
+  grid.innerHTML=cells;
+ }
  function paintDate(ym){
+  if(dateSt.monthOnly){ dateSt.viewYear=+ym.slice(0,4); return paintMonth(); }
+  showMonthChrome(false);
   dateSt.ym=ym;
   var y=+ym.slice(0,4), m=+ym.slice(5,7), sel=dateDlg.querySelector('#matMonth');
   if(!sel.querySelector('option[value="'+ym+'"]')) fillDateMonths(sel, ym+'-01');
   sel.value=ym;
   var partBox=dateDlg.querySelector('#matPart'), kick=dateDlg.querySelector('#matKicker');
-  if(partBox) partBox.hidden=!dateSt.monthOnly;
-  if(kick) kick.textContent=dateSt.monthOnly?'Select month':'Select date';
-  dateDlg.querySelector('#matHeadline').textContent=dateSt.monthOnly?monthHead(ym, dateSt.part):headline(dateSt.iso);
+  if(partBox) partBox.hidden=true;
+  if(kick) kick.textContent='Select date';
+  dateDlg.querySelector('#matHeadline').textContent=headline(dateSt.iso);
   var blanks=new Date(y, m-1, 1).getDay(), last=new Date(y, m, 0).getDate(), html='', day, iso, today=todayISO();
   for(var i=0;i<blanks;i++) html+='<span class=calday></span>';
   for(day=1;day<=last;day++){
@@ -1206,12 +1285,16 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   }
   dateDlg.querySelector('#matGrid').innerHTML=html;
  }
+ function shiftYear(delta){
+  if(!dateSt) return;
+  var bounds=yearBounds(), y=dateSt.viewYear+delta;
+  if(y<bounds.min||y>bounds.max) return;
+  dateSt.viewYear=y; dateSt.yearOpen=false; paintMonth();
+ }
  function shiftDate(delta){
   var y=+dateSt.ym.slice(0,4), m=+dateSt.ym.slice(5,7)+delta;
   if(m<1){m=12;y--} if(m>12){m=1;y++}
-  var ym=y+'-'+pad(m);
-  if(dateSt.monthOnly) dateSt.iso=ym+'-01';
-  paintDate(ym);
+  paintDate(y+'-'+pad(m));
  }
  function makeTime(){
   if(timeDlg) return timeDlg;
@@ -1266,7 +1349,7 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
    var pel=input.form.querySelector('[data-monthpart]'), pv=pel?(pel.value||'').toLowerCase():'';
    if(pv==='early'||pv==='mid'||pv==='late'||pv==='all') part=pv;
   }
-  dateSt={input:input, iso:iso, ym:iso.slice(0,7), monthOnly:monthOnly, part:part};
+  dateSt={input:input, iso:iso, ym:iso.slice(0,7), monthOnly:monthOnly, part:part, viewYear:+iso.slice(0,4), yearOpen:false};
   dateDlg.querySelectorAll('input[name=mat_part]').forEach(function(r){ r.checked=r.value===part; });
   fillDateMonths(dateDlg.querySelector('#matMonth'), iso);
   paintDate(dateSt.ym);
