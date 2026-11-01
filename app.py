@@ -1695,6 +1695,83 @@ def save_coach_note(d, pid, text):
 _MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
 def practice_days(d):
     return [r["date"] for r in d.execute("SELECT DISTINCT date FROM practices WHERE cancelled=0 ORDER BY date").fetchall()]
+def schedule_days(d):
+    """Practice days plus published Lineup days, so Schedule can open either."""
+    days = set(practice_days(d))
+    for start, end in d.execute("SELECT date, end_date FROM lineup_events WHERE status='published'"):
+        try: a = dt.date.fromisoformat(str(start)[:10])
+        except ValueError: continue
+        try: b = dt.date.fromisoformat(str(end or start)[:10])
+        except ValueError: b = a
+        if b < a: b = a
+        if (b - a).days > 21: b = a + dt.timedelta(days=21)
+        cur = a
+        while cur <= b:
+            days.add(cur.isoformat())
+            cur += dt.timedelta(days=1)
+    return sorted(days)
+def admin_day_events(d, date):
+    """Practices and published Lineup events that fall on this calendar day, earliest first."""
+    events = []
+    practices = d.execute("SELECT * FROM practices WHERE date=? AND cancelled=0 ORDER BY start, id", (date,)).fetchall()
+    coach_map = practice_coach_rows(d, [p["id"] for p in practices])
+    for p in practices:
+        labels = coach_labels(coach_map.get(p["id"], []))
+        kind = (p["activity_type"] or "practice") if "activity_type" in p.keys() else "practice"
+        if kind not in sports.ACTIVITY_IDS: kind = "practice"
+        start = p["start"] or "19:00"
+        end = p["end"] or "20:30"
+        events.append({"key": "p-%d" % p["id"], "kind": "practice", "id": p["id"], "title": practice_title(p),
+            "start": start, "when": fmt_span(start, end), "pill": fmt_clock(start),
+            "type_label": sports.ACTIVITY_NAME.get(kind, "Practice"), "place": p["location"] or "",
+            "map_href": lineup_map_href("", p["location"] or ""),
+            "who": ("Coaches: " + ", ".join(labels)) if labels else "",
+            "detail": "/practices/%d?from=admin" % p["id"]})
+    for e in d.execute("""SELECT e.*, c.chip AS cat_chip, h.first AS host_first, h.last AS host_last, h.preferred_first AS host_preferred
+        FROM lineup_events e LEFT JOIN lineup_categories c ON c.id=e.category_id
+        LEFT JOIN members h ON h.id=e.host_id
+        WHERE e.status='published' AND e.date<=? AND COALESCE(NULLIF(e.end_date,''), e.date)>=?""", (date, date)):
+        start = (e["start_time"] or "09:00")[:5]
+        end = (e["end_time"] or "")[:5]
+        when = fmt_span(start, end) if len(end) == 5 else fmt_clock(start)
+        if e["official"]: who = "Official club event"
+        elif e["host_first"]:
+            who = "Hosted by " + display_first({"first": e["host_first"], "last": e["host_last"] or "", "preferred_first": e["host_preferred"] or ""})
+        else: who = ""
+        events.append({"key": "l-%d" % e["id"], "kind": "lineup", "id": e["id"], "title": e["title"],
+            "start": start, "when": when, "pill": fmt_clock(start), "type_label": e["cat_chip"] or "Event",
+            "place": lineup_where(e["city"] or "", e["venue"] or ""),
+            "map_href": lineup_map_href(e["city"] or "", e["venue"] or ""), "who": who,
+            "detail": "/lineup/%d?from=admin&date=%s" % (e["id"], date)})
+    events.sort(key=lambda ev: (ev["start"], 0 if ev["kind"] == "practice" else 1, ev["id"]))
+    return events
+def admin_people(d, date, event, q):
+    """RSVP rows for one event. Check-in stays by calendar day, the way the list already works."""
+    q = q or ""
+    if event and event["kind"] == "lineup":
+        rows = d.execute("""SELECT m.*, c.id AS cid,
+          CASE rv.state WHEN 'going' THEN 1 WHEN 'notgoing' THEN 0 ELSE NULL END AS going,
+          (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status,
+          (SELECT note FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_note
+          FROM members m LEFT JOIN checkins c ON c.member_id=m.id AND c.practice_date=?
+          LEFT JOIN lineup_rsvps rv ON rv.member_id=m.id AND rv.event_id=?
+          WHERE COALESCE(m.role,'')!='system' AND (?='' OR m.first||' '||COALESCE(m.preferred_first,'')||' '||m.last||' '||m.email LIKE '%'||?||'%')""",
+          (date, event["id"], q, q)).fetchall()
+    else:
+        pid = event["id"] if event else -1
+        rows = d.execute("""SELECT m.*, c.id AS cid, rv.going AS going,
+          (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status,
+          (SELECT note FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_note
+          FROM members m LEFT JOIN checkins c ON c.member_id=m.id AND c.practice_date=?
+          LEFT JOIN rsvps rv ON rv.member_id=m.id AND rv.practice_id=?
+          WHERE COALESCE(m.role,'')!='system' AND (?='' OR m.first||' '||COALESCE(m.preferred_first,'')||' '||m.last||' '||m.email LIKE '%'||?||'%')""",
+          (date, pid, q, q)).fetchall()
+    def by_name(r): return (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"])
+    going = sorted((r for r in rows if r["going"] == 1), key=by_name)
+    not_going = sorted((r for r in rows if r["going"] == 0), key=by_name)
+    rest = sorted((r for r in rows if r["going"] is None), key=by_name)
+    checked = sorted((r for r in rows if r["cid"]), key=by_name)
+    return going, not_going, rest, checked
 def default_checkin_date(days, today=None):
     """Today's practice if there is one, otherwise the next one, otherwise the most recent."""
     today = (today or today_pt()).isoformat()
@@ -2430,7 +2507,7 @@ def lineup_detail(eid):
             flash(str(e)); return redirect("/lineup/%d" % eid)
         d.commit(); return redirect("/lineup/%d" % eid)
     packed = lineup_pack(d, [row])[0]
-    return page(T["lineup_event"], tab="lineup_event", e=packed)
+    return page(T["lineup_event"], tab="lineup_event", e=packed, from_admin=request.args.get("from") == "admin", admin_date=(request.args.get("date") or row["date"] or "")[:10])
 @app.route("/lineup/<int:eid>/edit", methods=["GET", "POST"])
 @login_required
 def lineup_edit(eid):
@@ -2828,40 +2905,30 @@ def admin():
         d.commit()
         if request.form.get("action") in ("verify", "req", "background", "preferred", "role", "recheck", "edit", "undo") or not request.form.get("action"): sync_practice_sheets(d)
         q = request.form.get("q", "")
-        pr_id = d.execute("SELECT id FROM practices WHERE date=? AND cancelled=0 ORDER BY start LIMIT 1", (date,)).fetchone()
-        pid = pr_id["id"] if pr_id else -1
-        counts = d.execute("""SELECT
-          SUM(CASE WHEN rv.going=0 THEN 1 ELSE 0 END),
-          SUM(CASE WHEN c.id IS NOT NULL THEN 1 ELSE 0 END)
-          FROM members m LEFT JOIN checkins c ON c.member_id=m.id AND c.practice_date=?
-          LEFT JOIN rsvps rv ON rv.member_id=m.id AND rv.practice_id=?
-          WHERE COALESCE(m.role,'')!='system' AND (?='' OR m.first||' '||COALESCE(m.preferred_first,'')||' '||m.last||' '||m.email LIKE '%'||?||'%')""",
-          (date, pid, q, q)).fetchone()
-        filt = checkin_filter(request.form.get("filt"), int(counts[0] or 0), int(counts[1] or 0))
+        events = admin_day_events(d, date)
+        ev = (request.form.get("ev") or "").strip()
+        selected = next((e for e in events if e["key"] == ev), events[0] if events else None)
+        going, not_going, rest, checked = admin_people(d, date, selected, q)
+        filt = checkin_filter(request.form.get("filt"), len(not_going), len(checked))
         kwargs = {"date": date, "q": q}
         if filt != "going": kwargs["filt"] = filt
+        if selected: kwargs["ev"] = selected["key"]
         return redirect(url_for("admin", **kwargs))
     ensure_schedule(d)
-    days = practice_days(d)
+    days = schedule_days(d)
     date = posted or default_checkin_date(days)
     q = request.args.get("q", "").strip()
-    pr = d.execute("SELECT * FROM practices WHERE date=? AND cancelled=0 ORDER BY start LIMIT 1", (date,)).fetchone()
-    rows = d.execute("""SELECT m.*, c.id AS cid, rv.going AS going,
-      (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status,
-      (SELECT note FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_note FROM members m LEFT JOIN checkins c ON c.member_id=m.id AND c.practice_date=?
-      LEFT JOIN rsvps rv ON rv.member_id=m.id AND rv.practice_id=?
-      WHERE COALESCE(m.role,'')!='system' AND (?='' OR m.first||' '||COALESCE(m.preferred_first,'')||' '||m.last||' '||m.email LIKE '%'||?||'%')""", (date, pr["id"] if pr else -1, q, q)).fetchall()
-    def by_name(r): return (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"])
-    going = sorted((r for r in rows if r["going"] == 1), key=by_name)
-    not_going = sorted((r for r in rows if r["going"] == 0), key=by_name)
-    rest = sorted((r for r in rows if r["going"] is None), key=by_name)
-    checked = sorted((r for r in rows if r["cid"]), key=by_name)
+    events = admin_day_events(d, date)
+    ev = (request.args.get("ev") or "").strip()
+    selected = next((e for e in events if e["key"] == ev), events[0] if events else None)
+    going, not_going, rest, checked = admin_people(d, date, selected, q)
     n_not, n = len(not_going), len(checked)
     filt = checkin_filter(request.args.get("filt"), n_not, n)
-    assigned = practice_coach_rows(d, [pr["id"]]).get(pr["id"], []) if pr else []
+    pr = d.execute("SELECT * FROM practices WHERE id=?", (selected["id"],)).fetchone() if selected and selected["kind"] == "practice" else None
     return page(T["admin"],
-        tab="admin", date=date, q=q, going=going, rest=rest, not_going=not_going, checked=checked, n=n, n_not=n_not, filt=filt, loc=(pr["location"] if pr else location_for(date)), pr=pr, rsvp_n=len(going),
-        days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days), coach_names=coach_labels(assigned))
+        tab="admin", date=date, q=q, going=going, rest=rest, not_going=not_going, checked=checked, n=n, n_not=n_not, filt=filt,
+        loc=(selected["place"] if selected else ""), pr=pr, sel=selected, events=events, evkey=(selected["key"] if selected else ""),
+        days=days, prev_d=neighbor_practice(days, date, -1), next_d=neighbor_practice(days, date, 1), month=checkin_month(date, days))
 
 def expiring_roster(d, rep):
     ids = []
@@ -3865,7 +3932,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-50 */
+SW_JS = """/* grunions-sw-51 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

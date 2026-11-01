@@ -49,7 +49,7 @@ eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date="2026-10-27")); eli.p
 h = x.get("/home").get_data(as_text=True)
 xp = x.get("/profile").get_data(as_text=True)
 ok("USAWP #1234567" in h and "expires 2027-08-31" in xp and "1234567" in h and "2027-08-31" in xp and "2 practices attended" in xp and "<summary>Attendance</summary>" not in h and "Cleared for water polo" not in h and A.fmt_phone("7205355925") == "(720) 535-5925", "member home shows the membership number on the practice card, and the practice count lives on the profile page")
-ok("1 checked in" in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "check-in count per practice")
+ok("Checked in 1 / Going" in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "check-in count per practice")
 ok(eli.get("/qr.svg").data.startswith(b"<?xml"), "QR svg")
 qr_page = eli.get("/qr").get_data(as_text=True)
 ok("<h1>Join QR</h1>" in qr_page and "Anyone who scans this joins the team." in qr_page and "src=/qr.svg" in qr_page and ">Copy link</button>" in qr_page and ">Share</button>" in qr_page and ">Print</button>" in qr_page, "QR page has the code, share, and copy link")
@@ -433,7 +433,7 @@ listed = eli.get("/admin?date=%s" % day).get_data(as_text=True)
 lg, le = listed.index(">Going <"), listed.index(">Everyone else <")
 ok("Noah Diaz" not in listed[lg:le] and "Noah Diaz" not in listed[le:] and "Not Going (1)" in listed and "aria-disabled=true>Not Going" not in listed and ">Check in</button>" in listed[lg:le] and ">Check in</button>" in listed[le:], "going view lists RSVPs and everyone else, and leaves not-going off both")
 only_not = eli.get("/admin?date=%s&filt=not" % day).get_data(as_text=True)
-ok("Noah Diaz" in only_not and ">Not Going <span class=t3>1</span>" in only_not and ">Everyone else" not in only_not and ">Going <span" not in only_not and "Mia Barnes" not in only_not and ">Check in</button>" in only_not and ('class="chip chip-active on" href="/admin?date=%s&amp;filt=not"' % day) in only_not, "not going view is only the not-going list")
+ok("Noah Diaz" in only_not and ">Not Going <span class=t3>1</span>" in only_not and ">Everyone else" not in only_not and ">Going <span" not in only_not and "Mia Barnes" not in only_not and ">Check in</button>" in only_not and ('class="chip chip-active on" href="/admin?date=%s&amp;filt=not' % day) in only_not, "not going view is only the not-going list")
 only_in = eli.get("/admin?date=%s&filt=in" % day).get_data(as_text=True)
 ok("Ben Foster" in only_in and "Ava Evans" not in only_in and "Mia Barnes" not in only_in and "Noah Diaz" not in only_in and ">Everyone else" not in only_in and ">Going <span" not in only_in and ">Checked in <span class=t3>1</span>" in only_in, "checked-in view is only checked-in people")
 fell = eli.get("/admin?date=2026-12-05&filt=in").get_data(as_text=True)
@@ -727,7 +727,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=50" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=51" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
@@ -1233,7 +1233,7 @@ try:
     ok('aria-disabled=true>19</span>' in grid and 'aria-disabled=true>21</span>' in grid and 'class="calday on" href="/admin?date=2026-10-20"' in grid and 'href="/admin?date=2026-10-16"' in grid and "2026-10-21" not in grid and ('href="/admin?date=%s" aria-label="Previous practice"' % prev_d) in adm and ('href="/admin?date=%s" aria-label="Next practice"' % next_d) in adm, "only practice days are selectable, including past ones, and the arrows use those days")
     kept = eli.get("/admin?date=2026-10-23&q=Jane").get_data(as_text=True)
     odd = eli.get("/admin?date=2026-10-19").get_data(as_text=True)
-    ok('value="2026-10-23"' in kept and 'value="Jane"' in kept and "date=2026-10-20&amp;q=Jane" in kept and 'value="2026-10-19"' in odd and "no practice scheduled" in odd and "grunionsCalDoc" in odd, "a chosen date stays put, and practice links keep the search")
+    ok('value="2026-10-23"' in kept and 'value="Jane"' in kept and "date=2026-10-20&amp;q=Jane" in kept and 'value="2026-10-19"' in odd and "No events on this day" in odd and "grunionsCalDoc" in odd, "a chosen date stays put, and practice links keep the search")
 finally:
     A.now_pt = real_now
 
@@ -1723,3 +1723,17 @@ eli.post("/lineup/new", data={"csrf": csrf(eli, "/lineup/new"), "mode": "create"
 level_cup = eli.get("/lineup").get_data(as_text=True)
 cup_card = level_cup.split("Level Cup", 1)[1].split('class="card tap tripcard"', 1)[0]
 ok("Intermediate · Experienced" in cup_card and "Co-ed" in cup_card and "Men&#39;s" in cup_card and "Women&#39;s" in cup_card and "Per Team" in cup_card and "Beginner" not in cup_card and D.execute("SELECT skill_levels, divisions, comp_format FROM lineup_events WHERE title='Level Cup'").fetchone() == ("intermediate,experienced", "coed,mens,womens", "per_team") and jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=D.execute("SELECT id FROM lineup_events WHERE title='Level Cup'").fetchone()[0], action="interested")).status_code == 302, "a tournament keeps levels, divisions, and registration separate from RSVP")
+twin = (A.today_pt() + dt.timedelta(days=45)).isoformat()
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", activity_type="practice", date=twin, start="18:00", end="19:00", location="Twin Practice Pool"))
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", activity_type="scrimmage", date=twin, start="19:15", end="20:15", location="Twin Scrimmage Pool"))
+eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), mode="create", category="social", subtype="Happy hour", hosting="Hosting", official="1", title="Twin Social", location="Twin Deck", description="After the session.", date=twin, start_time="20:30", end_time="21:30"))
+prac_id = D.execute("SELECT id FROM practices WHERE location='Twin Practice Pool'").fetchone()[0]
+scr_id = D.execute("SELECT id FROM practices WHERE location='Twin Scrimmage Pool'").fetchone()[0]
+line_id = D.execute("SELECT id FROM lineup_events WHERE title='Twin Social'").fetchone()[0]
+jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=scr_id, action="going"))
+both = eli.get("/admin?date=" + twin).get_data(as_text=True)
+scr_admin = eli.get("/admin?date=%s&ev=p-%d" % (twin, scr_id)).get_data(as_text=True)
+line_admin = eli.get("/admin?date=%s&ev=l-%d" % (twin, line_id)).get_data(as_text=True)
+def _going(html):
+    return html[html.find(">Going <"):html.find(">Everyone else <")]
+ok("class=evpick" in both and "class=evcard" in both and ">Practice</h1>" in both and "Twin Practice Pool" in both and ">Details</a>" in both and ('class=schedlink href="/practices/%d?from=admin"' % prac_id) in both and "evpill on" in both and ("ev=p-%d" % scr_id) in both and ("ev=l-%d" % line_id) in both and "Twin Social" in line_admin and ">Scrimmage</h1>" in scr_admin and ('href="/admin/member/%d"' % jane_id) in _going(scr_admin) and ('href="/admin/member/%d"' % jane_id) not in _going(both), "Schedule names the event and switches among the day's sessions")
