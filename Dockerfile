@@ -6,7 +6,8 @@ ENV TZ=America/Los_Angeles
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app.py ui.py daily_expiry.py reset_real.py ./
+# Every runtime module. A named list left lineupfeed.py and sports.py out of the image.
+COPY *.py ./
 COPY static ./static
 RUN mkdir -p /data
 EXPOSE 10000

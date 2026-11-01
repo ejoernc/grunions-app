@@ -5,3 +5,5 @@ uploads
 shots
 server.log
 .env.local
+test_*.py
+seed_*.py
