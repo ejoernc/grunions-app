@@ -2993,7 +2993,10 @@ def event_new():
         day = parse_date(request.form.get("date"))
         loc = " ".join((request.form.get("location") or "").split())[:300]
         lane_now = (request.form.get("lane") or ("lineup" if not staff else lane))
-        month_mode = (request.form.get("date_precision") or "exact").strip().lower() == "month"
+        month_mode = staff and (request.form.get("date_precision") or "exact").strip().lower() == "month"
+        if not staff and (request.form.get("date_precision") or "").strip().lower() == "month":
+            flash("Add a specific date.")
+            return redirect("/events/new?lane=lineup")
         month_line = lane_now == "lineup" and month_mode
         month_sched = lane_now != "lineup" and staff and month_mode
         if not loc or (not month_mode and not day):
@@ -3038,7 +3041,8 @@ def event_new():
             return redirect("/events/new?lane=lineup")
         wrapped = _FormWrap(request.form, title=title, start_time=request.form.get("start") or "19:00",
             mode="create" if staff else "suggest", event_type=request.form.get("event_type") or "Social",
-            team_intent="official" if request.form.get("team_plan") == "committed" else "considering")
+            team_intent=("official" if request.form.get("team_plan") == "committed" else "considering") if staff else "",
+            team_plan=request.form.get("team_plan") if staff else "")
         try:
             info = lineupfeed.save_event(d, wrapped, me(), staff, parse_date=parse_date)
         except ValueError as e:

@@ -2095,10 +2095,10 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label>Short description<textarea name=description id=lineDesc rows=3 placeholder="What should people know?"></textarea></label>
 </div>
 <div class=seclabel>When</div>
-<div class=actseg id=whenPrec role=radiogroup aria-label=Dates>
+{% if staff %}<div class=actseg id=whenPrec role=radiogroup aria-label=Dates>
 <label><input type=radio name=date_precision value=exact checked><span>Exact dates</span></label>
 <label><input type=radio name=date_precision value=month><span>Month only</span></label>
-</div>
+</div>{% endif %}
 <div class=list id=exactWhen>
 <button type=button class="li setrow" data-matfor=dateInput><span class=grow>Date<span class="sum" id=dateSum> Add a date</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" data-matfor=startInput><span class=grow>Start<span class="sum" id=startSum> 7:00 PM</span></span>""" + _CHEV + """</button>
@@ -2117,7 +2117,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button class="li setrow" data-open=setNotes><span class=grow>Notes &amp; media<span class=sum id=noteSum> None</span></span>""" + _CHEV + """</button>
 </div>{% endif %}
 <div class=list id=lineSets {% if staff and lane != 'lineup' %}hidden{% endif %}>
-<button type=button class="li setrow" id=planRow data-open=setPlan><span class=grow>Team plan<span class=sum id=planSum> Considering</span></span>""" + _CHEV + """</button>
+{% if staff %}<button type=button class="li setrow" id=planRow data-open=setPlan><span class=grow>Team plan<span class=sum id=planSum> Considering</span></span>""" + _CHEV + """</button>{% endif %}
 <button type=button class="li setrow" id=partRow data-open=setHost><span class=grow>Participation<span class=sum id=partSum> Attending</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" id=regRow data-open=setReg><span class=grow>Registration<span class=sum id=regSum> Not set</span></span>""" + _CHEV + """</button>
 </div>
@@ -2145,13 +2145,13 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label>Notes<textarea name=note id=noteInput rows=3></textarea></label>
 {{ upload_field('image') }}
 <button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
-<dialog class=botsheet id=setPlan><div class=sheet><div class=grab></div><h2>Team plan</h2>
+{% if staff %}<dialog class=botsheet id=setPlan><div class=sheet><div class=grab></div><h2>Team plan</h2>
 <div class=actseg role=radiogroup aria-label="Team plan">
 <label><input type=radio name=team_plan value=considering checked><span>Considering</span></label>
 <label><input type=radio name=team_plan value=planning><span>Planning</span></label>
 <label><input type=radio name=team_plan value=committed><span>Committed</span></label>
 </div>
-<button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
+<button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>{% endif %}
 <dialog class=botsheet id=setHost><div class=sheet><div class=grab></div><h2>Participation</h2>
 <div class=actseg role=radiogroup aria-label="Participation">
 <label><input type=radio name=hosting value=Attending checked><span>Attending</span></label>
@@ -2192,9 +2192,9 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
  }
  function syncPrec(){
   var prec=document.getElementById('whenPrec'), exact=document.getElementById('exactWhen'), month=document.getElementById('monthWhen');
-  if(prec) prec.hidden=false;
+  if(prec) prec.hidden=!staff;
   var on=document.querySelector('input[name=date_precision]:checked');
-  var monthOn=!!(on && on.value==='month');
+  var monthOn=!!(staff && on && on.value==='month');
   if(exact){ exact.hidden=monthOn; exact.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=monthOn; }); }
   if(month){ month.hidden=!monthOn; month.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=!monthOn; }); }
   var monthInput=document.getElementById('monthInput'); if(monthInput) monthInput.disabled=!monthOn;
@@ -2262,15 +2262,15 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 {% endif %}
 <label>Title<input name=title value="{{ values.title }}" required autocomplete=off></label>
 <div class="t3 xs">Dates</div>
-<div class=actseg role=radiogroup aria-label=Dates>
+{% if organizer %}<div class=actseg role=radiogroup aria-label=Dates>
 <label><input type=radio name=date_precision value=exact {% if values.date_precision != 'month' %}checked{% endif %}><span>Exact dates</span></label>
 <label><input type=radio name=date_precision value=month {% if values.date_precision == 'month' %}checked{% endif %}><span>Month only</span></label>
-</div>
-<div id=exactDates {% if values.date_precision == 'month' %}hidden{% endif %}>
+</div>{% endif %}
+<div id=exactDates {% if organizer and values.date_precision == 'month' %}hidden{% endif %}>
 <div class=row><label>Starts<input type=date name=date value="{{ values.date }}"></label><label>Ends<input type=date name=end_date value="{{ values.end_date }}"></label></div>
 <div class=row><label>Start time<input type=time name=start_time value="{{ values.start_time or '09:00' }}"></label><label>End time<input type=time name=end_time value="{{ values.end_time }}"></label></div>
 </div>
-<div id=monthDates {% if values.date_precision != 'month' %}hidden{% endif %}>
+<div id=monthDates {% if not organizer or values.date_precision != 'month' %}hidden{% endif %}>
 <label>Month<input type=month name=month value="{{ values.month }}"></label>
 <label>Part of the month<select name=date_part><option value="">TBA</option><option value=early {% if values.date_part == 'early' %}selected{% endif %}>Early</option><option value=mid {% if values.date_part == 'mid' %}selected{% endif %}>Mid</option><option value=late {% if values.date_part == 'late' %}selected{% endif %}>Late</option></select></label>
 </div>
@@ -2300,9 +2300,10 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
  document.querySelectorAll('input[name=hosting]').forEach(function(r){r.addEventListener('change', sync)});
  sync();
  var exactBox=document.getElementById('exactDates'), monthBox=document.getElementById('monthDates');
+ var canMonth={{ 'true' if organizer else 'false' }};
  function datesMode(){
   var on=document.querySelector('input[name=date_precision]:checked');
-  var month=!!(on&&on.value==='month');
+  var month=!!(canMonth&&on&&on.value==='month');
   if(exactBox){exactBox.hidden=month; exactBox.querySelectorAll('input,select').forEach(function(el){el.disabled=month});}
   if(monthBox){monthBox.hidden=!month; monthBox.querySelectorAll('input,select').forEach(function(el){el.disabled=!month});}
  }

@@ -301,6 +301,8 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
     if not title: raise ValueError("Add a title.")
     precision = (form.get("date_precision") or "exact").strip().lower()
     if precision not in ("exact", "month"): precision = "exact"
+    if not organizer and precision == "month":
+        raise ValueError("Add a specific date.")
     part = ""
     if precision == "month":
         month = (form.get("month") or "").strip()
@@ -411,11 +413,14 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
         featured = 1
     if existing and organizer and action not in ("draft", "cancel") and (existing["status"] or "") == "published" and status == "published":
         pass
-    plan = team_plan_for(event_type, team_intent, form, existing)
-    if plan == "committed":
-        team_intent = "official"
-    elif plan in ("considering", "planning"):
-        team_intent = "considering"
+    if organizer:
+        plan = team_plan_for(event_type, team_intent, form, existing)
+        if plan == "committed":
+            team_intent = "official"
+        elif plan in ("considering", "planning"):
+            team_intent = "considering"
+    else:
+        plan = ""
     kind, stage = legacy_kind(cat, subtype, team_intent)
     submitted = None
     if status == "pending":
