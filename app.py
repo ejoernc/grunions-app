@@ -1914,7 +1914,7 @@ def practice_coach_rows(d, pids):
     if not pids: return out
     marks = ",".join("?" * len(pids))
     for r in d.execute("""SELECT pc.practice_id AS pid, pc.is_lead, pc.focus, m.id, m.first, m.last, m.preferred_first, m.email,
-        m.membership_type, m.usawp_status, m.usawp_valid_until
+        m.membership_type, m.usawp_status, m.usawp_valid_until, m.trial_acknowledged_at
         FROM practice_coaches pc JOIN members m ON m.id=pc.member_id
         WHERE pc.practice_id IN (%s) AND COALESCE(m.role,'')!='system'
           AND m.id IN (SELECT member_id FROM coaching_list)""" % marks, tuple(pids)):
@@ -2006,6 +2006,13 @@ def handle_practice_post(d):
         if not can_host_practice(): abort(403)
         save_assigned_plan(d, pid, request.form.get("lead"), focus_map_from_form())
         save_coaching_plan(d, pid, request.form.get("coaching_plan"))
+    elif a == "note" and pid:
+        if not can_host_practice(): abort(403)
+        old_note = d.execute("SELECT note FROM practices WHERE id=?", (pid,)).fetchone()
+        note = request.form.get("note")
+        d.execute("UPDATE practices SET note=? WHERE id=?", (note, pid))
+        if old_note and (old_note["note"] or "") != (note or ""):
+            flag_practice(d, pid, "change", me()["id"])
     elif a == "image" and pid:
         if not can_host_practice(): abort(403)
         try:
@@ -4232,7 +4239,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-65 */
+SW_JS = """/* grunions-sw-66 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

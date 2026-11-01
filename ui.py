@@ -192,7 +192,7 @@ input[type=file].pick{position:absolute;width:1px;height:1px;padding:0;margin:-1
 .homedock .card{pointer-events:auto;background:var(--color-surface);margin:0}
 .menu a{display:flex;align-items:center;width:100%;height:40px;padding:0 12px;box-sizing:border-box;color:var(--t1);font-weight:500;font-size:15px;text-decoration:none;border-radius:8px}
 .card .menu,.pagehead .menu{left:auto;right:0;min-width:220px}
-.pagehead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.pagehead{display:flex;justify-content:space-between;align-items:center;gap:12px}.pagehead>h1{margin:0}
 .usawp-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
 .list{background:var(--surface);border-radius:var(--r);margin:0 0 12px;overflow:hidden}
 .list.loose{overflow:visible}
@@ -301,6 +301,8 @@ h3.alpha{margin:0;padding:8px 0 6px;font-size:13px;font-weight:700;letter-spacin
 .psub.st-warn::before{background:var(--color-status-attention)}
 .psub.st-bad::before{background:var(--color-status-not-cleared)}
 .psub.st-unknown::before{background:var(--color-status-unknown)}
+.coachmark{display:inline-block;width:16px;height:16px;margin:0;flex:none;overflow:visible;font-size:0;line-height:16px}
+.coachmark::before{margin-right:0;vertical-align:0}
 .peoplebar .peoplesum{margin:12px 0 0;line-height:1.35}
 .seg{display:flex;gap:8px;margin:0}
 .seg::-webkit-scrollbar{display:none}
@@ -549,6 +551,12 @@ dialog.memberedit .help a{color:var(--t1)}
 {% set thru = '' %}{% if not (tw and tw.active and r.usawp_status != 'verified') and r.usawp_valid_until and (dl is none or dl < 0 or dl > EXPIRING_DAYS) %}{% set thru = ' · thru ' ~ fmt_long(r.usawp_valid_until) %}{% endif %}
 {% set detail = (ns.rest or '') ~ thru %}
 <span class="psub ell st-{{ ns.tone }}"><span class=stword>{{ ns.word }}</span>{% if detail %}<span class=strest>{{ detail }}</span>{% endif %}</span>{% endmacro %}
+{% macro person_mark(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}{% set ns = namespace(tone='ok') %}
+{% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{% set ns.tone = 'warn' %}
+{% elif tw and tw.expired and r.usawp_status != 'verified' %}{% set ns.tone = 'bad' %}
+{% elif not cl.ok %}{% set ns.tone = 'bad' %}
+{% elif dl is not none and dl >= 0 and dl <= EXPIRING_DAYS %}{% set ns.tone = 'warn' %}{% endif %}
+<span class="psub st-{{ ns.tone }} coachmark" aria-hidden="true"></span>{% endmacro %}
 {% macro person_link(r) %}<a class=ci-name href="/admin/member/{{ r.id }}">{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ person_sub(r) }}{{ caller() }}</span></a>{% endmacro %}
 {% macro event_chooser(staff) %}
 <p class=planask>What are you planning?</p>
@@ -620,6 +628,10 @@ dialog.memberedit .help a{color:var(--t1)}
 {% if p.image %}<label><input type=checkbox name=image_clear value=1> Remove image</label>{% endif %}
 <p class="t3 sm">Shown on the Home card only. Leave the file empty to keep the current picture.</p>
 <button class="btn btn-primary full" name=action value=image>Save</button></form></div></dialog>
+<dialog class=modal id=notes{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Notes</h2>
+<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
+<label>Notes<textarea name=note rows=4>{{ p.note or '' }}</textarea></label>
+<button class="btn btn-primary full" name=action value=note>Save</button></form></div></dialog>
 {% endmacro %}
 {% macro practice_host_more(p, back) %}
 <span class=more><button type=button class=morebtn aria-label="More for {{ fmt_d(p.date) }}" aria-haspopup=menu aria-expanded=false><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></button>
@@ -742,7 +754,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=65');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=66');
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1636,7 +1648,7 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="btn btn-primary full" name=action value=official>Make official</button></form>{% endif %}
 {% if e.venue or e.city %}{{ event_location('lineLoc', e.pins, e.venue or e.city, e.city if e.venue else '', e.dir_href) }}{% endif %}
 <script>(function(){var el=document.getElementById('evdesc'),btn=document.getElementById('evmore');if(!el||!btn)return;if(el.scrollHeight>el.clientHeight+2)btn.hidden=false;btn.onclick=function(){var open=el.classList.toggle('open');btn.textContent=open?'Less':'More';};})();</script>"""
-T["approvals"] = """<h1>Events</h1>
+T["approvals"] = """<div class=pagehead><h1>Events</h1><a class="btn btn-primary" href="/events/new">Create event</a></div>
 {% if queue %}<h2>Needs review ({{ queue|length }})</h2>
 {% for e in queue %}<div class=card>
 <div class=nxtitle>{{ e.title }}</div>
@@ -1650,7 +1662,6 @@ T["approvals"] = """<h1>Events</h1>
 <label style="margin-top:12px">Note<textarea name=note rows=2 placeholder="Needed for changes or a decline"></textarea></label>
 <div class=row><button class="btn btn-secondary" name=action value=changes>Request Changes</button><button class="btn btn-danger" name=action value=decline>Decline</button></div>
 </form></div>{% endfor %}{% endif %}
-{{ event_chooser(true) }}
 {% for g in groups %}<h2>{{ g.label }}</h2><div class=list>{% for item in g['items'] %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endfor %}
 {% if not groups and not queue %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
 T["event_new"] = """{% if show_form %}
@@ -1850,11 +1861,11 @@ T["practice"] = """{% set p = x.p %}
 <button class="btn {{ 'btn-primary' if x.mine == 1 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==1 else 'going' }}">I'm going{% if x.mine==1 %} ✓{% endif %}</button>
 <button class="btn {{ 'btn-primary' if x.mine == 0 else 'btn-secondary' }}" name=action value="{{ 'clear' if x.mine==0 else 'notgoing' }}">I'm not going{% if x.mine==0 %} ✓{% endif %}</button></form>{% endif %}
 <div class=seclabel>Details</div>
-<div class=list>
-{% if p.note %}<div class="li prow"><span class=k>Notes</span><span class=v>{{ p.note }}</span></div>{% endif %}
-{% if p.coach_note %}<div class="li prow"><span class=k>Coach note</span><span class=v>{{ p.coach_note }} · {{ p.coach_note_by }}{% if p.coach_note_at %} · {{ fmt_stamp(p.coach_note_at) }}{% endif %}</span></div>{% endif %}
-{% if not p.note and not p.coach_note %}<div class=li><span class=t3>No notes yet.</span></div>{% endif %}
-</div>
+<div class=list><div class=li><div class=grow>
+{% if p.note %}<div class="prow" style="padding:0"><span class=k>Notes</span><span class=v>{{ p.note }}</span></div>{% endif %}
+{% if p.coach_note %}<div class="prow" style="padding:0"><span class=k>Coach note</span><span class=v>{{ p.coach_note }} · {{ p.coach_note_by }}{% if p.coach_note_at %} · {{ fmt_stamp(p.coach_note_at) }}{% endif %}</span></div>{% endif %}
+{% if not p.note and not p.coach_note %}<span class=t3>No notes yet.</span>{% endif %}
+</div>{% if can_host_practice() %}<button type=button class="btn btn-secondary" data-open="notes{{ p.id }}">{{ 'Edit' if p.note else 'Add' }}</button>{% endif %}</div></div>
 <div class=seclabel>After-practice social</div>
 <div class=list><div class=li>{% if social_line(p) %}{{ social_icon() }}{% endif %}<div class=grow>
 {% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
@@ -1864,25 +1875,25 @@ T["practice"] = """{% set p = x.p %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
 </div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>
 <div class=seclabel>Coaches</div>
-<div class=list>{% for c in x.coaches %}{% set ce = coach_eligibility(c) %}<div class=li><div class=grow><div style="display:flex;align-items:center;gap:8px;min-width:0"><span class=ell>{% if me().is_admin or is_staff() %}<a href="/admin/member/{{ c.id }}" style="color:inherit;text-decoration:none">{{ display_first(c) }} {{ c.last }}</a>{% else %}{{ display_first(c) }} {{ c.last }}{% endif %}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Lead</span>{% endif %}</div>{% if can_host_practice() and c.focus %}<div class="t3 sm">{{ c.focus }}</div>{% endif %}</div>{% if ce.eligible %}{{ coach_tag(c) }}{% else %}<span class="st st-warn coach-elig">{{ ce.text or 'Not eligible' }}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}</div>
-{% if can_host_practice() %}
-<div class=seclabel style="display:flex;align-items:center;gap:8px">Coaching plan <span class="chip-info" style="margin:0">Coaches only</span></div>
-{% if plan_editing %}<form id=practiceForm method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=plan_fields value=1>
 <div class=list>
+{% for c in x.coaches %}<div class=li><div class=grow><div style="display:flex;align-items:center;gap:8px;min-width:0">{% if can_host_practice() %}{{ person_mark(c) }}{% endif %}<span class=ell>{% if me().is_admin or is_staff() %}<a href="/admin/member/{{ c.id }}" style="color:inherit;text-decoration:none">{{ display_first(c) }} {{ c.last }}</a>{% else %}{{ display_first(c) }} {{ c.last }}{% endif %}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Lead</span>{% endif %}</div>{% if can_host_practice() and c.focus %}<div class="t3 sm">{{ c.focus }}</div>{% endif %}</div></div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}
+{% if can_host_practice() %}
+{% if plan_editing %}<form id=practiceForm method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=plan_fields value=1>
+<div class=li><span class="chip-info" style="margin:0">Coaches only</span></div>
 <div class=li><label class=prefedit style="width:100%;margin:0">Today's plan<textarea name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label></div>
 {% if x.coaches %}<div class=li><label style="margin:0"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}>No lead</label></div>{% endif %}
 {% for c in x.coaches %}<div class=li><div class=grow>
 <label style="margin:0"><input type=radio name=lead value="{{ c.id }}" {% if c.is_lead %}checked{% endif %}>{{ display_first(c) }} {{ c.last }}</label>
 <label style="margin:8px 0 0">Focus group<input name="focus-{{ c.id }}" list=focusGroups value="{{ c.focus or '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
 </div></div>{% endfor %}
-</div>
 <datalist id=focusGroups><option value=Beginners><option value=Intermediate><option value=Advanced><option value=Goalies></datalist>
 </form>
-{% else %}<div class=list>
-<div class="li prow" style="align-items:flex-start"><span class=k>Today's plan</span><span class=v style="white-space:pre-wrap">{{ p.coaching_plan or '—' }}</span></div>
+{% else %}
+<div class="li prow" style="align-items:flex-start"><span class=k>Today's plan <span class="chip-info" style="margin:0 0 0 8px">Coaches only</span></span><span class=v style="white-space:pre-wrap">{{ p.coaching_plan or '—' }}</span><button type=button class="btn btn-secondary" data-open="plan{{ p.id }}">{{ 'Edit' if p.coaching_plan else 'Add' }}</button></div>
 {% for c in x.coaches %}<div class="li prow"><span class=k>{{ display_first(c) }} {{ c.last }}{% if c.is_lead %} · Lead{% endif %}</span><span class=v>{{ c.focus or '—' }}</span></div>{% else %}<div class=li><span class=t3>Assign a coach to set a focus group.</span></div>{% endfor %}
-</div>{% endif %}
 {% endif %}
+{% endif %}
+</div>
 {{ whos_going(x.going) }}
 <div class=seclabel>Can't make it</div>
 <div class=list>{% for r in x.notgoing %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
@@ -1890,7 +1901,18 @@ T["practice"] = """{% set p = x.p %}
 <div class=list>{% for r in x.checked %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
 {% if p.location %}{% set dest = (pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location) %}{{ event_location('practiceLoc', pins, p.location, p.address or '', 'https://www.google.com/maps/dir/?api=1&destination=' ~ (dest|urlencode)) }}{% endif %}
 {% endif %}
-{% if me().is_admin or is_staff() %}{{ practice_extra_dialogs(p, 'page') }}{% endif %}
+{% if me().is_admin or is_staff() %}{{ practice_extra_dialogs(p, 'page') }}
+<dialog class=modal id=plan{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Coaching plan</h2>
+<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+<label>Today's plan<textarea name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label>
+{% if x.coaches %}<label style="margin:0 0 8px"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}>No lead</label>{% endif %}
+{% for c in x.coaches %}
+<label style="margin:8px 0 0"><input type=radio name=lead value="{{ c.id }}" {% if c.is_lead %}checked{% endif %}>{{ display_first(c) }} {{ c.last }}</label>
+<label style="margin:8px 0 0">Focus group<input name="focus-{{ c.id }}" list=planFocus value="{{ c.focus or '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
+{% endfor %}
+<datalist id=planFocus><option value=Beginners><option value=Intermediate><option value=Advanced><option value=Goalies></datalist>
+<button class="btn btn-primary full" name=action value=plan style="margin-top:12px">Save</button></form></div></dialog>
+{% endif %}
 {% if is_staff() and not me().is_admin %}
 <dialog class=modal id=hostedit{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Edit practice</h2>
 <div class=list>
