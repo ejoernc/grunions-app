@@ -166,6 +166,8 @@ def migrate_practices(d):
             d.execute("ALTER TABLE practices ADD COLUMN %s %s" % (c, t))
     d.execute("UPDATE practices SET activity_type='practice' WHERE activity_type IS NULL OR trim(activity_type)=''")
     d.execute("UPDATE practices SET sport='Water Polo' WHERE sport IS NULL OR trim(sport)=''")
+    d.execute("""UPDATE practices SET date_part='all'
+        WHERE date_precision='month' AND (date_part IS NULL OR trim(date_part)='' OR lower(trim(date_part))='tba')""")
     migrate_social_kinds(d)
     pin_known_pools(d)
 def migrate_social_joins(d):
@@ -1543,7 +1545,7 @@ def month_window(month, part):
     if part == "early": return first, dt.date(year, mon, min(10, last.day)), "early"
     if part == "mid": return dt.date(year, mon, min(11, last.day)), dt.date(year, mon, min(20, last.day)), "mid"
     if part == "late": return dt.date(year, mon, min(21, last.day)), last, "late"
-    return first, last, ""
+    return first, last, "all"
 def _row_val(row, *keys):
     if row is None or not hasattr(row, "keys"): return ""
     for key in keys:
@@ -1553,7 +1555,7 @@ def _month_last(day):
     if day.month == 12: return dt.date(day.year, 12, 31)
     return dt.date(day.year, day.month + 1, 1) - dt.timedelta(days=1)
 def effective_sort_date(row):
-    """Where a month-only event sits among real dates. Early is the 5th, Mid the 15th, Late the 25th, TBA the last day."""
+    """Where a month-only event sits among real dates. Early is the 5th, Mid the 15th, Late the 25th, All month the last day."""
     raw = str(_row_val(row, "date") or "")[:10]
     try:
         day = dt.date.fromisoformat(raw)
@@ -4530,7 +4532,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-78 */
+SW_JS = """/* grunions-sw-79 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

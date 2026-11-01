@@ -119,6 +119,8 @@ def ensure_schema(d):
         if c not in cols:
             d.execute("ALTER TABLE lineup_events ADD COLUMN %s %s" % (c, t))
     d.execute("UPDATE lineup_events SET date_precision='exact' WHERE date_precision IS NULL OR trim(date_precision)=''")
+    d.execute("""UPDATE lineup_events SET date_part='all'
+        WHERE date_precision='month' AND (date_part IS NULL OR trim(date_part)='' OR lower(trim(date_part))='tba')""")
     for eid, subtype, kind, slug, stored in d.execute("""SELECT e.id, COALESCE(e.subtype,''), COALESCE(e.kind,''),
             COALESCE(c.slug,''), COALESCE(e.event_type,'')
             FROM lineup_events e LEFT JOIN lineup_categories c ON c.id=e.category_id"""):
@@ -316,7 +318,7 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
             raise ValueError("Choose a month.")
         start_time, end_time = "", ""
         part = (form.get("date_part") or "").strip().lower()
-        if part not in ("early", "mid", "late"): part = ""
+        if part not in ("early", "mid", "late", "all"): part = "all"
     else:
         day = parse_date(form.get("date")) if parse_date else None
         if not day: raise ValueError("Add a start date.")
@@ -470,14 +472,20 @@ def _date_fields(form=None, row=None):
         precision = (form.get("date_precision") or "exact").strip().lower()
         if precision not in ("exact", "month"): precision = "exact"
         part = (form.get("date_part") or "").strip().lower()
-        if part not in ("early", "mid", "late"): part = ""
+        if precision == "month":
+            if part not in ("early", "mid", "late", "all"): part = "all"
+        elif part not in ("early", "mid", "late", "all"):
+            part = ""
         month = (form.get("month") or "").strip()
         if not re.fullmatch(r"\d{4}-\d{2}", month):
             month = str(form.get("date") or "")[:7]
         return precision, month if re.fullmatch(r"\d{4}-\d{2}", month) else "", part
     if row is not None:
         precision = row["date_precision"] if "date_precision" in row.keys() and row["date_precision"] in ("exact", "month") else "exact"
-        part = row["date_part"] if "date_part" in row.keys() and (row["date_part"] or "") in ("early", "mid", "late") else ""
+        stored = (row["date_part"] or "").strip().lower() if "date_part" in row.keys() else ""
+        if stored in ("early", "mid", "late", "all"): part = stored
+        elif precision == "month": part = "all"
+        else: part = ""
         month = str(row["date"] or "")[:7]
         return precision, month if re.fullmatch(r"\d{4}-\d{2}", month) else "", part
     return "exact", "", ""

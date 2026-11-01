@@ -503,6 +503,8 @@ div.card.tap.tripcard{padding:18px;overflow:visible}div.card.tap.tripcard .lineu
 .actseg span{display:flex;align-items:center;justify-content:center;height:40px;min-height:40px;border-radius:var(--radius-button);background:transparent;color:var(--color-text-secondary);font-size:var(--type-b3-size);font-weight:var(--type-b3-weight);padding:0 var(--space-2)}
 .actseg input:checked+span{background:var(--color-lime);color:var(--color-forest)}
 .actseg input:focus-visible+span{outline:2px solid var(--color-focus);outline-offset:2px}
+dialog.matpick .matpart{flex-wrap:nowrap;margin:12px 4px 0}
+dialog.matpick .matpart span{white-space:nowrap;font-size:12px;padding:0 2px;height:36px;min-height:36px}
 .evhost{color:var(--t2);font-size:14px;margin:2px 0 8px}.evnote{color:var(--t2);font-size:15px;line-height:1.4;margin:8px 0}
 details.moredetails{margin:8px 0 12px}details.moredetails>summary{min-height:44px;padding:8px 0;font-weight:600}
 .growthcard{position:relative;padding:var(--space-4) var(--space-4) var(--space-2);margin:0 0 var(--space-3)}
@@ -861,7 +863,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=78');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=79');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -1142,20 +1144,31 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   if(dateDlg) return dateDlg;
   dateDlg=document.createElement('dialog');
   dateDlg.className='matpick'; dateDlg.id='grunionsDateDlg'; dateDlg.setAttribute('aria-label','Select date');
-  dateDlg.innerHTML='<div class=sheet><div class=matkicker>Select date</div><div class=matheadline id=matHeadline></div><div class=calhead><select id=matMonth class=matmonth aria-label="Month and year"></select><button type=button class=calmonth id=matPrev aria-label="Previous month"></button><button type=button class=calmonth id=matNext aria-label="Next month"></button></div><div class=calwd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class=calgrid id=matGrid></div><div class=matactions><button type=button class=mattext id=matDateCancel>Cancel</button><button type=button class=mattext id=matDateOk>OK</button></div></div>';
+  dateDlg.innerHTML='<div class=sheet><div class=matkicker id=matKicker>Select date</div><div class=matheadline id=matHeadline></div><div class=calhead><select id=matMonth class=matmonth aria-label="Month and year"></select><button type=button class=calmonth id=matPrev aria-label="Previous month"></button><button type=button class=calmonth id=matNext aria-label="Next month"></button></div><div class=calwd id=matWd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class=calgrid id=matGrid></div><div class="actseg matpart" id=matPart role=radiogroup aria-label="Part of the month" hidden><label><input type=radio name=mat_part value=all checked><span>All month</span></label><label><input type=radio name=mat_part value=early><span>Early</span></label><label><input type=radio name=mat_part value=mid><span>Mid</span></label><label><input type=radio name=mat_part value=late><span>Late</span></label></div><div class=matactions><button type=button class=mattext id=matDateCancel>Cancel</button><button type=button class=mattext id=matDateOk>OK</button></div></div>';
   document.body.appendChild(dateDlg);
   dateDlg.querySelector('#matPrev').innerHTML='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>';
   dateDlg.querySelector('#matNext').innerHTML='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>';
   dateDlg.querySelector('#matPrev').onclick=function(){ shiftDate(-1); };
   dateDlg.querySelector('#matNext').onclick=function(){ shiftDate(1); };
-  dateDlg.querySelector('#matMonth').addEventListener('change', function(){ if(this.value) paintDate(this.value); });
+  dateDlg.querySelector('#matMonth').addEventListener('change', function(){ if(!this.value) return; if(dateSt.monthOnly) dateSt.iso=this.value+'-01'; paintDate(this.value); });
   dateDlg.querySelector('#matGrid').addEventListener('click', function(e){
-   var b=e.target.closest&&e.target.closest('button.calday'); if(!b) return;
+   var b=e.target.closest&&e.target.closest('button.calday'); if(!b||dateSt.monthOnly) return;
    dateSt.iso=b.getAttribute('data-date'); paintDate(dateSt.iso.slice(0,7));
+  });
+  dateDlg.querySelector('#matPart').addEventListener('change', function(e){
+   var r=e.target; if(!r||r.name!=='mat_part'||!dateSt) return;
+   dateSt.part=r.value; paintDate(dateSt.ym);
   });
   dateDlg.querySelector('#matDateCancel').onclick=function(){ dateDlg.close(); };
   dateDlg.querySelector('#matDateOk').onclick=function(){
-   if(dateSt&&dateSt.input){ dateSt.input.value=dateSt.monthOnly?(dateSt.iso||'').slice(0,7):(dateSt.iso||''); dateSt.input.dispatchEvent(new Event('input',{bubbles:true})); dateSt.input.dispatchEvent(new Event('change',{bubbles:true})); }
+   if(dateSt&&dateSt.input){
+    dateSt.input.value=dateSt.monthOnly?(dateSt.iso||'').slice(0,7):(dateSt.iso||'');
+    if(dateSt.monthOnly&&dateSt.input.form){
+     var part=dateSt.input.form.querySelector('[data-monthpart]');
+     if(part){ part.value=dateSt.part||'all'; part.dispatchEvent(new Event('input',{bubbles:true})); part.dispatchEvent(new Event('change',{bubbles:true})); }
+    }
+    dateSt.input.dispatchEvent(new Event('input',{bubbles:true})); dateSt.input.dispatchEvent(new Event('change',{bubbles:true}));
+   }
    dateDlg.close();
   };
   dateDlg.addEventListener('click', function(e){ if(e.target===dateDlg) dateDlg.close(); });
@@ -1166,12 +1179,20 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   for(y=y0;y<y0+12;y++) for(m=1;m<=12;m++) html+='<option value="'+y+'-'+pad(m)+'">'+months[m-1]+' '+y+'</option>';
   sel.innerHTML=html;
  }
+ function monthHead(ym, part){
+  var y=+ym.slice(0,4), m=+ym.slice(5,7), label=months[m-1]+' '+y;
+  if(part==='early'||part==='mid'||part==='late') return part.charAt(0).toUpperCase()+part.slice(1)+' '+label;
+  return label;
+ }
  function paintDate(ym){
   dateSt.ym=ym;
   var y=+ym.slice(0,4), m=+ym.slice(5,7), sel=dateDlg.querySelector('#matMonth');
   if(!sel.querySelector('option[value="'+ym+'"]')) fillDateMonths(sel, ym+'-01');
   sel.value=ym;
-  dateDlg.querySelector('#matHeadline').textContent=headline(dateSt.iso);
+  var partBox=dateDlg.querySelector('#matPart'), kick=dateDlg.querySelector('#matKicker');
+  if(partBox) partBox.hidden=!dateSt.monthOnly;
+  if(kick) kick.textContent=dateSt.monthOnly?'Select month':'Select date';
+  dateDlg.querySelector('#matHeadline').textContent=dateSt.monthOnly?monthHead(ym, dateSt.part):headline(dateSt.iso);
   var blanks=new Date(y, m-1, 1).getDay(), last=new Date(y, m, 0).getDate(), html='', day, iso, today=todayISO();
   for(var i=0;i<blanks;i++) html+='<span class=calday></span>';
   for(day=1;day<=last;day++){
@@ -1183,7 +1204,9 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
  function shiftDate(delta){
   var y=+dateSt.ym.slice(0,4), m=+dateSt.ym.slice(5,7)+delta;
   if(m<1){m=12;y--} if(m>12){m=1;y++}
-  paintDate(y+'-'+pad(m));
+  var ym=y+'-'+pad(m);
+  if(dateSt.monthOnly) dateSt.iso=ym+'-01';
+  paintDate(ym);
  }
  function makeTime(){
   if(timeDlg) return timeDlg;
@@ -1233,7 +1256,13 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   var raw=input.value||'';
   var iso=(input.type==='month' && /^\\d{4}-\\d{2}$/.test(raw))?raw+'-01':raw;
   if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(iso)) iso=todayISO();
-  dateSt={input:input, iso:iso, ym:iso.slice(0,7), monthOnly:input.type==='month'};
+  var part='all', monthOnly=input.type==='month';
+  if(monthOnly && input.form){
+   var pel=input.form.querySelector('[data-monthpart]'), pv=pel?(pel.value||'').toLowerCase():'';
+   if(pv==='early'||pv==='mid'||pv==='late'||pv==='all') part=pv;
+  }
+  dateSt={input:input, iso:iso, ym:iso.slice(0,7), monthOnly:monthOnly, part:part};
+  dateDlg.querySelectorAll('input[name=mat_part]').forEach(function(r){ r.checked=r.value===part; });
   fillDateMonths(dateDlg.querySelector('#matMonth'), iso);
   paintDate(dateSt.ym);
   if(!dateDlg.open) dateDlg.showModal();
@@ -2106,7 +2135,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>
 <div class=list id=monthWhen hidden>
 <button type=button class="li setrow" data-matfor=monthInput><span class=grow>Month<span class=sum id=monthSum> Choose a month</span></span>""" + _CHEV + """</button>
-<label>Part of the month<select name=date_part><option value="">TBA</option><option value=early>Early</option><option value=mid>Mid</option><option value=late>Late</option></select></label>
+<input type=hidden name=date_part id=datePart data-monthpart value=all>
 </div>
 <label>Location<span id=locOk class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location id=locInput data-places autocomplete=off placeholder="Pool or address"></label>
 <div class=seclabel>Additional settings</div>
@@ -2210,7 +2239,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
  if(custom) custom.onclick=function(){ titleMode.value='custom'; titleField.hidden=false; titleInput.value=live.textContent; titleInput.focus(); };
  if(reset) reset.onclick=function(){ titleMode.value='auto'; titleField.hidden=true; titleInput.value=''; paintTitle(); };
   function clock(v){ if(!v) return ''; var p=v.split(':'); var h=parseInt(p[0],10), m=p[1]||'00'; var ap=h>=12?'PM':'AM'; h=h%12; if(!h) h=12; return h+':'+m+' '+ap; }
- function monthLabel(v){ if(!v||v.length<7) return ' Choose a month'; var names=['January','February','March','April','May','June','July','August','September','October','November','December']; return ' '+names[(parseInt(v.slice(5,7),10)||1)-1]+' '+v.slice(0,4); }
+ function monthLabel(v){ if(!v||v.length<7) return ' Choose a month'; var names=['January','February','March','April','May','June','July','August','September','October','November','December']; var partEl=document.getElementById('datePart'); var part=partEl?partEl.value:''; var prefix=part==='early'?'Early ':(part==='mid'?'Mid ':(part==='late'?'Late ':'')); return ' '+prefix+names[(parseInt(v.slice(5,7),10)||1)-1]+' '+v.slice(0,4); }
  function syncWhen(){
   var d=document.getElementById('dateInput'), s=document.getElementById('startInput'), e=document.getElementById('endInput'), mo=document.getElementById('monthInput');
   var ds=document.getElementById('dateSum'), ss=document.getElementById('startSum'), es=document.getElementById('endSum'), ms=document.getElementById('monthSum');
@@ -2219,7 +2248,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   if(es) es.textContent=e&&e.value?(' '+clock(e.value)):'';
   if(ms) ms.textContent=monthLabel(mo&&mo.value);
  }
- ['dateInput','startInput','endInput','monthInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change', syncWhen); });
+ ['dateInput','startInput','endInput','monthInput','datePart'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change', syncWhen); });
  syncWhen();
  function syncLine(){
   var type=document.getElementById('lineType'); var name=type?type.value:'Social';
@@ -2272,7 +2301,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 </div>
 <div id=monthDates {% if not organizer or values.date_precision != 'month' %}hidden{% endif %}>
 <label>Month<input type=month name=month value="{{ values.month }}"></label>
-<label>Part of the month<select name=date_part><option value="">TBA</option><option value=early {% if values.date_part == 'early' %}selected{% endif %}>Early</option><option value=mid {% if values.date_part == 'mid' %}selected{% endif %}>Mid</option><option value=late {% if values.date_part == 'late' %}selected{% endif %}>Late</option></select></label>
+<input type=hidden name=date_part data-monthpart value="{{ values.date_part if values.date_part in ('early', 'mid', 'late') else 'all' }}">
 </div>
 <label>City<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=city value="{{ values.city }}" data-places required placeholder="Toronto, Canada" autocomplete=off></label>
 <label>Venue<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=venue value="{{ values.location }}" data-places placeholder="Name and address, optional" autocomplete=off></label>
