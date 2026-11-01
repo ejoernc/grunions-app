@@ -22,7 +22,7 @@ def test_multi_admin_bootstrap(): assert is_admin("boss@example.com") and is_adm
 def test_roles_page_admin_only():
     assert mem.get("/members").status_code == 403 and mem.get("/admins").status_code == 403
     page = boss.get("/members").get_data(as_text=True)
-    assert "Mem Three" in page and "mem@example.com" not in page and ">People<" in page and ">Roles<" not in page
+    assert "Mem Three" in page and "mem@example.com" not in page and "<h1>Members</h1>" in page and ">Roles<" not in page
     assert boss.get("/admins", follow_redirects=True).status_code == 200
     assert mem.post("/admins", data=dict(csrf=csrf(mem, "/home"), member_id=1, action="make_admin")).status_code == 403
 def test_promote_demote_and_coach():

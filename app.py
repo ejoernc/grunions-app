@@ -2889,6 +2889,8 @@ _MANAGE_ICONS = {
  "swap": "M213.66,181.66l-32,32a8,8,0,0,1-11.32-11.32L188.69,184H48a8,8,0,0,1,0-16H188.69l-18.35-18.34a8,8,0,0,1,11.32-11.32l32,32A8,8,0,0,1,213.66,181.66Zm-139.32-96L56,104H216a8,8,0,0,0,0-16H67.31L85.66,69.66A8,8,0,0,0,74.34,58.34l-32,32a8,8,0,0,0,0,11.32l32,32A8,8,0,0,0,74.34,145.66Z",
  "rules": "M88,48V16a8,8,0,0,1,16,0V48h48V16a8,8,0,0,1,16,0V48h16a16,16,0,0,1,16,16V208a16,16,0,0,1-16,16H72a16,16,0,0,1-16-16V64A16,16,0,0,1,72,48ZM72,64V208H184V64Zm36,40a8,8,0,0,1,8-8h48a8,8,0,0,1,0,16H116A8,8,0,0,1,108,104Zm0,32a8,8,0,0,1,8-8h48a8,8,0,0,1,0,16H116A8,8,0,0,1,108,136Z",
  "qr": "M104,40H56A16,16,0,0,0,40,56v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,104,40Zm0,64H56V56h48Zm96-64H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,64H152V56h48ZM104,136H56a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,104,136Zm0,64H56V152h48Zm96-64H152a8,8,0,0,0-8,8v48a8,8,0,0,0,8,8h16v16a8,8,0,0,0,16,0V184h24a8,8,0,0,0,0-16H184V152h16a8,8,0,0,0,0-16Z",
+ "seal": "M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z",
+ "flag": "M42.76,50A8,8,0,0,0,40,56V224a8,8,0,0,0,16,0V179.77c26.79-21.16,49.87-9.75,76.45,3.41,16.4,8.11,31.32,15.51,48.22,15.51,13.93,0,28.54-4.75,43.82-18a8,8,0,0,0,2.76-6.25V56A8,8,0,0,0,218.76,50c-28,24.23-51.72,12.49-79.21-1.12C111.07,34.76,78.78,18.79,42.76,50ZM216,172.25c-26.79,21.16-49.87,9.74-76.45-3.41-25-12.35-50.81-25.11-83.55-8.93V59.79c26.79-21.16,49.87-9.75,76.45,3.4,25,12.35,50.81,25.12,83.55,8.94Z",
 }
 def _manage_row(title, desc, href, icon, count=0, tone="info"):
     return {"title": title, "desc": desc, "href": href, "icon": _micon(_MANAGE_ICONS[icon]), "count": count or 0, "tone": tone}
@@ -2898,24 +2900,41 @@ def expiring_people_count(d):
         for item in bucket:
             ids.add(item["id"])
     return len(ids)
+def roster_sets(d, rows=None):
+    """Who belongs on Members, Coaches, Admins, and Referees."""
+    if rows is None:
+        rows = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system'").fetchall()
+    listed = {r[0] for r in d.execute("SELECT member_id FROM coaching_list")}
+    referees = {r[0] for r in d.execute("SELECT member_id FROM referee_list")}
+    coach_ids = {r["id"] for r in rows if coach_eligibility(d, r)["eligible"]}
+    ref_ids = {r["id"] for r in rows if referee_eligibility(d, r)["eligible"]}
+    coaches = {r["id"] for r in rows if (r["role"] or "") == "coach" or r["id"] in listed or r["id"] in coach_ids}
+    refs = {r["id"] for r in rows if r["id"] in referees or r["id"] in ref_ids}
+    admins = {r["id"] for r in rows if r["is_admin"]}
+    return {"rows": rows, "listed": listed, "referees": referees, "coach_ids": coach_ids, "ref_ids": ref_ids,
+            "coaches": coaches, "refs": refs, "admins": admins}
 def manage_home_groups(d):
     """Rows the signed-in coach or admin is allowed to open."""
     host, staff, admin = can_host_practice(), is_staff(), bool(me()["is_admin"])
-    activities, members, club = [], [], []
+    activities, people, club = [], [], []
     if staff or admin:
         activities.append(_manage_row("Schedule", "Practices, scrimmages & games", "/admin" if staff else "/manage/schedule", "cal"))
     if host:
         activities.append(_manage_row("Lineup", "Events, tournaments & socials", "/manage/lineup", "people"))
         activities.append(_manage_row("Requests", "Member-submitted events", "/manage/requests", "tray", approval_count(), "info"))
     if admin:
-        members.append(_manage_row("People", "Roster, roles & profiles", "/members", "user"))
-        members.append(_manage_row("Compliance", "Memberships & certifications", "/expiring", "shield", expiring_people_count(d), "warn"))
+        sets = roster_sets(d)
+        people.append(_manage_row("Members", "Everyone on the roster", "/members", "people", len(sets["rows"])))
+        people.append(_manage_row("Coaches", "Active coaches and coach eligible", "/members?view=coaches", "user", len(sets["coaches"])))
+        people.append(_manage_row("Admins", "Club administrators", "/members?view=admins", "seal", len(sets["admins"])))
+        people.append(_manage_row("Referees", "Referee list and referee eligible", "/members?view=referees", "flag", len(sets["refs"])))
+        people.append(_manage_row("Compliance", "Memberships & certifications", "/expiring", "shield", expiring_people_count(d), "warn"))
         club.append(_manage_row("Data transfer", "Import & export", "/transfer", "swap"))
         club.append(_manage_row("Rules", "Policies & requirements", "/requirements", "rules"))
         club.append(_manage_row("QR codes", "Check-in & sharing", "/qr", "qr"))
     groups = []
     if activities: groups.append({"label": "Activities", "rows": activities})
-    if members: groups.append({"label": "Members", "rows": members})
+    if people: groups.append({"label": "People", "rows": people})
     if club: groups.append({"label": "Club settings", "rows": club})
     return groups
 def events_hub_groups(d):
@@ -3150,11 +3169,21 @@ def _request_rows(d, view):
     rows = [e for e in packed if wanted(e)]
     rows.sort(key=lambda e: (e.get("submitted") or e.get("sort_date") or effective_sort_date(e), e["id"]), reverse=(view != "pending"))
     return view, rows
+def signup_days(d):
+    joined, verified = [], []
+    for r in d.execute("SELECT created, usawp_verified_at FROM members WHERE COALESCE(role,'')!='system'"):
+        day = _stamp_day(r["created"], utc=True)
+        if day: joined.append(day)
+        vday = _stamp_day(r["usawp_verified_at"], utc=False)
+        if vday: verified.append(vday)
+    return joined, verified
 @app.route("/manage")
 @login_required
 def manage_home():
     if not can_host_practice(): abort(403)
-    return page(T["manage"], tab="manage", groups=manage_home_groups(db()))
+    d = db()
+    growth = growth_chart(*signup_days(d))["html"] if me()["is_admin"] else ""
+    return page(T["manage"], tab="manage", groups=manage_home_groups(d), growth=growth)
 @app.route("/manage/schedule")
 @login_required
 def manage_schedule():
@@ -3425,7 +3454,24 @@ def handle_member_detail(d, mid):
         d.execute("UPDATE members SET preferred_first=? WHERE id=?", (clean_preferred(request.form.get("preferred_first")), mid))
         if save_legal_name(d, mid): flash("Saved.", "toast")
         else: flash("Enter a legal first and last name.", "toast")
+        if request.form.get("roles_present"): apply_member_roles(d, mid)
     return "ok"
+def apply_member_roles(d, mid):
+    """Admin, active coach, and referee are separate. The last bootstrap admin stays an admin."""
+    row = d.execute("SELECT email, is_admin FROM members WHERE id=?", (mid,)).fetchone()
+    if not row: return
+    want_admin = request.form.get("is_admin") == "1"
+    want_coach = request.form.get("is_coach") == "1"
+    want_ref = request.form.get("is_referee") == "1"
+    if row["is_admin"] and not want_admin:
+        if is_last_admin(d, mid): flash("The last admin cannot be removed.", "toast")
+        elif (row["email"] or "") in ADMIN_EMAILS: flash("That admin is set by ADMIN_EMAIL.", "toast")
+        else: d.execute("UPDATE members SET is_admin=0 WHERE id=?", (mid,))
+    elif want_admin and not row["is_admin"]:
+        d.execute("UPDATE members SET is_admin=1 WHERE id=?", (mid,))
+    d.execute("UPDATE members SET role=? WHERE id=?", ("coach" if want_coach else "athlete", mid))
+    if want_ref: add_referee(d, mid)
+    else: d.execute("DELETE FROM referee_list WHERE member_id=?", (mid,))
 def save_legal_name(d, mid):
     """Admins may rename someone from the member page. A blank name is refused. Unchanged names are not audited."""
     if not me()["is_admin"]: abort(403)
@@ -3463,14 +3509,17 @@ def member_page(mid):
     month = today_pt().strftime("%Y-%m")
     editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
     audits = d.execute("SELECT actor, old_name, new_name, at FROM name_audits WHERE member_id=? ORDER BY id DESC LIMIT 8", (mid,)).fetchall()
-    return page(T["member"], tab="member", m=m, hist=hist, nmonth=sum(1 for h in hist if (h["practice_date"] or "").startswith(month)), editing=editing, audits=audits)
+    on_referees = bool(d.execute("SELECT 1 FROM referee_list WHERE member_id=?", (mid,)).fetchone())
+    return page(T["member"], tab="member", m=m, hist=hist, nmonth=sum(1 for h in hist if (h["practice_date"] or "").startswith(month)), editing=editing, audits=audits, on_referees=on_referees)
 def members_back():
     view = request.form.get("list_view") or ""
     if request.form.get("list_coach") == "eligible": view = view or "coaches"
     if request.form.get("list_referee") == "eligible": view = view or "referees"
     q = (request.form.get("q") or "").strip()
     kwargs = {}
-    if view in ("coaches", "admins", "referees", "expiring", "uncleared"): kwargs["view"] = view
+    if view in ("coaches", "admins", "referees"): kwargs["view"] = view
+    filt = (request.form.get("filt") or "").strip()
+    if filt in ("expiring", "uncleared"): kwargs["filt"] = filt
     if q: kwargs["q"] = q
     return redirect(url_for("members", **kwargs))
 def checkin_filter(raw, n_not, n_in):
@@ -3680,7 +3729,7 @@ def growth_chart(joined, verified, today=None):
     joined = sorted(d for d in joined if d and d <= today)
     verified = sorted(d for d in verified if d and d <= today)
     if not joined:
-        return {"html": Markup('<div class="card growthcard" id=growthCard data-kind=""><div class=growthhead>0 members</div><p class="t3 sm" style="margin:0">No signups yet.</p></div>'),
+        return {"html": Markup('<a class="card growthcard" id=growthCard href="/members" data-kind=""><div class=growthhead>0 members</div><p class="t3 sm" style="margin:0">No signups yet.</p></a>'),
                 "kind": "", "total": 0, "delta": 0}
     start, total = joined[0], len(joined)
     kind = _growth_kind((today - start).days)
@@ -3745,12 +3794,13 @@ function show(clientX){
  tip.style.left=Math.max(half+8, Math.min(card.clientWidth-half-8, left))+'px';
  if(mark){mark.setAttribute('x1', best.x); mark.setAttribute('x2', best.x); mark.setAttribute('opacity','0.45')}
 }
+svg.addEventListener('click', function(e){ e.preventDefault(); });
 svg.addEventListener('pointerdown', function(e){drag=true; try{svg.setPointerCapture(e.pointerId)}catch(err){} clearTimeout(timer); show(e.clientX)});
 svg.addEventListener('pointermove', function(e){if(drag) show(e.clientX)});
 function end(){drag=false; clearTimeout(timer); timer=setTimeout(function(){tip.hidden=true; if(mark) mark.setAttribute('opacity','0')}, 1400)}
 svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
 })();</script>"""
-    html = Markup('<div class="card growthcard" id=growthCard data-kind="%s" data-pts="%s"><div class=growthhead>%s</div>%s<div class=growthtip hidden></div></div>%s' % (
+    html = Markup('<a class="card growthcard" id=growthCard href="/members" data-kind="%s" data-pts="%s"><div class=growthhead>%s</div>%s<div class=growthtip hidden></div></a>%s' % (
         kind, escape(json.dumps(payload)), escape(head), "".join(parts), script))
     return {"html": html, "kind": kind, "total": total, "delta": delta}
 @app.route("/members", methods=["GET", "POST"])
@@ -3819,35 +3869,32 @@ def members():
       FROM members m WHERE COALESCE(role,'')!='system' ORDER BY last, first""", (pr["id"] if pr else -1,)).fetchall()
     q = (request.args.get("q") or "").strip()
     view = request.args.get("view") or "members"
+    filt = (request.args.get("filt") or "").strip()
     if request.args.get("coach") == "eligible": view = "coaches"
     if request.args.get("referee") == "eligible": view = "referees"
-    if view not in ("members", "coaches", "admins", "referees", "expiring", "uncleared"): view = "members"
+    if view == "expiring": view, filt = "members", "expiring"
+    elif view == "uncleared": view, filt = "members", "uncleared"
+    if view not in ("members", "coaches", "admins", "referees"): view = "members"
+    if filt not in ("", "expiring", "uncleared"): filt = ""
+    sets = roster_sets(d, rows)
+    if view == "coaches": rows = [r for r in rows if r["id"] in sets["coaches"]]
+    elif view == "admins": rows = [r for r in rows if r["id"] in sets["admins"]]
+    elif view == "referees": rows = [r for r in rows if r["id"] in sets["refs"]]
     if q:
         needle = q.casefold()
         rows = [r for r in rows if needle in " ".join(x for x in (r["first"], r["preferred_first"], r["last"], r["email"]) if x).casefold()]
-    if view == "expiring":
+    if filt == "expiring":
         rep = expiry_report(d)
         ids = {item["id"] for bucket in rep.values() for item in bucket}
         rows = [r for r in rows if r["id"] in ids]
-    elif view == "uncleared":
+    elif filt == "uncleared":
         rows = [r for r in rows if not clearance(d, r)["ok"]]
-    elif view == "admins":
-        rows = [r for r in rows if r["is_admin"]]
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
-    coach_ids = {r["id"] for r in rows if coach_eligibility(d, r)["eligible"]}
-    ref_ids = {r["id"] for r in rows if referee_eligibility(d, r)["eligible"]}
-    listed = {r[0] for r in d.execute("SELECT member_id FROM coaching_list")}
-    referees = {r[0] for r in d.execute("SELECT member_id FROM referee_list")}
-    joined, verified = [], []
-    for r in d.execute("SELECT created, usawp_verified_at FROM members WHERE COALESCE(role,'')!='system'"):
-        day = _stamp_day(r["created"], utc=True)
-        if day: joined.append(day)
-        vday = _stamp_day(r["usawp_verified_at"], utc=False)
-        if vday: verified.append(vday)
+    titles = {"members": "Members", "coaches": "Coaches", "admins": "Admins", "referees": "Referees"}
     return page(T["members"],
-        tab="admin", rows=rows, c=c, view=view, date=focus, q=q,
-        listed=listed, referees=referees, coach_ids=coach_ids, ref_ids=ref_ids,
-        n_admins=sum(1 for r in rows if r["is_admin"]), boot=ADMIN_EMAILS, growth=growth_chart(joined, verified)["html"])
+        tab="admin", rows=rows, c=c, view=view, filt=filt, date=focus, q=q, title=titles[view],
+        listed=sets["listed"], referees=sets["referees"], coach_ids=sets["coach_ids"], ref_ids=sets["ref_ids"],
+        n_admins=len(sets["admins"]), boot=ADMIN_EMAILS)
 def csv_attachment(filename, header, rows):
     """UTF-8 with a BOM so Excel opens names and punctuation correctly."""
     buf = io.StringIO(); buf.write("\ufeff"); w = csv.writer(buf); w.writerow(header)
@@ -4537,7 +4584,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-85 */
+SW_JS = """/* grunions-sw-86 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
