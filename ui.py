@@ -802,7 +802,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {{ rsvp_btn('Going', e.mine == 'going', 'going') }}
 {{ rsvp_btn('Not going', e.mine == 'notgoing', 'notgoing') }}</form>{% endif %}
 </div>{% endmacro %}
-{% macro app_header(fade, entry, show_plus) %}<header class="homehead apphead{% if fade %} homefade{% endif %}"{% if entry %} data-entry="{{ entry }}"{% endif %}><div class=headmain>{{ caller() }}</div>{% if show_plus %}<a class=headplus href="/events/new" aria-label="Create event"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}<a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% endmacro %}
+{% macro app_header(fade, entry, show_plus) %}<header class="homehead apphead{% if fade %} homefade{% endif %}"{% if entry %} data-entry="{{ entry }}"{% endif %}><div class=headmain>{{ caller() }}</div>{% if show_plus %}<a class=headplus href="/events/new" aria-label="{{ 'Create event' if can_host_practice() else 'Suggest an event' }}"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}<a class=avatar href=/profile aria-label="Profile">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="" width="44" height="44">{% else %}{{ initials(me()) }}{% endif %}</a></header>{% endmacro %}
 {% if tab == 'profile' and me() %}<header class=profilebar>
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
 <h1>Profile</h1>
@@ -2105,11 +2105,11 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <input type=hidden name=lane id=laneVal value="{{ 'lineup' if not staff else lane }}">
 <input type=hidden name=title_mode id=titleMode value=auto>
 <input type=hidden name=mode value="{{ 'create' if staff else 'suggest' }}">
-<h2 class=planask>What are you planning?</h2>
+{% if staff %}<h2 class=planask>What are you planning?</h2>
 <div class=lanepick role=radiogroup aria-label="What are you planning?">
-{% if staff %}<button type=button class="lanecard{{ ' on' if lane != 'lineup' }}" data-lane=schedule><b>Team schedule</b><span>Practices, scrimmages &amp; games</span></button>{% endif %}
-<button type=button class="lanecard{{ ' on' if (not staff) or lane == 'lineup' }}" data-lane=lineup><b>Lineup event</b><span>{{ 'Trips, socials, and community' if not staff else 'Tournaments, trips, socials & more' }}</span></button>
-</div>
+<button type=button class="lanecard{{ ' on' if lane != 'lineup' }}" data-lane=schedule><b>Team schedule</b><span>Practices, scrimmages &amp; games</span></button>
+<button type=button class="lanecard{{ ' on' if lane == 'lineup' }}" data-lane=lineup><b>Lineup event</b><span>Tournaments, trips, socials &amp; more</span></button>
+</div>{% endif %}
 {% if staff %}<div id=schedBlock {% if lane == 'lineup' %}hidden{% endif %}>
 <div class=actseg role=radiogroup aria-label="Session type">
 <label><input type=radio name=activity_type value=practice {% if activity != 'scrimmage' and activity != 'game' %}checked{% endif %}><span>Practice</span></label>
@@ -2153,8 +2153,8 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button class="li setrow" id=regRow data-open=setReg><span class=grow>Registration<span class=sum id=regSum> Not set</span></span>""" + _CHEV + """</button>
 </div>
 <div class=createfoot>
-<p class=pagesub id=destHint>{{ 'Appears on Lineup by default' if (not staff or lane == 'lineup') else 'Appears on Home by default' }}</p>
-<button class="btn btn-primary full" name=action value=preview>Preview event</button>
+<p class=pagesub id=destHint>{% if not staff %}Sent to admins for review{% elif lane == 'lineup' %}Appears on Lineup by default{% else %}Appears on Home by default{% endif %}</p>
+<button class="btn btn-primary full" name=action value=preview>{{ 'Submit' if not staff else 'Preview event' }}</button>
 </div>
 <input class=pickhold type=date name=date id=dateInput>
 <input class=pickhold type=time name=start id=startInput value=19:00>
@@ -2277,7 +2277,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <div class="t3 xs">Banner image</div>
 {{ upload_field('banner', src=('/lineup-image/' ~ event_id ~ '?v=' ~ banner) if banner and event_id else '', clear_name='banner_clear') }}
 </div>
-<label>Type<select name=event_type id=lineType>{% for name in event_types %}<option value="{{ name }}" {% if values.event_type == name %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+<label>Type<select name=event_type id=lineType>{% for name, label in event_types %}<option value="{{ name }}" {% if values.event_type == name %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
 <div class="t3 xs">Where</div>
 <div class=actseg id=lineHost role=radiogroup aria-label=Where>
 <label><input type=radio name=hosting value=Attending {% if values.hosting != 'Hosting' %}checked{% endif %}><span>Attending</span></label>

@@ -2657,7 +2657,7 @@ def _promote_waitlist(d, row):
     member = d.execute("SELECT * FROM members WHERE id=?", (nxt["member_id"],)).fetchone()
     notify_lineup_people(d, [member], "You're in", "A spot opened for %s. You're going." % row["title"], "/lineup/%d" % row["id"])
 def lineup_template_ctx(d, mode, values, event_id=None, banner=""):
-    types = list(lineupfeed.MEMBER_TYPES if not can_host_practice() else lineupfeed.EVENT_TYPES)
+    types = list(lineupfeed.MEMBER_TYPE_LABELS if not can_host_practice() else lineupfeed.EVENT_TYPE_LABELS)
     cities = [r[0] for r in d.execute("SELECT DISTINCT trim(city) FROM lineup_events WHERE trim(COALESCE(city,''))!='' ORDER BY 1")]
     return dict(event_types=types, values=values, mode=mode, event_id=event_id, banner=banner or "",
         organizer=can_host_practice(), save_label=("Submit" if mode == "suggest" else "Save"), sports_row=None, cities=cities)
@@ -2979,12 +2979,13 @@ def event_new():
     activity = (request.form.get("activity_type") or request.args.get("type") or "practice").strip().lower()
     if activity not in ("practice", "scrimmage", "game"): activity = "practice"
     lane = (request.form.get("lane") or request.args.get("lane") or "").strip().lower()
-    if not staff: lane = "lineup"
+    if not staff:
+        if (request.args.get("lane") or request.form.get("lane") or "").strip().lower() == "schedule":
+            abort(403)
+        lane = "lineup"
     elif lane not in ("schedule", "lineup"):
         lane = "lineup" if request.args.get("event_type") else "schedule"
-    line_types = list(lineupfeed.MEMBER_TYPE_LABELS)
-    if staff:
-        line_types = [("Tournament", "Tournament"), ("Competition", "Competition"), ("Clinic", "Clinic/Camp")] + line_types
+    line_types = list(lineupfeed.MEMBER_TYPE_LABELS if not staff else lineupfeed.EVENT_TYPE_LABELS)
     if request.method == "POST":
         action = (request.form.get("action") or "").strip()
         if action not in ("preview", "create_schedule"): abort(400)
@@ -3053,11 +3054,15 @@ def event_new():
         except PermissionError:
             abort(403)
         d.commit()
+        if not staff:
+            flash("Sent to admins for review", "toast")
+            return redirect("/lineup")
         flash("Preview", "toast")
         return redirect("/lineup/%d" % info["id"] if info["status"] == "published" else "/lineup")
     return page(T["event_new"], tab="event_new", staff=staff, lane=lane, activity=activity, line_types=line_types,
         coaches=coach_candidates(db()) if staff else [],
-        plan_back=("/manage/lineup" if lane == "lineup" else ("/admin" if is_staff() else "/manage/schedule")) if staff else "/lineup", plan_title="Create event", plan_save="Preview")
+        plan_back=("/manage/lineup" if lane == "lineup" else ("/admin" if is_staff() else "/manage/schedule")) if staff else "/lineup",
+        plan_title=("Create event" if staff else "Suggest an event"), plan_save=("Preview" if staff else "Submit"))
 @app.route("/admin/approvals", methods=["GET", "POST"])
 @login_required
 def approvals():
