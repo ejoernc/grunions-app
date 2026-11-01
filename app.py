@@ -2121,6 +2121,18 @@ def handle_practice_post(d):
         if "lead" in request.form or any(str(k).startswith("focus-") for k in request.form):
             save_assigned_plan(d, pid, request.form.get("lead"), focus_map_from_form())
         save_coaching_plan(d, pid, request.form.get("coaching_plan"))
+    elif a in ("make_lead", "remove_lead", "unassign_coach") and pid:
+        if not can_host_practice(): abort(403)
+        cid = request.form.get("coach_id", type=int)
+        if not cid or not d.execute("SELECT 1 FROM practice_coaches WHERE practice_id=? AND member_id=?", (pid, cid)).fetchone():
+            abort(404)
+        if a == "make_lead":
+            d.execute("UPDATE practice_coaches SET is_lead=0 WHERE practice_id=?", (pid,))
+            d.execute("UPDATE practice_coaches SET is_lead=1 WHERE practice_id=? AND member_id=?", (pid, cid))
+        elif a == "remove_lead":
+            d.execute("UPDATE practice_coaches SET is_lead=0 WHERE practice_id=? AND member_id=?", (pid, cid))
+        else:
+            d.execute("DELETE FROM practice_coaches WHERE practice_id=? AND member_id=?", (pid, cid))
     elif a == "coach_plan" and pid:
         if not can_host_practice(): abort(403)
         cid = request.form.get("coach_id", type=int)
@@ -2250,7 +2262,7 @@ def handle_practice_post(d):
         pid = None
     if pid and a in ("going", "notgoing", "clear"): mark_practice_seen(d, me()["id"], pid)
     d.commit()
-    if a in ("going", "notgoing", "clear", "edit", "add", "cancel", "restore", "assign", "duplicate", "delete", "skip", "unskip"): sync_practice_sheets(d)
+    if a in ("going", "notgoing", "clear", "edit", "add", "cancel", "restore", "assign", "duplicate", "delete", "skip", "unskip", "make_lead", "remove_lead", "unassign_coach"): sync_practice_sheets(d)
     if a == "cancel" and pid:
         p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
         if p and p["cancelled"]:
@@ -4642,7 +4654,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-88 */
+SW_JS = """/* grunions-sw-89 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

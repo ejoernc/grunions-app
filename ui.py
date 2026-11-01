@@ -154,9 +154,7 @@ button.cambadge svg{width:16px;height:16px;display:block}
 body.profile-edit button.cambadge.editonly{display:flex}
 button.textlink{background:transparent;color:var(--t1);height:auto;min-height:0;padding:6px 8px;border-radius:0;font-size:14px;font-weight:600}
 button.textlink.danger{color:var(--bad)}
-a.rowbtn,button.rowbtn,button.coachrow{width:100%;height:auto;min-height:60px;padding:14px 18px;border-radius:0;background:transparent;color:var(--t1);font-weight:500;justify-content:flex-start;text-align:left;text-decoration:none;border-top:1px solid var(--line)}
-button.coachrow{font-weight:400;align-items:flex-start;flex-direction:column;gap:2px}
-button.coachrow .coachline{display:flex;align-items:center;gap:8px;min-width:0;width:100%}
+a.rowbtn,button.rowbtn{width:100%;height:auto;min-height:60px;padding:14px 18px;border-radius:0;background:transparent;color:var(--t1);font-weight:500;justify-content:flex-start;text-align:left;text-decoration:none;border-top:1px solid var(--line)}
 .switchrow{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;margin:0 0 var(--space-4);color:var(--color-text);font-size:16px;font-weight:500}
 .switch{position:relative;width:44px;height:28px;flex:none}
 .switch input{position:absolute;opacity:0;width:1px;height:1px}
@@ -440,8 +438,15 @@ dialog.botsheet .sheet{background:var(--color-sheet);border:1px solid var(--colo
 .lightbox{position:fixed;inset:0;background:var(--color-lightbox);display:flex;align-items:center;justify-content:center;z-index:20}.lightbox img{max-width:96vw;max-height:92vh;border-radius:8px}
 .gobtn{background:none;height:auto;padding:4px 0;color:var(--t2);font-weight:500;font-size:14px}.gobtn::after{content:" ›";color:var(--t3)}
 .ci-name,a.ci-name{flex:1;min-width:0;height:auto;padding:0;background:none;display:flex;align-items:center;gap:12px;text-align:left;font-weight:400;color:inherit;text-decoration:none}
+.personrow{align-items:center;min-height:60px}
 .personrow .ci-name{align-items:center}
-.personrow>form,.personrow>.more{flex:none}
+.personrow>form,.personrow>.more{flex:none;align-self:center;margin:0}
+.personrow .menu{left:auto;right:0}
+.coachbody{display:flex;flex-direction:column;justify-content:center;align-items:stretch;gap:2px;min-width:0;flex:1;align-self:center;margin:0}
+.coachbody>:first-child{margin-top:0}
+.coachline{display:flex;align-items:center;gap:8px;min-width:0;width:100%;min-height:24px}
+.coachplan{margin:0}
+button.coachopen{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;height:auto;min-height:0;width:auto;flex:1;padding:0;margin:0;background:transparent;border-radius:0;font-weight:400;color:inherit;text-align:left;gap:2px}
 span.avatar.ciav,span.avatar.ciav img{width:40px;height:40px;min-width:40px;max-width:40px;min-height:40px;max-height:40px;flex:0 0 40px;font-size:13px}
 .filt{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
 .filt.chiprow,.fchips.chiprow{flex-wrap:nowrap;margin-inline:-20px;padding:6px 20px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;touch-action:pan-x;scroll-padding-inline:20px}
@@ -892,7 +897,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=88');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=89');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -2558,7 +2563,7 @@ T["practice"] = """{% set p = x.p %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
 </div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>
 <div class=seclabel>Coaches</div>
-<div class=list>
+<div class="list loose">
 {% if plan_editing %}<form id=practiceForm method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=plan_fields value=1>
 <div class=li><span class="chip-info" style="margin:0">Coaches only</span></div>
 <div class=li><label class=prefedit style="width:100%;margin:0">Practice plan<textarea class=planfield name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label></div>
@@ -2570,7 +2575,7 @@ T["practice"] = """{% set p = x.p %}
 <datalist id=focusGroups><option value=Beginners><option value=Intermediate><option value=Advanced><option value=Goalies></datalist>
 </form>
 {% else %}
-{% for c in x.coaches %}{% set editable = can_host_practice() and (me().is_admin or c.id == me().id) %}{% if editable %}<button type=button class="li coachrow" data-open="cfocus{{ p.id }}-{{ c.id }}"><span class=coachline>{{ person_mark(c) }}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Head coach</span>{% endif %}</span>{% if c.focus %}<span class="t3 sm">{{ c.focus }}</span>{% endif %}</button>{% else %}<div class=li><div class=grow><div style="display:flex;align-items:center;gap:8px;min-width:0">{% if can_host_practice() %}{{ person_mark(c) }}{% endif %}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Head coach</span>{% endif %}</div>{% if can_host_practice() and c.focus %}<div class="t3 sm">{{ c.focus }}</div>{% endif %}</div></div>{% endif %}{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}
+{% for c in x.coaches %}{% set editable = can_host_practice() and (me().is_admin or c.id == me().id) %}<div class="li personrow">{% if editable %}<button type=button class="coachopen coachbody" data-open="cfocus{{ p.id }}-{{ c.id }}">{% else %}<div class="grow coachbody">{% endif %}<span class=coachline>{% if can_host_practice() %}{{ person_mark(c) }}{% endif %}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Head coach</span>{% endif %}</span>{% if can_host_practice() and c.focus %}<span class="t3 sm coachplan">{{ c.focus }}</span>{% endif %}{% if editable %}</button>{% else %}</div>{% endif %}{% if can_host_practice() %}<span class=more><button type=button class=morebtn aria-label="Actions for {{ display_first(c) }} {{ c.last }}" aria-haspopup=menu aria-expanded=false><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></button><div class=menu hidden role=menu>{% if c.is_lead %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=coach_id value={{ c.id }}><button name=action value=remove_lead>Remove lead</button></form>{% else %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=coach_id value={{ c.id }}><button name=action value=make_lead>Make lead</button></form>{% endif %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=coach_id value={{ c.id }}><button name=action value=unassign_coach>Remove from practice</button></form></div></span>{% endif %}</div>{% else %}<div class=li><span class=t3>No coaches assigned.</span></div>{% endfor %}
 {% if can_host_practice() %}<div class="li planrow"><div class=planline><span class=planlabel>Practice plan</span><span class="chip-info" style="margin:0">Coaches only</span></div><button type=button class="btn btn-secondary" data-open="plan{{ p.id }}">{{ 'Edit' if p.coaching_plan else 'Add' }}</button>{% if p.coaching_plan %}<div class="t3 sm plantext">{{ p.coaching_plan }}</div>{% endif %}</div>{% endif %}
 {% endif %}
 </div>
