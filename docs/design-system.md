@@ -37,7 +37,7 @@ Buttons, chips, cards, inputs, sheets, avatars, the bottom nav, and Phosphor ico
 
 | Screen | What it uses |
 | --- | --- |
-| Home | The map canvas, attribution, and pin read `--color-map` and the selected colors. Pin position, the 12px dock gap, the greeting crossfade, and the day chip stay as they are. Page padding uses `--nav-clear` so the pill does not cover the dock. |
+| Home | The map canvas, attribution, and pin read `--color-map` and the selected colors. Pin position, the 12px dock gap, the greeting crossfade, and the day chip stay as they are. Page padding uses `--nav-clear` so the pill does not cover the dock. The next card's clock, place, and people rows use the same `--space-meta` gap as Schedule and Lineup. |
 | Practice list | Schedule cards (`card`, date tile, RSVP pills). Going and Not going share `rsvp_btn` with Home, practice detail, and Lineup: lime fill and a leading check when selected, outlined when not. |
 | Practice page | Shared event layout: hero map, stat tiles, status dot, details list, who's going, location card. |
 | Lineup feed | Event cards, RSVP pills, and one scrolling row of filter chips. Hosting and My Lineup live on the profile. |

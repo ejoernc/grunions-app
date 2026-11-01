@@ -40,7 +40,7 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:var(--ty
 .datetile .dn{font-size:var(--type-t2-size);font-weight:var(--type-t2-weight);line-height:1.1;margin-top:2px}
 .datetile .mo{margin-top:2px}
 .nxcardhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
-.schedrows .nxrow{margin-top:6px;font-size:15px}.schedrows .nxrow:first-child{margin-top:0}
+.schedrows .nxrow{font-size:15px}.schedrows .nxrow:first-child{margin-top:0}
 .nxtitle{font-size:var(--type-t4-size);font-weight:var(--type-t4-weight);line-height:var(--type-t4-line)}
 .nxchev{color:var(--t3);font-size:22px;line-height:1;flex:none}
 .nxnote{margin-top:10px;color:var(--t3);font-size:13px;line-height:1.4}
@@ -78,6 +78,7 @@ a.usawpchip.warn,a.usawpchip.bad{color:var(--color-text)}
 .pimg{position:relative;line-height:0}.pimg img{width:100%;height:200px;object-fit:cover;display:block}
 .nxbadge{position:absolute;top:12px;left:12px;background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-badge-border);border-radius:var(--radius-chip);padding:5px 10px;font-size:11px;font-weight:700;letter-spacing:.8px;line-height:1}
 .nxrow{display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-2);color:var(--t1);font-size:15px}
+.nxrow+.nxrow{margin-top:var(--space-meta)}
 .nxglyph{width:16px;height:16px;flex:none;color:var(--color-icon)}
 .nextcard .pills{margin:14px 16px 0}.nextcard .pills:last-child{margin-bottom:16px}
 .nextcard .nxdiv{margin:14px 16px}.nextcard .nxsocial{padding:0 16px 16px}
@@ -850,7 +851,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=74');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=75');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
