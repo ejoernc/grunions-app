@@ -2812,14 +2812,16 @@ def event_new():
     if not staff: lane = "lineup"
     elif lane not in ("schedule", "lineup"):
         lane = "lineup" if request.args.get("event_type") else "schedule"
-    line_types = [("Trip", "Trip"), ("Social", "Social/Activity"), ("Volunteer", "Volunteer"),
-                  ("Fundraiser", "Fundraiser"), ("Meeting", "Meeting/Workshop"), ("Other", "Other")]
+    line_types = list(lineupfeed.MEMBER_TYPE_LABELS)
     if staff:
         line_types = [("Tournament", "Tournament"), ("Competition", "Competition"), ("Clinic", "Clinic/Camp")] + line_types
     if request.method == "POST":
         action = (request.form.get("action") or "").strip()
         if action not in ("preview", "create_schedule"): abort(400)
         if request.form.get("lane") == "schedule" and not staff: abort(403)
+        if not staff:
+            posted_type = (request.form.get("event_type") or "").strip()
+            if posted_type and posted_type not in lineupfeed.MEMBER_TYPES: abort(403)
         day = parse_date(request.form.get("date"))
         loc = " ".join((request.form.get("location") or "").split())[:300]
         if not day or not loc:
@@ -4285,7 +4287,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-69 */
+SW_JS = """/* grunions-sw-70 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

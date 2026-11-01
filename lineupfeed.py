@@ -22,7 +22,11 @@ FEED_SUBTYPES = {
     "travel": ("Tournament", "Trip", "Invitational", "Festival"),
 }
 EVENT_TYPES = ("Tournament", "Competition", "Clinic", "Trip", "Social", "Volunteer", "Fundraiser", "Meeting", "Other")
-MEMBER_TYPES = ("Social", "Volunteer")
+MEMBER_TYPES = ("Trip", "Social", "Volunteer", "Fundraiser", "Meeting", "Other")
+MEMBER_TYPE_LABELS = (
+    ("Trip", "Trip"), ("Social", "Social/Activity"), ("Volunteer", "Volunteer"),
+    ("Fundraiser", "Fundraiser"), ("Meeting", "Meeting/Workshop"), ("Other", "Other"),
+)
 TEAM_PLAN_TYPES = ("Tournament", "Competition", "Trip", "Clinic")
 TEAM_PLANS = ("considering", "planning", "committed")
 FILTER_GROUPS = (
@@ -292,7 +296,7 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
     if not cat or not cat["active"]:
         raise ValueError("Choose a type.")
     if not organizer and event_type not in MEMBER_TYPES:
-        raise ValueError("That type is for organizers. Suggest a community event instead.")
+        raise ValueError("That type is for organizers. Suggest a trip or a community event instead.")
     title = _words(form.get("title"), 120)
     if not title: raise ValueError("Add a title.")
     precision = (form.get("date_precision") or "exact").strip().lower()
