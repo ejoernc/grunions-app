@@ -22,7 +22,9 @@ html,body{background:var(--color-bg);color:var(--color-text)}html{color-scheme:d
 ::view-transition-image-pair(root){isolation:auto}
 ::view-transition-old(root),::view-transition-new(root){animation:none;animation-duration:0s;mix-blend-mode:normal}
 ::view-transition-group(grunions-nav),::view-transition-old(grunions-nav),::view-transition-new(grunions-nav){animation:none;mix-blend-mode:normal}
-::view-transition-group(grunions-header),::view-transition-old(grunions-header),::view-transition-new(grunions-header){animation:none;mix-blend-mode:normal}
+::view-transition-group(grunions-header){animation:none;overflow:clip}
+::view-transition-old(grunions-header){display:none}
+::view-transition-new(grunions-header){animation:none;mix-blend-mode:normal}
 [hidden]{display:none!important}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--color-bg);color:var(--t1);font:var(--type-body-1-size)/var(--type-body-1-leading) var(--font-sans);overflow-wrap:break-word}
@@ -55,8 +57,7 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:var(--ty
 .nxicon{width:40px;height:40px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--color-icon)}
 .nxicon svg{display:block}
 .joinpill{flex:none}
-header.homehead{position:sticky;top:0;z-index:8;display:flex;background:var(--color-bg);align-items:center;gap:var(--space-3);height:calc(76px + env(safe-area-inset-top));min-height:calc(76px + env(safe-area-inset-top));box-sizing:border-box;padding:calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) var(--space-4);border:0;box-shadow:none;view-transition-name:grunions-header}
-body:not(.homefull) header.homehead::before,body.homefull header.homehead.solid::before,header.profilebar::before{content:"";position:absolute;left:0;right:0;top:-2px;bottom:-1px;background:var(--color-bg);z-index:-1;pointer-events:none}
+header.homehead{position:sticky;top:0;left:0;right:0;z-index:8;display:flex;width:100%;max-width:none;background:var(--color-bg);align-items:center;gap:var(--space-3);height:calc(76px + env(safe-area-inset-top));min-height:calc(76px + env(safe-area-inset-top));box-sizing:border-box;padding:calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) var(--space-4);border:0;box-shadow:none;view-transition-name:grunions-header}
 header.homehead .headmain{flex:1;min-width:0;height:44px;display:flex;align-items:center;padding-right:0}
 header.homehead h1{margin:0;height:var(--type-t2-line);font-size:var(--type-t2-size);line-height:var(--type-t2-line);font-weight:var(--type-t2-weight);letter-spacing:-.02em}
 header.homehead .headtabs{flex:1;min-width:0;height:44px;margin:0;padding:0;align-items:center}
@@ -134,7 +135,7 @@ body.schedopen .homemap{opacity:0}
 @media (prefers-reduced-motion:reduce){body.homefull .homemap{transition:none}}
 body.homefull .homemap .leaflet-marker-icon,body.homefull .homemap .leaflet-control-attribution{pointer-events:auto}
 body.profilepage main{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
-header.profilebar{position:sticky;top:0;z-index:5;background:var(--color-bg);display:grid;grid-template-columns:88px 1fr 88px;grid-template-rows:44px;align-items:center;padding:env(safe-area-inset-top) 6px 0;box-sizing:border-box;min-height:44px;border:0;box-shadow:none;view-transition-name:grunions-header}
+header.profilebar{position:sticky;top:0;left:0;right:0;z-index:5;width:100%;max-width:none;background:var(--color-bg);display:grid;grid-template-columns:88px 1fr 88px;grid-template-rows:44px;align-items:center;padding:env(safe-area-inset-top) 6px 0;box-sizing:border-box;min-height:44px;border:0;box-shadow:none;view-transition-name:grunions-header}
 header.profilebar h1{margin:0;text-align:center;font-size:var(--type-t4-size);font-weight:var(--type-t4-weight);line-height:44px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header.profilebar .left,header.profilebar .right{display:flex;align-items:center;height:44px;min-width:0}
 header.profilebar .left{justify-self:start;justify-content:flex-start}header.profilebar .right{justify-self:end;justify-content:flex-end}
@@ -864,7 +865,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=80');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=81');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
