@@ -292,6 +292,7 @@ button:disabled,.btn:disabled{opacity:.45}
 @keyframes grunions-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.btn,.btn[aria-busy=true]::after{transition:none;animation:none}}
 .btn.compact,button.compact{padding:0 14px}.full{width:100%}.row{display:flex;gap:var(--space-2)}.row>*{flex:1}
+.eventacts{display:flex;gap:12px;margin:12px 0 0}.eventacts .btn{flex:1 1 0;width:auto;min-width:0}
 .chip,a.chip,button.chip{position:relative;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:var(--size-chip);min-height:var(--size-chip);padding:0 14px;border-radius:var(--radius-chip);border:1px solid var(--color-control);background:transparent;color:var(--color-text);font-size:var(--type-b3-size);font-weight:var(--type-b3-weight);line-height:1;text-decoration:none;white-space:nowrap;flex:none;cursor:pointer}
 .chip::after,a.chip::after,button.chip::after{content:"";position:absolute;left:0;right:0;top:-4px;bottom:-4px}
 .chip-active,a.chip-active,button.chip-active,.chip.on,a.chip.on,button.chip.on{background:var(--color-selected);color:var(--color-on-selected);border-color:var(--color-selected)}
@@ -889,7 +890,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=99');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=100');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -2288,7 +2289,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <div id=lineBlock {% if staff and lane != 'lineup' %}hidden{% endif %}>
 <label>Type{{ type_select(line_types) }}</label>
 <label>Event name<input name=line_title id=lineTitle autocomplete=off placeholder="IGLA 2027"></label>
-<label>Short description<textarea name=description id=lineDesc rows=3 placeholder="What should people know?"></textarea></label>
+<label>Short description<textarea class=planfield name=description id=lineDesc rows=4 placeholder="What should people know?"></textarea></label>
 </div>
 <div class=seclabel>When</div>
 {% if staff %}<div class=actseg id=whenPrec role=radiogroup aria-label=Dates>
@@ -2472,7 +2473,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 </div>
 <label>City<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=city value="{{ values.city }}" data-places required placeholder="Toronto, Canada" autocomplete=off></label>
 <label>Venue<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=venue value="{{ values.location }}" data-places placeholder="Name and address, optional" autocomplete=off></label>
-<label>Short description<textarea name=description rows=3 required>{{ values.description }}</textarea></label>
+<label>Short description<textarea class=planfield name=description rows=4 required>{{ values.description }}</textarea></label>
 <details class=moredetails><summary>More details</summary>
 {{ sports_editor(sports_row, false, true) }}
 <label>Link<input name=link value="{{ values.link }}" inputmode=url autocomplete=off placeholder="https://"></label>
@@ -2483,8 +2484,10 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 {% if me().is_admin %}<input type=hidden name=pin_present value=1><label><input type=checkbox name=featured value=1 {% if values.featured == '1' %}checked{% endif %}> Pin</label>{% endif %}
 </details>
 {% if organizer and not event_id %}<button class="btn btn-secondary full" name=action value=draft>Save draft</button>{% endif %}
-{% if show_cancel %}<button class="btn btn-danger full" name=action value=cancel onclick="return confirm('Cancel this event?')">Cancel event</button>{% endif %}
-{% if show_delete %}<button class="btn btn-danger full" name=action value=delete onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
+{% if show_cancel or show_delete %}<div class=eventacts>
+{% if show_cancel %}<button class="btn btn-secondary" name=action value=cancel onclick="return confirm('Cancel this event?')">Cancel event</button>{% endif %}
+{% if show_delete %}<button class="btn btn-secondary" name=action value=delete onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
+</div>{% endif %}
 </form>
 <script>(function(){
  var org=document.getElementById('lineOrg');
@@ -2568,7 +2571,7 @@ T["practice"] = """{% set p = x.p %}
 {% if p.series_id %}<label>Apply changes to<select name=series_scope><option value=once>Only this date</option><option value=following>This and following</option></select></label>{% endif %}
 <div class=row><label>Start<input type=time name=start value="{{ p.start }}" required></label><label>End<input type=time name=end value="{{ p.end }}" required></label></div>
 <label>Location / address<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location value="{{ p.location or '' }}" data-places required autocomplete=off></label>
-<label>Notes<textarea name=note>{{ p.note or '' }}</textarea></label>
+<label>Notes<textarea class=planfield name=note rows=4>{{ p.note or '' }}</textarea></label>
 <div class="t3 xs" style="margin:4px 0 8px">After-practice social</div>
 {{ social_fields(p) }}
 {{ message_fields(p) }}
@@ -2589,11 +2592,15 @@ T["practice"] = """{% set p = x.p %}
 <button type=button class="li rowbtn" data-open="assign{{ p.id }}">Assign coaches</button>
 <a class="li rowbtn" href="/admin?date={{ p.date }}">Check in</a>
 {% if p.cancelled %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="li rowbtn" name=action value=restore>Undo cancel</button></form>
-{% else %}<button type=button class="li rowbtn" data-open="cancel{{ p.id }}">Send cancellation</button>{% endif %}
+{% endif %}
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="li rowbtn" name=action value=duplicate>Duplicate practice</button></form>
 <button type=button class="li rowbtn" data-copy="{{ app_base() }}/practices/{{ p.id }}">Copy link</button>
-<button type=button class="li rowbtn" data-open="delete{{ p.id }}">Delete practice</button>
+</div>
+{% if not p.cancelled %}<div class=eventacts>
+<button type=button class="btn btn-secondary" data-open="cancel{{ p.id }}">Cancel event</button>
+<button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button>
 </div>{% endif %}
+{% endif %}
 {% else %}
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=pills style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
