@@ -3546,7 +3546,8 @@ def attendance_payload(d):
     people = []
     for m in members:
         item = {"id": m["id"], "first_name": m["first"], "last_name": m["last"], "email": m["email"],
-                "role": m["role"] or "athlete", "usawp_membership_type": attendance_membership_type(m),
+                "phone": fmt_phone(m["phone"]), "role": m["role"] or "athlete",
+                "usawp_membership_type": attendance_membership_type(m),
                 "cleared": bool(clearance(d, m)["ok"])}
         number = (m["usawp_number"] or "").strip()
         if number: item["usawp_number"] = number

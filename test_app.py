@@ -2086,7 +2086,7 @@ _att_eli = D.execute("SELECT id FROM members WHERE email='eli@example.com'").fet
 _att_john = D.execute("SELECT id FROM members WHERE email='john@example.com'").fetchone()[0]
 _att_future = (A.today_pt() + dt.timedelta(days=40)).isoformat()
 _att_ss = D.execute("SELECT id FROM requirements WHERE active=1 AND lower(name) LIKE '%safesport%' ORDER BY id LIMIT 1").fetchone()[0]
-D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until=?, usawp_number='4242421', membership_type='Full' WHERE id=?", (_att_future, _att_jane))
+D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until=?, usawp_number='4242421', membership_type='Full', phone='7205355925' WHERE id=?", (_att_future, _att_jane))
 D.execute("""INSERT INTO member_reqs(member_id, req_id, completed_on, expires_on, source, by, at) VALUES(?,?,?,?, 'manual', 'test', ?)
     ON CONFLICT(member_id, req_id) DO UPDATE SET expires_on=excluded.expires_on""", (_att_jane, _att_ss, _att_future, _att_future, _att_future))
 D.execute("INSERT INTO requirements(name, applies_to, keywords, expires, active) VALUES('Concussion training','all','concussion',1,1)")
@@ -2099,12 +2099,12 @@ D.execute("INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)", (_at
 D.execute("INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,0)", (_att_pid, _att_eli))
 D.execute("INSERT OR IGNORE INTO checkins(member_id, practice_date, location) VALUES(?, '2026-10-01', 'Cutoff Pool')", (_att_john,))
 D.commit()
-_att_before = (D.execute("SELECT COUNT(*) FROM practices").fetchone()[0], D.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0], D.execute("SELECT COUNT(*) FROM checkins").fetchone()[0], D.execute("SELECT COUNT(*) FROM members").fetchone()[0], D.execute("SELECT usawp_status, membership_type, usawp_number FROM members WHERE id=?", (_att_jane,)).fetchone())
+_att_before = (D.execute("SELECT COUNT(*) FROM practices").fetchone()[0], D.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0], D.execute("SELECT COUNT(*) FROM checkins").fetchone()[0], D.execute("SELECT COUNT(*) FROM members").fetchone()[0], D.execute("SELECT usawp_status, membership_type, usawp_number, phone FROM members WHERE id=?", (_att_jane,)).fetchone())
 A.BOT_API_KEY = "test-bot-key"
 _att_bad = A.app.test_client()
 ok(_att_bad.get("/api/attendance").status_code == 401 and _att_bad.get("/api/attendance", headers={"Authorization": "Bearer nope"}).status_code == 401, "attendance API requires the bot bearer key")
 _att = _att_bad.get("/api/attendance", headers={"Authorization": "Bearer test-bot-key"}).get_json()
-_att_after = (D.execute("SELECT COUNT(*) FROM practices").fetchone()[0], D.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0], D.execute("SELECT COUNT(*) FROM checkins").fetchone()[0], D.execute("SELECT COUNT(*) FROM members").fetchone()[0], D.execute("SELECT usawp_status, membership_type, usawp_number FROM members WHERE id=?", (_att_jane,)).fetchone())
+_att_after = (D.execute("SELECT COUNT(*) FROM practices").fetchone()[0], D.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0], D.execute("SELECT COUNT(*) FROM checkins").fetchone()[0], D.execute("SELECT COUNT(*) FROM members").fetchone()[0], D.execute("SELECT usawp_status, membership_type, usawp_number, phone FROM members WHERE id=?", (_att_jane,)).fetchone())
 _att_people = {p["id"]: p for p in _att["people"]}
 _att_events = {e["location"]: e for e in _att["events"]}
 _att_cut = _att_events.get("Cutoff Pool")
@@ -2112,5 +2112,5 @@ _att_who = {a["person_id"]: a for a in (_att_cut["attendees"] if _att_cut else [
 def _att_name(email):
     row = D.execute("SELECT first, preferred_first, last FROM members WHERE email=?", (email,)).fetchone()
     return "%s %s" % ((row[1] or "").strip() or row[0], row[2])
-ok(_att_before == _att_after and "bot@grunions.local" not in [p["email"] for p in _att["people"]] and _att_people[_att_jane]["first_name"] == "Jane" and _att_people[_att_jane]["last_name"] == "Doe" and _att_people[_att_jane]["email"] == "jane@example.com" and _att_people[_att_jane]["role"] == "athlete" and _att_people[_att_jane]["usawp_membership_type"] == "Full" and _att_people[_att_jane]["usawp_number"] == "4242421" and _att_people[_att_jane]["cleared"] is True and _att_people[_att_john]["usawp_membership_type"] == "Trial" and _att_people[_att_eli]["role"] == "coach", "attendance lists each member, their USAWP type, and cleared-to-play without counting concussion")
+ok(_att_before == _att_after and "bot@grunions.local" not in [p["email"] for p in _att["people"]] and _att_people[_att_jane]["first_name"] == "Jane" and _att_people[_att_jane]["last_name"] == "Doe" and _att_people[_att_jane]["email"] == "jane@example.com" and _att_people[_att_jane]["phone"] == "(720) 535-5925" and _att_people[_att_jane]["role"] == "athlete" and _att_people[_att_jane]["usawp_membership_type"] == "Full" and _att_people[_att_jane]["usawp_number"] == "4242421" and _att_people[_att_jane]["cleared"] is True and _att_people[_att_john]["usawp_membership_type"] == "Trial" and _att_people[_att_eli]["role"] == "coach", "attendance lists each member, their USAWP type, and cleared-to-play without counting concussion")
 ok(_att_cut and _att_cut["date"] == "2026-10-01" and _att_cut["start_time"] == "18:00" and _att_cut["title"] == "Water Polo Practice" and "Before Pool" not in _att_events and all(e["date"] >= "2026-10-01" for e in _att["events"]) and _att_who[_att_jane] == {"person_id": _att_jane, "name": _att_name("jane@example.com"), "email": "jane@example.com", "checked_in": False, "rsvp": "going"} and _att_who[_att_eli]["rsvp"] == "not_going" and _att_who[_att_eli]["checked_in"] is False and _att_who[_att_john]["rsvp"] == "none" and _att_who[_att_john]["checked_in"] is True and _att_who[_att_john]["name"] == _att_name("john@example.com"), "attendance lists team schedule events since 2026-10-01 with RSVP and check-in")
