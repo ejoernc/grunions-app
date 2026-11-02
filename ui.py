@@ -322,7 +322,7 @@ dialog.modal .sheet form>:has(+.btn),dialog.modal .sheet form>:has(+button.btn),
 body:has(.composer) .toast{bottom:calc(var(--nav-clear) + env(safe-area-inset-bottom) + var(--composer-h, 69px) + 12px)}
 details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;min-height:56px;padding:0 18px;color:var(--t1)}
 details>summary::-webkit-details-marker{display:none}details>summary::after{content:"›";color:var(--t3);font-size:22px;transition:transform .15s}
-details[open]>summary::after{transform:rotate(90deg)}details.card{padding:0}details.card>.body{padding:0 18px 16px}
+details[open]>summary::after{transform:rotate(90deg)}details.card{padding:0}details>.body{padding:0 18px 18px}details>.body>p:last-child{margin-bottom:0}
 details.checkin{margin:4px 0 20px}details.checkin>summary{min-height:0;padding:18px 0 8px;font-size:17px;font-weight:600;justify-content:flex-start;gap:8px}
 .kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}.kv:first-child{border-top:0}.kv span:first-child{color:var(--t2)}
 .chiprow{display:flex;flex-wrap:nowrap;align-items:center;gap:var(--space-2);box-sizing:border-box;min-width:0;margin-inline:-20px;padding:6px 20px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none;scroll-padding-inline:20px;-webkit-overflow-scrolling:touch}
@@ -891,7 +891,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=103');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=104');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -2294,7 +2294,7 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.capacity %}<div class="li prow"><span class=k>Spots</span><span class=v>{{ e.going_n }} of {{ e.capacity }}{% if e.wait_n %} · {{ e.wait_n }} waitlisted{% endif %}</span></div>{% endif %}
 {% if e.reg_deadline %}<div class="li prow"><span class=k>Register by</span><span class=v>{{ e.reg_deadline }}</span></div>{% endif %}
 </div>
-{% if e.levels_raw %}<details class=card><summary>Skill levels</summary>{% for row in SPORTS.LEVELS %}{% if row[0] in e.levels_raw.split(',') %}<p><b>{{ row[1] }}</b> {{ row[2] }}</p>{% endif %}{% endfor %}</details>{% endif %}
+{% if e.levels_raw %}<details class=card><summary>Skill levels</summary><div class=body>{% for row in SPORTS.LEVELS %}{% if row[0] in e.levels_raw.split(',') %}<p><b>{{ row[1] }}</b> {{ row[2] }}</p>{% endif %}{% endfor %}</div></details>{% endif %}
 {% if e.review_note and e.status in ('changes_requested', 'declined') %}<div class=note>{{ e.review_note }}</div>{% endif %}
 {{ whos_going(e.people) }}
 {% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="btn btn-primary full" name=action value=official>Make official</button></form>{% endif %}
@@ -2634,7 +2634,7 @@ T["practice"] = """{% set p = x.p %}
 <div class=stattile><b>{{ x.checked|length }}</b><span>Checked in</span></div>
 </div>
 </div>
-{% if p.skill_levels %}<details class=card><summary>Skill levels</summary>{% for row in SPORTS.LEVELS %}<p><b>{{ row[1] }}</b> {{ row[3] }}</p>{% endfor %}</details>{% endif %}
+{% if p.skill_levels %}<details class=card><summary>Skill levels</summary><div class=body>{% for row in SPORTS.LEVELS %}<p><b>{{ row[1] }}</b> {{ row[3] }}</p>{% endfor %}</div></details>{% endif %}
 {% if editing %}
 <form id=practiceForm method=post action="/practices/{{ p.id }}" class=card style="margin-top:16px" enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 {{ sports_editor(p) }}
