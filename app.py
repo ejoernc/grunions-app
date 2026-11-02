@@ -24,7 +24,7 @@ EXPIRING_DAYS = int(os.environ.get("EXPIRING_DAYS", 30))
 VERIFY_WEBHOOK_URL = os.environ.get("VERIFY_WEBHOOK_URL")  # outbound: new verification requests are POSTed here
 VERIFY_WEBHOOK_KEY = os.environ.get("VERIFY_WEBHOOK_KEY")  # if set, Authorization: Bearer <key> (unless HEADER overrides)
 VERIFY_WEBHOOK_HEADER = os.environ.get("VERIFY_WEBHOOK_HEADER")  # if set, this header carries the raw key
-BOT_API_KEY = os.environ.get("BOT_API_KEY")  # inbound: bearer token for /api/verify-requests
+BOT_API_KEY = os.environ.get("BOT_API_KEY")  # inbound: bearer token for the bot read APIs
 CRON_KEY = os.environ.get("CRON_KEY")  # lets a scheduler call /api/expiring without a session
 DEV_SHOW_LINKS = os.environ.get("DEV_SHOW_LINKS", "0") == "1"  # local testing only: show magic link on screen
 UPLOADS = os.environ.get("GRUNIONS_UPLOADS", os.path.join(DATA_DIR, "uploads"))
@@ -3530,6 +3530,61 @@ def create_verify_request(d, mid, update_pending=False):
 def bot_auth():
     h = request.headers.get("Authorization", "")
     if not BOT_API_KEY or not h.startswith("Bearer ") or not secrets.compare_digest(h[7:], BOT_API_KEY): abort(401)
+ATTENDANCE_SINCE = "2026-10-01"
+def attendance_membership_type(member):
+    """Stored USAWP type. An active trial with no type on file is Trial."""
+    stored = ""
+    if member and "membership_type" in member.keys():
+        stored = (member["membership_type"] or "").strip()
+    if stored: return stored
+    tw = trial_window(member)
+    if tw and tw["active"] and (member["usawp_status"] or "") != "verified": return "Trial"
+    return None
+def attendance_payload(d):
+    """Read-only roster and team-schedule attendance since 2026-10-01. No writes."""
+    members = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY id").fetchall()
+    people = []
+    for m in members:
+        item = {"id": m["id"], "first_name": m["first"], "last_name": m["last"], "email": m["email"],
+                "role": m["role"] or "athlete", "usawp_membership_type": attendance_membership_type(m),
+                "cleared": bool(clearance(d, m)["ok"])}
+        number = (m["usawp_number"] or "").strip()
+        if number: item["usawp_number"] = number
+        people.append(item)
+    practices = d.execute("SELECT * FROM practices WHERE date>=? ORDER BY date, start, id", (ATTENDANCE_SINCE,)).fetchall()
+    rsvps, checks = {}, set()
+    if practices:
+        ids = [p["id"] for p in practices]
+        dates = sorted({p["date"] for p in practices})
+        for r in d.execute("SELECT practice_id, member_id, going FROM rsvps WHERE practice_id IN (%s)" % ",".join("?" * len(ids)), ids):
+            rsvps[(r["practice_id"], r["member_id"])] = r["going"]
+        for r in d.execute("SELECT member_id, practice_date FROM checkins WHERE practice_date IN (%s)" % ",".join("?" * len(dates)), dates):
+            checks.add((r["member_id"], r["practice_date"]))
+    events = []
+    for p in practices:
+        attendees = []
+        for m in members:
+            going = rsvps.get((p["id"], m["id"]))
+            checked = (m["id"], p["date"]) in checks
+            if going is None and not checked: continue
+            attendees.append({"person_id": m["id"], "name": ("%s %s" % (display_first(m), m["last"] or "")).strip(),
+                              "email": m["email"], "checked_in": checked,
+                              "rsvp": "going" if going == 1 else ("not_going" if going == 0 else "none")})
+        events.append({"id": p["id"], "title": practice_title(p), "date": str(p["date"])[:10],
+                       "start_time": (str(p["start"] or "")[:5] or None), "location": p["location"] or "",
+                       "attendees": attendees})
+    return {"people": people, "events": events}
+def readonly_db():
+    path = os.path.abspath(DB)
+    d = sqlite3.connect("file:%s?mode=ro" % urllib.parse.quote(path, safe="/:"), uri=True)
+    d.row_factory = sqlite3.Row
+    return d
+@app.route("/api/attendance")
+def api_attendance():
+    bot_auth()
+    d = readonly_db()
+    try: return jsonify(attendance_payload(d))
+    finally: d.close()
 @app.route("/api/verify-requests")
 def api_verify_list():
     bot_auth(); st = request.args.get("status")

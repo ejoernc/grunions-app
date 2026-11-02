@@ -2079,3 +2079,38 @@ _plan_saved = D.execute("SELECT status, COALESCE(team_intent,''), COALESCE(team_
 _jane_line = jane.get("/lineup/new").get_data(as_text=True)
 _jane_line_post = jane.post("/lineup/new", data=dict(csrf=csrf(jane, "/lineup/new"), mode="suggest", event_type="Social", title="Line Month", location="Park", description="Nope.", date_precision="month", month="2027-06", date_part="early"), follow_redirects=True)
 ok("id=whenPrec" not in _jane_new and ">Month only</span>" not in _jane_new and "id=planRow" not in _jane_new and "name=team_plan" not in _jane_new and "data-matfor=dateInput" in _jane_new and "Add a specific date." in _jane_month.get_data(as_text=True) and not D.execute("SELECT 1 FROM lineup_events WHERE title='Member Month'").fetchone() and _plan_saved == ("pending", "", "") and ">Month only</span>" not in _jane_line and "name=team_intent" not in _jane_line and "Add a specific date." in _jane_line_post.get_data(as_text=True) and not D.execute("SELECT 1 FROM lineup_events WHERE title='Line Month'").fetchone(), "members suggest a specific date and cannot set a team plan")
+
+# read-only attendance feed for the bot
+_att_jane = D.execute("SELECT id FROM members WHERE email='jane@example.com'").fetchone()[0]
+_att_eli = D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0]
+_att_john = D.execute("SELECT id FROM members WHERE email='john@example.com'").fetchone()[0]
+_att_future = (A.today_pt() + dt.timedelta(days=40)).isoformat()
+_att_ss = D.execute("SELECT id FROM requirements WHERE active=1 AND lower(name) LIKE '%safesport%' ORDER BY id LIMIT 1").fetchone()[0]
+D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until=?, usawp_number='4242421', membership_type='Full' WHERE id=?", (_att_future, _att_jane))
+D.execute("""INSERT INTO member_reqs(member_id, req_id, completed_on, expires_on, source, by, at) VALUES(?,?,?,?, 'manual', 'test', ?)
+    ON CONFLICT(member_id, req_id) DO UPDATE SET expires_on=excluded.expires_on""", (_att_jane, _att_ss, _att_future, _att_future, _att_future))
+D.execute("INSERT INTO requirements(name, applies_to, keywords, expires, active) VALUES('Concussion training','all','concussion',1,1)")
+_att_con = D.execute("SELECT id FROM requirements WHERE name='Concussion training' ORDER BY id DESC LIMIT 1").fetchone()[0]
+D.execute("INSERT INTO member_reqs(member_id, req_id, completed_on, expires_on, source, by, at) VALUES(?,?,?,?, 'manual', 'test', ?)", (_att_jane, _att_con, "2020-01-01", "2020-01-01", "2020-01-01"))
+D.execute("UPDATE members SET membership_type=NULL, usawp_status='unknown', usawp_valid_until=NULL, trial_acknowledged_at=? WHERE id=?", (A.today_pt().isoformat(), _att_john))
+D.execute("INSERT INTO practices(date, start, end, location) VALUES('2026-09-15','19:00','20:30','Before Pool')")
+_att_pid = D.execute("INSERT INTO practices(date, start, end, location) VALUES('2026-10-01','18:00','19:30','Cutoff Pool')").lastrowid
+D.execute("INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)", (_att_pid, _att_jane))
+D.execute("INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,0)", (_att_pid, _att_eli))
+D.execute("INSERT OR IGNORE INTO checkins(member_id, practice_date, location) VALUES(?, '2026-10-01', 'Cutoff Pool')", (_att_john,))
+D.commit()
+_att_before = (D.execute("SELECT COUNT(*) FROM practices").fetchone()[0], D.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0], D.execute("SELECT COUNT(*) FROM checkins").fetchone()[0], D.execute("SELECT COUNT(*) FROM members").fetchone()[0], D.execute("SELECT usawp_status, membership_type, usawp_number FROM members WHERE id=?", (_att_jane,)).fetchone())
+A.BOT_API_KEY = "test-bot-key"
+_att_bad = A.app.test_client()
+ok(_att_bad.get("/api/attendance").status_code == 401 and _att_bad.get("/api/attendance", headers={"Authorization": "Bearer nope"}).status_code == 401, "attendance API requires the bot bearer key")
+_att = _att_bad.get("/api/attendance", headers={"Authorization": "Bearer test-bot-key"}).get_json()
+_att_after = (D.execute("SELECT COUNT(*) FROM practices").fetchone()[0], D.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0], D.execute("SELECT COUNT(*) FROM checkins").fetchone()[0], D.execute("SELECT COUNT(*) FROM members").fetchone()[0], D.execute("SELECT usawp_status, membership_type, usawp_number FROM members WHERE id=?", (_att_jane,)).fetchone())
+_att_people = {p["id"]: p for p in _att["people"]}
+_att_events = {e["location"]: e for e in _att["events"]}
+_att_cut = _att_events.get("Cutoff Pool")
+_att_who = {a["person_id"]: a for a in (_att_cut["attendees"] if _att_cut else [])}
+def _att_name(email):
+    row = D.execute("SELECT first, preferred_first, last FROM members WHERE email=?", (email,)).fetchone()
+    return "%s %s" % ((row[1] or "").strip() or row[0], row[2])
+ok(_att_before == _att_after and "bot@grunions.local" not in [p["email"] for p in _att["people"]] and _att_people[_att_jane]["first_name"] == "Jane" and _att_people[_att_jane]["last_name"] == "Doe" and _att_people[_att_jane]["email"] == "jane@example.com" and _att_people[_att_jane]["role"] == "athlete" and _att_people[_att_jane]["usawp_membership_type"] == "Full" and _att_people[_att_jane]["usawp_number"] == "4242421" and _att_people[_att_jane]["cleared"] is True and _att_people[_att_john]["usawp_membership_type"] == "Trial" and _att_people[_att_eli]["role"] == "coach", "attendance lists each member, their USAWP type, and cleared-to-play without counting concussion")
+ok(_att_cut and _att_cut["date"] == "2026-10-01" and _att_cut["start_time"] == "18:00" and _att_cut["title"] == "Water Polo Practice" and "Before Pool" not in _att_events and all(e["date"] >= "2026-10-01" for e in _att["events"]) and _att_who[_att_jane] == {"person_id": _att_jane, "name": _att_name("jane@example.com"), "email": "jane@example.com", "checked_in": False, "rsvp": "going"} and _att_who[_att_eli]["rsvp"] == "not_going" and _att_who[_att_eli]["checked_in"] is False and _att_who[_att_john]["rsvp"] == "none" and _att_who[_att_john]["checked_in"] is True and _att_who[_att_john]["name"] == _att_name("john@example.com"), "attendance lists team schedule events since 2026-10-01 with RSVP and check-in")
