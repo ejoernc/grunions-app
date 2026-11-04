@@ -2123,6 +2123,16 @@ eli.post("/events/new", data={"csrf": csrf(eli, "/events/new?lane=schedule"), "a
 _nrow = D.execute("SELECT end_date, end_count FROM practice_series WHERE location='Never Pool'").fetchone()
 _ndates = [r[0] for r in D.execute("SELECT date FROM practices WHERE location='Never Pool' ORDER BY date")]
 ok(_nrow == (None, None) and A.today_pt().isoformat() in _ndates and _nskip not in _ndates and _nfar.isoformat() in _ndates and _nbeyond.isoformat() not in _ndates and D.execute("SELECT 1 FROM series_skips WHERE date=?", (_nskip,)).fetchone(), "Never keeps about six months of dates, skips a holiday, and does not create past the window")
+_nsid = D.execute("SELECT id FROM practice_series WHERE location='Never Pool'").fetchone()[0]
+_npicks = D.execute("SELECT id, date FROM practices WHERE series_id=? AND date>=? ORDER BY date", (_nsid, A.today_pt().isoformat())).fetchall()
+_npast = (A.today_pt() - dt.timedelta(days=2)).isoformat()
+D.execute("INSERT INTO practices(date, start, end, location, series_id) VALUES(?,?,?,?,?)", (_npast, "19:00", "20:30", "Never Pool", _nsid)); D.commit()
+_npast_id = D.execute("SELECT id FROM practices WHERE series_id=? AND date=?", (_nsid, _npast)).fetchone()[0]
+_npage = eli.get("/practices/series/%d" % _nsid).get_data(as_text=True)
+eli.post("/practices/series/%d" % _nsid, data={"csrf": csrf(eli, "/practices/series/%d" % _nsid), "action": "edit_selected", "pick": [str(_npicks[1][0]), str(_npast_id)], "pick_start": "18:15", "pick_location": "Moved Never"})
+eli.post("/practices/series/%d" % _nsid, data={"csrf": csrf(eli, "/practices/series/%d" % _nsid), "action": "cancel_selected", "pick": [str(_npicks[2][0]), str(_npast_id)], "reason": "Holiday"})
+eli.post("/practices/series/%d" % _nsid, data={"csrf": csrf(eli, "/practices/series/%d" % _nsid), "action": "delete_selected", "pick": [str(_npicks[3][0]), str(_npast_id)]})
+ok("Manage series" in _npage and ">Never</span>" in _npage and "Skip dates" in _npage and "name=pick" in _npage and D.execute("SELECT start, location FROM practices WHERE id=?", (_npast_id,)).fetchone() == ("19:00", "Never Pool") and D.execute("SELECT start, location, series_detached FROM practices WHERE id=?", (_npicks[1][0],)).fetchone() == ("18:15", "Moved Never", 1) and D.execute("SELECT start, location FROM practices WHERE id=?", (_npicks[0][0],)).fetchone() == ("19:00", "Never Pool") and D.execute("SELECT cancelled, cancel_reason FROM practices WHERE id=?", (_npicks[2][0],)).fetchone() == (1, "Holiday") and not D.execute("SELECT 1 FROM practices WHERE id=?", (_npicks[3][0],)).fetchone() and D.execute("SELECT 1 FROM series_skips WHERE series_id=? AND date=?", (_nsid, _npicks[3][1])).fetchone(), "selected upcoming dates can be edited, canceled, or deleted, and a past date stays")
 _marina = D.execute("SELECT id, date FROM practices WHERE location='Marina High School' AND cancelled=0 AND date>=? ORDER BY date LIMIT 1", (A.today_pt().isoformat(),)).fetchone()
 D.execute("INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,0)", (_marina[0], jane_id))
 D.execute("INSERT INTO practice_coaches(practice_id, member_id, is_lead, focus, plan_note) VALUES(?,?,0,'Goalies','Press')", (_marina[0], eli_id))

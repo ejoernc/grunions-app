@@ -1628,6 +1628,43 @@ def series_selected_rows(d, sid, raw_ids):
         p = d.execute("SELECT * FROM practices WHERE id=? AND series_id=?", (pid, sid)).fetchone()
         if p and p["date"] >= today: out.append(p)
     return out
+def apply_series_selected(d, sid, action):
+    """Edit, cancel, or delete only the checked upcoming dates. Past dates stay as they are."""
+    rows = series_selected_rows(d, sid, request.form.getlist("pick"))
+    if not rows: raise ValueError("Select at least one upcoming date.")
+    if action == "edit_selected":
+        start = (request.form.get("pick_start") or "").strip()
+        end = (request.form.get("pick_end") or "").strip()
+        loc = " ".join((request.form.get("pick_location") or "").split())[:200]
+        if not start and not end and not loc: raise ValueError("Add a time or a location.")
+        if start and not re.fullmatch(r"\d{2}:\d{2}", start): raise ValueError("Add a start time.")
+        if end and not re.fullmatch(r"\d{2}:\d{2}", end): raise ValueError("Add an end time.")
+        for p in rows:
+            ns, ne, nl = start or p["start"], end or p["end"], loc or p["location"]
+            moved = nl != (p["location"] or "")
+            d.execute("UPDATE practices SET start=?, end=?, location=?, series_detached=1" + (", lat=NULL, lng=NULL" if moved else "") + " WHERE id=?",
+                      (ns, ne, nl, p["id"]))
+            if moved:
+                note_schedule_gap(d, p["date"], p["location"])
+                clear_schedule_gap(d, p["date"], nl)
+    elif action == "cancel_selected":
+        reason = " ".join((request.form.get("reason") or "").split())[:300]
+        if not reason: raise ValueError("Add a reason.")
+        for p in rows:
+            if not p["cancelled"]:
+                d.execute("UPDATE practices SET cancelled=1, cancel_reason=? WHERE id=?", (reason, p["id"]))
+                flag_practice(d, p["id"], "cancel", me()["id"])
+    elif action == "delete_selected":
+        dates = []
+        for p in rows:
+            note_schedule_gap(d, p["date"], p["location"])
+            d.execute("INSERT OR IGNORE INTO series_skips(series_id, date) VALUES(?,?)", (sid, p["date"]))
+            delete_practice_row(d, p["id"])
+            dates.append(p["date"])
+        for day in sorted(set(dates)):
+            drop_orphan_checkins(d, day)
+    else:
+        raise ValueError("Choose an action.")
 def series_dates(row, today=None):
     """Dates still to create. Week 0 starts on the Monday of the start date. Past dates are not created."""
     today = today or today_pt()
@@ -2787,18 +2824,29 @@ def series_new():
             save_series(d); d.commit(); flash("Saved", "toast"); return redirect("/practices")
         except ValueError as e:
             flash(str(e)); values = series_form_values(form=request.form)
-    return page(T["series_edit"], tab="series_edit", action="/practices/series/new", values=values, series_id=None, skips=[], coach_choices=coach_candidates(d), series=None)
+    return page(T["series_edit"], tab="series_edit", action="/practices/series/new", values=values, series_id=None, skips=[], future_skips=[], occurrences=[], coach_choices=coach_candidates(d), series=None)
 @app.route("/practices/series/<int:sid>", methods=["GET", "POST"])
 @admin_required
 def series_page(sid):
     d = db()
     row = d.execute("SELECT * FROM practice_series WHERE id=?", (sid,)).fetchone()
     if not row: abort(404)
-    if request.method == "POST" and request.form.get("action") == "unskip":
+    action = (request.form.get("action") or "") if request.method == "POST" else ""
+    if action == "unskip":
         day = (request.form.get("date") or "")[:10]
-        d.execute("DELETE FROM series_skips WHERE series_id=? AND date=?", (sid, day))
-        d.execute("UPDATE practices SET cancelled=0, skipped=0, cancel_reason='' WHERE series_id=? AND date=? AND skipped=1", (sid, day))
-        sync_series(d, sid); d.commit(); return redirect("/practices/series/%d" % sid)
+        if day >= today_pt().isoformat():
+            d.execute("DELETE FROM series_skips WHERE series_id=? AND date=?", (sid, day))
+            d.execute("UPDATE practices SET cancelled=0, skipped=0, cancel_reason='' WHERE series_id=? AND date=? AND skipped=1", (sid, day))
+            sync_series(d, sid); d.commit()
+        return redirect("/practices/series/%d" % sid)
+    if action in ("edit_selected", "cancel_selected", "delete_selected"):
+        try:
+            apply_series_selected(d, sid, action); d.commit(); flash("Saved", "toast")
+        except ValueError as e:
+            flash(str(e)); d.rollback()
+        except sqlite3.IntegrityError:
+            flash("A practice already exists at that place on that date."); d.rollback()
+        return redirect("/practices/series/%d#manage" % sid)
     coaches = d.execute("SELECT member_id, is_lead FROM series_coaches WHERE series_id=?", (sid,)).fetchall()
     values = series_form_values(row, coaches=coaches)
     if request.method == "POST":
@@ -2806,8 +2854,10 @@ def series_page(sid):
             save_series(d, sid); d.commit(); flash("Saved", "toast"); return redirect("/practices/series/%d" % sid)
         except ValueError as e:
             flash(str(e)); values = series_form_values(form=request.form)
+    today = today_pt().isoformat()
     skips = [r["date"] for r in d.execute("SELECT date FROM series_skips WHERE series_id=? ORDER BY date", (sid,))]
-    return page(T["series_edit"], tab="series_edit", action="/practices/series/%d" % sid, values=values, series_id=sid, skips=skips, coach_choices=coach_candidates(d), series=row)
+    occurrences = d.execute("SELECT id, date, start, end, location, cancelled FROM practices WHERE series_id=? AND date>=? ORDER BY date, id", (sid, today)).fetchall()
+    return page(T["series_edit"], tab="series_edit", action="/practices/series/%d" % sid, values=values, series_id=sid, skips=skips, future_skips=[day for day in skips if day >= today], occurrences=occurrences, coach_choices=coach_candidates(d), series=row)
 def lineup_where(city, venue):
     """Cards show the city. A venue-only legacy row falls back to that name."""
     city = " ".join(str(city or "").split())

@@ -3049,8 +3049,20 @@ T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ c
 {% for value, label in values.labels %}<label style="margin:8px 0"><input type=checkbox name=weekday value="{{ value }}" {% if value in values.weekdays %}checked{% endif %}>{{ label }}</label>{% endfor %}</div>
 <div class=row><label>Start<input type=time name=start value="{{ values.start }}" required></label><label>End<input type=time name=end value="{{ values.end }}" required></label></div>
 <label>Location<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location value="{{ values.location }}" data-places required autocomplete=off></label>
-<div class=row><label>Starts<input type=date name=start_date value="{{ values.start_date }}" required></label><label>Ends (optional)<input type=date name=end_date value="{{ values.end_date }}"></label></div>
-<p class="t3 sm">Dates are added through the end date, or for the next eight weeks when there is no end date.</p>
+<div class=row><label>Starts<input type=date name=start_date value="{{ values.start_date }}" required></label></div>
+<div class="t3 xs">Ends</div>
+<div class=actseg role=radiogroup aria-label="Series end">
+<label><input type=radio name=recur_end value=never {% if values.end_mode == 'never' %}checked{% endif %}><span>Never</span></label>
+<label><input type=radio name=recur_end value=date {% if values.end_mode == 'date' %}checked{% endif %}><span>On a date</span></label>
+<label><input type=radio name=recur_end value=count {% if values.end_mode == 'count' %}checked{% endif %}><span>After</span></label>
+</div>
+<label id=seriesUntil {% if values.end_mode != 'date' %}hidden{% endif %}>End date<input type=date name=end_date value="{{ values.end_date }}"></label>
+<label id=seriesCount {% if values.end_mode != 'count' %}hidden{% endif %}>Times<input type=number name=recur_count min=1 max=104 value="{{ values.end_count or 8 }}"></label>
+<p class="t3 sm">Never keeps about six months on the schedule and adds later dates as time moves forward.</p>
+<div class="t3 xs">Skip dates</div>
+<div id=skipChips class=skipchips>{% for day in future_skips %}<span class=skipchip><span>{{ fmt_d(day) }}</span><button type=button aria-label="Remove {{ fmt_d(day) }}">×</button><input type=hidden name=skip_date value="{{ day }}"></span>{% endfor %}</div>
+<label>Add a skip date<input type=date id=seriesSkipPick></label>
+<input type=hidden name=skip_dates_present value=1>
 <div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>
 <label style="margin:0 0 8px"><input type=radio name=lead value="" {% if not values.lead %}checked{% endif %}>No head coach</label>
 {% for c in coach_choices %}<div style="padding:8px 0;border-top:1px solid var(--line)">
@@ -3058,6 +3070,37 @@ T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ c
 <label style="margin:8px 0 0"><input type=radio name=lead value="{{ c.id }}" {% if values.lead == c.id|string %}checked{% endif %}>Head coach</label>
 </div>{% else %}<p class="t3 sm">No coaches on the coaching list yet.</p>{% endfor %}</div>
 </form>
+<script>(function(){
+ function ends(){
+  var on=document.querySelector('#seriesForm input[name=recur_end]:checked');
+  var mode=on?on.value:'never';
+  var until=document.getElementById('seriesUntil'), count=document.getElementById('seriesCount');
+  if(until){ until.hidden=mode!=='date'; var f=until.querySelector('input'); if(f) f.disabled=mode!=='date'; }
+  if(count){ count.hidden=mode!=='count'; var n=count.querySelector('input'); if(n) n.disabled=mode!=='count'; }
+ }
+ document.querySelectorAll('#seriesForm input[name=recur_end]').forEach(function(r){ r.addEventListener('change', ends); });
+ ends();
+ var box=document.getElementById('skipChips'), pick=document.getElementById('seriesSkipPick');
+ function drop(chip){ var b=chip.querySelector('button'); if(b) b.onclick=function(){ chip.remove(); }; }
+ if(box) box.querySelectorAll('.skipchip').forEach(drop);
+ if(pick&&box) pick.addEventListener('change', function(){
+  var iso=pick.value; pick.value='';
+  if(!iso||box.querySelector('input[value="'+iso+'"]')) return;
+  var chip=document.createElement('span'); chip.className='skipchip';
+  var label=document.createElement('span'); label.textContent=iso;
+  var btn=document.createElement('button'); btn.type='button'; btn.textContent='×'; btn.setAttribute('aria-label','Remove '+iso);
+  var hidden=document.createElement('input'); hidden.type='hidden'; hidden.name='skip_date'; hidden.value=iso;
+  chip.appendChild(label); chip.appendChild(btn); chip.appendChild(hidden); drop(chip); box.appendChild(chip);
+ });
+})();</script>
+{% if occurrences %}<div class=seclabel id=manage>Manage series</div>
+<form method=post action="{{ action }}">{{ csrf_field() }}
+<div class=list>{% for p in occurrences %}<label class="li sheetopt"><input type=checkbox name=pick value="{{ p.id }}"><span class=grow><b>{{ fmt_d(p.date) }}</b><small>{{ fmt_span(p.start, p.end) }} · {{ p.location }}{% if p.cancelled %} · Canceled{% endif %}</small></span></label>{% endfor %}</div>
+<div class=row><label>Start<input type=time name=pick_start></label><label>End<input type=time name=pick_end></label></div>
+<label>Location<input name=pick_location autocomplete=off placeholder="Leave blank to keep it"></label>
+<label>Reason<textarea class=planfield name=reason rows=3 placeholder="Needed when canceling"></textarea></label>
+<div class=row><button class="btn btn-secondary" name=action value=edit_selected>Edit selected</button><button class="btn btn-secondary" name=action value=cancel_selected>Cancel selected</button><button class="btn btn-danger" name=action value=delete_selected>Delete selected</button></div>
+</form>{% endif %}
 {% if skips %}<div class=seclabel>Skipped dates</div><div class=list>{% for day in skips %}<form method=post action="{{ action }}" class=li>{{ csrf_field() }}<input type=hidden name=action value=unskip><input type=hidden name=date value="{{ day }}"><span class=grow>{{ fmt_d(day) }}</span><button class="btn btn-secondary" type=submit>Undo skip</button></form>{% endfor %}</div>{% endif %}"""
 T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp;·&nbsp; Fri · Westminster HS &nbsp;·&nbsp; 7–8:30 PM</p>
 {% for x in data %}{% set p = x.p %}<div class="card tap" id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
@@ -3090,7 +3133,7 @@ T["practice"] = """{% set p = x.p %}
 {% if p.cancelled and p.cancel_reason %}<p class="t3 sm" style="margin:6px 0 0">{{ p.cancel_reason }}</p>{% endif %}
 {% if me().is_admin and p.cancelled and not editing and p.skipped %}<div class=eventacts><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=unskip>Undo skip</button></form><button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button></div>
 {% elif me().is_admin and p.cancelled and not editing %}<div class=eventacts><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=restore>Undo cancel</button></form><button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button></div>{% endif %}
-{% if me().is_admin and p.series_id and not p.cancelled %}<div style="display:flex;gap:10px;margin-top:12px"><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=skip onclick="return confirm('Skip this date?')">Skip this date</button></form><a class="btn btn-secondary" href="/practices/series/{{ p.series_id }}">Edit series</a></div>{% endif %}
+{% if me().is_admin and p.series_id and not p.cancelled %}<div style="display:flex;gap:10px;margin-top:12px"><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=skip onclick="return confirm('Skip this date?')">Skip this date</button></form><a class="btn btn-secondary" href="/practices/series/{{ p.series_id }}">Edit series</a><a class="btn btn-secondary" href="/practices/series/{{ p.series_id }}#manage">Manage series</a></div>{% endif %}
 <div class="stats trio">
 <div class=stattile><b>{{ x.going|length }}</b><span>Going</span></div>
 <div class=stattile><b>{{ x.coaches|length }}</b><span>Coaches</span></div>
