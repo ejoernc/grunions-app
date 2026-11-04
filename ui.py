@@ -489,7 +489,7 @@ button.lanecard.on{border-color:var(--color-lime);box-shadow:inset 0 0 0 1px var
 button.lanecard b{font-size:var(--type-t4-size);font-weight:650;line-height:var(--type-t4-line)}
 button.lanecard span{color:var(--color-text-secondary);font-size:var(--type-b2-size);line-height:var(--type-b2-line);font-weight:400}
 .plancards{display:flex;flex-direction:column;gap:8px;margin:0 0 16px}
-label.plancard{position:relative;display:flex;align-items:flex-start;gap:12px;width:100%;min-height:72px;margin:0;padding:14px 16px;border-radius:var(--radius-card);background:var(--color-surface);border:1px solid var(--color-control);color:var(--color-text);font-size:16px;font-weight:400;line-height:1.3;text-align:left;cursor:pointer}
+label.plancard{position:relative;display:flex;align-items:flex-start;gap:12px;width:100%;min-height:72px;margin:0;padding:14px 16px;border-radius:var(--radius-card);background:var(--color-surface);border:1px solid var(--color-control);box-shadow:inset 0 0 0 1px transparent;color:var(--color-text);font-size:16px;font-weight:400;line-height:1.3;text-align:left;cursor:pointer}
 label.plancard input{position:absolute;width:1px;height:1px;margin:0;padding:0;opacity:0}
 label.plancard .planmark{flex:none;width:22px;height:22px;margin-top:1px;border-radius:50%;border:1.5px solid var(--color-control);display:inline-flex;align-items:center;justify-content:center;color:var(--color-forest)}
 label.plancard .planmark svg{opacity:0}
@@ -942,7 +942,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=110');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=111');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsEditor(){
  function optName(input){
@@ -1043,6 +1043,8 @@ function grunionsEditor(){
  document.addEventListener('focusin', function(e){
   if(!document.body.classList.contains('editor')&&!document.body.classList.contains('profile-edit')) return;
   var el=e.target; if(!el||!el.scrollIntoView||el.closest('dialog')) return;
+  var type=(el.type||'').toLowerCase();
+  if(type==='radio'||type==='checkbox'||type==='hidden'||el.closest('.plancard,.actseg,.switch,.switchrow')) return;
   setTimeout(function(){ try{ el.scrollIntoView({block:'center'}); }catch(err){} }, 80);
  });
 }
