@@ -527,7 +527,7 @@ button.placeopt.checked .gcheck{background:var(--color-lime);border-color:var(--
 .fchips.chiprow{margin-top:10px;margin-bottom:0}
 .profilehero .profswitch.chiprow{align-self:stretch;margin-top:16px;margin-bottom:8px;margin-inline:-20px}
 .filt button.chip:disabled{opacity:.4;color:var(--t3);cursor:default;pointer-events:none}
-.checkbar{position:sticky;top:var(--headh,0px);z-index:6;background:var(--color-bg);margin:0 -20px 8px;padding:8px 20px 10px;overflow-x:auto}
+.checkbar{position:sticky;top:var(--headh,0px);z-index:6;background:var(--color-bg);margin:0 -20px var(--space-4);padding:8px 20px 0;overflow-x:auto}
 .checkbar form.row{flex-wrap:nowrap;align-items:center;gap:var(--space-2);width:100%;min-width:0;max-width:100%}
 .checkbar .calpick{flex:1 1 auto;width:100%;min-width:0;max-width:100%}
 .checkbar .calnav{width:44px;height:44px;min-width:44px;min-height:44px}
@@ -541,10 +541,12 @@ span.evcount{color:var(--color-text-secondary)}
 .checkbar .calbtn{flex:0 0 auto}
 .checkbar .calbtn span{overflow:visible;text-overflow:clip}
 .checkbar input[name=q]{flex:1 1 auto;width:auto;min-width:0;margin:0;height:48px;font-size:14px}
-.checkmeta{display:flex;flex-direction:column;gap:8px;margin:0 0 16px}
-.checkmeta .filt.chiprow{margin:0 -20px;align-items:center;padding:6px 20px}
+.checkmeta{display:flex;flex-direction:column;gap:var(--space-4);margin:0}
+.checkmeta .filt.chiprow{margin:0 -20px;align-items:center;padding:0 20px}
+.checkmeta .playersearch{margin:0}
+.checkmeta+h2{margin-top:var(--space-4)}
 .evstack{display:flex;flex-direction:column;gap:8px;margin:4px 0 12px}
-.evcard{padding:var(--space-4);margin:0}
+.evcard{padding:var(--space-4);margin:0 0 var(--space-4)}
 .evcard .evhit{display:block;color:inherit;text-decoration:none}
 .evcard .nxtitle{font-size:var(--type-t4-size);font-weight:var(--type-t4-weight);line-height:var(--type-t4-line)}
 .evcard .t2{margin:2px 0 0;font-weight:400;font-size:15px}
@@ -942,7 +944,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=111');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=112');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsEditor(){
  function optName(input){
