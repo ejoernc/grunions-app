@@ -1561,7 +1561,7 @@ def ensure_schedule(d, weeks=4):
     d.commit()
     pin_known_pools(d)
     d.commit()
-SERIES_HORIZON_DAYS = 56
+SERIES_HORIZON_DAYS = 183
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 def series_weekday_set(raw):
     return {int(x) for x in str(raw or "").split(",") if str(x).strip().isdigit()}
@@ -1585,16 +1585,49 @@ def series_end_count(row):
     except (TypeError, ValueError): return None
     return n if n > 0 else None
 def series_horizon(row, today):
+    """How far ahead to materialize dates. Never keeps a rolling six-month window."""
     start = dt.date.fromisoformat(row["start_date"])
-    cap = today + dt.timedelta(days=180)
+    cap = today + dt.timedelta(days=SERIES_HORIZON_DAYS)
     limit = series_end_count(row)
     if row["end_date"]:
         end = min(dt.date.fromisoformat(row["end_date"]), cap)
     elif limit:
         end = min(start + dt.timedelta(days=7 * series_interval(row) * limit + 14), today + dt.timedelta(days=366))
     else:
-        end = min(today + dt.timedelta(days=SERIES_HORIZON_DAYS), cap)
+        end = cap
     return max(start, today), end
+def date_on_series(start, end, weekdays, interval, day):
+    """True when day is one of the series meetings. end is None when the series does not stop."""
+    wanted = series_weekday_set(weekdays)
+    if day.weekday() not in wanted or day < start: return False
+    if end is not None and day > end: return False
+    start_monday = start - dt.timedelta(days=start.weekday())
+    week_index = ((day - dt.timedelta(days=day.weekday())) - start_monday).days // 7
+    return week_index >= 0 and week_index % interval == 0
+def replace_future_skips(d, sid, dates):
+    """Replace skip dates from today forward. Earlier skips stay."""
+    today = today_pt().isoformat()
+    wanted = []
+    for iso in dates or []:
+        if iso >= today and iso not in wanted: wanted.append(iso)
+    for row in d.execute("SELECT date FROM series_skips WHERE series_id=?", (sid,)):
+        if row["date"] >= today and row["date"] not in wanted:
+            d.execute("DELETE FROM series_skips WHERE series_id=? AND date=?", (sid, row["date"]))
+            d.execute("UPDATE practices SET cancelled=0, skipped=0, cancel_reason='' WHERE series_id=? AND date=? AND skipped=1", (sid, row["date"]))
+    for iso in wanted:
+        d.execute("INSERT OR IGNORE INTO series_skips(series_id, date) VALUES(?,?)", (sid, iso))
+def series_selected_rows(d, sid, raw_ids):
+    """Upcoming dates on this series. A past date is left out even if it was posted."""
+    today = today_pt().isoformat()
+    out, seen = [], set()
+    for raw in raw_ids or []:
+        try: pid = int(raw)
+        except (TypeError, ValueError): continue
+        if pid in seen: continue
+        seen.add(pid)
+        p = d.execute("SELECT * FROM practices WHERE id=? AND series_id=?", (pid, sid)).fetchone()
+        if p and p["date"] >= today: out.append(p)
+    return out
 def series_dates(row, today=None):
     """Dates still to create. Week 0 starts on the Monday of the start date. Past dates are not created."""
     today = today or today_pt()
@@ -1693,19 +1726,30 @@ def sync_series(d, sid, today=None):
 def sync_all_series(d):
     for sid in [r["id"] for r in d.execute("SELECT id FROM practice_series")]:
         sync_series(d, sid)
+def series_end_mode(row):
+    if series_end_count(row): return "count"
+    if row is not None and row["end_date"]: return "date"
+    return "never"
 def series_form_values(row=None, form=None, coaches=None):
     labels = [(str(i), WEEKDAYS[i]) for i in range(7)]
     if form is not None:
+        mode = (form.get("recur_end") or "").strip()
+        if mode not in ("never", "date", "count"): mode = "date" if (form.get("end_date") or form.get("recur_until")) else "never"
         return {"weekdays": form.getlist("weekday"), "start": form.get("start") or "19:00", "end": form.get("end") or "20:30",
-                "location": form.get("location") or "", "start_date": form.get("start_date") or "", "end_date": form.get("end_date") or "",
-                "coaches": [int(x) for x in form.getlist("coach") if str(x).isdigit()], "lead": form.get("lead") or "", "labels": labels}
+                "location": form.get("location") or "", "start_date": form.get("start_date") or form.get("date") or "",
+                "end_date": form.get("end_date") or form.get("recur_until") or "",
+                "coaches": [int(x) for x in form.getlist("coach") if str(x).isdigit()], "lead": form.get("lead") or "", "labels": labels,
+                "end_mode": mode, "end_count": form.get("recur_count") or "", "interval": form.get("recur_interval") or "1",
+                "skips": form.getlist("skip_date")}
     if row:
         chosen = [r["member_id"] for r in (coaches or [])]
         lead = next((str(r["member_id"]) for r in (coaches or []) if r["is_lead"]), "")
         return {"weekdays": [x for x in str(row["weekdays"]).split(",") if x], "start": row["start"], "end": row["end"],
                 "location": row["location"], "start_date": row["start_date"], "end_date": row["end_date"] or "",
-                "coaches": chosen, "lead": lead, "labels": labels}
-    return {"weekdays": [], "start": "19:00", "end": "20:30", "location": "", "start_date": "", "end_date": "", "coaches": [], "lead": "", "labels": labels}
+                "coaches": chosen, "lead": lead, "labels": labels, "end_mode": series_end_mode(row),
+                "end_count": series_end_count(row) or "", "interval": str(series_interval(row)), "skips": []}
+    return {"weekdays": [], "start": "19:00", "end": "20:30", "location": "", "start_date": "", "end_date": "",
+            "coaches": [], "lead": "", "labels": labels, "end_mode": "never", "end_count": "", "interval": "1", "skips": []}
 def save_series(d, sid=None):
     picked = []
     for x in request.form.getlist("weekday"):
@@ -1725,11 +1769,13 @@ def save_series(d, sid=None):
     if raw_interval in ("1", "2"): interval = int(raw_interval)
     end_mode = (request.form.get("recur_end") or "").strip()
     end_count = series_end_count(prev) if prev else None
-    if end_mode == "count":
+    if end_mode == "never":
+        end_iso, end_count, end = None, None, None
+    elif end_mode == "count":
         try: end_count = int(request.form.get("recur_count") or "")
         except ValueError: end_count = 0
         if end_count < 1 or end_count > 104: raise ValueError("Choose how many times it repeats.")
-        end_iso = None
+        end_iso, end = None, None
     else:
         end_raw = (request.form.get("recur_until") or request.form.get("end_date") or "").strip()
         if end_mode == "date" and not end_raw: raise ValueError("Add an end date.")
@@ -1738,6 +1784,16 @@ def save_series(d, sid=None):
         if end and end < start: raise ValueError("End date must be on or after the start date.")
         end_iso = end.isoformat() if end else None
         if end_mode == "date" or end_raw or not prev: end_count = None
+    skips = []
+    if request.form.get("skip_dates_present"):
+        today = today_pt()
+        for raw in request.form.getlist("skip_date"):
+            day = parse_date(raw)
+            if not day or day < today: continue
+            if not date_on_series(start, end, weekdays, interval, day):
+                raise ValueError("Skip dates have to fall on a day this series meets.")
+            iso = day.isoformat()
+            if iso not in skips: skips.append(iso)
     sp = sports.sports_from_form(request.form)
     tup = sports.sports_tuple(sp)
     if sid:
@@ -1750,6 +1806,8 @@ def save_series(d, sid=None):
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         (weekdays, start_t, end_t, loc, start.isoformat(), end_iso, interval, end_count, *tup)).lastrowid
     replace_series_coaches(d, sid, request.form.getlist("coach"), request.form.get("lead"))
+    if request.form.get("skip_dates_present"):
+        replace_future_skips(d, sid, skips)
     sync_series(d, sid)
     return sid
 def _write_series_template(d, sid, start, end, loc, sp):
@@ -1963,17 +2021,31 @@ def sports_editor(row=None, show_activity=True, show_format=False):
         parts.append("</div>")
         parts.append('<label>Title<input name=title id=actTitle value="%s" placeholder="%s" autocomplete=off></label>' % (escape(data["title"]), escape(sports.session_title(data["sport"], data["activity_type"], data["opponent"], data["segments"], ""))))
         parts.append('<label>Sport<input name=sport value="%s" autocomplete=off></label>' % escape(data["sport"] or "Water Polo"))
-    parts.append('<div class=checks role=group aria-label="Skill levels"><div class="t3 xs">Skill levels</div>')
-    parts.append('<label><input type=checkbox id=allLevels> All levels</label>')
+    level_names = [name for pid, name, _short, _full in sports.LEVELS if pid in levels]
+    if level_names and len(level_names) == len(sports.LEVELS): level_sum = "All levels"
+    elif len(level_names) == 1: level_sum = level_names[0]
+    elif len(level_names) == 2: level_sum = level_names[0] + " + 1"
+    elif level_names: level_sum = "%d selected" % len(level_names)
+    else: level_sum = "Not set"
+    div_sum = sports.divisions_label(data["divisions"], data["division_custom"]) or "Not set"
+    chev = '<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
+    parts.append('<button type=button class="li selfield" data-open=sheetLevels><span class=selfieldk>Skill levels</span><span class="selfieldv ell" data-for=levels>%s</span>%s</button>' % (escape(level_sum), chev))
+    parts.append('<dialog class=botsheet id=sheetLevels><div class=sheet><div class=grab></div><h2>Skill levels</h2><div class=sheetlist data-sum=levels data-empty="Not set">')
+    parts.append('<label class=sheetopt data-label="All levels"><input type=checkbox id=allLevels%s><span><b>All levels</b><small>Every skill level</small></span></label>' % (" checked" if level_names and len(level_names) == len(sports.LEVELS) else ""))
     for pid, name, short, _full in sports.LEVELS:
         checked = " checked" if pid in levels else ""
-        parts.append('<label><input type=checkbox name=level value="%s"%s> %s <span class="t3 sm">%s</span></label>' % (pid, checked, name, escape(short)))
-    parts.append("</div>")
-    parts.append('<div class=checks role=group aria-label="Division"><div class="t3 xs">Division <span class=t3>(optional)</span></div>')
+        parts.append('<label class=sheetopt data-label="%s"><input type=checkbox name=level value="%s"%s><span><b>%s</b><small>%s</small></span></label>' % (escape(name), pid, checked, escape(name), escape(short)))
+    parts.append('</div><button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>')
+    first_div = next((pid for pid, _name in sports.DIVISIONS if pid in divs), "")
+    parts.append('<button type=button class="li selfield" data-open=sheetDivision><span class=selfieldk>Division</span><span class="selfieldv ell" data-for=division>%s</span>%s</button>' % (escape(div_sum), chev))
+    parts.append('<dialog class=botsheet id=sheetDivision><div class=sheet><div class=grab></div><h2>Division</h2><div class=sheetlist data-sum=division data-empty="Not set">')
+    parts.append('<label class=sheetopt data-label="Not set"><input type=radio name=division value=""%s><span><b>Not set</b></span></label>' % ("" if first_div else " checked"))
     for pid, name in sports.DIVISIONS:
-        checked = " checked" if pid in divs else ""
-        parts.append('<label><input type=checkbox name=division value="%s"%s> %s</label>' % (pid, checked, name))
-    parts.append('<label data-actcustom>Custom label<input name=division_custom value="%s" autocomplete=off></label></div>' % escape(data["division_custom"]))
+        checked = " checked" if pid == first_div else ""
+        parts.append('<label class=sheetopt data-label="%s"><input type=radio name=division value="%s"%s><span><b>%s</b></span></label>' % (escape(name), pid, checked, escape(name)))
+    custom_hidden = "" if first_div == "custom" else " hidden"
+    parts.append('</div><label id=divCustom%s>Custom label<input name=division_custom value="%s" autocomplete=off></label>' % (custom_hidden, escape(data["division_custom"])))
+    parts.append('<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>')
     if show_activity:
         parts.append('<div data-act=game><label>Opponent<input name=opponent value="%s" autocomplete=off placeholder="Squid"></label>' % escape(data["opponent"]))
         parts.append('<label>Home / away<select name=home_away><option value="">Not set</option><option value=home%s>Home</option><option value=away%s>Away</option></select></label></div>' % (
@@ -2022,9 +2094,12 @@ def _field(row, key):
         pass
     return None
 def social_kinds_of(raw):
-    """Canonical type order. A stored single value stays valid."""
+    """Canonical type order. A stored single value stays valid. A custom label is kept when it is not one of the types."""
     parts = [p.strip().lower() for p in str(raw or "").split(",") if p.strip()]
-    return [kind for kind in SOCIAL_KINDS if kind.lower() in parts]
+    known = [kind for kind in SOCIAL_KINDS if kind.lower() in parts]
+    if known: return known
+    text = " ".join(str(raw or "").split())
+    return [text] if text else []
 def migrate_social_kinds(d):
     """Rewrite stored types into Dinner, Drinks, Social, Coffee, Dessert, Activities, Potluck, Other."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(practices)")]
@@ -2050,7 +2125,12 @@ def social_home(p):
     return {"title": " & ".join(names) + " after", "place": place}
 def clean_social(form):
     raw = form.getlist("social_kind") if hasattr(form, "getlist") else [form.get("social_kind") or ""]
-    kind = ",".join(k for k in SOCIAL_KINDS if k in raw)
+    custom = " ".join((form.get("social_custom") or "").split())[:40]
+    picked = [k for k in SOCIAL_KINDS if k in raw]
+    if picked == ["Other"] and custom and custom not in SOCIAL_KINDS:
+        kind = custom
+    else:
+        kind = ",".join(picked)
     place = " ".join((form.get("social_place") or "").split())[:80]
     address = " ".join((form.get("social_address") or "").split())[:300]
     note = (form.get("social_note") or "").replace("\r\n", "\n").replace("\r", "\n").strip()[:500]
@@ -3072,12 +3152,15 @@ def _place_hit(q, name, detail=""):
     blob = _place_fold(name) + " " + _place_fold(detail)
     if needle in blob: return True
     return all(part in blob for part in needle.split())
-def _place_add(rows, name, detail):
+def _place_add(rows, name, detail, address="", map_url="", business=None):
     name = " ".join(str(name or "").split())[:120]
     detail = " ".join(str(detail or "").split())[:180]
+    address = " ".join(str(address or detail or "").split())[:300]
+    map_url = str(map_url or "").strip()[:300]
+    business = name if business is None else " ".join(str(business or "").split())[:120]
     if not name: return
     if any(name.casefold() == row["name"].casefold() and detail.casefold() == row["detail"].casefold() for row in rows): return
-    rows.append({"name": name, "detail": detail, "verified": True})
+    rows.append({"name": name, "detail": detail, "address": address, "map": map_url, "business": business, "verified": True})
 def local_places(d, q):
     """Club pools first, then places the club has already saved."""
     rows = []
@@ -3108,11 +3191,14 @@ def nominatim_places(q):
             data = json.loads(resp.read().decode() or "[]")
         for item in data:
             disp = " ".join(str(item.get("display_name") or "").split())
-            name = " ".join(str(item.get("name") or "").split()) or disp.split(",")[0].strip()
+            business = " ".join(str(item.get("name") or "").split())
+            name = business or disp.split(",")[0].strip()
             detail = disp
             if name and detail.casefold().startswith(name.casefold()):
                 detail = detail[len(name):].lstrip(" ,")
-            _place_add(rows, name, detail)
+            lat, lon = item.get("lat"), item.get("lon")
+            map_url = ("https://www.google.com/maps/search/?api=1&query=%s,%s" % (lat, lon)) if lat and lon else ""
+            _place_add(rows, name, detail, map_url=map_url, business=business)
     except Exception as e:
         app.logger.info("place suggest failed: %s", e)
     return rows
@@ -3481,7 +3567,7 @@ def event_new():
                     (day.isoformat(), start, end, loc, note, *sports.sports_tuple(sp)))
                 clear_schedule_gap(d, day.isoformat(), loc)
                 pid = cur.lastrowid
-                save_practice_coaches(d, pid, request.form.getlist("coach"))
+                save_practice_coaches(d, pid, request.form.getlist("coach"), lead=request.form.get("lead"), focuses=focus_map_from_form())
                 if request.form.getlist("social_kind"):
                     if not save_social(d, pid, request.form): flash("Add a place for the social.")
                 try: apply_practice_image(d, pid)
@@ -5121,7 +5207,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-106 */
+SW_JS = """/* grunions-sw-107 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

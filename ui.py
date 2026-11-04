@@ -257,6 +257,21 @@ button.morebtn[aria-expanded=true]{background:var(--surface2);color:var(--t1)}
 .menu button{width:100%;height:40px;padding:0 12px;justify-content:flex-start;background:transparent;color:var(--t1);font-weight:500;font-size:15px;border-radius:8px}
 .menu button:disabled{color:var(--t3)}
 .li{display:flex;align-items:center;gap:12px;padding:14px 18px;min-height:60px;border-top:1px solid var(--line)}.li:first-child{border-top:0}
+.formsec{margin:22px 0 0}.formsec>h2{margin:0 4px 8px;font-size:13px;font-weight:650;letter-spacing:.01em;color:var(--t3)}
+button.selfield{width:100%;min-height:44px;background:transparent;color:inherit;border-radius:0;height:auto;padding:14px 16px;justify-content:flex-start;text-align:left}
+.selfieldk{flex:none;font-weight:500;color:var(--color-text)}.selfieldv{flex:1;min-width:0;text-align:right;color:var(--t3);font-weight:400}
+.selfield svg{flex:none;color:var(--t3)}
+.sheetlist{margin:0 0 12px}.sheetopt{display:flex;align-items:flex-start;gap:12px;min-height:44px;padding:10px 0;border-top:1px solid var(--line);color:var(--color-text);font-size:16px}
+.sheetopt:first-child{border-top:0}.sheetopt b{display:block;font-weight:600}.sheetopt small{display:block;color:var(--t3);font-size:13px;line-height:1.35;font-weight:400}
+.sheetopt input{margin-top:2px}
+.sheetsearch{margin:0 0 8px}
+.skipchips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.skipchip{display:inline-flex;align-items:center;gap:4px;min-height:44px;padding:0 4px 0 12px;border-radius:999px;background:var(--surface2);color:var(--t1);font-size:15px;font-weight:500}
+.skipchip button{width:44px;height:44px;min-height:44px;padding:0;background:transparent;color:var(--t2);font-size:20px;font-weight:400}
+.coachrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 0;border-top:1px solid var(--line)}
+.coachrow .avatar{width:36px;height:36px;min-width:36px;max-width:36px;min-height:36px;max-height:36px;flex:0 0 36px;font-size:13px}
+body.editor nav.tabs,body.profile-edit nav.tabs{display:none}
+body.editor main,body.profile-edit main{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
 .planrow{flex-wrap:wrap;align-items:center}.planline{flex:1;min-width:0;display:flex;align-items:center;justify-content:flex-start;gap:8px;flex-wrap:wrap;text-align:left}.planlabel{font-weight:500;color:var(--color-text);text-align:left}.plantext{flex:1 0 100%;white-space:pre-wrap;margin-top:4px;text-align:left}
 textarea.planfield{height:auto;min-height:var(--field-plan-min);line-height:var(--type-b1-line);resize:vertical;field-sizing:content}
 .li.prow{padding-left:16px;padding-right:16px;gap:8px}
@@ -270,6 +285,7 @@ label{display:block;font-size:var(--type-b3-size);font-weight:var(--type-b3-weig
 input,select,textarea{display:block;width:100%;margin-top:var(--space-2);background:var(--surface2);border:1px solid var(--color-control);color:var(--t1);border-radius:var(--radius-input);
 padding:0 14px;height:var(--size-button);font:inherit;color-scheme:dark}textarea{padding:12px 14px}input[type=hidden]{display:none}input[type=checkbox],.checks input[type=radio]{display:inline-block;width:20px;height:20px;margin:0 8px 0 0;vertical-align:-4px;accent-color:var(--accent);flex:none}
 input[type=file].pick{position:absolute;left:0;top:0;width:1px;height:1px;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0,0,0,0);opacity:0;pointer-events:none}
+.sheetopt input,.coachrow input{display:inline-block;width:22px;height:22px;min-width:22px;flex:none;margin:2px 0 0;padding:0;background:transparent}
 input[type=date]::-webkit-calendar-picker-indicator,input[type=datetime-local]::-webkit-calendar-picker-indicator{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20256%20256'%3E%3Cpath%20fill%3D'%23F2F6F1'%20d%3D'M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z'%2F%3E%3C%2Fsvg%3E");background-repeat:no-repeat;background-size:20px 20px;background-position:center}
 input[type=time]::-webkit-calendar-picker-indicator{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20256%20256'%3E%3Cpath%20fill%3D'%23F2F6F1'%20d%3D'M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z'%2F%3E%3C%2Fsvg%3E");background-repeat:no-repeat;background-size:20px 20px;background-position:center}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--color-focus)}
@@ -319,9 +335,9 @@ button:disabled,.btn:disabled{opacity:.45}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--t3);flex:none;display:inline-block}.dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}.dot.warn{background:var(--warn)}
 .list .menu{left:auto;right:0;min-width:280px}
 .row.wrap{flex-wrap:wrap}
-dialog.modal{border:0;padding:0;background:transparent;color:var(--t1);width:min(440px,calc(100vw - 32px))}
+dialog.modal{border:0;padding:0;background:transparent;color:var(--t1);width:min(440px,calc(100vw - 32px));overflow:visible}
 dialog.modal::backdrop{background:var(--color-backdrop)}
-dialog.modal .sheet{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px}
+dialog.modal .sheet{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;overflow:visible}
 dialog.modal .sheet form>.btn,dialog.modal .sheet form>button.btn,dialog.modal .sheet form>.row:last-child,dialog.botsheet .sheet form>.btn,dialog.botsheet .sheet form>button.btn,dialog.botsheet .sheet form>.row:last-child,dialog.modal .sheet>.btn,dialog.botsheet .sheet>.btn{margin-top:var(--space-form-action)}
 dialog.modal .sheet form>:has(+.btn),dialog.modal .sheet form>:has(+button.btn),dialog.modal .sheet form>:has(+.row),dialog.botsheet .sheet form>:has(+.btn),dialog.botsheet .sheet form>:has(+button.btn),dialog.modal .sheet>:has(+.btn),dialog.botsheet .sheet>:has(+.btn){margin-bottom:0}
 .note{background:var(--surface);border-radius:var(--r);padding:14px 18px;margin:0 0 12px;color:var(--t2);font-size:15px}.note b{color:var(--t1)}
@@ -472,7 +488,8 @@ button.lanecard span{color:var(--color-text-secondary);font-size:var(--type-b2-s
 button.setrow{width:100%;height:auto;min-height:60px;padding:14px 18px;border-radius:0;background:transparent;color:var(--color-text);font-weight:500;justify-content:space-between;text-align:left}
 button.setrow .sum{color:var(--color-text-secondary);font-weight:400;font-size:var(--type-b2-size)}
 label:has(> .locok){display:flex;flex-wrap:wrap;align-items:center;column-gap:8px}
-label:has(> .locok)>.placefield,label:has(> .locok)>input{flex:1 0 100%;min-width:100%}
+label:has(> .locok)>.placefield,label:has(> .locok)>input,label:has(> .locok)>.placeaddr{flex:1 0 100%;min-width:100%}
+.placeaddr{margin:6px 0 0}
 .locok{display:inline-flex;align-items:center;gap:6px;margin:0;color:var(--color-status-cleared);font-size:var(--type-b2-size);line-height:1}
 .placefield{position:relative;display:block}
 .placedrop{position:absolute;z-index:25;left:0;right:0;top:calc(100% + 4px);max-height:min(320px,60vh);overflow:auto;background:var(--color-sheet);border:1px solid var(--color-sheet-border);border-radius:var(--radius-control);padding:4px;box-shadow:0 12px 32px rgba(0,0,0,.35)}
@@ -629,7 +646,7 @@ dialog.memberedit .help a{color:var(--t1)}
 .datefield.empty input[type=date]{color:transparent}
 .datefield.empty input[type=date]::-webkit-datetime-edit,.datefield.empty input[type=date]::-webkit-datetime-edit-fields-wrapper{color:transparent}
 @media print{header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{background:#fff}}
-</style></head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' or tab=='manage' %}adminpage{% endif %}">
+</style></head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' or tab=='manage' %}adminpage{% endif %}{% if tab=='event_new' or tab=='lineup_edit' or tab=='series_edit' or (tab=='practice' and editing) %} editor{% endif %}">
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
@@ -751,8 +768,8 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=checks role=group aria-label="Type"><input type=hidden name=social_kind value="">
 {% for kind in SOCIAL_KINDS %}<label><input type=checkbox name=social_kind value="{{ kind }}" {% if kind in (p.social_kind or '').split(',') %}checked{% endif %}>{{ kind }}</label>{% endfor %}
 </div>
-<label>Place<input name=social_place value="{{ p.social_place or '' }}" autocomplete=off></label>
-<label>Address or map link (optional)<input name=social_address value="{{ p.social_address or '' }}" autocomplete=off></label>
+<label>Address<span class=locok {% if not p.social_address %}hidden{% endif %}><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address value="{{ p.social_address or '' }}" data-places data-place-name=social_place autocomplete=off placeholder="Search for an address"></label>
+<label>Place name<input name=social_place value="{{ p.social_place or '' }}" autocomplete=off placeholder="Name of the place"></label>
 <label>Time (optional)<input type=time name=social_time value="{{ p.social_time or '' }}"></label>
 <label>Note (optional)<textarea class=planfield name=social_note rows=4>{{ p.social_note or '' }}</textarea></label>
 {% endmacro %}
@@ -892,7 +909,7 @@ def _nav_icon(key):
 
 _HOME_ON = "tab=='home' or tab=='practices' or tab=='practice' or tab=='series_edit'"
 _LINEUP_ON = "tab=='lineup' or tab=='lineup_edit' or tab=='lineup_event'"
-TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab != 'event_new' %}<nav class="tabs noprint" data-total="{{ badges().total }}">"""
+TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab != 'event_new' and tab != 'lineup_edit' and tab != 'series_edit' and not (tab=='practice' and editing) %}<nav class="tabs noprint" data-total="{{ badges().total }}">"""
  + _nav_anchor("home", "/home", "Home", _HOME_ON, "schedule")
  + _nav_anchor("lineup", "/lineup", "Lineup", _LINEUP_ON)
  + _nav_anchor("chat", "/chat", "Chat", "tab=='chat'", "chat")
@@ -900,8 +917,111 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=106');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=107');
 if(window.grunionsDropzones) grunionsDropzones();
+function grunionsEditor(){
+ function optName(input){
+  var lab=input.closest('label');
+  return (lab&&lab.getAttribute('data-label'))||'';
+ }
+ function chosen(box){
+  return [].slice.call(box.querySelectorAll('input')).filter(function(i){ return i.checked && i.id!=='allLevels' && i.value; }).map(optName).filter(Boolean);
+ }
+ function summarize(names, empty){
+  if(!names.length) return empty||'Not set';
+  if(names.length===1) return names[0];
+  if(names.length===2) return names[0]+' + 1';
+  return names.length+' selected';
+ }
+ function paintBox(box){
+  var key=box.getAttribute('data-sum');
+  var target=document.querySelector('[data-for="'+key+'"]');
+  if(!target) return;
+  var all=box.querySelector('#allLevels');
+  if(all&&all.checked){ target.textContent='All levels'; return; }
+  if(key==='division'||key==='social'||key==='lead'){
+   var on=box.querySelector('input:checked');
+   var name=on?optName(on):'';
+   if(key==='division'&&on&&on.value==='custom'){
+    var custom=document.querySelector('[name=division_custom]');
+    if(custom&&custom.value.trim()) name=custom.value.trim();
+    var divLab=document.getElementById('divCustom'); if(divLab) divLab.hidden=false;
+   } else if(key==='division'){ var divLab2=document.getElementById('divCustom'); if(divLab2) divLab2.hidden=true; }
+   if(key==='social'&&on&&on.value==='Other'){
+    var label=document.querySelector('[name=social_custom]');
+    if(label&&label.value.trim()) name=label.value.trim();
+    var customLab=document.getElementById('socialCustom'); if(customLab) customLab.hidden=false;
+   } else if(key==='social'){ var customLab2=document.getElementById('socialCustom'); if(customLab2) customLab2.hidden=true; }
+   target.textContent=name||box.getAttribute('data-empty')||'Not set';
+   if(key==='social'){ var soc=document.getElementById('socialSum'); if(soc&&name) soc.textContent=name; }
+   return;
+  }
+  target.textContent=summarize(chosen(box), box.getAttribute('data-empty'));
+ }
+ document.querySelectorAll('[data-sum]').forEach(function(box){
+  box.addEventListener('change', function(){ paintBox(box); });
+  paintBox(box);
+ });
+ var boxes=[].slice.call(document.querySelectorAll('input[name=level]'));
+ var all=document.getElementById('allLevels');
+ function syncAll(){ if(all) all.checked=boxes.length&&boxes.every(function(b){ return b.checked; }); }
+ if(all) all.addEventListener('change', function(){ boxes.forEach(function(b){ b.checked=all.checked; }); var box=all.closest('[data-sum]'); if(box) paintBox(box); });
+ boxes.forEach(function(b){ b.addEventListener('change', function(){ syncAll(); var box=b.closest('[data-sum]'); if(box) paintBox(box); }); });
+ syncAll();
+ function syncCoaches(){
+  var chosen={};
+  document.querySelectorAll('#sheetCoaches input[name='+'coach]').forEach(function(c){ if(c.checked) chosen[c.value]=c.getAttribute('data-name')||'Coach'; });
+  document.querySelectorAll('[data-lead]').forEach(function(row){
+   var id=row.getAttribute('data-lead'); if(!id) return;
+   row.hidden=!chosen[id];
+   var radio=row.querySelector('input');
+   if(row.hidden&&radio&&radio.checked){ var none=document.querySelector('#sheetLead input[name=lead][value=""]'); if(none) none.checked=true; }
+  });
+  var leadBox=document.querySelector('[data-sum=lead]'); if(leadBox) paintBox(leadBox);
+  var coachBox=document.querySelector('[data-sum=coaches]'); if(coachBox) paintBox(coachBox);
+  var list=document.getElementById('assignedCoaches'); if(!list) return;
+  list.innerHTML='';
+  Object.keys(chosen).forEach(function(id){
+   var b=document.createElement('button'); b.type='button'; b.className='li selfield';
+   b.innerHTML='<span class=selfieldk></span><span class=selfieldv>Details</span>';
+   b.querySelector('.selfieldk').textContent=chosen[id];
+   b.onclick=function(){
+    var home=document.getElementById('focusHome'), slot=document.getElementById('focusSlot'), title=document.getElementById('focusTitle');
+    if(slot){ while(slot.firstChild){ var back=document.getElementById('focusHome'); if(back) back.appendChild(slot.firstChild); } }
+    var field=home&&home.querySelector('[data-coach="'+id+'"]');
+    if(slot&&field) slot.appendChild(field);
+    if(title) title.textContent=chosen[id];
+    var sheet=document.getElementById('focusSheet'); if(sheet&&sheet.showModal) sheet.showModal();
+   };
+   list.appendChild(b);
+  });
+ }
+ document.querySelectorAll('#sheetCoaches input[name='+'coach],#sheetLead input[name=lead]').forEach(function(el){ el.addEventListener('change', syncCoaches); });
+ if(document.getElementById('sheetCoaches')) syncCoaches();
+ document.querySelectorAll('[data-sheetsearch]').forEach(function(input){
+  input.addEventListener('input', function(){
+   var q=input.value.trim().toLowerCase();
+   var sheet=input.closest('dialog'); if(!sheet) return;
+   sheet.querySelectorAll('[data-search]').forEach(function(row){ row.hidden=!!(q&&(row.getAttribute('data-search')||'').toLowerCase().indexOf(q)<0); });
+  });
+ });
+ document.querySelectorAll('[data-sheetdone]').forEach(function(b){ b.addEventListener('click', function(){ var d=b.closest('dialog'); if(d) d.close(); }); });
+ var toggle=document.getElementById('socialToggle'), sbody=document.getElementById('socialBody'), clearer=document.getElementById('socialClear');
+ if(toggle&&sbody) toggle.addEventListener('click', function(){ sbody.hidden=false; if(clearer) clearer.disabled=true; });
+ var removeSocial=document.getElementById('socialRemove');
+ if(removeSocial&&sbody) removeSocial.addEventListener('click', function(){
+  sbody.querySelectorAll('input[type=radio][name=social_kind]').forEach(function(r){ r.checked=false; });
+  if(clearer) clearer.disabled=false;
+  sbody.hidden=true;
+  var sum=document.getElementById('socialSum'); if(sum) sum.textContent='Not added';
+ });
+ document.addEventListener('focusin', function(e){
+  if(!document.body.classList.contains('editor')&&!document.body.classList.contains('profile-edit')) return;
+  var el=e.target; if(!el||!el.scrollIntoView||el.closest('dialog')) return;
+  setTimeout(function(){ try{ el.scrollIntoView({block:'center'}); }catch(err){} }, 80);
+ });
+}
+if(document.querySelector('[data-editorform],#sheetLevels')) grunionsEditor();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
 var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1533,10 +1653,24 @@ window.grunionsPlaces=function(input){
   var on=items.length>0;
   open=on; drop.hidden=!on; input.setAttribute('aria-expanded', on?'true':'false');
  }
+ function nameField(){
+  var key=input.getAttribute('data-place-name');
+  if(!key||!input.form) return null;
+  return input.form.querySelector('[name="'+key+'"]');
+ }
+ var named=nameField();
+ if(named&&!named.dataset.nameWatch){
+  named.dataset.nameWatch='1';
+  named.addEventListener('input', function(){ named.setAttribute('data-name-edited', named.value.trim()?'1':'0'); });
+ }
  function choose(i){
   var item=items[i]; if(!item) return;
-  input.value=item.name;
-  setBadge(!!item.verified);
+  var place=nameField();
+  if(place){
+   input.value=item.custom ? item.name : (item.address||item.detail||item.map||item.name);
+   if(place.getAttribute('data-name-edited')!=='1') place.value=item.custom ? '' : (item.business||'');
+  } else input.value=item.name;
+  setBadge(!!item.verified&&!item.custom);
   input.dispatchEvent(new Event('change',{bubbles:true}));
   close();
  }
@@ -1544,7 +1678,7 @@ window.grunionsPlaces=function(input){
   var mine=++seq;
   fetch('/api/places?q='+encodeURIComponent(q)).then(function(r){ return r.json(); }).then(function(rows){
    if(mine!==seq||input.value.trim()!==q) return;
-   items=(rows||[]).map(function(row){ return {name:row.name||'', detail:row.detail||'', verified:row.verified!==false, custom:false}; }).filter(function(row){ return row.name; });
+   items=(rows||[]).map(function(row){ return {name:row.name||'', detail:row.detail||'', address:row.address||row.detail||'', map:row.map||'', business:row.business||'', verified:row.verified!==false, custom:false}; }).filter(function(row){ return row.name; });
    var typed=q;
    items.push({name:typed, detail:'', verified:false, custom:true, label:'Use “'+typed+'”'});
    active=items.length?0:-1;
@@ -2512,7 +2646,7 @@ T["manage_request"] = ADMIN_NAV + """{{ admin_page(e.title) }}
 <div class=row><button class="btn btn-secondary" name=action value=changes>Request Changes</button><button class="btn btn-danger" name=action value=decline>Decline</button></div>
 </form>{% elif e.status == 'published' %}<p style="margin-top:16px"><a class="btn btn-secondary" href="/lineup/{{ e.id }}">View on Lineup</a></p>{% endif %}"""
 _CHEV = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
-T["event_new"] = """<form id=planForm method=post action=/events/new enctype=multipart/form-data>{{ csrf_field() }}
+T["event_new"] = """<form id=planForm method=post action=/events/new enctype=multipart/form-data data-editorform>{{ csrf_field() }}
 <input type=hidden name=lane id=laneVal value="{{ 'lineup' if not staff else lane }}">
 <input type=hidden name=title_mode id=titleMode value=auto>
 <input type=hidden name=mode value="{{ 'create' if staff else 'suggest' }}">
@@ -2546,29 +2680,10 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button class="li setrow" data-matfor=dateInput><span class=grow><span id=dateLab>Date</span><span class="sum" id=dateSum> Add a date</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" data-matfor=startInput><span class=grow>Start<span class="sum" id=startSum> 7:00 PM</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" data-matfor=endInput><span class=grow>End<span class="sum" id=endSum> 8:30 PM</span></span>""" + _CHEV + """</button>
-</div>
-<div id=recurWhen hidden>
-<div class=checks role=group aria-label="Days">
-<label><input type=checkbox name=weekday value=0> Mon</label>
-<label><input type=checkbox name=weekday value=1> Tue</label>
-<label><input type=checkbox name=weekday value=2> Wed</label>
-<label><input type=checkbox name=weekday value=3> Thu</label>
-<label><input type=checkbox name=weekday value=4> Fri</label>
-<label><input type=checkbox name=weekday value=5> Sat</label>
-<label><input type=checkbox name=weekday value=6> Sun</label>
-</div>
-<div class=actseg role=radiogroup aria-label="Repeat">
-<label><input type=radio name=recur_interval value=1 checked><span>Weekly</span></label>
-<label><input type=radio name=recur_interval value=2><span>Every 2 weeks</span></label>
-</div>
-<div class=actseg role=radiogroup aria-label="Ends">
-<label><input type=radio name=recur_end value=date checked><span>On a date</span></label>
-<label><input type=radio name=recur_end value=count><span>After</span></label>
-</div>
-<div class=list id=recurUntil>
-<button type=button class="li setrow" data-matfor=untilInput><span class=grow>End date<span class="sum" id=untilSum> Add a date</span></span>""" + _CHEV + """</button>
-</div>
-<label id=recurCountField hidden>Times<input type=number name=recur_count id=recurCount min=1 max=104 value=8 inputmode=numeric></label>
+<button type=button class="li setrow" id=repeatRow data-open=sheetDays hidden aria-haspopup=dialog aria-controls=sheetDays><span class=grow><span id=daysLab>Choose days</span><span class=sum id=daysSum></span></span>""" + _CHEV + """</button>
+<button type=button class="li setrow" id=freqRow data-open=sheetFreq hidden aria-haspopup=dialog aria-controls=sheetFreq><span class=grow>Frequency<span class=sum id=freqSum> Weekly</span></span>""" + _CHEV + """</button>
+<button type=button class="li setrow" id=endsRow data-open=sheetEnds hidden aria-haspopup=dialog aria-controls=sheetEnds><span class=grow>Ends<span class=sum id=endsSum> Never</span></span>""" + _CHEV + """</button>
+<button type=button class="li setrow" id=skipRow data-open=sheetSkips hidden aria-haspopup=dialog aria-controls=sheetSkips><span class=grow>Skip dates<span class=sum id=skipSum> None</span></span>""" + _CHEV + """</button>
 </div>
 <div class=list id=monthWhen hidden>
 <button type=button class="li setrow" data-matfor=monthInput><span class=grow>Month<span class=sum id=monthSum> Choose a month</span></span>""" + _CHEV + """</button>
@@ -2576,11 +2691,19 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>
 <label>Location<span id=locOk class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location id=locInput data-places autocomplete=off placeholder="Pool or address"></label>
 <div class=seclabel>Additional settings</div>
-{% if staff %}<div class=list id=schedSets {% if lane == 'lineup' %}hidden{% endif %}>
-<button type=button class="li setrow" data-open=setLevels><span class=grow>Skill levels &amp; division<span class=sum id=lvlSum> Not set</span></span>""" + _CHEV + """</button>
-<button type=button class="li setrow" data-open=setCoaches><span class=grow>Coaches<span class=sum id=coachSum> None</span></span>""" + _CHEV + """</button>
-<button type=button class="li setrow" data-open=setSocial><span class=grow>After-session social<span class=sum id=socSum> None</span></span>""" + _CHEV + """</button>
-<button type=button class="li setrow" data-open=setNotes><span class=grow>Notes &amp; media<span class=sum id=noteSum> None</span></span>""" + _CHEV + """</button>
+{% if staff %}<div id=schedSets {% if lane == 'lineup' %}hidden{% endif %}>
+<div class=formsec><h2>Practice details</h2><div class=list>
+<button type=button class="li selfield" data-open=sheetLevels><span class=selfieldk>Skill levels</span><span class="selfieldv ell" data-for=levels>Not set</span>""" + _CHEV + """</button>
+<button type=button class="li selfield" data-open=sheetDivision><span class=selfieldk>Division</span><span class="selfieldv ell" data-for=division>Not set</span>""" + _CHEV + """</button>
+</div></div>
+<div class=formsec><h2>Coaching</h2><div class=list>
+<button type=button class="li selfield" data-open=sheetCoaches><span class=selfieldk>Coaches</span><span class="selfieldv ell" data-for=coaches>None</span>""" + _CHEV + """</button>
+<button type=button class="li selfield" data-open=sheetLead><span class=selfieldk>Head coach</span><span class="selfieldv ell" data-for=lead>No head coach</span>""" + _CHEV + """</button>
+</div><div id=assignedCoaches class=list></div></div>
+<div class=formsec><h2>Additional details</h2><div class=list>
+<button type=button class="li selfield" data-open=setSocial><span class=selfieldk>After-practice social</span><span class="selfieldv ell" id=socSum>Not added</span>""" + _CHEV + """</button>
+<button type=button class="li selfield" data-open=setNotes><span class=selfieldk>Notes &amp; cover image</span><span class="selfieldv ell" id=noteSum>Not added</span>""" + _CHEV + """</button>
+</div></div>
 </div>{% endif %}
 <div class=list id=lineSets {% if staff and lane != 'lineup' %}hidden{% endif %}>
 {% if staff %}<button type=button class="li setrow" id=planRow data-open=setPlan><span class=grow>Team plan<span class=sum id=planSum> Considering</span></span>""" + _CHEV + """</button>{% endif %}
@@ -2596,18 +2719,77 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <input class=pickhold type=time name=end id=endInput value=20:30>
 <input class=pickhold type=month name=month id=monthInput>
 <input class=pickhold type=date name=recur_until id=untilInput>
-<dialog class=botsheet id=setLevels><div class=sheet><div class=grab></div><h2>Skill levels &amp; division</h2>
-<div class=checks>{% for pid, name, short, full in SPORTS.LEVELS %}<label><input type=checkbox name=level value="{{ pid }}"> {{ name }}</label>{% endfor %}</div>
-<div class=checks>{% for pid, name in SPORTS.DIVISIONS %}<label><input type=checkbox name=division value="{{ pid }}"> {{ name }}</label>{% endfor %}</div>
-<button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
-<dialog class=botsheet id=setCoaches><div class=sheet><div class=grab></div><h2>Coaches</h2>
-<div class=checks>{% for c in coaches %}<label><input type=checkbox name=coach value="{{ c.id }}"> {{ display_first(c) }} {{ c.last }}</label>{% else %}<p class=t3>No coaches on the list yet.</p>{% endfor %}</div>
-<button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
-<dialog class=botsheet id=setSocial><div class=sheet><div class=grab></div><h2>After-session social</h2>
-<label>Place<input name=social_place id=socPlace autocomplete=off></label>
+<input class=pickhold type=date id=skipPick>
+<dialog class=botsheet id=sheetDays><div class=sheet><div class=grab></div><h2>Repeats on</h2>
+<div class=sheetlist>
+<label class=sheetopt data-label=Mon><input type=checkbox name=weekday value=0><span><b>Monday</b></span></label>
+<label class=sheetopt data-label=Tue><input type=checkbox name=weekday value=1><span><b>Tuesday</b></span></label>
+<label class=sheetopt data-label=Wed><input type=checkbox name=weekday value=2><span><b>Wednesday</b></span></label>
+<label class=sheetopt data-label=Thu><input type=checkbox name=weekday value=3><span><b>Thursday</b></span></label>
+<label class=sheetopt data-label=Fri><input type=checkbox name=weekday value=4><span><b>Friday</b></span></label>
+<label class=sheetopt data-label=Sat><input type=checkbox name=weekday value=5><span><b>Saturday</b></span></label>
+<label class=sheetopt data-label=Sun><input type=checkbox name=weekday value=6><span><b>Sunday</b></span></label>
+</div>
+<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class=botsheet id=sheetFreq><div class=sheet><div class=grab></div><h2>Frequency</h2>
+<div class=sheetlist>
+<label class=sheetopt data-label=Weekly><input type=radio name=recur_interval value=1 checked><span><b>Weekly</b></span></label>
+<label class=sheetopt data-label="Every 2 weeks"><input type=radio name=recur_interval value=2><span><b>Every 2 weeks</b></span></label>
+</div>
+<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class=botsheet id=sheetEnds><div class=sheet><div class=grab></div><h2>Ends</h2>
+<div class=sheetlist>
+<label class=sheetopt data-label=Never><input type=radio name=recur_end value=never checked><span><b>Never</b><small>Keeps about six months on the schedule</small></span></label>
+<label class=sheetopt data-label="On a date"><input type=radio name=recur_end value=date><span><b>On a date</b></span></label>
+<label class=sheetopt data-label="After"><input type=radio name=recur_end value=count><span><b>After</b></span></label>
+</div>
+<button type=button class="li setrow" id=endDateRow data-matfor=untilInput hidden><span class=grow>End date<span class=sum id=untilSum> Add a date</span></span>""" + _CHEV + """</button>
+<label id=recurCountField hidden>Times<input type=number name=recur_count id=recurCount min=1 max=104 value=8 inputmode=numeric></label>
+<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class=botsheet id=sheetSkips><div class=sheet><div class=grab></div><h2>Skip dates</h2>
+<p class="t3 sm">These dates have no practice.</p>
+<button type=button class="li setrow" data-matfor=skipPick><span class=grow>Add a date</span>""" + _CHEV + """</button>
+<div id=skipChips class=skipchips></div>
+<input type=hidden name=skip_dates_present value=1>
+<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class=botsheet id=sheetLevels><div class=sheet><div class=grab></div><h2>Skill levels</h2>
+<div class=sheetlist data-sum=levels data-empty="Not set">
+<label class=sheetopt data-label="All levels"><input type=checkbox id=allLevels><span><b>All levels</b><small>Every skill level</small></span></label>
+{% for pid, name, short, full in SPORTS.LEVELS %}<label class=sheetopt data-label="{{ name }}"><input type=checkbox name=level value="{{ pid }}"><span><b>{{ name }}</b><small>{{ short }}</small></span></label>{% endfor %}
+</div>
+<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class=botsheet id=sheetDivision><div class=sheet><div class=grab></div><h2>Division</h2>
+<div class=sheetlist data-sum=division data-empty="Not set">
+<label class=sheetopt data-label="Not set"><input type=radio name=division value="" checked><span><b>Not set</b></span></label>
+{% for pid, name in SPORTS.DIVISIONS %}<label class=sheetopt data-label="{{ name }}"><input type=radio name=division value="{{ pid }}"><span><b>{{ name }}</b></span></label>{% endfor %}
+</div>
+<label id=divCustom hidden>Custom label<input name=division_custom autocomplete=off></label>
+<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class=botsheet id=sheetCoaches><div class=sheet><div class=grab></div><h2>Coaches</h2>
+<input class=sheetsearch placeholder="Search coaches" autocomplete=off data-sheetsearch>
+<div class=sheetlist data-sum=coaches data-empty=None>
+{% for c in coaches %}<label class=coachrow data-search="{{ display_first(c) }} {{ c.last }}" data-label="{{ display_first(c) }} {{ c.last }}"><span class=avatar>{{ initials(c) }}</span><span class=grow><b>{{ display_first(c) }} {{ c.last }}</b></span><input type=checkbox name=coach value="{{ c.id }}" data-name="{{ display_first(c) }} {{ c.last }}"></label>
+{% else %}<p class=t3>No coaches on the list yet.</p>{% endfor %}
+</div>
+<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class=botsheet id=sheetLead><div class=sheet><div class=grab></div><h2>Head coach</h2>
+<div class=sheetlist data-sum=lead data-empty="No head coach">
+<label class=sheetopt data-lead="" data-label="No head coach"><input type=radio name=lead value="" checked><span><b>No head coach</b></span></label>
+{% for c in coaches %}<label class=sheetopt data-lead="{{ c.id }}" data-label="{{ display_first(c) }} {{ c.last }}" hidden><input type=radio name=lead value="{{ c.id }}"><span><b>{{ display_first(c) }} {{ c.last }}</b></span></label>{% endfor %}
+</div>
+<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class=botsheet id=focusSheet><div class=sheet><div class=grab></div><h2 id=focusTitle>Coach</h2><div id=focusSlot></div><button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<div id=focusHome hidden>{% for c in coaches %}<label data-coach="{{ c.id }}">Focus group<input name="focus-{{ c.id }}" data-groups="Beginners,Intermediate,Advanced,Goalies" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>{% endfor %}</div>
+<dialog class=botsheet id=setSocial><div class=sheet><div class=grab></div><h2>After-practice social</h2>
+<div class=sheetlist data-sum=social data-empty="Not added">
+{% for kind in SOCIAL_KINDS %}<label class=sheetopt data-label="{{ kind }}"><input type=radio name=social_kind value="{{ kind }}"><span><b>{{ kind }}</b></span></label>{% endfor %}
+</div>
+<label id=socialCustom hidden>Label<input name=social_custom autocomplete=off></label>
+<label>Address<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address id=socPlace data-places data-place-name=social_place autocomplete=off placeholder="Search for an address"></label>
+<label>Place name<input name=social_place autocomplete=off placeholder="Name of the place"></label>
+<label>Time (optional)<input type=time name=social_time></label>
 <label>Note<textarea class=planfield name=social_note rows=4></textarea></label>
-<div class=checks>{% for kind in SOCIAL_KINDS %}<label><input type=checkbox name=social_kind value="{{ kind }}"> {{ kind }}</label>{% endfor %}</div>
-<button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
+<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=setNotes><div class=sheet><div class=grab></div><h2>Notes &amp; media</h2>
 <label>Notes<textarea class=planfield name=note id=noteInput rows=4></textarea></label>
 {{ upload_field('image') }}
@@ -2657,19 +2839,61 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   document.querySelectorAll('button.lanecard').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-lane')===name); });
   paintTitle(); syncLine();
  }
+ function dayNames(){ return ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']; }
+ function syncDays(){
+  var picked=[].slice.call(document.querySelectorAll('#sheetDays input[name=weekday]:checked')).map(function(i){ return dayNames()[+i.value]||''; }).filter(Boolean);
+  var lab=document.getElementById('daysLab'), sum=document.getElementById('daysSum');
+  if(!picked.length){ if(lab) lab.textContent='Choose days'; if(sum) sum.textContent=''; }
+  else { if(lab) lab.textContent='Repeats on'; if(sum) sum.textContent=' '+picked.join(', '); }
+ }
+ function syncFreq(){
+  var on=document.querySelector('#sheetFreq input[name=recur_interval]:checked');
+  var sum=document.getElementById('freqSum');
+  if(sum) sum.textContent=on&&on.value==='2'?' Every 2 weeks':' Weekly';
+ }
+ function prettyDay(iso){
+  var p=(iso||'').split('-'); if(p.length<3) return iso||'';
+  var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return months[(+p[1]||1)-1]+' '+(+p[2]);
+ }
+ function syncSkips(){
+  var dates=[].slice.call(document.querySelectorAll('#skipChips input[name=skip_date]')).map(function(i){ return i.value; });
+  var sum=document.getElementById('skipSum'); if(!sum) return;
+  if(!dates.length) sum.textContent=' None';
+  else if(dates.length===1) sum.textContent=' '+prettyDay(dates[0]);
+  else if(dates.length===2) sum.textContent=' '+prettyDay(dates[0])+' + 1';
+  else sum.textContent=' '+dates.length+' dates';
+ }
+ function addSkip(iso){
+  if(!iso||document.querySelector('#skipChips input[name=skip_date][value="'+iso+'"]')) return;
+  var chip=document.createElement('span'); chip.className='skipchip';
+  var label=document.createElement('span'); label.textContent=prettyDay(iso);
+  var btn=document.createElement('button'); btn.type='button'; btn.setAttribute('aria-label','Remove '+prettyDay(iso)); btn.textContent='×';
+  var hidden=document.createElement('input'); hidden.type='hidden'; hidden.name='skip_date'; hidden.value=iso;
+  btn.onclick=function(){ chip.remove(); syncSkips(); };
+  chip.appendChild(label); chip.appendChild(btn); chip.appendChild(hidden);
+  var box=document.getElementById('skipChips'); if(box) box.appendChild(chip);
+  syncSkips();
+ }
  function syncRecurEnd(){
   var on=document.querySelector('input[name=date_precision]:checked');
   var recurOn=!!(on && on.value==='recur' && !on.disabled);
-  var end=document.querySelector('input[name=recur_end]:checked');
-  var count=!!(recurOn && end && end.value==='count');
-  var untilBox=document.getElementById('recurUntil'), countBox=document.getElementById('recurCountField');
-  if(untilBox) untilBox.hidden=!recurOn || count;
-  if(countBox) countBox.hidden=!recurOn || !count;
-  var until=document.getElementById('untilInput'); if(until) until.disabled=!recurOn || count;
-  var num=document.getElementById('recurCount'); if(num) num.disabled=!recurOn || !count;
+  var end=document.querySelector('#sheetEnds input[name=recur_end]:checked');
+  var mode=end?end.value:'never';
+  var dateRow=document.getElementById('endDateRow'), countBox=document.getElementById('recurCountField');
+  if(dateRow) dateRow.hidden=mode!=='date';
+  if(countBox) countBox.hidden=mode!=='count';
+  var until=document.getElementById('untilInput'); if(until) until.disabled=!recurOn || mode!=='date';
+  var num=document.getElementById('recurCount'); if(num) num.disabled=!recurOn || mode!=='count';
+  var sum=document.getElementById('endsSum');
+  if(sum){
+   if(mode==='count'){ var n=num&&num.value?num.value:''; sum.textContent=' After '+(n||'N')+(n==='1'?' time':' times'); }
+   else if(mode==='date') sum.textContent=until&&until.value?(' '+until.value):' On a date';
+   else sum.textContent=' Never';
+  }
  }
  function syncPrec(){
-  var prec=document.getElementById('whenPrec'), exact=document.getElementById('exactWhen'), month=document.getElementById('monthWhen'), recur=document.getElementById('recurWhen');
+  var prec=document.getElementById('whenPrec'), exact=document.getElementById('exactWhen'), month=document.getElementById('monthWhen');
   if(prec) prec.hidden=!staff;
   var home=!lane || lane.value!=='lineup';
   var allow=home?{exact:1,recur:1}:{exact:1,month:1};
@@ -2690,15 +2914,23 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   var monthOn=mode==='month', recurOn=mode==='recur';
   if(exact){ exact.hidden=monthOn; exact.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=monthOn; }); }
   if(month){ month.hidden=!monthOn; month.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=!monthOn; }); }
-  if(recur){ recur.hidden=!recurOn; recur.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=!recurOn; }); }
+  ['repeatRow','freqRow','endsRow','skipRow'].forEach(function(id){ var row=document.getElementById(id); if(row){ row.hidden=!recurOn; row.disabled=monthOn; } });
+  ['sheetDays','sheetFreq','sheetEnds','sheetSkips'].forEach(function(id){
+   var sheet=document.getElementById(id); if(!sheet) return;
+   sheet.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=!recurOn; });
+  });
   var monthInput=document.getElementById('monthInput'); if(monthInput) monthInput.disabled=!monthOn;
   var dateInput=document.getElementById('dateInput'); if(dateInput) dateInput.disabled=monthOn;
   ['startInput','endInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.disabled=monthOn; });
   var dateLab=document.getElementById('dateLab'); if(dateLab) dateLab.textContent=recurOn?'Starts':'Date';
-  syncRecurEnd();
+  syncDays(); syncFreq(); syncSkips(); syncRecurEnd();
  }
  document.querySelectorAll('input[name=date_precision]').forEach(function(r){ r.addEventListener('change', syncPrec); });
- document.querySelectorAll('input[name=recur_end]').forEach(function(r){ r.addEventListener('change', syncRecurEnd); });
+ document.querySelectorAll('#sheetDays input[name=weekday]').forEach(function(r){ r.addEventListener('change', syncDays); });
+ document.querySelectorAll('#sheetFreq input[name=recur_interval]').forEach(function(r){ r.addEventListener('change', syncFreq); });
+ document.querySelectorAll('#sheetEnds input[name=recur_end]').forEach(function(r){ r.addEventListener('change', syncRecurEnd); });
+ var skipPick=document.getElementById('skipPick'); if(skipPick) skipPick.addEventListener('change', function(){ addSkip(skipPick.value); skipPick.value=''; });
+ var recurCount=document.getElementById('recurCount'); if(recurCount) recurCount.addEventListener('input', syncRecurEnd);
  document.querySelectorAll('button.lanecard').forEach(function(b){ b.onclick=function(){ showLane(b.getAttribute('data-lane')); syncPrec(); }; });
  syncPrec();
  document.querySelectorAll('input[name=activity_type]').forEach(function(r){ r.addEventListener('change', paintTitle); });
@@ -2716,6 +2948,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   if(es) es.textContent=e&&e.value?(' '+clock(e.value)):'';
   if(ms) ms.textContent=monthLabel(mo&&mo.value);
   if(us) us.textContent=u&&u.value?(' '+u.value):' Add a date';
+  syncRecurEnd();
  }
  ['dateInput','startInput','endInput','monthInput','datePart','untilInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change', syncWhen); });
  syncWhen();
@@ -2866,30 +3099,69 @@ T["practice"] = """{% set p = x.p %}
 </div>
 {% if p.skill_levels %}<details class=card><summary>Skill levels</summary><div class=body>{% for row in SPORTS.LEVELS %}<p><b>{{ row[1] }}</b> {{ row[3] }}</p>{% endfor %}</div></details>{% endif %}
 {% if editing %}
-<form id=practiceForm method=post action="/practices/{{ p.id }}" class=card style="margin-top:16px" enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+<form id=practiceForm method=post action="/practices/{{ p.id }}" class="card editorform" style="margin-top:16px" data-editorform enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+<div class=formsec><h2>Practice details</h2>
 {{ sports_editor(p) }}
+</div>
+<div class=formsec><h2>Schedule &amp; location</h2>
 <label>Date<input type=date name=date value="{{ p.date }}" required></label>
-{% if p.series_id %}<div class=checks role=radiogroup aria-label="Apply changes to"><div class="t3 xs">Apply changes to</div>
+{% if p.series_id %}<div class=checks role=radiogroup aria-label="Apply changes to"><div class="t3 xs">Recurrence</div>
 <label><input type=radio name=series_scope value=once checked> This event</label>
 <label><input type=radio name=series_scope value=following> This and following</label>
 <label><input type=radio name=series_scope value=all> All events</label>
 </div>{% endif %}
 <div class=row><label>Start<input type=time name=start value="{{ p.start }}" required></label><label>End<input type=time name=end value="{{ p.end }}" required></label></div>
-<label>Location / address<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location value="{{ p.location or '' }}" data-places required autocomplete=off></label>
-<label>Notes<textarea class=planfield name=note rows=4>{{ p.note or '' }}</textarea></label>
-<div class="t3 xs" style="margin:4px 0 8px">After-practice social</div>
-{{ social_fields(p) }}
-{{ message_fields(p) }}
-<div class="t3 xs" style="margin:4px 0 8px">Practice image</div>
-{{ upload_field('image', src=('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', clear_name='image_clear') }}
-<div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>
-<label style="margin:0 0 8px"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}>No head coach</label>
-{% for c in coach_choices %}<div style="padding:8px 0;border-top:1px solid var(--line)">
-<label style="margin:0"><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in x.coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
-<label style="margin:8px 0 0"><input type=radio name=lead value="{{ c.id }}" {% if c.id == x.lead_id %}checked{% endif %}>Head coach</label>
-<label style="margin:8px 0 0">Focus group<input name="focus-{{ c.id }}" data-groups="Beginners,Intermediate,Advanced,Goalies" value="{{ x.focuses.get(c.id, '') }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
-</div>{% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
+<label>Venue<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location value="{{ p.location or '' }}" data-places required autocomplete=off placeholder="Pool or address"></label>
+</div>
+<div class=formsec><h2>Coaching</h2>
+<div class=list>
+<button type=button class="li selfield" data-open=sheetCoaches><span class=selfieldk>Coaches</span><span class="selfieldv ell" data-for=coaches>None</span>""" + _CHEV + """</button>
+<button type=button class="li selfield" data-open=sheetLead><span class=selfieldk>Head coach</span><span class="selfieldv ell" data-for=lead>No head coach</span>""" + _CHEV + """</button>
+</div>
+<div id=assignedCoaches class=list></div>
+<dialog class=botsheet id=sheetCoaches><div class=sheet><div class=grab></div><h2>Coaches</h2>
+<input class=sheetsearch name=coachq placeholder="Search coaches" autocomplete=off data-sheetsearch>
+<div class=sheetlist data-sum=coaches data-empty=None>
+{% for c in coach_choices %}<label class=coachrow data-search="{{ display_first(c) }} {{ c.last }}" data-label="{{ display_first(c) }} {{ c.last }}"><span class=avatar>{{ initials(c) }}</span><span class=grow><b>{{ display_first(c) }} {{ c.last }}</b> {{ coach_tag(c) }}</span><input type=checkbox name=coach value="{{ c.id }}" data-name="{{ display_first(c) }} {{ c.last }}" {% if c.id in x.coach_ids %}checked{% endif %}></label>
+{% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}
+</div>
+<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class=botsheet id=sheetLead><div class=sheet><div class=grab></div><h2>Head coach</h2>
+<div class=sheetlist data-sum=lead data-empty="No head coach">
+<label class=sheetopt data-lead="" data-label="No head coach"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}><span><b>No head coach</b></span></label>
+{% for c in coach_choices %}<label class=sheetopt data-lead="{{ c.id }}" data-label="{{ display_first(c) }} {{ c.last }}" {% if c.id not in x.coach_ids %}hidden{% endif %}><input type=radio name=lead value="{{ c.id }}" {% if c.id == x.lead_id %}checked{% endif %}><span><b>{{ display_first(c) }} {{ c.last }}</b></span></label>{% endfor %}
+</div>
+<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class=botsheet id=focusSheet><div class=sheet><div class=grab></div><h2 id=focusTitle>Coach</h2><div id=focusSlot></div><button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<div id=focusHome hidden>{% for c in coach_choices %}<label data-coach="{{ c.id }}">Focus group<input name="focus-{{ c.id }}" data-groups="Beginners,Intermediate,Advanced,Goalies" value="{{ x.focuses.get(c.id, '') }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>{% endfor %}</div>
 <label>Practice plan<textarea class=planfield name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label>
+</div>
+<div class=formsec><h2>Additional details</h2>
+<label>Notes<textarea class=planfield name=note rows=4>{{ p.note or '' }}</textarea></label>
+{{ message_fields(p) }}
+<details class=optsec {% if p.image %}open{% endif %}><summary class="li selfield"><span class=selfieldk>Cover image</span><span class=selfieldv>{% if p.image %}Added{% else %}Not added{% endif %}</span></summary>
+{{ upload_field('image', src=('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', clear_name='image_clear') }}
+</details>
+{% set ns = namespace(kind='', custom='') %}
+{% for kind in SOCIAL_KINDS %}{% if not ns.kind and kind in (p.social_kind or '').split(',') %}{% set ns.kind = kind %}{% endif %}{% endfor %}
+{% if p.social_kind and not ns.kind %}{% set ns.kind = 'Other' %}{% set ns.custom = p.social_kind %}{% endif %}
+<button type=button class="li selfield" id=socialToggle><span class=selfieldk>After-practice social</span><span class="selfieldv ell" id=socialSum>{% if ns.kind %}{{ ns.custom or ns.kind }}{% else %}Not added{% endif %}</span>""" + _CHEV + """</button>
+<div id=socialBody {% if not ns.kind %}hidden{% endif %}>
+<button type=button class="li selfield" data-open=sheetSocial><span class=selfieldk>Social type</span><span class="selfieldv ell" data-for=social>{{ ns.custom or ns.kind or 'Not set' }}</span>""" + _CHEV + """</button>
+<dialog class=botsheet id=sheetSocial><div class=sheet><div class=grab></div><h2>Social type</h2>
+<div class=sheetlist data-sum=social data-empty="Not set">
+{% for kind in SOCIAL_KINDS %}<label class=sheetopt data-label="{{ kind }}"><input type=radio name=social_kind value="{{ kind }}" {% if ns.kind == kind %}checked{% endif %}><span><b>{{ kind }}</b></span></label>{% endfor %}
+</div>
+<label id=socialCustom {% if ns.kind != 'Other' %}hidden{% endif %}>Label<input name=social_custom value="{{ ns.custom }}" autocomplete=off></label>
+<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<label>Address<span class=locok {% if not p.social_address %}hidden{% endif %}><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address value="{{ p.social_address or '' }}" data-places data-place-name=social_place autocomplete=off placeholder="Search for an address"></label>
+<label>Place name<input name=social_place value="{{ p.social_place or '' }}" autocomplete=off placeholder="Name of the place"></label>
+<label>Time (optional)<input type=time name=social_time value="{{ p.social_time or '' }}"></label>
+<label>Notes (optional)<textarea class=planfield name=social_note rows=4>{{ p.social_note or '' }}</textarea></label>
+<button type=button class="btn btn-danger full" id=socialRemove>Remove social</button>
+<input type=hidden name=social_kind value="" id=socialClear {% if ns.kind %}disabled{% endif %}>
+</div>
+</div>
 <input type=hidden name=plan_fields value=1>
 </form>
 {% if me().is_admin %}<div class=seclabel>Manage</div><div class=list>
