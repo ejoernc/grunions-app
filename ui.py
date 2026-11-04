@@ -213,6 +213,10 @@ button.dropempty{position:absolute;inset:0;width:100%;height:100%;min-height:0;p
 .dropsize{color:var(--t3);font-size:13px;line-height:1.2}
 .dropacts{position:absolute;right:8px;bottom:8px;display:flex;gap:8px}
 .dropacts button{height:32px;min-height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--color-control);background:var(--color-surface);color:var(--color-text);font-size:13px;font-weight:650;width:auto}
+.cropstage{position:relative;width:min(280px,100%);aspect-ratio:1;margin:0 auto 12px;border-radius:50%;overflow:hidden;touch-action:none;background:var(--color-surface-2);cursor:grab}
+.cropstage img{position:absolute;left:0;top:0;max-width:none;transform-origin:0 0;user-select:none;-webkit-user-drag:none;pointer-events:none}
+.cropstage.dragging{cursor:grabbing}
+.croprange{margin:0 0 12px}
 .prefedit{margin:0}
 .prefedit input{margin-top:6px}
 .homealerts{position:relative;z-index:1}
@@ -264,7 +268,8 @@ body.profile-edit .viewonly{display:none}
 label{display:block;font-size:var(--type-b3-size);font-weight:var(--type-b3-weight);line-height:var(--type-b3-line);color:var(--t2);margin:0 0 var(--space-4)}
 .checks{margin:0 0 14px}.checks label{display:flex;align-items:center;min-height:40px;margin:0;color:var(--t1);font-size:16px}
 input,select,textarea{display:block;width:100%;margin-top:var(--space-2);background:var(--surface2);border:1px solid var(--color-control);color:var(--t1);border-radius:var(--radius-input);
-padding:0 14px;height:var(--size-button);font:inherit;color-scheme:dark}textarea{padding:12px 14px}input[type=hidden]{display:none}input[type=checkbox]{display:inline-block;width:20px;height:20px;margin:0 8px 0 0;vertical-align:-4px;accent-color:var(--accent)}
+padding:0 14px;height:var(--size-button);font:inherit;color-scheme:dark}textarea{padding:12px 14px}input[type=hidden]{display:none}input[type=checkbox],.checks input[type=radio]{display:inline-block;width:20px;height:20px;margin:0 8px 0 0;vertical-align:-4px;accent-color:var(--accent);flex:none}
+input[type=file].pick{position:absolute;left:0;top:0;width:1px;height:1px;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0,0,0,0);opacity:0;pointer-events:none}
 input[type=date]::-webkit-calendar-picker-indicator,input[type=datetime-local]::-webkit-calendar-picker-indicator{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20256%20256'%3E%3Cpath%20fill%3D'%23F2F6F1'%20d%3D'M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z'%2F%3E%3C%2Fsvg%3E");background-repeat:no-repeat;background-size:20px 20px;background-position:center}
 input[type=time]::-webkit-calendar-picker-indicator{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20256%20256'%3E%3Cpath%20fill%3D'%23F2F6F1'%20d%3D'M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z'%2F%3E%3C%2Fsvg%3E");background-repeat:no-repeat;background-size:20px 20px;background-position:center}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--color-focus)}
@@ -394,7 +399,7 @@ nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:bloc
 .m.g-first:not(.mine) .txt,.m.g-first:not(.mine) .img img{border-bottom-left-radius:5px}.m.g-mid:not(.mine) .txt,.m.g-mid:not(.mine) .img img{border-top-left-radius:5px;border-bottom-left-radius:5px}.m.g-last:not(.mine) .txt,.m.g-last:not(.mine) .img img{border-top-left-radius:5px}
 .m.g-first.mine .txt,.m.g-first.mine .img img{border-bottom-right-radius:5px}.m.g-mid.mine .txt,.m.g-mid.mine .img img{border-top-right-radius:5px;border-bottom-right-radius:5px}.m.g-last.mine .txt,.m.g-last.mine .img img{border-top-right-radius:5px}
 .m.mine{text-align:right;align-items:flex-end}.m.mine .txt{background:var(--color-bubble-mine);text-align:left;color:var(--color-text)}.m.ann{align-items:stretch}.m.ann .txt{display:block;max-width:none;border:1px solid var(--line);background:var(--surface)}
-.m .txt.deleted{font-style:italic;color:var(--t3);background:transparent}.m .edited{font-size:12px;color:var(--t3);font-weight:400}
+.m .txt.deleted{font-style:italic;font-size:12px;font-weight:500;line-height:1.3;color:var(--t3);background:transparent;padding:0}.m .edited{font-size:12px;color:var(--t3);font-weight:400}
 .m .more{display:none;position:absolute;top:-4px;right:0;width:32px;height:32px;padding:0;background:none;color:var(--t3);font-size:18px}
 .m.mine .more{left:0;right:auto}
 @media (hover:hover) and (pointer:fine){.m:hover .more{display:inline-flex}}
@@ -408,9 +413,10 @@ nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:bloc
 .preview{max-width:600px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;color:var(--t2);font-size:14px}.preview img{height:48px;border-radius:8px}
 .m .img{display:block;margin:0}.m .txt+.img{margin-top:4px}.m.mine .img{margin-left:auto}.m .img img{max-width:min(70vw,280px);max-height:280px;border-radius:12px;display:block;background:var(--surface)}.m.mine .img{width:fit-content}
 .m .bubble{display:inline-block;max-width:min(85%,280px);background:var(--color-bubble);border-radius:var(--radius-card);overflow:hidden}.m.mine .bubble{background:var(--color-bubble-mine)}.m .bubble .txt{background:transparent;display:block;max-width:none;border-radius:0}.m .bubble .img,.m .bubble .txt+.img{margin:0}.m .bubble .img img{max-width:100%;border-radius:0}
-.rx{display:flex;flex-wrap:wrap;gap:6px;margin:0}.rx:not(:empty){margin-top:6px}.m.mine .rx{justify-content:flex-end}
-.seenline{display:block;width:fit-content;height:auto;min-height:1.3em;margin:4px 0 0;padding:0;background:none;border:0;border-radius:0;color:var(--t3);font-size:12px;font-weight:500;line-height:1.3;white-space:nowrap}
-.m.mine .seenline{margin-left:auto}
+.msgfoot{display:flex;align-items:center;gap:8px;width:100%;align-self:stretch;min-width:0}
+.msgfoot:has(.rx:not(:empty)),.msgfoot:has(.seenline){margin-top:6px}
+.rx{display:flex;flex-wrap:wrap;gap:6px;margin:0;flex:1 1 auto;min-width:0;justify-content:flex-start}
+.seenline{display:block;width:fit-content;height:auto;min-height:1.3em;margin:0 0 0 auto;padding:0;background:none;border:0;border-radius:0;color:var(--t3);font-size:12px;font-weight:500;line-height:1.3;white-space:nowrap;flex:none}
 span.avatar.seenav,span.avatar.seenav img{width:32px;height:32px;min-width:32px;max-width:32px;min-height:32px;max-height:32px;flex:0 0 32px;font-size:12px}
 .seenrow{display:flex;align-items:center;gap:10px;min-height:40px}
 .seenlist{max-height:38vh;overflow:auto}
@@ -894,7 +900,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=105');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=106');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -1816,13 +1822,27 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 
 _CAM = '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,56H180.28L166.65,35.56A8,8,0,0,0,160,32H96a8,8,0,0,0-6.65,3.56L75.71,56H48A24,24,0,0,0,24,80V192a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V80A24,24,0,0,0,208,56Zm8,136a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H80a8,8,0,0,0,6.66-3.56L100.28,48h55.43l13.63,20.44A8,8,0,0,0,176,72h32a8,8,0,0,1,8,8ZM128,88a44,44,0,1,0,44,44A44.05,44.05,0,0,0,128,88Zm0,72a28,28,0,1,1,28-28A28,28,0,0,1,128,160Z"/></svg>'
 T["profile"] = """<form id=profileForm method=post action=/profile enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=action value=save><input type=hidden name=photo_clear id=photoClear value="">
-<input class=pick type=file name=photo id=photoFile accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic">
 <div class=profilehero>
 <div class=avatarwrap>
 <button type=button class="avatar hero" id=avatarBtn aria-label="Profile photo">{% if m.photo %}<img id=avatarImg src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="" width="112" height="112">{% else %}<img id=avatarImg alt="" width="112" height="112" hidden>{% endif %}<span id=avatarLetters {% if m.photo %}hidden{% endif %}>{{ initials(m) }}</span></button>
-<button type=button class="cambadge editonly" id=camBadge aria-label="Choose photo">""" + _CAM + """</button>
+<button type=button class=cambadge id=camBadge aria-label="Choose photo">""" + _CAM + """</button>
 </div>
-<button type=button class="textlink danger editonly" id=removePhoto {% if not m.photo %}hidden{% endif %}>Remove photo</button>
+<dialog class=modal id=photoDlg><div class=sheet>
+<h2 style="margin:0 0 12px">Profile photo</h2>
+<div id=photoDrop>
+<div class=dropzone id=photoZone>
+<input class=pick type=file name=photo id=photoFile accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic">
+<button type=button class=dropempty id=photoPick><span class=droplink>Drop a photo here</span><span class=drophint>or Select photo</span></button>
+</div>
+<button type=button class="btn btn-danger full" id=photoRemove {% if not m.photo %}hidden{% endif %}>Remove photo</button>
+</div>
+<div id=photoCrop hidden>
+<div class=cropstage id=cropStage><img id=cropImg alt=""></div>
+<label class=croprange>Zoom<input type=range id=cropZoom min=1 max=4 step=0.01 value=1></label>
+<div class=row><button type=button class="btn btn-secondary" id=cropCancel>Cancel</button><button type=button class="btn btn-primary" id=cropUse>Use photo</button></div>
+<button type=button class="btn quiet full" id=cropOther>Choose a different photo</button>
+</div>
+</div></dialog>
 <div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
 <p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p>
 <div class=stats><div class=stattile><b>{{ hist|length }}</b><span>Attended</span></div><div class=stattile><b>{{ nmonth }}</b><span>This month</span></div></div>
@@ -1854,10 +1874,15 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 {% endif %}
 <script>
 (function(){
- var file=document.getElementById('photoFile'), clear=document.getElementById('photoClear'), img=document.getElementById('avatarImg'), letters=document.getElementById('avatarLetters'), pref=document.getElementById('prefName'), phone=document.getElementById('phoneInput'), removeBtn=document.getElementById('removePhoto'), usawp=document.getElementById('usawpNumber');
+ var file=document.getElementById('photoFile'), clear=document.getElementById('photoClear'), img=document.getElementById('avatarImg'), letters=document.getElementById('avatarLetters'), pref=document.getElementById('prefName'), phone=document.getElementById('phoneInput'), removeBtn=document.getElementById('photoRemove'), usawp=document.getElementById('usawpNumber');
+ var dlg=document.getElementById('photoDlg'), drop=document.getElementById('photoDrop'), cropBox=document.getElementById('photoCrop'), zone=document.getElementById('photoZone');
+ var stage=document.getElementById('cropStage'), cropImg=document.getElementById('cropImg'), zoomInput=document.getElementById('cropZoom');
  var originalSrc=img.getAttribute('src')||'', hadPhoto={{ 'true' if m.photo else 'false' }}, preview=null;
- function showPhoto(src){img.hidden=false; img.src=src; letters.hidden=true; removeBtn.hidden=false;}
- function showLetters(){img.hidden=true; img.removeAttribute('src'); letters.hidden=false; removeBtn.hidden=true;}
+ var cropUrl=null, zoom=1, panX=0, panY=0, drag=null, pts={}, pinch=null, applying=false;
+ function editing(){ return document.body.classList.contains('profile-edit'); }
+ function showPhoto(src){img.hidden=false; img.src=src; letters.hidden=true; if(removeBtn) removeBtn.hidden=false;}
+ function showLetters(){img.hidden=true; img.removeAttribute('src'); letters.hidden=false; if(removeBtn) removeBtn.hidden=true;}
+ function hasPhoto(){ return !!(img && !img.hidden && img.getAttribute('src')); }
  function formatPhone(v){
   var d=(v||'').replace(/\\D/g,'');
   if(d.length>10 && d.charAt(0)==='1') d=d.slice(1);
@@ -1882,12 +1907,118 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
  if(/[?&]edit=1/.test(location.search)) enter();
  document.getElementById('profileCancel').onclick=leave;
  document.getElementById('profileBack').onclick=function(){ if(history.length>1) history.back(); else location.href='/home'; };
- function pick(){ file.click(); }
- document.getElementById('avatarBtn').onclick=function(){ if(document.body.classList.contains('profile-edit')) pick(); };
- document.getElementById('camBadge').onclick=function(){ if(document.body.classList.contains('profile-edit')) pick(); };
+ function openPhoto(){ if(drop) drop.hidden=false; if(cropBox) cropBox.hidden=true; if(removeBtn) removeBtn.hidden=!hasPhoto(); if(dlg && !dlg.open) dlg.showModal(); }
+ document.getElementById('avatarBtn').onclick=openPhoto;
+ document.getElementById('camBadge').onclick=function(e){ e.stopPropagation(); openPhoto(); };
+ document.getElementById('photoPick').onclick=function(){ file.click(); };
+ zone.addEventListener('dragenter', function(e){ e.preventDefault(); zone.classList.add('over'); });
+ zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('over'); });
+ zone.addEventListener('dragleave', function(e){ e.preventDefault(); zone.classList.remove('over'); });
+ zone.addEventListener('drop', function(e){ e.preventDefault(); zone.classList.remove('over'); var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) startCrop(f); });
  if(phone) phone.addEventListener('input', function(){ var next=formatPhone(phone.value); if(phone.value!==next) phone.value=next; });
- file.onchange=function(){ var f=file.files&&file.files[0]; if(!f) return; if(preview) URL.revokeObjectURL(preview); preview=URL.createObjectURL(f); clear.value=''; showPhoto(preview); };
- removeBtn.onclick=function(){ file.value=''; if(preview){URL.revokeObjectURL(preview); preview=null;} clear.value=hadPhoto?'1':''; showLetters(); };
+ function cover(){ var c=stage.clientWidth||280; return Math.max(c/cropImg.naturalWidth, c/cropImg.naturalHeight); }
+ function viewScale(){ return cover()*zoom; }
+ function clampPan(){
+  var c=stage.clientWidth||280, s=viewScale(), w=cropImg.naturalWidth*s, h=cropImg.naturalHeight*s;
+  if(panX>0) panX=0; if(panY>0) panY=0;
+  if(panX<c-w) panX=c-w; if(panY<c-h) panY=c-h;
+ }
+ function paintCrop(){
+  clampPan();
+  var s=viewScale();
+  cropImg.style.width=(cropImg.naturalWidth*s)+'px';
+  cropImg.style.height=(cropImg.naturalHeight*s)+'px';
+  cropImg.style.transform='translate('+panX+'px,'+panY+'px)';
+ }
+ function setZoom(z){
+  z=Math.max(1, Math.min(4, z));
+  var c=stage.clientWidth||280, old=viewScale();
+  zoom=z;
+  var next=viewScale(), cx=c/2, cy=c/2;
+  if(old){ panX=cx-(cx-panX)*(next/old); panY=cy-(cy-panY)*(next/old); }
+  if(zoomInput) zoomInput.value=String(zoom);
+  paintCrop();
+ }
+ function resetCrop(){
+  zoom=1; if(zoomInput) zoomInput.value='1';
+  var c=stage.clientWidth||280, s=viewScale();
+  panX=(c-cropImg.naturalWidth*s)/2; panY=(c-cropImg.naturalHeight*s)/2;
+  paintCrop();
+ }
+ function startCrop(f){
+  if(!f) return;
+  if(cropUrl) URL.revokeObjectURL(cropUrl);
+  cropUrl=URL.createObjectURL(f);
+  cropImg.onload=function(){ drop.hidden=true; cropBox.hidden=false; requestAnimationFrame(resetCrop); };
+  cropImg.onerror=function(){ backToDrop(); };
+  cropImg.src=cropUrl;
+ }
+ file.addEventListener('change', function(){ if(applying) return; var f=file.files&&file.files[0]; if(f) startCrop(f); });
+ if(zoomInput) zoomInput.addEventListener('input', function(){ setZoom(parseFloat(zoomInput.value)||1); });
+ stage.addEventListener('pointerdown', function(e){
+  stage.setPointerCapture(e.pointerId);
+  pts[e.pointerId]={x:e.clientX,y:e.clientY};
+  stage.classList.add('dragging');
+  var ids=Object.keys(pts);
+  if(ids.length>=2){ drag=null; var a=pts[ids[0]], b=pts[ids[1]]; pinch={dist:Math.hypot(a.x-b.x,a.y-b.y)||1, zoom:zoom}; }
+  else drag={x:e.clientX,y:e.clientY,panX:panX,panY:panY};
+ });
+ stage.addEventListener('pointermove', function(e){
+  if(!pts[e.pointerId]) return;
+  pts[e.pointerId]={x:e.clientX,y:e.clientY};
+  var ids=Object.keys(pts);
+  if(ids.length>=2 && pinch){
+   var a=pts[ids[0]], b=pts[ids[1]], dist=Math.hypot(a.x-b.x,a.y-b.y)||1;
+   setZoom(pinch.zoom*(dist/pinch.dist));
+  } else if(drag){ panX=drag.panX+(e.clientX-drag.x); panY=drag.panY+(e.clientY-drag.y); paintCrop(); }
+ });
+ function endPointer(e){
+  delete pts[e.pointerId];
+  var ids=Object.keys(pts);
+  if(ids.length<2) pinch=null;
+  if(ids.length===1){ var p=pts[ids[0]]; drag={x:p.x,y:p.y,panX:panX,panY:panY}; }
+  else { drag=null; stage.classList.remove('dragging'); }
+ }
+ stage.addEventListener('pointerup', endPointer);
+ stage.addEventListener('pointercancel', endPointer);
+ function backToDrop(){ cropBox.hidden=true; drop.hidden=false; file.value=''; if(removeBtn) removeBtn.hidden=!hasPhoto(); }
+ document.getElementById('cropCancel').onclick=function(){ backToDrop(); dlg.close(); };
+ document.getElementById('cropOther').onclick=function(){ backToDrop(); file.click(); };
+ document.getElementById('cropUse').onclick=function(){
+  var c=stage.clientWidth||280, s=viewScale(), out=512;
+  var canvas=document.createElement('canvas'); canvas.width=out; canvas.height=out;
+  var ctx=canvas.getContext('2d'), ratio=out/c;
+  ctx.drawImage(cropImg, panX*ratio, panY*ratio, cropImg.naturalWidth*s*ratio, cropImg.naturalHeight*s*ratio);
+  canvas.toBlob(function(blob){
+   if(!blob) return;
+   var cropped=new File([blob], 'profile.jpg', {type:'image/jpeg'});
+   applying=true;
+   try{ var dt=new DataTransfer(); dt.items.add(cropped); file.files=dt.files; }catch(err){}
+   applying=false;
+   var local=URL.createObjectURL(blob);
+   if(editing()){ if(preview) URL.revokeObjectURL(preview); preview=local; clear.value=''; showPhoto(local); dlg.close(); return; }
+   var body=new FormData();
+   body.append('csrf', document.querySelector('#profileForm [name=csrf]').value);
+   body.append('action','photo');
+   body.append('photo', cropped);
+   fetch('/profile', {method:'POST', body:body, headers:{'Accept':'application/json'}}).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); }).then(function(res){
+    if(!res.ok){ return; }
+    if(preview) URL.revokeObjectURL(preview);
+    preview=null; file.value=''; clear.value='';
+    showPhoto(res.j.url); hadPhoto=true; originalSrc=res.j.url;
+    dlg.close();
+   }).catch(function(){});
+  }, 'image/jpeg', 0.92);
+ };
+ removeBtn.onclick=function(){
+  file.value=''; if(preview){ URL.revokeObjectURL(preview); preview=null; }
+  if(editing()){ clear.value=hadPhoto?'1':''; showLetters(); dlg.close(); return; }
+  var body=new FormData();
+  body.append('csrf', document.querySelector('#profileForm [name=csrf]').value);
+  body.append('action','photo');
+  body.append('photo_clear','1');
+  fetch('/profile', {method:'POST', body:body, headers:{'Accept':'application/json'}}).then(function(r){ if(!r.ok) return; clear.value=''; hadPhoto=false; originalSrc=''; showLetters(); dlg.close(); }).catch(function(){});
+ };
 })();
 </script>"""
 
@@ -2000,7 +2131,19 @@ T["chat"] = """<div class=chat id=chat></div><div class=chatpad></div>
 <script>
 const CSRF="{{csrf_token()}}",CH="{{ch}}",EMO={{REACTIONS|tojson}};let last=0;const box=document.getElementById('chat'),msgs={};
 const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const t=iso=>new Date(iso).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'});
+function chatWhen(iso, now){
+ var zone='America/Los_Angeles';
+ function parts(value){
+  var out={};
+  new Intl.DateTimeFormat('en-US',{timeZone:zone,weekday:'short',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).formatToParts(new Date(value)).forEach(function(p){ if(p.type!=='literal') out[p.type]=p.value; });
+  return out;
+ }
+ function index(p){ return Date.UTC(+p.year, +p.month-1, +p.day)/86400000; }
+ var p=parts(iso), n=parts(now||Date.now()), clock=p.hour+':'+p.minute;
+ if(index(n)-index(p)>3) return (+p.month)+'.'+(+p.day)+'.'+String(p.year).slice(-2)+' '+clock+p.dayPeriod;
+ return p.weekday+' '+clock+' '+p.dayPeriod;
+}
+const t=iso=>chatWhen(iso);
 function rxHtml(id,r){r=r||{};return Object.keys(r).map(e=>`<button type=button class="${r[e].mine?'on':''}" data-m=${id} data-e="${esc(e)}">${e} ${r[e].n}</button>`).join('')}
 function safeHttp(url){
  var u=String(url||'');
@@ -2064,16 +2207,13 @@ function bodyHtml(m){
  return h+text+img||'<div class=txt></div>'}
 function fill(d,m){
  var kept=d.querySelector&&d.querySelector('#seenLine');
+ if(kept&&kept.parentNode) kept.parentNode.removeChild(kept);
  d.className='m'+(m.mine?' mine':'')+(m.ann&&!m.deleted?' ann':'');
  d.dataset.g='';
  var html=(m.deleted?'':`<button type=button class=more data-act=${m.id} aria-label="Message actions"><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></button>`)+
-  bodyHtml(m)+`<div class=rx>${rxHtml(m.id)}</div>`;
- if(!kept){ d.innerHTML=html; return; }
- var hold=document.createElement('div');
- hold.innerHTML=html;
- var node=d.firstChild;
- while(node){ var next=node.nextSibling; if(node!==kept) d.removeChild(node); node=next; }
- while(hold.firstChild) d.insertBefore(hold.firstChild, kept);}
+  bodyHtml(m)+`<div class=msgfoot><div class=rx>${rxHtml(m.id)}</div></div>`;
+ d.innerHTML=html;
+ if(kept){ var foot=d.querySelector('.msgfoot'); if(foot) foot.appendChild(kept); else d.appendChild(kept); }}
 let grouping=false;
 function sameGroup(prev,cur){
  if(!prev||!cur||prev.uid!==cur.uid) return false;
@@ -2160,7 +2300,8 @@ function paintSeen(list){
  if(!line){ line=document.createElement('button'); line.type='button'; line.id='seenLine'; line.className='seenline'; }
  var key=seenKey(seenInfo);
  if(line.dataset.seen!==key){ if(line.textContent!==seenInfo.label) line.textContent=seenInfo.label; line.dataset.seen=key; }
- if(line.parentNode!==row) row.appendChild(line);
+ var foot=row.querySelector('.msgfoot'), home=foot||row;
+ if(line.parentNode!==home) home.appendChild(line);
 }
 function openSeen(info){
  document.getElementById('seenPeople').innerHTML=(info.seen||[]).map(personRow).join('')||'<p class="t3 sm">No one has seen this yet.</p>';
@@ -2397,13 +2538,37 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>
 <div class=seclabel>When</div>
 {% if staff %}<div class=actseg id=whenPrec role=radiogroup aria-label=Dates>
-<label><input type=radio name=date_precision value=exact checked><span>Exact dates</span></label>
-<label><input type=radio name=date_precision value=month><span>Month only</span></label>
+<label data-prec=exact><input type=radio name=date_precision value=exact checked><span>Exact dates</span></label>
+<label data-prec=recur {% if lane == 'lineup' %}hidden{% endif %}><input type=radio name=date_precision value=recur {% if lane == 'lineup' %}disabled{% endif %}><span>Recurring</span></label>
+<label data-prec=month {% if lane != 'lineup' %}hidden{% endif %}><input type=radio name=date_precision value=month {% if lane != 'lineup' %}disabled{% endif %}><span>Month only</span></label>
 </div>{% endif %}
 <div class=list id=exactWhen>
-<button type=button class="li setrow" data-matfor=dateInput><span class=grow>Date<span class="sum" id=dateSum> Add a date</span></span>""" + _CHEV + """</button>
+<button type=button class="li setrow" data-matfor=dateInput><span class=grow><span id=dateLab>Date</span><span class="sum" id=dateSum> Add a date</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" data-matfor=startInput><span class=grow>Start<span class="sum" id=startSum> 7:00 PM</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" data-matfor=endInput><span class=grow>End<span class="sum" id=endSum> 8:30 PM</span></span>""" + _CHEV + """</button>
+</div>
+<div id=recurWhen hidden>
+<div class=checks role=group aria-label="Days">
+<label><input type=checkbox name=weekday value=0> Mon</label>
+<label><input type=checkbox name=weekday value=1> Tue</label>
+<label><input type=checkbox name=weekday value=2> Wed</label>
+<label><input type=checkbox name=weekday value=3> Thu</label>
+<label><input type=checkbox name=weekday value=4> Fri</label>
+<label><input type=checkbox name=weekday value=5> Sat</label>
+<label><input type=checkbox name=weekday value=6> Sun</label>
+</div>
+<div class=actseg role=radiogroup aria-label="Repeat">
+<label><input type=radio name=recur_interval value=1 checked><span>Weekly</span></label>
+<label><input type=radio name=recur_interval value=2><span>Every 2 weeks</span></label>
+</div>
+<div class=actseg role=radiogroup aria-label="Ends">
+<label><input type=radio name=recur_end value=date checked><span>On a date</span></label>
+<label><input type=radio name=recur_end value=count><span>After</span></label>
+</div>
+<div class=list id=recurUntil>
+<button type=button class="li setrow" data-matfor=untilInput><span class=grow>End date<span class="sum" id=untilSum> Add a date</span></span>""" + _CHEV + """</button>
+</div>
+<label id=recurCountField hidden>Times<input type=number name=recur_count id=recurCount min=1 max=104 value=8 inputmode=numeric></label>
 </div>
 <div class=list id=monthWhen hidden>
 <button type=button class="li setrow" data-matfor=monthInput><span class=grow>Month<span class=sum id=monthSum> Choose a month</span></span>""" + _CHEV + """</button>
@@ -2430,6 +2595,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <input class=pickhold type=time name=start id=startInput value=19:00>
 <input class=pickhold type=time name=end id=endInput value=20:30>
 <input class=pickhold type=month name=month id=monthInput>
+<input class=pickhold type=date name=recur_until id=untilInput>
 <dialog class=botsheet id=setLevels><div class=sheet><div class=grab></div><h2>Skill levels &amp; division</h2>
 <div class=checks>{% for pid, name, short, full in SPORTS.LEVELS %}<label><input type=checkbox name=level value="{{ pid }}"> {{ name }}</label>{% endfor %}</div>
 <div class=checks>{% for pid, name in SPORTS.DIVISIONS %}<label><input type=checkbox name=division value="{{ pid }}"> {{ name }}</label>{% endfor %}</div>
@@ -2491,18 +2657,48 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   document.querySelectorAll('button.lanecard').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-lane')===name); });
   paintTitle(); syncLine();
  }
- function syncPrec(){
-  var prec=document.getElementById('whenPrec'), exact=document.getElementById('exactWhen'), month=document.getElementById('monthWhen');
-  if(prec) prec.hidden=!staff;
+ function syncRecurEnd(){
   var on=document.querySelector('input[name=date_precision]:checked');
-  var monthOn=!!(staff && on && on.value==='month');
+  var recurOn=!!(on && on.value==='recur' && !on.disabled);
+  var end=document.querySelector('input[name=recur_end]:checked');
+  var count=!!(recurOn && end && end.value==='count');
+  var untilBox=document.getElementById('recurUntil'), countBox=document.getElementById('recurCountField');
+  if(untilBox) untilBox.hidden=!recurOn || count;
+  if(countBox) countBox.hidden=!recurOn || !count;
+  var until=document.getElementById('untilInput'); if(until) until.disabled=!recurOn || count;
+  var num=document.getElementById('recurCount'); if(num) num.disabled=!recurOn || !count;
+ }
+ function syncPrec(){
+  var prec=document.getElementById('whenPrec'), exact=document.getElementById('exactWhen'), month=document.getElementById('monthWhen'), recur=document.getElementById('recurWhen');
+  if(prec) prec.hidden=!staff;
+  var home=!lane || lane.value!=='lineup';
+  var allow=home?{exact:1,recur:1}:{exact:1,month:1};
+  document.querySelectorAll('#whenPrec label[data-prec]').forEach(function(lab){
+   var v=lab.getAttribute('data-prec');
+   var show=!!(staff && allow[v]);
+   lab.hidden=!show;
+   var input=lab.querySelector('input');
+   if(input) input.disabled=!show;
+  });
+  var on=document.querySelector('input[name=date_precision]:checked');
+  if(staff && (!on || on.disabled || !allow[on.value])){
+   var exactRadio=document.querySelector('#whenPrec input[value=exact]');
+   if(exactRadio){ exactRadio.disabled=false; exactRadio.checked=true; }
+   on=exactRadio;
+  }
+  var mode=on && !on.disabled ? on.value : 'exact';
+  var monthOn=mode==='month', recurOn=mode==='recur';
   if(exact){ exact.hidden=monthOn; exact.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=monthOn; }); }
   if(month){ month.hidden=!monthOn; month.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=!monthOn; }); }
+  if(recur){ recur.hidden=!recurOn; recur.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=!recurOn; }); }
   var monthInput=document.getElementById('monthInput'); if(monthInput) monthInput.disabled=!monthOn;
   var dateInput=document.getElementById('dateInput'); if(dateInput) dateInput.disabled=monthOn;
   ['startInput','endInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.disabled=monthOn; });
+  var dateLab=document.getElementById('dateLab'); if(dateLab) dateLab.textContent=recurOn?'Starts':'Date';
+  syncRecurEnd();
  }
  document.querySelectorAll('input[name=date_precision]').forEach(function(r){ r.addEventListener('change', syncPrec); });
+ document.querySelectorAll('input[name=recur_end]').forEach(function(r){ r.addEventListener('change', syncRecurEnd); });
  document.querySelectorAll('button.lanecard').forEach(function(b){ b.onclick=function(){ showLane(b.getAttribute('data-lane')); syncPrec(); }; });
  syncPrec();
  document.querySelectorAll('input[name=activity_type]').forEach(function(r){ r.addEventListener('change', paintTitle); });
@@ -2513,14 +2709,15 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   function clock(v){ if(!v) return ''; var p=v.split(':'); var h=parseInt(p[0],10), m=p[1]||'00'; var ap=h>=12?'PM':'AM'; h=h%12; if(!h) h=12; return h+':'+m+' '+ap; }
  function monthLabel(v){ if(!v||v.length<7) return ' Choose a month'; var names=['January','February','March','April','May','June','July','August','September','October','November','December']; var partEl=document.getElementById('datePart'); var part=partEl?partEl.value:''; var prefix=part==='early'?'Early ':(part==='mid'?'Mid ':(part==='late'?'Late ':'')); return ' '+prefix+names[(parseInt(v.slice(5,7),10)||1)-1]+' '+v.slice(0,4); }
  function syncWhen(){
-  var d=document.getElementById('dateInput'), s=document.getElementById('startInput'), e=document.getElementById('endInput'), mo=document.getElementById('monthInput');
-  var ds=document.getElementById('dateSum'), ss=document.getElementById('startSum'), es=document.getElementById('endSum'), ms=document.getElementById('monthSum');
+  var d=document.getElementById('dateInput'), s=document.getElementById('startInput'), e=document.getElementById('endInput'), mo=document.getElementById('monthInput'), u=document.getElementById('untilInput');
+  var ds=document.getElementById('dateSum'), ss=document.getElementById('startSum'), es=document.getElementById('endSum'), ms=document.getElementById('monthSum'), us=document.getElementById('untilSum');
   if(ds) ds.textContent=d&&d.value?(' '+d.value):' Add a date';
   if(ss) ss.textContent=s&&s.value?(' '+clock(s.value)):'';
   if(es) es.textContent=e&&e.value?(' '+clock(e.value)):'';
   if(ms) ms.textContent=monthLabel(mo&&mo.value);
+  if(us) us.textContent=u&&u.value?(' '+u.value):' Add a date';
  }
- ['dateInput','startInput','endInput','monthInput','datePart'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change', syncWhen); });
+ ['dateInput','startInput','endInput','monthInput','datePart','untilInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change', syncWhen); });
  syncWhen();
  function syncLine(){
   var type=document.getElementById('lineType'); var name=type?type.value:'Social';
@@ -2589,8 +2786,8 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 </details>
 {% if organizer and not event_id %}<button class="btn btn-secondary full" name=action value=draft>Save draft</button>{% endif %}
 {% if show_cancel or show_delete %}<div class=eventacts>
-{% if show_cancel %}<button class="btn btn-secondary" name=action value=cancel onclick="return confirm('Cancel this event?')">Cancel event</button>{% endif %}
-{% if show_delete %}<button class="btn btn-secondary" name=action value=delete onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
+{% if show_cancel %}<button class="btn btn-secondary" name=action value=cancel formnovalidate onclick="return confirm('Cancel this event?')">Cancel event</button>{% endif %}
+{% if show_delete %}<button class="btn btn-secondary" name=action value=delete formnovalidate onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
 </div>{% endif %}
 </form>
 <script>(function(){
@@ -2658,8 +2855,8 @@ T["practice"] = """{% set p = x.p %}
 {% if p.location %}<p class=pracemeta>{{ p.location }}</p>{% endif %}
 <div class=pracestatus>{% if p.cancelled %}{{ st('bad','Cancelled') }}{% else %}{{ st('ok','Scheduled') }}{% endif %}</div>
 {% if p.cancelled and p.cancel_reason %}<p class="t3 sm" style="margin:6px 0 0">{{ p.cancel_reason }}</p>{% endif %}
-{% if me().is_admin and p.cancelled and p.skipped %}<form method=post action="/practices/{{ p.id }}" style="margin-top:12px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=unskip>Undo skip</button></form>
-{% elif me().is_admin and p.cancelled %}<form method=post action="/practices/{{ p.id }}" style="margin-top:12px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=restore>Undo cancel</button></form>{% endif %}
+{% if me().is_admin and p.cancelled and not editing and p.skipped %}<div class=eventacts><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=unskip>Undo skip</button></form><button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button></div>
+{% elif me().is_admin and p.cancelled and not editing %}<div class=eventacts><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=restore>Undo cancel</button></form><button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button></div>{% endif %}
 {% if me().is_admin and p.series_id and not p.cancelled %}<div style="display:flex;gap:10px;margin-top:12px"><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=skip onclick="return confirm('Skip this date?')">Skip this date</button></form><a class="btn btn-secondary" href="/practices/series/{{ p.series_id }}">Edit series</a></div>{% endif %}
 <div class="stats trio">
 <div class=stattile><b>{{ x.going|length }}</b><span>Going</span></div>
@@ -2672,7 +2869,11 @@ T["practice"] = """{% set p = x.p %}
 <form id=practiceForm method=post action="/practices/{{ p.id }}" class=card style="margin-top:16px" enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 {{ sports_editor(p) }}
 <label>Date<input type=date name=date value="{{ p.date }}" required></label>
-{% if p.series_id %}<label>Apply changes to<select name=series_scope><option value=once>Only this date</option><option value=following>This and following</option></select></label>{% endif %}
+{% if p.series_id %}<div class=checks role=radiogroup aria-label="Apply changes to"><div class="t3 xs">Apply changes to</div>
+<label><input type=radio name=series_scope value=once checked> This event</label>
+<label><input type=radio name=series_scope value=following> This and following</label>
+<label><input type=radio name=series_scope value=all> All events</label>
+</div>{% endif %}
 <div class=row><label>Start<input type=time name=start value="{{ p.start }}" required></label><label>End<input type=time name=end value="{{ p.end }}" required></label></div>
 <label>Location / address<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location value="{{ p.location or '' }}" data-places required autocomplete=off></label>
 <label>Notes<textarea class=planfield name=note rows=4>{{ p.note or '' }}</textarea></label>
@@ -2699,10 +2900,10 @@ T["practice"] = """{% set p = x.p %}
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="li rowbtn" name=action value=duplicate>Duplicate practice</button></form>
 <button type=button class="li rowbtn" data-copy="{{ app_base() }}/practices/{{ p.id }}">Copy link</button>
 </div>
-{% if not p.cancelled %}<div class=eventacts>
-<button type=button class="btn btn-secondary" data-open="cancel{{ p.id }}">Cancel event</button>
+<div class=eventacts>
+{% if not p.cancelled %}<button type=button class="btn btn-secondary" data-open="cancel{{ p.id }}">Cancel event</button>{% endif %}
 <button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button>
-</div>{% endif %}
+</div>
 {% endif %}
 {% else %}
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=pills style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
@@ -2776,11 +2977,21 @@ T["practice"] = """{% set p = x.p %}
 <dialog class=modal id=cancel{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Send cancellation</h2>
 <p class="t2 sm">Members get an email and a push that include this reason.</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+{% if p.series_id %}<div class=checks role=radiogroup aria-label="Cancel">
+<label><input type=radio name=series_scope value=once checked> This event</label>
+<label><input type=radio name=series_scope value=following> This and following</label>
+<label><input type=radio name=series_scope value=all> All events</label>
+</div>{% endif %}
 <label>Reason<textarea class=planfield name=reason rows=4 required></textarea></label>
 <button class="btn btn-danger full" name=action value=cancel>Confirm</button></form></div></dialog>
 <dialog class=modal id=delete{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Delete this practice?</h2>
 <p class="t2 sm">{% if practice_is_month(p) %}{{ practice_when(p) }} at {{ p.location }}.{% else %}{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.{% endif %}</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
+{% if p.series_id %}<div class=checks role=radiogroup aria-label="Delete">
+<label><input type=radio name=series_scope value=once checked> This event</label>
+<label><input type=radio name=series_scope value=following> This and following</label>
+<label><input type=radio name=series_scope value=all> All events</label>
+</div>{% endif %}
 <div class=row><button class="btn btn-danger" name=action value=delete>Delete practice</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% endif %}""" + _PRACTICE_JS
 

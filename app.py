@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS practices(id INTEGER PRIMARY KEY, date TEXT NOT NULL,
   location TEXT, address TEXT, note TEXT, cancelled INTEGER DEFAULT 0, cancel_reason TEXT, image TEXT,
   lat REAL, lng REAL, social_lat REAL, social_lng REAL, series_id INTEGER, series_detached INTEGER DEFAULT 0, skipped INTEGER DEFAULT 0, UNIQUE(date, location));
 CREATE TABLE IF NOT EXISTS practice_series(id INTEGER PRIMARY KEY, weekdays TEXT NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL,
-  location TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT);
+  location TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT, interval_weeks INTEGER DEFAULT 1, end_count INTEGER);
 CREATE TABLE IF NOT EXISTS series_coaches(series_id INTEGER NOT NULL, member_id INTEGER NOT NULL, is_lead INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(series_id, member_id));
 CREATE TABLE IF NOT EXISTS series_skips(series_id INTEGER NOT NULL, date TEXT NOT NULL, PRIMARY KEY(series_id, date));
 CREATE TABLE IF NOT EXISTS rsvps(practice_id INTEGER, member_id INTEGER, going INTEGER, at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(practice_id, member_id));
@@ -135,6 +135,7 @@ def db():
         migrate_messages(g.db)
         migrate_lineup(g.db)
         migrate_series(g.db)
+        backfill_checkin_going(g.db)
         drop_bot_verify_messages(g.db)
         seed_chat_reads(g.db)
         expire_sweep(g.db)
@@ -254,6 +255,7 @@ def migrate_series(d):
     d.execute("""CREATE TABLE IF NOT EXISTS series_coaches(series_id INTEGER NOT NULL, member_id INTEGER NOT NULL,
         is_lead INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(series_id, member_id))""")
     d.execute("CREATE TABLE IF NOT EXISTS series_skips(series_id INTEGER NOT NULL, date TEXT NOT NULL, PRIMARY KEY(series_id, date))")
+    d.execute("CREATE TABLE IF NOT EXISTS schedule_gaps(date TEXT NOT NULL, location TEXT NOT NULL, PRIMARY KEY(date, location))")
     cols = [r[1] for r in d.execute("PRAGMA table_info(practices)")]
     for c, t in (("series_id", "INTEGER"), ("series_detached", "INTEGER DEFAULT 0"), ("skipped", "INTEGER DEFAULT 0")):
         if c not in cols:
@@ -266,6 +268,11 @@ def migrate_series(d):
             d.execute("ALTER TABLE practice_series ADD COLUMN %s %s" % (c, t))
     d.execute("UPDATE practice_series SET activity_type='practice' WHERE activity_type IS NULL OR trim(activity_type)=''")
     d.execute("UPDATE practice_series SET sport='Water Polo' WHERE sport IS NULL OR trim(sport)=''")
+    scols = [r[1] for r in d.execute("PRAGMA table_info(practice_series)")]
+    for c, t in (("interval_weeks", "INTEGER DEFAULT 1"), ("end_count", "INTEGER")):
+        if c not in scols:
+            d.execute("ALTER TABLE practice_series ADD COLUMN %s %s" % (c, t))
+    d.execute("UPDATE practice_series SET interval_weeks=1 WHERE interval_weeks IS NULL OR interval_weeks NOT IN (1, 2)")
 def migrate_messages(d):
     """Add chat columns missing from a database created by an older version (production SQLite on DATA_DIR)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
@@ -1101,6 +1108,27 @@ def home():
 @login_required
 def profile():
     m = me(); d = db()
+    if request.method == "POST" and request.form.get("action") == "photo":
+        wants_json = "application/json" in (request.headers.get("Accept") or "")
+        try:
+            f = request.files.get("photo")
+            if request.form.get("photo_clear") == "1" and not (f and f.filename):
+                d.execute("UPDATE members SET photo='' WHERE id=?", (m["id"],))
+                d.commit()
+                if wants_json: return jsonify(ok=True, photo="")
+                flash("Saved", "toast"); return redirect("/profile")
+            if not f or not f.filename:
+                if wants_json: return jsonify(error="Choose a picture."), 400
+                flash("Choose a picture."); return redirect("/profile")
+            photo = save_image(f)
+            d.execute("UPDATE members SET photo=? WHERE id=?", (photo, m["id"]))
+            d.commit()
+            if wants_json: return jsonify(ok=True, photo=photo, url="/avatar/%d?v=%s" % (m["id"], photo))
+            flash("Saved", "toast"); return redirect("/profile")
+        except ValueError as e:
+            d.rollback()
+            if wants_json: return jsonify(error=str(e)), 400
+            flash(str(e)); return redirect("/profile")
     if request.method == "POST" and request.form.get("action") == "save":
         phone = normalize_phone(request.form.get("phone"))
         if not phone:
@@ -1501,12 +1529,33 @@ def api_messages():
 
 # ---------- practices ----------
 RECURRING = {1: ("Marina High School", "19:00", "20:30"), 4: ("Westminster High School", "19:00", "20:30")}  # Tue, Fri
+def note_schedule_gap(d, date, location):
+    """Remember a deleted date so the standing Tue/Fri seed does not put it back."""
+    date, location = str(date or "")[:10], " ".join(str(location or "").split())
+    if date and location:
+        d.execute("INSERT OR IGNORE INTO schedule_gaps(date, location) VALUES(?,?)", (date, location))
+def clear_schedule_gap(d, date, location):
+    date, location = str(date or "")[:10], " ".join(str(location or "").split())
+    if date and location:
+        d.execute("DELETE FROM schedule_gaps WHERE date=? AND location=?", (date, location))
+def drop_orphan_checkins(d, date):
+    """Check-ins belong to the day. Remove them once nothing is left on that day."""
+    date = str(date or "")[:10]
+    if not date: return
+    if d.execute("SELECT 1 FROM practices WHERE date=?", (date,)).fetchone(): return
+    if d.execute("""SELECT 1 FROM lineup_events WHERE COALESCE(status,'')='published'
+        AND COALESCE(date_precision,'exact')!='month'
+        AND date<=? AND COALESCE(NULLIF(end_date,''), date)>=?""", (date, date)).fetchone():
+        return
+    d.execute("DELETE FROM checkins WHERE practice_date=?", (date,))
 def ensure_schedule(d, weeks=4):
     today = today_pt()
+    gaps = {(r["date"], r["location"]) for r in d.execute("SELECT date, location FROM schedule_gaps")}
     for i in range(weeks * 7):
         day = today + dt.timedelta(days=i)
         if day.weekday() in RECURRING:
             loc, a, b = RECURRING[day.weekday()]
+            if (day.isoformat(), loc) in gaps: continue
             d.execute("INSERT OR IGNORE INTO practices(date,start,end,location) VALUES(?,?,?,?)", (day.isoformat(), a, b, loc))
     sync_all_series(d)
     d.commit()
@@ -1516,22 +1565,55 @@ SERIES_HORIZON_DAYS = 56
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 def series_weekday_set(raw):
     return {int(x) for x in str(raw or "").split(",") if str(x).strip().isdigit()}
+def _series_val(row, key, default=None):
+    try:
+        if row is not None and hasattr(row, "keys") and key in row.keys():
+            val = row[key]
+            return default if val is None else val
+    except (AttributeError, TypeError):
+        pass
+    return default
+def series_interval(row):
+    """Weekly, or every two weeks. Anything else stays weekly."""
+    try: n = int(_series_val(row, "interval_weeks", 1) or 1)
+    except (TypeError, ValueError): n = 1
+    return 2 if n == 2 else 1
+def series_end_count(row):
+    raw = _series_val(row, "end_count", None)
+    if raw in (None, ""): return None
+    try: n = int(raw)
+    except (TypeError, ValueError): return None
+    return n if n > 0 else None
 def series_horizon(row, today):
     start = dt.date.fromisoformat(row["start_date"])
     cap = today + dt.timedelta(days=180)
+    limit = series_end_count(row)
     if row["end_date"]:
         end = min(dt.date.fromisoformat(row["end_date"]), cap)
+    elif limit:
+        end = min(start + dt.timedelta(days=7 * series_interval(row) * limit + 14), today + dt.timedelta(days=366))
     else:
         end = min(today + dt.timedelta(days=SERIES_HORIZON_DAYS), cap)
     return max(start, today), end
 def series_dates(row, today=None):
+    """Dates still to create. Week 0 starts on the Monday of the start date. Past dates are not created."""
     today = today or today_pt()
     begin, end = series_horizon(row, today)
     if end < begin: return []
     wanted = series_weekday_set(row["weekdays"])
-    days, day = [], begin
-    while day <= end:
-        if day.weekday() in wanted: days.append(day)
+    interval = series_interval(row)
+    limit = series_end_count(row)
+    start = dt.date.fromisoformat(row["start_date"])
+    start_monday = start - dt.timedelta(days=start.weekday())
+    last = min(end, dt.date.fromisoformat(row["end_date"])) if row["end_date"] else end
+    days, day, seen = [], start, 0
+    while day <= last:
+        if day.weekday() in wanted and day >= start:
+            week_index = ((day - dt.timedelta(days=day.weekday())) - start_monday).days // 7
+            if week_index >= 0 and week_index % interval == 0:
+                seen += 1
+                if begin <= day <= last: days.append(day)
+                if limit and seen >= limit: break
         day += dt.timedelta(days=1)
     return days
 def delete_practice_row(d, pid):
@@ -1571,6 +1653,7 @@ def sync_series(d, sid, today=None):
     skips = {r["date"] for r in d.execute("SELECT date FROM series_skips WHERE series_id=?", (sid,))}
     for p in d.execute("SELECT * FROM practices WHERE series_id=?", (sid,)):
         day = dt.date.fromisoformat(p["date"])
+        if day < today: continue
         if p["date"] in skips:
             if practice_has_rsvps(d, p["id"]):
                 if not p["cancelled"]: d.execute("UPDATE practices SET cancelled=1, skipped=1 WHERE id=?", (p["id"],))
@@ -1605,6 +1688,7 @@ def sync_series(d, sid, today=None):
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (iso, row["start"], row["end"], row["location"], sid, *sports.sports_tuple(sp)))
         except sqlite3.IntegrityError:
             continue
+        clear_schedule_gap(d, iso, row["location"])
         copy_series_coaches(d, sid, cur.lastrowid)
 def sync_all_series(d):
     for sid in [r["id"] for r in d.execute("SELECT id FROM practice_series")]:
@@ -1634,37 +1718,49 @@ def save_series(d, sid=None):
     if not loc: raise ValueError("Add a location.")
     start = parse_date(request.form.get("start_date") or request.form.get("date"))
     if not start: raise ValueError("Add a start date.")
-    end_raw = (request.form.get("end_date") or "").strip()
-    end = parse_date(end_raw) if end_raw else None
-    if end_raw and not end: raise ValueError("Add an end date.")
-    if end and end < start: raise ValueError("End date must be on or after the start date.")
     weekdays = ",".join(str(n) for n in sorted(picked))
-    end_iso = end.isoformat() if end else None
+    prev = d.execute("SELECT * FROM practice_series WHERE id=?", (sid,)).fetchone() if sid else None
+    interval = series_interval(prev) if prev else 1
+    raw_interval = (request.form.get("recur_interval") or request.form.get("interval_weeks") or "").strip()
+    if raw_interval in ("1", "2"): interval = int(raw_interval)
+    end_mode = (request.form.get("recur_end") or "").strip()
+    end_count = series_end_count(prev) if prev else None
+    if end_mode == "count":
+        try: end_count = int(request.form.get("recur_count") or "")
+        except ValueError: end_count = 0
+        if end_count < 1 or end_count > 104: raise ValueError("Choose how many times it repeats.")
+        end_iso = None
+    else:
+        end_raw = (request.form.get("recur_until") or request.form.get("end_date") or "").strip()
+        if end_mode == "date" and not end_raw: raise ValueError("Add an end date.")
+        end = parse_date(end_raw) if end_raw else None
+        if end_raw and not end: raise ValueError("Add an end date.")
+        if end and end < start: raise ValueError("End date must be on or after the start date.")
+        end_iso = end.isoformat() if end else None
+        if end_mode == "date" or end_raw or not prev: end_count = None
     sp = sports.sports_from_form(request.form)
     tup = sports.sports_tuple(sp)
     if sid:
-        d.execute("""UPDATE practice_series SET weekdays=?, start=?, end=?, location=?, start_date=?, end_date=?,
+        d.execute("""UPDATE practice_series SET weekdays=?, start=?, end=?, location=?, start_date=?, end_date=?, interval_weeks=?, end_count=?,
             activity_type=?, sport=?, title=?, skill_levels=?, divisions=?, division_custom=?, opponent=?, home_away=?, gameplay_notes=?, segments=?, comp_format=? WHERE id=?""",
-                  (weekdays, start_t, end_t, loc, start.isoformat(), end_iso, *tup, sid))
+                  (weekdays, start_t, end_t, loc, start.isoformat(), end_iso, interval, end_count, *tup, sid))
     else:
-        sid = d.execute("""INSERT INTO practice_series(weekdays, start, end, location, start_date, end_date,
+        sid = d.execute("""INSERT INTO practice_series(weekdays, start, end, location, start_date, end_date, interval_weeks, end_count,
             activity_type, sport, title, skill_levels, divisions, division_custom, opponent, home_away, gameplay_notes, segments, comp_format)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                        (weekdays, start_t, end_t, loc, start.isoformat(), end_iso, *tup)).lastrowid
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (weekdays, start_t, end_t, loc, start.isoformat(), end_iso, interval, end_count, *tup)).lastrowid
     replace_series_coaches(d, sid, request.form.getlist("coach"), request.form.get("lead"))
     sync_series(d, sid)
     return sid
-def apply_series_following(d, sid, from_date, start, end, loc, coach_ids, lead, sp=None):
-    """Change this date and later occurrences. Earlier dates stay as they are."""
+def _write_series_template(d, sid, start, end, loc, sp):
     if sp:
         d.execute("""UPDATE practice_series SET start=?, end=?, location=?, activity_type=?, sport=?, title=?, skill_levels=?,
             divisions=?, division_custom=?, opponent=?, home_away=?, gameplay_notes=?, segments=?, comp_format=? WHERE id=?""",
             (start, end, loc, *sports.sports_tuple(sp), sid))
     else:
         d.execute("UPDATE practice_series SET start=?, end=?, location=? WHERE id=?", (start, end, loc, sid))
-    d.execute("UPDATE practices SET series_detached=1 WHERE series_id=? AND date<? AND COALESCE(series_detached,0)=0", (sid, from_date))
-    replace_series_coaches(d, sid, coach_ids, lead)
-    for p in d.execute("SELECT id FROM practices WHERE series_id=? AND date>=? AND COALESCE(cancelled,0)=0 AND COALESCE(skipped,0)=0", (sid, from_date)):
+def _apply_series_rows(d, rows, start, end, loc, coach_ids, lead, sp):
+    for p in rows:
         try:
             if sp:
                 d.execute("""UPDATE practices SET start=?, end=?, location=?, series_detached=0, activity_type=?, sport=?, title=?, skill_levels=?,
@@ -1676,6 +1772,52 @@ def apply_series_following(d, sid, from_date, start, end, loc, coach_ids, lead, 
             continue
         prev = {r["member_id"]: (r["focus"] or "") for r in d.execute("SELECT member_id, focus FROM practice_coaches WHERE practice_id=?", (p["id"],))}
         save_practice_coaches(d, p["id"], coach_ids, lead=lead, focuses={i: prev.get(int(i), "") for i in coach_ids if str(i).isdigit()})
+def series_scope_cut(opened_iso, scope, today=None):
+    """First date this and following, or all, may change. Dates before today stay as they are."""
+    today = today or today_pt()
+    opened = dt.date.fromisoformat(str(opened_iso)[:10])
+    if scope == "all": return today
+    if scope == "following": return max(opened, today)
+    return opened
+def apply_series_following(d, sid, from_date, start, end, loc, coach_ids, lead, sp=None):
+    """Change this date and later occurrences. Earlier dates, and anything already past, stay as they are."""
+    _write_series_template(d, sid, start, end, loc, sp)
+    cut = series_scope_cut(from_date, "following").isoformat()
+    today = today_pt().isoformat()
+    d.execute("UPDATE practices SET series_detached=1 WHERE series_id=? AND date<? AND date>=? AND COALESCE(series_detached,0)=0", (sid, from_date, today))
+    replace_series_coaches(d, sid, coach_ids, lead)
+    rows = d.execute("SELECT id FROM practices WHERE series_id=? AND date>=? AND COALESCE(cancelled,0)=0 AND COALESCE(skipped,0)=0", (sid, cut))
+    _apply_series_rows(d, rows, start, end, loc, coach_ids, lead, sp)
+def apply_series_all(d, sid, start, end, loc, coach_ids, lead, sp=None):
+    """Change every occurrence that has not already happened."""
+    _write_series_template(d, sid, start, end, loc, sp)
+    cut = series_scope_cut("1970-01-01", "all").isoformat()
+    replace_series_coaches(d, sid, coach_ids, lead)
+    rows = d.execute("SELECT id FROM practices WHERE series_id=? AND date>=? AND COALESCE(cancelled,0)=0 AND COALESCE(skipped,0)=0", (sid, cut))
+    _apply_series_rows(d, rows, start, end, loc, coach_ids, lead, sp)
+def stop_series_before(d, sid, cut):
+    """Keep past dates. Do not generate anything on or after cut."""
+    end = (cut - dt.timedelta(days=1)).isoformat()
+    d.execute("UPDATE practice_series SET end_date=?, end_count=NULL WHERE id=?", (end, sid))
+def cancel_series_from(d, sid, opened_iso, scope, reason):
+    cut = series_scope_cut(opened_iso, scope)
+    stop_series_before(d, sid, cut)
+    for p in d.execute("SELECT id, cancelled FROM practices WHERE series_id=? AND date>=?", (sid, cut.isoformat())):
+        if not p["cancelled"]:
+            d.execute("UPDATE practices SET cancelled=1, cancel_reason=? WHERE id=?", (reason, p["id"]))
+            flag_practice(d, p["id"], "cancel", me()["id"])
+def delete_series_from(d, sid, opened_iso, scope):
+    cut = series_scope_cut(opened_iso, scope)
+    stop_series_before(d, sid, cut)
+    rows = list(d.execute("SELECT id, date, location, series_id FROM practices WHERE series_id=? AND date>=?", (sid, cut.isoformat())))
+    dates = []
+    for p in rows:
+        note_schedule_gap(d, p["date"], p["location"])
+        d.execute("INSERT OR IGNORE INTO series_skips(series_id, date) VALUES(?,?)", (sid, p["date"]))
+        delete_practice_row(d, p["id"])
+        dates.append(p["date"])
+    for day in sorted(set(dates)):
+        drop_orphan_checkins(d, day)
 def fmt_t(t): h, m = map(int, t.split(":")); return f"{(h-1)%12+1}:{m:02d}{'pm' if h>=12 else 'am'}"
 def fmt_clock(t):
     """7:00 PM, for the Home next-practice title."""
@@ -2331,18 +2473,32 @@ def handle_practice_post(d):
                 d.execute("""INSERT INTO practices(date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (request.form["date"], request.form.get("start") or "19:00", request.form.get("end") or "20:30", request.form.get("location") or "TBD", request.form.get("note"), *sports.sports_tuple(sp)))
+                clear_schedule_gap(d, request.form["date"], request.form.get("location") or "TBD")
             except sqlite3.IntegrityError: flash("A practice already exists at that place on that date.")
     elif a == "edit" and pid:
         old = d.execute("SELECT date, start, end, location, note, series_id FROM practices WHERE id=?", (pid,)).fetchone()
         raw_date = request.form.get("date")
         date = old["date"] if raw_date is None else (parse_date(raw_date).isoformat() if parse_date(raw_date) else "")
-        if old and old["series_id"] and request.form.get("series_scope") == "following": date = old["date"]
+        scope = request.form.get("series_scope") or "once"
+        if old and old["series_id"] and scope in ("following", "all"): date = old["date"]
+        opened_past = bool(old and old["series_id"] and scope in ("following", "all") and dt.date.fromisoformat(old["date"]) < today_pt())
         start, end, loc, note = request.form.get("start") or old["start"], request.form.get("end") or old["end"], request.form.get("location") or old["location"], request.form.get("note")
         if note is None: note = old["note"]
         if "social_kind" in request.form and clean_social(request.form)[0] and not clean_social(request.form)[1]:
             flash("Add a place for the social.")
             return redirect("/practices/%s?edit=1" % pid if request.form.get("back") == "page" else "/practices#p%s" % pid)
         if not date: flash("Enter the practice date.")
+        elif opened_past:
+            try:
+                sp = sports.sports_from_form(request.form) if "activity_type" in request.form else None
+                if scope == "all":
+                    apply_series_all(d, old["series_id"], start, end, loc, request.form.getlist("coach"), request.form.get("lead"), sp)
+                else:
+                    apply_series_following(d, old["series_id"], old["date"], start, end, loc, request.form.getlist("coach"), request.form.get("lead"), sp)
+            except sqlite3.IntegrityError:
+                flash("A practice already exists at that place on that date.")
+                d.rollback()
+                return redirect("/practices/%s?edit=1" % pid if request.form.get("back") == "page" else "/practices#p%s" % pid)
         else:
             try:
                 moved = (loc or "") != (old["location"] or "")
@@ -2363,8 +2519,10 @@ def handle_practice_post(d):
                 if old and (old["date"], old["start"], old["end"], old["location"], old["note"] or "") != (date, start, end, loc, note or ""):
                     flag_practice(d, pid, "change", me()["id"])
                 if old and old["series_id"]:
-                    if request.form.get("series_scope") == "following":
+                    if scope == "following":
                         apply_series_following(d, old["series_id"], old["date"], start, end, loc, request.form.getlist("coach"), request.form.get("lead"), sp)
+                    elif scope == "all":
+                        apply_series_all(d, old["series_id"], start, end, loc, request.form.getlist("coach"), request.form.get("lead"), sp)
                     else:
                         d.execute("UPDATE practices SET series_detached=1 WHERE id=?", (pid,))
             except sqlite3.IntegrityError:
@@ -2374,16 +2532,19 @@ def handle_practice_post(d):
     elif a == "assign" and pid:
         save_practice_coaches(d, pid, request.form.getlist("coach"))
     elif a in ("cancel", "restore") and pid:
-        was = d.execute("SELECT cancelled FROM practices WHERE id=?", (pid,)).fetchone()
+        was = d.execute("SELECT cancelled, series_id, date FROM practices WHERE id=?", (pid,)).fetchone()
         reason = " ".join((request.form.get("reason") or "").split())[:300]
-        if a == "cancel": d.execute("UPDATE practices SET cancelled=1, cancel_reason=? WHERE id=?", (reason, pid))
-        else: d.execute("UPDATE practices SET cancelled=0, cancel_reason='' WHERE id=?", (pid,))
-        if a == "restore":
+        scope = request.form.get("series_scope") or "once"
+        if a == "cancel" and was and was["series_id"] and scope in ("following", "all"):
+            cancel_series_from(d, was["series_id"], was["date"], scope, reason)
+        elif a == "cancel":
+            d.execute("UPDATE practices SET cancelled=1, cancel_reason=? WHERE id=?", (reason, pid))
+            if not was or not was["cancelled"]: flag_practice(d, pid, "cancel", me()["id"])
+        else:
+            d.execute("UPDATE practices SET cancelled=0, cancel_reason='' WHERE id=?", (pid,))
             d.execute("DELETE FROM sent_notices WHERE kind IN (?,?)", ("email:practice_cancelled:%s" % pid, "push:practice_cancelled:%s" % pid))
             d.execute("DELETE FROM practice_notices WHERE practice_id=? AND kind='cancel'", (pid,))
             if was and was["cancelled"]: flag_practice(d, pid, "change", me()["id"])
-        elif not was or not was["cancelled"]:
-            flag_practice(d, pid, "cancel", me()["id"])
     elif a == "duplicate" and pid:
         src = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
         new_date = (dt.date.fromisoformat(src["date"]) + dt.timedelta(days=7)).isoformat()
@@ -2398,6 +2559,7 @@ def handle_practice_post(d):
             save_practice_coaches(d, new_id, [r["member_id"] for r in copied], lead=lead, focuses={r["member_id"]: (r["focus"] or "") for r in copied})
             for r in copied:
                 d.execute("UPDATE practice_coaches SET plan_note=? WHERE practice_id=? AND member_id=?", (r["plan_note"] or "", new_id, r["member_id"]))
+            clear_schedule_gap(d, new_date, src["location"])
             flash("Copied to %s." % fmt_d(new_date))
         except sqlite3.IntegrityError:
             flash("A practice is already on the schedule a week later at that place.")
@@ -2417,11 +2579,20 @@ def handle_practice_post(d):
             if prow["skipped"]: d.execute("UPDATE practices SET cancelled=0, skipped=0, cancel_reason='' WHERE id=?", (pid,))
             sync_series(d, prow["series_id"])
     elif a == "delete" and pid:
-        d.execute("DELETE FROM practice_coaches WHERE practice_id=?", (pid,))
-        d.execute("DELETE FROM rsvps WHERE practice_id=?", (pid,))
-        d.execute("DELETE FROM social_joins WHERE practice_id=?", (pid,))
-        d.execute("DELETE FROM practice_notices WHERE practice_id=?", (pid,))
-        d.execute("DELETE FROM practices WHERE id=?", (pid,))
+        prow = d.execute("SELECT series_id, date, location FROM practices WHERE id=?", (pid,)).fetchone()
+        scope = request.form.get("series_scope") or "once"
+        if prow and prow["series_id"] and scope in ("following", "all"):
+            delete_series_from(d, prow["series_id"], prow["date"], scope)
+        else:
+            if prow:
+                note_schedule_gap(d, prow["date"], prow["location"])
+                if prow["series_id"]:
+                    d.execute("INSERT OR IGNORE INTO series_skips(series_id, date) VALUES(?,?)", (prow["series_id"], prow["date"]))
+                day = prow["date"]
+                delete_practice_row(d, pid)
+                drop_orphan_checkins(d, day)
+            else:
+                delete_practice_row(d, pid)
         pid = None
     if pid and a in ("going", "notgoing", "clear"): mark_practice_seen(d, me()["id"], pid)
     d.commit()
@@ -3072,9 +3243,22 @@ def lineup_edit(eid):
     if not row: abort(404)
     if not lineupfeed.can_edit_event(me(), row, can_host_practice()): abort(403)
     if request.method == "POST" and request.form.get("action") == "delete":
-        if not can_host_practice() and (row["status"] or "") not in ("draft", "declined", "changes_requested"): abort(403)
+        if not can_host_practice() and (row["status"] or "") not in ("draft", "declined", "changes_requested", "canceled"): abort(403)
+        days = []
+        try:
+            start = dt.date.fromisoformat(str(row["date"])[:10])
+            end_raw = (row["end_date"] or "")[:10] if "end_date" in row.keys() else ""
+            end = dt.date.fromisoformat(end_raw) if end_raw else start
+            if end < start: end = start
+            day = start
+            while day <= end and len(days) < 21:
+                days.append(day.isoformat())
+                day += dt.timedelta(days=1)
+        except ValueError:
+            days = [str(row["date"])[:10]]
         d.execute("DELETE FROM lineup_rsvps WHERE event_id=?", (eid,))
         d.execute("DELETE FROM lineup_events WHERE id=?", (eid,))
+        for day in days: drop_orphan_checkins(d, day)
         d.commit(); flash("Deleted", "toast"); return redirect("/lineup")
     values = lineupfeed.form_values(row=row, cat_slug=row["cat_slug"] or "", mode="edit")
     if request.method == "POST":
@@ -3245,15 +3429,22 @@ def event_new():
         day = parse_date(request.form.get("date"))
         loc = " ".join((request.form.get("location") or "").split())[:300]
         lane_now = (request.form.get("lane") or ("lineup" if not staff else lane))
-        month_mode = staff and (request.form.get("date_precision") or "exact").strip().lower() == "month"
-        if not staff and (request.form.get("date_precision") or "").strip().lower() == "month":
+        precision = (request.form.get("date_precision") or "exact").strip().lower()
+        if precision not in ("exact", "month", "recur"): precision = "exact"
+        if not staff and precision in ("month", "recur"):
             flash("Add a specific date.")
             return redirect("/events/new?lane=lineup")
-        month_line = lane_now == "lineup" and month_mode
-        month_sched = lane_now != "lineup" and staff and month_mode
+        if lane_now != "lineup" and precision == "month":
+            flash("Pick exact dates or a repeat.")
+            return redirect("/events/new")
+        if lane_now == "lineup" and precision == "recur":
+            flash("Add a specific date.")
+            return redirect("/events/new?lane=lineup")
+        month_mode = lane_now == "lineup" and staff and precision == "month"
+        recur_mode = lane_now != "lineup" and staff and precision == "recur"
         if not loc or (not month_mode and not day):
             flash("Add a location." if month_mode else "Add a date and a location.")
-            return redirect("/events/new" + ("?lane=lineup" if month_line or (month_mode and not staff) else ""))
+            return redirect("/events/new" + ("?lane=lineup" if month_mode else ""))
         d = db()
         if (request.form.get("lane") or lane) != "lineup" and staff:
             try:
@@ -3261,17 +3452,34 @@ def event_new():
                 sp["activity_type"] = activity
                 if request.form.get("title_mode") != "custom": sp["title"] = ""
                 note = request.form.get("note") or ""
-                if month_sched:
-                    start_day, end_day, part = month_window(request.form.get("month"), request.form.get("date_part"))
-                    cur = d.execute("""INSERT INTO practices(date,end_date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format,date_precision,date_part)
-                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                        (start_day.isoformat(), end_day.isoformat(), "", "", loc, note, *sports.sports_tuple(sp), "month", part))
-                else:
-                    start = (request.form.get("start") or "19:00").strip() or "19:00"
-                    end = (request.form.get("end") or "20:30").strip() or "20:30"
-                    cur = d.execute("""INSERT INTO practices(date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
-                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                        (day.isoformat(), start, end, loc, note, *sports.sports_tuple(sp)))
+                if recur_mode:
+                    sid = save_series(d)
+                    if request.form.get("title_mode") != "custom":
+                        d.execute("UPDATE practice_series SET title='' WHERE id=?", (sid,))
+                    ids = [r["id"] for r in d.execute("SELECT id FROM practices WHERE series_id=? ORDER BY date, id", (sid,))]
+                    if not ids: raise ValueError("Those days fall outside the dates you picked.")
+                    if note: d.execute("UPDATE practices SET note=? WHERE series_id=?", (note, sid))
+                    if request.form.get("title_mode") != "custom":
+                        d.execute("UPDATE practices SET title='' WHERE series_id=?", (sid,))
+                    pid = ids[0]
+                    for one in ids:
+                        if request.form.getlist("social_kind") and not save_social(d, one, request.form):
+                            flash("Add a place for the social.")
+                    try:
+                        if apply_practice_image(d, pid):
+                            img = d.execute("SELECT image FROM practices WHERE id=?", (pid,)).fetchone()
+                            if img and img["image"]:
+                                d.execute("UPDATE practices SET image=? WHERE series_id=? AND id!=?", (img["image"], sid, pid))
+                    except ValueError as e: flash(str(e))
+                    d.commit()
+                    flash("Preview", "toast")
+                    return redirect("/practices/%d" % pid)
+                start = (request.form.get("start") or "19:00").strip() or "19:00"
+                end = (request.form.get("end") or "20:30").strip() or "20:30"
+                cur = d.execute("""INSERT INTO practices(date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (day.isoformat(), start, end, loc, note, *sports.sports_tuple(sp)))
+                clear_schedule_gap(d, day.isoformat(), loc)
                 pid = cur.lastrowid
                 save_practice_coaches(d, pid, request.form.getlist("coach"))
                 if request.form.getlist("social_kind"):
@@ -3351,6 +3559,7 @@ def approvals():
                 d.execute("""INSERT INTO practices(date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (day.isoformat(), start, end, loc, "", *sports.sports_tuple(sp)))
+                clear_schedule_gap(d, day.isoformat(), loc)
                 d.commit(); flash("Created", "toast")
             except sqlite3.IntegrityError:
                 flash("A practice already exists at that place on that date.")
@@ -3814,6 +4023,40 @@ def checkin_filter(raw, n_not, n_in):
     if filt == "not" and n_not <= 0: return "going"
     if filt == "in" and n_in <= 0: return "going"
     return filt
+def mark_event_going(d, event, mid):
+    """Checking in means Going, whether the RSVP was blank or Not going."""
+    if event["kind"] == "practice":
+        d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
+            ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1, at=CURRENT_TIMESTAMP""", (event["id"], mid))
+    else:
+        d.execute("""INSERT INTO lineup_rsvps(event_id, member_id, going, state) VALUES(?,?,1,'going')
+            ON CONFLICT(event_id, member_id) DO UPDATE SET going=1, state='going', at=CURRENT_TIMESTAMP""", (event["id"], mid))
+def mark_checked_in_going(d, mid, date, ev=None):
+    events = admin_day_events(d, date)
+    chosen = []
+    if ev:
+        hit = next((e for e in events if e["key"] == ev), None)
+        if hit: chosen = [hit]
+    if not chosen: chosen = events
+    for event in chosen:
+        mark_event_going(d, event, mid)
+def backfill_checkin_going(d):
+    """Every existing check-in is a Going RSVP. Later undos leave that RSVP in place."""
+    d.execute("""INSERT INTO rsvps(practice_id, member_id, going)
+        SELECT p.id, c.member_id, 1 FROM checkins c
+        JOIN practices p ON p.date=c.practice_date AND COALESCE(p.cancelled,0)=0
+          AND COALESCE(p.date_precision,'exact')!='month'
+        WHERE NOT EXISTS (
+          SELECT 1 FROM rsvps r WHERE r.practice_id=p.id AND r.member_id=c.member_id AND r.going=1)
+        ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1, at=CURRENT_TIMESTAMP""")
+    d.execute("""INSERT INTO lineup_rsvps(event_id, member_id, going, state)
+        SELECT e.id, c.member_id, 1, 'going' FROM checkins c
+        JOIN lineup_events e ON COALESCE(e.status,'')='published'
+          AND COALESCE(e.date_precision,'exact')!='month'
+          AND e.date<=c.practice_date AND COALESCE(NULLIF(e.end_date,''), e.date)>=c.practice_date
+        WHERE NOT EXISTS (
+          SELECT 1 FROM lineup_rsvps r WHERE r.event_id=e.id AND r.member_id=c.member_id AND r.state='going')
+        ON CONFLICT(event_id, member_id) DO UPDATE SET going=1, state='going', at=CURRENT_TIMESTAMP""")
 def checkin_required(f):
     """Admins and active coaches open Manage Schedule check-in."""
     @functools.wraps(f)
@@ -3840,6 +4083,7 @@ def admin():
                 if who: flash("Undid check-in for %s." % display_first(who), "toast")
             else:
                 d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (mid, date, location_for(date)))
+                mark_checked_in_going(d, mid, date, (request.form.get("ev") or "").strip())
                 if who: flash("Checked in %s." % display_first(who), "toast")
         d.commit()
         if request.form.get("action") in ("verify", "req", "background", "preferred", "role", "recheck", "edit", "undo") or not request.form.get("action"): sync_practice_sheets(d)
@@ -4877,7 +5121,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-105 */
+SW_JS = """/* grunions-sw-106 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
