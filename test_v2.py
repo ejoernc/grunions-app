@@ -95,15 +95,15 @@ def test_deploy_files():
     ry = open(os.path.join(HERE, "render.yaml"), encoding="utf-8").read(); assert "DATA_DIR" in ry and "disk" in ry and "SECRET_KEY" in ry
     assert "elliott.joern@gmail.com" in open(os.path.join(HERE, ".env.local"), encoding="utf-8").read()
     from PIL import Image
-    for name, size in (("icon-192.png", 192), ("icon-512.png", 512), ("maskable-512.png", 512), ("apple-touch-icon-180.png", 180), ("favicon-32.png", 32)):
+    for name, size in (("icon-192.png", 192), ("icon-512.png", 512), ("maskable-512.png", 512), ("apple-touch-icon-180.png", 180), ("favicon-32.png", 32), ("favicon-16.png", 16)):
         assert Image.open(os.path.join(HERE, "static", "icons", name)).size == (size, size)
     c = A.app.test_client()
     m = c.get("/manifest.webmanifest"); body = json.loads(m.get_data(as_text=True))
-    assert m.content_type.startswith("application/manifest+json") and body["name"] == "Grunions Water Polo" and body["short_name"] == "Grunions" and body["display"] == "standalone"
-    assert body["theme_color"] == "#090D0B" and body["background_color"] == "#090D0B" and "maskable" in {i["purpose"] for i in body["icons"]}
+    assert m.content_type.startswith("application/manifest+json") and body["name"] == "Regulars" and body["short_name"] == "Regulars" and body["display"] == "standalone"
+    assert body["theme_color"] == "#000000" and body["background_color"] == "#000000" and "maskable" in {i["purpose"] for i in body["icons"]}
     icon = c.get("/static/icons/icon-192.png"); assert icon.status_code == 200 and icon.data[:8] == b"\x89PNG\r\n\x1a\n"
     html = c.get("/join").get_data(as_text=True)
-    assert "rel=manifest" in html and "rel=icon" in html and "rel=apple-touch-icon" in html and 'name=theme-color content="#090D0B"' in html
+    assert "rel=manifest" in html and "rel=icon" in html and "rel=apple-touch-icon" in html and 'name=theme-color content="#000"' in html and "apple-mobile-web-app-title content=Regulars" in html and "<title>Regulars</title>" in html
 def _docker_ignored(rel):
     """True when .dockerignore would keep this path out of the build context."""
     rel = rel.replace(os.sep, "/").lstrip("/")
