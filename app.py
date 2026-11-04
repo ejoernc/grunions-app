@@ -2885,7 +2885,7 @@ def _form_last():
     out = {}
     for k in request.form:
         vals = request.form.getlist(k)
-        if k == "host_org":
+        if k == "cohost_org" or (k == "host_org" and len(vals) > 1):
             out[k] = vals
         else:
             out[k] = vals[-1] if vals else ""
@@ -2990,9 +2990,6 @@ def lineup_event_type(row):
 def lineup_tag(row):
     hosting = lineupfeed.hosting_chip(row["hosting"])
     return " · ".join(part for part in (hosting, lineup_event_type(row)) if part)
-def lineup_host_names(row):
-    raw = row["host_orgs"] if "host_orgs" in row.keys() and row["host_orgs"] else (row["host_org"] if "host_org" in row.keys() else "")
-    return lineupfeed.host_list(raw)
 def lineup_card_line(etype, names, mode="other"):
     """Clinic · Hosted by A, or Clinic · Co-hosted with A & B."""
     parts = []
@@ -3041,9 +3038,11 @@ def lineup_pack(d, rows):
         if span < 1: span = 1
         status_kind, status_text = lineup_status_text(r)
         etype = lineup_event_type(r)
-        host_mode = lineupfeed.hosting_label(r["hosting"])
-        host_names = [] if host_mode == "Hosting" else lineup_host_names(r)
-        card_mode = "cohost" if host_mode == "Cohost" else ("other" if host_mode == "Attending" else "ours")
+        card_mode, primary, cohosts, host_names = lineupfeed.host_card(
+            r["hosting"],
+            r["host_org"] if "host_org" in r.keys() else "",
+            r["host_orgs"] if "host_orgs" in r.keys() else "",
+            r["cohosted"] if "cohosted" in r.keys() else 0)
         pins = []
         if "lat" in r.keys() and r["lat"] is not None and r["lng"] is not None:
             pins = [{"lat": r["lat"], "lng": r["lng"], "kind": "pool", "label": r["venue"] or r["city"] or ""}]
@@ -3072,8 +3071,8 @@ def lineup_pack(d, rows):
             "sort_date": effective_sort_date(r),
             "tile": lineup_tile(r),
             "venue": r["venue"] or "", "city": r["city"] or "",
-            "host_org": host_names[0] if len(host_names) == 1 and card_mode == "other" else "",
-            "host_names": host_names, "host_mode": card_mode,
+            "host_org": primary if card_mode == "other" else "",
+            "cohosts": cohosts, "host_names": host_names, "host_mode": card_mode,
             "description": r["description"] or "", "details": r["details"] or "", "link": r["link"] or "",
             "cost": r["cost"] or "", "capacity": cap, "full": full, "reg_deadline": r["reg_deadline"] or "",
             "review_note": r["review_note"] or "", "banner": r["banner"] or "",
@@ -3652,11 +3651,12 @@ def event_new():
         if not title:
             flash("Add an event name.")
             return redirect("/events/new?lane=lineup")
-        hosting_now = lineupfeed.normalize_hosting(request.form.get("hosting"), "Attending")
+        raw_hosting = (request.form.get("hosting") or "").strip()
+        hosting_now = "Hosting" if raw_hosting in ("Cohost", "Co-hosting", "Co-host") else lineupfeed.normalize_hosting(raw_hosting, "Attending")
         plan_now = (request.form.get("team_plan") or "").strip() if staff and hosting_now == "Attending" else ""
         if not staff:
             intent_now = ""
-        elif hosting_now in ("Hosting", "Cohost"):
+        elif hosting_now == "Hosting":
             intent_now, plan_now = "official", "committed"
         else:
             intent_now = "official" if plan_now == "committed" else "considering"
@@ -5282,7 +5282,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-109 */
+SW_JS = """/* grunions-sw-110 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

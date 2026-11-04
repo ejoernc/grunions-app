@@ -569,8 +569,15 @@ div.card.tap.tripcard{padding:18px;overflow:visible}div.card.tap.tripcard .nxcar
 .actseg label{position:relative;flex:1;min-width:0;margin:0}
 .actseg input{position:absolute;opacity:0;width:1px;height:1px}
 .actseg span{display:flex;align-items:center;justify-content:center;height:40px;min-height:40px;border-radius:var(--radius-button);background:transparent;color:var(--color-text-secondary);font-size:var(--type-b3-size);font-weight:var(--type-b3-weight);padding:0 var(--space-2)}
-.actseg.whohost span{height:auto;min-height:44px;padding:8px 6px;line-height:1.2;text-align:center;white-space:normal}
-.hostadd{display:flex;gap:8px;align-items:flex-end}.hostadd input{flex:1;margin-top:0}.hostadd button{flex:none}
+.fldlab{display:block;margin:0 0 var(--space-2);padding:0;font-size:var(--type-b3-size);font-weight:var(--type-b3-weight);line-height:var(--type-b3-line);color:var(--t2);text-align:left}
+.actseg.hostseg{flex-wrap:nowrap}
+.actseg.hostseg span{white-space:nowrap;height:44px;min-height:44px;padding:0 10px}
+.hostblock{margin:0 0 var(--space-4)}
+.hostadd{display:flex;gap:8px;align-items:center}
+.hostadd input{flex:1;width:auto;min-width:0;margin:0;height:var(--size-button);box-sizing:border-box}
+.hostadd button{flex:none;height:var(--size-button);min-height:var(--size-button);margin:0;box-sizing:border-box}
+.hostchips{display:flex;flex-wrap:wrap;gap:8px;margin:var(--space-3) 0 0}
+.hostchips:empty{display:none;margin:0}
 .actseg input:checked+span{background:var(--color-lime);color:var(--color-forest)}
 .actseg input:focus-visible+span{outline:2px solid var(--color-focus);outline-offset:2px}
 dialog.matpick .matpart{flex-wrap:nowrap;margin:12px 4px 0}
@@ -935,7 +942,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=109');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=110');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsEditor(){
  function optName(input){
@@ -1734,12 +1741,12 @@ function grunionsHostChips(){
   var name=String(raw||'').replace(/\s+/g,' ').trim();
   if(!name) return;
   var taken=false;
-  box.querySelectorAll('input[name='+'host_org]').forEach(function(el){ if(el.value.toLowerCase()===name.toLowerCase()) taken=true; });
+  box.querySelectorAll('input[name='+'cohost_org]').forEach(function(el){ if(el.value.toLowerCase()===name.toLowerCase()) taken=true; });
   if(taken){ add.value=''; return; }
   var chip=document.createElement('span'); chip.className='skipchip';
   var label=document.createElement('span'); label.textContent=name;
   var b=document.createElement('button'); b.type='button'; b.textContent='×'; b.setAttribute('aria-label','Remove '+name);
-  var hidden=document.createElement('input'); hidden.type='hidden'; hidden.name='host_org'; hidden.value=name;
+  var hidden=document.createElement('input'); hidden.type='hidden'; hidden.name='cohost_org'; hidden.value=name;
   chip.appendChild(label); chip.appendChild(b); chip.appendChild(hidden);
   drop(chip); box.appendChild(chip); add.value='';
  }
@@ -2635,7 +2642,8 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 <div class=seclabel>Details</div>
 <div class=list>
 {% if e.description %}<div class="li evdescrow"><div class=clamp id=evdesc>{{ e.description }}</div><button type=button class=textlink id=evmore hidden>More</button></div>{% endif %}
-{% if e.host_names %}<div class="li prow"><span class=k>{% if e.host_mode == 'cohost' %}Co-host organizations{% elif e.host_names|length > 1 %}Host organizations{% else %}Host organization{% endif %}</span><span class=v>{{ e.host_names|join(', ') }}</span></div>{% endif %}
+{% if e.host_org %}<div class="li prow"><span class=k>Host organization</span><span class=v>{{ e.host_org }}</span></div>{% endif %}
+{% if e.cohosts %}<div class="li prow"><span class=k>Co-host organizations</span><span class=v>{{ e.cohosts|join(', ') }}</span></div>{% endif %}
 {% if e.link %}<div class="li prow"><span class=k>Registration</span><span class=v><a class=reglink href="{{ e.link }}" target=_blank rel="noopener noreferrer">Registration</a></span></div>{% endif %}
 {% if e.event_type %}<div class="li prow"><span class=k>Type</span><span class=v>{{ e.event_type }}</span></div>{% endif %}
 {% if e.sports_line %}<div class="li prow"><span class=k>Session</span><span class=v>{{ e.sports_line }}</span></div>{% endif %}
@@ -2704,24 +2712,26 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label><input type=radio name=activity_type value=game {% if activity == 'game' %}checked{% endif %}><span>Game</span></label>
 </div>
 <label>Sport<select name=sport id=sportSel><option>Water Polo</option><option>Swimming</option></select></label>
+<div class=fldlab>Display name</div>
 <div class=livetitle><strong id=liveTitle>Water Polo Practice</strong><button type=button class="btn quiet" id=customize>Customize</button></div>
 <label id=titleField hidden>Event name<input name=title id=titleInput autocomplete=off><button type=button class="btn quiet" id=titleReset>Reset to automatic</button></label>
 </div>{% endif %}
 <div id=lineBlock {% if staff and lane != 'lineup' %}hidden{% endif %}>
 <label>Type{{ type_select(line_types) }}</label>
-<div class="t3 xs">Who's hosting?</div>
-<div class="actseg whohost" id=whoHost role=radiogroup aria-label="Who's hosting?">
+<div class=fldlab>Who's hosting?</div>
+<div class="actseg hostseg" id=whoHost role=radiogroup aria-label="Who's hosting?">
 <label><input type=radio name=hosting value=Hosting checked><span>Our organization</span></label>
-<label><input type=radio name=hosting value=Cohost><span>Co-hosting</span></label>
-<label><input type=radio name=hosting value=Attending><span>Other organization(s)</span></label>
+<label><input type=radio name=hosting value=Attending><span>Another organization</span></label>
 </div>
-<div id=lineOrg hidden>
-<div class="t3 xs" id=hostLabel>Host organizations</div>
-<div id=hostChips class=skipchips></div>
-<div class=hostadd><input id=hostAdd autocomplete=off placeholder="West Hollywood Aquatics" aria-label="Organization"><button type=button class="btn btn-secondary" id=hostAddBtn>Add</button></div>
+<label class=switchrow>Co-hosted?<span class=switch><input type=checkbox name=cohosted id=coHosted value=1><span></span></span></label>
+<label id=lineOrg hidden>Host organization<input name=host_org id=hostOrg autocomplete=off placeholder="West Hollywood Aquatics"></label>
+<div id=lineCo hidden class=hostblock>
+<div class=fldlab>Co-host organizations</div>
+<div class=hostadd><input id=hostAdd autocomplete=off placeholder="Santa Monica" aria-label="Co-host organization"><button type=button class="btn btn-secondary" id=hostAddBtn>Add</button></div>
+<div id=hostChips class=hostchips></div>
 </div>
 {% if staff %}
-<div id=orgPlanLabel class="t3 xs" hidden>What are our organization's plans?</div>
+<div id=orgPlanLabel class=fldlab hidden>What are our organization's plans?</div>
 <div class=plancards id=orgPlans hidden role=radiogroup aria-label="What are our organization's plans?">
 <label class=plancard><input type=radio name=team_plan value=considering checked disabled><span class=planmark aria-hidden=true><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span class=plantxt><b>Gauging interest</b><span>See who wants to participate before committing.</span></span></label>
 <label class=plancard><input type=radio name=team_plan value=committed disabled><span class=planmark aria-hidden=true><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span class=plantxt><b>We're attending</b><span>Our organization has decided to participate.</span></span></label>
@@ -2730,7 +2740,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label>Event name<input name=line_title id=lineTitle autocomplete=off placeholder="IGLA 2027"></label>
 <label>Short description<textarea class=planfield name=description id=lineDesc rows=4 placeholder="What should people know?"></textarea></label>
 </div>
-<div class=seclabel>When</div>
+<div class=fldlab>When</div>
 {% if staff %}<div class=actseg id=whenPrec role=radiogroup aria-label=Dates>
 <label data-prec=exact><input type=radio name=date_precision value=exact checked><span>Exact dates</span></label>
 <label data-prec=recur {% if lane == 'lineup' %}hidden{% endif %}><input type=radio name=date_precision value=recur {% if lane == 'lineup' %}disabled{% endif %}><span>Recurring</span></label>
@@ -2999,14 +3009,16 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
  function syncHost(){
   var host=document.querySelector('#whoHost input[name=hosting]:checked');
   var mode=host?host.value:'Hosting';
+  var co=document.getElementById('coHosted');
   var type=document.getElementById('lineType'); var name=type?type.value:'';
   var team=name==='Tournament'||name==='Competition'||name==='Trip'||name==='Clinic';
-  var org=document.getElementById('lineOrg'), label=document.getElementById('hostLabel');
+  var org=document.getElementById('lineOrg'), cos=document.getElementById('lineCo');
   var plans=document.getElementById('orgPlans'), planLabel=document.getElementById('orgPlanLabel');
-  var showOrgs=mode==='Cohost'||mode==='Attending';
-  if(label) label.textContent=mode==='Cohost'?'Co-host organizations':'Host organizations';
-  if(org){ org.hidden=!showOrgs; org.querySelectorAll('input,button').forEach(function(el){ el.disabled=!showOrgs; }); }
-  var showPlans=!!(plans&&mode==='Attending'&&team);
+  var showOrg=mode==='Attending';
+  var showCo=!!(co&&co.checked);
+  if(org){ org.hidden=!showOrg; org.querySelectorAll('input').forEach(function(el){ el.disabled=!showOrg; }); }
+  if(cos){ cos.hidden=!showCo; cos.querySelectorAll('input,button').forEach(function(el){ el.disabled=!showCo; }); }
+  var showPlans=!!(plans&&showOrg&&team);
   if(planLabel) planLabel.hidden=!showPlans;
   if(plans){ plans.hidden=!showPlans; plans.querySelectorAll('input').forEach(function(el){ el.disabled=!showPlans; }); }
  }
@@ -3022,6 +3034,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
  }
  var lt=document.getElementById('lineType'); if(lt) lt.addEventListener('change', syncLine);
  document.querySelectorAll('#whoHost input[name=hosting]').forEach(function(r){ r.addEventListener('change', syncHost); });
+ var coHosted=document.getElementById('coHosted'); if(coHosted) coHosted.addEventListener('change', syncHost);
  syncHost();
  paintTitle();
 })();
@@ -3035,19 +3048,20 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 {{ upload_field('banner', src=('/lineup-image/' ~ event_id ~ '?v=' ~ banner) if banner and event_id else '', clear_name='banner_clear') }}
 </div>
 <label>Type{{ type_select(event_types, values.event_type) }}</label>
-<div class="t3 xs">Who's hosting?</div>
-<div class="actseg whohost" id=whoHost role=radiogroup aria-label="Who's hosting?">
-<label><input type=radio name=hosting value=Hosting {% if values.hosting == 'Hosting' %}checked{% endif %}><span>Our organization</span></label>
-<label><input type=radio name=hosting value=Cohost {% if values.hosting == 'Cohost' %}checked{% endif %}><span>Co-hosting</span></label>
-<label><input type=radio name=hosting value=Attending {% if values.hosting != 'Hosting' and values.hosting != 'Cohost' %}checked{% endif %}><span>Other organization(s)</span></label>
+<div class=fldlab>Who's hosting?</div>
+<div class="actseg hostseg" id=whoHost role=radiogroup aria-label="Who's hosting?">
+<label><input type=radio name=hosting value=Hosting {% if values.hosting != 'Attending' %}checked{% endif %}><span>Our organization</span></label>
+<label><input type=radio name=hosting value=Attending {% if values.hosting == 'Attending' %}checked{% endif %}><span>Another organization</span></label>
 </div>
-<div id=lineOrg {% if values.hosting == 'Hosting' %}hidden{% endif %}>
-<div class="t3 xs" id=hostLabel>{% if values.hosting == 'Cohost' %}Co-host organizations{% else %}Host organizations{% endif %}</div>
-<div id=hostChips class=skipchips>{% for name in values.host_orgs %}<span class=skipchip><span>{{ name }}</span><button type=button aria-label="Remove {{ name }}">×</button><input type=hidden name=host_org value="{{ name }}"></span>{% endfor %}</div>
-<div class=hostadd><input id=hostAdd autocomplete=off placeholder="West Hollywood Aquatics" aria-label="Organization"><button type=button class="btn btn-secondary" id=hostAddBtn>Add</button></div>
+<label class=switchrow>Co-hosted?<span class=switch><input type=checkbox name=cohosted id=coHosted value=1 {% if values.cohosted == '1' %}checked{% endif %}><span></span></span></label>
+<label id=lineOrg {% if values.hosting != 'Attending' %}hidden{% endif %}>Host organization<input name=host_org id=hostOrg value="{{ values.host_org }}" autocomplete=off placeholder="West Hollywood Aquatics" {% if values.hosting != 'Attending' %}disabled{% endif %}></label>
+<div id=lineCo class=hostblock {% if values.cohosted != '1' %}hidden{% endif %}>
+<div class=fldlab>Co-host organizations</div>
+<div class=hostadd><input id=hostAdd autocomplete=off placeholder="Santa Monica" aria-label="Co-host organization" {% if values.cohosted != '1' %}disabled{% endif %}><button type=button class="btn btn-secondary" id=hostAddBtn {% if values.cohosted != '1' %}disabled{% endif %}>Add</button></div>
+<div id=hostChips class=hostchips>{% for name in values.cohost_orgs %}<span class=skipchip><span>{{ name }}</span><button type=button aria-label="Remove {{ name }}">×</button><input type=hidden name=cohost_org value="{{ name }}" {% if values.cohosted != '1' %}disabled{% endif %}></span>{% endfor %}</div>
 </div>
 {% if organizer %}
-<div id=orgPlanLabel class="t3 xs" {% if values.hosting != 'Attending' %}hidden{% endif %}>What are our organization's plans?</div>
+<div id=orgPlanLabel class=fldlab {% if values.hosting != 'Attending' %}hidden{% endif %}>What are our organization's plans?</div>
 <div class=plancards id=orgPlans {% if values.hosting != 'Attending' %}hidden{% endif %} role=radiogroup aria-label="What are our organization's plans?">
 <label class=plancard><input type=radio name=team_plan value=considering {% if values.team_plan != 'committed' %}checked{% endif %} {% if values.hosting != 'Attending' %}disabled{% endif %}><span class=planmark aria-hidden=true><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span class=plantxt><b>Gauging interest</b><span>See who wants to participate before committing.</span></span></label>
 <label class=plancard><input type=radio name=team_plan value=committed {% if values.team_plan == 'committed' %}checked{% endif %} {% if values.hosting != 'Attending' %}disabled{% endif %}><span class=planmark aria-hidden=true><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span class=plantxt><b>We're attending</b><span>Our organization has decided to participate.</span></span></label>
@@ -3086,22 +3100,24 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 </div>{% endif %}
 </form>
 <script>(function(){
- var org=document.getElementById('lineOrg');
+ var org=document.getElementById('lineOrg'), cos=document.getElementById('lineCo');
  function sync(){
   var on=document.querySelector('#whoHost input[name=hosting]:checked');
   var mode=on?on.value:'Hosting';
-  var show=mode==='Cohost'||mode==='Attending';
-  var label=document.getElementById('hostLabel');
+  var co=document.getElementById('coHosted');
+  var showOrg=mode==='Attending';
+  var showCo=!!(co&&co.checked);
   var type=document.getElementById('lineType'); var name=type?type.value:'';
   var team=name==='Tournament'||name==='Competition'||name==='Trip'||name==='Clinic';
-  if(label) label.textContent=mode==='Cohost'?'Co-host organizations':'Host organizations';
-  if(org){ org.hidden=!show; org.querySelectorAll('input,button').forEach(function(el){ el.disabled=!show; }); }
+  if(org){ org.hidden=!showOrg; org.querySelectorAll('input').forEach(function(el){ el.disabled=!showOrg; }); }
+  if(cos){ cos.hidden=!showCo; cos.querySelectorAll('input,button').forEach(function(el){ el.disabled=!showCo; }); }
   var plans=document.getElementById('orgPlans'), planLabel=document.getElementById('orgPlanLabel');
-  var showPlans=mode==='Attending'&&team;
+  var showPlans=showOrg&&team;
   if(planLabel) planLabel.hidden=!showPlans;
   if(plans){ plans.hidden=!showPlans; plans.querySelectorAll('input').forEach(function(el){ el.disabled=!showPlans; }); }
  }
  document.querySelectorAll('#whoHost input[name=hosting]').forEach(function(r){r.addEventListener('change', sync)});
+ var coHosted=document.getElementById('coHosted'); if(coHosted) coHosted.addEventListener('change', sync);
  var lt=document.getElementById('lineType'); if(lt) lt.addEventListener('change', sync);
  sync();
  var exactBox=document.getElementById('exactDates'), monthBox=document.getElementById('monthDates');

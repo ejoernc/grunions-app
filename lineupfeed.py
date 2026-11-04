@@ -119,7 +119,7 @@ def ensure_schema(d):
                  ("skill_levels", "TEXT"), ("divisions", "TEXT"), ("division_custom", "TEXT"),
                  ("comp_format", "TEXT"), ("sport", "TEXT"),
                  ("date_precision", "TEXT"), ("date_part", "TEXT"), ("host_org", "TEXT"),
-                 ("host_orgs", "TEXT"),
+                 ("host_orgs", "TEXT"), ("cohosted", "INTEGER NOT NULL DEFAULT 0"),
                  ("event_type", "TEXT"), ("lat", "REAL"), ("lng", "REAL"), ("team_plan", "TEXT")):
         if c not in cols:
             d.execute("ALTER TABLE lineup_events ADD COLUMN %s %s" % (c, t))
@@ -159,6 +159,7 @@ def ensure_schema(d):
         for eid, raw, stored in d.execute("SELECT id, COALESCE(host_org,''), COALESCE(host_orgs,'') FROM lineup_events"):
             if stored.strip() or not raw.strip(): continue
             d.execute("UPDATE lineup_events SET host_orgs=? WHERE id=?", (json.dumps([raw.strip()]), eid))
+    _migrate_host_lists(d)
     d.execute("""UPDATE lineup_rsvps SET state=CASE
         WHEN going=1 AND event_id IN (SELECT id FROM lineup_events WHERE team_intent='considering' OR stage='interest') THEN 'interested'
         WHEN going=1 THEN 'going' ELSE 'notgoing' END
@@ -222,19 +223,21 @@ def type_groups(pairs):
     return groups
 
 
+_COHOST_WORDS = ("Cohost", "Co-hosting", "Co-host")
+
+
 def hosting_label(value):
-    """Attending replaced Away. Cohost is co-hosting. Hosting is our organization alone."""
+    """Attending replaced Away. A stored co-host value is our organization."""
     v = (value or "").strip()
     if v in ("Away", "Attending"): return "Attending"
-    if v in ("Cohost", "Co-hosting", "Co-host"): return "Cohost"
-    if v == "Hosting": return "Hosting"
+    if v == "Hosting" or v in _COHOST_WORDS: return "Hosting"
     return ""
 
 
 def hosting_chip(value):
-    """Our organization and co-hosting use the Hosting chip. Other organizations use Away."""
+    """Our organization uses the Hosting chip. Another organization uses Away."""
     label = hosting_label(value)
-    if label in ("Hosting", "Cohost"): return "Hosting"
+    if label == "Hosting": return "Hosting"
     if label == "Attending": return "Away"
     return ""
 
@@ -270,15 +273,113 @@ def host_summary(names):
     return "%s, %s +%d" % (names[0], names[1], len(names) - 2)
 
 
-def posted_hosts(form):
-    """Every host_org value. A repeated field stays a list; one older value stays one name."""
+def _raw_text(value):
+    if isinstance(value, (list, tuple)):
+        value = value[-1] if value else ""
+    return str(value or "").strip()
+
+
+def posted_multi(form, key):
+    """One field or a repeated field, as a list of raw values."""
     if form is None: return []
     if hasattr(form, "getlist"):
-        posted = list(form.getlist("host_org"))
+        posted = list(form.getlist(key))
     else:
-        raw = form.get("host_org")
+        raw = form.get(key)
         posted = list(raw) if isinstance(raw, (list, tuple)) else ([raw] if raw else [])
     return posted
+
+
+def posted_hosts(form):
+    """Every host_org value. A repeated field stays a list; one older value stays one name."""
+    return posted_multi(form, "host_org")
+
+
+def resolve_hosts(form, allow=True, existing=None):
+    """Hosting, co-hosted flag, the single host, and the extra co-hosts.
+
+    A stored Cohost value is our organization with co-hosting on. Several host_org
+    values on an away event are a host plus co-hosts.
+    """
+    raw = _raw_text(form.get("hosting") if form else "")
+    legacy = raw in _COHOST_WORDS
+    if not allow:
+        prev = _raw_text(existing["hosting"]) if existing else ""
+        hosting = "Hosting" if prev in _COHOST_WORDS else (hosting_label(prev) or "Attending")
+        return hosting, 0, "", []
+    prev = _raw_text(existing["hosting"]) if existing else ""
+    default = "Hosting" if prev in _COHOST_WORDS else (hosting_label(prev) or "Attending")
+    hosting = "Hosting" if legacy else normalize_hosting(raw, default)
+    co = legacy or _raw_text(form.get("cohosted") if form else "").lower() in ("1", "on", "true", "yes")
+    primary_names = host_list(posted_multi(form, "host_org"))
+    cos = host_list(posted_multi(form, "cohost_org"))
+    primary = ""
+    if hosting == "Attending":
+        if len(primary_names) > 1 and not cos:
+            primary = primary_names[0]
+            cos = [name for name in primary_names[1:] if name != primary]
+            co = True
+        else:
+            primary = primary_names[0] if primary_names else ""
+            cos = [name for name in cos if name != primary]
+    else:
+        if legacy and not cos:
+            cos = primary_names
+    if not co:
+        cos = []
+    return hosting, (1 if co else 0), (primary if hosting == "Attending" else ""), cos
+
+
+def host_card(hosting, host_org, host_orgs, cohosted=0):
+    """ours, cohost, or other, plus the primary host, co-hosts, and card names."""
+    raw = _raw_text(hosting)
+    label = hosting_label(raw)
+    co = bool(cohosted) or raw in _COHOST_WORDS
+    primary = " ".join(str(host_org or "").split())
+    cos = host_list(host_orgs)
+    if label == "Attending":
+        if primary:
+            cos = [name for name in cos if name != primary]
+        elif cos:
+            primary = cos[0]
+            cos = cos[1:]
+        names = ([primary] if primary else []) + cos
+        return "other", primary, cos, names
+    if co and cos:
+        return "cohost", "", cos, cos
+    return "ours", "", [], []
+
+
+def _migrate_host_lists(d):
+    """Copy one older host into the list, then turn co-hosting into ours plus the switch.
+
+    An away event whose list is only its host drops that copy. Several names become
+    the host plus co-hosts. A Cohost row becomes our organization with co-hosting on.
+    """
+    if "cohosted" not in _cols(d, "lineup_events"):
+        d.execute("ALTER TABLE lineup_events ADD COLUMN cohosted INTEGER NOT NULL DEFAULT 0")
+    rows = d.execute("""SELECT id, COALESCE(hosting,''), COALESCE(host_org,''), COALESCE(host_orgs,''), COALESCE(cohosted,0)
+        FROM lineup_events""")
+    for eid, hosting, org, orgs, co in rows:
+        raw = (hosting or "").strip()
+        names = host_list(orgs)
+        if raw in _COHOST_WORDS:
+            kept = names or host_list(org)
+            d.execute("UPDATE lineup_events SET hosting='Hosting', cohosted=1, host_org='', host_orgs=? WHERE id=?",
+                      (json.dumps(kept), eid))
+            continue
+        if hosting_label(raw) != "Attending":
+            continue
+        primary = " ".join(org.split())
+        if names and primary and names == [primary]:
+            if (orgs or "").strip() != "[]":
+                d.execute("UPDATE lineup_events SET host_orgs='[]' WHERE id=?", (eid,))
+            continue
+        if not primary and names and not co:
+            primary = names[0]
+            rest = names[1:]
+            d.execute("UPDATE lineup_events SET host_org=?, host_orgs=?, cohosted=? WHERE id=?",
+                      (primary, json.dumps(rest), 1 if rest else 0, eid))
 
 
 def normalize_hosting(value, default="Attending"):
@@ -439,13 +540,8 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
     link = (form.get("link") or "").strip()[:500]
     if link and not link.lower().startswith(("http://", "https://")):
         raise ValueError("Link must start with http:// or https://.")
-    if explicit_type or cat["hosting_ok"]:
-        hosting = normalize_hosting(form.get("hosting"), normalize_hosting(existing["hosting"]) if existing else "Attending")
-    else:
-        hosting = normalize_hosting(existing["hosting"]) if existing else "Attending"
-    hosts = host_list(posted_hosts(form)) if hosting in ("Attending", "Cohost") and (explicit_type or cat["hosting_ok"]) else []
-    host_org = hosts[0] if len(hosts) == 1 else ""
-    host_orgs = json.dumps(hosts)
+    hosting, cohosted, host_org, co_names = resolve_hosts(form, allow=bool(explicit_type or cat["hosting_ok"]), existing=existing)
+    host_orgs = json.dumps(co_names)
     details = (form.get("details") or "").strip()[:2000]
     cost = _words(form.get("cost"), 80)
     cap_raw = (form.get("capacity") or "").strip()
@@ -540,12 +636,12 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
             or prev_precision != precision or prev_part != part)
     vals = (cat["id"], subtype, title, day.isoformat(), end.isoformat(), start_time, end_time, city, location,
             description, link, hosting, kind, stage, official, team_intent, status, host_id, actor["id"] if not existing else existing["created_by"],
-            banner_name, capacity, cost, details, deadline, review_note or "", submitted, featured, precision, part, host_org, host_orgs, event_type, plan)
+            banner_name, capacity, cost, details, deadline, review_note or "", submitted, featured, precision, part, host_org, host_orgs, cohosted, event_type, plan)
     if existing:
         d.execute("""UPDATE lineup_events SET category_id=?, subtype=?, title=?, date=?, end_date=?, start_time=?, end_time=?,
             city=?, venue=?, description=?, link=?, hosting=?, kind=?, stage=?, official=?, team_intent=?, status=?, host_id=?,
             created_by=?, banner=?, capacity=?, cost=?, details=?, reg_deadline=?, review_note=?, submitted_at=?, featured=?,
-            date_precision=?, date_part=?, host_org=?, host_orgs=?, event_type=?, team_plan=? WHERE id=?""",
+            date_precision=?, date_part=?, host_org=?, host_orgs=?, cohosted=?, event_type=?, team_plan=? WHERE id=?""",
             (*vals, existing["id"]))
         eid = existing["id"]
         if (existing["venue"] or "") != location or (existing["city"] or "") != city:
@@ -553,8 +649,8 @@ def save_event(d, form, actor, organizer, existing=None, banner=None, banner_cle
     else:
         eid = d.execute("""INSERT INTO lineup_events(category_id, subtype, title, date, end_date, start_time, end_time,
             city, venue, description, link, hosting, kind, stage, official, team_intent, status, host_id, created_by,
-            banner, capacity, cost, details, reg_deadline, review_note, submitted_at, featured, date_precision, date_part, host_org, host_orgs, event_type, team_plan)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", vals).lastrowid
+            banner, capacity, cost, details, reg_deadline, review_note, submitted_at, featured, date_precision, date_part, host_org, host_orgs, cohosted, event_type, team_plan)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", vals).lastrowid
     became_pending = status == "pending" and (not existing or (existing["status"] or "") != "pending")
     promoted = team_intent == "official" and existing and (existing["team_intent"] or "") == "considering"
     return {"id": eid, "status": status, "submitted": became_pending, "date_changed": bool(date_changed),
@@ -604,26 +700,35 @@ def form_values(form=None, row=None, cat_slug="", mode="create"):
     precision, month, part = _date_fields(form, row)
     event_type = _form_type(form, row, cat_slug, mode)
     if form is not None:
-        names = host_list(posted_hosts(form))
+        hosting, co_flag, primary, cos = resolve_hosts(form, allow=True)
         return {"mode": mode, "category": form.get("category") or cat_slug, "subtype": form.get("subtype") or "",
             "event_type": event_type,
-            "hosting": normalize_hosting(form.get("hosting")), "title": form.get("title") or "", "date": form.get("date") or "",
+            "hosting": hosting, "cohosted": "1" if co_flag else "", "title": form.get("title") or "", "date": form.get("date") or "",
             "end_date": form.get("end_date") or "", "start_time": form.get("start_time") or "", "end_time": form.get("end_time") or "",
             "date_precision": precision, "month": month, "date_part": part,
-            "host_org": names[0] if len(names) == 1 else "",
-            "host_orgs": names,
+            "host_org": primary,
+            "host_orgs": cos, "cohost_orgs": cos,
             "location": form.get("location") or form.get("venue") or "", "city": form.get("city") or "",
             "description": form.get("description") or "", "link": form.get("link") or "", "details": form.get("details") or "",
             "cost": form.get("cost") or "", "capacity": form.get("capacity") or "", "reg_deadline": form.get("reg_deadline") or "",
             "team_intent": form.get("team_intent") or ("considering" if mode == "propose" else ""), "team_plan": plan_choice(form), "official": form.get("official") or "", "featured": form.get("featured") or ""}
     if row:
+        card_mode, primary, cos, _names = host_card(
+            row["hosting"],
+            row["host_org"] if "host_org" in row.keys() else "",
+            row["host_orgs"] if "host_orgs" in row.keys() else "",
+            row["cohosted"] if "cohosted" in row.keys() else 0)
+        hosting = "Attending" if card_mode == "other" else "Hosting"
+        stored_co = row["cohosted"] if "cohosted" in row.keys() and row["cohosted"] else 0
+        raw_hosting = (row["hosting"] or "").strip()
+        co_on = stored_co or raw_hosting in _COHOST_WORDS or card_mode == "cohost" or bool(cos)
         return {"mode": mode, "category": cat_slug, "subtype": row["subtype"] or "", "event_type": event_type,
-            "hosting": normalize_hosting(row["hosting"]),
+            "hosting": hosting, "cohosted": "1" if co_on else "",
             "title": row["title"] or "", "date": row["date"] or "", "end_date": row["end_date"] or "",
             "start_time": row["start_time"] or "", "end_time": row["end_time"] or "",
             "date_precision": precision, "month": month, "date_part": part,
-            "host_org": row["host_org"] if "host_org" in row.keys() and row["host_org"] else "",
-            "host_orgs": host_list(row["host_orgs"] if "host_orgs" in row.keys() and row["host_orgs"] else (row["host_org"] if "host_org" in row.keys() else "")),
+            "host_org": primary,
+            "host_orgs": cos, "cohost_orgs": cos,
             "location": row["venue"] or "", "city": row["city"] or "", "description": row["description"] or "",
             "link": row["link"] or "", "details": row["details"] or "", "cost": row["cost"] or "",
             "capacity": "" if row["capacity"] is None else str(row["capacity"]), "reg_deadline": row["reg_deadline"] or "",
@@ -631,7 +736,7 @@ def form_values(form=None, row=None, cat_slug="", mode="create"):
     intent = "considering" if mode == "propose" else ""
     return {"mode": mode, "category": "travel" if mode == "propose" else cat_slug, "subtype": "Tournament" if mode == "propose" else "",
         "event_type": event_type,
-        "hosting": "Hosting", "title": "", "date": "", "end_date": "", "start_time": "", "end_time": "",
-        "date_precision": "exact", "month": "", "date_part": "", "host_org": "", "host_orgs": [], "location": "", "city": "",
+        "hosting": "Hosting", "cohosted": "", "title": "", "date": "", "end_date": "", "start_time": "", "end_time": "",
+        "date_precision": "exact", "month": "", "date_part": "", "host_org": "", "host_orgs": [], "cohost_orgs": [], "location": "", "city": "",
         "description": "", "link": "", "details": "", "cost": "", "capacity": "", "reg_deadline": "",
         "team_intent": intent, "team_plan": plan_choice(intent=intent), "official": "1" if mode in ("create", "propose") else "", "featured": ""}
