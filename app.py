@@ -2665,23 +2665,7 @@ def handle_practice_post(d):
             d.execute("DELETE FROM practice_notices WHERE practice_id=? AND kind='cancel'", (pid,))
             if was and was["cancelled"]: flag_practice(d, pid, "change", me()["id"])
     elif a == "duplicate" and pid:
-        src = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
-        new_date = (dt.date.fromisoformat(src["date"]) + dt.timedelta(days=7)).isoformat()
-        try:
-            cur = d.execute("""INSERT INTO practices(date,start,end,location,address,note,cancelled,social_kind,social_place,social_address,social_time,social_note,image,lat,lng,social_lat,social_lng,coaching_plan)
-                VALUES(?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,?,?)""", (new_date, src["start"], src["end"], src["location"], src["address"], src["note"],
-                src["social_kind"], src["social_place"], src["social_address"], src["social_time"], src["social_note"],
-                src["image"], src["lat"], src["lng"], src["social_lat"], src["social_lng"], src["coaching_plan"] if "coaching_plan" in src.keys() else ""))
-            new_id = cur.lastrowid
-            copied = d.execute("SELECT member_id, is_lead, focus, plan_note FROM practice_coaches WHERE practice_id=?", (pid,)).fetchall()
-            lead = next((r["member_id"] for r in copied if r["is_lead"]), None)
-            save_practice_coaches(d, new_id, [r["member_id"] for r in copied], lead=lead, focuses={r["member_id"]: (r["focus"] or "") for r in copied})
-            for r in copied:
-                d.execute("UPDATE practice_coaches SET plan_note=? WHERE practice_id=? AND member_id=?", (r["plan_note"] or "", new_id, r["member_id"]))
-            clear_schedule_gap(d, new_date, src["location"])
-            flash("Copied to %s." % fmt_d(new_date))
-        except sqlite3.IntegrityError:
-            flash("A practice is already on the schedule a week later at that place.")
+        return redirect("/events/new?lane=schedule&copy=%d" % pid)
     elif a == "skip" and pid:
         prow = d.execute("SELECT series_id, date FROM practices WHERE id=?", (pid,)).fetchone()
         if not prow or not prow["series_id"]: flash("Only a series date can be skipped.")
@@ -2721,8 +2705,64 @@ def handle_practice_post(d):
         if p and p["cancelled"]:
             try: notify_practice_cancelled(d, p)
             except Exception as e: app.logger.warning("cancel notify failed: %s", e)
-    if a == "duplicate" and new_id: return redirect("/practices/%s" % new_id)
     return redirect_practice(pid, a)
+def practice_copy_prefill(d, src):
+    """Fields for the create editor. The date is a week later. Repeats stays off. Nothing is written."""
+    data = sports.sports_from_row(src)
+    levels = [part for part in (data["skill_levels"] or "").split(",") if part]
+    division = ""
+    if data["divisions"]:
+        division = data["divisions"].split(",")[0]
+    coaches = d.execute("SELECT member_id, is_lead, focus FROM practice_coaches WHERE practice_id=?", (src["id"],)).fetchall()
+    kinds = social_kinds_of(src["social_kind"] if "social_kind" in src.keys() else "")
+    social_kind, social_custom = "", ""
+    if kinds:
+        if kinds[0] in SOCIAL_KINDS:
+            social_kind = kinds[0]
+        else:
+            social_kind, social_custom = "Other", kinds[0]
+    def col(key):
+        return src[key] if key in src.keys() and src[key] else ""
+    return {
+        "id": src["id"],
+        "activity": data["activity_type"],
+        "sport": data["sport"] or "Water Polo",
+        "title": (data["title"] or "").strip(),
+        "date": (dt.date.fromisoformat(str(src["date"])[:10]) + dt.timedelta(days=7)).isoformat(),
+        "start": str(src["start"] or "19:00")[:5],
+        "end": str(src["end"] or "20:30")[:5],
+        "location": src["location"] or "",
+        "levels": levels,
+        "all_levels": bool(levels) and set(sports.LEVEL_IDS) <= set(levels),
+        "division": division,
+        "division_custom": data["division_custom"] or "",
+        "coaches": [r["member_id"] for r in coaches],
+        "lead": next((r["member_id"] for r in coaches if r["is_lead"]), None),
+        "focuses": {r["member_id"]: (r["focus"] or "") for r in coaches},
+        "note": col("note"),
+        "image": col("image"),
+        "image_src": ("/practice-image/%d?v=%s" % (src["id"], src["image"])) if col("image") else "",
+        "social_kind": social_kind,
+        "social_custom": social_custom,
+        "social_place": col("social_place"),
+        "social_address": col("social_address"),
+        "social_time": str(col("social_time"))[:5],
+        "social_note": col("social_note"),
+        "coaching_plan": col("coaching_plan"),
+    }
+def apply_practice_copy_extras(d, ids):
+    """Carry the coaches-only plan and the source picture onto events the editor just created."""
+    if "coaching_plan" in request.form:
+        for one in ids:
+            save_coaching_plan(d, one, request.form.get("coaching_plan"))
+    raw = (request.form.get("copy_from") or "").strip()
+    if not raw.isdigit() or request.form.get("image_clear"): return
+    uploaded = request.files.get("image") if request.files else None
+    if uploaded and uploaded.filename: return
+    src = d.execute("SELECT image FROM practices WHERE id=?", (int(raw),)).fetchone()
+    if src and src["image"]:
+        for one in ids:
+            d.execute("UPDATE practices SET image=? WHERE id=?", (src["image"], one))
 def practice_bundle(d, p):
     """RSVP lists, check-ins, and assigned coaches for one practice page or card."""
     rv = d.execute("SELECT r.going, m.first, m.last, m.preferred_first, m.id, COALESCE(m.photo,'') AS photo FROM rsvps r JOIN members m ON m.id=r.member_id WHERE practice_id=?", (p["id"],)).fetchall()
@@ -3572,6 +3612,12 @@ def event_new():
         lane = "lineup"
     elif lane not in ("schedule", "lineup"):
         lane = "lineup" if request.args.get("event_type") else "schedule"
+    dup = None
+    if request.method == "GET" and staff and request.args.get("copy", type=int):
+        lane = "schedule"
+        src = db().execute("SELECT * FROM practices WHERE id=?", (request.args.get("copy", type=int),)).fetchone()
+        if src: dup = practice_copy_prefill(db(), src)
+        if dup: activity = dup["activity"]
     line_types = list(lineupfeed.MEMBER_TYPE_LABELS if not staff else lineupfeed.EVENT_TYPE_LABELS)
     if request.method == "POST":
         action = (request.form.get("action") or "").strip()
@@ -3625,6 +3671,7 @@ def event_new():
                             if img and img["image"]:
                                 d.execute("UPDATE practices SET image=? WHERE series_id=? AND id!=?", (img["image"], sid, pid))
                     except ValueError as e: flash(str(e))
+                    apply_practice_copy_extras(d, ids)
                     d.commit()
                     flash("Preview", "toast")
                     return redirect("/practices/%d" % pid)
@@ -3640,6 +3687,7 @@ def event_new():
                     if not save_social(d, pid, request.form): flash("Add a place for the social.")
                 try: apply_practice_image(d, pid)
                 except ValueError as e: flash(str(e))
+                apply_practice_copy_extras(d, [pid])
                 d.commit()
                 flash("Preview", "toast")
                 return redirect("/practices/%d" % pid)
@@ -3680,9 +3728,10 @@ def event_new():
         flash("Preview", "toast")
         return redirect("/lineup/%d" % info["id"] if info["status"] == "published" else "/lineup")
     return page(T["event_new"], tab="event_new", staff=staff, lane=lane, activity=activity, line_types=line_types,
-        coaches=coach_candidates(db()) if staff else [],
-        plan_back=("/manage/lineup" if lane == "lineup" else ("/admin" if is_staff() else "/manage/schedule")) if staff else "/lineup",
-        plan_title=("Create event" if staff else "Suggest an event"), plan_save=("Preview" if staff else "Submit"))
+        coaches=coach_candidates(db()) if staff else [], dup=dup,
+        plan_back=("/practices/%d" % dup["id"]) if dup else (("/manage/lineup" if lane == "lineup" else ("/admin" if is_staff() else "/manage/schedule")) if staff else "/lineup"),
+        plan_title=("Create event" if staff else "Suggest an event"),
+        plan_save=("Save" if dup else ("Preview" if staff else "Submit")))
 @app.route("/admin/approvals", methods=["GET", "POST"])
 @login_required
 def approvals():

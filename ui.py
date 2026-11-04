@@ -846,7 +846,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <a href="/practices/{{ p.id }}?edit=1">Edit practice</a>
 {% if p.cancelled %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}"><button name=action value=restore>Undo cancel</button></form>
 {% else %}<button type=button data-open="cancel{{ p.id }}">Send cancellation</button>{% endif %}
-<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}"><button name=action value=duplicate>Duplicate practice</button></form>
+<a href="/events/new?lane=schedule&amp;copy={{ p.id }}">Duplicate practice</a>
 <button type=button data-copy="{{ app_base() }}/practices/{{ p.id }}">Copy link</button>
 <button type=button data-open="delete{{ p.id }}">Delete practice</button>
 </div></span>
@@ -2705,7 +2705,8 @@ T["manage_request"] = ADMIN_NAV + """{{ admin_page(e.title) }}
 _CHEV = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
 T["event_new"] = """<form id=planForm method=post action=/events/new enctype=multipart/form-data data-editorform>{{ csrf_field() }}
 <input type=hidden name=lane id=laneVal value="{{ 'lineup' if not staff else lane }}">
-<input type=hidden name=title_mode id=titleMode value=auto>
+<input type=hidden name=title_mode id=titleMode value="{{ 'custom' if dup and dup.title else 'auto' }}">
+{% if dup %}<input type=hidden name=copy_from value="{{ dup.id }}"><textarea name=coaching_plan hidden>{{ dup.coaching_plan }}</textarea>{% endif %}
 <input type=hidden name=mode value="{{ 'create' if staff else 'suggest' }}">
 {% if staff %}<h2 class=planask>What are you planning?</h2>
 <div class=lanepick role=radiogroup aria-label="What are you planning?">
@@ -2718,10 +2719,10 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label><input type=radio name=activity_type value=scrimmage {% if activity == 'scrimmage' %}checked{% endif %}><span>Scrimmage</span></label>
 <label><input type=radio name=activity_type value=game {% if activity == 'game' %}checked{% endif %}><span>Game</span></label>
 </div>
-<label>Sport<select name=sport id=sportSel><option>Water Polo</option><option>Swimming</option></select></label>
+<label>Sport<select name=sport id=sportSel><option{% if not dup or dup.sport == 'Water Polo' %} selected{% endif %}>Water Polo</option><option{% if dup and dup.sport == 'Swimming' %} selected{% endif %}>Swimming</option>{% if dup and dup.sport not in ('Water Polo', 'Swimming') %}<option selected>{{ dup.sport }}</option>{% endif %}</select></label>
 <div class=fldlab>Display name</div>
-<div class=livetitle><strong id=liveTitle>Water Polo Practice</strong><button type=button class="btn quiet" id=customize>Customize</button></div>
-<label id=titleField hidden>Event name<input name=title id=titleInput autocomplete=off><button type=button class="btn quiet" id=titleReset>Reset to automatic</button></label>
+<div class=livetitle><strong id=liveTitle>{% if dup and dup.title %}{{ dup.title }}{% else %}Water Polo Practice{% endif %}</strong><button type=button class="btn quiet" id=customize>Customize</button></div>
+<label id=titleField {% if not dup or not dup.title %}hidden{% endif %}>Event name<input name=title id=titleInput value="{{ dup.title if dup else '' }}" autocomplete=off><button type=button class="btn quiet" id=titleReset>Reset to automatic</button></label>
 </div>{% endif %}
 <div id=lineBlock {% if staff and lane != 'lineup' %}hidden{% endif %}>
 <label>Type{{ type_select(line_types) }}</label>
@@ -2766,7 +2767,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button class="li setrow" data-matfor=monthInput><span class=grow>Month<span class=sum id=monthSum> Choose a month</span></span>""" + _CHEV + """</button>
 <input type=hidden name=date_part id=datePart data-monthpart value=all>
 </div>
-<label>Location<span id=locOk class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location id=locInput data-places autocomplete=off placeholder="Pool or address"></label>
+<label>Location<span id=locOk class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location id=locInput data-places value="{{ dup.location if dup else '' }}" autocomplete=off placeholder="Pool or address"></label>
 <div class=seclabel>Additional settings</div>
 {% if staff %}<div id=schedSets {% if lane == 'lineup' %}hidden{% endif %}>
 <div class=formsec><h2>Practice details</h2><div class=list>
@@ -2779,7 +2780,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div><div id=assignedCoaches class=list></div></div>
 <div class=formsec><h2>Additional details</h2><div class=list>
 <button type=button class="li selfield" data-open=setSocial><span class=selfieldk>After-practice social</span><span class="selfieldv ell" id=socSum>Not added</span>""" + _CHEV + """</button>
-<button type=button class="li selfield" data-open=setNotes><span class=selfieldk>Notes &amp; cover image</span><span class="selfieldv ell" id=noteSum>Not added</span>""" + _CHEV + """</button>
+<button type=button class="li selfield" data-open=setNotes><span class=selfieldk>Notes &amp; cover image</span><span class="selfieldv ell" id=noteSum>{% if dup and (dup.note or dup.image) %}Added{% else %}Not added{% endif %}</span>""" + _CHEV + """</button>
 </div></div>
 </div>{% endif %}
 <div class=list id=lineSets {% if staff and lane != 'lineup' %}hidden{% endif %}>
@@ -2787,11 +2788,11 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>
 <div class=createfoot>
 <p class=pagesub id=destHint>{% if not staff %}Sent to admins for review{% elif lane == 'lineup' %}Appears on Lineup by default{% else %}Appears on Home by default{% endif %}</p>
-<button class="btn btn-primary full" name=action value=preview>{{ 'Submit' if not staff else 'Preview event' }}</button>
+<button class="btn btn-primary full" name=action value=preview>{% if dup %}Save{% elif not staff %}Submit{% else %}Preview event{% endif %}</button>
 </div>
-<input class=pickhold type=date name=date id=dateInput>
-<input class=pickhold type=time name=start id=startInput value=19:00>
-<input class=pickhold type=time name=end id=endInput value=20:30>
+<input class=pickhold type=date name=date id=dateInput value="{{ dup.date if dup else '' }}">
+<input class=pickhold type=time name=start id=startInput value="{{ dup.start if dup else '19:00' }}">
+<input class=pickhold type=time name=end id=endInput value="{{ dup.end if dup else '20:30' }}">
 <input class=pickhold type=month name=month id=monthInput>
 <input class=pickhold type=date name=recur_until id=untilInput>
 <input class=pickhold type=date id=skipPick>
@@ -2829,45 +2830,45 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetLevels><div class=sheet><div class=grab></div><h2>Skill levels</h2>
 <div class=sheetlist data-sum=levels data-empty="Not set">
-<label class=sheetopt data-label="All levels"><input type=checkbox id=allLevels><span><b>All levels</b><small>Every skill level</small></span></label>
-{% for pid, name, short, full in SPORTS.LEVELS %}<label class=sheetopt data-label="{{ name }}"><input type=checkbox name=level value="{{ pid }}"><span><b>{{ name }}</b><small>{{ short }}</small></span></label>{% endfor %}
+<label class=sheetopt data-label="All levels"><input type=checkbox id=allLevels {% if dup and dup.all_levels %}checked{% endif %}><span><b>All levels</b><small>Every skill level</small></span></label>
+{% for pid, name, short, full in SPORTS.LEVELS %}<label class=sheetopt data-label="{{ name }}"><input type=checkbox name=level value="{{ pid }}" {% if dup and pid in dup.levels %}checked{% endif %}><span><b>{{ name }}</b><small>{{ short }}</small></span></label>{% endfor %}
 </div>
 <button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetDivision><div class=sheet><div class=grab></div><h2>Division</h2>
 <div class=sheetlist data-sum=division data-empty="Not set">
-<label class=sheetopt data-label="Not set"><input type=radio name=division value="" checked><span><b>Not set</b></span></label>
-{% for pid, name in SPORTS.DIVISIONS %}<label class=sheetopt data-label="{{ name }}"><input type=radio name=division value="{{ pid }}"><span><b>{{ name }}</b></span></label>{% endfor %}
+<label class=sheetopt data-label="Not set"><input type=radio name=division value="" {% if not dup or not dup.division %}checked{% endif %}><span><b>Not set</b></span></label>
+{% for pid, name in SPORTS.DIVISIONS %}<label class=sheetopt data-label="{{ name }}"><input type=radio name=division value="{{ pid }}" {% if dup and dup.division == pid %}checked{% endif %}><span><b>{{ name }}</b></span></label>{% endfor %}
 </div>
-<label id=divCustom hidden>Custom label<input name=division_custom autocomplete=off></label>
+<label id=divCustom {% if not dup or dup.division != 'custom' %}hidden{% endif %}>Custom label<input name=division_custom value="{{ dup.division_custom if dup else '' }}" autocomplete=off></label>
 <button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetCoaches><div class=sheet><div class=grab></div><h2>Coaches</h2>
 <input class=sheetsearch placeholder="Search coaches" autocomplete=off data-sheetsearch>
 <div class=sheetlist data-sum=coaches data-empty=None>
-{% for c in coaches %}<label class=coachrow data-search="{{ display_first(c) }} {{ c.last }}" data-label="{{ display_first(c) }} {{ c.last }}"><span class=avatar>{{ initials(c) }}</span><span class=grow><b>{{ display_first(c) }} {{ c.last }}</b></span><input type=checkbox name=coach value="{{ c.id }}" data-name="{{ display_first(c) }} {{ c.last }}"></label>
+{% for c in coaches %}<label class=coachrow data-search="{{ display_first(c) }} {{ c.last }}" data-label="{{ display_first(c) }} {{ c.last }}"><span class=avatar>{{ initials(c) }}</span><span class=grow><b>{{ display_first(c) }} {{ c.last }}</b></span><input type=checkbox name=coach value="{{ c.id }}"{% if dup and c.id in dup.coaches %} checked{% endif %} data-name="{{ display_first(c) }} {{ c.last }}"></label>
 {% else %}<p class=t3>No coaches on the list yet.</p>{% endfor %}
 </div>
 <button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetLead><div class=sheet><div class=grab></div><h2>Head coach</h2>
 <div class=sheetlist data-sum=lead data-empty="No head coach">
-<label class=sheetopt data-lead="" data-label="No head coach"><input type=radio name=lead value="" checked><span><b>No head coach</b></span></label>
-{% for c in coaches %}<label class=sheetopt data-lead="{{ c.id }}" data-label="{{ display_first(c) }} {{ c.last }}" hidden><input type=radio name=lead value="{{ c.id }}"><span><b>{{ display_first(c) }} {{ c.last }}</b></span></label>{% endfor %}
+<label class=sheetopt data-lead="" data-label="No head coach"><input type=radio name=lead value="" {% if not dup or not dup.lead %}checked{% endif %}><span><b>No head coach</b></span></label>
+{% for c in coaches %}<label class=sheetopt data-lead="{{ c.id }}" data-label="{{ display_first(c) }} {{ c.last }}" {% if not dup or c.id not in dup.coaches %}hidden{% endif %}><input type=radio name=lead value="{{ c.id }}" {% if dup and dup.lead == c.id %}checked{% endif %}><span><b>{{ display_first(c) }} {{ c.last }}</b></span></label>{% endfor %}
 </div>
 <button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=focusSheet><div class=sheet><div class=grab></div><h2 id=focusTitle>Coach</h2><div id=focusSlot></div><button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
-<div id=focusHome hidden>{% for c in coaches %}<label data-coach="{{ c.id }}">Focus group<input name="focus-{{ c.id }}" data-groups="Beginners,Intermediate,Advanced,Goalies" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>{% endfor %}</div>
+<div id=focusHome hidden>{% for c in coaches %}<label data-coach="{{ c.id }}">Focus group<input name="focus-{{ c.id }}" data-groups="Beginners,Intermediate,Advanced,Goalies" value="{{ dup.focuses.get(c.id, '') if dup else '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>{% endfor %}</div>
 <dialog class=botsheet id=setSocial><div class=sheet><div class=grab></div><h2>After-practice social</h2>
 <div class=sheetlist data-sum=social data-empty="Not added">
-{% for kind in SOCIAL_KINDS %}<label class=sheetopt data-label="{{ kind }}"><input type=radio name=social_kind value="{{ kind }}"><span><b>{{ kind }}</b></span></label>{% endfor %}
+{% for kind in SOCIAL_KINDS %}<label class=sheetopt data-label="{{ kind }}"><input type=radio name=social_kind value="{{ kind }}" {% if dup and dup.social_kind == kind %}checked{% endif %}><span><b>{{ kind }}</b></span></label>{% endfor %}
 </div>
-<label id=socialCustom hidden>Label<input name=social_custom autocomplete=off></label>
-<label>Address<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address id=socPlace data-places data-place-name=social_place autocomplete=off placeholder="Search for an address"></label>
-<label>Place name<input name=social_place autocomplete=off placeholder="Name of the place"></label>
-<label>Time (optional)<input type=time name=social_time></label>
-<label>Note<textarea class=planfield name=social_note rows=4></textarea></label>
+<label id=socialCustom {% if not dup or dup.social_kind != 'Other' %}hidden{% endif %}>Label<input name=social_custom value="{{ dup.social_custom if dup else '' }}" autocomplete=off></label>
+<label>Address<span class=locok {% if not dup or not dup.social_address %}hidden{% endif %}><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address id=socPlace value="{{ dup.social_address if dup else '' }}" data-places data-place-name=social_place autocomplete=off placeholder="Search for an address"></label>
+<label>Place name<input name=social_place value="{{ dup.social_place if dup else '' }}" autocomplete=off placeholder="Name of the place"></label>
+<label>Time (optional)<input type=time name=social_time value="{{ dup.social_time if dup else '' }}"></label>
+<label>Note<textarea class=planfield name=social_note rows=4>{{ dup.social_note if dup else '' }}</textarea></label>
 <button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=setNotes><div class=sheet><div class=grab></div><h2>Notes &amp; media</h2>
-<label>Notes<textarea class=planfield name=note id=noteInput rows=4></textarea></label>
-{{ upload_field('image') }}
+<label>Notes<textarea class=planfield name=note id=noteInput rows=4>{{ dup.note if dup else '' }}</textarea></label>
+{{ upload_field('image', src=(dup.image_src if dup else ''), clear_name=('image_clear' if dup and dup.image else '')) }}
 <button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
 <dialog class=botsheet id=setReg><div class=sheet><div class=grab></div><h2>Registration</h2>
 <label>Format<select name=comp_format><option value="">Not set</option>{% for pid, name, blurb in SPORTS.FORMATS %}<option value="{{ pid }}">{{ name }}</option>{% endfor %}</select></label>
@@ -3307,7 +3308,7 @@ T["practice"] = """{% set p = x.p %}
 <a class="li rowbtn" href="/admin?date={{ p.date }}">Check in</a>
 {% if p.cancelled %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="li rowbtn" name=action value=restore>Undo cancel</button></form>
 {% endif %}
-<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="li rowbtn" name=action value=duplicate>Duplicate practice</button></form>
+<a class="li rowbtn" href="/events/new?lane=schedule&amp;copy={{ p.id }}">Duplicate practice</a>
 <button type=button class="li rowbtn" data-copy="{{ app_base() }}/practices/{{ p.id }}">Copy link</button>
 </div>
 <div class=eventacts>
