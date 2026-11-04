@@ -429,7 +429,12 @@ nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:bloc
 .preview{max-width:600px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;color:var(--t2);font-size:14px}.preview img{height:48px;border-radius:8px}
 .m .img{display:block;margin:0}.m .txt+.img{margin-top:4px}.m.mine .img{margin-left:auto}.m .img img{max-width:min(70vw,280px);max-height:280px;border-radius:12px;display:block;background:var(--surface)}.m.mine .img{width:fit-content}
 .m .bubble{display:inline-block;max-width:min(85%,280px);background:var(--color-bubble);border-radius:var(--radius-card);overflow:hidden}.m.mine .bubble{background:var(--color-bubble-mine)}.m .bubble .txt{background:transparent;display:block;max-width:none;border-radius:0}.m .bubble .img,.m .bubble .txt+.img{margin:0}.m .bubble .img img{max-width:100%;border-radius:0}
-.msgfoot{display:flex;align-items:center;gap:8px;width:100%;align-self:stretch;min-width:0}
+.mstack{display:inline-flex;flex-direction:column;align-items:stretch;width:fit-content;max-width:85%;min-width:0}
+.m.ann .mstack{display:flex;width:100%;max-width:none}
+.m .mstack>.txt,.m .mstack>.bubble,.m .mstack>.img{max-width:none;align-self:flex-start}
+.m .mstack>.bubble{max-width:min(100%,280px)}
+.m.mine .mstack>.img{margin-left:0;margin-right:0}
+.msgfoot{display:flex;align-items:center;gap:8px;width:0;min-width:100%;max-width:100%;box-sizing:border-box;align-self:stretch}
 .msgfoot:has(.rx:not(:empty)),.msgfoot:has(.seenline){margin-top:6px}
 .rx{display:flex;flex-wrap:wrap;gap:6px;margin:0;flex:1 1 auto;min-width:0;justify-content:flex-start}
 .seenline{display:block;width:fit-content;height:auto;min-height:1.3em;margin:0 0 0 auto;padding:0;background:none;border:0;border-radius:0;color:var(--t3);font-size:12px;font-weight:500;line-height:1.3;white-space:nowrap;flex:none}
@@ -917,7 +922,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=107');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=108');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsEditor(){
  function optName(input){
@@ -2345,7 +2350,7 @@ function fill(d,m){
  d.className='m'+(m.mine?' mine':'')+(m.ann&&!m.deleted?' ann':'');
  d.dataset.g='';
  var html=(m.deleted?'':`<button type=button class=more data-act=${m.id} aria-label="Message actions"><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></button>`)+
-  bodyHtml(m)+`<div class=msgfoot><div class=rx>${rxHtml(m.id)}</div></div>`;
+  '<div class=mstack>'+bodyHtml(m)+`<div class=msgfoot><div class=rx>${rxHtml(m.id)}</div></div></div>`;
  d.innerHTML=html;
  if(kept){ var foot=d.querySelector('.msgfoot'); if(foot) foot.appendChild(kept); else d.appendChild(kept); }}
 let grouping=false;
