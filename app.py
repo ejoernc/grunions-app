@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS name_audits(id INTEGER PRIMARY KEY, member_id INTEGER
 CREATE TABLE IF NOT EXISTS usawp_submits(id INTEGER PRIMARY KEY, member_id INTEGER, at TEXT);
 CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), body TEXT NOT NULL,
   announcement INTEGER DEFAULT 0, at TEXT DEFAULT CURRENT_TIMESTAMP, channel TEXT DEFAULT 'team', image TEXT,
-  edited_at TEXT, deleted INTEGER DEFAULT 0, reply_to INTEGER);
+  edited_at TEXT, deleted INTEGER DEFAULT 0, deleted_at TEXT, reply_to INTEGER);
 CREATE TABLE IF NOT EXISTS push_subscriptions(id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id),
   endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created TEXT);
 CREATE TABLE IF NOT EXISTS sent_notices(member_id INTEGER, kind TEXT, sent_at TEXT, PRIMARY KEY(member_id, kind));
@@ -269,7 +269,7 @@ def migrate_series(d):
 def migrate_messages(d):
     """Add chat columns missing from a database created by an older version (production SQLite on DATA_DIR)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
-    for c, t in (("channel", "TEXT DEFAULT 'team'"), ("image", "TEXT"), ("edited_at", "TEXT"), ("deleted", "INTEGER DEFAULT 0"), ("reply_to", "INTEGER")):
+    for c, t in (("channel", "TEXT DEFAULT 'team'"), ("image", "TEXT"), ("edited_at", "TEXT"), ("deleted", "INTEGER DEFAULT 0"), ("deleted_at", "TEXT"), ("reply_to", "INTEGER")):
         if c not in cols: d.execute("ALTER TABLE messages ADD COLUMN %s %s" % (c, t))
 def clean_preferred(v):
     v = str(v or "").strip()[:40]
@@ -1225,7 +1225,9 @@ def msg_dict(r):
         reply = {"id": r["reply_to"], "who": "%s %s." % (who, (r["rlast"] or "")[:1]), "body": text}
     return {"id": r["id"], "uid": r["member_id"], "body": "" if deleted else (r["body"] or ""), "ann": bool(r["announcement"]), "at": (r["at"] or "") + "Z",
             "who": f'{display_first(r)} {r["last"][:1]}.', "mine": mine, "admin": bool(r["is_admin"]),
-            "edited": edited and not deleted, "deleted": deleted, "can_delete": (mine or bool(me()["is_admin"])) and not deleted,
+            "edited": edited and not deleted, "deleted": deleted,
+            "deleted_at": (r["deleted_at"] if deleted and "deleted_at" in r.keys() else None) or None,
+            "can_delete": (mine or bool(me()["is_admin"])) and not deleted,
             "reply": reply,
             "image": None if deleted or not r["image"] else {"thumb": f"/media/{r['id']}/thumb", "full": f"/media/{r['id']}/full"}}
 def load_message(d, mid):
@@ -1288,6 +1290,12 @@ def with_seen(d, channel, rows, info=None):
         if info and int(item["id"]) == int(info["id"]): item["seen"] = info
         out.append(item)
     return out
+def utc_stamp():
+    return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+def deleted_cutoff():
+    """A deleted placeholder stays for five minutes, then leaves the feed."""
+    return (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=5)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+FRESH_DELETE = "(COALESCE(m.deleted,0)=0 OR (m.deleted_at IS NOT NULL AND m.deleted_at > ?))"
 def messages_json(rows, seen):
     resp = jsonify(rows)
     if seen:
@@ -1424,7 +1432,7 @@ def api_message_one(mid):
     if request.method == "DELETE":
         if r["member_id"] != me()["id"] and not me()["is_admin"]: abort(403)
         if not r["deleted"]:
-            d.execute("UPDATE messages SET deleted=1, body='' WHERE id=?", (mid,))
+            d.execute("UPDATE messages SET deleted=1, body='', deleted_at=? WHERE id=?", (utc_stamp(), mid))
             d.execute("DELETE FROM reactions WHERE message_id=?", (mid,))
             d.commit()
         return jsonify(ok=True, message=msg_dict(load_message(d, mid)))
@@ -1482,13 +1490,13 @@ def api_messages():
         rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first,
           rm.body AS reply_body, rm.deleted AS reply_deleted, rm.image AS reply_image,
           rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM + """
-          WHERE m.channel=? ORDER BY m.id DESC LIMIT 80""", (ch,)).fetchall()
+          WHERE m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT 80""", (ch, deleted_cutoff())).fetchall()
         return messages_json(with_seen(d, ch, list(reversed(rows)), info), info)
     after = request.args.get("after", 0, type=int)
     rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first,
       rm.body AS reply_body, rm.deleted AS reply_deleted, rm.image AS reply_image,
       rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM + """
-      WHERE m.id>? AND m.channel=? ORDER BY m.id DESC LIMIT 200""", (after, ch)).fetchall()
+      WHERE m.id>? AND m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT 200""", (after, ch, deleted_cutoff())).fetchall()
     return messages_json(with_seen(d, ch, list(reversed(rows)), info), info)
 
 # ---------- practices ----------
@@ -4869,7 +4877,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-104 */
+SW_JS = """/* grunions-sw-105 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

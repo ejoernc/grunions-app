@@ -252,7 +252,7 @@ eli.post("/api/messages?c=coaches", data={"body": "lineup", "image": (img_bytes(
 cm = eli.get("/api/messages?c=coaches").get_json()[-1]
 ok(eli.get(cm["image"]["thumb"]).status_code == 200 and jane.get(cm["image"]["full"]).status_code == 403 and jane.get(cm["image"]["thumb"]).status_code == 403, "#coaches images private")
 pg = jane.get("/practices").get_data(as_text=True)
-ok('href="/practices/' in pg and " going</span>" in pg and "class=nxtitle>Water Polo Practice</div>" in pg and "class=nxhead" not in pg and "class=datetile" in pg and ">Going</button>" in pg and "I'm going" not in pg and "Edit practice" not in pg and "Assign coaches" not in pg and 'class=morebtn' not in pg, "a practice card links to its page, and a member has no More menu")
+ok('href="/practices/' in pg and " going</span>" in pg and 'class="nxtitle cardtitle">Water Polo Practice</div>' in pg and "class=nxhead" not in pg and "class=datetile" in pg and ">Going</button>" in pg and "I'm going" not in pg and "Edit practice" not in pg and "Assign coaches" not in pg and 'class=morebtn' not in pg, "a practice card links to its page, and a member has no More menu")
 ch = jane.get("/chat").get_data(as_text=True)
 ca = eli.get("/chat").get_data(as_text=True)
 cc = eli.get("/chat?c=coaches").get_data(as_text=True)
@@ -694,7 +694,7 @@ try:
     nxt = home[home.find('class="card tap nextcard"'):]
     nxt = nxt[:nxt.find("class=pills")]
     adm = eli.get("/admin").get_data(as_text=True)
-    ok("class=dn>23<" in sched and "class=mo>OCT<" in sched and "7:00 – 8:30 PM" in sched and "Westminster High School" in sched and "class=nxtitle>Water Polo Practice</div>" in nxt and "7:00 – 8:30 PM" in nxt and "class=datetile" in nxt and "class=wd>TODAY<" in nxt and "class=\"chip-info daychip\">Upcoming<" in nxt and ("Westminster High School" in nxt or "Past Pool" in nxt) and 'value="2026-10-23"' in adm, "at 5:30pm Pacific, Friday's practice is on the schedule and check-in uses that date")
+    ok("class=dn>23<" in sched and "class=mo>OCT<" in sched and "7:00 – 8:30 PM" in sched and "Westminster High School" in sched and 'class="nxtitle cardtitle">Water Polo Practice</div>' in nxt and "7:00 – 8:30 PM" in nxt and "class=datetile" in nxt and "class=wd>TODAY<" in nxt and "class=\"chip-info daychip\">Upcoming<" in nxt and ("Westminster High School" in nxt or "Past Pool" in nxt) and 'value="2026-10-23"' in adm, "at 5:30pm Pacific, Friday's practice is on the schedule and check-in uses that date")
     ok(D.execute("SELECT COUNT(*) FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()[0] == 1, "opening the schedule does not delete Friday's practice")
     A.now_pt = lambda: dt.datetime(2026, 10, 24, 3, 30, tzinfo=dt.timezone.utc)  # 8:30pm PDT
     ok("class=dn>23<" in jane.get("/practices").get_data(as_text=True), "the practice stays up through 8:30pm Pacific")
@@ -741,7 +741,7 @@ bgid = D.execute("SELECT id FROM requirements WHERE lower(keywords) LIKE '%backg
 D.execute("UPDATE members SET preferred_first='Ex', phone='', role='coach', is_admin=0, usawp_status='verified', usawp_number='4242421', usawp_valid_until='2027-12-01', usawp_verified_at='2026-10-01T09:00', trial_acknowledged_at='2026-09-01T08:00:00' WHERE id=?", (eid,))
 D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,?,?,'test','test','2026-01-01')", (eid, ssid, "2026-01-01", "2027-06-01"))
 D.execute("INSERT INTO member_reqs(member_id,req_id,completed_on,expires_on,source,by,at) VALUES(?,?,?,?,'test','test','2026-01-01')", (eid, bgid, "2026-01-01", "2028-01-15"))
-D.execute("INSERT INTO checkins(member_id,practice_date,location,at) VALUES(?,?,?,?)", (eid, "2026-12-01", "Export Pool", "2026-12-02 03:15:00"))
+D.execute("INSERT INTO checkins(member_id,practice_date,location,at) VALUES(?,?,?,?)", (eid, "2028-01-12", "Export Pool", "2026-12-02 03:15:00"))
 D.commit()
 tay = A.app.test_client(); join(tay, "Tay", "Trial", "tay.trial2@example.com")
 tay.post("/home", data=dict(csrf=csrf(tay, "/home"), action="trial"), follow_redirects=True)
@@ -753,26 +753,26 @@ by_email = {r[3]: r for r in table[1:]}
 exar, tayr, penr = by_email["exa.export@example.com"], by_email["tay.trial2@example.com"], by_email["pen.ding@example.com"]
 ok(raw.data.startswith(b"\xef\xbb\xbf") and table[0] == A.MEMBERS_CSV_HEADER and ("grunions-members-%s.csv" % A.today_pt().isoformat()) in raw.headers["Content-Disposition"] and "bot@grunions.local" not in text, "members CSV is UTF-8 with a BOM, the column list, and today's filename")
 ok(exar == ["Exa", "Export", "Ex", "exa.export@example.com", "", "coach", "no", "4242421", "cleared", "2027-12-01", "2027-06-01", "2028-01-15", "2026-09-01", "2026-09-15", "2026-10-01", A.today_pt().isoformat(), "1", "", "", "Background screening expires 2028-01-15"] and tayr[8] == "trial" and tayr[12] == A.today_pt().isoformat() and tayr[-1] == "" and penr[7] == "999111" and penr[8] == "pending" and penr[4] == "555-0100" and by_email["eli@example.com"][-1] == "Background screening missing" and by_email["john@example.com"][-1] == "Background screening expires 2027-03-01", "members CSV has clearance, trial, compliance dates, attendance, and the background screening line for coaches")
-eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2026-12-01", start="18:00", end="19:30", location="Export Pool"))
-eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2026-12-02", start="19:00", end="20:30", location="Export Pool"))
-ppid = D.execute("SELECT id FROM practices WHERE date='2026-12-01' AND location='Export Pool'").fetchone()[0]
-offid = D.execute("SELECT id FROM practices WHERE date='2026-12-02' AND location='Export Pool'").fetchone()[0]
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2028-01-12", start="18:00", end="19:30", location="Export Pool"))
+eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date="2028-01-13", start="19:00", end="20:30", location="Export Pool"))
+ppid = D.execute("SELECT id FROM practices WHERE date='2028-01-12' AND location='Export Pool'").fetchone()[0]
+offid = D.execute("SELECT id FROM practices WHERE date='2028-01-13' AND location='Export Pool'").fetchone()[0]
 exa.post("/practices", data=dict(csrf=csrf(exa, "/practices"), pid=ppid, action="going"))
 jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=ppid, action="notgoing"))
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=offid, action="cancel"))
-psum = eli.get("/export/practices.csv?start=2026-12-02&end=2026-12-01")
+psum = eli.get("/export/practices.csv?start=2028-01-13&end=2028-01-12")
 stable = list(csvmod.reader(io_mod.StringIO(psum.data.decode("utf-8-sig"))))
 smap = {r[0]: r for r in stable[1:]}
-ok(psum.data.startswith(b"\xef\xbb\xbf") and stable[0] == A.PRACTICE_CSV_HEADER and "grunions-practices-2026-12-01-to-2026-12-02.csv" in psum.headers["Content-Disposition"] and smap["2026-12-01"] == ["2026-12-01", "18:00-19:30", "Export Pool", "no", "1", "1", "", "0", "0", ""] and smap["2026-12-02"] == ["2026-12-02", "19:00-20:30", "Export Pool", "yes", "0", "0", "", "0", "0", ""], "practices CSV is one row per practice and the filename uses the date range")
-pdet = eli.get("/export/practices.csv?start=2026-12-01&end=2026-12-01&detail=1")
+ok(psum.data.startswith(b"\xef\xbb\xbf") and stable[0] == A.PRACTICE_CSV_HEADER and "grunions-practices-2028-01-12-to-2028-01-13.csv" in psum.headers["Content-Disposition"] and smap["2028-01-12"] == ["2028-01-12", "18:00-19:30", "Export Pool", "no", "1", "1", "", "0", "0", ""] and smap["2028-01-13"] == ["2028-01-13", "19:00-20:30", "Export Pool", "yes", "0", "0", "", "0", "0", ""], "practices CSV is one row per practice and the filename uses the date range")
+pdet = eli.get("/export/practices.csv?start=2028-01-12&end=2028-01-12&detail=1")
 dtable = list(csvmod.reader(io_mod.StringIO(pdet.data.decode("utf-8-sig"))))
 dmap = {r[4]: r for r in dtable[1:]}
-ok(dtable[0] == A.ATTENDANCE_CSV_HEADER and "grunions-attendance-2026-12-01-to-2026-12-01.csv" in pdet.headers["Content-Disposition"] and dmap["Ex Export"] == ["2026-12-01", "18:00-19:30", "Export Pool", "no", "Ex Export", "4242421", "going", "yes", "2026-12-01 19:15"] and dmap["Jane Doe"][6:9] == ["not going", "no", ""] and dmap["Eli Joern"][6:9] == ["", "no", ""] and len(dtable) == 1 + D.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system'").fetchone()[0], "detailed attendance is one row per member with RSVP and check-in time")
+ok(dtable[0] == A.ATTENDANCE_CSV_HEADER and "grunions-attendance-2028-01-12-to-2028-01-12.csv" in pdet.headers["Content-Disposition"] and dmap["Ex Export"] == ["2028-01-12", "18:00-19:30", "Export Pool", "no", "Ex Export", "4242421", "going", "yes", "2026-12-01 19:15"] and dmap["Jane Doe"][6:9] == ["not going", "no", ""] and dmap["Eli Joern"][6:9] == ["", "no", ""] and len(dtable) == 1 + D.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system'").fetchone()[0], "detailed attendance is one row per member with RSVP and check-in time")
 ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&end=2026-12-01", follow_redirects=True).get_data(as_text=True), "a practice export without real dates asks for the range")
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=104" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=105" in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".rx:not(:empty){margin-top:6px}" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
@@ -904,9 +904,13 @@ ok(jane.delete("/api/messages/%d" % mid).status_code == 400, "delete without CSR
 ok(john.delete("/api/messages/%d" % mid, headers={"X-CSRF": tjohn}).status_code == 403, "a coach cannot delete someone else's team message")
 gone = jane.delete("/api/messages/%d" % mid, headers={"X-CSRF": tj})
 gm = gone.get_json()["message"]
-ok(gone.status_code == 200 and gm["deleted"] and gm["body"] == "" and not gm["edited"] and not gm["can_delete"] and gm["image"] is None, "author delete leaves a placeholder and clears the body")
+ok(gone.status_code == 200 and gm["deleted"] and gm["body"] == "" and gm["deleted_at"] and not gm["edited"] and not gm["can_delete"] and gm["image"] is None, "author delete leaves a placeholder and clears the body")
 after = jane.get("/api/messages").get_json()
 ok(not any(m["body"] == "Edited line" for m in after) and any(m["id"] == mid and m["deleted"] and m["body"] == "" for m in after) and str(mid) not in jane.get("/api/reactions?c=team").get_json() and jane.post("/api/messages/%d/react" % mid, json={"emoji": "👍"}, headers={"X-CSRF": tj}).status_code == 400 and jane.delete("/api/messages/%d" % mid, headers={"X-CSRF": tj}).status_code == 200, "deleted message stays in the list, drops reactions, and cannot be reacted to")
+_stale = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=6)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+D.execute("UPDATE messages SET deleted_at=? WHERE id=?", (_stale, mid)); D.commit()
+ok(not any(m["id"] == mid for m in jane.get("/api/messages?sync=1").get_json()), "a deleted message leaves the chat five minutes after it was deleted")
+D.execute("UPDATE messages SET deleted_at=? WHERE id=?", (dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"), mid)); D.commit()
 ok(jane.post("/api/messages", json={"body": "admin please remove this"}, headers={"X-CSRF": tj}).status_code == 200, "member posts a message an admin will remove")
 amid = [m for m in jane.get("/api/messages").get_json() if m["body"] == "admin please remove this"][-1]["id"]
 adm = eli.delete("/api/messages/%d" % amid, headers={"X-CSRF": te}).get_json()["message"]
@@ -935,6 +939,11 @@ ph = photos[-1]; img = ph["image"]["full"]
 cleared = jane.post("/api/messages/%d" % ph["id"], json={"body": "  "}, headers={"X-CSRF": tj}).get_json()["message"]
 ok(cleared["body"] == "" and cleared["edited"] and cleared["image"] and jane.get(img).status_code == 200, "a photo message can be saved with no caption")
 ok(jane.delete("/api/messages/%d" % ph["id"], headers={"X-CSRF": tj}).get_json()["message"]["image"] is None and jane.get(img).status_code == 404, "deleting a photo message removes the picture")
+_cap_before = D.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+_cap = jane.post("/api/messages", data={"body": "One caption", "image": (img_bytes(), "cap.png")}, headers={"X-CSRF": tj}, content_type="multipart/form-data")
+_cap_rows = D.execute("SELECT body, image FROM messages WHERE body='One caption'").fetchall()
+_chui_now = jane.get("/chat").get_data(as_text=True)
+ok(_cap.status_code == 200 and len(_cap_rows) == 1 and _cap_rows[0][1] and D.execute("SELECT COUNT(*) FROM messages").fetchone()[0] == _cap_before + 1 and "class=bubble" in _chui_now and "if(sending)return" in _chui_now and "Save photo" in _chui_now and "navigator.canShare" in _chui_now and "link.download=name" in _chui_now and "function sweepDeleted" in _chui_now, "a photo with a caption is one message, and a photo can be saved")
 ok(eli.post("/api/messages", json={"body": "Temp announce xyz", "announcement": True}, headers={"X-CSRF": te}).status_code == 200, "admin posts an announcement to delete")
 ann_id = [m for m in eli.get("/api/messages").get_json() if m["body"] == "Temp announce xyz"][-1]["id"]
 eli.delete("/api/messages/%d" % ann_id, headers={"X-CSRF": te})
@@ -1164,7 +1173,7 @@ D.execute("INSERT INTO coaching_list(member_id, source, at) VALUES(?, 'manual', 
 D.execute("INSERT INTO coaching_list(member_id, source, at) VALUES(?, 'manual', '2026-10-01') ON CONFLICT(member_id) DO UPDATE SET source='manual'", (john_id,))
 D.execute("DELETE FROM coaching_list WHERE member_id=?", (jane_id,))
 D.commit()
-epid, estart, eend, eloc, enote = D.execute("SELECT id, start, end, location, COALESCE(note,'') FROM practices WHERE date='2026-12-01' AND location='Export Pool'").fetchone()
+epid, estart, eend, eloc, enote = D.execute("SELECT id, start, end, location, COALESCE(note,'') FROM practices WHERE date='2028-01-12' AND location='Export Pool'").fetchone()
 pushed = []
 real_push = A.push_sheet_tabs
 A.push_sheet_tabs = lambda tabs: pushed.append({k: [list(row) for row in rows] for k, rows in tabs.items()}) or True
@@ -1172,26 +1181,26 @@ def export_edit(ids):
     return eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=epid, action="edit", start=estart, end=eend, location=eloc, note=enote, coach=ids))
 export_edit([str(eli_id), str(john_id), str(jane_id)])
 sheet = pushed[-1]
-srow = next(r for r in sheet["Practices"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool")
-detail = [r for r in sheet["Practice Coaches"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool"]
-csv_row = {r[0]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/export/practices.csv?start=2026-12-01&end=2026-12-01").data.decode("utf-8-sig"))))[1:]}["2026-12-01"]
+srow = next(r for r in sheet["Practices"][1:] if r[0] == "2028-01-12" and r[2] == "Export Pool")
+detail = [r for r in sheet["Practice Coaches"][1:] if r[0] == "2028-01-12" and r[2] == "Export Pool"]
+csv_row = {r[0]: r for r in list(csvmod.reader(io_mod.StringIO(eli.get("/export/practices.csv?start=2028-01-12&end=2028-01-12").data.decode("utf-8-sig"))))[1:]}["2028-01-12"]
 ok(sheet["Practices"][0] == A.PRACTICE_CSV_HEADER and srow[6] == "Eli, Sam" and srow[7] == 2 and srow[8] == 0 and csv_row[6:8] == ["Eli, Sam", "2"] and csv_row[8] == "0" and "Jane" not in srow[6], "Practices tab and CSV list the assigned coaches and the count")
-ok(sheet["Practice Coaches"][0] == A.PRACTICE_COACHES_HEADER and detail == [["2026-12-01", "18:00-19:30", "Export Pool", "Eli Joern", "eli@example.com", ""], ["2026-12-01", "18:00-19:30", "Export Pool", "Sam Smith", "john@example.com", ""]], "Practice Coaches is one row per coach with name and email")
+ok(sheet["Practice Coaches"][0] == A.PRACTICE_COACHES_HEADER and detail == [["2028-01-12", "18:00-19:30", "Export Pool", "Eli Joern", "eli@example.com", ""], ["2028-01-12", "18:00-19:30", "Export Pool", "Sam Smith", "john@example.com", ""]], "Practice Coaches is one row per coach with name and email")
 mrow = next(r for r in sheet["Members"][1:] if r[3] == "exa.export@example.com")
 eli_sheet = next(r for r in sheet["Members"][1:] if r[3] == "eli@example.com")
 john_sheet = next(r for r in sheet["Members"][1:] if r[3] == "john@example.com")
 ok(sheet["Members"][0] == A.MEMBERS_CSV_HEADER and mrow[11] == "2028-01-15" and mrow[-1] == "Background screening expires 2028-01-15" and eli_sheet[-1] == "Background screening missing" and john_sheet[-1] == "Background screening expires 2027-03-01", "Members sheet includes a coach's background screening line, and an active coach with no date shows missing")
-att = next(r for r in sheet["Attendance"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool" and r[4] == "Ex Export")
+att = next(r for r in sheet["Attendance"][1:] if r[0] == "2028-01-12" and r[2] == "Export Pool" and r[4] == "Ex Export")
 ok(sheet["Attendance"][0] == A.ATTENDANCE_CSV_HEADER and att[6] == "going" and att[7] == "yes", "Attendance sheet is one row per member per practice")
 export_edit([str(john_id)])
-changed = next(r for r in pushed[-1]["Practices"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool")
-changed_detail = [r for r in pushed[-1]["Practice Coaches"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool"]
-ok(changed[6] == "Sam" and changed[7] == 1 and changed_detail == [["2026-12-01", "18:00-19:30", "Export Pool", "Sam Smith", "john@example.com", ""]], "changing the assigned coaches rewrites the sheet")
+changed = next(r for r in pushed[-1]["Practices"][1:] if r[0] == "2028-01-12" and r[2] == "Export Pool")
+changed_detail = [r for r in pushed[-1]["Practice Coaches"][1:] if r[0] == "2028-01-12" and r[2] == "Export Pool"]
+ok(changed[6] == "Sam" and changed[7] == 1 and changed_detail == [["2028-01-12", "18:00-19:30", "Export Pool", "Sam Smith", "john@example.com", ""]], "changing the assigned coaches rewrites the sheet")
 before = len(pushed)
 D.execute("UPDATE members SET role='athlete' WHERE id=?", (john_id,)); D.commit()
 list_act(john_id, "remove_coaching")
-dropped = next(r for r in pushed[-1]["Practices"][1:] if r[0] == "2026-12-01" and r[2] == "Export Pool")
-ok(len(pushed) > before and dropped[6] == "" and dropped[7] == 0 and not any(r[0] == "2026-12-01" and r[2] == "Export Pool" for r in pushed[-1]["Practice Coaches"][1:]) and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? AND member_id=?", (epid, john_id)).fetchone(), "leaving the coaching list resyncs the sheet and drops that coach")
+dropped = next(r for r in pushed[-1]["Practices"][1:] if r[0] == "2028-01-12" and r[2] == "Export Pool")
+ok(len(pushed) > before and dropped[6] == "" and dropped[7] == 0 and not any(r[0] == "2028-01-12" and r[2] == "Export Pool" for r in pushed[-1]["Practice Coaches"][1:]) and D.execute("SELECT member_id FROM practice_coaches WHERE practice_id=? AND member_id=?", (epid, john_id)).fetchone(), "leaving the coaching list resyncs the sheet and drops that coach")
 def boom(tabs):
     raise RuntimeError("sheet down")
 A.push_sheet_tabs = boom
@@ -1464,7 +1473,7 @@ D.execute("INSERT INTO checkins(member_id,practice_date,location) VALUES(?,?,?)"
 sched_j = jane.get("/practices").get_data(as_text=True)
 sched_e = eli.get("/practices").get_data(as_text=True)
 card_e = sched_e.split("id=p%d " % dpid, 1)[1].split("id=p")[0]
-ok(('href="/practices/%d"' % dpid) in sched_j and " going</span>" in card_e and "class=nxtitle>Water Polo Practice</div>" in card_e and "class=nxhead" not in card_e and "class=datetile" in card_e and "class=mo>" in card_e and "class=pills" in card_e and ">Going</button>" in card_e and ">Not going</button>" in card_e and "I'm going" not in card_e and "class=nxchev" not in card_e and "class=pimg" not in card_e and "class=nxicon" not in card_e and "class=morebtn" not in card_e and "Assign coaches" not in card_e and "Delete practice" not in card_e and "class=morebtn" not in sched_e and "class=morebtn" not in sched_j, "a schedule card shows the date tile and icon rows and has no More menu")
+ok(('href="/practices/%d"' % dpid) in sched_j and " going</span>" in card_e and 'class="nxtitle cardtitle">Water Polo Practice</div>' in card_e and "class=nxhead" not in card_e and "class=datetile" in card_e and "class=mo>" in card_e and "class=pills" in card_e and ">Going</button>" in card_e and ">Not going</button>" in card_e and "I'm going" not in card_e and "class=nxchev" not in card_e and "class=pimg" not in card_e and "class=nxicon" not in card_e and "class=morebtn" not in card_e and "Assign coaches" not in card_e and "Delete practice" not in card_e and "class=morebtn" not in sched_e and "class=morebtn" not in sched_j, "a schedule card shows the date tile and icon rows and has no More menu")
 page_j = jane.get("/practices/%d" % dpid).get_data(as_text=True)
 page_e = eli.get("/practices/%d" % dpid).get_data(as_text=True)
 ok(jane.get("/practices/999999").status_code == 404 and "Detail Pool" in page_j and "Bring caps" in page_j and "Jay Doe" in page_j and "Eli Joern" in page_j and "Checked in" in page_j and "Can't make it" in page_j and "maps.google.com/maps?q=" not in page_j and "class=\"homemap cardmap banner\"" in page_j and "mode:'card'" in page_j and "google.com/maps/dir/" in page_j and "btn btn-secondary" in page_j and "loccard" in page_j and "practiceLoc" in page_j and "Scheduled" in page_j and ">Edit</a>" not in page_j and "Assign coaches" not in page_j and "class=morebtn" not in page_j and "No assigned coach is coach-eligible" not in page_j and "No coaches assigned." in page_e and "No assigned coach is coach-eligible" not in page_e and 'href="/admin/member/' in page_e and 'href="/admin/member/' not in page_j and ">Edit</a>" in page_e and "class=morebtn" not in page_e and "Assign coaches" in page_e and "Delete practice" in page_e, "the practice page shows who's coming, the map banner, and an admin edit action and coach warning")
@@ -1610,7 +1619,7 @@ _today, _tom, _soon, _later = A.today_pt(), A.today_pt()+dt.timedelta(days=1), A
 _nxt = D.execute("SELECT date FROM practices WHERE date>=? AND cancelled=0 ORDER BY date, start LIMIT 1", (_today.isoformat(),)).fetchone()
 _hero = body.split("id=schedule", 1)[0]
 _later_cards = body.split("id=schedule", 1)[-1]
-ok(A.relative_day(_today.isoformat()) == "TODAY" and A.relative_day(_tom.isoformat()) == "TOMORROW" and A.relative_day(_soon.isoformat()) == _soon.strftime("%A").upper() and A.relative_day(_later.isoformat()) == A.fmt_md(_later.isoformat()) and _nxt and ('class="chip-info daychip">Upcoming<' in _hero or 'class="chip-info daychip">In progress<' in _hero) and "class=datetile" in _hero and ".nextcard .daychip{height:32px;margin:-3px -8px -3px 0;padding:0 11px;font-size:16px}" in head and "nxsocial" not in _later_cards, "the next card uses the list layout with an Upcoming or In progress chip, and later cards have no social")
+ok(A.relative_day(_today.isoformat()) == "TODAY" and A.relative_day(_tom.isoformat()) == "TOMORROW" and A.relative_day(_soon.isoformat()) == _soon.strftime("%A").upper() and A.relative_day(_later.isoformat()) == A.fmt_md(_later.isoformat()) and _nxt and ('class="chip-info daychip">Upcoming<' in _hero or 'class="chip-info daychip">In progress<' in _hero) and "class=datetile" in _hero and ".nextcard .daychip{height:32px;margin:0 -8px 0 0;padding:0 11px;font-size:16px;align-self:center}" in head and 'class="nxtitle cardtitle"' in _hero and 'class="nxtitle cardtitle"' in _later_cards and ".cardtitle{font-size:var(--type-t3-size);line-height:var(--type-t3-line);font-weight:var(--type-t3-weight)}" in head and "nxsocial" not in _later_cards, "the next card uses the list layout with an Upcoming or In progress chip, and later cards have no social")
 _prev_mem = D.execute("SELECT usawp_number, usawp_status, usawp_valid_until FROM members WHERE email='jane@example.com'").fetchone()
 D.execute("UPDATE members SET usawp_number='4242421', usawp_status='verified', usawp_valid_until=? WHERE email='jane@example.com'", ((_today + dt.timedelta(days=40)).isoformat(),)); D.commit()
 _hh, _bb = jane.get("/home").get_data(as_text=True).split("<main>", 1)
@@ -1706,7 +1715,7 @@ org_card = org_feed.split("Org Cup", 1)[1].split('class="card tap tripcard"', 1)
 jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=org_id, action="going"))
 org_page = eli.get("/lineup/%d" % org_id).get_data(as_text=True)
 home_edit = eli.get("/lineup/%d/edit" % home_id[0]).get_data(as_text=True)
-ok(D.execute("SELECT host_org, hosting FROM lineup_events WHERE id=?", (org_id,)).fetchone() == ("IGLA+", "Attending") and "Tournament · Hosted by IGLA+" in org_card and "Attending" not in org_card and "Considering" not in org_card and 'class="cardsub ell"' in org_card and ".tripcard .nxtitle{font-size:var(--type-t3-size)" in org_feed and "class=seclabel" in org_feed and "class=lineupmonth" not in org_feed and "Away cup." not in org_card and "Hosted by IGLA+" not in org_page and ">Host organization</span><span class=v>IGLA+</span>" in org_page and "Who" in org_page and "going" in org_page and "Jay Doe" in org_page and home_id[1] == "" and "Hosted by Nope" not in org_feed and "id=lineOrg hidden" in home_edit and "Host organization" in eli.get("/lineup/new").get_data(as_text=True), "an Away event can name its host organization, and a Hosting event hides that field")
+ok(D.execute("SELECT host_org, hosting FROM lineup_events WHERE id=?", (org_id,)).fetchone() == ("IGLA+", "Attending") and "Tournament · Hosted by IGLA+" in org_card and "Attending" not in org_card and "Considering" not in org_card and 'class="cardsub ell"' in org_card and 'class="nxtitle cardtitle"' in org_feed and ".cardtitle{font-size:var(--type-t3-size);line-height:var(--type-t3-line);font-weight:var(--type-t3-weight)}" in org_feed and "class=seclabel" in org_feed and "class=lineupmonth" not in org_feed and "Away cup." not in org_card and "Hosted by IGLA+" not in org_page and ">Host organization</span><span class=v>IGLA+</span>" in org_page and "Who" in org_page and "going" in org_page and "Jay Doe" in org_page and home_id[1] == "" and "Hosted by Nope" not in org_feed and "id=lineOrg hidden" in home_edit and "Host organization" in eli.get("/lineup/new").get_data(as_text=True), "an Away event can name its host organization, and a Hosting event hides that field")
 jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=cup_id, action="going"))
 eli.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=cup_id, action="interested"))
 cup = jane.get("/lineup").get_data(as_text=True).split("Winter Cup", 1)[1].split('class="card tap tripcard"', 1)[0]
@@ -1776,7 +1785,7 @@ sun_id = D.execute("SELECT id FROM lineup_events WHERE title='Sunday Cup'").fetc
 jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=sun_id, action="interested"))
 still = jane.get("/home").get_data(as_text=True)
 still_card = still[still.find('class="card tap nextcard"'):still.find("id=schedule")]
-ok("Sunday Cup" not in still_card and "class=nxtitle>Water Polo Practice</div>" in still_card, "Interested does not replace the practice on Home")
+ok("Sunday Cup" not in still_card and 'class="nxtitle cardtitle">Water Polo Practice</div>' in still_card, "Interested does not replace the practice on Home")
 jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=sun_id, action="going"))
 bumped = jane.get("/home").get_data(as_text=True)
 _b0 = bumped.find('class="card tap nextcard"')
@@ -1787,7 +1796,7 @@ moved_note = D.execute("SELECT body FROM notices WHERE member_id=? AND body LIKE
 ok(moved_note and "new date or location" in moved_note[0], "moving a published event tells people who were going")
 jane.post("/lineup", data=dict(csrf=csrf(jane, "/home"), event_id=sun_id, action="clear", back="/home"))
 restored = jane.get("/home").get_data(as_text=True)
-ok("Sunday Cup" not in restored[restored.find('class="card tap nextcard"'):restored.find("id=schedule")] and "class=nxtitle>Water Polo Practice</div>" in restored, "clearing Going puts the practice back on Home")
+ok("Sunday Cup" not in restored[restored.find('class="card tap nextcard"'):restored.find("id=schedule")] and 'class="nxtitle cardtitle">Water Polo Practice</div>' in restored, "clearing Going puts the practice back on Home")
 eli.post("/lineup/%d/edit" % sun_id, data=dict(csrf=csrf(eli, "/lineup/%d/edit" % sun_id), action="cancel", mode="edit", category="travel", title="Sunday Cup", location="Moved Pool", description="A multi-day trip.", date=early, start_time="%02d:%02d" % (_estart.hour, _estart.minute)))
 ok(D.execute("SELECT status FROM lineup_events WHERE id=?", (sun_id,)).fetchone()[0] == "canceled" and "Sunday Cup" not in eli.get("/lineup").get_data(as_text=True).split("<h2>My events", 1)[0], "canceling removes the event from the public Lineup")
 john.post("/lineup/%d/edit" % igla[0], data=dict(csrf=csrf(john, "/lineup/%d/edit" % igla[0]), action="delete"))
@@ -1870,7 +1879,7 @@ while _cursor <= _tba_end:
     _cursor += dt.timedelta(days=1)
 admin_mid = eli.get("/admin?date=" + _probe).get_data(as_text=True)
 _sched = sqlite3.connect(os.environ["GRUNIONS_DB"]); _sched.row_factory = sqlite3.Row
-ok(_probe and D.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=?", (later_id, jane_id)).fetchone()[0] == "going" and D.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=(SELECT id FROM members WHERE email='eli@example.com')", (later_id,)).fetchone()[0] == "waitlist" and "Dates Later Cup" not in going_card and "class=nxtitle>Water Polo Practice</div>" in going_card and "Dates Later Cup" not in admin_mid and _probe not in A.schedule_days(_sched), "a month-only event never becomes Next Up or a schedule day")
+ok(_probe and D.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=?", (later_id, jane_id)).fetchone()[0] == "going" and D.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=(SELECT id FROM members WHERE email='eli@example.com')", (later_id,)).fetchone()[0] == "waitlist" and "Dates Later Cup" not in going_card and 'class="nxtitle cardtitle">Water Polo Practice</div>' in going_card and "Dates Later Cup" not in admin_mid and _probe not in A.schedule_days(_sched), "a month-only event never becomes Next Up or a schedule day")
 _now = A.wall_pt().replace(second=0, microsecond=0)
 _estart = dt.datetime.combine(_now.date(), dt.time(0, 0))
 _eend = dt.datetime.combine(_now.date(), dt.time(23, 30))
@@ -1895,7 +1904,7 @@ ok(_jane_notes == [_dated] and _sam_notes == [_dated] and _dated not in _eli_not
 jane.post("/lineup", data=dict(csrf=csrf(jane, "/lineup"), event_id=later_id, action="clear"))
 home_cleared = jane.get("/home").get_data(as_text=True)
 hc = home_cleared.find('class="card tap nextcard"')
-ok("Dates Later Cup" not in home_cleared[hc:home_cleared.find("id=schedule", hc)] and "class=nxtitle>Water Polo Practice</div>" in home_cleared, "clearing the dated event puts the practice back on Home")
+ok("Dates Later Cup" not in home_cleared[hc:home_cleared.find("id=schedule", hc)] and 'class="nxtitle cardtitle">Water Polo Practice</div>' in home_cleared, "clearing the dated event puts the practice back on Home")
 for _title in ("Dates Later Cup", "Early Spring Cup", "Late March Meet", "March First Cup"):
     _rid = D.execute("SELECT id FROM lineup_events WHERE title=?", (_title,)).fetchone()[0]
     eli.post("/lineup/%d/edit" % _rid, data=dict(csrf=csrf(eli, "/lineup/%d/edit" % _rid), action="delete"))
@@ -2017,7 +2026,7 @@ if not all(_sched_bits.values()):
     print("SCHED BITS", {k: v for k, v in _sched_bits.items() if not v})
 ok(all(_sched_bits.values()), "each event that day is its own card, and the check-in count sits with the filters")
 ds = eli.get("/design-system").get_data(as_text=True)
-ok(jane.get("/design-system").status_code == 403 and "<h1>Regulars</h1>" in ds and "--color-bg: #090D0B" in ds and "--color-lime: #B2DE64" in ds and "--color-coral: #F48782" in ds and "--radius-card: 20px" in ds and "--radius-overlay: 24px" in ds and "--space-card: var(--space-3)" in ds and "btn-tertiary" in ds and "Expiring soon · expires in 3 days" in ds and "aria-label=\"Coach navigation\"" in ds and "aria-label=\"Member navigation\"" in ds and "aria-label=\"Manage\"" in ds and "aria-label=\"Home\"" in ds and "class=mrow" in ds and "class=mico" in ds and "--nav-offset-bottom: 24px" in ds and "--nav-circle: 52px" in ds and "<h2>Segmented</h2>" in ds and "<h2>Field</h2>" in ds and "<h2>Upload</h2>" in ds and 'class="dropzone' in ds and "Upload an image" in ds and "PNG or JPG" in ds and "Upload a file" in ds and 'data-mode="file"' in ds and "CSV" in ds and "class=rsvpcheck" in ds and "</svg>Going</button>" in ds and ">Not going</button>" in ds and "I'm going" not in ds and "--color-focus" in ds and "--color-map: var(--color-clubhouse)" in ds and "--color-sheet: var(--color-raised)" in ds and "<h2>Map, chat, and sheet</h2>" in ds and "data-theme=light" in ds and "--space-meta: 2px" in ds and ".nxrow+.nxrow{margin-top:var(--space-meta)}" in ds and ".sportline{margin-top:6px" in ds and ".nxrow{display:flex;align-items:center;gap:var(--space-2)" in ds and "/sw.js?v=104" in ds and "button.placeopt{display:flex" in ds and "grunionsPlaces" in ds, "admins can open the Regulars preview, and event cards share the tighter icon-row gap")
+ok(jane.get("/design-system").status_code == 403 and "<h1>Regulars</h1>" in ds and "--color-bg: #090D0B" in ds and "--color-lime: #B2DE64" in ds and "--color-coral: #F48782" in ds and "--radius-card: 20px" in ds and "--radius-overlay: 24px" in ds and "--space-card: var(--space-3)" in ds and "btn-tertiary" in ds and "Expiring soon · expires in 3 days" in ds and "aria-label=\"Coach navigation\"" in ds and "aria-label=\"Member navigation\"" in ds and "aria-label=\"Manage\"" in ds and "aria-label=\"Home\"" in ds and "class=mrow" in ds and "class=mico" in ds and "--nav-offset-bottom: 24px" in ds and "--nav-circle: 52px" in ds and "<h2>Segmented</h2>" in ds and "<h2>Field</h2>" in ds and "<h2>Upload</h2>" in ds and 'class="dropzone' in ds and "Upload an image" in ds and "PNG or JPG" in ds and "Upload a file" in ds and 'data-mode="file"' in ds and "CSV" in ds and "class=rsvpcheck" in ds and "</svg>Going</button>" in ds and ">Not going</button>" in ds and "I'm going" not in ds and "--color-focus" in ds and "--color-map: var(--color-clubhouse)" in ds and "--color-sheet: var(--color-raised)" in ds and "<h2>Map, chat, and sheet</h2>" in ds and "data-theme=light" in ds and "--space-meta: 2px" in ds and ".nxrow+.nxrow{margin-top:var(--space-meta)}" in ds and ".sportline{margin-top:6px" in ds and ".nxrow{display:flex;align-items:center;gap:var(--space-2)" in ds and "/sw.js?v=105" in ds and "button.placeopt{display:flex" in ds and "grunionsPlaces" in ds, "admins can open the Regulars preview, and event cards share the tighter icon-row gap")
 _wide = io.BytesIO(); Image.new("RGB", (4000, 2000), (12, 40, 80)).save(_wide, "PNG"); _wide.seek(0)
 _bday = (A.today_pt() + dt.timedelta(days=16)).isoformat()
 eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), mode="create", event_type="Tournament", hosting="Away", team_intent="official", title="Banner Cup", location="Banner Pool", description="A wide picture.", date=_bday, start_time="09:00", banner=(_wide, "wide.png")), follow_redirects=True)

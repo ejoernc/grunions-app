@@ -44,6 +44,8 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:var(--ty
 .nxcardhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .schedrows .nxrow{font-size:15px}.schedrows .nxrow:first-child{margin-top:0}
 .nxtitle{font-size:var(--type-t4-size);font-weight:var(--type-t4-weight);line-height:var(--type-t4-line)}
+.cardtitle{font-size:var(--type-t3-size);line-height:var(--type-t3-line);font-weight:var(--type-t3-weight)}
+.nextcard .nxcardhead>.cardtitle{flex:1;min-width:0}
 .nxchev{color:var(--t3);font-size:22px;line-height:1;flex:none}
 .nxnote{margin-top:10px;color:var(--t3);font-size:13px;line-height:1.4}
 .pills{display:flex;gap:var(--space-2);margin-top:var(--space-4)}
@@ -69,7 +71,7 @@ a.avatar,button.avatar,span.avatar{width:44px;height:44px;min-width:44px;max-wid
 a.avatar img,button.avatar img,span.avatar img{width:44px;height:44px;max-width:44px;max-height:44px;object-fit:cover;border-radius:50%;display:block;flex-shrink:0}
 .profhead{display:flex;align-items:center;gap:14px;margin:0 0 16px}.profhead .avatar{width:64px;height:64px;font-size:20px}
 .nextcard{padding:0;overflow:hidden}
-.nextcard .nxbody{padding:16px 16px 0}.nextcard .nxtitle{font-size:var(--type-t4-size);line-height:var(--type-t4-line);font-weight:var(--type-t4-weight)}
+.nextcard .nxbody{padding:16px 16px 0}
 .nextcard .nxcardhead .cardlink{flex:1;min-width:0}
 a.usawpchip{display:inline-flex;align-items:center;gap:6px;margin-left:auto;color:var(--t2);font-size:13px;font-weight:500;line-height:1.2;text-decoration:none;white-space:nowrap;flex:none}
 a.usawpchip .usawpok{width:16px;height:16px;flex:none;color:var(--color-status-cleared)}
@@ -128,7 +130,7 @@ header.homehead .schedtitle{opacity:var(--titlefade)}
 header.homehead .titlestack a.usawpchip{position:absolute;top:calc(100% + 2px);left:0;margin:0;opacity:calc(1 - var(--titlefade))}
 header.homehead.titleaway .titlestack a.usawpchip{pointer-events:none}
 body.schedopen header.homehead{--titlefade:1}
-.nextcard .daychip{height:32px;margin:-3px -8px -3px 0;padding:0 11px;font-size:16px}
+.nextcard .daychip{height:32px;margin:0 -8px 0 0;padding:0 11px;font-size:16px;align-self:center}
 body.schedopen header.homehead{background:var(--color-bg)}
 body.schedopen .homemap{opacity:0}
 #schedule{scroll-margin-top:calc(var(--homehead, 88px) + 8px)}
@@ -405,6 +407,7 @@ nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:bloc
 .iconbtn.send{color:var(--accent)}
 .preview{max-width:600px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;color:var(--t2);font-size:14px}.preview img{height:48px;border-radius:8px}
 .m .img{display:block;margin:0}.m .txt+.img{margin-top:4px}.m.mine .img{margin-left:auto}.m .img img{max-width:min(70vw,280px);max-height:280px;border-radius:12px;display:block;background:var(--surface)}.m.mine .img{width:fit-content}
+.m .bubble{display:inline-block;max-width:min(85%,280px);background:var(--color-bubble);border-radius:var(--radius-card);overflow:hidden}.m.mine .bubble{background:var(--color-bubble-mine)}.m .bubble .txt{background:transparent;display:block;max-width:none;border-radius:0}.m .bubble .img,.m .bubble .txt+.img{margin:0}.m .bubble .img img{max-width:100%;border-radius:0}
 .rx{display:flex;flex-wrap:wrap;gap:6px;margin:0}.rx:not(:empty){margin-top:6px}.m.mine .rx{justify-content:flex-end}
 .seenline{display:block;width:fit-content;height:auto;min-height:1.3em;margin:4px 0 0;padding:0;background:none;border:0;border-radius:0;color:var(--t3);font-size:12px;font-weight:500;line-height:1.3;white-space:nowrap}
 .m.mine .seenline{margin-left:auto}
@@ -436,7 +439,7 @@ dialog.botsheet .sheet{background:var(--color-sheet);border:1px solid var(--colo
 .actgroup .actrow svg{width:20px;height:20px;flex:none;display:block}
 .actgroup .actrow.danger,.actgroup .actrow.danger svg{color:var(--bad)}
 #actConfirm{margin:0 0 10px;font-weight:600}
-.lightbox{position:fixed;inset:0;background:var(--color-lightbox);display:flex;align-items:center;justify-content:center;z-index:20}.lightbox img{max-width:96vw;max-height:92vh;border-radius:8px}
+.lightbox{position:fixed;inset:0;background:var(--color-lightbox);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:20;padding:16px}.lightbox img{max-width:96vw;max-height:80vh;border-radius:8px}.lightbox .savephoto{flex:none}
 .gobtn{background:none;height:auto;padding:4px 0;color:var(--t2);font-weight:500;font-size:14px}.gobtn::after{content:" ›";color:var(--t3)}
 .ci-name,a.ci-name{flex:1;min-width:0;height:auto;padding:0;background:none;display:flex;align-items:center;gap:12px;text-align:left;font-weight:400;color:inherit;text-decoration:none}
 .personrow{align-items:center;min-height:60px}
@@ -516,7 +519,7 @@ a.quietcheck,button.quietcheck{background:var(--surface2);color:var(--color-text
 .emptyfind{color:var(--t2);margin:8px 0 16px}
 details.lineuppast{margin-top:8px}details.lineuppast>summary{min-height:44px;padding:8px 0;font-size:17px;font-weight:600;justify-content:flex-start}
 .repeatblock .repeatopts{display:none}.repeatblock:has(input[name=repeat]:checked) .repeatopts{display:block}
-.tripcard{padding:0;overflow:hidden}.tripcard .evbody{padding:0 18px 18px}.tripcard .nxcardhead{display:flex;flex-direction:column;align-items:stretch;gap:2px;min-width:0}.tripcard .nxtitle{font-size:var(--type-t3-size);line-height:var(--type-t3-line);font-weight:var(--type-t3-weight)}.tripcard .cardsub{margin:0;color:var(--color-text-secondary);min-width:0;max-width:100%}.lineupchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.lineupchips .chip-info{margin:0}
+.tripcard{padding:0;overflow:hidden}.tripcard .evbody{padding:0 18px 18px}.tripcard .nxcardhead{display:flex;flex-direction:column;align-items:stretch;gap:2px;min-width:0}.tripcard .cardsub{margin:0;color:var(--color-text-secondary);min-width:0;max-width:100%}.lineupchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.lineupchips .chip-info{margin:0}
 div.card.tap.tripcard{padding:18px;overflow:visible}div.card.tap.tripcard .nxcardhead{margin:0 0 10px}
 .tripcard .tripwhere{align-items:flex-start}.tripcard .tripwhere a{min-width:0}
 .evbanner{height:132px;display:flex;align-items:flex-end;padding:14px;position:relative;overflow:hidden;background:linear-gradient(160deg,var(--color-badge-border),var(--color-bg))}
@@ -817,7 +820,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro event_location(id, pins, name, sub, href) %}<div class=seclabel>Location</div><div class="list loccard">{{ mount_map(id, pins, 'still') }}<a class="li locrow" href="{{ href }}" target=_blank rel=noopener {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %}><span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ name }}</span>{% if sub and sub != name %}<span class="t3 sm">{{ sub }}</span>{% endif %}</span></a></div>{% endmacro %}
 {% macro lineup_card(e, back='/lineup') %}<div class="card tap tripcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
 <a class=cardlink href="/lineup/{{ e.id }}">
-<div class=nxcardhead><div class=nxtitle>{{ e.title }}</div>{% if e.card_line %}<div class="cardsub ell">{{ e.card_line }}</div>{% endif %}</div>
+<div class=nxcardhead><div class="nxtitle cardtitle">{{ e.title }}</div>{% if e.card_line %}<div class="cardsub ell">{{ e.card_line }}</div>{% endif %}</div>
 <div class=nxmain><div class=datetile>{% if e.tile.wd %}<span class=wd>{{ e.tile.wd }}</span>{% endif %}<span class=dn>{{ e.tile.dn }}</span><span class=mo>{{ e.tile.mo }}</span></div>
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
 {% if e.city %}<div class=nxrow>{{ glyph_pin() }}<span>{{ e.city }}</span></div>{% endif %}
@@ -891,7 +894,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=104');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=105');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -1700,7 +1703,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 </div>{% endif %}
 {% if next_kind == 'event' and nextev %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ nextev.id }}'">
 <div class=nxbody><a class=cardlink href="/lineup/{{ nextev.id }}">
-<div class=nxcardhead><div class=nxtitle>{{ nextev.title }}</div><span class="chip-info daychip">{{ nextev.chip_label }}</span></div>
+<div class=nxcardhead><div class="nxtitle cardtitle">{{ nextev.title }}</div><span class="chip-info daychip">{{ nextev.chip_label }}</span></div>
 <div class=nxmain><div class=datetile>{% if nextev.tile.wd %}<span class=wd>{{ nextev.tile.wd }}</span>{% endif %}<span class=dn>{{ nextev.tile.dn }}</span><span class=mo>{{ nextev.tile.mo }}</span></div>
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ nextev.when }}</span></div>
 {% if nextev.where %}<div class=nxrow>{{ glyph_pin() }}<span>{{ nextev.where }}</span></div>{% endif %}
@@ -1711,7 +1714,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 </div>{% elif nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'">
 {% if nextp.image %}<a class=cardlink href="/practices/{{nextp.id}}"><div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div></a>{% endif %}
 <div class=nxbody><a class=cardlink href="/practices/{{nextp.id}}">
-<div class=nxcardhead><div class=nxtitle>{{ practice_title(nextp) }}</div><span class="chip-info daychip">{{ practice_live_chip(nextp) }}</span></div>
+<div class=nxcardhead><div class="nxtitle cardtitle">{{ practice_title(nextp) }}</div><span class="chip-info daychip">{{ practice_live_chip(nextp) }}</span></div>
 {% set tile = practice_tile(nextp) %}
 <div class=nxmain><div class=datetile><span class=wd>{{ tile.wd }}</span><span class=dn>{{ tile.dn }}</span><span class=mo>{{ tile.mo }}</span></div>
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{% if practice_is_month(nextp) %}{{ practice_when(nextp) }}{% else %}{{ fmt_span(nextp.start, nextp.end) }}{% endif %}</span></div>
@@ -1730,7 +1733,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <div class=schedlist id=schedule>
 {% for x in data %}{% set p = x.p %}<div class="card tap{% if nextp and p.id == nextp.id %} schedsame{% endif %}" id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">
-<div class=nxcardhead><div class=nxtitle>{{ practice_title(p) }}</div></div>
+<div class=nxcardhead><div class="nxtitle cardtitle">{{ practice_title(p) }}</div></div>
 {% set tile = practice_tile(p) %}
 <div class=nxmain><div class=datetile><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class=wd>{{ tile.wd }}</span><span class=dn>{{ tile.dn }}</span><span class=mo>{{ tile.mo }}</span></div>
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{% if practice_is_month(p) %}{{ practice_when(p) }}{% else %}{{ fmt_span(p.start, p.end) }}{% endif %}</span></div>
@@ -1979,6 +1982,7 @@ T["chat"] = """<div class=chat id=chat></div><div class=chatpad></div>
 <div class=emopick id=emojiMore hidden></div>
 <p id=actConfirm hidden>Delete this message?</p>
 <div class=actgroup><button type=button class=actrow id=actReply><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232,200a8,8,0,0,1-16,0,88.1,88.1,0,0,0-88-88H51.31l34.35,34.34a8,8,0,0,1-11.32,11.32l-48-48a8,8,0,0,1,0-11.32l48-48A8,8,0,0,1,85.66,61.66L51.31,96H128A104.11,104.11,0,0,1,232,200Z"/></svg>Reply</button></div>
+<div class=actgroup id=actSaveGroup hidden><button type=button class=actrow id=actSave><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,124.69V32a8,8,0,0,0-16,0v92.69L93.66,98.34a8,8,0,0,0-11.32,11.32Z"/></svg>Save photo</button></div>
 <div class=actgroup id=actCopyGroup><button type=button class=actrow id=actCopy><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></svg>Copy</button></div>
 <div class=actgroup id=actOwn><button type=button class=actrow id=actEdit><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg>Edit</button><button type=button class="actrow danger" id=actDelete><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,48H180V36A28,28,0,0,0,152,8H104A28,28,0,0,0,76,36V48H40a12,12,0,0,0,0,24h4V208a20,20,0,0,0,20,20H192a20,20,0,0,0,20-20V72h4a12,12,0,0,0,0-24ZM100,36a4,4,0,0,1,4-4h48a4,4,0,0,1,4,4V48H100Zm88,168H68V72H188ZM116,104v64a12,12,0,0,1-24,0V104a12,12,0,0,1,24,0Zm48,0v64a12,12,0,0,1-24,0V104a12,12,0,0,1,24,0Z"/></svg><span id=actDeleteLabel>Delete</span></button></div>
 </div></dialog>
@@ -2054,9 +2058,10 @@ function bodyHtml(m){
  if(m.deleted) return '<div class="txt deleted">Message deleted</div>';
  let h='';
  if(m.reply) h+=`<div class=quotechip><b>${esc(m.reply.who||'')}</b><span>${esc(m.reply.body||'')}</span></div>`;
- if(m.body) h+=`<div class=txt>${linkify(m.body)}${m.edited?' <span class=edited>(edited)</span>':''}</div>`;
- if(m.image) h+=`<a class=img href="${m.image.full}" data-full="${m.image.full}"><img src="${m.image.thumb}" alt="Photo from ${esc(m.who)}" loading=lazy></a>`;
- return h||'<div class=txt></div>'}
+ var text=m.body?`<div class=txt>${linkify(m.body)}${m.edited?' <span class=edited>(edited)</span>':''}</div>`:'';
+ var img=m.image?`<a class=img href="${m.image.full}" data-full="${m.image.full}"><img src="${m.image.thumb}" alt="Photo from ${esc(m.who)}" loading=lazy></a>`:'';
+ if(text&&img) return h+`<div class=bubble>${img}${text}</div>`;
+ return h+text+img||'<div class=txt></div>'}
 function fill(d,m){
  var kept=d.querySelector&&d.querySelector('#seenLine');
  d.className='m'+(m.mine?' mine':'')+(m.ann&&!m.deleted?' ann':'');
@@ -2104,13 +2109,19 @@ function groupMessages(){
   }
   i=j+1}}
 function mergeSeen(m){var prev=msgs[m.id];if(prev&&prev.seen&&m&&m.seen==null)m.seen=prev.seen;return m}
-function add(m){m=mergeSeen(m);msgs[m.id]=m;last=Math.max(last,m.id);if(document.getElementById('msg'+m.id))return;const d=document.createElement('div');d.id='msg'+m.id;fill(d,m);box.appendChild(d);if(!grouping)groupMessages()}
+function expiredDelete(m){
+ if(!m||!m.deleted) return false;
+ var at=m.deleted_at?Date.parse(m.deleted_at):0;
+ return !at||Date.now()-at>=5*60*1000}
+function dropMessage(id){var el=document.getElementById('msg'+id);if(el)el.remove();delete msgs[id]}
+function sweepDeleted(){var changed=false;Object.keys(msgs).forEach(function(id){if(expiredDelete(msgs[id])){dropMessage(id);changed=true}});if(changed&&!grouping)groupMessages()}
+function add(m){m=mergeSeen(m);if(expiredDelete(m)){dropMessage(m.id);return}msgs[m.id]=m;last=Math.max(last,m.id);if(document.getElementById('msg'+m.id))return;const d=document.createElement('div');d.id='msg'+m.id;fill(d,m);box.appendChild(d);if(!grouping)groupMessages()}
 function sameBubble(a,b){
  if(!a||!b) return false;
  var img=function(x){return x&&x.image?x.image.full+'|'+x.image.thumb:''};
  var rep=function(x){return x&&x.reply?x.reply.id+'|'+x.reply.who+'|'+x.reply.body:''};
  return a.body===b.body&&!!a.deleted===!!b.deleted&&!!a.edited===!!b.edited&&!!a.ann===!!b.ann&&a.who===b.who&&!!a.mine===!!b.mine&&a.uid===b.uid&&img(a)===img(b)&&rep(a)===rep(b)}
-function upsert(m,force){m=mergeSeen(m);var prev=msgs[m.id];msgs[m.id]=m;const d=document.getElementById('msg'+m.id);if(!d){add(m);return}last=Math.max(last,m.id);if(!force&&d.querySelector('.editbox'))return;if(!force&&sameBubble(prev,m))return;fill(d,m);if(!grouping)groupMessages()}
+function upsert(m,force){m=mergeSeen(m);if(expiredDelete(m)){dropMessage(m.id);if(!grouping)groupMessages();return}var prev=msgs[m.id];msgs[m.id]=m;const d=document.getElementById('msg'+m.id);if(!d){add(m);return}last=Math.max(last,m.id);if(!force&&d.querySelector('.editbox'))return;if(!force&&sameBubble(prev,m))return;fill(d,m);if(!grouping)groupMessages()}
 function paintRx(map){document.querySelectorAll('.m').forEach(el=>{const id=el.id.slice(3),rx=el.querySelector('.rx');if(!rx)return;const h=rxHtml(id,map[id]);if(rx.dataset.h!==h){rx.innerHTML=h;rx.dataset.h=h}})}
 let pollGen=0;
 function receipt(res, rows){
@@ -2128,7 +2139,7 @@ function receipt(res, rows){
 }
 async function poll(){const gen=++pollGen,epoch=window.grunionsNavEpoch|0;try{const r=await fetch('/api/messages?c='+CH+'&after='+last);const j=await r.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;const end=innerHeight+scrollY>=document.body.scrollHeight-120;
  grouping=true;j.forEach(add);const rs=await fetch('/api/messages?c='+CH+'&sync=1');const sync=await rs.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch){grouping=false;return}sync.forEach(function(m){if(gen===pollGen)upsert(m)});grouping=false;groupMessages();
- const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;paintRx(rx);var info=receipt(rs,sync);if(info)paintSeen([{id:info.id,seen:info}]);else if(info===null)clearSeen();if(window.grunionsRefresh)grunionsRefresh();if(j.length&&end)scrollTo(0,document.body.scrollHeight)}catch(e){grouping=false}}
+ const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;paintRx(rx);sweepDeleted();var info=receipt(rs,sync);if(info)paintSeen([{id:info.id,seen:info}]);else if(info===null)clearSeen();if(window.grunionsRefresh)grunionsRefresh();if(j.length&&end)scrollTo(0,document.body.scrollHeight)}catch(e){grouping=false}}
 let seenInfo=null;
 function personRow(p){
  const av=p.photo?`<span class="avatar seenav"><img src="${esc(p.photo)}" alt="" width="32" height="32"></span>`:`<span class="avatar seenav">${esc(p.initials||'')}</span>`;
@@ -2162,7 +2173,27 @@ function buzz(){try{if(navigator.vibrate)navigator.vibrate(12)}catch(err){}}
 function closeSheet(){actId=null;confirming=false;actConfirm.hidden=true;document.getElementById('actDeleteLabel').textContent='Delete';emojiMore.hidden=true;grunionsCloseSheet(sheet)}
 function openSheet(id){const m=msgs[id];if(!m||m.deleted)return;actId=id;confirming=false;actConfirm.hidden=true;document.getElementById('actDeleteLabel').textContent='Delete';emojiMore.hidden=true;
  actEdit.hidden=!(m.mine&&!m.deleted);actDelete.hidden=!m.can_delete;actOwn.hidden=actEdit.hidden&&actDelete.hidden;actCopyGroup.hidden=!m.body;
+ document.getElementById('actSaveGroup').hidden=!(m.image&&m.image.full);
  grunionsOpenSheet(sheet)}
+async function savePhoto(url){
+ var name='grunions-photo.jpg';
+ try{
+  var res=await fetch(url,{credentials:'same-origin'});
+  if(!res.ok) throw new Error('fetch');
+  var blob=await res.blob();
+  var kind=blob.type||'';
+  var ext=kind.indexOf('png')>=0?'png':(kind.indexOf('gif')>=0?'gif':(kind.indexOf('webp')>=0?'webp':'jpg'));
+  name='grunions-photo.'+ext;
+  var file=new File([blob], name, {type:kind||'image/jpeg'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file], title:'Photo'});return}
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){URL.revokeObjectURL(a.href)},1500);
+ }catch(err){
+  if(err&&err.name==='AbortError') return;
+  var link=document.createElement('a'); link.href=url; link.download=name; link.rel='noopener';
+  document.body.appendChild(link); link.click(); link.remove();
+ }}
 function clearCompose(){const field=document.getElementById('body');field.value='';grow();document.getElementById('file').value='';document.getElementById('prev').hidden=true;replyTo=null;editId=null;quoteBar.hidden=true;editBar.hidden=true}
 function startReply(id){const m=msgs[id];if(!m||m.deleted)return;editId=null;editBar.hidden=true;replyTo=id;document.getElementById('quoteWho').textContent=m.who;document.getElementById('quoteTxt').textContent=(m.body||'Photo').slice(0,140);quoteBar.hidden=false;document.getElementById('body').focus()}
 function startEdit(id){const m=msgs[id];if(!m||m.deleted||!m.mine)return;replyTo=null;quoteBar.hidden=true;editId=id;const field=document.getElementById('body');field.value=m.body||'';grow();document.getElementById('editHint').textContent=(m.body||'Photo').slice(0,80);editBar.hidden=false;field.focus()}
@@ -2171,6 +2202,7 @@ async function showWho(pill){const r=await fetch('/api/messages/'+pill.dataset.m
 function toast(msg){const el=document.createElement('div');el.className='toast noprint';el.setAttribute('role','status');el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2000)}
 document.getElementById('actReply').onclick=()=>{const id=actId;closeSheet();startReply(id)};
 document.getElementById('actCopy').onclick=async()=>{const m=msgs[actId];if(!m||!m.body)return;try{await navigator.clipboard.writeText(m.body)}catch(err){const t=document.createElement('textarea');t.value=m.body;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()}closeSheet();toast('Copied')};
+document.getElementById('actSave').onclick=async()=>{const m=msgs[actId];if(!m||!m.image)return;var url=m.image.full;closeSheet();await savePhoto(url)};
 actEdit.onclick=(e)=>{e.preventDefault();e.stopPropagation();const id=actId;closeSheet();setTimeout(()=>startEdit(id),0)};
 actDelete.onclick=async()=>{if(!confirming){confirming=true;actConfirm.hidden=false;document.getElementById('actDeleteLabel').textContent='Delete message';return}
  const id=actId;pollGen++;const r=await fetch('/api/messages/'+id,{method:'DELETE',headers:{'X-CSRF':CSRF}}),j=await r.json().catch(()=>({}));closeSheet();if(r.ok&&j.message)upsert(j.message,true)};
@@ -2206,7 +2238,7 @@ box.addEventListener('click',async e=>{
  if(skip&&skip.dataset.suppress){ e.preventDefault(); delete skip.dataset.suppress; return; }
  const b=e.target.closest('button,a.img');if(!b||b.dataset.save!=null||b.hasAttribute('data-cancel'))return;
  if(b.classList.contains('seenline')){if(seenInfo)openSeen(seenInfo);return}
- if(b.matches('a.img')){e.preventDefault();const lb=document.createElement('div');lb.className='lightbox';lb.innerHTML=`<img src="${b.dataset.full}" alt="">`;lb.onclick=()=>lb.remove();document.body.appendChild(lb);return}
+ if(b.matches('a.img')){e.preventDefault();const lb=document.createElement('div');lb.className='lightbox';const full=b.dataset.full;lb.innerHTML=`<img src="${full}" alt=""><button type=button class="btn btn-secondary savephoto">Save photo</button>`;lb.querySelector('.savephoto').onclick=function(ev){ev.stopPropagation();savePhoto(full)};lb.addEventListener('click',function(ev){if(ev.target===lb||ev.target.tagName==='IMG')lb.remove()});document.body.appendChild(lb);return}
  if(b.dataset.act){openSheet(+b.dataset.act);return}
  if(b.dataset.e){if(b.dataset.held){delete b.dataset.held;return}pollGen++;await fetch('/api/messages/'+b.dataset.m+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:b.dataset.e})});poll()}});
 const ta=document.getElementById('body'),file=document.getElementById('file'),prev=document.getElementById('prev');
@@ -2218,18 +2250,19 @@ file.onchange=()=>{const f=file.files[0];if(!f)return;if(f.size>8*1024*1024){ale
 document.getElementById('prevX').onclick=()=>{file.value='';prev.hidden=true};
 document.getElementById('quoteX').onclick=()=>{replyTo=null;quoteBar.hidden=true};
 document.getElementById('editX').onclick=()=>{editId=null;editBar.hidden=true;ta.value='';grow()};
-document.getElementById('f').onsubmit=async e=>{e.preventDefault();const f=file.files[0];
- if(editId){const m=msgs[editId];if(!ta.value.trim()&&!(m&&m.image))return;
-  const r=await fetch('/api/messages/'+editId,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:ta.value})});
-  const j=await r.json().catch(()=>({}));if(!r.ok){alert(j.error||'Could not save.');return}clearCompose();if(j.message)upsert(j.message,true);return}
- if(!ta.value.trim()&&!f)return;
- let r;if(f){const fd=new FormData();fd.append('body',ta.value);fd.append('image',f);if(replyTo)fd.append('reply_to',replyTo);
+let sending=false;
+document.getElementById('f').onsubmit=async e=>{e.preventDefault();if(sending)return;const f=file.files[0];const text=ta.value;
+ if(editId){const m=msgs[editId];if(!text.trim()&&!(m&&m.image))return;sending=true;
+  try{const r=await fetch('/api/messages/'+editId,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:text})});
+  const j=await r.json().catch(()=>({}));if(!r.ok){alert(j.error||'Could not save.');return}clearCompose();if(j.message)upsert(j.message,true)}finally{sending=false}return}
+ if(!text.trim()&&!f)return;sending=true;
+ try{let r;if(f){const fd=new FormData();fd.append('body',text);fd.append('image',f);if(replyTo)fd.append('reply_to',replyTo);
   r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'X-CSRF':CSRF},body:fd})}
- else r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:ta.value,reply_to:replyTo})});
+ else r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:text,reply_to:replyTo})});
  if(!r.ok){const j=await r.json().catch(()=>({}));alert(j.error||'Could not send.');return}
- const epoch=window.grunionsNavEpoch|0;clearCompose();await poll();if((window.grunionsNavEpoch|0)!==epoch)return;scrollTo(0,document.body.scrollHeight)};
+ const epoch=window.grunionsNavEpoch|0;clearCompose();await poll();if((window.grunionsNavEpoch|0)!==epoch)return;scrollTo(0,document.body.scrollHeight)}finally{sending=false}};
 ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();document.getElementById('f').requestSubmit()}});
-poll().then(()=>scrollTo(0,document.body.scrollHeight));setInterval(poll,3000);
+poll().then(()=>scrollTo(0,document.body.scrollHeight));setInterval(poll,3000);setInterval(sweepDeleted,15000);
 </script>"""
 
 _PRACTICE_JS = """<script>
@@ -2599,7 +2632,7 @@ T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ c
 T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp;·&nbsp; Fri · Westminster HS &nbsp;·&nbsp; 7–8:30 PM</p>
 {% for x in data %}{% set p = x.p %}<div class="card tap" id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">
-<div class=nxcardhead><div class=nxtitle>{{ practice_title(p) }}</div></div>
+<div class=nxcardhead><div class="nxtitle cardtitle">{{ practice_title(p) }}</div></div>
 {% set tile = practice_tile(p) %}
 <div class=nxmain><div class=datetile><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class=wd>{{ tile.wd }}</span><span class=dn>{{ tile.dn }}</span><span class=mo>{{ tile.mo }}</span></div>
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{% if practice_is_month(p) %}{{ practice_when(p) }}{% else %}{{ fmt_span(p.start, p.end) }}{% endif %}</span></div>
