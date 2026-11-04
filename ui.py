@@ -488,6 +488,17 @@ button.lanecard{width:100%;height:auto;min-height:0;padding:var(--space-4);borde
 button.lanecard.on{border-color:var(--color-lime);box-shadow:inset 0 0 0 1px var(--color-lime)}
 button.lanecard b{font-size:var(--type-t4-size);font-weight:650;line-height:var(--type-t4-line)}
 button.lanecard span{color:var(--color-text-secondary);font-size:var(--type-b2-size);line-height:var(--type-b2-line);font-weight:400}
+.plancards{display:flex;flex-direction:column;gap:8px;margin:0 0 16px}
+label.plancard{position:relative;display:flex;align-items:flex-start;gap:12px;width:100%;min-height:72px;margin:0;padding:14px 16px;border-radius:var(--radius-card);background:var(--color-surface);border:1px solid var(--color-control);color:var(--color-text);font-size:16px;font-weight:400;line-height:1.3;text-align:left;cursor:pointer}
+label.plancard input{position:absolute;width:1px;height:1px;margin:0;padding:0;opacity:0}
+label.plancard .planmark{flex:none;width:22px;height:22px;margin-top:1px;border-radius:50%;border:1.5px solid var(--color-control);display:inline-flex;align-items:center;justify-content:center;color:var(--color-forest)}
+label.plancard .planmark svg{opacity:0}
+label.plancard:has(input:checked){border-color:var(--color-lime);box-shadow:inset 0 0 0 1px var(--color-lime)}
+label.plancard:has(input:checked) .planmark{background:var(--color-lime);border-color:var(--color-lime)}
+label.plancard:has(input:checked) .planmark svg{opacity:1}
+label.plancard .plantxt{display:flex;flex-direction:column;gap:2px;min-width:0}
+label.plancard .plantxt b{font-size:16px;font-weight:650}
+label.plancard .plantxt span{color:var(--color-text-secondary);font-size:13px;font-weight:400;line-height:1.35}
 .livetitle{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin:0 0 var(--space-4)}
 .livetitle strong{font-size:var(--type-t3-size);line-height:var(--type-t3-line);font-weight:var(--type-t3-weight)}
 button.setrow{width:100%;height:auto;min-height:60px;padding:14px 18px;border-radius:0;background:transparent;color:var(--color-text);font-weight:500;justify-content:space-between;text-align:left}
@@ -558,6 +569,8 @@ div.card.tap.tripcard{padding:18px;overflow:visible}div.card.tap.tripcard .nxcar
 .actseg label{position:relative;flex:1;min-width:0;margin:0}
 .actseg input{position:absolute;opacity:0;width:1px;height:1px}
 .actseg span{display:flex;align-items:center;justify-content:center;height:40px;min-height:40px;border-radius:var(--radius-button);background:transparent;color:var(--color-text-secondary);font-size:var(--type-b3-size);font-weight:var(--type-b3-weight);padding:0 var(--space-2)}
+.actseg.whohost span{height:auto;min-height:44px;padding:8px 6px;line-height:1.2;text-align:center;white-space:normal}
+.hostadd{display:flex;gap:8px;align-items:flex-end}.hostadd input{flex:1;margin-top:0}.hostadd button{flex:none}
 .actseg input:checked+span{background:var(--color-lime);color:var(--color-forest)}
 .actseg input:focus-visible+span{outline:2px solid var(--color-focus);outline-offset:2px}
 dialog.matpick .matpart{flex-wrap:nowrap;margin:12px 4px 0}
@@ -922,7 +935,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=108');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=109');
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsEditor(){
  function optName(input){
@@ -1711,6 +1724,28 @@ window.grunionsPlaces=function(input){
 function grunionsBindPlaces(){
  document.querySelectorAll('[data-places]').forEach(function(input){ if(window.grunionsPlaces) grunionsPlaces(input); });
 }
+function grunionsHostChips(){
+ var box=document.getElementById('hostChips'), add=document.getElementById('hostAdd'), btn=document.getElementById('hostAddBtn');
+ if(!box||!add||box.dataset.bound) return;
+ box.dataset.bound='1';
+ function drop(chip){ var b=chip.querySelector('button'); if(b) b.onclick=function(){ chip.remove(); }; }
+ box.querySelectorAll('.skipchip').forEach(drop);
+ function addName(raw){
+  var name=String(raw||'').replace(/\s+/g,' ').trim();
+  if(!name) return;
+  var taken=false;
+  box.querySelectorAll('input[name='+'host_org]').forEach(function(el){ if(el.value.toLowerCase()===name.toLowerCase()) taken=true; });
+  if(taken){ add.value=''; return; }
+  var chip=document.createElement('span'); chip.className='skipchip';
+  var label=document.createElement('span'); label.textContent=name;
+  var b=document.createElement('button'); b.type='button'; b.textContent='×'; b.setAttribute('aria-label','Remove '+name);
+  var hidden=document.createElement('input'); hidden.type='hidden'; hidden.name='host_org'; hidden.value=name;
+  chip.appendChild(label); chip.appendChild(b); chip.appendChild(hidden);
+  drop(chip); box.appendChild(chip); add.value='';
+ }
+ if(btn) btn.addEventListener('click', function(){ addName(add.value); });
+ add.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); addName(add.value); } });
+}
 window.grunionsGroups=function(input){
  if(!input||input.dataset.groupbound) return;
  input.dataset.groupbound='1';
@@ -1784,7 +1819,9 @@ document.addEventListener('focusin', function(e){
 document.addEventListener('DOMContentLoaded', function(){
  if(window.grunionsDropzones) grunionsDropzones();
  grunionsBindPlaces();
+ grunionsHostChips();
 });
+grunionsHostChips();
 grunionsPinHead();
 window.addEventListener('resize', grunionsPinHead);
 </script>
@@ -2598,7 +2635,7 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 <div class=seclabel>Details</div>
 <div class=list>
 {% if e.description %}<div class="li evdescrow"><div class=clamp id=evdesc>{{ e.description }}</div><button type=button class=textlink id=evmore hidden>More</button></div>{% endif %}
-{% if e.host_org %}<div class="li prow"><span class=k>Host organization</span><span class=v>{{ e.host_org }}</span></div>{% endif %}
+{% if e.host_names %}<div class="li prow"><span class=k>{% if e.host_mode == 'cohost' %}Co-host organizations{% elif e.host_names|length > 1 %}Host organizations{% else %}Host organization{% endif %}</span><span class=v>{{ e.host_names|join(', ') }}</span></div>{% endif %}
 {% if e.link %}<div class="li prow"><span class=k>Registration</span><span class=v><a class=reglink href="{{ e.link }}" target=_blank rel="noopener noreferrer">Registration</a></span></div>{% endif %}
 {% if e.event_type %}<div class="li prow"><span class=k>Type</span><span class=v>{{ e.event_type }}</span></div>{% endif %}
 {% if e.sports_line %}<div class="li prow"><span class=k>Session</span><span class=v>{{ e.sports_line }}</span></div>{% endif %}
@@ -2672,6 +2709,24 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>{% endif %}
 <div id=lineBlock {% if staff and lane != 'lineup' %}hidden{% endif %}>
 <label>Type{{ type_select(line_types) }}</label>
+<div class="t3 xs">Who's hosting?</div>
+<div class="actseg whohost" id=whoHost role=radiogroup aria-label="Who's hosting?">
+<label><input type=radio name=hosting value=Hosting checked><span>Our organization</span></label>
+<label><input type=radio name=hosting value=Cohost><span>Co-hosting</span></label>
+<label><input type=radio name=hosting value=Attending><span>Other organization(s)</span></label>
+</div>
+<div id=lineOrg hidden>
+<div class="t3 xs" id=hostLabel>Host organizations</div>
+<div id=hostChips class=skipchips></div>
+<div class=hostadd><input id=hostAdd autocomplete=off placeholder="West Hollywood Aquatics" aria-label="Organization"><button type=button class="btn btn-secondary" id=hostAddBtn>Add</button></div>
+</div>
+{% if staff %}
+<div id=orgPlanLabel class="t3 xs" hidden>What are our organization's plans?</div>
+<div class=plancards id=orgPlans hidden role=radiogroup aria-label="What are our organization's plans?">
+<label class=plancard><input type=radio name=team_plan value=considering checked disabled><span class=planmark aria-hidden=true><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span class=plantxt><b>Gauging interest</b><span>See who wants to participate before committing.</span></span></label>
+<label class=plancard><input type=radio name=team_plan value=committed disabled><span class=planmark aria-hidden=true><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span class=plantxt><b>We're attending</b><span>Our organization has decided to participate.</span></span></label>
+</div>
+{% endif %}
 <label>Event name<input name=line_title id=lineTitle autocomplete=off placeholder="IGLA 2027"></label>
 <label>Short description<textarea class=planfield name=description id=lineDesc rows=4 placeholder="What should people know?"></textarea></label>
 </div>
@@ -2711,8 +2766,6 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div></div>
 </div>{% endif %}
 <div class=list id=lineSets {% if staff and lane != 'lineup' %}hidden{% endif %}>
-{% if staff %}<button type=button class="li setrow" id=planRow data-open=setPlan><span class=grow>Team plan<span class=sum id=planSum> Considering</span></span>""" + _CHEV + """</button>{% endif %}
-<button type=button class="li setrow" id=partRow data-open=setHost><span class=grow>Participation<span class=sum id=partSum> Attending</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" id=regRow data-open=setReg><span class=grow>Registration<span class=sum id=regSum> Not set</span></span>""" + _CHEV + """</button>
 </div>
 <div class=createfoot>
@@ -2798,20 +2851,6 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <dialog class=botsheet id=setNotes><div class=sheet><div class=grab></div><h2>Notes &amp; media</h2>
 <label>Notes<textarea class=planfield name=note id=noteInput rows=4></textarea></label>
 {{ upload_field('image') }}
-<button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
-{% if staff %}<dialog class=botsheet id=setPlan><div class=sheet><div class=grab></div><h2>Team plan</h2>
-<div class=actseg role=radiogroup aria-label="Team plan">
-<label><input type=radio name=team_plan value=considering checked><span>Considering</span></label>
-<label><input type=radio name=team_plan value=planning><span>Planning</span></label>
-<label><input type=radio name=team_plan value=committed><span>Committed</span></label>
-</div>
-<button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>{% endif %}
-<dialog class=botsheet id=setHost><div class=sheet><div class=grab></div><h2>Participation</h2>
-<div class=actseg role=radiogroup aria-label="Participation">
-<label><input type=radio name=hosting value=Attending checked><span>Attending</span></label>
-<label><input type=radio name=hosting value=Hosting><span>Hosting</span></label>
-</div>
-<label>Host organization<input name=host_org autocomplete=off placeholder="IGLA+"></label>
 <button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
 <dialog class=botsheet id=setReg><div class=sheet><div class=grab></div><h2>Registration</h2>
 <label>Format<select name=comp_format><option value="">Not set</option>{% for pid, name, blurb in SPORTS.FORMATS %}<option value="{{ pid }}">{{ name }}</option>{% endfor %}</select></label>
@@ -2957,20 +2996,33 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
  }
  ['dateInput','startInput','endInput','monthInput','datePart','untilInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change', syncWhen); });
  syncWhen();
+ function syncHost(){
+  var host=document.querySelector('#whoHost input[name=hosting]:checked');
+  var mode=host?host.value:'Hosting';
+  var type=document.getElementById('lineType'); var name=type?type.value:'';
+  var team=name==='Tournament'||name==='Competition'||name==='Trip'||name==='Clinic';
+  var org=document.getElementById('lineOrg'), label=document.getElementById('hostLabel');
+  var plans=document.getElementById('orgPlans'), planLabel=document.getElementById('orgPlanLabel');
+  var showOrgs=mode==='Cohost'||mode==='Attending';
+  if(label) label.textContent=mode==='Cohost'?'Co-host organizations':'Host organizations';
+  if(org){ org.hidden=!showOrgs; org.querySelectorAll('input,button').forEach(function(el){ el.disabled=!showOrgs; }); }
+  var showPlans=!!(plans&&mode==='Attending'&&team);
+  if(planLabel) planLabel.hidden=!showPlans;
+  if(plans){ plans.hidden=!showPlans; plans.querySelectorAll('input').forEach(function(el){ el.disabled=!showPlans; }); }
+ }
  function syncLine(){
   var type=document.getElementById('lineType'); var name=type?type.value:'Social';
-  var plan=document.getElementById('planRow'), part=document.getElementById('partRow'), reg=document.getElementById('regRow');
-  var team=name==='Tournament'||name==='Competition'||name==='Trip'||name==='Clinic';
-  var social=name==='Social'||name==='Volunteer'||name==='Fundraiser'||name==='Meeting'||name==='Other';
-  if(plan) plan.hidden=!team;
-  if(part) part.hidden=social;
+  var reg=document.getElementById('regRow');
   if(reg) reg.hidden=!(name==='Tournament'||name==='Competition');
+  syncHost();
   var title=document.getElementById('lineTitle');
   if(title && !title.value){
     title.placeholder=name==='Trip'?'Fall team trip':(name==='Social'?'Fall Team Dinner':(name==='Tournament'?'IGLA 2027':'Event name'));
   }
  }
  var lt=document.getElementById('lineType'); if(lt) lt.addEventListener('change', syncLine);
+ document.querySelectorAll('#whoHost input[name=hosting]').forEach(function(r){ r.addEventListener('change', syncHost); });
+ syncHost();
  paintTitle();
 })();
 </script>
@@ -2983,20 +3035,25 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 {{ upload_field('banner', src=('/lineup-image/' ~ event_id ~ '?v=' ~ banner) if banner and event_id else '', clear_name='banner_clear') }}
 </div>
 <label>Type{{ type_select(event_types, values.event_type) }}</label>
-<div class="t3 xs">Where</div>
-<div class=actseg id=lineHost role=radiogroup aria-label=Where>
-<label><input type=radio name=hosting value=Attending {% if values.hosting != 'Hosting' %}checked{% endif %}><span>Attending</span></label>
-<label><input type=radio name=hosting value=Hosting {% if values.hosting == 'Hosting' %}checked{% endif %}><span>Hosting</span></label>
+<div class="t3 xs">Who's hosting?</div>
+<div class="actseg whohost" id=whoHost role=radiogroup aria-label="Who's hosting?">
+<label><input type=radio name=hosting value=Hosting {% if values.hosting == 'Hosting' %}checked{% endif %}><span>Our organization</span></label>
+<label><input type=radio name=hosting value=Cohost {% if values.hosting == 'Cohost' %}checked{% endif %}><span>Co-hosting</span></label>
+<label><input type=radio name=hosting value=Attending {% if values.hosting != 'Hosting' and values.hosting != 'Cohost' %}checked{% endif %}><span>Other organization(s)</span></label>
 </div>
-<label id=lineOrg {% if values.hosting == 'Hosting' %}hidden{% endif %}>Host organization<input name=host_org value="{{ values.host_org }}" placeholder="IGLA+" autocomplete=off></label>
+<div id=lineOrg {% if values.hosting == 'Hosting' %}hidden{% endif %}>
+<div class="t3 xs" id=hostLabel>{% if values.hosting == 'Cohost' %}Co-host organizations{% else %}Host organizations{% endif %}</div>
+<div id=hostChips class=skipchips>{% for name in values.host_orgs %}<span class=skipchip><span>{{ name }}</span><button type=button aria-label="Remove {{ name }}">×</button><input type=hidden name=host_org value="{{ name }}"></span>{% endfor %}</div>
+<div class=hostadd><input id=hostAdd autocomplete=off placeholder="West Hollywood Aquatics" aria-label="Organization"><button type=button class="btn btn-secondary" id=hostAddBtn>Add</button></div>
+</div>
 {% if organizer %}
-<div class="t3 xs">Status</div>
-<div class=actseg role=radiogroup aria-label=Status>
-<label><input type=radio name=team_intent value=considering {% if values.team_intent == 'considering' %}checked{% endif %}><span>Considering</span></label>
-<label><input type=radio name=team_intent value=official {% if values.team_intent != 'considering' %}checked{% endif %}><span>Official</span></label>
+<div id=orgPlanLabel class="t3 xs" {% if values.hosting != 'Attending' %}hidden{% endif %}>What are our organization's plans?</div>
+<div class=plancards id=orgPlans {% if values.hosting != 'Attending' %}hidden{% endif %} role=radiogroup aria-label="What are our organization's plans?">
+<label class=plancard><input type=radio name=team_plan value=considering {% if values.team_plan != 'committed' %}checked{% endif %} {% if values.hosting != 'Attending' %}disabled{% endif %}><span class=planmark aria-hidden=true><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span class=plantxt><b>Gauging interest</b><span>See who wants to participate before committing.</span></span></label>
+<label class=plancard><input type=radio name=team_plan value=committed {% if values.team_plan == 'committed' %}checked{% endif %} {% if values.hosting != 'Attending' %}disabled{% endif %}><span class=planmark aria-hidden=true><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span class=plantxt><b>We're attending</b><span>Our organization has decided to participate.</span></span></label>
 </div>
 {% endif %}
-<label>Title<input name=title value="{{ values.title }}" required autocomplete=off></label>
+<label>Event name<input name=title value="{{ values.title }}" required autocomplete=off></label>
 <div class="t3 xs">Dates</div>
 {% if organizer %}<div class=actseg role=radiogroup aria-label=Dates>
 <label><input type=radio name=date_precision value=exact {% if values.date_precision != 'month' %}checked{% endif %}><span>Exact dates</span></label>
@@ -3031,11 +3088,21 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <script>(function(){
  var org=document.getElementById('lineOrg');
  function sync(){
-  var on=document.querySelector('input[name=hosting]:checked');
-  var away=!(on&&on.value==='Hosting');
-  if(org){org.hidden=!away; var field=org.querySelector('input'); if(field) field.disabled=!away;}
+  var on=document.querySelector('#whoHost input[name=hosting]:checked');
+  var mode=on?on.value:'Hosting';
+  var show=mode==='Cohost'||mode==='Attending';
+  var label=document.getElementById('hostLabel');
+  var type=document.getElementById('lineType'); var name=type?type.value:'';
+  var team=name==='Tournament'||name==='Competition'||name==='Trip'||name==='Clinic';
+  if(label) label.textContent=mode==='Cohost'?'Co-host organizations':'Host organizations';
+  if(org){ org.hidden=!show; org.querySelectorAll('input,button').forEach(function(el){ el.disabled=!show; }); }
+  var plans=document.getElementById('orgPlans'), planLabel=document.getElementById('orgPlanLabel');
+  var showPlans=mode==='Attending'&&team;
+  if(planLabel) planLabel.hidden=!showPlans;
+  if(plans){ plans.hidden=!showPlans; plans.querySelectorAll('input').forEach(function(el){ el.disabled=!showPlans; }); }
  }
- document.querySelectorAll('input[name=hosting]').forEach(function(r){r.addEventListener('change', sync)});
+ document.querySelectorAll('#whoHost input[name=hosting]').forEach(function(r){r.addEventListener('change', sync)});
+ var lt=document.getElementById('lineType'); if(lt) lt.addEventListener('change', sync);
  sync();
  var exactBox=document.getElementById('exactDates'), monthBox=document.getElementById('monthDates');
  var canMonth={{ 'true' if organizer else 'false' }};

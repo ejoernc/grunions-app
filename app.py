@@ -2880,8 +2880,16 @@ def lineup_month(iso):
     day = dt.date.fromisoformat(str(iso)[:10])
     return day.strftime("%B ") + str(day.year)
 def _form_last():
-    """Last value wins, so a checkbox after a hidden 0 is the one that counts."""
-    return {k: request.form.getlist(k)[-1] for k in request.form}
+    """Last value wins, so a checkbox after a hidden 0 is the one that counts.
+    host_org repeats, so every organization name is kept."""
+    out = {}
+    for k in request.form:
+        vals = request.form.getlist(k)
+        if k == "host_org":
+            out[k] = vals
+        else:
+            out[k] = vals[-1] if vals else ""
+    return out
 def ensure_lineup_coords(d, row):
     """Cache a pin for the venue so the event map can draw without another lookup."""
     if not row or "lat" not in row.keys(): return row
@@ -2980,13 +2988,18 @@ def lineup_event_type(row):
     stored = row["event_type"] if "event_type" in row.keys() else ""
     return lineupfeed.event_type_from_parts(row["cat_slug"] or "", row["subtype"] or "", row["kind"] or "", stored or "")
 def lineup_tag(row):
-    hosting = lineupfeed.hosting_label(row["hosting"])
+    hosting = lineupfeed.hosting_chip(row["hosting"])
     return " · ".join(part for part in (hosting, lineup_event_type(row)) if part)
-def lineup_card_line(etype, host_org):
-    """One card subline: Clinic · Hosted by West Hollywood Aquatics."""
+def lineup_host_names(row):
+    raw = row["host_orgs"] if "host_orgs" in row.keys() and row["host_orgs"] else (row["host_org"] if "host_org" in row.keys() else "")
+    return lineupfeed.host_list(raw)
+def lineup_card_line(etype, names, mode="other"):
+    """Clinic · Hosted by A, or Clinic · Co-hosted with A & B."""
     parts = []
     if etype: parts.append(etype)
-    if host_org: parts.append("Hosted by %s" % host_org)
+    summary = lineupfeed.host_summary(names)
+    if mode == "cohost" and summary: parts.append("Co-hosted with %s" % summary)
+    elif mode == "other" and summary: parts.append("Hosted by %s" % summary)
     return " · ".join(parts)
 def lineup_host_line(row):
     if row["official"]: return "Official club event"
@@ -3028,6 +3041,9 @@ def lineup_pack(d, rows):
         if span < 1: span = 1
         status_kind, status_text = lineup_status_text(r)
         etype = lineup_event_type(r)
+        host_mode = lineupfeed.hosting_label(r["hosting"])
+        host_names = [] if host_mode == "Hosting" else lineup_host_names(r)
+        card_mode = "cohost" if host_mode == "Cohost" else ("other" if host_mode == "Attending" else "ours")
         pins = []
         if "lat" in r.keys() and r["lat"] is not None and r["lng"] is not None:
             pins = [{"lat": r["lat"], "lng": r["lng"], "kind": "pool", "label": r["venue"] or r["city"] or ""}]
@@ -3043,7 +3059,7 @@ def lineup_pack(d, rows):
         full = bool(cap and going_n >= cap)
         start, end = event_window(r)
         out.append({"id": r["id"], "title": r["title"], "slug": r["cat_slug"] or "", "category": r["cat_name"] or r["kind"] or "Event",
-            "event_type": etype, "tag": lineup_tag(r), "card_line": lineup_card_line(etype, (r["host_org"] or "") if "host_org" in r.keys() and lineupfeed.hosting_label(r["hosting"]) == "Attending" else ""), "days": span, "pins": pins,
+            "event_type": etype, "tag": lineup_tag(r), "card_line": lineup_card_line(etype, host_names, card_mode), "days": span, "pins": pins,
             "status_kind": status_kind, "status_text": status_text, "people": people,
             "chip": r["cat_chip"] or "", "subtype": r["subtype"] or "", "hosting": lineupfeed.hosting_label(r["hosting"]),
             "official": bool(r["official"]), "intent": intent, "status": r["status"] or "published", "status_label": lineup_status_label(r),
@@ -3056,7 +3072,8 @@ def lineup_pack(d, rows):
             "sort_date": effective_sort_date(r),
             "tile": lineup_tile(r),
             "venue": r["venue"] or "", "city": r["city"] or "",
-            "host_org": (r["host_org"] or "") if "host_org" in r.keys() and lineupfeed.hosting_label(r["hosting"]) == "Attending" else "",
+            "host_org": host_names[0] if len(host_names) == 1 and card_mode == "other" else "",
+            "host_names": host_names, "host_mode": card_mode,
             "description": r["description"] or "", "details": r["details"] or "", "link": r["link"] or "",
             "cost": r["cost"] or "", "capacity": cap, "full": full, "reg_deadline": r["reg_deadline"] or "",
             "review_note": r["review_note"] or "", "banner": r["banner"] or "",
@@ -3635,10 +3652,18 @@ def event_new():
         if not title:
             flash("Add an event name.")
             return redirect("/events/new?lane=lineup")
+        hosting_now = lineupfeed.normalize_hosting(request.form.get("hosting"), "Attending")
+        plan_now = (request.form.get("team_plan") or "").strip() if staff and hosting_now == "Attending" else ""
+        if not staff:
+            intent_now = ""
+        elif hosting_now in ("Hosting", "Cohost"):
+            intent_now, plan_now = "official", "committed"
+        else:
+            intent_now = "official" if plan_now == "committed" else "considering"
+            if plan_now not in lineupfeed.TEAM_PLANS: plan_now = "considering"
         wrapped = _FormWrap(request.form, title=title, start_time=request.form.get("start") or "19:00",
             mode="create" if staff else "suggest", event_type=request.form.get("event_type") or "Social",
-            team_intent=("official" if request.form.get("team_plan") == "committed" else "considering") if staff else "",
-            team_plan=request.form.get("team_plan") if staff else "")
+            hosting=hosting_now, team_intent=intent_now, team_plan=plan_now)
         try:
             info = lineupfeed.save_event(d, wrapped, me(), staff, parse_date=parse_date)
         except ValueError as e:
@@ -5257,7 +5282,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-108 */
+SW_JS = """/* grunions-sw-109 */
 self.addEventListener('push', function(event) {
   var data = {title: 'Grunions', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
