@@ -1715,7 +1715,7 @@ D.commit()
 moved_row = D.execute("SELECT lat, lng, social_lat FROM practices WHERE id=?", (pic_id,)).fetchone()
 eli.post("/practices/%d" % pic_id, data=dict(csrf=csrf(eli, "/practices/%d" % pic_id), pid=pic_id, action="social", back="page", social_kind="Dinner", social_place="Other Place", social_address="456 Side St"))
 D.commit()
-ok(moved_row[0] is None and moved_row[1] is None and moved_row[2] == 33.6 and D.execute("SELECT social_lat FROM practices WHERE id=?", (pic_id,)).fetchone()[0] is None, "changing the pool or social address clears the cached coordinates")
+ok(moved_row[0] is None and moved_row[1] is None and moved_row[2] == 33.6 and D.execute("SELECT social_lat FROM practices WHERE id=?", (pic_id,)).fetchone()[0] != 33.6, "changing the pool or social address clears the cached coordinates")
 empty_line = jane.get("/lineup").get_data(as_text=True)
 nav = empty_line.split("</main>", 1)[-1]
 ok("Nothing on the Lineup yet." in empty_line and "No team trips yet." not in empty_line and "Add event" not in empty_line and ">Suggest an event</a>" not in empty_line and ">Create event</a>" not in empty_line and 'aria-label="Suggest an event"' in empty_line and 'aria-label="Create event"' not in empty_line and 'href="/events/new"' in empty_line and "btn-primary full" not in empty_line and "Water Polo Practice" not in empty_line and 'aria-label="Lineup"' in nav and ">Lineup</a>" not in nav and 'href="/practices#schedule"' not in nav and "data-badge=schedule" in nav and ">All</a>" in empty_line and ">Competitions</a>" in empty_line and ">Camps</a>" in empty_line and ">Trips</a>" in empty_line and ">Community</a>" in empty_line and "<h2>My events</h2>" not in empty_line and "<h2>Interested</h2>" not in empty_line and jane.post("/lineup/new", data=dict(csrf=csrf(jane, "/lineup/new"), mode="create", category="social", title="Secret", location="Pool", description="Nope.", date=A.today_pt().isoformat(), start_time="09:00")).status_code == 403 and A.app.test_client().get("/lineup/new").status_code == 302 and jane.get("/lineup/new?mode=propose").status_code == 200, "Lineup replaces Schedule and members cannot publish events")
@@ -2247,3 +2247,70 @@ def _att_name(email):
     return "%s %s" % ((row[1] or "").strip() or row[0], row[2])
 ok(_att_before == _att_after and "bot@grunions.local" not in [p["email"] for p in _att["people"]] and _att_people[_att_jane]["first_name"] == "Jane" and _att_people[_att_jane]["last_name"] == "Doe" and _att_people[_att_jane]["email"] == "jane@example.com" and _att_people[_att_jane]["phone"] == "(720) 535-5925" and _att_people[_att_jane]["role"] == "athlete" and _att_people[_att_jane]["usawp_membership_type"] == "Full" and _att_people[_att_jane]["usawp_number"] == "4242421" and _att_people[_att_jane]["cleared"] is True and _att_people[_att_john]["usawp_membership_type"] == "Trial" and _att_people[_att_eli]["role"] == "coach", "attendance lists each member, their USAWP type, and cleared-to-play without counting concussion")
 ok(_att_cut and _att_cut["date"] == "2026-10-01" and _att_cut["start_time"] == "18:00" and _att_cut["title"] == "Water Polo Practice" and "Before Pool" not in _att_events and all(e["date"] >= "2026-10-01" for e in _att["events"]) and _att_who[_att_jane] == {"person_id": _att_jane, "name": _att_name("jane@example.com"), "email": "jane@example.com", "checked_in": False, "rsvp": "going"} and _att_who[_att_eli]["rsvp"] == "not_going" and _att_who[_att_eli]["checked_in"] is False and _att_who[_att_john]["rsvp"] == "going" and _att_who[_att_john]["checked_in"] is True and _att_who[_att_john]["name"] == _att_name("john@example.com"), "attendance lists team schedule events since 2026-10-01, and a check-in counts as Going")
+class _FakeRoute:
+    def __init__(self):
+        self.calls, self.fail = [], None
+    def route(self, origin, dest, profile):
+        self.calls.append(profile)
+        if self.fail == 401: raise A.routing.AuthError()
+        return 23
+    def route_line(self, origin, dest):
+        self.calls.append("line")
+        return 8, [[round(origin[0], 5), round(origin[1], 5)], [round(dest[0], 5), round(dest[1], 5)]]
+_fake_route = _FakeRoute()
+A.drive_service.provider = _fake_route
+A.drive_service.auth_failed = False
+A.drive_service.cap.limit = 2000
+_real_now = A.now_pt
+_clock = _real_now().replace(minute=0, second=0, microsecond=0)
+if _clock.hour >= 21: _clock = _clock.replace(hour=17)
+else: _clock = _clock.replace(hour=max(0, _clock.hour))
+_soon = _clock + dt.timedelta(hours=1)
+_end_at = _soon + dt.timedelta(minutes=30)
+A.now_pt = lambda: _clock
+try:
+    D.execute("INSERT INTO practices(date,start,end,location,lat,lng,address,social_kind,social_place,social_address,social_lat,social_lng,social_routed) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0)",
+              (_soon.date().isoformat(), "%02d:%02d" % (_soon.hour, _soon.minute), "%02d:%02d" % (_end_at.hour, _end_at.minute), "Drive Pool", 33.75, -118.01, "14325 Goldenwest St", "Dinner", "Michael's Sports Bar", "123 Main St, Westminster, CA", 33.76, -118.02, ))
+    D.commit()
+    _drive_pid = D.execute("SELECT id FROM practices WHERE location='Drive Pool'").fetchone()[0]
+    with A.app.app_context():
+        _prow = A.db().execute("SELECT * FROM practices WHERE id=?", (_drive_pid,)).fetchone()
+        A.ensure_social_route(A.db(), _prow)
+    _drive_page = eli.get("/practices/%d" % _drive_pid).get_data(as_text=True)
+    D.execute("UPDATE practices SET cancelled=1 WHERE id!=?", (_drive_pid,)); D.commit()
+    _home_drive = eli.get("/home").get_data(as_text=True)
+    ok("Show my drive time" not in _drive_page and "Your drive time" not in _drive_page and "data-drive=" not in _drive_page and ">Open in Maps</a>" in _drive_page and "data-map-open" in _drive_page and 'id="practiceLoc"' in _drive_page and "class=pindot" in _drive_page and "min drive" in _drive_page and "33.76" in _drive_page, "practice pages keep a location map and the stored social route, with no drive-time prompt")
+    ok('data-drive="' in _home_drive and "Show my drive time" in _home_drive and "class=pindot" in _home_drive and "dark-v11" not in _home_drive and "tile.openstreetmap.org" in _home_drive and "layer.type==='symbol'" in _home_drive, "home shows the drive chip only for the next practice inside the window")
+    _drive_tok = csrf(eli, "/home")
+    def _drive(lat, lng, pid=None):
+        return eli.post("/api/drive", json={"kind": "practice", "id": pid or _drive_pid, "lat": lat, "lng": lng}, headers={"X-CSRF": _drive_tok})
+    _near = _drive(33.70, -118.00)
+    _near_j = _near.get_json()
+    _again = _drive(33.80, -117.90)
+    _one_lookup = _fake_route.calls.count("driving-traffic") == 1
+    D.execute("UPDATE practices SET date=? WHERE id=?", ((_soon + dt.timedelta(days=1)).date().isoformat(), _drive_pid)); D.commit()
+    _outside = _drive(33.70, -118.00)
+    D.execute("UPDATE practices SET date=?, start=? WHERE id=?", (_soon.date().isoformat(), "%02d:%02d" % (_soon.hour, _soon.minute), _drive_pid)); D.commit()
+    D.execute("DELETE FROM drive_cache WHERE practice_id=?", (_drive_pid,)); D.commit()
+    A.drive_service.cap.limit = 0
+    _capped = _drive(33.70, -118.00)
+    A.drive_service.cap.limit = 2000
+    D.execute("DELETE FROM drive_cache WHERE practice_id=?", (_drive_pid,)); D.commit()
+    _fake_route.fail = 401
+    _denied = _drive(33.70, -118.00)
+    A.now_pt = lambda: _soon + dt.timedelta(minutes=5)
+    _begun = _drive(33.70, -118.00)
+    A.now_pt = lambda: _clock
+    D.execute("INSERT OR IGNORE INTO checkins(member_id, practice_date, location) VALUES(?,?,?)", (eli_id, _soon.date().isoformat(), "Drive Pool"))
+    D.commit()
+    _checked = _drive(33.70, -118.00)
+    _body = "".join(r.get_data(as_text=True) for r in (_near, _again, _outside, _capped, _denied, _begun, _checked))
+    _cache_cols = [c[1] for c in D.execute("PRAGMA table_info(drive_cache)")]
+    ok(_near.status_code == 200 and _near_j.get("show") is True and _near_j["text"].startswith("23 min with traffic") and "leave by" in _near_j["text"] and "updated just now" in _near_j["text"] and _again.get_json()["text"].startswith("23 min with traffic") and "updated" in _again.get_json()["text"] and _one_lookup and _outside.get_json().get("show") is False and _capped.get_json().get("estimated") is True and "est." in _capped.get_json()["text"] and _denied.get_json().get("estimated") is True and _begun.get_json().get("show") is False and _checked.get_json().get("show") is False and "33.70" not in _body and "lat" not in _cache_cols and "lng" not in _cache_cols, "drive time is traffic-only inside the window, cached 15 minutes per member, and stores no location")
+    ok(_fake_route.calls.count("line") == 1 and D.execute("SELECT social_drive_min, social_routed FROM practices WHERE id=?", (_drive_pid,)).fetchone()[0] == 8, "the social road line is fetched once when the address is saved")
+    A.now_pt = lambda: _end_at + dt.timedelta(minutes=10)
+    _after = eli.get("/home").get_data(as_text=True)
+    _after_card = _after[_after.find('class="card tap nextcard"'):_after.find("id=schedule")]
+    ok("After practice: Michael" in _after_card and "data-drive=" not in _after_card and "class=pindot" in _after, "the social hour keeps the practice on Home without a drive-time lookup")
+finally:
+    A.now_pt = _real_now

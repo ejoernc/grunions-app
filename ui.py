@@ -93,13 +93,21 @@ a.usawpchip.warn,a.usawpchip.bad{color:var(--color-text)}
 .homemap.banner{height:220px;margin:0 -20px 0;border-radius:0;overflow:hidden;position:relative}
 .homemap.banner::after{content:"";position:absolute;left:0;right:0;bottom:0;height:84px;background:linear-gradient(transparent,var(--color-bg));z-index:450;pointer-events:none}
 .homemap.still{height:180px;margin:0;border-radius:0;cursor:default;pointer-events:none}
+.homemap.still.tappable{pointer-events:auto;cursor:pointer}
 .evhero{height:220px;margin:0 -20px 0;position:relative;overflow:hidden;background:var(--color-map)}
 .evhero img{width:100%;height:100%;object-fit:cover;display:block}
 .evhero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:84px;background:linear-gradient(transparent,var(--color-bg));pointer-events:none}
 .eventtag{color:var(--t2);font-size:15px;font-weight:400;margin:2px 0 0}
 .profilehero .eventtag{text-align:center}
 .loccard{padding:0}
-a.locrow,span.locrow{display:flex;align-items:center;gap:12px;padding:14px 16px;color:inherit;text-decoration:none;width:100%}
+a.locrow,span.locrow,div.locrow{display:flex;align-items:center;gap:12px;padding:14px 16px;color:inherit;text-decoration:none;width:100%}
+.locrow .btn,.driverow .btn{flex:none;height:40px;min-height:40px;padding:0 12px;white-space:nowrap}
+a.mapgo{width:100%}
+.drivechip{position:relative;z-index:3;display:flex;justify-content:center;margin:0 0 10px}
+.drivechipbtn,.drivechiptext{margin:0;max-width:100%;border-radius:999px;background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-border);box-shadow:0 6px 20px rgba(0,0,0,.35)}
+button.drivechipbtn{height:36px;min-height:36px;padding:0 14px;font-size:13px;font-weight:650}
+.drivechiptext{padding:8px 12px;font-size:13px;font-weight:650;line-height:1.3}
+.afterline{color:var(--color-lime);font-weight:650}
 .li.evdescrow{flex-direction:column;align-items:stretch;gap:2px}
 .li.evdescrow .textlink{align-self:flex-start;padding:4px 0 0}
 .clamp{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
@@ -111,12 +119,19 @@ a.reglink{color:var(--accent);text-decoration:none;font-weight:600}
 body.practicepage main{padding-top:0}
 .homemap.leaflet-container,.homemap .leaflet-container{background:var(--color-map)}
 .homemap .leaflet-tile-pane{filter:grayscale(1) invert(1) contrast(.9) brightness(.82);opacity:0;transition:opacity .45s ease}
+.homemap.mapbox .leaflet-tile-pane{filter:none}
 .homemap.tiles .leaflet-tile-pane{opacity:1}
 .homemap .leaflet-control-attribution{background:var(--color-scrim);color:var(--color-text-secondary);font-size:10px;max-width:70%}
 .homemap .leaflet-control-attribution a{color:var(--color-icon)}
 .homemap .leaflet-bar a,.homemap .leaflet-bar a:hover{background:var(--color-surface-2);color:var(--color-text);border-bottom-color:var(--color-border)}
-.homemap .leaflet-marker-icon.mpin{background:var(--color-selected);border:3px solid var(--color-bg);border-radius:50%;box-shadow:0 0 0 1px var(--color-selected)}
-.homemap .leaflet-marker-icon.mpin.social{background:var(--color-bg);border:3px solid var(--color-selected);box-shadow:none}
+.homemap .leaflet-marker-icon.mpin{background:transparent;border:0;box-shadow:none;overflow:visible}
+.pinrow{display:flex;align-items:center;gap:6px;height:18px;width:max-content}
+.pinhold{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex:none}
+.pindot{display:block;width:18px;height:18px;box-sizing:border-box;border-radius:50%;background:var(--color-lime);border:3px solid var(--color-bg);box-shadow:0 0 0 1px var(--color-lime)}
+.mpin.social .pindot{width:12px;height:12px;background:var(--color-lime);border:0;box-shadow:none}
+.youdot{display:block;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:0 0 0 6px rgba(255,255,255,.18)}
+.pinpill{background:#141816;color:#fff;border-radius:999px;padding:3px 8px;font-size:12px;font-weight:650;line-height:1.2;white-space:nowrap}
+.routeline{stroke:var(--color-lime)}
 body.homefull header.homehead{position:sticky;top:0;z-index:8;background:transparent}
 body.homefull header.homehead.solid{background:var(--color-bg)}
 body.homefull main{position:relative;z-index:1;padding:0 16px calc(var(--nav-clear) + 16px + env(safe-area-inset-bottom))}
@@ -870,11 +885,11 @@ dialog.memberedit .help a{color:var(--t1)}
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
 <div class=row><button class="btn btn-danger" name=action value=delete>Delete practice</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% endmacro %}
-{% macro mount_map(id, pins, mode) %}<section class="homemap cardmap {{ 'banner' if mode == 'card' else 'still' }}" id="{{ id }}" {% if mode == 'still' %}aria-hidden=true{% else %}aria-label="Map"{% endif %}></section>
-<script>(function(){var pins={{ pins|tojson }};function start(){var el=document.getElementById({{ id|tojson }});if(el&&window.grunionsMountMap)grunionsMountMap(el,{pins:pins,mode:'{{ mode }}'});}if(window.grunionsMountMap)start();else document.addEventListener('DOMContentLoaded',start);})();</script>{% endmacro %}
-{% macro event_hero(id, pins, banner_src, label) %}{% if banner_src %}<div class=evhero><img src="{{ banner_src }}" alt=""></div>{% else %}{{ mount_map(id, pins, 'card') }}{% endif %}{% endmacro %}
+{% macro mount_map(id, pins, mode, href='', route=None) %}<section class="homemap cardmap {{ 'banner' if mode == 'card' else ('still tappable' if mode == 'tap' else 'still') }}" id="{{ id }}" {% if mode == 'tap' and pins %}data-map-open data-directions="{{ pins[0].lat }},{{ pins[0].lng }}" data-map-href="{{ href }}" data-map-label="{{ pins[0].label or 'Location' }}" role=button tabindex=0 aria-label="Map of {{ pins[0].label or 'the location' }}"{% elif mode == 'still' %}aria-hidden=true{% else %}aria-label="Map"{% endif %}></section>
+<script>(function(){var pins={{ pins|tojson }};var route={{ route|tojson if route else '[]' }};function start(){var el=document.getElementById({{ id|tojson }});if(el&&window.grunionsMountMap)grunionsMountMap(el,{pins:pins,mode:'{{ 'still' if mode == 'tap' else mode }}',route:route});}if(window.grunionsMountMap)start();else document.addEventListener('DOMContentLoaded',start);})();</script>{% endmacro %}
+{% macro event_hero(id, pins, banner_src, label, route=None) %}{% if banner_src %}<div class=evhero><img src="{{ banner_src }}" alt=""></div>{% else %}{{ mount_map(id, pins, 'card', '', route) }}{% endif %}{% endmacro %}
 {% macro whos_going(people) %}<div class=seclabel>Who's going</div><div class=list>{% for r in people %}<div class=li>{% if me().is_admin or is_staff() %}<a class=ci-name href="/admin/member/{{ r.id }}">{% else %}<span class=ci-name>{% endif %}{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span></span>{% if me().is_admin or is_staff() %}</a>{% else %}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>{% endmacro %}
-{% macro event_location(id, pins, name, sub, href) %}<div class=seclabel>Location</div><div class="list loccard">{{ mount_map(id, pins, 'still') }}<a class="li locrow" href="{{ href }}" target=_blank rel=noopener {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %}><span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ name }}</span>{% if sub and sub != name %}<span class="t3 sm">{{ sub }}</span>{% endif %}</span></a></div>{% endmacro %}
+{% macro event_location(id, pins, name, sub, href, route=None, route_min=None) %}<div class=seclabel>Location</div><div class="list loccard">{{ mount_map(id, pins, 'tap' if pins else 'still', href, route) }}{% if route_min %}<div class="li"><span class="t3 sm">{{ route_min }} min drive</span></div>{% endif %}<div class="li locrow"><span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ name }}</span>{% if sub and sub != name %}<span class="t3 sm">{{ sub }}</span>{% endif %}</span><a class="btn btn-secondary" href="{{ href }}" target=_blank rel=noopener {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %}>Open in Maps</a></div></div>{% endmacro %}
 {% macro lineup_card(e, back='/lineup') %}<div class="card tap tripcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
 <a class=cardlink href="/lineup/{{ e.id }}">
 <div class=nxcardhead><div class="nxtitle cardtitle">{{ e.title }}</div>{% if e.card_line %}<div class="cardsub ell">{{ e.card_line }}</div>{% endif %}</div>
@@ -1117,10 +1132,86 @@ function grunionsSyncNav(next){
 }
 var grunionsNavGen=0;
 window.grunionsDirections=function(lat,lng){
- var dest=lat+','+lng, apple=/iPhone|iPad|iPod/.test(navigator.userAgent||'');
- var url=apple?('https://maps.apple.com/?daddr='+encodeURIComponent(dest)):('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest));
- window.open(url,'_blank','noopener');
+ var dest=lat+','+lng, ua=navigator.userAgent||'';
+ var apple=/iPhone|iPad|iPod/.test(ua), android=/Android/i.test(ua);
+ var url=apple?('https://maps.apple.com/?daddr='+encodeURIComponent(dest)):(android?('geo:0,0?q='+encodeURIComponent(dest)):('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest)));
+ if(android) location.href=url; else window.open(url,'_blank','noopener');
 };
+window.grunionsOfferMaps=function(el){
+ if(!el) return;
+ var sheet=document.getElementById('mapSheet'), dest=el.getAttribute('data-directions')||'', href=el.getAttribute('data-map-href')||'';
+ var label=el.getAttribute('data-map-label')||'Location';
+ if(!sheet||!window.grunionsOpenSheet){
+  var parts=dest.split(',');
+  if(parts.length>=2&&parts[0]&&parts[1]) grunionsDirections(parts[0], parts[1]);
+  else if(href) window.open(href,'_blank','noopener');
+  return;
+ }
+ if(sheet.open) return;
+ var title=document.getElementById('mapSheetTitle'), go=document.getElementById('mapSheetGo');
+ if(title) title.textContent=label;
+ if(go){
+  if(dest) go.setAttribute('data-directions', dest); else go.removeAttribute('data-directions');
+  go.href=href||('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest));
+ }
+ grunionsOpenSheet(sheet);
+};
+function grunionsAskDrive(row, quiet){
+ if(!row||row.dataset.driveBusy) return;
+ if(!navigator.geolocation){ var missing=row.querySelector('[data-drive-line]'); if(missing){ missing.hidden=false; missing.textContent='Location is not available on this device.'; } return; }
+ row.dataset.driveBusy='1';
+ var btn=row.querySelector('[data-drive-ask]'), line=row.querySelector('[data-drive-line]');
+ if(btn) btn.disabled=true;
+ if(line && !quiet){ line.hidden=false; line.textContent='Checking traffic…'; }
+  navigator.geolocation.getCurrentPosition(function(pos){
+  try{ localStorage.setItem('grunionsDrive','yes'); }catch(err){}
+  if(window.grunionsShowYou && document.querySelector('[data-drive]')) grunionsShowYou(pos.coords.latitude, pos.coords.longitude);
+  var spec={}; try{ spec=JSON.parse(row.getAttribute('data-drive')||'{}'); }catch(err){}
+  fetch('/api/drive',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':window.PUSH_CSRF||''},body:JSON.stringify({kind:spec.kind,id:spec.id,lat:pos.coords.latitude,lng:pos.coords.longitude})})
+   .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
+   .then(function(res){
+    row.dataset.driveBusy='';
+    if(res.ok && res.j && res.j.show===false){ row.hidden=true; return; }
+    if(btn) btn.hidden=true;
+    if(line){ line.hidden=false; line.textContent=(res.ok&&res.j&&res.j.text)?res.j.text:'Could not check drive time.'; }
+   }).catch(function(){ row.dataset.driveBusy=''; if(btn){ btn.disabled=false; btn.hidden=false; } if(line){ line.hidden=false; line.textContent='Could not check drive time.'; } });
+ }, function(err){
+  row.dataset.driveBusy='';
+  try{ if(err&&err.code===1) localStorage.setItem('grunionsDrive','no'); }catch(e){}
+  if(btn) btn.disabled=false;
+  if(line){ line.hidden=false; line.textContent='Location stays on this device. Allow it to see your drive time.'; }
+ }, {enableHighAccuracy:false, maximumAge:900000, timeout:8000});
+}
+function grunionsDriveRefresh(){
+ if(document.hidden) return;
+ var remembered=''; try{ remembered=localStorage.getItem('grunionsDrive')||''; }catch(err){}
+ if(remembered!=='yes') return;
+ document.querySelectorAll('[data-drive]').forEach(function(row){ grunionsAskDrive(row, true); });
+}
+window.grunionsDriveScan=function(){
+ document.querySelectorAll('[data-drive]').forEach(function(row){
+  if(row.dataset.driveOn) return; row.dataset.driveOn='1';
+  var remembered=''; try{ remembered=localStorage.getItem('grunionsDrive')||''; }catch(err){}
+  if(remembered==='yes') grunionsAskDrive(row, false);
+ });
+};
+if(!window.grunionsDrive){window.grunionsDrive=1;
+ document.addEventListener('click', function(e){
+  var ask=e.target.closest&&e.target.closest('[data-drive-ask]');
+  if(ask){ e.preventDefault(); var row=ask.closest('[data-drive]'); if(row) grunionsAskDrive(row); return; }
+  var map=e.target.closest&&e.target.closest('[data-map-open]');
+  if(!map||e.target.closest('a,button')) return;
+  grunionsOfferMaps(map);
+ });
+ document.addEventListener('keydown', function(e){
+  if(e.key!=='Enter'&&e.key!==' ') return;
+  var map=e.target.closest&&e.target.closest('[data-map-open]');
+  if(!map||e.target!==map) return;
+  e.preventDefault(); grunionsOfferMaps(map);
+ });
+ document.addEventListener('visibilitychange', function(){ if(!document.hidden) grunionsDriveRefresh(); });
+ grunionsDriveScan();
+}
 if(!window.grunionsDirClick){window.grunionsDirClick=1;
  document.addEventListener('click',function(e){
   var a=e.target.closest&&e.target.closest('[data-directions]'); if(!a) return;
@@ -1130,32 +1221,127 @@ if(!window.grunionsDirClick){window.grunionsDirClick=1;
   grunionsDirections(parts[0], parts[1]);
  });
 }
+window.GRUNIONS_MAPBOX={{ mapbox_client()|tojson }};
 window.grunionsMountMap=function(el, opts){
  if(!el) return;
  opts=opts||{};
  function boot(){
-  if(!window.L||!el.isConnected||el.dataset.mapon) return;
+  if(!el.isConnected||el.dataset.mapon) return;
   var pins=opts.pins||[];
   if(!pins.length) return;
+  var mb=window.GRUNIONS_MAPBOX||{};
+  function pinText(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
+  if(mb.token&&mb.style){ bootMapbox(pins); return; }
+  if(!window.L) return;
   el.dataset.mapon='1';
+  bootLeaflet();
+ function bootMapbox(pins){
+  function start(){
+   if(!el.isConnected||el.dataset.mapon||!window.mapboxgl) return;
+   el.dataset.mapon='1';
+   mapboxgl.accessToken=mb.token;
+   var map=new mapboxgl.Map({container:el,style:mb.style,interactive:false,attributionControl:true,fadeDuration:0});
+   el._gmap=map;
+   var youMarker=null;
+   function hideLabels(){
+    var style=map.getStyle(); if(!style||!style.layers) return;
+    style.layers.forEach(function(layer){ if(layer.type==='symbol') map.setLayoutProperty(layer.id,'visibility','none'); });
+   }
+   function pads(){
+    var head=document.querySelector('header.homehead'), card=document.querySelector('.nextcard');
+    var box=el.getBoundingClientRect();
+    if(opts.mode!=='home'&&el.id!=='homeMap') return {top:28,bottom:28,left:36,right:200};
+    var headBottom=head?head.getBoundingClientRect().bottom:76;
+    var cardTop=card?card.getBoundingClientRect().top:(box.top+box.height*0.58);
+    return {top:Math.max(28, headBottom-box.top+20), bottom:Math.max(28, box.bottom-cardTop+16), left:40, right:110};
+   }
+   function points(){
+    var pts=[];
+    pins.forEach(function(p){ pts.push([p.lng,p.lat]); });
+    (opts.route||[]).forEach(function(p){ if(p&&p.length>=2) pts.push([p[1],p[0]]); });
+    if(el._you) pts.push([el._you.lng, el._you.lat]);
+    return pts;
+   }
+   function frame(){
+    var pts=points(); if(!pts.length||!map.loaded()) return;
+    if(pts.length===1){ map.jumpTo({center:pts[0], zoom:14}); return; }
+    var lngs=pts.map(function(p){return p[0];}), lats=pts.map(function(p){return p[1];});
+    map.fitBounds([[Math.min.apply(null,lngs), Math.min.apply(null,lats)],[Math.max.apply(null,lngs), Math.max.apply(null,lats)]], {padding:pads(), maxZoom:15, animate:false});
+   }
+   function pinEl(kind, label){
+    var name=pinText(label), pill=name?'<span class=pinpill>'+name+'</span>':'';
+    var node=document.createElement('div');
+    node.className='mpin'+(kind==='social'?' social':'');
+    node.innerHTML='<span class=pinrow><span class=pinhold><span class=pindot></span></span>'+pill+'</span>';
+    return node;
+   }
+   map.on('load', function(){
+    hideLabels();
+    var route=opts.route||[];
+    if(route.length>1){
+     var accent=(getComputedStyle(document.documentElement).getPropertyValue('--color-lime')||'#B2DE64').trim()||'#B2DE64';
+     map.addSource('social-route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:route.map(function(p){return [p[1],p[0]];})}}});
+     map.addLayer({id:'social-route',type:'line',source:'social-route',paint:{'line-color':accent,'line-width':4,'line-opacity':0.95}});
+    }
+    pins.forEach(function(p){
+     new mapboxgl.Marker({element:pinEl(p.kind, p.label), anchor:'top-left', offset:[-9,-9]}).setLngLat([p.lng,p.lat]).addTo(map);
+    });
+    if(opts.mode==='card'&&pins[0]) el.addEventListener('click',function(){ grunionsDirections(pins[0].lat, pins[0].lng); });
+    frame();
+   });
+   el._reframe=function(){
+    if(el._you){
+     if(!youMarker){
+      var node=document.createElement('div'); node.className='mpin you'; node.innerHTML='<span class=pinhold><span class=youdot></span></span>';
+      youMarker=new mapboxgl.Marker({element:node, anchor:'center'}).setLngLat([el._you.lng, el._you.lat]).addTo(map);
+     } else youMarker.setLngLat([el._you.lng, el._you.lat]);
+    }
+    frame();
+   };
+  }
+  if(window.mapboxgl){ start(); return; }
+  if(!document.querySelector('link[data-mapbox]')){
+   var css=document.createElement('link'); css.rel='stylesheet'; css.href='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css'; css.setAttribute('data-mapbox','1'); document.head.appendChild(css);
+  }
+  var s=document.querySelector('script[data-mapbox]');
+  if(!s){ s=document.createElement('script'); s.src='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js'; s.setAttribute('data-mapbox','1'); s.onload=start; document.head.appendChild(s); }
+  else s.addEventListener('load', start);
+ }
+ function bootLeaflet(){
   var still=opts.mode==='still';
   var map=L.map(el,{zoomControl:false,attributionControl:!still,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false});
-  var tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+  var tileUrl=window.GRUNIONS_MAP_TILES||'';
+  var tiles;
+  if(tileUrl){
+   el.classList.add('mapbox');
+   tiles=L.tileLayer(tileUrl,{maxZoom:19,tileSize:512,zoomOffset:-1,attribution:'&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'});
+  }else tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'});
+  tiles.addTo(map);
   var faded=false; tiles.on('tileload',function(){if(!faded){faded=true;el.classList.add('tiles')}});
-  function icon(kind){return L.divIcon({className:'mpin'+(kind==='social'?' social':''),html:'',iconSize:[18,18],iconAnchor:[9,9]});}
+  function icon(kind, label){
+   var name=pinText(label), pill=name?'<span class=pinpill>'+name+'</span>':'';
+   return L.divIcon({className:'mpin'+(kind==='social'?' social':''),html:'<span class=pinrow><span class=pinhold><span class=pindot></span></span>'+pill+'</span>',iconSize:[18,18],iconAnchor:[9,9]});
+  }
   var bounds=[], pool=null;
   pins.forEach(function(p){ if(p.kind==='pool') pool=p; bounds.push([p.lat,p.lng]); });
   if(!pool) pool=pins[0];
   function go(p){ var t=opts.mode==='card'?pool:p; grunionsDirections(t.lat, t.lng); }
+  var route=opts.route||[];
+  if(route.length>1){
+   var accent=(getComputedStyle(document.documentElement).getPropertyValue('--color-lime')||'#B2DE64').trim()||'#B2DE64';
+   L.polyline(route,{color:accent,weight:4,opacity:.95,interactive:false}).addTo(map);
+   route.forEach(function(pt){ bounds.push(pt); });
+  }
   pins.forEach(function(p){
-   var m=L.marker([p.lat,p.lng],{icon:icon(p.kind),interactive:!still,title:p.label||'Directions',zIndexOffset:p.kind==='pool'?800:0}).addTo(map);
+   var m=L.marker([p.lat,p.lng],{icon:icon(p.kind, p.label),interactive:!still,title:p.label||(p.kind==='social'?'Social':'Practice'),zIndexOffset:p.kind==='pool'?800:0}).addTo(map);
    if(!still) m.on('click',function(ev){ if(L.DomEvent) L.DomEvent.stopPropagation(ev); go(p); });
   });
-  if(opts.mode==='card') map.on('click',function(){ go(pool); });
+  if(el.hasAttribute('data-map-open')) map.on('click',function(){ if(window.grunionsOfferMaps) grunionsOfferMaps(el); });
+  else if(opts.mode==='card') map.on('click',function(){ go(pool); });
   function place(){
    if(!el.clientHeight||!pool) return;
    if(opts.mode==='card'||still){
-    if(bounds.length>1) map.fitBounds(bounds,{padding:[24,24],maxZoom:16,animate:false});
+    if(bounds.length>1) map.fitBounds(bounds,{paddingTopLeft:[36,28],paddingBottomRight:[200,28],maxZoom:15,animate:false});
     else map.setView([pool.lat, pool.lng], 15, {animate:false});
     return;
    }
@@ -1184,22 +1370,47 @@ window.grunionsMountMap=function(el, opts){
     }
     return true;
    }
+   var framed=bounds.slice();
+   if(el._you) framed.push([el._you.lat, el._you.lng]);
+   if(framed.length>1){
+    var headEl=document.querySelector('header.homehead');
+    var headBottom=headEl?headEl.getBoundingClientRect().bottom:76;
+    var topPad=Math.max(28, headBottom-box.top+20);
+    var botPad=Math.max(28, box.bottom-cardTop+16);
+    map.fitBounds(framed,{paddingTopLeft:[40, topPad], paddingBottomRight:[110, botPad], maxZoom:15, animate:false});
+    return;
+   }
    var z=regional;
    frame(z);
    if(bounds.length>1){ while(z>8 && !fits()){ z-=1; frame(z); } }
   }
+  var youMarker=null;
+  el._reframe=function(){
+   if(el._you){
+    if(!youMarker) youMarker=L.marker([el._you.lat, el._you.lng],{icon:L.divIcon({className:'mpin you',html:'<span class=pinhold><span class=youdot></span></span>',iconSize:[18,18],iconAnchor:[9,9]}),interactive:false,zIndexOffset:900}).addTo(map);
+    else youMarker.setLatLng([el._you.lat, el._you.lng]);
+   }
+   place();
+  };
   window.grunionsPlaceMap=place;
   setTimeout(function(){map.invalidateSize();place();},0);
   setTimeout(function(){map.invalidateSize();place();},250);
   function onResize(){if(!el.isConnected){window.removeEventListener('resize',onResize);return;}map.invalidateSize();place();}
   window.addEventListener('resize',onResize);
  }
- if(window.L) boot();
- else {
-  var s=document.querySelector('script[data-leaflet]');
-  if(!s){ s=document.createElement('script'); s.src='/static/leaflet/leaflet.js'; s.setAttribute('data-leaflet','1'); s.onload=boot; document.body.appendChild(s); }
-  else s.addEventListener('load', boot);
- }
+}
+if(window.L||(window.GRUNIONS_MAPBOX&&window.GRUNIONS_MAPBOX.token)) boot();
+else {
+ var s=document.querySelector('script[data-leaflet]');
+ if(!s){ s=document.createElement('script'); s.src='/static/leaflet/leaflet.js'; s.setAttribute('data-leaflet','1'); s.onload=boot; document.body.appendChild(s); }
+ else s.addEventListener('load', boot);
+}
+};
+window.grunionsShowYou=function(lat,lng){
+ if(!document.querySelector('[data-drive]')) return;
+ var el=document.getElementById('homeMap'); if(!el) return;
+ el._you={lat:lat,lng:lng};
+ if(el._reframe) el._reframe();
 };
 function grunionsPinHead(){
  var h=document.querySelector('header.homehead');
@@ -1845,6 +2056,7 @@ grunionsPinHead();
 window.addEventListener('resize', grunionsPinHead);
 </script>
 <script>var PUSH_CSRF="{{csrf_token()}}",VAPID_PUBLIC="{{vapid_public_key()}}";</script>
+<dialog class=botsheet id=mapSheet><div class=sheet><div class=grab></div><h2 id=mapSheetTitle>Location</h2><a class="btn btn-primary mapgo" id=mapSheetGo href="https://www.google.com/maps/dir/?api=1&destination=">Open in Maps</a></div></dialog>
 </body></html>""")
 
 ADMIN_NAV = """{% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% endfor %}"""
@@ -1873,7 +2085,8 @@ T["home"] = """{% if pins %}
 <script>
 (function(){
  var pins={{ pins|tojson }};
- function start(){ var el=document.getElementById('homeMap'); if(el&&window.grunionsMountMap) grunionsMountMap(el,{pins:pins,mode:'home'}); }
+ var route={{ route|tojson if route else '[]' }};
+ function start(){ var el=document.getElementById('homeMap'); if(el&&window.grunionsMountMap) grunionsMountMap(el,{pins:pins,mode:'home',route:route}); }
  if(window.grunionsMountMap) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
 </script>
@@ -1912,7 +2125,9 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ nextev.id }}><input type=hidden name=back value=/home>
 {{ rsvp_btn('Going', nextev.mine == 'going', 'going') }}
 {{ rsvp_btn('Not going', nextev.mine == 'notgoing', 'notgoing') }}</form>
-</div>{% elif nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/practices/{{nextp.id}}'">
+</div>{% elif nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label,.drivechip,.nxmap'))return;location.href='/practices/{{nextp.id}}'">
+{% if drive_on %}<div class="drivechip" data-drive="{{ {'kind':'practice','id':nextp.id}|tojson|forceescape }}"><button type=button class=drivechipbtn data-drive-ask>Show my drive time</button><p class=drivechiptext data-drive-line hidden></p></div>{% endif %}
+{% if social_after and sh %}<div class="nxnote afterline">After practice: {{ sh.place }}{% if social_mins %} · {{ social_mins }} min drive{% endif %}</div>{% endif %}
 {% if nextp.image %}<a class=cardlink href="/practices/{{nextp.id}}"><div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div></a>{% endif %}
 <div class=nxbody><a class=cardlink href="/practices/{{nextp.id}}">
 <div class=nxcardhead><div class="nxtitle cardtitle">{{ practice_title(nextp) }}</div><span class="chip-info daychip">{{ practice_live_chip(nextp) }}</span></div>
@@ -3225,7 +3440,7 @@ T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp
 """ + _PRACTICE_JS
 
 T["practice"] = """{% set p = x.p %}
-{{ event_hero('practiceMap', pins if not p.image else [], ('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', p.location or 'Practice') }}
+{{ event_hero('practiceMap', pins if not p.image else [], ('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', p.location or 'Practice', social_route_points(p)) }}
 <div class=profilehero>
 <div class=profilename>{{ practice_title(p) }}</div>
 {% if practice_sports_line(p) %}<p class="t3 sm sportline">{{ practice_sports_line(p) }}</p>{% endif %}
@@ -3325,6 +3540,7 @@ T["practice"] = """{% set p = x.p %}
 </div>
 {% endif %}
 {% else %}
+{% set spin = namespace(p=None) %}
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=pills style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>{% endif %}
@@ -3339,7 +3555,8 @@ T["practice"] = """{% set p = x.p %}
 {% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
 <div class="t3 sm">{{ x.social_n }} joining</div>
 {% if p.social_note %}<div class="t2 sm" style="white-space:pre-wrap">{{ p.social_note }}</div>{% endif %}
-{% if p.social_address %}{% if p.social_address.lower().startswith('http://') or p.social_address.lower().startswith('https://') %}<div class="sm"><a href="{{ p.social_address }}" target=_blank rel=noopener>Map</a></div>{% else %}<div class="t2 sm">{{ p.social_address }} · <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ p.social_address|urlencode }}" target=_blank rel=noopener>Map</a></div>{% endif %}{% endif %}
+{% for pin in pins %}{% if pin.kind == 'social' %}{% set spin.p = pin %}{% endif %}{% endfor %}
+{% if p.social_address %}{% if p.social_address.lower().startswith('http://') or p.social_address.lower().startswith('https://') %}<div class="sm"><a href="{{ p.social_address }}" target=_blank rel=noopener>Map</a></div>{% elif not spin.p %}<div class="t2 sm">{{ p.social_address }} · <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ p.social_address|urlencode }}" target=_blank rel=noopener>Map</a></div>{% else %}<div class="t2 sm">{{ p.social_address }}</div>{% endif %}{% endif %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
 </div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>
 <div class=seclabel>Coaches</div>
@@ -3365,7 +3582,7 @@ T["practice"] = """{% set p = x.p %}
 {% if can_host_practice() and x.checked %}<div class="sechead checkhead"><span class=seclabel>Checked in</span><a class="btn btn-secondary" href="{{ check_href }}">Check in</a></div>
 {% else %}<div class=seclabel>Checked in</div>{% endif %}
 <div class=list>{% for r in x.checked %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class="t3 grow">No one yet.</span>{% if can_host_practice() %}<a class="btn btn-secondary" href="{{ check_href }}">Check in</a>{% endif %}</div>{% endfor %}</div>
-{% if p.location %}{% set dest = (pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location) %}{{ event_location('practiceLoc', pins, p.location, p.address or '', 'https://www.google.com/maps/dir/?api=1&destination=' ~ (dest|urlencode)) }}{% endif %}
+{% if p.location %}{% set dest = (pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location) %}{{ event_location('practiceLoc', pins, p.location, p.address or '', 'https://www.google.com/maps/dir/?api=1&destination=' ~ (dest|urlencode), social_route_points(p), p.social_drive_min if pins|selectattr('kind','equalto','social')|list else none) }}{% endif %}
 {% endif %}
 {% if me().is_admin or is_staff() %}{{ practice_extra_dialogs(p, 'page') }}
 <dialog class=modal id=plan{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Practice plan</h2>

@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 import qrcode, qrcode.image.svg
 from markupsafe import Markup, escape
 import lineupfeed
+import routing
 import sports
 import ui
 from ui import T
@@ -28,6 +29,11 @@ BOT_API_KEY = os.environ.get("BOT_API_KEY")  # inbound: bearer token for the bot
 CRON_KEY = os.environ.get("CRON_KEY")  # lets a scheduler call /api/expiring without a session
 DEV_SHOW_LINKS = os.environ.get("DEV_SHOW_LINKS", "0") == "1"  # local testing only: show magic link on screen
 UPLOADS = os.environ.get("GRUNIONS_UPLOADS", os.path.join(DATA_DIR, "uploads"))
+MAPBOX_TOKEN = (os.environ.get("MAPBOX_TOKEN") or "").strip()
+try:
+    MAPBOX_DAILY_CAP = max(0, int(os.environ.get("MAPBOX_DAILY_CAP") or 2000))
+except ValueError:
+    MAPBOX_DAILY_CAP = 2000
 MAX_UPLOAD = 8 * 1024 * 1024
 REACTIONS = ["👍", "👎", "❤️", "😂", "🎉", "😮", "🔥", "👀", "🙏", "🥲", "💯"]
 app = Flask(__name__)
@@ -62,16 +68,28 @@ def wall_pt(when=None):
 def stamp_pt(timespec="seconds"):
     return wall_pt().isoformat(timespec=timespec)
 def upcoming_bounds(now=None):
-    """A practice stays on the schedule through its end minute (7:00–8:30 stays up at 8:30).
-    A month-only session stays through the last day of its window."""
+    """A practice stays through its end minute. One with a social address stays until an hour after that.
+    A month-only session stays through the last day of its window. Times are Pacific minutes."""
     n = wall_pt(now)
     day = n.date().isoformat()
-    return (day, day, "%02d:%02d" % (n.hour, n.minute), day)
+    prev = (n.date() - dt.timedelta(days=1)).isoformat()
+    minute = n.hour * 60 + n.minute
+    return (day, day, minute, minute, prev, minute, day)
+def _end_minutes_sql(alias):
+    col = "COALESCE(NULLIF(%send,''),'20:30')" % alias
+    return "(CAST(substr(%s,1,2) AS INTEGER)*60 + CAST(substr(%s,4,2) AS INTEGER))" % (col, col)
+def _social_address_sql(alias):
+    col = "%ssocial_address" % alias
+    return ("(trim(COALESCE(%s,''))!='' AND lower(trim(%s)) NOT LIKE 'http://%%' AND lower(trim(%s)) NOT LIKE 'https://%%')"
+            % (col, col, col))
 def upcoming_where(alias=""):
     p = (alias + ".") if alias else ""
-    return ("((COALESCE(%sdate_precision,'exact')!='month' AND (%sdate > ? OR (%sdate = ? AND COALESCE(%send, '20:30') >= ?)))"
+    end_min = _end_minutes_sql(p)
+    has = _social_address_sql(p)
+    return ("((COALESCE(%sdate_precision,'exact')!='month' AND (%sdate > ? OR (%sdate = ? AND (%s >= ? OR (%s AND %s + 60 >= ?)))"
+            " OR (%s AND %sdate = ? AND %s + 60 >= 1440 AND (%s + 60 - 1440) >= ?)))"
             " OR (COALESCE(%sdate_precision,'exact')='month' AND COALESCE(NULLIF(%send_date,''), %sdate) >= ?))"
-            ) % (p, p, p, p, p, p, p)
+            ) % (p, p, p, end_min, has, end_min, has, p, end_min, end_min, p, p, p)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS members(id INTEGER PRIMARY KEY, first TEXT NOT NULL, last TEXT NOT NULL,
@@ -113,6 +131,10 @@ CREATE TABLE IF NOT EXISTS job_locks(name TEXT PRIMARY KEY, locked_at TEXT);
 CREATE TABLE IF NOT EXISTS sheet_sync(id INTEGER PRIMARY KEY, at TEXT, ok INTEGER, detail TEXT);
 CREATE TABLE IF NOT EXISTS chat_reads(member_id INTEGER NOT NULL, channel TEXT NOT NULL, last_read INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(member_id, channel));
 CREATE TABLE IF NOT EXISTS practice_notices(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, kind TEXT NOT NULL, seen_at TEXT, PRIMARY KEY(practice_id, member_id, kind));
+CREATE TABLE IF NOT EXISTS route_budget(day TEXT PRIMARY KEY, calls INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS drive_cache(member_id INTEGER NOT NULL, practice_id INTEGER NOT NULL,
+  minutes INTEGER NOT NULL, traffic INTEGER NOT NULL, estimated INTEGER NOT NULL, fetched_at TEXT NOT NULL,
+  PRIMARY KEY(member_id, practice_id));
 CREATE TABLE IF NOT EXISTS lineup_events(id INTEGER PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL, date TEXT NOT NULL,
   end_date TEXT, city TEXT, venue TEXT, start TEXT, location TEXT, description TEXT, link TEXT, stage TEXT, hosting TEXT);
 CREATE TABLE IF NOT EXISTS lineup_rsvps(event_id INTEGER NOT NULL, member_id INTEGER NOT NULL, going INTEGER NOT NULL,
@@ -158,6 +180,7 @@ def migrate_practices(d):
                  ("social_address", "TEXT"), ("social_time", "TEXT"), ("social_note", "TEXT"),
                  ("coach_note", "TEXT"), ("coach_note_by", "TEXT"), ("coach_note_at", "TEXT"),
                  ("image", "TEXT"), ("lat", "REAL"), ("lng", "REAL"), ("social_lat", "REAL"), ("social_lng", "REAL"),
+                 ("social_route", "TEXT"), ("social_drive_min", "INTEGER"), ("social_routed", "INTEGER DEFAULT 0"),
                  ("address", "TEXT"), ("coaching_plan", "TEXT"),
                  ("series_id", "INTEGER"), ("series_detached", "INTEGER DEFAULT 0"), ("skipped", "INTEGER DEFAULT 0"),
                  ("activity_type", "TEXT"), ("sport", "TEXT"), ("title", "TEXT"), ("skill_levels", "TEXT"),
@@ -1529,6 +1552,42 @@ def api_messages():
       WHERE m.id>? AND m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT 200""", (after, ch, deleted_cutoff())).fetchall()
     return messages_json(with_seen(d, ch, list(reversed(rows)), info), info)
 
+@app.route("/api/drive", methods=["POST"])
+@login_required
+def api_drive():
+    """Minutes from the caller's device to an event. The origin is not stored or logged."""
+    body = request.get_json(silent=True) or {}
+    try:
+        eid = int(body.get("id"))
+    except (TypeError, ValueError):
+        return jsonify(error="event"), 400
+    if str(body.get("kind") or "") != "practice":
+        resp = jsonify(ok=True, show=False)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+    d = db()
+    p = d.execute("SELECT * FROM practices WHERE id=?", (eid,)).fetchone()
+    if not p:
+        return jsonify(error="no location"), 404
+    p = ensure_map_coords(d, p)
+    if not drive_offer(d, p, me()["id"]):
+        resp = jsonify(ok=True, show=False)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+    try:
+        lat, lng = float(body.get("lat")), float(body.get("lng"))
+    except (TypeError, ValueError):
+        return jsonify(error="location"), 400
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return jsonify(error="location"), 400
+    now = now_pt()
+    start, _end = practice_span(p)
+    arrive = start.replace(tzinfo=PT)
+    result, age = drive_cached(d, me()["id"], p["id"], (lat, lng), (p["lat"], p["lng"]), now)
+    resp = jsonify(ok=True, show=True, text=drive_phrase(result, arrive, now) + _updated_phrase(age),
+                   minutes=result.minutes, traffic=result.traffic, estimated=result.estimated)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 # ---------- practices ----------
 RECURRING = {1: ("Marina High School", "19:00", "20:30"), 4: ("Westminster High School", "19:00", "20:30")}  # Tue, Fri
 def note_schedule_gap(d, date, location):
@@ -1968,20 +2027,33 @@ def tile_weekday(iso):
     day = str(iso or "")[:10]
     if day == today_pt().isoformat(): return "TODAY"
     return weekday_abbr(day)
-def practice_live_chip(p, now=None):
-    """Upcoming until the session starts, In progress through its end minute."""
-    if not p or practice_is_month(p): return "Upcoming"
-    now = wall_pt(now)
+def has_social_address_text(addr):
+    addr = " ".join(str(addr or "").split())
+    return bool(addr) and not addr.lower().startswith(("http://", "https://"))
+def has_social_address(p):
+    if not p or not hasattr(p, "keys") or "social_address" not in p.keys(): return False
+    return has_social_address_text(p["social_address"])
+def practice_span(p):
     day = dt.date.fromisoformat(str(p["date"])[:10])
     def hm(raw, default):
         parts = str(raw or default).split(":")
         return int(parts[0]), int(parts[1] if len(parts) > 1 else 0)
     sh, sm = hm(p["start"], "19:00")
     eh, em = hm(p["end"], "20:30")
-    start = dt.datetime.combine(day, dt.time(sh, sm))
-    end = dt.datetime.combine(day, dt.time(eh, em))
+    return dt.datetime.combine(day, dt.time(sh, sm)), dt.datetime.combine(day, dt.time(eh, em))
+def practice_live_chip(p, now=None):
+    """Upcoming until the session starts, In progress through its end, then After practice for the social hour."""
+    if not p or practice_is_month(p): return "Upcoming"
+    now = wall_pt(now)
+    start, end = practice_span(p)
     if start <= now <= end: return "In progress"
+    if has_social_address(p) and end < now <= end + dt.timedelta(hours=1): return "After practice"
     return "Upcoming"
+def social_after_window(p, now=None):
+    if not p or practice_is_month(p) or not has_social_address(p): return False
+    now = wall_pt(now)
+    _start, end = practice_span(p)
+    return end < now <= end + dt.timedelta(hours=1)
 def practice_tile(p):
     if practice_is_month(p):
         day = dt.date.fromisoformat(str(p["date"])[:10])
@@ -2191,7 +2263,13 @@ def save_social(d, pid, form):
     d.execute("""UPDATE practices SET social_kind=?, social_place=?, social_address=?, social_time=?, social_note=? WHERE id=?""",
               (kind, place, address, social_time, note, pid))
     moved = not old or (old["social_place"] or "") != (place or "") or (old["social_address"] or "") != (address or "") or not kind
-    if moved: d.execute("UPDATE practices SET social_lat=NULL, social_lng=NULL WHERE id=?", (pid,))
+    if moved or not has_social_address_text(address):
+        d.execute("UPDATE practices SET social_lat=NULL, social_lng=NULL, social_route=NULL, social_drive_min=NULL, social_routed=0 WHERE id=?", (pid,))
+    if not has_social_address_text(address):
+        return True
+    row = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+    row = ensure_map_coords(d, row)
+    ensure_social_route(d, row)
     return True
 # Bare "Westminster High School" geocodes to Westminster, Colorado. These two pools are the California schools.
 POOLS = (
@@ -2265,15 +2343,169 @@ def ensure_map_coords(d, p):
     if changed:
         d.commit()
         p = d.execute("SELECT * FROM practices WHERE id=?", (p["id"],)).fetchone()
-    return p
+    ensure_social_route(d, p)
+    return d.execute("SELECT * FROM practices WHERE id=?", (p["id"],)).fetchone()
 def map_pins(p):
     """Pool pin, plus the social pin when that place has coordinates. No pool pin means no map."""
     if not p or p["lat"] is None or p["lng"] is None: return []
-    pins = [{"lat": p["lat"], "lng": p["lng"], "kind": "pool", "label": short_place(p["location"] or "")}]
+    pins = [{"lat": p["lat"], "lng": p["lng"], "kind": "pool", "label": " ".join(str(p["location"] or "").split())}]
     sh = social_home(p)
     if sh and p["social_lat"] is not None and p["social_lng"] is not None:
         pins.append({"lat": p["social_lat"], "lng": p["social_lng"], "kind": "social", "label": sh["place"]})
     return pins
+class SqliteRouteCap:
+    """Counts provider calls per Pacific day. It does not store a place or a person."""
+
+    def __init__(self, limit):
+        self.limit = limit
+
+    def try_take(self, now):
+        d = db()
+        day = as_pt(now).date().isoformat()
+        d.execute("INSERT OR IGNORE INTO route_budget(day, calls) VALUES(?,0)", (day,))
+        cur = d.execute("UPDATE route_budget SET calls=calls+1 WHERE day=? AND calls<?", (day, self.limit))
+        d.commit()
+        return cur.rowcount == 1
+def _drive_service():
+    provider = routing.MapboxProvider(MAPBOX_TOKEN) if MAPBOX_TOKEN else None
+    return routing.RoutingService(provider, SqliteRouteCap(MAPBOX_DAILY_CAP))
+drive_service = _drive_service()
+def _hhmm(value, default):
+    raw = str(value or default).strip() or default
+    parts = raw.split(":")
+    try:
+        return int(parts[0]), int(parts[1] if len(parts) > 1 else 0)
+    except ValueError:
+        h, m = default.split(":")
+        return int(h), int(m)
+def _aware_on(day, hour, minute):
+    return dt.datetime.combine(day, dt.time(hour, minute), PT)
+def map_tile_template():
+    """Kept for older callers. Maps use mapbox_client when a token is set."""
+    return ""
+def mapbox_client():
+    """Public token and dark style for the browser map. Empty without a token."""
+    if not MAPBOX_TOKEN: return {"token": "", "style": ""}
+    return {"token": MAPBOX_TOKEN, "style": "mapbox://styles/mapbox/dark-v11"}
+def social_route_points(p):
+    if not p or not hasattr(p, "keys") or "social_route" not in p.keys() or not p["social_route"]: return []
+    try:
+        pts = json.loads(p["social_route"])
+    except (TypeError, ValueError):
+        return []
+    return pts if isinstance(pts, list) else []
+app.jinja_env.globals.update(map_tiles=map_tile_template, mapbox_client=mapbox_client, social_route_points=social_route_points)
+def ensure_social_route(d, p):
+    """Fetch the practice-to-social road line once per saved address. Not a per-view call."""
+    if not p or "social_routed" not in p.keys(): return
+    if not has_social_address(p) or p["lat"] is None or p["lng"] is None or p["social_lat"] is None or p["social_lng"] is None:
+        return
+    if p["social_routed"]: return
+    now = now_pt()
+    got = drive_service.line((p["lat"], p["lng"]), (p["social_lat"], p["social_lng"]), now)
+    if not got:
+        if drive_service.provider is None or drive_service.auth_failed:
+            d.execute("UPDATE practices SET social_routed=1, social_route=NULL, social_drive_min=NULL WHERE id=?", (p["id"],))
+            d.commit()
+        return
+    minutes, points = got
+    d.execute("UPDATE practices SET social_routed=1, social_route=?, social_drive_min=? WHERE id=?",
+              (json.dumps(points, separators=(",", ":")), minutes, p["id"]))
+    d.commit()
+def drive_offer(d, p, member_id, now=None):
+    """Home drive time only on the practice day, from three hours before start until it starts, if not checked in."""
+    if not p or practice_is_month(p) or p["lat"] is None or p["lng"] is None: return False
+    if "cancelled" in p.keys() and p["cancelled"]: return False
+    now_w = wall_pt(now)
+    day = dt.date.fromisoformat(str(p["date"])[:10])
+    if day != now_w.date(): return False
+    start, _end = practice_span(p)
+    if not (start - dt.timedelta(hours=3) <= now_w < start): return False
+    if d.execute("SELECT 1 FROM checkins WHERE member_id=? AND practice_date=?", (member_id, day.isoformat())).fetchone():
+        return False
+    return True
+def _cache_age(fetched_at, now):
+    try:
+        fetched = dt.datetime.fromisoformat(fetched_at)
+    except (TypeError, ValueError):
+        return None
+    if fetched.tzinfo is None: fetched = fetched.replace(tzinfo=PT)
+    age = as_pt(now) - as_pt(fetched)
+    if age < dt.timedelta(0) or age >= routing.CACHE_FOR: return None
+    return age
+def drive_cached(d, member_id, practice_id, origin, dest, now):
+    """Return a stored Mapbox result for 15 minutes. Coordinates are never written."""
+    row = d.execute("SELECT minutes, traffic, estimated, fetched_at FROM drive_cache WHERE member_id=? AND practice_id=?",
+                    (member_id, practice_id)).fetchone()
+    if row and not row["estimated"]:
+        age = _cache_age(row["fetched_at"], now)
+        if age is not None:
+            return routing.Route(row["minutes"], traffic=bool(row["traffic"]), estimated=False), age
+    result = drive_service.drive(origin, dest, now)
+    if not result.estimated:
+        stamp = as_pt(now).replace(microsecond=0).isoformat()
+        d.execute("""INSERT INTO drive_cache(member_id, practice_id, minutes, traffic, estimated, fetched_at)
+            VALUES(?,?,?,?,0,?)
+            ON CONFLICT(member_id, practice_id) DO UPDATE SET
+              minutes=excluded.minutes, traffic=excluded.traffic, estimated=0, fetched_at=excluded.fetched_at""",
+                  (member_id, practice_id, result.minutes, 1 if result.traffic else 0, stamp))
+        d.commit()
+        return result, dt.timedelta(0)
+    return result, None
+def drive_target(d, kind, eid):
+    """Destination coordinates and the Pacific arrival time for one event. None when it has no pin."""
+    if kind == "practice":
+        p = d.execute("SELECT * FROM practices WHERE id=?", (eid,)).fetchone()
+        if not p: return None
+        p = ensure_map_coords(d, p)
+        if p["lat"] is None or p["lng"] is None: return None
+        if practice_is_month(p):
+            arrive = None
+        else:
+            day = dt.date.fromisoformat(str(p["date"])[:10])
+            hour, minute = _hhmm(p["start"], "19:00")
+            arrive = _aware_on(day, hour, minute)
+        return {"dest": (p["lat"], p["lng"]), "arrive": arrive, "key": "practice:%d" % p["id"]}
+    if kind == "social":
+        p = d.execute("SELECT * FROM practices WHERE id=?", (eid,)).fetchone()
+        if not p: return None
+        p = ensure_map_coords(d, p)
+        if p["social_lat"] is None or p["social_lng"] is None: return None
+        day = dt.date.fromisoformat(str(p["date"])[:10])
+        clock = p["social_time"] or p["end"] or "20:30"
+        hour, minute = _hhmm(clock, "20:30")
+        return {"dest": (p["social_lat"], p["social_lng"]), "arrive": _aware_on(day, hour, minute), "key": "social:%d" % p["id"]}
+    if kind == "lineup":
+        row = lineup_event_row(d, eid)
+        if not row or not lineup_seen(row, me()): return None
+        if "lat" not in row.keys() or row["lat"] is None or row["lng"] is None: return None
+        precision = row["date_precision"] if "date_precision" in row.keys() and row["date_precision"] else "exact"
+        arrive = None
+        if precision != "month":
+            start, _end = event_window(row)
+            arrive = start.replace(tzinfo=PT)
+        return {"dest": (row["lat"], row["lng"]), "arrive": arrive, "key": "lineup:%d" % row["id"]}
+    return None
+def drive_phrase(result, arrive, now):
+    if result.estimated:
+        head = "%d min est." % result.minutes
+    elif result.traffic:
+        head = "%d min with traffic" % result.minutes
+    else:
+        head = "%d min" % result.minutes
+    if arrive is None:
+        return head
+    leave = arrive - dt.timedelta(minutes=result.minutes)
+    if leave <= now:
+        return head + " · leave now"
+    wall = wall_pt(leave)
+    return head + " · leave by " + fmt_clock("%d:%02d" % (wall.hour, wall.minute))
+def _updated_phrase(age):
+    if age is None: return ""
+    mins = int(age.total_seconds() // 60)
+    if mins <= 0: return " · updated just now"
+    if mins == 1: return " · updated 1 min ago"
+    return " · updated %d min ago" % mins
 def save_coach_note(d, pid, text):
     text = " ".join((text or "").split())[:280]
     old = d.execute("SELECT coach_note FROM practices WHERE id=?", (pid,)).fetchone()
@@ -2830,10 +3062,15 @@ def combined_view(entry):
     vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
     pins = map_pins(nextp)
     data = upcoming_schedule(d)
+    route = social_route_points(nextp) if nextp else []
+    drive_on = next_kind == "practice" and bool(nextp) and drive_offer(d, nextp, m["id"])
+    social_after = next_kind == "practice" and bool(nextp) and social_after_window(nextp)
+    social_mins = int(nextp["social_drive_min"]) if nextp and "social_drive_min" in nextp.keys() and nextp["social_drive_min"] else None
     return page(T["home"], tab="practices" if entry == "practices" else "home",
         m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices,
         nextp=nextp, next_kind=next_kind, nextev=nextev, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined,
-        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, data=data, coach_choices=coach_candidates(d) if m["is_admin"] else [])
+        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, route=route, drive_on=drive_on,
+        social_after=social_after, social_mins=social_mins, data=data, coach_choices=coach_candidates(d) if m["is_admin"] else [])
 @app.route("/practices", methods=["GET", "POST"])
 @login_required
 def practices():
