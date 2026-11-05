@@ -174,6 +174,8 @@ def migrate_verify_requests(d):
     cols = [r[1] for r in d.execute("PRAGMA table_info(verify_requests)")]
     if "member_submitted" not in cols:
         d.execute("ALTER TABLE verify_requests ADD COLUMN member_submitted INTEGER DEFAULT 0")
+    if "admin_requested" not in cols:
+        d.execute("ALTER TABLE verify_requests ADD COLUMN admin_requested INTEGER DEFAULT 0")
 def migrate_referee_list(d):
     """Referee list mirrors the coaching list. Existing members are not added."""
     d.execute("""CREATE TABLE IF NOT EXISTS referee_list(
@@ -4335,38 +4337,52 @@ def drop_bot_verify_messages(d):
     d.execute("DELETE FROM messages WHERE id IN (%s)" % marks, ids)
     d.commit()
 def vr_dict(r):
-    return {k: r[k] for k in ("id", "member_id", "name", "email", "member_number", "requested_by", "status", "created", "answered", "note")} | {"member_submitted": bool(r["member_submitted"]), "result": json.loads(r["result"]) if r["result"] else None}
+    return {k: r[k] for k in ("id", "member_id", "name", "email", "member_number", "requested_by", "status", "created", "answered", "note")} | {"member_submitted": bool(r["member_submitted"]), "admin_requested": bool(r["admin_requested"]) if "admin_requested" in r.keys() else False, "result": json.loads(r["result"]) if r["result"] else None}
 def webhook_headers():
     h = {"Content-Type": "application/json"}
     if VERIFY_WEBHOOK_KEY:
         h[VERIFY_WEBHOOK_HEADER or "Authorization"] = VERIFY_WEBHOOK_KEY if VERIFY_WEBHOOK_HEADER else "Bearer " + VERIFY_WEBHOOK_KEY
     return h
+def _person_name(row):
+    return ("%s %s" % ((row["first"] or "").strip(), (row["last"] or "").strip())).strip()
 def post_verify_webhook(row, preferred_first=None):
     """POST a verify request. Failures are logged and never raised."""
     if not VERIFY_WEBHOOK_URL: return "skipped (no VERIFY_WEBHOOK_URL)"
+    admin_requested = bool(row["admin_requested"]) if "admin_requested" in row.keys() else False
     payload = {"request_id": row["id"], "member_id": row["member_id"], "name": row["name"], "preferred_first": clean_preferred(preferred_first),
                "email": row["email"], "member_number": row["member_number"], "requested_by": row["requested_by"],
-               "member_submitted": bool(row["member_submitted"]), "app_url": PUBLIC_URL}
+               "member_submitted": bool(row["member_submitted"]), "admin_requested": admin_requested, "app_url": PUBLIC_URL}
     try:
         req = urllib.request.Request(VERIFY_WEBHOOK_URL, data=json.dumps(payload).encode(), headers=webhook_headers(), method="POST")
         with urllib.request.urlopen(req, timeout=5) as resp: return f"sent ({resp.status})"
     except Exception as e:
         app.logger.warning("verify webhook failed: %s", e)
         return f"failed: {e.__class__.__name__}"
-def create_verify_request(d, mid, update_pending=False):
+def create_verify_request(d, mid, update_pending=False, by_admin=False):
     m = d.execute("SELECT * FROM members WHERE id=?", (mid,)).fetchone()
+    actor = me()
+    if by_admin:
+        requested_by, submitted, admin_flag = _person_name(actor), 0, 1
+    else:
+        requested_by = _person_name(actor if actor else m)
+        submitted, admin_flag = (1 if actor and actor["id"] == mid else 0), 0
     pending = d.execute("SELECT id FROM verify_requests WHERE member_id=? AND status='pending' ORDER BY id DESC LIMIT 1", (mid,)).fetchone()
     if pending:
         if not update_pending: return "A verification request is already pending."
-        d.execute("UPDATE verify_requests SET member_number=? WHERE id=?", (m["usawp_number"], pending["id"])); d.commit()
+        if by_admin:
+            d.execute("UPDATE verify_requests SET member_number=?, requested_by=?, member_submitted=0, admin_requested=1 WHERE id=?",
+                      (m["usawp_number"], requested_by, pending["id"]))
+        else:
+            d.execute("UPDATE verify_requests SET member_number=? WHERE id=?", (m["usawp_number"], pending["id"]))
+        d.commit()
         r = d.execute("SELECT * FROM verify_requests WHERE id=?", (pending["id"],)).fetchone()
         wh = post_verify_webhook(r, m["preferred_first"])
         d.execute("UPDATE verify_requests SET webhook=? WHERE id=?", (wh, pending["id"])); d.commit()
         return f"Updated the pending verification request for {m['first']} {m['last']}. Webhook {wh}."
     now = dt.datetime.now().isoformat(timespec="seconds")
-    submitted = 1 if me()["id"] == mid else 0
-    rid = d.execute("INSERT INTO verify_requests(member_id,name,email,member_number,requested_by,member_submitted,created) VALUES(?,?,?,?,?,?,?)",
-                    (mid, f"{m['first']} {m['last']}", m["email"], m["usawp_number"], f"{me()['first']} {me()['last']}", submitted, now)).lastrowid
+    rid = d.execute("""INSERT INTO verify_requests(member_id,name,email,member_number,requested_by,member_submitted,admin_requested,created)
+                    VALUES(?,?,?,?,?,?,?,?)""",
+                    (mid, f"{m['first']} {m['last']}", m["email"], m["usawp_number"], requested_by, submitted, admin_flag, now)).lastrowid
     d.commit(); r = d.execute("SELECT * FROM verify_requests WHERE id=?", (rid,)).fetchone(); wh = post_verify_webhook(r, m["preferred_first"])
     d.execute("UPDATE verify_requests SET webhook=? WHERE id=?", (wh, rid)); d.commit()
     try: notify_new_verify_request(d, m)
@@ -4546,7 +4562,7 @@ def handle_member_detail(d, mid):
         if not verify_webhook_configured():
             flash("Set VERIFY_WEBHOOK_URL so Grunions can look this member up on Sport:80.", "toast")
         else:
-            create_verify_request(d, mid, update_pending=True)
+            create_verify_request(d, mid, update_pending=True, by_admin=True)
             flash("Check requested · looking up on Sport:80", "toast")
     elif act == "req":
         rid = int(request.form["req_id"]); done = parse_date(request.form.get("completed_on")); exp = parse_date(request.form.get("expires_on"))
@@ -4776,7 +4792,7 @@ def expiring():
     if request.method == "POST" and request.form.get("action") == "ask_all":
         rep = expiry_report(d, days)
         ids = [r["id"] for r in expiring_roster(d, rep)]
-        asked = sum(1 for mid in ids if create_verify_request(d, mid).startswith("Asked"))
+        asked = sum(1 for mid in ids if create_verify_request(d, mid, by_admin=True).startswith("Asked"))
         if not ids: flash("No one to recheck.", "toast")
         else: flash("Asked Grunions to recheck %d %s." % (asked, "person" if asked == 1 else "people"), "toast")
         return redirect(url_for("expiring", days=days))
