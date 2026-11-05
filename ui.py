@@ -140,20 +140,12 @@ a.reglink{color:var(--accent);text-decoration:none;font-weight:600}
 .bannerprev img{width:100%;height:100%;object-fit:cover;display:block}
 .bannerpick .btn{position:relative;overflow:hidden}
 body.practicepage main{padding-top:0}
-.homemap.leaflet-container,.homemap .leaflet-container{background:var(--color-map)}
-.homemap .leaflet-tile-pane{filter:grayscale(1) invert(1) contrast(.9) brightness(.82);opacity:0;transition:opacity .45s ease}
-.homemap.mapbox .leaflet-tile-pane{filter:none}
-.homemap.tiles .leaflet-tile-pane{opacity:1}
-.homemap .leaflet-control-attribution{background:var(--color-scrim);color:var(--color-text-secondary);font-size:10px;max-width:70%}
-.homemap .leaflet-control-attribution a{color:var(--color-icon)}
 .mapboxgl-ctrl-bottom-right{margin:0 6px 6px 0;z-index:460}
 .mapboxgl-ctrl-logo{opacity:.5;transform:scale(.62);transform-origin:right bottom;margin:0;cursor:pointer}
 .mapattrib{position:fixed;z-index:40;margin:0;padding:5px 8px;background:#141816;border-radius:8px;font-size:10px;line-height:1.2;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.35)}
 .mapattrib a{color:rgba(255,255,255,.72);text-decoration:none}
 .mapattrib a+a{margin-left:8px}
 body.homefull .homemap .mapboxgl-ctrl-bottom-right{position:absolute;right:6px;left:auto;bottom:var(--map-attrib,12px);margin:0;pointer-events:auto;z-index:460}
-.homemap .leaflet-bar a,.homemap .leaflet-bar a:hover{background:var(--color-surface-2);color:var(--color-text);border-bottom-color:var(--color-border)}
-.homemap .leaflet-marker-icon.mpin{background:transparent;border:0;box-shadow:none;overflow:visible}
 .pinrow{display:flex;align-items:center;gap:6px;height:18px;width:max-content}
 .pinhold{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex:none}
 .pindot{display:block;width:18px;height:18px;box-sizing:border-box;border-radius:50%;background:var(--color-lime);border:3px solid var(--color-bg);box-shadow:0 0 0 1px var(--color-lime)}
@@ -182,7 +174,6 @@ body.schedopen header.homehead{background:var(--color-bg)}
 body.schedopen .homemap{opacity:0}
 #schedule{scroll-margin-top:calc(var(--homehead, 88px) + 8px)}
 @media (prefers-reduced-motion:reduce){body.homefull .homemap{transition:none}}
-body.homefull .homemap .leaflet-marker-icon,body.homefull .homemap .leaflet-control-attribution{pointer-events:auto}
 body.profilepage main{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
 header.profilebar{position:sticky;top:0;left:0;right:0;z-index:5;width:100%;max-width:none;background:var(--color-bg);display:grid;grid-template-columns:88px 1fr 88px;grid-template-rows:44px;align-items:center;padding:env(safe-area-inset-top) 6px 0;box-sizing:border-box;min-height:44px;border:0;box-shadow:none;view-transition-name:grunions-header}
 header.profilebar h1{margin:0;text-align:center;font-size:var(--type-t4-size);font-weight:var(--type-t4-weight);line-height:44px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -2101,14 +2092,24 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
   }
   el._mapDead=false;
   delete el.dataset.mapon;
-  delete el.dataset.leaflet;
   delete el.dataset.marked;
   if(!el.isConnected) return;
   var pins=opts.pins||[];
   if(!pins.length) return;
   var mb=window.GRUNIONS_MAPBOX||{};
-  try{ if(sessionStorage.getItem('grunionsMapbox')==='no') mb={}; }catch(err){}
   function pinText(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
+  function showPlain(){
+   var parent=el.parentNode, next=el.nextSibling, map=el._gmap;
+   try{ if(map&&map.remove) map.remove(); }catch(e){}
+   if(parent&&el.isConnected===false) parent.insertBefore(el, next);
+   el.innerHTML='';
+   el.classList.remove('mapboxgl-map');
+   el.removeAttribute('style');
+   el._gmap=null;
+   delete el.dataset.mapon;
+   delete el.dataset.marked;
+   el.style.background='#090D0B';
+  }
   function afterPaint(fn){
    function go(){ requestAnimationFrame(function(){ setTimeout(fn, 0); }); }
    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', go); else go();
@@ -2116,9 +2117,9 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
   afterPaint(function(){
    var tries=0;
    function begin(){
-    if(!el.isConnected||el._gmap||el.dataset.leaflet) return;
+    if(!el.isConnected||el._gmap) return;
     if(mb.token&&mb.style) bootMapbox(pins);
-    else useOSM();
+    else showPlain();
    }
    function waitSize(){
     if(!el.isConnected) return;
@@ -2130,26 +2131,15 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
   return;
  function bootMapbox(pins){
   var gaveUp=false;
-  var timer=setTimeout(function(){ giveUp(); }, 2000);
   function giveUp(){
-   if(gaveUp||el.dataset.leaflet) return;
+   if(gaveUp) return;
    gaveUp=true;
-   clearTimeout(timer);
    if(!el.isConnected) return;
-   var parent=el.parentNode, next=el.nextSibling, map=el._gmap;
-   try{ if(map) map.remove(); }catch(e){}
-   if(parent&&el.isConnected===false) parent.insertBefore(el, next);
-   el.innerHTML='';
-   el.classList.remove('mapboxgl-map');
-   el.removeAttribute('style');
-   el._gmap=null;
-   delete el.dataset.mapon;
-   el.style.background='#090D0B';
-   useOSM();
+   showPlain();
   }
   function start(){
-   if(gaveUp||el.dataset.leaflet) return;
-   if(!el.isConnected||el.dataset.mapon||el.dataset.leaflet||!window.mapboxgl) return;
+   if(gaveUp) return;
+   if(!el.isConnected||el.dataset.mapon||!window.mapboxgl) return;
    var map;
    try{
     mapboxgl.accessToken=mb.token;
@@ -2245,7 +2235,7 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
     var pop=document.createElement('div');
     pop.className='mapattrib';
     pop.hidden=true;
-    pop.innerHTML='<a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">© Mapbox</a><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a>';
+    pop.innerHTML='<a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">© Mapbox</a>';
     document.body.appendChild(pop);
     function place(){
      var r=logo.getBoundingClientRect();
@@ -2353,7 +2343,6 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
     settled=true;
     gaveUp=true;
     el._mapSpins=0;
-    clearTimeout(timer);
     tuckAttrib();
     staticCredit();
     hideLabels();
@@ -2399,157 +2388,12 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
   else if(window.mapboxgl) start();
   else { s.addEventListener('load', start); s.addEventListener('error', function(){ giveUp(); }); }
  }
- function useOSM(){
-  try{ sessionStorage.setItem('grunionsMapbox','no'); }catch(e){}
-  if(!document.querySelector('link[data-leaflet-css]')){
-   var css=document.createElement('link'); css.rel='stylesheet'; css.href='/static/leaflet/leaflet.css'; css.setAttribute('data-leaflet-css','1'); document.head.appendChild(css);
-  }
-  if(window.L){ bootLeaflet(); return; }
-  var s=document.querySelector('script[data-leaflet]');
-  if(!s){ s=document.createElement('script'); s.async=true; s.src='/static/leaflet/leaflet.js'; s.setAttribute('data-leaflet','1'); s.onload=bootLeaflet; document.body.appendChild(s); }
-  else if(window.L) bootLeaflet();
-  else s.addEventListener('load', bootLeaflet);
- }
- function bootLeaflet(){
-  if(el.dataset.leaflet) return;
-  el.dataset.leaflet='1';
-  el.dataset.mapon='1';
-  var still=opts.mode==='still';
-  var map=L.map(el,{zoomControl:false,attributionControl:!still,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false});
-  el._gmap=map;
-  var tileUrl=window.GRUNIONS_MAP_TILES||'';
-  var tiles;
-  if(tileUrl){
-   el.classList.add('mapbox');
-   tiles=L.tileLayer(tileUrl,{maxZoom:19,tileSize:512,zoomOffset:-1,attribution:'&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'});
-  }else tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'});
-  tiles.addTo(map);
-  var faded=false; tiles.on('tileload',function(){if(!faded){faded=true;el.classList.add('tiles')}});
-  function icon(kind, label){
-   var name=pinText(label), pill=name?'<span class=pinpill>'+name+'</span>':'';
-   return L.divIcon({className:'mpin'+(kind==='social'?' social':''),html:'<span class=pinrow><span class=pinhold><span class=pindot></span></span>'+pill+'</span>',iconSize:[18,18],iconAnchor:[9,9]});
-  }
-  var bounds=[], pool=null;
-  pins.forEach(function(p){ if(p.kind==='pool') pool=p; bounds.push([p.lat,p.lng]); });
-  if(!pool) pool=pins[0];
-  function go(p){ var t=opts.mode==='card'?pool:p; grunionsDirections(t.lat, t.lng); }
-  var route=opts.route||[];
-  if(route.length>1){
-   var accent=(getComputedStyle(document.documentElement).getPropertyValue('--color-lime')||'#B2DE64').trim()||'#B2DE64';
-   L.polyline(route,{color:accent,weight:4,opacity:.95,interactive:false}).addTo(map);
-   route.forEach(function(pt){ bounds.push(pt); });
-  }
-  pins.forEach(function(p){
-   var m=L.marker([p.lat,p.lng],{icon:icon(p.kind, p.label),interactive:!still,title:p.label||(p.kind==='social'?'Social':'Practice'),zIndexOffset:p.kind==='pool'?800:0}).addTo(map);
-   if(!still) m.on('click',function(ev){ if(L.DomEvent) L.DomEvent.stopPropagation(ev); go(p); });
-  });
-  if(el.hasAttribute('data-map-open')) map.on('click',function(){ if(window.grunionsOfferMaps) grunionsOfferMaps(el); });
-  else if(opts.mode==='card') map.on('click',function(){ go(pool); });
-  function place(){
-   if(!el.clientHeight||!pool) return;
-   if(opts.mode==='card'||still){
-    if(bounds.length>1) map.fitBounds(bounds,{paddingTopLeft:[36,28],paddingBottomRight:[200,28],maxZoom:15,animate:false});
-    else map.setView([pool.lat, pool.lng], 15, {animate:false});
-    return;
-   }
-   var box=el.getBoundingClientRect();
-   var card=document.querySelector('.nextcard');
-   var cardTop=card?card.getBoundingClientRect().top:(box.top+box.height*0.62);
-   var visTop=Math.max(box.top, 0);
-   var visBottom=Math.min(cardTop, box.bottom);
-   if(visBottom-visTop<80) visBottom=Math.min(box.bottom, visTop+80);
-   var padTop=Math.max(0, visTop-box.top);
-   var padBottom=Math.max(0, box.bottom-visBottom);
-   var regional=12;
-   function frame(z){
-    map.setView([pool.lat, pool.lng], z, {animate:false});
-    var pt=map.latLngToContainerPoint([pool.lat, pool.lng]);
-    var targetX=el.clientWidth/2;
-    var targetY=(cardTop*5/12)-box.top;
-    map.panBy([pt.x-targetX, pt.y-targetY], {animate:false});
-   }
-   function fits(){
-    var pad=24;
-    var topLimit=padTop+pad, botLimit=el.clientHeight-padBottom-pad;
-    for(var i=0;i<bounds.length;i++){
-     var q=map.latLngToContainerPoint(bounds[i]);
-     if(q.x<pad||q.y<topLimit||q.x>el.clientWidth-pad||q.y>botLimit) return false;
-    }
-    return true;
-   }
-   var focus=[];
-   pins.forEach(function(p){ if(isFinite(p.lat)&&isFinite(p.lng)) focus.push([p.lat, p.lng]); });
-   if(el._you && isFinite(el._you.lat)&&isFinite(el._you.lng)) focus.push([el._you.lat, el._you.lng]);
-   if(focus.length||bounds.length){
-    var fit=bounds.slice();
-    if(el._you) fit.push([el._you.lat, el._you.lng]);
-    var headBest=0;
-    ['header.homehead .titlestack','header.homehead .usawpchip','header.homehead .hititle','header.homehead .headplus','header.homehead a.avatar','header.homehead'].forEach(function(sel){
-     var n=document.querySelector(sel); if(!n) return;
-     var b=n.getBoundingClientRect().bottom; if(b>headBest) headBest=b;
-    });
-    if(!headBest) headBest=box.top+76;
-    var above=11, wide=18;
-    el.querySelectorAll('.pinpill,.pinrow').forEach(function(n){
-     var r=n.getBoundingClientRect();
-     if(r.height>above*2) above=Math.ceil(r.height/2);
-     if(r.width>wide) wide=Math.ceil(r.width);
-    });
-    above+=2;
-    var top=Math.round(headBest-box.top+24+above);
-    var bottom=Math.max(24, Math.round(box.bottom-cardTop+24));
-    var h=el.clientHeight||box.height||1, minInner=80;
-    if(top+bottom>h-minInner){
-     var room=Math.max(0, h-minInner);
-     if(room>top+24) bottom=room-top;
-     else { var sum=top+bottom||1; top=Math.round(room*top/sum); bottom=room-top; }
-    }
-    var right=Math.max(160, wide-9+24);
-    var cap=(pins.length>1||(opts.route&&opts.route.length>1))?15:12;
-    var guard=0, floor=headBest+24;
-    while(guard<8){
-     map.fitBounds(fit,{paddingTopLeft:[48, top], paddingBottomRight:[right, bottom], maxZoom:cap, animate:false});
-     var bad=false, i, q;
-     for(i=0;i<fit.length;i++){
-      q=map.latLngToContainerPoint(fit[i]);
-      if(box.top+q.y-(i<pins.length?above:3)<floor-1) bad=true;
-     }
-     if(!bad||cap<=8) break;
-     cap=Math.max(8, map.getZoom()-0.5);
-     guard++;
-    }
-    return;
-   }
-   var framed=bounds.slice();
-   if(el._you) framed.push([el._you.lat, el._you.lng]);
-   if(framed.length>1){
-    var headEl=document.querySelector('header.homehead');
-    var headBottom=headEl?headEl.getBoundingClientRect().bottom:76;
-    var topPad=Math.max(28, headBottom-box.top+20);
-    var botPad=Math.max(28, box.bottom-cardTop+16);
-    map.fitBounds(framed,{paddingTopLeft:[40, topPad], paddingBottomRight:[110, botPad], maxZoom:15, animate:false});
-    return;
-   }
-   var z=regional;
-   frame(z);
-   if(bounds.length>1){ while(z>8 && !fits()){ z-=1; frame(z); } }
-  }
-  var youMarker=null;
-  el._reframe=function(){
-   if(el._you){
-    if(!youMarker) youMarker=L.marker([el._you.lat, el._you.lng],{icon:L.divIcon({className:'mpin you',html:'<span class=pinhold><span class=youdot></span></span>',iconSize:[18,18],iconAnchor:[9,9]}),interactive:false,zIndexOffset:900}).addTo(map);
-    else youMarker.setLatLng([el._you.lat, el._you.lng]);
-   }
-   place();
-  };
-  window.grunionsPlaceMap=place;
-  setTimeout(function(){map.invalidateSize();place();},0);
-  setTimeout(function(){map.invalidateSize();place();},250);
-  function onResize(){if(!el.isConnected){window.removeEventListener('resize',onResize);return;}map.invalidateSize();place();}
-  window.addEventListener('resize',onResize);
- }
 }
 boot();
+};
+window.grunionsPlaceMap=function(){
+ var el=document.getElementById('homeMap');
+ if(el&&el._reframe) el._reframe();
 };
 window.grunionsShowYou=function(lat,lng){
  if(!document.querySelector('[data-drive]')) return;
@@ -2561,7 +2405,6 @@ window.grunionsMapAlive=function(el){
  if(!el||!el.isConnected||el._mapDead||!el._gmap) return false;
  if(el.clientWidth<2||el.clientHeight<2) return false;
  var canvas=el.querySelector('canvas');
- if(el.classList.contains('leaflet-container')) return true;
  if(!canvas||canvas.dataset.lost==='1') return false;
  return canvas.width>1&&canvas.height>1;
 };
@@ -2575,7 +2418,6 @@ window.grunionsRefreshMap=function(el, force){
   if(parent && el.isConnected===false) parent.insertBefore(el, next);
   el._gmap=null;
   delete el.dataset.mapon;
-  delete el.dataset.leaflet;
   delete el.dataset.marked;
   el.innerHTML='';
   el.className='homemap';
@@ -2595,7 +2437,6 @@ window.grunionsRefreshMap=function(el, force){
  }
  if(el._mapOpts && window.grunionsMountMap){
   delete el.dataset.mapon;
-  delete el.dataset.leaflet;
   window.grunionsMountMap(el, el._mapOpts);
  }
 };

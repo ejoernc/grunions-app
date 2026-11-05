@@ -961,10 +961,7 @@ def admin_notices():
     if not (me() and me()["is_admin"]): return []
     d = db(); rows = d.execute("SELECT * FROM notices WHERE member_id=? AND seen=0 ORDER BY id DESC", (me()["id"],)).fetchall()
     d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (me()["id"],)); d.commit(); return rows
-def leaflet_css():
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "leaflet", "leaflet.css")
-    with open(path, encoding="utf-8") as f: return f.read()
-app.jinja_env.globals.update(REACTIONS=REACTIONS, csrf_token=csrf_token, csrf_field=csrf_field, admin_notices=admin_notices, me=me, leaflet_css=leaflet_css(), foundation_css=ui.FOUNDATION)
+app.jinja_env.globals.update(REACTIONS=REACTIONS, csrf_token=csrf_token, csrf_field=csrf_field, admin_notices=admin_notices, me=me, foundation_css=ui.FOUNDATION)
 def start_session(mid):
     session.clear(); session.permanent = True; session["mid"] = mid; csrf_token()
 
