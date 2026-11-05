@@ -2398,7 +2398,13 @@ def social_route_points(p):
     except (TypeError, ValueError):
         return []
     return pts if isinstance(pts, list) else []
-app.jinja_env.globals.update(map_tiles=map_tile_template, mapbox_client=mapbox_client, social_route_points=social_route_points)
+def map_boot():
+    """Map runtime once per response, and only on pages that call this."""
+    if getattr(g, "map_boot_sent", False):
+        return Markup("")
+    g.map_boot_sent = True
+    return Markup(ui.map_script(json.dumps(mapbox_client())))
+app.jinja_env.globals.update(map_tiles=map_tile_template, mapbox_client=mapbox_client, social_route_points=social_route_points, map_boot=map_boot)
 def ensure_social_route(d, p):
     """Fetch the practice-to-social road line once per saved address. Not a per-view call."""
     if not p or "social_routed" not in p.keys(): return
@@ -5575,7 +5581,33 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-114 */
+SW_JS = """/* grunions-sw-115 */
+var MAPBOX_CACHE = 'grunions-mapbox-v1';
+var MAPBOX_URLS = [
+  'https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js',
+  'https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css'
+];
+self.addEventListener('install', function(event) {
+  event.waitUntil(caches.open(MAPBOX_CACHE).then(function(cache) {
+    return cache.addAll(MAPBOX_URLS);
+  }).then(function() { return self.skipWaiting(); }).catch(function() {}));
+});
+self.addEventListener('activate', function(event) {
+  event.waitUntil(self.clients.claim());
+});
+self.addEventListener('fetch', function(event) {
+  var url = event.request.url.split('?')[0];
+  if (MAPBOX_URLS.indexOf(url) === -1) return;
+  event.respondWith(caches.open(MAPBOX_CACHE).then(function(cache) {
+    return cache.match(url).then(function(hit) {
+      var net = fetch(event.request).then(function(res) {
+        if (res && res.ok) cache.put(url, res.clone());
+        return res;
+      }).catch(function() { return hit; });
+      return hit || net;
+    });
+  }));
+});
 self.addEventListener('push', function(event) {
   var data = {title: 'Regulars', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}

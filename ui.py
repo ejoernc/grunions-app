@@ -16,7 +16,6 @@ BASE = """<!doctype html><html lang=en style="background:#090D0B;color-scheme:da
 <link rel=icon href=/static/icons/favicon-16.png?v=113 sizes=16x16 type=image/png>
 <link rel=apple-touch-icon href=/static/icons/apple-touch-icon-180.png?v=113>
 <title>Regulars</title>
-<style>{{ leaflet_css|safe }}</style>
 <style>{{ foundation_css|safe }}
 html,body{background:var(--color-bg);color:var(--color-text)}html{color-scheme:dark}
 @view-transition{navigation:auto}
@@ -88,7 +87,7 @@ a.usawpchip.warn,a.usawpchip.bad{color:var(--color-text)}
 .nxglyph{width:16px;height:16px;flex:none;color:var(--color-icon)}
 .nextcard .pills{margin:14px 16px 0}.nextcard .pills:last-child{margin-bottom:16px}
 .nextcard .nxdiv{margin:14px 16px}.nextcard .nxsocial{padding:0 16px 16px}
-.homemap{height:300px;margin:0 -20px 16px;background:var(--color-map);position:relative;z-index:1}
+.homemap{height:300px;margin:0 -20px 16px;background:#090D0B;position:relative;z-index:1}
 .homemap.cardmap{height:220px;margin:0 0 12px;border-radius:14px;overflow:hidden;cursor:pointer;touch-action:pan-y}
 .homemap.banner{height:220px;margin:0 -20px 0;border-radius:0;overflow:hidden;position:relative}
 .homemap.banner::after{content:"";position:absolute;left:0;right:0;bottom:0;height:84px;background:linear-gradient(transparent,var(--color-bg));z-index:450;pointer-events:none}
@@ -139,7 +138,7 @@ body.homefull .homemap .mapboxgl-ctrl-bottom-right{position:absolute;right:6px;l
 body.homefull header.homehead{position:sticky;top:0;z-index:8;background:transparent}
 body.homefull header.homehead.solid{background:var(--color-bg)}
 body.homefull main{position:relative;z-index:1;padding:0 16px calc(var(--nav-clear) + 16px + env(safe-area-inset-bottom))}
-body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:0;height:auto;margin:0;z-index:0;border-radius:0;pointer-events:none}
+body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:0;height:auto;margin:0;z-index:0;border-radius:0;pointer-events:none;touch-action:auto;background:#090D0B}
 body.homefull .homedock{position:relative;left:auto;right:auto;bottom:auto;z-index:2;max-height:none;overflow:visible;pointer-events:auto;margin:0;padding:0 0 12px;min-height:calc(100dvh - var(--homehead, 76px) - var(--homealerts, 0px) - var(--nav-clear) - env(safe-area-inset-bottom) - var(--peek, 24px));display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
 body.homefull .schedlist{position:relative;z-index:2}
 .schedsame{display:none}
@@ -889,7 +888,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
 <div class=row><button class="btn btn-danger" name=action value=delete>Delete practice</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% endmacro %}
-{% macro mount_map(id, pins, mode, href='', route=None) %}<section class="homemap cardmap {{ 'banner' if mode == 'card' else ('still tappable' if mode == 'tap' else 'still') }}" id="{{ id }}" {% if mode == 'tap' and pins %}data-map-open data-directions="{{ pins[0].lat }},{{ pins[0].lng }}" data-map-href="{{ href }}" data-map-label="{{ pins[0].label or 'Location' }}" role=button tabindex=0 aria-label="Map of {{ pins[0].label or 'the location' }}"{% elif mode == 'still' %}aria-hidden=true{% else %}aria-label="Map"{% endif %}></section>
+{% macro mount_map(id, pins, mode, href='', route=None) %}{% if pins %}{{ map_boot() }}{% endif %}<section class="homemap cardmap {{ 'banner' if mode == 'card' else ('still tappable' if mode == 'tap' else 'still') }}" id="{{ id }}" {% if mode == 'tap' and pins %}data-map-open data-directions="{{ pins[0].lat }},{{ pins[0].lng }}" data-map-href="{{ href }}" data-map-label="{{ pins[0].label or 'Location' }}" role=button tabindex=0 aria-label="Map of {{ pins[0].label or 'the location' }}"{% elif mode == 'still' %}aria-hidden=true{% else %}aria-label="Map"{% endif %}></section>
 <script>(function(){var pins={{ pins|tojson }};var route={{ route|tojson if route else '[]' }};function start(){var el=document.getElementById({{ id|tojson }});if(el&&window.grunionsMountMap)grunionsMountMap(el,{pins:pins,mode:'{{ 'still' if mode == 'tap' else mode }}',route:route});}if(window.grunionsMountMap)start();else document.addEventListener('DOMContentLoaded',start);})();</script>{% endmacro %}
 {% macro event_hero(id, pins, banner_src, label, route=None) %}{% if banner_src %}<div class=evhero><img src="{{ banner_src }}" alt=""></div>{% else %}{{ mount_map(id, pins, 'card', '', route) }}{% endif %}{% endmacro %}
 {% macro whos_going(people) %}<div class=seclabel>Who's going</div><div class=list>{% for r in people %}<div class=li>{% if me().is_admin or is_staff() %}<a class=ci-name href="/admin/member/{{ r.id }}">{% else %}<span class=ci-name>{% endif %}{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span></span>{% if me().is_admin or is_staff() %}</a>{% else %}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>{% endmacro %}
@@ -970,7 +969,7 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
  + """{% endif %}
 </nav>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=114');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=115');
 function grunionsCaptureArea(){
  var replaced=false;
  try{
@@ -1261,319 +1260,6 @@ if(!window.grunionsDirClick){window.grunionsDirClick=1;
   grunionsDirections(parts[0], parts[1]);
  });
 }
-window.GRUNIONS_MAPBOX={{ mapbox_client()|tojson }};
-window.grunionsMountMap=function(el, opts){
- if(!el) return;
- opts=opts||{};
- function boot(){
-  if(!el.isConnected||el.dataset.mapon) return;
-  var pins=opts.pins||[];
-  if(!pins.length) return;
-  var mb=window.GRUNIONS_MAPBOX||{};
-  try{ if(sessionStorage.getItem('grunionsMapbox')==='no') mb={}; }catch(err){}
-  function pinText(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
-  if(mb.token&&mb.style){ bootMapbox(pins); return; }
-  if(!window.L) return;
-  el.dataset.mapon='1';
-  bootLeaflet();
- function bootMapbox(pins){
-  function start(){
-   if(!el.isConnected||el.dataset.mapon||el.dataset.leaflet||!window.mapboxgl) return;
-   var map;
-   try{
-    mapboxgl.accessToken=mb.token;
-    var camera={};
-    var seed=null;
-    pins.forEach(function(p){ if(!seed){ var lng=Number(p.lng), lat=Number(p.lat); if(isFinite(lng)&&isFinite(lat)) seed=[lng, lat]; } });
-    var home=opts.mode==='home'||el.id==='homeMap';
-    if(seed){ camera.center=seed; camera.zoom=home?12:14; }
-    map=new mapboxgl.Map(Object.assign({container:el,style:mb.style,interactive:false,attributionControl:false,logoPosition:'bottom-right',fadeDuration:0}, camera));
-    staticCredit();
-   }catch(err){ useOSM(); return; }
-   el.dataset.mapon='1';
-   el._gmap=map;
-   var settled=false;
-   function tuckAttrib(){
-    var card=document.querySelector('.nextcard');
-    if((opts.mode!=='home'&&el.id!=='homeMap')||!card) return;
-    var box=el.getBoundingClientRect();
-    var lift=Math.max(6, Math.round(box.bottom-card.getBoundingClientRect().top+6));
-    el.style.setProperty('--map-attrib', lift+'px');
-   }
-   tuckAttrib();
-   setTimeout(tuckAttrib, 0);
-   setTimeout(tuckAttrib, 250);
-   window.addEventListener('resize', tuckAttrib);
-   function giveUp(){
-    if(settled||el.dataset.leaflet) return;
-    settled=true;
-    var parent=el.parentNode, next=el.nextSibling;
-    try{ map.remove(); }catch(e){}
-    if(parent&&!el.isConnected) parent.insertBefore(el, next);
-    el.innerHTML='';
-    el.classList.remove('mapboxgl-map');
-    el.removeAttribute('style');
-    el._gmap=null;
-    delete el.dataset.mapon;
-    useOSM();
-   }
-   var timer=setTimeout(giveUp, 5000);
-   map.on('error', function(ev){
-    if(settled) return;
-    var err=ev&&ev.error, status=err&&(err.status||err.statusCode), msg=String((err&&err.message)||'');
-    if((status&&status>=400)||/unauthorized|forbidden|invalid token|failed to load style|style not found/i.test(msg)) giveUp();
-   });
-   var youMarker=null;
-   function hideLabels(){
-    try{
-     var style=map.getStyle(); if(!style||!style.layers) return;
-     style.layers.forEach(function(layer){
-      if(layer.type!=='symbol') return;
-      try{ map.setLayoutProperty(layer.id,'visibility','none'); }catch(e){}
-     });
-    }catch(e){}
-   }
-   function homeView(){ return opts.mode==='home'||el.id==='homeMap'; }
-   function cardEdge(){
-    var box=el.getBoundingClientRect();
-    var card=document.querySelector('.nextcard');
-    var cardTop=card?card.getBoundingClientRect().top:(box.top+box.height*0.62);
-    return {box:box, cardTop:cardTop};
-   }
-   function focalPad(){
-    var v=cardEdge();
-    var span=Math.max(80, v.cardTop-v.box.top);
-    var inset=24;
-    var bottom=Math.round(v.box.height-span*4/5+inset);
-    if(bottom<inset) bottom=inset;
-    return {top:inset, bottom:bottom, left:48, right:140};
-   }
-   function staticCredit(){
-    var corner=el.querySelector('.mapboxgl-ctrl-bottom-right');
-    if(!corner||corner.querySelector('.mapcredit')) return;
-    var credit=document.createElement('span');
-    credit.className='mapcredit';
-    credit.textContent='© Mapbox © OpenStreetMap';
-    corner.appendChild(credit);
-   }
-   function pads(){
-    var head=document.querySelector('header.homehead'), card=document.querySelector('.nextcard');
-    var box=el.getBoundingClientRect();
-    if(opts.mode!=='home'&&el.id!=='homeMap') return {top:28,bottom:28,left:36,right:200};
-    var headBottom=head?head.getBoundingClientRect().bottom:76;
-    var cardTop=card?card.getBoundingClientRect().top:(box.top+box.height*0.58);
-    return {top:Math.max(28, headBottom-box.top+20), bottom:Math.max(28, box.bottom-cardTop+16), left:40, right:110};
-   }
-   function points(){
-    var pts=[];
-    pins.forEach(function(p){ var ll=lngLat(p); if(ll) pts.push(ll); });
-    (opts.route||[]).forEach(function(p){ if(p&&p.length>=2 && isFinite(Number(p[0])) && isFinite(Number(p[1]))) pts.push([Number(p[1]), Number(p[0])]); });
-    if(el._you && isFinite(el._you.lng) && isFinite(el._you.lat)) pts.push([el._you.lng, el._you.lat]);
-    return pts;
-   }
-   function lngLat(p){
-    if(!p) return null;
-    var lng=Number(p.lng), lat=Number(p.lat);
-    if(!isFinite(lng)||!isFinite(lat)) return null;
-    return [lng, lat];
-   }
-   function focusPoints(){
-    var pts=[];
-    pins.forEach(function(p){ var ll=lngLat(p); if(ll) pts.push(ll); });
-    if(el._you && isFinite(el._you.lng) && isFinite(el._you.lat)) pts.push([Number(el._you.lng), Number(el._you.lat)]);
-    return pts;
-   }
-   function frame(){
-    var pts=(homeView()?focusPoints():points()).filter(function(p){ return p && isFinite(p[0]) && isFinite(p[1]); });
-    if(!pts.length) return;
-    var lngs=pts.map(function(p){return p[0];}), lats=pts.map(function(p){return p[1];});
-    var pad=homeView()?focalPad():pads();
-    var maxZoom=homeView()?(pts.length===1?12:15):(pts.length===1?14:15);
-    map.fitBounds([[Math.min.apply(null,lngs), Math.min.apply(null,lats)],[Math.max.apply(null,lngs), Math.max.apply(null,lats)]], {padding:pad, maxZoom:maxZoom, animate:false});
-   }
-   function pinEl(kind, label){
-    var name=pinText(label), pill=name?'<span class=pinpill>'+name+'</span>':'';
-    var node=document.createElement('div');
-    node.className='mpin'+(kind==='social'?' social':'');
-    node.innerHTML='<span class=pinrow><span class=pinhold><span class=pindot></span></span>'+pill+'</span>';
-    return node;
-   }
-   function draw(){
-    if(settled) return;
-    settled=true;
-    clearTimeout(timer);
-    tuckAttrib();
-    staticCredit();
-    hideLabels();
-    try{
-     var route=opts.route||[];
-     if(route.length>1 && !map.getSource('social-route')){
-      var accent=(getComputedStyle(document.documentElement).getPropertyValue('--color-lime')||'#B2DE64').trim()||'#B2DE64';
-      map.addSource('social-route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:route.map(function(p){return [Number(p[1]), Number(p[0])];})}}});
-      map.addLayer({id:'social-route',type:'line',source:'social-route',paint:{'line-color':accent,'line-width':4,'line-opacity':0.95}});
-     }
-    }catch(e){}
-    try{
-     if(!el.dataset.marked){
-      el.dataset.marked='1';
-      pins.forEach(function(p){
-       var ll=lngLat(p); if(!ll) return;
-       new mapboxgl.Marker({element:pinEl(p.kind, p.label), anchor:'top-left', offset:[-9,-9]}).setLngLat(ll).addTo(map);
-      });
-      if(opts.mode==='card'&&pins[0]) el.addEventListener('click',function(){ grunionsDirections(pins[0].lat, pins[0].lng); });
-     }
-    }catch(e){}
-    try{ frame(); }catch(e){}
-    tuckAttrib();
-   }
-   map.on('load', draw);
-   if(map.loaded()) draw();
-   el._reframe=function(){
-    if(el._you){
-     if(!youMarker){
-      var node=document.createElement('div'); node.className='mpin you'; node.innerHTML='<span class=pinhold><span class=youdot></span></span>';
-      youMarker=new mapboxgl.Marker({element:node, anchor:'center'}).setLngLat([el._you.lng, el._you.lat]).addTo(map);
-     } else youMarker.setLngLat([el._you.lng, el._you.lat]);
-    }
-    frame();
-   };
-  }
-  function useOSM(){
-   try{ sessionStorage.setItem('grunionsMapbox','no'); }catch(e){}
-   if(window.L){ bootLeaflet(); return; }
-   var s=document.querySelector('script[data-leaflet]');
-   if(!s){ s=document.createElement('script'); s.src='/static/leaflet/leaflet.js'; s.setAttribute('data-leaflet','1'); s.onload=bootLeaflet; document.body.appendChild(s); }
-   else if(window.L) bootLeaflet();
-   else s.addEventListener('load', bootLeaflet);
-  }
-  if(window.mapboxgl){ start(); return; }
-  if(!document.querySelector('link[data-mapbox]')){
-   var css=document.createElement('link'); css.rel='stylesheet'; css.href='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css'; css.setAttribute('data-mapbox','1'); document.head.appendChild(css);
-  }
-  var s=document.querySelector('script[data-mapbox]');
-  if(!s){ s=document.createElement('script'); s.src='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js'; s.setAttribute('data-mapbox','1'); s.onerror=useOSM; s.onload=start; document.head.appendChild(s); }
-  else if(window.mapboxgl) start();
-  else { s.addEventListener('load', start); s.addEventListener('error', useOSM); }
- }
- function bootLeaflet(){
-  if(el.dataset.leaflet) return;
-  el.dataset.leaflet='1';
-  el.dataset.mapon='1';
-  var still=opts.mode==='still';
-  var map=L.map(el,{zoomControl:false,attributionControl:!still,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false});
-  var tileUrl=window.GRUNIONS_MAP_TILES||'';
-  var tiles;
-  if(tileUrl){
-   el.classList.add('mapbox');
-   tiles=L.tileLayer(tileUrl,{maxZoom:19,tileSize:512,zoomOffset:-1,attribution:'&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'});
-  }else tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'});
-  tiles.addTo(map);
-  var faded=false; tiles.on('tileload',function(){if(!faded){faded=true;el.classList.add('tiles')}});
-  function icon(kind, label){
-   var name=pinText(label), pill=name?'<span class=pinpill>'+name+'</span>':'';
-   return L.divIcon({className:'mpin'+(kind==='social'?' social':''),html:'<span class=pinrow><span class=pinhold><span class=pindot></span></span>'+pill+'</span>',iconSize:[18,18],iconAnchor:[9,9]});
-  }
-  var bounds=[], pool=null;
-  pins.forEach(function(p){ if(p.kind==='pool') pool=p; bounds.push([p.lat,p.lng]); });
-  if(!pool) pool=pins[0];
-  function go(p){ var t=opts.mode==='card'?pool:p; grunionsDirections(t.lat, t.lng); }
-  var route=opts.route||[];
-  if(route.length>1){
-   var accent=(getComputedStyle(document.documentElement).getPropertyValue('--color-lime')||'#B2DE64').trim()||'#B2DE64';
-   L.polyline(route,{color:accent,weight:4,opacity:.95,interactive:false}).addTo(map);
-   route.forEach(function(pt){ bounds.push(pt); });
-  }
-  pins.forEach(function(p){
-   var m=L.marker([p.lat,p.lng],{icon:icon(p.kind, p.label),interactive:!still,title:p.label||(p.kind==='social'?'Social':'Practice'),zIndexOffset:p.kind==='pool'?800:0}).addTo(map);
-   if(!still) m.on('click',function(ev){ if(L.DomEvent) L.DomEvent.stopPropagation(ev); go(p); });
-  });
-  if(el.hasAttribute('data-map-open')) map.on('click',function(){ if(window.grunionsOfferMaps) grunionsOfferMaps(el); });
-  else if(opts.mode==='card') map.on('click',function(){ go(pool); });
-  function place(){
-   if(!el.clientHeight||!pool) return;
-   if(opts.mode==='card'||still){
-    if(bounds.length>1) map.fitBounds(bounds,{paddingTopLeft:[36,28],paddingBottomRight:[200,28],maxZoom:15,animate:false});
-    else map.setView([pool.lat, pool.lng], 15, {animate:false});
-    return;
-   }
-   var box=el.getBoundingClientRect();
-   var card=document.querySelector('.nextcard');
-   var cardTop=card?card.getBoundingClientRect().top:(box.top+box.height*0.62);
-   var visTop=Math.max(box.top, 0);
-   var visBottom=Math.min(cardTop, box.bottom);
-   if(visBottom-visTop<80) visBottom=Math.min(box.bottom, visTop+80);
-   var padTop=Math.max(0, visTop-box.top);
-   var padBottom=Math.max(0, box.bottom-visBottom);
-   var regional=12;
-   function frame(z){
-    map.setView([pool.lat, pool.lng], z, {animate:false});
-    var pt=map.latLngToContainerPoint([pool.lat, pool.lng]);
-    var targetX=el.clientWidth/2;
-    var targetY=(cardTop*5/12)-box.top;
-    map.panBy([pt.x-targetX, pt.y-targetY], {animate:false});
-   }
-   function fits(){
-    var pad=24;
-    var topLimit=padTop+pad, botLimit=el.clientHeight-padBottom-pad;
-    for(var i=0;i<bounds.length;i++){
-     var q=map.latLngToContainerPoint(bounds[i]);
-     if(q.x<pad||q.y<topLimit||q.x>el.clientWidth-pad||q.y>botLimit) return false;
-    }
-    return true;
-   }
-   var focus=[];
-   pins.forEach(function(p){ if(isFinite(p.lat)&&isFinite(p.lng)) focus.push([p.lat, p.lng]); });
-   if(el._you && isFinite(el._you.lat)&&isFinite(el._you.lng)) focus.push([el._you.lat, el._you.lng]);
-   if(focus.length){
-    var span=Math.max(80, cardTop-box.top);
-    var inset=24;
-    var bottom=Math.round(el.clientHeight-span*4/5+inset);
-    if(bottom<inset) bottom=inset;
-    map.fitBounds(focus,{paddingTopLeft:[48, inset], paddingBottomRight:[140, bottom], maxZoom:focus.length===1?12:15, animate:false});
-    return;
-   }
-   var framed=bounds.slice();
-   if(el._you) framed.push([el._you.lat, el._you.lng]);
-   if(framed.length>1){
-    var headEl=document.querySelector('header.homehead');
-    var headBottom=headEl?headEl.getBoundingClientRect().bottom:76;
-    var topPad=Math.max(28, headBottom-box.top+20);
-    var botPad=Math.max(28, box.bottom-cardTop+16);
-    map.fitBounds(framed,{paddingTopLeft:[40, topPad], paddingBottomRight:[110, botPad], maxZoom:15, animate:false});
-    return;
-   }
-   var z=regional;
-   frame(z);
-   if(bounds.length>1){ while(z>8 && !fits()){ z-=1; frame(z); } }
-  }
-  var youMarker=null;
-  el._reframe=function(){
-   if(el._you){
-    if(!youMarker) youMarker=L.marker([el._you.lat, el._you.lng],{icon:L.divIcon({className:'mpin you',html:'<span class=pinhold><span class=youdot></span></span>',iconSize:[18,18],iconAnchor:[9,9]}),interactive:false,zIndexOffset:900}).addTo(map);
-    else youMarker.setLatLng([el._you.lat, el._you.lng]);
-   }
-   place();
-  };
-  window.grunionsPlaceMap=place;
-  setTimeout(function(){map.invalidateSize();place();},0);
-  setTimeout(function(){map.invalidateSize();place();},250);
-  function onResize(){if(!el.isConnected){window.removeEventListener('resize',onResize);return;}map.invalidateSize();place();}
-  window.addEventListener('resize',onResize);
- }
-}
-if(window.L||(window.GRUNIONS_MAPBOX&&window.GRUNIONS_MAPBOX.token)) boot();
-else {
- var s=document.querySelector('script[data-leaflet]');
- if(!s){ s=document.createElement('script'); s.src='/static/leaflet/leaflet.js'; s.setAttribute('data-leaflet','1'); s.onload=boot; document.body.appendChild(s); }
- else s.addEventListener('load', boot);
-}
-};
-window.grunionsShowYou=function(lat,lng){
- if(!document.querySelector('[data-drive]')) return;
- var el=document.getElementById('homeMap'); if(!el) return;
- el._you={lat:lat,lng:lng};
- if(el._reframe) el._reframe();
-};
 function grunionsPinHead(){
  var h=document.querySelector('header.homehead');
  var sticky=h && !document.body.classList.contains('homefull');
@@ -1606,6 +1292,27 @@ function grunionsTakeBack(url){
  try{var map=JSON.parse(sessionStorage.getItem('grunionsScroll')||'{}')||{}; var y=+map[id]; return y>0?y:0}catch(e){return 0}
 }
 function grunionsIsBackLink(a){return !!(a&&(a.classList.contains('hubback')||a.classList.contains('profileback')||a.getAttribute('aria-label')==='Back'))}
+function grunionsParkHomeMap(){
+ var live=document.getElementById('homeMap');
+ if(!live||!live._gmap) return;
+ var park=document.getElementById('mapPark');
+ if(!park){
+  park=document.createElement('div');
+  park.id='mapPark';
+  park.hidden=true;
+  park.setAttribute('aria-hidden','true');
+  document.body.appendChild(park);
+ }
+ park.appendChild(live);
+}
+function grunionsRestoreHomeMap(main){
+ var parked=document.querySelector('#mapPark > #homeMap');
+ if(!parked||!main) return;
+ var slot=main.querySelector('#homeMap');
+ if(!slot) return;
+ slot.replaceWith(parked);
+ try{ if(parked._gmap&&parked._gmap.resize) parked._gmap.resize(); }catch(e){}
+}
 function grunionsApply(html,url,pop,replace){
  var doc=new DOMParser().parseFromString(html,'text/html');
  var newMain=doc.querySelector('main'), newNav=doc.querySelector('nav.tabs');
@@ -1615,7 +1322,9 @@ function grunionsApply(html,url,pop,replace){
  scripts.forEach(function(s){if(s.parentNode) s.parentNode.removeChild(s);});
  if(doc.body) document.body.className=doc.body.className;
  var main=document.querySelector('main');
+ grunionsParkHomeMap();
  main.replaceChildren.apply(main, [].slice.call(newMain.childNodes));
+ grunionsRestoreHomeMap(main);
  grunionsSyncNav(newNav);
  var nextHead=doc.querySelector('header'), curHead=document.querySelector('header');
  if(nextHead&&curHead&&curHead.outerHTML!==nextHead.outerHTML) curHead.replaceWith(nextHead);
@@ -2223,6 +1932,333 @@ window.addEventListener('resize', grunionsPinHead);
 
 ADMIN_NAV = """{% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% endfor %}"""
 
+MAP_JS = '''window.grunionsMountMap=function(el, opts){
+ if(!el) return;
+ opts=opts||{};
+ function boot(){
+  if(el._gmap){ try{ el._gmap.resize(); }catch(e){} return; }
+  if(!el.isConnected||el.dataset.mapon) return;
+  var pins=opts.pins||[];
+  if(!pins.length) return;
+  var mb=window.GRUNIONS_MAPBOX||{};
+  try{ if(sessionStorage.getItem('grunionsMapbox')==='no') mb={}; }catch(err){}
+  function pinText(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
+  function afterPaint(fn){
+   function go(){ requestAnimationFrame(function(){ setTimeout(fn, 0); }); }
+   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', go); else go();
+  }
+  afterPaint(function(){
+   if(!el.isConnected||el._gmap||el.dataset.leaflet) return;
+   if(mb.token&&mb.style) bootMapbox(pins);
+   else useOSM();
+  });
+  return;
+ function bootMapbox(pins){
+  var gaveUp=false;
+  var timer=setTimeout(function(){ giveUp(); }, 2000);
+  function giveUp(){
+   if(gaveUp||el.dataset.leaflet) return;
+   gaveUp=true;
+   clearTimeout(timer);
+   if(!el.isConnected) return;
+   var parent=el.parentNode, next=el.nextSibling, map=el._gmap;
+   try{ if(map) map.remove(); }catch(e){}
+   if(parent&&el.isConnected===false) parent.insertBefore(el, next);
+   el.innerHTML='';
+   el.classList.remove('mapboxgl-map');
+   el.removeAttribute('style');
+   el._gmap=null;
+   delete el.dataset.mapon;
+   el.style.background='#090D0B';
+   useOSM();
+  }
+  function start(){
+   if(gaveUp||el.dataset.leaflet) return;
+   if(!el.isConnected||el.dataset.mapon||el.dataset.leaflet||!window.mapboxgl) return;
+   var map;
+   try{
+    mapboxgl.accessToken=mb.token;
+    var camera={};
+    var seed=null;
+    pins.forEach(function(p){ if(!seed){ var lng=Number(p.lng), lat=Number(p.lat); if(isFinite(lng)&&isFinite(lat)) seed=[lng, lat]; } });
+    var home=opts.mode==='home'||el.id==='homeMap';
+    if(seed){ camera.center=seed; camera.zoom=home?12:14; }
+    map=new mapboxgl.Map(Object.assign({container:el,style:mb.style,interactive:false,attributionControl:false,logoPosition:'bottom-right',fadeDuration:0,pitch:0,bearing:0,maxPitch:0,pixelRatio:Math.min(window.devicePixelRatio||1,2),scrollZoom:false,boxZoom:false,dragRotate:false,dragPan:false,keyboard:false,doubleClickZoom:false,touchZoomRotate:false,touchPitch:false}, camera));
+    staticCredit();
+   }catch(err){ giveUp(); return; }
+   el.dataset.mapon='1';
+   el._gmap=map;
+   var settled=false;
+   function tuckAttrib(){
+    var card=document.querySelector('.nextcard');
+    if((opts.mode!=='home'&&el.id!=='homeMap')||!card) return;
+    var box=el.getBoundingClientRect();
+    var lift=Math.max(6, Math.round(box.bottom-card.getBoundingClientRect().top+6));
+    el.style.setProperty('--map-attrib', lift+'px');
+   }
+   tuckAttrib();
+   setTimeout(tuckAttrib, 0);
+   setTimeout(tuckAttrib, 250);
+   window.addEventListener('resize', tuckAttrib);
+   map.on('error', function(ev){
+    if(settled) return;
+    var err=ev&&ev.error, status=err&&(err.status||err.statusCode), msg=String((err&&err.message)||'');
+    if((status&&status>=400)||/unauthorized|forbidden|invalid token|failed to load style|style not found/i.test(msg)) giveUp();
+   });
+   var youMarker=null;
+   function hideLabels(){
+    try{
+     var style=map.getStyle(); if(!style||!style.layers) return;
+     style.layers.forEach(function(layer){
+      if(layer.type==='symbol'){ try{ map.setLayoutProperty(layer.id,'visibility','none'); }catch(e){} }
+     });
+    }catch(e){}
+   }
+   function homeView(){ return opts.mode==='home'||el.id==='homeMap'; }
+   function cardEdge(){
+    var box=el.getBoundingClientRect();
+    var card=document.querySelector('.nextcard');
+    var cardTop=card?card.getBoundingClientRect().top:(box.top+box.height*0.62);
+    return {box:box, cardTop:cardTop};
+   }
+   function focalPad(){
+    var v=cardEdge();
+    var span=Math.max(80, v.cardTop-v.box.top);
+    var inset=24;
+    var bottom=Math.round(v.box.height-span*4/5+inset);
+    if(bottom<inset) bottom=inset;
+    return {top:inset, bottom:bottom, left:48, right:140};
+   }
+   function staticCredit(){
+    var corner=el.querySelector('.mapboxgl-ctrl-bottom-right');
+    if(!corner||corner.querySelector('.mapcredit')) return;
+    var credit=document.createElement('span');
+    credit.className='mapcredit';
+    credit.textContent='© Mapbox © OpenStreetMap';
+    corner.appendChild(credit);
+   }
+   function pads(){
+    var head=document.querySelector('header.homehead'), card=document.querySelector('.nextcard');
+    var box=el.getBoundingClientRect();
+    if(opts.mode!=='home'&&el.id!=='homeMap') return {top:28,bottom:28,left:36,right:200};
+    var headBottom=head?head.getBoundingClientRect().bottom:76;
+    var cardTop=card?card.getBoundingClientRect().top:(box.top+box.height*0.58);
+    return {top:Math.max(28, headBottom-box.top+20), bottom:Math.max(28, box.bottom-cardTop+16), left:40, right:110};
+   }
+   function points(){
+    var pts=[];
+    pins.forEach(function(p){ var ll=lngLat(p); if(ll) pts.push(ll); });
+    (opts.route||[]).forEach(function(p){ if(p&&p.length>=2 && isFinite(Number(p[0])) && isFinite(Number(p[1]))) pts.push([Number(p[1]), Number(p[0])]); });
+    if(el._you && isFinite(el._you.lng) && isFinite(el._you.lat)) pts.push([el._you.lng, el._you.lat]);
+    return pts;
+   }
+   function lngLat(p){
+    if(!p) return null;
+    var lng=Number(p.lng), lat=Number(p.lat);
+    if(!isFinite(lng)||!isFinite(lat)) return null;
+    return [lng, lat];
+   }
+   function focusPoints(){
+    var pts=[];
+    pins.forEach(function(p){ var ll=lngLat(p); if(ll) pts.push(ll); });
+    if(el._you && isFinite(el._you.lng) && isFinite(el._you.lat)) pts.push([Number(el._you.lng), Number(el._you.lat)]);
+    return pts;
+   }
+   function frame(){
+    var pts=(homeView()?focusPoints():points()).filter(function(p){ return p && isFinite(p[0]) && isFinite(p[1]); });
+    if(!pts.length) return;
+    var lngs=pts.map(function(p){return p[0];}), lats=pts.map(function(p){return p[1];});
+    var pad=homeView()?focalPad():pads();
+    var maxZoom=homeView()?(pts.length===1?12:15):(pts.length===1?14:15);
+    map.fitBounds([[Math.min.apply(null,lngs), Math.min.apply(null,lats)],[Math.max.apply(null,lngs), Math.max.apply(null,lats)]], {padding:pad, maxZoom:maxZoom, animate:false});
+   }
+   function pinEl(kind, label){
+    var name=pinText(label), pill=name?'<span class=pinpill>'+name+'</span>':'';
+    var node=document.createElement('div');
+    node.className='mpin'+(kind==='social'?' social':'');
+    node.innerHTML='<span class=pinrow><span class=pinhold><span class=pindot></span></span>'+pill+'</span>';
+    return node;
+   }
+   function draw(){
+    if(settled) return;
+    settled=true;
+    gaveUp=true;
+    clearTimeout(timer);
+    tuckAttrib();
+    staticCredit();
+    hideLabels();
+    try{
+     var route=opts.route||[];
+     if(route.length>1 && !map.getSource('social-route')){
+      var accent=(getComputedStyle(document.documentElement).getPropertyValue('--color-lime')||'#B2DE64').trim()||'#B2DE64';
+      map.addSource('social-route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:route.map(function(p){return [Number(p[1]), Number(p[0])];})}}});
+      map.addLayer({id:'social-route',type:'line',source:'social-route',paint:{'line-color':accent,'line-width':4,'line-opacity':0.95}});
+     }
+    }catch(e){}
+    try{
+     if(!el.dataset.marked){
+      el.dataset.marked='1';
+      pins.forEach(function(p){
+       var ll=lngLat(p); if(!ll) return;
+       new mapboxgl.Marker({element:pinEl(p.kind, p.label), anchor:'top-left', offset:[-9,-9]}).setLngLat(ll).addTo(map);
+      });
+      if(opts.mode==='card'&&pins[0]) el.addEventListener('click',function(){ grunionsDirections(pins[0].lat, pins[0].lng); });
+     }
+    }catch(e){}
+    try{ frame(); }catch(e){}
+    tuckAttrib();
+   }
+   map.on('load', draw);
+   if(map.loaded()) draw();
+   el._reframe=function(){
+    if(el._you){
+     if(!youMarker){
+      var node=document.createElement('div'); node.className='mpin you'; node.innerHTML='<span class=pinhold><span class=youdot></span></span>';
+      youMarker=new mapboxgl.Marker({element:node, anchor:'center'}).setLngLat([el._you.lng, el._you.lat]).addTo(map);
+     } else youMarker.setLngLat([el._you.lng, el._you.lat]);
+    }
+    frame();
+   };
+  }
+  if(window.mapboxgl){ start(); return; }
+  if(!document.querySelector('link[data-mapbox]')){
+   var css=document.createElement('link'); css.rel='stylesheet'; css.href='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css'; css.setAttribute('data-mapbox','1'); document.head.appendChild(css);
+  }
+  var s=document.querySelector('script[data-mapbox]');
+  if(!s){ s=document.createElement('script'); s.async=true; s.src='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js'; s.setAttribute('data-mapbox','1'); s.onerror=function(){ giveUp(); }; s.onload=start; document.head.appendChild(s); }
+  else if(window.mapboxgl) start();
+  else { s.addEventListener('load', start); s.addEventListener('error', function(){ giveUp(); }); }
+ }
+ function useOSM(){
+  try{ sessionStorage.setItem('grunionsMapbox','no'); }catch(e){}
+  if(!document.querySelector('link[data-leaflet-css]')){
+   var css=document.createElement('link'); css.rel='stylesheet'; css.href='/static/leaflet/leaflet.css'; css.setAttribute('data-leaflet-css','1'); document.head.appendChild(css);
+  }
+  if(window.L){ bootLeaflet(); return; }
+  var s=document.querySelector('script[data-leaflet]');
+  if(!s){ s=document.createElement('script'); s.async=true; s.src='/static/leaflet/leaflet.js'; s.setAttribute('data-leaflet','1'); s.onload=bootLeaflet; document.body.appendChild(s); }
+  else if(window.L) bootLeaflet();
+  else s.addEventListener('load', bootLeaflet);
+ }
+ function bootLeaflet(){
+  if(el.dataset.leaflet) return;
+  el.dataset.leaflet='1';
+  el.dataset.mapon='1';
+  var still=opts.mode==='still';
+  var map=L.map(el,{zoomControl:false,attributionControl:!still,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false});
+  var tileUrl=window.GRUNIONS_MAP_TILES||'';
+  var tiles;
+  if(tileUrl){
+   el.classList.add('mapbox');
+   tiles=L.tileLayer(tileUrl,{maxZoom:19,tileSize:512,zoomOffset:-1,attribution:'&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'});
+  }else tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'});
+  tiles.addTo(map);
+  var faded=false; tiles.on('tileload',function(){if(!faded){faded=true;el.classList.add('tiles')}});
+  function icon(kind, label){
+   var name=pinText(label), pill=name?'<span class=pinpill>'+name+'</span>':'';
+   return L.divIcon({className:'mpin'+(kind==='social'?' social':''),html:'<span class=pinrow><span class=pinhold><span class=pindot></span></span>'+pill+'</span>',iconSize:[18,18],iconAnchor:[9,9]});
+  }
+  var bounds=[], pool=null;
+  pins.forEach(function(p){ if(p.kind==='pool') pool=p; bounds.push([p.lat,p.lng]); });
+  if(!pool) pool=pins[0];
+  function go(p){ var t=opts.mode==='card'?pool:p; grunionsDirections(t.lat, t.lng); }
+  var route=opts.route||[];
+  if(route.length>1){
+   var accent=(getComputedStyle(document.documentElement).getPropertyValue('--color-lime')||'#B2DE64').trim()||'#B2DE64';
+   L.polyline(route,{color:accent,weight:4,opacity:.95,interactive:false}).addTo(map);
+   route.forEach(function(pt){ bounds.push(pt); });
+  }
+  pins.forEach(function(p){
+   var m=L.marker([p.lat,p.lng],{icon:icon(p.kind, p.label),interactive:!still,title:p.label||(p.kind==='social'?'Social':'Practice'),zIndexOffset:p.kind==='pool'?800:0}).addTo(map);
+   if(!still) m.on('click',function(ev){ if(L.DomEvent) L.DomEvent.stopPropagation(ev); go(p); });
+  });
+  if(el.hasAttribute('data-map-open')) map.on('click',function(){ if(window.grunionsOfferMaps) grunionsOfferMaps(el); });
+  else if(opts.mode==='card') map.on('click',function(){ go(pool); });
+  function place(){
+   if(!el.clientHeight||!pool) return;
+   if(opts.mode==='card'||still){
+    if(bounds.length>1) map.fitBounds(bounds,{paddingTopLeft:[36,28],paddingBottomRight:[200,28],maxZoom:15,animate:false});
+    else map.setView([pool.lat, pool.lng], 15, {animate:false});
+    return;
+   }
+   var box=el.getBoundingClientRect();
+   var card=document.querySelector('.nextcard');
+   var cardTop=card?card.getBoundingClientRect().top:(box.top+box.height*0.62);
+   var visTop=Math.max(box.top, 0);
+   var visBottom=Math.min(cardTop, box.bottom);
+   if(visBottom-visTop<80) visBottom=Math.min(box.bottom, visTop+80);
+   var padTop=Math.max(0, visTop-box.top);
+   var padBottom=Math.max(0, box.bottom-visBottom);
+   var regional=12;
+   function frame(z){
+    map.setView([pool.lat, pool.lng], z, {animate:false});
+    var pt=map.latLngToContainerPoint([pool.lat, pool.lng]);
+    var targetX=el.clientWidth/2;
+    var targetY=(cardTop*5/12)-box.top;
+    map.panBy([pt.x-targetX, pt.y-targetY], {animate:false});
+   }
+   function fits(){
+    var pad=24;
+    var topLimit=padTop+pad, botLimit=el.clientHeight-padBottom-pad;
+    for(var i=0;i<bounds.length;i++){
+     var q=map.latLngToContainerPoint(bounds[i]);
+     if(q.x<pad||q.y<topLimit||q.x>el.clientWidth-pad||q.y>botLimit) return false;
+    }
+    return true;
+   }
+   var focus=[];
+   pins.forEach(function(p){ if(isFinite(p.lat)&&isFinite(p.lng)) focus.push([p.lat, p.lng]); });
+   if(el._you && isFinite(el._you.lat)&&isFinite(el._you.lng)) focus.push([el._you.lat, el._you.lng]);
+   if(focus.length){
+    var span=Math.max(80, cardTop-box.top);
+    var inset=24;
+    var bottom=Math.round(el.clientHeight-span*4/5+inset);
+    if(bottom<inset) bottom=inset;
+    map.fitBounds(focus,{paddingTopLeft:[48, inset], paddingBottomRight:[140, bottom], maxZoom:focus.length===1?12:15, animate:false});
+    return;
+   }
+   var framed=bounds.slice();
+   if(el._you) framed.push([el._you.lat, el._you.lng]);
+   if(framed.length>1){
+    var headEl=document.querySelector('header.homehead');
+    var headBottom=headEl?headEl.getBoundingClientRect().bottom:76;
+    var topPad=Math.max(28, headBottom-box.top+20);
+    var botPad=Math.max(28, box.bottom-cardTop+16);
+    map.fitBounds(framed,{paddingTopLeft:[40, topPad], paddingBottomRight:[110, botPad], maxZoom:15, animate:false});
+    return;
+   }
+   var z=regional;
+   frame(z);
+   if(bounds.length>1){ while(z>8 && !fits()){ z-=1; frame(z); } }
+  }
+  var youMarker=null;
+  el._reframe=function(){
+   if(el._you){
+    if(!youMarker) youMarker=L.marker([el._you.lat, el._you.lng],{icon:L.divIcon({className:'mpin you',html:'<span class=pinhold><span class=youdot></span></span>',iconSize:[18,18],iconAnchor:[9,9]}),interactive:false,zIndexOffset:900}).addTo(map);
+    else youMarker.setLatLng([el._you.lat, el._you.lng]);
+   }
+   place();
+  };
+  window.grunionsPlaceMap=place;
+  setTimeout(function(){map.invalidateSize();place();},0);
+  setTimeout(function(){map.invalidateSize();place();},250);
+  function onResize(){if(!el.isConnected){window.removeEventListener('resize',onResize);return;}map.invalidateSize();place();}
+  window.addEventListener('resize',onResize);
+ }
+}
+boot();
+};
+window.grunionsShowYou=function(lat,lng){
+ if(!document.querySelector('[data-drive]')) return;
+ var el=document.getElementById('homeMap'); if(!el) return;
+ el._you={lat:lat,lng:lng};
+ if(el._reframe) el._reframe();
+};
+'''
+
+def map_script(mapbox_json):
+    return "<script>\nwindow.GRUNIONS_MAPBOX=" + mapbox_json + ";\n" + MAP_JS + "</script>\n"
+
 T = {}
 T["join"] = """<h1>Join the Grunions</h1>
 <p class=t2>Tuesdays at Marina High School and Fridays at Westminster High School, 7–8:30 PM. Membership is $45/mo starting in November; a current USA Water Polo membership is required.</p>
@@ -2242,8 +2278,9 @@ T["login"] = """<h1>Log in</h1>
 <button class="btn btn-primary full">Send login link</button></form>
 <p class="t3 sm" style="text-align:center;margin-top:20px">New here? <a href=/join>Join the team</a></p>"""
 
-T["home"] = """{% if pins %}
+T["home"] = """{% if tab=='home' and pins %}
 <section class=homemap id=homeMap aria-label="Practice map"></section>
+{{ map_boot() }}
 <script>
 (function(){
  var pins={{ pins|tojson }};
