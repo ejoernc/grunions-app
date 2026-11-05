@@ -1584,6 +1584,12 @@ sched_c = eli.get("/practices").get_data(as_text=True)
 card_c = sched_c.split("id=p%d " % dpid, 1)[1].split("id=p")[0]
 reason_mail = [e for e in emails if e[0] == "jane@example.com" and "Pool closed" in e[2]]
 ok("Cancelled" in cancelled and "Pool closed" in cancelled and "Pool closed" in card_c and "Undo cancel" in cancelled and ">Delete event</button>" in cancelled and 'class="profilename cancelled"' in cancelled and ('class="card tap cancelled" id=p%d ' % dpid) in sched_c and ('class="card tap cancelled" id=p%d ' % dpid) in eli.get("/home").get_data(as_text=True) and ".card.cancelled .nxcardhead .nxtitle,.profilename.cancelled{text-decoration:line-through;color:var(--t3)}" in cancelled and len(reason_mail) == 1 and "Detail Pool" in reason_mail[0][2] and any(p[1]["url"] == "/practices/%d" % dpid and "Pool closed" in p[1]["body"] for p in pushes), "sending a cancellation stores the reason, strikes the title, and emails and pushes it")
+_manage_up = eli.get("/admin").get_data(as_text=True)
+_manage_up = _manage_up.split(">Coming up</div>", 1)[1] if ">Coming up</div>" in _manage_up else ""
+D.execute("UPDATE members SET role='athlete' WHERE email='eli@example.com'"); D.commit()
+_manage_list = eli.get("/manage/schedule").get_data(as_text=True)
+D.execute("UPDATE members SET role='coach' WHERE email='eli@example.com'"); D.commit()
+ok(('href="/practices/%d?from=admin"' % dpid) not in _manage_up and "Detail Pool" not in _manage_list and "<h1>Schedule</h1>" in _manage_list and ('class="card tap cancelled" id=p%d ' % dpid) in sched_c and ('class="card tap cancelled" id=p%d ' % dpid) in eli.get("/home").get_data(as_text=True), "Manage schedule hides a cancelled practice that Schedule and Home still show")
 eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="restore", back="page"))
 ok(D.execute("SELECT cancelled, COALESCE(cancel_reason,'') FROM practices WHERE id=?", (dpid,)).fetchone() == (0, "") and "Pool closed" not in eli.get("/practices/%d" % dpid).get_data(as_text=True), "undo cancel clears the cancellation and the reason")
 eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="assign", back="page", coach=str(D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0])))
