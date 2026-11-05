@@ -343,6 +343,8 @@ dialog.modal::backdrop{background:var(--color-backdrop)}
 dialog.modal .sheet{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;overflow:visible}
 dialog.modal .sheet form>.btn,dialog.modal .sheet form>button.btn,dialog.modal .sheet form>.row:last-child,dialog.botsheet .sheet form>.btn,dialog.botsheet .sheet form>button.btn,dialog.botsheet .sheet form>.row:last-child,dialog.modal .sheet>.btn,dialog.botsheet .sheet>.btn{margin-top:var(--space-form-action)}
 dialog.modal .sheet form>:has(+.btn),dialog.modal .sheet form>:has(+button.btn),dialog.modal .sheet form>:has(+.row),dialog.botsheet .sheet form>:has(+.btn),dialog.botsheet .sheet form>:has(+button.btn),dialog.modal .sheet>:has(+.btn),dialog.botsheet .sheet>:has(+.btn){margin-bottom:0}
+#photoDlg .sheet{padding:var(--space-5)}
+#photoRemove{margin-top:var(--space-form-action)}
 .note{background:var(--surface);border-radius:var(--r);padding:14px 18px;margin:0 0 12px;color:var(--t2);font-size:15px}.note b{color:var(--t1)}
 .toast{position:fixed;left:50%;bottom:calc(var(--nav-clear) + 12px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;background:var(--surface);color:var(--t1);border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:15px;line-height:1.4;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.5);max-width:min(440px,calc(100% - 32px))}
 body:has(.composer) .toast{bottom:calc(var(--nav-clear) + env(safe-area-inset-bottom) + var(--composer-h, 69px) + 12px)}
