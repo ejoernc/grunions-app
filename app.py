@@ -979,9 +979,9 @@ def webmanifest():
         "name": "Regulars", "short_name": "Regulars", "start_url": "/", "scope": "/", "display": "standalone",
         "background_color": "#000000", "theme_color": "#000000",
         "icons": [
-            {"src": "/static/icons/icon-192.png?v=113", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-            {"src": "/static/icons/icon-512.png?v=113", "sizes": "512x512", "type": "image/png", "purpose": "any"},
-            {"src": "/static/icons/maskable-512.png?v=113", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+            {"src": "/static/icons/icon-192.png?v=116", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/icon-512.png?v=116", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/maskable-512.png?v=116", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
         ],
     }), mimetype="application/manifest+json")
     resp.headers["Cache-Control"] = "no-cache"
@@ -5947,7 +5947,7 @@ def start_scheduler():
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
     _scheduler.start()
 
-SW_JS = """/* grunions-sw-115 */
+SW_JS = """/* grunions-sw-116 */
 var MAPBOX_CACHE = 'grunions-mapbox-v1';
 var MAPBOX_URLS = [
   'https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js',
@@ -5978,7 +5978,7 @@ self.addEventListener('push', function(event) {
   var data = {title: 'Regulars', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
   var tasks = [self.registration.showNotification(data.title || 'Regulars', {
-    body: data.body || '', icon: '/static/icons/icon-192.png?v=113', badge: '/static/icons/icon-192.png?v=113', data: {url: data.url || '/'}
+    body: data.body || '', icon: '/static/icons/icon-192.png?v=116', badge: '/static/icons/icon-192.png?v=116', data: {url: data.url || '/'}
   })];
   if (typeof data.badge === 'number' && navigator.setAppBadge) {
     try {
