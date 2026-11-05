@@ -638,10 +638,22 @@ dialog.matpick .matpart span{white-space:nowrap;font-size:12px;padding:0 2px;hei
 .evhost{color:var(--t2);font-size:14px;margin:2px 0 8px}.evnote{color:var(--t2);font-size:15px;line-height:1.4;margin:8px 0}
 details.moredetails{margin:8px 0 12px}details.moredetails>summary{min-height:44px;padding:8px 0;font-weight:600}
 a.growthcard,div.growthcard{position:relative;padding:var(--space-4) var(--space-4) var(--space-2);margin:0 0 var(--space-3)}
-a.growthcard{display:block;color:inherit;text-decoration:none}
-.growthhead{font-size:15px;font-weight:650;line-height:1.3;margin:0 0 6px}
-.growthcard svg{width:100%;height:auto;display:block;touch-action:none}
-.growthtip{position:absolute;z-index:2;top:36px;transform:translateX(-50%);background:var(--color-surface-2);color:var(--t1);border:1px solid var(--line);border-radius:var(--radius-input);padding:6px 10px;font-size:13px;white-space:nowrap;pointer-events:none}
+a.growthcard,a.growthpane{display:block;color:inherit;text-decoration:none}
+.growthheadrow{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin:0 0 6px}
+.growthtitles{position:relative;flex:1;min-width:0;display:grid}
+.growthhead{grid-area:1/1;margin:0;opacity:0;transition:opacity .28s ease}
+.growthhead.on{opacity:1}
+.growthtitle{font-size:15px;font-weight:650;line-height:1.3}
+.growthsub{margin:2px 0 0}
+.growthswitch{display:flex;gap:6px;flex:none}
+.growthswitch button.growthchip{width:32px;height:32px;min-height:32px;padding:0;border-radius:50%;border:1px solid var(--color-control);background:var(--color-raised);color:var(--color-text);flex:none}
+.growthswitch button.growthchip svg{width:16px;height:16px;display:block}
+.growthstage{display:grid}
+.growthpane{grid-area:1/1;min-width:0;opacity:0;transition:opacity .28s ease;pointer-events:none;color:inherit;text-decoration:none}
+.growthpane.on{opacity:1;pointer-events:auto}
+.growthcard svg{width:100%;height:auto;display:block;touch-action:pan-y}
+.growthtip{position:absolute;z-index:2;top:64px;transform:translateX(-50%);background:var(--color-surface-2);color:var(--t1);border:1px solid var(--line);border-radius:var(--radius-input);padding:6px 10px;font-size:13px;white-space:nowrap;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.growthhead,.growthpane{transition:none}}
 .calpick{position:relative;flex:1.6;min-width:0;display:flex;align-items:center;gap:4px}
 .calnav,.calmonth{flex:none;width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;background:none;color:var(--t1);text-decoration:none;border-radius:10px}
 .calnav{height:48px;width:40px}
@@ -3387,7 +3399,7 @@ T["approvals"] = """{% call admin_page('Events') %}<a class="btn quiet pageact" 
 T["usage"] = ADMIN_NAV + """{{ admin_page('Usage', 'Mapbox calls today for driving routes and place search. One typing session counts as one call.') }}
 <div class=card><h2 style="margin:0 0 8px">Today</h2>
 <p class="t2 sm" style="margin:0">{{ calls }} of {{ cap }}</p></div>"""
-T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}{% if attendance %}{{ attendance }}{% endif %}
+T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
 <div class=mgroups>
 {% for g in groups %}<section class=mgroup><h2>{{ g.label }}</h2><div class=mlist>{% for row in g.rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone) }}{% endfor %}</div></section>{% endfor %}
 </div>"""

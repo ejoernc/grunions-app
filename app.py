@@ -4251,11 +4251,10 @@ def signup_days(d):
 def manage_home():
     if not can_host_practice(): abort(403)
     d = db()
-    growth = attendance = ""
+    growth = ""
     if me()["is_admin"]:
-        growth = growth_chart(*signup_days(d))["html"]
-        attendance = attendance_chart(recent_checkins(d))["html"]
-    return page(T["manage"], tab="manage", groups=manage_home_groups(d), growth=growth, attendance=attendance)
+        growth = chart_card(growth_chart(*signup_days(d)), attendance_chart(recent_checkins(d)))
+    return page(T["manage"], tab="manage", groups=manage_home_groups(d), growth=growth)
 @app.route("/manage/schedule")
 @login_required
 def manage_schedule():
@@ -4919,8 +4918,8 @@ def growth_chart(joined, verified, today=None):
     joined = sorted(d for d in joined if d and d <= today)
     verified = sorted(d for d in verified if d and d <= today)
     if not joined:
-        return {"html": Markup('<a class="card growthcard" id=growthCard href="/members" data-kind=""><div class=growthhead>0 members</div><p class="t3 sm" style="margin:0">No signups yet.</p></a>'),
-                "kind": "", "total": 0, "delta": 0}
+        return {"html": Markup('<p class="t3 sm" style="margin:0">No signups yet.</p>'),
+                "kind": "", "total": 0, "delta": 0, "title": "Members", "sub": "No signups yet.", "pts": []}
     start, total = joined[0], len(joined)
     kind = _growth_kind((today - start).days)
     ends = _bucket_ends(start, today, kind)
@@ -4929,7 +4928,7 @@ def growth_chart(joined, verified, today=None):
     points = [(end, cum(joined, end), cum(verified, end)) for end in ends]
     delta = points[-1][1] - before
     noun = "member" if total == 1 else "members"
-    head = "%d %s · %+d %s" % (total, noun, delta, _growth_when(kind, start, today))
+    title, sub = "Members", "%d %s · %+d %s" % (total, noun, delta, _growth_when(kind, start, today))
     W, H, L, R, T, B = 320, 132, 8, 312, 16, 104
     span = max((today - start).days, 0)
     vmax = max(p[1] for p in points) or 1
@@ -4951,7 +4950,7 @@ def growth_chart(joined, verified, today=None):
         text = "%s %d" % (day.strftime("%b"), day.day) if kind in ("day", "week") or day.year == today.year else "%s %s" % (day.strftime("%b"), str(day.year)[2:])
         anchor = "start" if x < 40 else ("end" if x > W - 40 else "middle")
         labels.append('<text x="%s" y="124" text-anchor="%s" fill="#BEC9C1" font-size="12">%s</text>' % (x, anchor, escape(text)))
-    parts = ['<svg viewBox="0 0 %d %d" role="img" aria-label="%s">' % (W, H, escape(head))]
+    parts = ['<svg viewBox="0 0 %d %d" role="img" aria-label="%s">' % (W, H, escape("Members. " + sub))]
     for frac in (0, 0.5, 1):
         y = round(B - (B - T) * frac, 1)
         parts.append('<line x1="%d" y1="%s" x2="%d" y2="%s" stroke="#1B221E" stroke-width="1"/>' % (L, y, R, y))
@@ -4970,29 +4969,7 @@ def growth_chart(joined, verified, today=None):
     parts.extend(labels)
     parts.append("</svg>")
     payload = [{"x": xy(day, n)[0], "label": "%s %d" % (day.strftime("%b"), day.day), "total": n, "verified": v} for day, n, v in points]
-    script = """<script>(function(){
-var card=document.getElementById('growthCard'); if(!card||card.dataset.bound) return; card.dataset.bound='1';
-var svg=card.querySelector('svg'), tip=card.querySelector('.growthtip'), mark=card.querySelector('#growthMark');
-var pts=[]; try{pts=JSON.parse(card.getAttribute('data-pts')||'[]')}catch(e){}
-if(!svg||!tip||!pts.length) return;
-var drag=false, timer=0;
-function show(clientX){
- var box=svg.getBoundingClientRect(), x=(clientX-box.left)/box.width*320, best=pts[0], dist=1e9, i;
- for(i=0;i<pts.length;i++){var d=Math.abs(pts[i].x-x); if(d<dist){dist=d; best=pts[i]}}
- tip.hidden=false; tip.textContent=best.label+' · '+best.total+' member'+(best.total==1?'':'s')+(best.verified?' · '+best.verified+' verified':'');
- var left=(best.x/320)*box.width, half=tip.offsetWidth/2;
- tip.style.left=Math.max(half+8, Math.min(card.clientWidth-half-8, left))+'px';
- if(mark){mark.setAttribute('x1', best.x); mark.setAttribute('x2', best.x); mark.setAttribute('opacity','0.45')}
-}
-svg.addEventListener('click', function(e){ e.preventDefault(); });
-svg.addEventListener('pointerdown', function(e){drag=true; try{svg.setPointerCapture(e.pointerId)}catch(err){} clearTimeout(timer); show(e.clientX)});
-svg.addEventListener('pointermove', function(e){if(drag) show(e.clientX)});
-function end(){drag=false; clearTimeout(timer); timer=setTimeout(function(){tip.hidden=true; if(mark) mark.setAttribute('opacity','0')}, 1400)}
-svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
-})();</script>"""
-    html = Markup('<a class="card growthcard" id=growthCard href="/members" data-kind="%s" data-pts="%s"><div class=growthhead>%s</div>%s<div class=growthtip hidden></div></a>%s' % (
-        kind, escape(json.dumps(payload)), escape(head), "".join(parts), script))
-    return {"html": html, "kind": kind, "total": total, "delta": delta}
+    return {"html": Markup("".join(parts)), "kind": kind, "total": total, "delta": delta, "title": title, "sub": sub, "pts": payload}
 def recent_checkins(d, today=None):
     """Checked-in counts for the latest practice days, oldest first. At most 12."""
     today = today or today_pt()
@@ -5012,7 +4989,7 @@ def recent_checkins(d, today=None):
         rows.append((parsed, int(counts.get(day) or 0)))
     return rows
 def attendance_chart(rows):
-    """Bar chart named Attendance. rows are (date, count); only the latest 12 are kept, oldest on the left."""
+    """Bar chart named Attendance. rows are (date, count); only the latest 12 are kept, oldest on the left. Every bar is the same neutral fill."""
     clean = []
     for day, count in rows or []:
         if hasattr(day, "isoformat"): parsed = day
@@ -5024,14 +5001,17 @@ def attendance_chart(rows):
     if len(clean) > 12: clean = clean[-12:]
     n = len(clean)
     avg = int(round(sum(c for _d, c in clean) / n)) if n else 0
+    title = "Attendance"
     if not n:
-        html = Markup('<div class="card growthcard" id=attendanceCard><div class=growthhead>Attendance</div><p class="t3 sm" style="margin:0">No practices yet.</p></div>')
-        return {"html": html, "avg": 0, "n": 0, "dates": []}
+        html = Markup('<p class="t3 sm" style="margin:0">No practices yet.</p>')
+        return {"html": html, "title": title, "sub": "No practices yet.", "avg": 0, "n": 0, "dates": [], "bars": []}
+    sub = "Average %d checked in" % avg
     W, H, L, R, T, B = 320, 132, 8, 312, 16, 104
     vmax = max(c for _d, c in clean) or 1
     slot = (R - L) / n
     bw = round(slot * 0.62, 1)
-    parts = ['<svg viewBox="0 0 %d %d" role="img" aria-label="%s">' % (W, H, escape("Attendance, average %d checked in" % avg))]
+    parts = ['<svg viewBox="0 0 %d %d" role="img" aria-label="%s">' % (W, H, escape("Attendance. " + sub))]
+    bars = []
     for frac in (0, 0.5, 1):
         y = round(B - (B - T) * frac, 1)
         parts.append('<line x1="%d" y1="%s" x2="%d" y2="%s" stroke="#1B221E" stroke-width="1"/>' % (L, y, R, y))
@@ -5039,15 +5019,104 @@ def attendance_chart(rows):
         h = max(2, round((B - T) * (count / vmax), 1)) if count else 2
         x = round(L + slot * i + (slot - bw) / 2, 1)
         y = round(B - h, 1)
-        fill = "#B2DE64" if i == n - 1 else "#BEC9C1"
-        parts.append('<rect x="%s" y="%s" width="%s" height="%s" rx="3" fill="%s"/>' % (x, y, bw, h, fill))
+        parts.append('<rect x="%s" y="%s" width="%s" height="%s" rx="3" fill="#BEC9C1"/>' % (x, y, bw, h))
         label = "%d/%d" % (day.month, day.day) if n > 6 else "%s %d" % (day.strftime("%b"), day.day)
         size = 10 if n > 6 else 12
         parts.append('<text x="%s" y="124" text-anchor="middle" fill="#BEC9C1" font-size="%d">%s</text>' % (round(x + bw / 2, 1), size, escape(label)))
+        bars.append({"x": round(x + bw / 2, 1), "label": "%s %d" % (day.strftime("%b"), day.day), "count": count})
     parts.append("</svg>")
-    html = Markup('<div class="card growthcard" id=attendanceCard><div class=growthhead>Attendance</div><p class="t3 sm" style="margin:0 0 6px">%s</p>%s</div>' % (
-        escape("Average %d checked in" % avg), "".join(parts)))
-    return {"html": html, "avg": avg, "n": n, "dates": [d for d, _c in clean]}
+    return {"html": Markup("".join(parts)), "title": title, "sub": sub, "avg": avg, "n": n, "dates": [d for d, _c in clean], "bars": bars}
+_CHART_PREV = '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>'
+_CHART_NEXT = '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
+def chart_card(growth, attendance):
+    """One Manage card. Arrows switch Members and Attendance. Each view has a title and a subtitle."""
+    g_title = escape(growth.get("title") or "Members")
+    g_sub = escape(growth.get("sub") or "")
+    a_title = escape(attendance.get("title") or "Attendance")
+    a_sub = escape(attendance.get("sub") or "")
+    pts = escape(json.dumps(growth.get("pts") or []))
+    bars = escape(json.dumps(attendance.get("bars") or []))
+    kind = escape(growth.get("kind") or "")
+    body = (
+        '<div class="card growthcard" id=growthCard>'
+        '<div class=growthheadrow>'
+        '<div class=growthtitles>'
+        '<div class="growthhead on" data-chart=growth><div class=growthtitle>%s</div><p class="t3 sm growthsub">%s</p></div>'
+        '<div class=growthhead data-chart=attendance aria-hidden=true><div class=growthtitle>%s</div><p class="t3 sm growthsub">%s</p></div>'
+        '</div>'
+        '<div class=growthswitch role=group aria-label=Charts>'
+        '<button type=button class=growthchip data-dir=-1 aria-label="Previous chart">%s</button>'
+        '<button type=button class=growthchip data-dir=1 aria-label="Next chart">%s</button>'
+        '</div></div>'
+        '<div class=growthstage>'
+        '<a class="growthpane on" data-chart=growth href="/members" data-kind="%s" data-pts="%s">%s</a>'
+        '<div class="growthpane" data-chart=attendance data-bars="%s" aria-hidden=true>%s</div>'
+        '</div><div class=growthtip hidden></div></div>'
+    ) % (g_title, g_sub, a_title, a_sub, _CHART_PREV, _CHART_NEXT, kind, pts, growth.get("html") or "", bars, attendance.get("html") or "")
+    script = """<script>(function(){
+var card=document.getElementById('growthCard'); if(!card||card.dataset.bound) return; card.dataset.bound='1';
+var names=['growth','attendance'], key='grunionsManageChart', tip=card.querySelector('.growthtip');
+function show(name){
+ if(names.indexOf(name)<0) name='growth';
+ card.setAttribute('data-on', name);
+ card.querySelectorAll('[data-chart]').forEach(function(el){
+  var on=el.getAttribute('data-chart')===name;
+  el.classList.toggle('on', on);
+  el.setAttribute('aria-hidden', on?'false':'true');
+ });
+ if(tip) tip.hidden=true;
+ try{localStorage.setItem(key, name)}catch(e){}
+}
+function cycle(dir){
+ var i=names.indexOf(card.getAttribute('data-on')||'growth'); if(i<0) i=0;
+ show(names[(i+dir+names.length)%names.length]);
+}
+var saved='growth'; try{saved=localStorage.getItem(key)||'growth'}catch(e){}
+show(saved);
+card.querySelectorAll('[data-dir]').forEach(function(b){
+ b.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); cycle(+b.getAttribute('data-dir')||1); });
+});
+function place(clientX, svg, x){
+ if(!tip||!svg) return;
+ var box=svg.getBoundingClientRect(), left=(x/320)*box.width, half=tip.offsetWidth/2;
+ tip.hidden=false;
+ tip.style.left=Math.max(half+8, Math.min(card.clientWidth-half-8, left))+'px';
+}
+var gpane=card.querySelector('a[data-chart=growth]'), gsvg=gpane&&gpane.querySelector('svg'), mark=card.querySelector('#growthMark');
+var pts=[]; try{pts=JSON.parse((gpane&&gpane.getAttribute('data-pts'))||'[]')}catch(e){}
+var drag=false, timer=0;
+function showMembers(clientX){
+ if(!gsvg||!tip||!pts.length) return;
+ var box=gsvg.getBoundingClientRect(), x=(clientX-box.left)/box.width*320, best=pts[0], dist=1e9, i;
+ for(i=0;i<pts.length;i++){var d=Math.abs(pts[i].x-x); if(d<dist){dist=d; best=pts[i]}}
+ tip.textContent=best.label+' · '+best.total+' member'+(best.total==1?'':'s')+(best.verified?' · '+best.verified+' verified':'');
+ place(clientX, gsvg, best.x);
+ if(mark){mark.setAttribute('x1', best.x); mark.setAttribute('x2', best.x); mark.setAttribute('opacity','0.45')}
+}
+if(gsvg){
+ gsvg.addEventListener('click', function(e){ e.preventDefault(); });
+ gsvg.addEventListener('pointerdown', function(e){drag=true; try{gsvg.setPointerCapture(e.pointerId)}catch(err){} clearTimeout(timer); showMembers(e.clientX)});
+ gsvg.addEventListener('pointermove', function(e){if(drag) showMembers(e.clientX)});
+ function end(){drag=false; clearTimeout(timer); timer=setTimeout(function(){if(tip) tip.hidden=true; if(mark) mark.setAttribute('opacity','0')}, 1400)}
+ gsvg.addEventListener('pointerup', end); gsvg.addEventListener('pointercancel', end);
+}
+var apane=card.querySelector('[data-chart=attendance].growthpane'), asvg=apane&&apane.querySelector('svg');
+var bars=[]; try{bars=JSON.parse((apane&&apane.getAttribute('data-bars'))||'[]')}catch(e){}
+function showAttendance(clientX){
+ if(!asvg||!tip||!bars.length) return;
+ var box=asvg.getBoundingClientRect(), x=(clientX-box.left)/box.width*320, best=bars[0], dist=1e9, i;
+ for(i=0;i<bars.length;i++){var d=Math.abs(bars[i].x-x); if(d<dist){dist=d; best=bars[i]}}
+ tip.textContent=best.label+' · '+best.count+' checked in';
+ place(clientX, asvg, best.x);
+}
+if(asvg){
+ asvg.addEventListener('pointerdown', function(e){drag=true; try{asvg.setPointerCapture(e.pointerId)}catch(err){} clearTimeout(timer); showAttendance(e.clientX)});
+ asvg.addEventListener('pointermove', function(e){if(drag) showAttendance(e.clientX)});
+ asvg.addEventListener('pointerup', function(){drag=false; clearTimeout(timer); timer=setTimeout(function(){if(tip) tip.hidden=true}, 1400)});
+ asvg.addEventListener('pointercancel', function(){drag=false; if(tip) tip.hidden=true});
+}
+})();</script>"""
+    return Markup(body + script)
 @app.route("/members", methods=["GET", "POST"])
 @admin_required
 def members():
