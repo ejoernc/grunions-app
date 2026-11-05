@@ -122,10 +122,12 @@ body.practicepage main{padding-top:0}
 .homemap.tiles .leaflet-tile-pane{opacity:1}
 .homemap .leaflet-control-attribution{background:var(--color-scrim);color:var(--color-text-secondary);font-size:10px;max-width:70%}
 .homemap .leaflet-control-attribution a{color:var(--color-icon)}
-.mapboxgl-ctrl-bottom-right{margin:0 6px 6px 0}
-.mapboxgl-ctrl-logo{opacity:.5;transform:scale(.62);transform-origin:right bottom;margin:0}
-.mapcredit{font-size:9px;line-height:1;color:rgba(255,255,255,.5);pointer-events:none;white-space:nowrap;margin:0 0 1px 0}
-body.homefull .homemap .mapboxgl-ctrl-bottom-right{position:absolute;right:6px;left:auto;bottom:var(--map-attrib,12px);margin:0;pointer-events:auto;z-index:2;display:flex;flex-direction:row;align-items:flex-end;gap:4px}
+.mapboxgl-ctrl-bottom-right{margin:0 6px 6px 0;z-index:460}
+.mapboxgl-ctrl-logo{opacity:.5;transform:scale(.62);transform-origin:right bottom;margin:0;cursor:pointer}
+.mapattrib{position:fixed;z-index:40;margin:0;padding:5px 8px;background:#141816;border-radius:8px;font-size:10px;line-height:1.2;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.35)}
+.mapattrib a{color:rgba(255,255,255,.72);text-decoration:none}
+.mapattrib a+a{margin-left:8px}
+body.homefull .homemap .mapboxgl-ctrl-bottom-right{position:absolute;right:6px;left:auto;bottom:var(--map-attrib,12px);margin:0;pointer-events:auto;z-index:460}
 .homemap .leaflet-bar a,.homemap .leaflet-bar a:hover{background:var(--color-surface-2);color:var(--color-text);border-bottom-color:var(--color-border)}
 .homemap .leaflet-marker-icon.mpin{background:transparent;border:0;box-shadow:none;overflow:visible}
 .pinrow{display:flex;align-items:center;gap:6px;height:18px;width:max-content}
@@ -2030,12 +2032,40 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
     return {top:inset, bottom:bottom, left:48, right:140};
    }
    function staticCredit(){
-    var corner=el.querySelector('.mapboxgl-ctrl-bottom-right');
-    if(!corner||corner.querySelector('.mapcredit')) return;
-    var credit=document.createElement('span');
-    credit.className='mapcredit';
-    credit.textContent='© Mapbox © OpenStreetMap';
-    corner.appendChild(credit);
+    var logo=el.querySelector('.mapboxgl-ctrl-logo');
+    if(!logo||logo.dataset.credit) return;
+    logo.dataset.credit='1';
+    var pop=document.createElement('div');
+    pop.className='mapattrib';
+    pop.hidden=true;
+    pop.innerHTML='<a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">© Mapbox</a><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a>';
+    document.body.appendChild(pop);
+    function place(){
+     var r=logo.getBoundingClientRect();
+     pop.style.left='auto';
+     pop.style.top='auto';
+     pop.style.right=Math.max(8, Math.round(window.innerWidth-r.right))+'px';
+     pop.style.bottom=Math.max(8, Math.round(window.innerHeight-r.top+6))+'px';
+    }
+    logo.addEventListener('click', function(e){
+     e.preventDefault();
+     e.stopPropagation();
+     var show=pop.hidden;
+     document.querySelectorAll('.mapattrib').forEach(function(n){ n.hidden=true; });
+     if(!show) return;
+     place();
+     pop.hidden=false;
+    });
+    if(!window.grunionsMapAttrib){
+     window.grunionsMapAttrib=1;
+     document.addEventListener('click', function(e){
+      if(e.target.closest&&(e.target.closest('.mapattrib')||e.target.closest('.mapboxgl-ctrl-logo'))) return;
+      document.querySelectorAll('.mapattrib').forEach(function(n){ n.hidden=true; });
+     });
+     window.addEventListener('resize', function(){
+      document.querySelectorAll('.mapattrib').forEach(function(n){ n.hidden=true; });
+     });
+    }
    }
    function pads(){
     var head=document.querySelector('header.homehead'), card=document.querySelector('.nextcard');
