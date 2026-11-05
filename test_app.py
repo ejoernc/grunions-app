@@ -1566,9 +1566,10 @@ eli.post("/practices/%d" % ppid, data=dict(csrf=csrf(eli, "/practices/%d" % ppid
 emails.clear(); pushes.clear()
 eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="cancel", reason="Pool closed", back="page"))
 cancelled = eli.get("/practices/%d" % dpid).get_data(as_text=True)
-card_c = eli.get("/practices").get_data(as_text=True).split("id=p%d " % dpid, 1)[1].split("id=p")[0]
+sched_c = eli.get("/practices").get_data(as_text=True)
+card_c = sched_c.split("id=p%d " % dpid, 1)[1].split("id=p")[0]
 reason_mail = [e for e in emails if e[0] == "jane@example.com" and "Pool closed" in e[2]]
-ok("Cancelled" in cancelled and "Pool closed" in cancelled and "Pool closed" in card_c and "Undo cancel" in cancelled and ">Delete event</button>" in cancelled and len(reason_mail) == 1 and "Detail Pool" in reason_mail[0][2] and any(p[1]["url"] == "/practices/%d" % dpid and "Pool closed" in p[1]["body"] for p in pushes), "sending a cancellation stores the reason, shows it, and emails and pushes it")
+ok("Cancelled" in cancelled and "Pool closed" in cancelled and "Pool closed" in card_c and "Undo cancel" in cancelled and ">Delete event</button>" in cancelled and 'class="profilename cancelled"' in cancelled and ('class="card tap cancelled" id=p%d ' % dpid) in sched_c and ('class="card tap cancelled" id=p%d ' % dpid) in eli.get("/home").get_data(as_text=True) and ".card.cancelled .nxcardhead .nxtitle,.profilename.cancelled{text-decoration:line-through;color:var(--t3)}" in cancelled and len(reason_mail) == 1 and "Detail Pool" in reason_mail[0][2] and any(p[1]["url"] == "/practices/%d" % dpid and "Pool closed" in p[1]["body"] for p in pushes), "sending a cancellation stores the reason, strikes the title, and emails and pushes it")
 eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="restore", back="page"))
 ok(D.execute("SELECT cancelled, COALESCE(cancel_reason,'') FROM practices WHERE id=?", (dpid,)).fetchone() == (0, "") and "Pool closed" not in eli.get("/practices/%d" % dpid).get_data(as_text=True), "undo cancel clears the cancellation and the reason")
 eli.post("/practices/%d" % dpid, data=dict(csrf=csrf(eli, "/practices/%d" % dpid), pid=dpid, action="assign", back="page", coach=str(D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0])))
@@ -1847,7 +1848,8 @@ jane.post("/lineup", data=dict(csrf=csrf(jane, "/home"), event_id=sun_id, action
 restored = jane.get("/home").get_data(as_text=True)
 ok("Sunday Cup" not in restored[restored.find('class="card tap nextcard"'):restored.find("id=schedule")] and 'class="nxtitle cardtitle">Water Polo Practice</div>' in restored, "clearing Going puts the practice back on Home")
 eli.post("/lineup/%d/edit" % sun_id, data=dict(csrf=csrf(eli, "/lineup/%d/edit" % sun_id), action="cancel", mode="edit", category="travel", title="Sunday Cup", location="Moved Pool", description="A multi-day trip.", date=early, start_time="%02d:%02d" % (_estart.hour, _estart.minute)))
-ok(D.execute("SELECT status FROM lineup_events WHERE id=?", (sun_id,)).fetchone()[0] == "canceled" and "Sunday Cup" not in eli.get("/lineup").get_data(as_text=True).split("<h2>My events", 1)[0], "canceling removes the event from the public Lineup")
+_sun_page = eli.get("/lineup/%d" % sun_id).get_data(as_text=True)
+ok(D.execute("SELECT status FROM lineup_events WHERE id=?", (sun_id,)).fetchone()[0] == "canceled" and "Sunday Cup" not in eli.get("/lineup").get_data(as_text=True).split("<h2>My events", 1)[0] and 'class="profilename cancelled">Sunday Cup' in _sun_page and ">Canceled<" in _sun_page, "canceling removes the event from the public Lineup and strikes the detail title")
 john.post("/lineup/%d/edit" % igla[0], data=dict(csrf=csrf(john, "/lineup/%d/edit" % igla[0]), action="delete"))
 ok(not D.execute("SELECT 1 FROM lineup_events WHERE id=?", (igla[0],)).fetchone(), "a coach can delete a lineup event")
 D.execute("UPDATE members SET role=?, is_admin=? WHERE email='john@example.com'", (prev_john[0], prev_john[1])); D.commit()

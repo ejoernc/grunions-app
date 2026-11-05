@@ -199,6 +199,8 @@ a.rowbtn,button.rowbtn{width:100%;height:auto;min-height:60px;padding:14px 18px;
 .stats.trio .stattile{flex:1;min-width:0;padding:12px 8px}
 .list .li .coach-elig{margin-left:0;flex:none;height:24px;padding:0 8px;border-radius:999px;border:1px solid var(--line);background:var(--color-chip);font-size:12px;font-weight:600}
 .profilename{margin:14px 0 4px;font-size:24px;font-weight:650;letter-spacing:-.3px;text-align:center}
+.card.cancelled{opacity:.55}
+.card.cancelled .nxcardhead .nxtitle,.profilename.cancelled{text-decoration:line-through;color:var(--t3)}
 .profilesub{color:var(--t2);text-align:center;margin:0 0 16px}
 .stats{display:flex;gap:10px;justify-content:center;margin:0 0 8px}
 .stattile{min-width:120px;background:var(--surface);border-radius:14px;padding:12px 16px;text-align:center}
@@ -901,7 +903,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro event_hero(id, pins, banner_src, label, route=None) %}{% if banner_src %}<div class=evhero><img src="{{ banner_src }}" alt=""></div>{% else %}{{ mount_map(id, pins, 'card', '', route) }}{% endif %}{% endmacro %}
 {% macro whos_going(people) %}<div class=seclabel>Who's going</div><div class=list>{% for r in people %}<div class=li>{% if me().is_admin or is_staff() %}<a class=ci-name href="/admin/member/{{ r.id }}">{% else %}<span class=ci-name>{% endif %}{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span></span>{% if me().is_admin or is_staff() %}</a>{% else %}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>{% endmacro %}
 {% macro event_location(id, pins, name, sub, href, route=None, route_min=None) %}<div class=seclabel>Location</div><div class="list loccard">{{ mount_map(id, pins, 'tap' if pins else 'still', href, route) }}{% if route_min %}<div class="li"><span class="t3 sm">{{ route_min }} min drive</span></div>{% endif %}<div class="li locrow"><span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ name }}</span>{% if sub and sub != name %}<span class="t3 sm">{{ sub }}</span>{% endif %}</span><a class="btn btn-secondary" href="{{ href }}" target=_blank rel=noopener {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %}>Open in Maps</a></div></div>{% endmacro %}
-{% macro lineup_card(e, back='/lineup') %}<div class="card tap tripcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
+{% macro lineup_card(e, back='/lineup') %}<div class="card tap tripcard{% if e.status == 'canceled' %} cancelled{% endif %}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
 <a class=cardlink href="/lineup/{{ e.id }}">
 <div class=nxcardhead><div class="nxtitle cardtitle">{{ e.title }}</div>{% if e.card_line %}<div class="cardsub ell">{{ e.card_line }}</div>{% endif %}</div>
 <div class=nxmain><div class=datetile>{% if e.tile.wd %}<span class=wd>{{ e.tile.wd }}</span>{% endif %}<span class=dn>{{ e.tile.dn }}</span><span class=mo>{{ e.tile.mo }}</span></div>
@@ -2531,7 +2533,7 @@ T["home"] = """{% if tab=='home' and pins %}
 <script>document.getElementById('trialOpen').onclick=function(){document.getElementById('trialDialog').showModal()};
 document.getElementById('trialDialog').addEventListener('click',function(e){if(e.target===this)this.close()});</script>{% endif %}
 </div>{% endif %}
-{% if next_kind == 'event' and nextev %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ nextev.id }}'">
+{% if next_kind == 'event' and nextev %}<div class="card tap nextcard{% if nextev.status == 'canceled' %} cancelled{% endif %}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ nextev.id }}'">
 <div class=nxbody><a class=cardlink href="/lineup/{{ nextev.id }}">
 <div class=nxcardhead><div class="nxtitle cardtitle">{{ nextev.title }}</div><span class="chip-info daychip">{{ nextev.chip_label }}</span></div>
 <div class=nxmain><div class=datetile>{% if nextev.tile.wd %}<span class=wd>{{ nextev.tile.wd }}</span>{% endif %}<span class=dn>{{ nextev.tile.dn }}</span><span class=mo>{{ nextev.tile.mo }}</span></div>
@@ -2541,7 +2543,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ nextev.id }}><input type=hidden name=back value=/home>
 {{ rsvp_btn('Going', nextev.mine == 'going', 'going') }}
 {{ rsvp_btn('Not going', nextev.mine == 'notgoing', 'notgoing') }}</form>
-</div>{% elif nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard" onclick="if(event.target.closest('button,a,form,input,select,textarea,label,.drivechip,.nxmap'))return;location.href='/practices/{{nextp.id}}'">
+</div>{% elif nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard{% if nextp.cancelled %} cancelled{% endif %}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label,.drivechip,.nxmap'))return;location.href='/practices/{{nextp.id}}'">
 {% if drive_on %}<div class="drivechip" data-drive="{{ {'kind':'practice','id':nextp.id}|tojson|forceescape }}"><button type=button class=drivechipbtn data-drive-ask>Show my drive time</button><p class=drivechiptext data-drive-line hidden></p></div>{% endif %}
 {% if social_after and sh %}<div class="nxnote afterline">After practice: {{ sh.place }}{% if social_mins %} · {{ social_mins }} min drive{% endif %}</div>{% endif %}
 {% if nextp.image %}<a class=cardlink href="/practices/{{nextp.id}}"><div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div></a>{% endif %}
@@ -2563,7 +2565,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 </div>{% endif %}
 </div>
 <div class=schedlist id=schedule>
-{% for x in data %}{% set p = x.p %}<div class="card tap{% if nextp and p.id == nextp.id %} schedsame{% endif %}" id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
+{% for x in data %}{% set p = x.p %}<div class="card tap{% if nextp and p.id == nextp.id %} schedsame{% endif %}{% if p.cancelled %} cancelled{% endif %}" id=p{{p.id}} data-pid={{p.id}} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">
 <div class=nxcardhead><div class="nxtitle cardtitle">{{ practice_title(p) }}</div></div>
 {% set tile = practice_tile(p) %}
@@ -3285,7 +3287,7 @@ T["lineup"] = """{% macro lineup_months(groups) %}{% for g in groups %}<div clas
 {% if past %}<details class=lineuppast><summary>Past <span class=t3>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}"""
 T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
 <div class=profilehero>
-<div class=profilename>{{ e.title }}</div>
+<div class="profilename{% if e.status == 'canceled' %} cancelled{% endif %}">{{ e.title }}</div>
 {% if e.when %}<p class=pracemeta>{{ e.when }}</p>{% endif %}
 {% if e.venue %}<p class=pracemeta>{{ e.venue }}</p>{% endif %}
 {% if e.city %}<p class=pracemeta>{{ e.city }}</p>{% endif %}
@@ -3855,7 +3857,7 @@ T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ c
 </form>{% endif %}
 {% if skips %}<div class=seclabel>Skipped dates</div><div class=list>{% for day in skips %}<form method=post action="{{ action }}" class=li>{{ csrf_field() }}<input type=hidden name=action value=unskip><input type=hidden name=date value="{{ day }}"><span class=grow>{{ fmt_d(day) }}</span><button class="btn btn-secondary" type=submit>Undo skip</button></form>{% endfor %}</div>{% endif %}"""
 T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp;·&nbsp; Fri · Westminster HS &nbsp;·&nbsp; 7–8:30 PM</p>
-{% for x in data %}{% set p = x.p %}<div class="card tap" id=p{{p.id}} data-pid={{p.id}} {% if p.cancelled %}style="opacity:.55"{% endif %} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
+{% for x in data %}{% set p = x.p %}<div class="card tap{% if p.cancelled %} cancelled{% endif %}" id=p{{p.id}} data-pid={{p.id}} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">
 <div class=nxcardhead><div class="nxtitle cardtitle">{{ practice_title(p) }}</div></div>
 {% set tile = practice_tile(p) %}
@@ -3875,7 +3877,7 @@ T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp
 T["practice"] = """{% set p = x.p %}
 {{ event_hero('practiceMap', pins if not p.image else [], ('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', p.location or 'Practice', social_route_points(p)) }}
 <div class=profilehero>
-<div class=profilename>{{ practice_title(p) }}</div>
+<div class="profilename{% if p.cancelled %} cancelled{% endif %}">{{ practice_title(p) }}</div>
 {% if practice_sports_line(p) %}<p class="t3 sm sportline">{{ practice_sports_line(p) }}</p>{% endif %}
 {% if p.activity_type == 'hybrid' %}{% for seg in SPORTS.parse_segments(p.segments) %}<p class="t3 sm">{{ SPORTS.ACTIVITY_NAME.get(seg.type, seg.type) }} · {{ fmt_span(seg.start, seg.end) }}</p>{% endfor %}{% endif %}
 {% if p.opponent and p.activity_type == 'game' %}<p class=pracemeta>{% if p.home_away == 'home' %}Home{% elif p.home_away == 'away' %}Away{% endif %}{% if p.home_away %} · {% endif %}vs. {{ p.opponent }}</p>{% endif %}
