@@ -6,6 +6,19 @@ import os
 _FOUNDATION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "regulars", "foundation.css")
 with open(_FOUNDATION_PATH, encoding="utf-8") as _foundation_file:
     FOUNDATION = _foundation_file.read()
+def _scope_loader(svg):
+    """Keep the brand sweep, and stop its short class names from styling the rest of the page."""
+    svg = svg.replace("@media (prefers-reduced-motion: reduce){.s,.m{animation:none}}", "___BOOT_REDUCE___")
+    svg = svg.replace(".s{", "#boot .s{").replace(".m{", "#boot .m{")
+    svg = svg.replace("___BOOT_REDUCE___", "@media (prefers-reduced-motion: reduce){ #boot .s, #boot .m{animation:none}}")
+    svg = svg.replace("animation:s ", "animation:bootSweep ").replace("@keyframes s{", "@keyframes bootSweep{")
+    svg = svg.replace("animation:p ", "animation:bootPulse ").replace("@keyframes p{", "@keyframes bootPulse{")
+    svg = svg.replace('id="g"', 'id="bootG"').replace("url(#g)", "url(#bootG)")
+    svg = svg.replace('id="k"', 'id="bootK"').replace("url(#k)", "url(#bootK)")
+    return svg
+_LOADER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "regulars-loader.svg")
+with open(_LOADER_PATH, encoding="utf-8") as _loader_file:
+    LOADER_SVG = _scope_loader(_loader_file.read())
 
 BASE = """<!doctype html><html lang=en style="background:#090D0B;color-scheme:dark"><head>
 <meta charset=utf-8><meta name=color-scheme content=dark><meta name=theme-color content="#000">
@@ -32,7 +45,7 @@ body:has(#chat) main{flex:1;min-height:0;display:flex;flex-direction:column;over
 ::view-transition-new(grunions-header){animation:none;mix-blend-mode:normal}
 #boot{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:#090D0B;transition:opacity .4s ease}
 #boot.gone{opacity:0;pointer-events:none}
-#boot img{width:min(78vw,420px);height:auto;display:block}
+#boot svg{width:min(78vw,420px);height:auto;display:block}
 html.booted #boot{display:none}
 @media (prefers-reduced-motion:reduce){ #boot{transition:none}}
 [hidden]{display:none!important}
@@ -716,7 +729,7 @@ dialog.memberedit .help a{color:var(--t1)}
 </style>
 <script>try{if(sessionStorage.getItem("grunionsBoot"))document.documentElement.classList.add("booted")}catch(e){}</script>
 </head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' or tab=='manage' %}adminpage{% endif %}{% if tab=='event_new' or tab=='lineup_edit' or tab=='series_edit' or (tab=='practice' and editing) %} editor{% endif %}">
-<div id=boot role=status aria-label="Loading"><img src="/static/regulars-loader.svg" alt=""></div>
+<div id=boot role=status aria-label="Loading">__LOADER_SVG__</div>
 <script>(function(){var el=document.getElementById("boot");if(!el)return;if(document.documentElement.classList.contains("booted")){el.remove();return;}function hide(){try{sessionStorage.setItem("grunionsBoot","1")}catch(e){}el.classList.add("gone");var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;setTimeout(function(){if(el.parentNode)el.remove()},reduce?0:420);}if(document.readyState==="complete")hide();else window.addEventListener("load",hide);setTimeout(hide,2400);})();</script>
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
@@ -945,6 +958,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <button type=button class="btn btn-primary full" id=allowPush>Allow notifications</button>
 <p class="t3 sm" style="margin:10px 0 0"><a href=/notifications>Notification settings</a></p>
 </div>{% endmacro %}"""
+BASE = BASE.replace("__LOADER_SVG__", "{% raw %}" + LOADER_SVG + "{% endraw %}")
 
 ICONS = {
  "home": '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M219.31,108.68l-80-80a16,16,0,0,0-22.62,0l-80,80A15.87,15.87,0,0,0,32,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V160h32v56a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A15.87,15.87,0,0,0,219.31,108.68ZM208,208H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48V120l80-80,80,80Z"/></svg>',
