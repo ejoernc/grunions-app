@@ -2103,7 +2103,54 @@ _saved = eli.get("/api/places?q=Desert%20Cage").get_json()
 _sched_loc = eli.get("/events/new?lane=schedule").get_data(as_text=True)
 _line_loc = eli.get("/lineup/new").get_data(as_text=True)
 _edit_loc = eli.get("/practices/%d?edit=1" % D.execute("SELECT id FROM practices ORDER BY id LIMIT 1").fetchone()[0]).get_data(as_text=True)
-ok(isinstance(_places, list) and _places and _places[0]["name"] == "Marina High School" and "Springdale" in _places[0]["detail"] and "Springdale" in _places[0]["address"] and len(_places) <= 5 and _places_short == [] and any(p["name"] == "Grunions Desert Cage" for p in _saved) and "id=locInput data-places" in _sched_loc and "locSuggest" not in _sched_loc and "list=citySuggest" not in _line_loc and "data-places" in _line_loc.split("name=city", 1)[1][:160] and "data-places" in _line_loc.split("name=venue", 1)[1][:160] and "data-places" in _edit_loc and "Use “" in _sched_loc and "min-height:48px" in _sched_loc and _places[0]["business"] == "Marina High School" and "data-place-name=social_place" in _edit_loc and _edit_loc.find("name=social_address") < _edit_loc.find("name=social_place") and "Address or map link" not in _edit_loc and "data-place-name=social_place" in eli.get("/practices/%d" % D.execute("SELECT id FROM practices ORDER BY id LIMIT 1").fetchone()[0]).get_data(as_text=True), "location fields use the place dropdown, with club pools ahead of the map search")
+ok(isinstance(_places, list) and _places and _places[0]["name"] == "Marina High School" and "Springdale" in _places[0]["detail"] and "Springdale" in _places[0]["address"] and len(_places) <= 5 and _places_short == [] and eli.get("/api/places?q=Ma").get_json() == [] and any(p["name"] == "Grunions Desert Cage" for p in _saved) and "id=locInput data-places" in _sched_loc and "locSuggest" not in _sched_loc and "list=citySuggest" not in _line_loc and "data-places" in _line_loc.split("name=city", 1)[1][:400] and "data-places" in _line_loc.split("name=venue", 1)[1][:400] and "data-places" in _edit_loc and "Use “" in _sched_loc and "min-height:48px" in _sched_loc and "q.length<3" in _sched_loc and "}, 300);" in _sched_loc and "/api/places/retrieve" in _sched_loc and _places[0]["business"] == "Marina High School" and "data-place-name=social_place" in _edit_loc and _edit_loc.find("name=social_address") < _edit_loc.find("name=social_place") and "Address or map link" not in _edit_loc and "data-place-name=social_place" in eli.get("/practices/%d" % D.execute("SELECT id FROM practices ORDER BY id LIMIT 1").fetchone()[0]).get_data(as_text=True), "location fields use the place dropdown, with club pools ahead of the map search")
+class _SearchResp:
+    def __init__(self, payload):
+        self.payload = payload
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def read(self): return json.dumps(self.payload).encode()
+_search_urls = []
+def _search_open(req, timeout=None):
+    _search_urls.append(req.full_url)
+    url = req.full_url
+    if "/suggest" in url and "country=us" in url:
+        return _SearchResp({"suggestions": []})
+    if "/suggest" in url:
+        return _SearchResp({"suggestions": [{"name": "Michael's Sports Pub", "name_preferred": "Michael's Sports Pub", "place_formatted": "Huntington Beach, California", "full_address": "123 Pacific Coast Hwy, Huntington Beach, CA", "address": "123 Pacific Coast Hwy", "mapbox_id": "pub.1"}]})
+    if "/retrieve/" in url:
+        return _SearchResp({"features": [{"properties": {"name": "Michael's Sports Pub", "full_address": "123 Pacific Coast Hwy, Huntington Beach, CA", "place_formatted": "Huntington Beach, California"}}]})
+    return _SearchResp([])
+_tok_was, _cap_was, _open_was = A.MAPBOX_TOKEN, A.MAPBOX_DAILY_CAP, A._MAPBOX_OPEN
+A.MAPBOX_TOKEN, A.MAPBOX_DAILY_CAP, A._MAPBOX_OPEN = "pk.test", 2000, _search_open
+for _ck in list(A._GEO_CACHE):
+    if str(_ck).startswith("suggest"): A._GEO_CACHE.pop(_ck, None)
+D.execute("DELETE FROM route_budget"); D.execute("DELETE FROM search_sessions"); D.commit()
+try:
+    _pub = eli.get("/api/places?q=Michael%27s%20Sports%20Pub&session=sess-1111&proximity=-118.01000,33.75000").get_json()
+    _pub2 = eli.get("/api/places?q=Michael%27s%20Sports%20Pub&session=sess-1111&proximity=-118.01000,33.75000").get_json()
+    _got = eli.get("/api/places/retrieve?id=pub.1&session=sess-1111").get_json()
+    _one = D.execute("SELECT calls FROM route_budget WHERE day=?", (A.today_pt().isoformat(),)).fetchone()[0]
+    _usage = eli.get("/manage/usage").get_data(as_text=True)
+    A.MAPBOX_DAILY_CAP = _one
+    for _ck in list(A._GEO_CACHE):
+        if str(_ck).startswith("suggest"): A._GEO_CACHE.pop(_ck, None)
+    _nom_urls = []
+    _orig_open = __import__("urllib.request", fromlist=["urlopen"]).urlopen
+    def _nom_open(req, timeout=None, **k):
+        _nom_urls.append(getattr(req, "full_url", str(req)))
+        return _SearchResp([{"lat": "33.7", "lon": "-118.0", "display_name": "Michael's Sports Pub, Huntington Beach, California", "name": "Michael's Sports Pub"}])
+    __import__("urllib.request", fromlist=["urlopen"]).urlopen = _nom_open
+    try:
+        _fallback = eli.get("/api/places?q=Michael%27s%20Sports%20Pub&session=sess-2222&proximity=-118.01000,33.75000").get_json()
+    finally:
+        __import__("urllib.request", fromlist=["urlopen"]).urlopen = _orig_open
+    _west_edit = eli.get("/practices/%d?edit=1" % D.execute("SELECT id FROM practices WHERE location='Westminster High School' ORDER BY date LIMIT 1").fetchone()[0]).get_data(as_text=True)
+finally:
+    A.MAPBOX_TOKEN, A.MAPBOX_DAILY_CAP, A._MAPBOX_OPEN = _tok_was, _cap_was, _open_was
+    for _ck in list(A._GEO_CACHE):
+        if str(_ck).startswith("suggest"): A._GEO_CACHE.pop(_ck, None)
+ok(_pub and _pub[0]["name"] == "Michael's Sports Pub" and "Huntington Beach" in _pub[0]["detail"] and _pub[0]["id"] == "pub.1" and _pub2[0]["id"] == "pub.1" and _got["address"].startswith("123 Pacific Coast Hwy") and _one == 1 and len([u for u in _search_urls if "/suggest" in u]) == 2 and any("country=us" in u and "poi%2Caddress" in u and "-118.01000%2C33.75000" in u for u in _search_urls) and "1 of 2000" in _usage and jane.get("/manage/usage").status_code == 403 and "class=mtitle>Usage" in eli.get("/manage").get_data(as_text=True) and any("viewbox=-118.15%2C33.95%2C-117.40%2C33.40" in u for u in _nom_urls) and any(p["name"] == "Michael's Sports Pub" for p in _fallback) and 'data-proximity="-118.01105,33.75375"' in _west_edit, "place search uses one Mapbox session near the pool, then Nominatim inside the daily cap")
 ok('label:has(> .locok){display:flex;flex-wrap:wrap;align-items:center;column-gap:8px}' in _sched_loc and ".locok{display:inline-flex;align-items:center;gap:6px;margin:0;" in _sched_loc and "margin:-8px" not in _sched_loc and ">Location<span id=locOk class=locok" in _sched_loc and ">City<span class=locok" in _line_loc and ">Venue<span class=locok" in _line_loc and ">Venue<span class=locok" in _edit_loc, "the verified badge sits on the same row as the field label")
 def _open_prec(html):
     return "hidden" not in html.split("id=whenPrec", 1)[1].split(">", 1)[0]

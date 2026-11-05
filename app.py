@@ -136,6 +136,7 @@ CREATE TABLE IF NOT EXISTS sheet_sync(id INTEGER PRIMARY KEY, at TEXT, ok INTEGE
 CREATE TABLE IF NOT EXISTS chat_reads(member_id INTEGER NOT NULL, channel TEXT NOT NULL, last_read INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(member_id, channel));
 CREATE TABLE IF NOT EXISTS practice_notices(practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, kind TEXT NOT NULL, seen_at TEXT, PRIMARY KEY(practice_id, member_id, kind));
 CREATE TABLE IF NOT EXISTS route_budget(day TEXT PRIMARY KEY, calls INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS search_sessions(token TEXT PRIMARY KEY, day TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS drive_cache(member_id INTEGER NOT NULL, practice_id INTEGER NOT NULL,
   minutes INTEGER NOT NULL, traffic INTEGER NOT NULL, estimated INTEGER NOT NULL, fetched_at TEXT NOT NULL,
   PRIMARY KEY(member_id, practice_id));
@@ -3581,9 +3582,113 @@ def local_places(d, q):
             if _place_hit(q, row["city"], row["venue"] or ""):
                 _place_add(rows, row["city"], row["venue"] or "")
     return rows
+# Club home is Huntington Beach / Westminster. Search biases here unless a practice or event pin is known.
+HOME_LNG, HOME_LAT = -118.02, 33.75
+OC_VIEWBOX = "-118.15,33.95,-117.40,33.40"
+_MAPBOX_OPEN = None
+def place_proximity(lat, lng):
+    """Attribute for a place field. Empty when this practice or event has no pin yet."""
+    try:
+        if lat is None or lng is None: return Markup("")
+        lat, lng = float(lat), float(lng)
+    except (TypeError, ValueError):
+        return Markup("")
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180): return Markup("")
+    return Markup(' data-proximity="%.5f,%.5f"' % (lng, lat))
+app.jinja_env.globals.update(place_proximity=place_proximity)
+def _proximity_pair(raw):
+    parts = str(raw or "").split(",")
+    if len(parts) != 2: return (HOME_LNG, HOME_LAT)
+    try:
+        lng, lat = float(parts[0]), float(parts[1])
+    except ValueError:
+        return (HOME_LNG, HOME_LAT)
+    if not (-180 <= lng <= 180 and -90 <= lat <= 90): return (HOME_LNG, HOME_LAT)
+    return (lng, lat)
+def _session_token(raw):
+    token = "".join(ch for ch in str(raw or "") if ch.isalnum() or ch == "-")[:80]
+    return token if len(token) >= 8 else ""
+def search_session_allowed(session):
+    """One Mapbox Search Box session counts as one call against the shared daily cap."""
+    token = _session_token(session) or secrets.token_hex(16)
+    d = db()
+    if d.execute("SELECT 1 FROM search_sessions WHERE token=?", (token,)).fetchone():
+        return True
+    if not SqliteRouteCap(MAPBOX_DAILY_CAP).try_take(now_pt()):
+        return False
+    d.execute("INSERT OR IGNORE INTO search_sessions(token, day) VALUES(?,?)", (token, today_pt().isoformat()))
+    d.commit()
+    return True
+def _mapbox_json(url):
+    opener = _MAPBOX_OPEN or urllib.request.urlopen
+    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    try:
+        with opener(req, timeout=4) as resp:
+            return json.loads(resp.read().decode() or "{}")
+    except urllib.error.HTTPError as e:
+        code = getattr(e, "code", 0) or 0
+        try: e.close()
+        except Exception: pass
+        app.logger.info("mapbox search failed: %s", code)
+    except Exception:
+        app.logger.info("mapbox search failed: unavailable")
+    return None
+def _mapbox_suggest_call(q, session, lng, lat, country):
+    params = {
+        "q": q, "access_token": MAPBOX_TOKEN, "session_token": _session_token(session),
+        "limit": "5", "types": "poi,address", "language": "en",
+        "proximity": "%.5f,%.5f" % (lng, lat),
+    }
+    if country: params["country"] = country
+    url = "https://api.mapbox.com/search/searchbox/v1/suggest?" + urllib.parse.urlencode(params)
+    data = _mapbox_json(url)
+    if data is None: return None
+    return data.get("suggestions") or []
+def mapbox_suggest(q, session, proximity):
+    """Search Box suggestions. None means use Nominatim (no token, daily cap, or outage)."""
+    if not MAPBOX_TOKEN: return None
+    session = _session_token(session) or secrets.token_hex(16)
+    if not search_session_allowed(session): return None
+    lng, lat = _proximity_pair(proximity)
+    suggestions = _mapbox_suggest_call(q, session, lng, lat, "us")
+    if suggestions is None: return None
+    if not suggestions:
+        suggestions = _mapbox_suggest_call(q, session, lng, lat, "") or []
+    rows = []
+    for item in suggestions:
+        name = " ".join(str(item.get("name_preferred") or item.get("name") or "").split())
+        detail = " ".join(str(item.get("place_formatted") or "").split())
+        full = " ".join(str(item.get("full_address") or "").split())
+        address = full or " ".join(x for x in (str(item.get("address") or "").strip(), detail) if x)
+        before = len(rows)
+        _place_add(rows, name, detail or address, address, business=item.get("name") or name)
+        if len(rows) > before:
+            rows[-1]["id"] = str(item.get("mapbox_id") or "")
+    return rows
+def mapbox_retrieve(mapbox_id, session):
+    session = _session_token(session) or secrets.token_hex(16)
+    if not MAPBOX_TOKEN or not search_session_allowed(session): return None
+    safe = "".join(ch for ch in str(mapbox_id or "") if ch.isalnum() or ch in "._-~")
+    if not safe: return None
+    params = urllib.parse.urlencode({"access_token": MAPBOX_TOKEN, "session_token": session})
+    url = "https://api.mapbox.com/search/searchbox/v1/retrieve/%s?%s" % (urllib.parse.quote(safe), params)
+    data = _mapbox_json(url) or {}
+    features = data.get("features") or []
+    if not features: return None
+    props = features[0].get("properties") or {}
+    name = " ".join(str(props.get("name") or "").split())
+    full = " ".join(str(props.get("full_address") or "").split())
+    detail = " ".join(str(props.get("place_formatted") or "").split())
+    if not name and not full: return None
+    return {"name": name or full.split(",")[0], "detail": detail, "address": full or detail or name,
+            "business": name, "verified": True, "id": safe}
+def mapbox_calls_today():
+    row = db().execute("SELECT calls FROM route_budget WHERE day=?", (today_pt().isoformat(),)).fetchone()
+    return int(row["calls"]) if row else 0
 def nominatim_places(q):
     url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode({
-        "q": q, "format": "jsonv2", "limit": "5", "addressdetails": "1"})
+        "q": q, "format": "jsonv2", "limit": "5", "addressdetails": "1",
+        "viewbox": OC_VIEWBOX, "bounded": "0"})
     req = urllib.request.Request(url, headers={"User-Agent": "GrunionsWaterPolo/1.0 (team practice map)", "Accept": "application/json"})
     rows = []
     try:
@@ -3602,17 +3707,25 @@ def nominatim_places(q):
     except Exception as e:
         app.logger.info("place suggest failed: %s", e)
     return rows
-def suggest_places(q, d=None):
-    """Up to five places. Saved club pools come before the map search."""
+def suggest_places(q, d=None, session="", proximity=""):
+    """Up to five places. Saved club pools come before Mapbox, then Nominatim if the cap is spent."""
     q = " ".join(str(q or "").split())
-    if len(q) < 2 or q.lower().startswith(("http://", "https://")): return []
-    key = "suggest2:" + q.casefold()
+    if len(q) < 3 or q.lower().startswith(("http://", "https://")): return []
+    lng, lat = _proximity_pair(proximity)
+    key = "suggest3:%s|%s|%.3f,%.3f" % (_session_token(session) or "-", q.casefold(), lng, lat)
     if key in _GEO_CACHE: return _GEO_CACHE[key]
     rows = local_places(d, q)[:5]
-    if len(rows) < 5:
-        for item in nominatim_places(q):
-            if len(rows) >= 5: break
-            _place_add(rows, item["name"], item["detail"])
+    remote = None
+    if len(rows) < 5 and MAPBOX_TOKEN:
+        remote = mapbox_suggest(q, session, "%.5f,%.5f" % (lng, lat))
+    if remote is None and len(rows) < 5:
+        remote = nominatim_places(q)
+    for item in remote or []:
+        if len(rows) >= 5: break
+        before = len(rows)
+        _place_add(rows, item["name"], item.get("detail") or "", item.get("address") or "", item.get("map") or "", item.get("business"))
+        if len(rows) > before and item.get("id"):
+            rows[-1]["id"] = item["id"]
     _GEO_CACHE[key] = rows[:5]
     return rows[:5]
 def _save_lineup(d, existing=None):
@@ -3639,7 +3752,17 @@ def _save_lineup(d, existing=None):
 @app.route("/api/places")
 @login_required
 def api_places():
-    return jsonify(suggest_places(request.args.get("q"), db()))
+    return jsonify(suggest_places(request.args.get("q"), db(), request.args.get("session") or "", request.args.get("proximity") or ""))
+@app.route("/api/places/retrieve")
+@login_required
+def api_places_retrieve():
+    row = mapbox_retrieve(request.args.get("id") or "", request.args.get("session") or "")
+    return jsonify(row or {})
+@app.route("/manage/usage")
+@login_required
+def usage_page():
+    if not me()["is_admin"]: abort(403)
+    return page(T["usage"], tab="manage", calls=mapbox_calls_today(), cap=MAPBOX_DAILY_CAP)
 @app.route("/lineup", methods=["GET", "POST"])
 @login_required
 def lineup():
@@ -3829,6 +3952,7 @@ def manage_home_groups(d):
         people.append(_manage_row("Admins", "Club administrators", "/members?view=admins", "seal", len(sets["admins"])))
         people.append(_manage_row("Referees", "Referee list and referee eligible", "/members?view=referees", "flag", len(sets["refs"])))
         people.append(_manage_row("Compliance", "Memberships & certifications", "/expiring", "shield", expiring_people_count(d), "warn"))
+        club.append(_manage_row("Usage", "Mapbox calls today", "/manage/usage", "rules"))
         club.append(_manage_row("Data transfer", "Import & export", "/transfer", "swap"))
         club.append(_manage_row("Rules", "Policies & requirements", "/requirements", "rules"))
         club.append(_manage_row("QR codes", "Check-in & sharing", "/qr", "qr"))

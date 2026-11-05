@@ -830,7 +830,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=checks role=group aria-label="Type"><input type=hidden name=social_kind value="">
 {% for kind in SOCIAL_KINDS %}<label><input type=checkbox name=social_kind value="{{ kind }}" {% if kind in (p.social_kind or '').split(',') %}checked{% endif %}>{{ kind }}</label>{% endfor %}
 </div>
-<label>Address<span class=locok {% if not p.social_address %}hidden{% endif %}><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address value="{{ p.social_address or '' }}" data-places data-place-name=social_place autocomplete=off placeholder="Search for an address"></label>
+<label>Address<span class=locok {% if not p.social_address %}hidden{% endif %}><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address value="{{ p.social_address or '' }}" data-places data-place-name=social_place{{ place_proximity(p.lat, p.lng) }} autocomplete=off placeholder="Search for an address"></label>
 <label>Place name<input name=social_place value="{{ p.social_place or '' }}" autocomplete=off placeholder="Name of the place"></label>
 <label>Time (optional)<input data-native type=time name=social_time min="{{ (p.end or '20:30')[:5] }}" value="{{ p.social_time or (p.end or '20:30')[:5] }}"></label>
 <label>Note (optional)<textarea class=planfield name=social_note rows=4>{{ p.social_note or '' }}</textarea></label>
@@ -1834,8 +1834,15 @@ window.grunionsPlaces=function(input){
   named.dataset.nameWatch='1';
   named.addEventListener('input', function(){ named.setAttribute('data-name-edited', named.value.trim()?'1':'0'); });
  }
- function choose(i){
-  var item=items[i]; if(!item) return;
+ function session(){
+  if(!input._placeSession) input._placeSession=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now().toString(16)+Math.random().toString(16).slice(2));
+  return input._placeSession;
+ }
+ function proximity(){
+  var raw=input.getAttribute('data-proximity')||'';
+  return /^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(raw)?raw:'';
+ }
+ function applyChoice(item){
   var place=nameField();
   if(place){
    input.value=item.custom ? item.name : (item.address||item.detail||item.map||item.name);
@@ -1844,12 +1851,27 @@ window.grunionsPlaces=function(input){
   setBadge(!!item.verified&&!item.custom);
   input.dispatchEvent(new Event('change',{bubbles:true}));
   close();
+  input._placeSession='';
+ }
+ function choose(i){
+  var item=items[i]; if(!item) return;
+  if(item.id && !item.custom){
+   var token=session();
+   fetch('/api/places/retrieve?id='+encodeURIComponent(item.id)+'&session='+encodeURIComponent(token)).then(function(r){ return r.json(); }).then(function(row){
+    if(row && (row.address||row.name)) applyChoice({name:row.name||item.name, detail:row.detail||item.detail, address:row.address||item.address, business:row.business||item.business, verified:true, custom:false});
+    else applyChoice(item);
+   }).catch(function(){ applyChoice(item); });
+   return;
+  }
+  applyChoice(item);
  }
  function show(q){
   var mine=++seq;
-  fetch('/api/places?q='+encodeURIComponent(q)).then(function(r){ return r.json(); }).then(function(rows){
+  var url='/api/places?q='+encodeURIComponent(q)+'&session='+encodeURIComponent(session());
+  var near=proximity(); if(near) url+='&proximity='+encodeURIComponent(near);
+  fetch(url).then(function(r){ return r.json(); }).then(function(rows){
    if(mine!==seq||input.value.trim()!==q) return;
-   items=(rows||[]).map(function(row){ return {name:row.name||'', detail:row.detail||'', address:row.address||row.detail||'', map:row.map||'', business:row.business||'', verified:row.verified!==false, custom:false}; }).filter(function(row){ return row.name; });
+   items=(rows||[]).map(function(row){ return {name:row.name||'', detail:row.detail||'', address:row.address||row.detail||'', map:row.map||'', business:row.business||'', id:row.id||'', verified:row.verified!==false, custom:false}; }).filter(function(row){ return row.name; });
    var typed=q;
    items.push({name:typed, detail:'', verified:false, custom:true, label:'Use “'+typed+'”'});
    active=items.length?0:-1;
@@ -1860,8 +1882,8 @@ window.grunionsPlaces=function(input){
   setBadge(false);
   clearTimeout(wait);
   var q=input.value.trim();
-  if(q.length<2){ seq++; items=[]; close(); return; }
-  wait=setTimeout(function(){ show(q); }, 250);
+  if(q.length<3){ seq++; items=[]; close(); return; }
+  wait=setTimeout(function(){ show(q); }, 300);
  });
  input.addEventListener('keydown', function(e){
   if(drop.hidden) return;
@@ -3339,6 +3361,9 @@ T["approvals"] = """{% call admin_page('Events') %}<a class="btn quiet pageact" 
 </form></div>{% endfor %}{% endif %}
 {% for g in groups %}<h2>{{ g.label }}</h2><div class=list>{% for item in g['items'] %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endfor %}
 {% if not groups and not queue %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
+T["usage"] = ADMIN_NAV + """{{ admin_page('Usage', 'Mapbox calls today for driving routes and place search. One typing session counts as one call.') }}
+<div class=card><h2 style="margin:0 0 8px">Today</h2>
+<p class="t2 sm" style="margin:0">{{ calls }} of {{ cap }}</p></div>"""
 T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
 <div class=mgroups>
 {% for g in groups %}<section class=mgroup><h2>{{ g.label }}</h2><div class=mlist>{% for row in g.rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone) }}{% endfor %}</div></section>{% endfor %}
@@ -3747,8 +3772,8 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <label>Month<input type=month name=month value="{{ values.month }}"></label>
 <input type=hidden name=date_part data-monthpart value="{{ values.date_part if values.date_part in ('early', 'mid', 'late') else 'all' }}">
 </div>
-<label>City<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=city value="{{ values.city }}" data-places required placeholder="Toronto, Canada" autocomplete=off></label>
-<label>Venue<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=venue value="{{ values.location }}" data-places placeholder="Name and address, optional" autocomplete=off></label>
+<label>City<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=city value="{{ values.city }}" data-places{% if sports_row is defined and sports_row %}{{ place_proximity(sports_row.lat, sports_row.lng) }}{% endif %} required placeholder="Toronto, Canada" autocomplete=off></label>
+<label>Venue<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=venue value="{{ values.location }}" data-places{% if sports_row is defined and sports_row %}{{ place_proximity(sports_row.lat, sports_row.lng) }}{% endif %} placeholder="Name and address, optional" autocomplete=off></label>
 <label>Short description<textarea class=planfield name=description rows=4 required>{{ values.description }}</textarea></label>
 <details class=moredetails><summary>More details</summary>
 {{ sports_editor(sports_row, false, true) }}
@@ -3908,7 +3933,7 @@ T["practice"] = """{% set p = x.p %}
 <label><input type=radio name=series_scope value=all> All events</label>
 </div>{% endif %}
 <div class=row><label>Start<input type=time name=start value="{{ p.start }}" required></label><label>End<input type=time name=end value="{{ p.end }}" required></label></div>
-<label>Venue<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location value="{{ p.location or '' }}" data-places required autocomplete=off placeholder="Pool or address"></label>
+<label>Venue<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location value="{{ p.location or '' }}" data-places{{ place_proximity(p.lat, p.lng) }} required autocomplete=off placeholder="Pool or address"></label>
 </div>
 <div class=formsec><h2>Coaching</h2>
 <div class=list>
@@ -3951,7 +3976,7 @@ T["practice"] = """{% set p = x.p %}
 </div>
 <label id=socialCustom {% if ns.kind != 'Other' %}hidden{% endif %}>Label<input name=social_custom value="{{ ns.custom }}" autocomplete=off></label>
 <button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
-<label>Address<span class=locok {% if not p.social_address %}hidden{% endif %}><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address value="{{ p.social_address or '' }}" data-places data-place-name=social_place autocomplete=off placeholder="Search for an address"></label>
+<label>Address<span class=locok {% if not p.social_address %}hidden{% endif %}><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address value="{{ p.social_address or '' }}" data-places data-place-name=social_place{{ place_proximity(p.lat, p.lng) }} autocomplete=off placeholder="Search for an address"></label>
 <label>Place name<input name=social_place value="{{ p.social_place or '' }}" autocomplete=off placeholder="Name of the place"></label>
 <label>Time (optional)<input data-native type=time name=social_time min="{{ (p.end or '20:30')[:5] }}" value="{{ p.social_time or (p.end or '20:30')[:5] }}"></label>
 <label>Notes (optional)<textarea class=planfield name=social_note rows=4>{{ p.social_note or '' }}</textarea></label>
