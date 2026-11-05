@@ -1351,6 +1351,7 @@ if(!window.grunionsSheetDrag){window.grunionsSheetDrag=1;
   grab.addEventListener('pointermove',move); grab.addEventListener('pointerup',end); grab.addEventListener('pointercancel',end);
  });
  document.addEventListener('click',function(e){var d=e.target.closest&&e.target.closest('dialog.botsheet'); if(d&&e.target===d) grunionsCloseSheet(d)});
+ document.addEventListener('click',function(e){var d=e.target; if(!d||!d.matches||!d.matches('dialog.modal')||!d.open) return; d.close();});
  document.addEventListener('cancel',function(e){var d=e.target; if(d&&d.matches&&d.matches('dialog.botsheet')){e.preventDefault();grunionsCloseSheet(d)}},true);
 }
 document.addEventListener('click',function(e){
@@ -2176,6 +2177,9 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
  stage.addEventListener('pointerup', endPointer);
  stage.addEventListener('pointercancel', endPointer);
  function backToDrop(){ cropBox.hidden=true; drop.hidden=false; file.value=''; if(removeBtn) removeBtn.hidden=!hasPhoto(); }
+ function discardCrop(){ if(cropBox && !cropBox.hidden) backToDrop(); }
+ dlg.addEventListener('click', function(e){ if(e.target===dlg) discardCrop(); });
+ dlg.addEventListener('cancel', function(){ discardCrop(); });
  document.getElementById('cropCancel').onclick=function(){ backToDrop(); dlg.close(); };
  document.getElementById('cropOther').onclick=function(){ backToDrop(); file.click(); };
  document.getElementById('cropUse').onclick=function(){
