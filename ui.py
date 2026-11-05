@@ -431,21 +431,23 @@ nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:bloc
 .iconbtn.send{color:var(--accent)}
 .preview{max-width:600px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;color:var(--t2);font-size:14px}.preview img{height:48px;border-radius:8px}
 .m .img{display:block;margin:0}.m .txt+.img{margin-top:4px}.m.mine .img{margin-left:auto}.m .img img{max-width:min(70vw,280px);max-height:280px;border-radius:12px;display:block;background:var(--surface)}.m.mine .img{width:fit-content}
-.m .bubble{display:inline-block;max-width:min(85%,280px);background:var(--color-bubble);border-radius:var(--radius-card);overflow:hidden}.m.mine .bubble{background:var(--color-bubble-mine)}.m .bubble .txt{background:transparent;display:block;max-width:none;border-radius:0}.m .bubble .img,.m .bubble .txt+.img{margin:0}.m .bubble .img img{max-width:100%;border-radius:0}
-.mstack{display:inline-flex;flex-direction:column;align-items:stretch;width:fit-content;max-width:85%;min-width:0}
-.m.ann .mstack{display:flex;width:100%;max-width:none}
-.m .mstack>.txt,.m .mstack>.bubble,.m .mstack>.img{max-width:none;align-self:flex-start}
-.m .mstack>.bubble{max-width:min(100%,280px)}
-.m.mine .mstack>.img{margin-left:0;margin-right:0}
-.msgfoot{display:flex;align-items:center;gap:8px;width:0;min-width:100%;max-width:100%;box-sizing:border-box;align-self:stretch}
+.m .bubble{display:inline-block;max-width:min(85%,280px);background:var(--color-bubble);border-radius:var(--radius-card);overflow:hidden}.m.mine .bubble{background:var(--color-bubble-mine)}.m .bubble .txt{background:transparent;display:block;max-width:min(70vw,280px);border-radius:0}.m .bubble .img,.m .bubble .txt+.img{margin:0}.m .bubble .img img{max-width:min(70vw,280px);width:auto;height:auto;border-radius:0}
+.mstack{display:inline-flex;flex-direction:column;align-items:stretch;align-self:flex-start;width:max-content;max-width:85%;min-width:0}
+.m.mine .mstack{align-self:flex-end}
+.m.ann .mstack{display:flex;width:100%;max-width:none;align-self:stretch}
+.m .mstack>.txt{max-width:none;align-self:stretch;min-width:0}
+.m .mstack>.bubble{align-self:stretch;min-width:0;width:max-content;max-width:min(70vw,280px)}
+.m .mstack>.img{align-self:stretch;min-width:0;width:max-content;max-width:min(70vw,280px);margin-left:0;margin-right:0}
+.m .mstack>.quotechip{width:0;min-width:100%;max-width:100%;box-sizing:border-box;overflow:hidden}
+.msgfoot{display:flex;align-items:center;gap:8px;width:0;min-width:100%;max-width:100%;box-sizing:border-box;align-self:stretch;flex-wrap:nowrap;overflow:hidden}
 .msgfoot:has(.rx:not(:empty)),.msgfoot:has(.seenline){margin-top:6px}
-.rx{display:flex;flex-wrap:wrap;gap:6px;margin:0;flex:1 1 auto;min-width:0;justify-content:flex-start}
-.seenline{display:block;width:fit-content;height:auto;min-height:1.3em;margin:0 0 0 auto;padding:0;background:none;border:0;border-radius:0;color:var(--t3);font-size:12px;font-weight:500;line-height:1.3;white-space:nowrap;flex:none}
+.rx{display:flex;flex-wrap:nowrap;gap:6px;margin:0;flex:1 1 auto;min-width:0;justify-content:flex-start;overflow:hidden}
+.seenline{display:block;width:fit-content;max-width:100%;min-width:0;height:auto;min-height:1.3em;margin:0 0 0 auto;padding:0;background:none;border:0;border-radius:0;color:var(--t3);font-size:12px;font-weight:500;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
 span.avatar.seenav,span.avatar.seenav img{width:32px;height:32px;min-width:32px;max-width:32px;min-height:32px;max-height:32px;flex:0 0 32px;font-size:12px}
 .seenrow{display:flex;align-items:center;gap:10px;min-height:40px}
 .seenlist{max-height:38vh;overflow:auto}
 .seenh{margin:14px 0 6px;font-size:13px;font-weight:650;color:var(--t3);letter-spacing:.02em}
-.rx button{height:30px;min-height:30px;padding:0 10px;border-radius:999px;font-size:14px;font-weight:500;background:var(--surface);color:var(--t2);border:1px solid var(--line)}
+.rx button{height:30px;min-height:30px;padding:0 10px;border-radius:999px;font-size:14px;font-weight:500;background:var(--surface);color:var(--t2);border:1px solid var(--line);white-space:nowrap;flex:none}
 .rx button.on{border-color:var(--color-selected);color:var(--t1);background:var(--color-chip)}
 .qbar{max-width:600px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;border-left:3px solid var(--color-text-tertiary);padding:2px 4px 2px 10px;color:var(--t2);font-size:13px}
 .qbar b{display:block;color:var(--t1);font-size:12px;font-weight:650}.qbar span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70vw}
