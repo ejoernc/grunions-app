@@ -4251,8 +4251,11 @@ def signup_days(d):
 def manage_home():
     if not can_host_practice(): abort(403)
     d = db()
-    growth = growth_chart(*signup_days(d))["html"] if me()["is_admin"] else ""
-    return page(T["manage"], tab="manage", groups=manage_home_groups(d), growth=growth)
+    growth = attendance = ""
+    if me()["is_admin"]:
+        growth = growth_chart(*signup_days(d))["html"]
+        attendance = attendance_chart(recent_checkins(d))["html"]
+    return page(T["manage"], tab="manage", groups=manage_home_groups(d), growth=growth, attendance=attendance)
 @app.route("/manage/schedule")
 @login_required
 def manage_schedule():
@@ -4990,6 +4993,61 @@ svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', en
     html = Markup('<a class="card growthcard" id=growthCard href="/members" data-kind="%s" data-pts="%s"><div class=growthhead>%s</div>%s<div class=growthtip hidden></div></a>%s' % (
         kind, escape(json.dumps(payload)), escape(head), "".join(parts), script))
     return {"html": html, "kind": kind, "total": total, "delta": delta}
+def recent_checkins(d, today=None):
+    """Checked-in counts for the latest practice days, oldest first. At most 12."""
+    today = today or today_pt()
+    dates = [r[0] for r in d.execute(
+        "SELECT date FROM practices WHERE COALESCE(cancelled,0)=0 AND date<=? GROUP BY date ORDER BY date DESC LIMIT 12",
+        (today.isoformat(),))]
+    dates.reverse()
+    counts = {}
+    if dates:
+        q = ",".join("?" * len(dates))
+        for day, n in d.execute("SELECT practice_date, COUNT(*) FROM checkins WHERE practice_date IN (%s) GROUP BY practice_date" % q, dates):
+            counts[day] = n
+    rows = []
+    for day in dates:
+        try: parsed = dt.date.fromisoformat(day)
+        except ValueError: continue
+        rows.append((parsed, int(counts.get(day) or 0)))
+    return rows
+def attendance_chart(rows):
+    """Bar chart named Attendance. rows are (date, count); only the latest 12 are kept, oldest on the left."""
+    clean = []
+    for day, count in rows or []:
+        if hasattr(day, "isoformat"): parsed = day
+        else:
+            try: parsed = dt.date.fromisoformat(str(day)[:10])
+            except ValueError: continue
+        clean.append((parsed, max(0, int(count or 0))))
+    clean.sort(key=lambda r: r[0])
+    if len(clean) > 12: clean = clean[-12:]
+    n = len(clean)
+    avg = int(round(sum(c for _d, c in clean) / n)) if n else 0
+    if not n:
+        html = Markup('<div class="card growthcard" id=attendanceCard><div class=growthhead>Attendance</div><p class="t3 sm" style="margin:0">No practices yet.</p></div>')
+        return {"html": html, "avg": 0, "n": 0, "dates": []}
+    W, H, L, R, T, B = 320, 132, 8, 312, 16, 104
+    vmax = max(c for _d, c in clean) or 1
+    slot = (R - L) / n
+    bw = round(slot * 0.62, 1)
+    parts = ['<svg viewBox="0 0 %d %d" role="img" aria-label="%s">' % (W, H, escape("Attendance, average %d checked in" % avg))]
+    for frac in (0, 0.5, 1):
+        y = round(B - (B - T) * frac, 1)
+        parts.append('<line x1="%d" y1="%s" x2="%d" y2="%s" stroke="#1B221E" stroke-width="1"/>' % (L, y, R, y))
+    for i, (day, count) in enumerate(clean):
+        h = max(2, round((B - T) * (count / vmax), 1)) if count else 2
+        x = round(L + slot * i + (slot - bw) / 2, 1)
+        y = round(B - h, 1)
+        fill = "#B2DE64" if i == n - 1 else "#BEC9C1"
+        parts.append('<rect x="%s" y="%s" width="%s" height="%s" rx="3" fill="%s"/>' % (x, y, bw, h, fill))
+        label = "%d/%d" % (day.month, day.day) if n > 6 else "%s %d" % (day.strftime("%b"), day.day)
+        size = 10 if n > 6 else 12
+        parts.append('<text x="%s" y="124" text-anchor="middle" fill="#BEC9C1" font-size="%d">%s</text>' % (round(x + bw / 2, 1), size, escape(label)))
+    parts.append("</svg>")
+    html = Markup('<div class="card growthcard" id=attendanceCard><div class=growthhead>Attendance</div><p class="t3 sm" style="margin:0 0 6px">%s</p>%s</div>' % (
+        escape("Average %d checked in" % avg), "".join(parts)))
+    return {"html": html, "avg": avg, "n": n, "dates": [d for d, _c in clean]}
 @app.route("/members", methods=["GET", "POST"])
 @admin_required
 def members():

@@ -3387,7 +3387,7 @@ T["approvals"] = """{% call admin_page('Events') %}<a class="btn quiet pageact" 
 T["usage"] = ADMIN_NAV + """{{ admin_page('Usage', 'Mapbox calls today for driving routes and place search. One typing session counts as one call.') }}
 <div class=card><h2 style="margin:0 0 8px">Today</h2>
 <p class="t2 sm" style="margin:0">{{ calls }} of {{ cap }}</p></div>"""
-T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
+T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}{% if attendance %}{{ attendance }}{% endif %}
 <div class=mgroups>
 {% for g in groups %}<section class=mgroup><h2>{{ g.label }}</h2><div class=mlist>{% for row in g.rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone) }}{% endfor %}</div></section>{% endfor %}
 </div>"""
