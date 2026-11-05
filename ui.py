@@ -980,7 +980,10 @@ function grunionsCaptureArea(){
   if(replaced) return;
   var nav=sessionStorage.getItem('grunionsNavFrom')||'';
   var path=nav.split('?')[0];
-  if(path && path!==location.pathname) sessionStorage.setItem('grunionsAreaFrom', nav);
+  if(path && path!==location.pathname){
+   sessionStorage.setItem('grunionsAreaFrom', nav);
+   sessionStorage.setItem('grunionsOpenedFrom', nav);
+  }
   else sessionStorage.removeItem('grunionsAreaFrom');
  }catch(e){}
 }
@@ -1348,6 +1351,7 @@ function grunionsApply(html,url,pop,replace){
  try{sessionStorage.setItem('grunionsNavFrom', grunionsScrollId(url))}catch(e){}
  var seen=/^#p(\\d+)$/.exec(location.hash);
  if(seen&&location.pathname==='/practices') grunionsSeen(seen[1]);
+ if(window.grunionsWakeHome) grunionsWakeHome();
 }
 function grunionsGo(url,pop,replace){
  var abs; try{abs=new URL(url,location.href);}catch(e){location.href=url; return;}
@@ -1377,6 +1381,17 @@ if(document.querySelector('nav.tabs')){
   if(a.target&&a.target!=='_self') return;
   var abs; try{abs=new URL(a.href,location.href);}catch(err){return;}
   if(abs.origin!==location.origin) return;
+  if(grunionsIsBackLink(a)){
+   var opened='';
+   try{ opened=sessionStorage.getItem('grunionsOpenedFrom')||sessionStorage.getItem('grunionsAreaFrom')||''; }catch(err){}
+   var openedPath=opened.split('?')[0].split('#')[0];
+   if(openedPath && openedPath!==location.pathname && history.length>1){
+    e.preventDefault();
+    history.back();
+    return;
+   }
+  }
+  try{ if(abs.pathname!==location.pathname) sessionStorage.setItem('grunionsOpenedFrom', location.pathname+location.search); }catch(err){}
   grunionsSaveScroll();
   if(grunionsIsBackLink(a)) grunionsMarkBack(abs.href);
   else try{sessionStorage.removeItem('grunionsBackNav')}catch(err){}
@@ -1397,12 +1412,33 @@ if(document.querySelector('nav.tabs')){
   grunionsGo(abs.href,false);
  });
 }
+function grunionsHomeHeader(){
+ if(location.pathname!=='/home') return;
+ document.body.classList.remove('schedopen');
+ var head=document.querySelector('header.homefade');
+ if(!head||(window.scrollY||0)>=8) return;
+ head.style.setProperty('--titlefade','0');
+ head.classList.remove('titleaway','solid');
+ var hi=head.querySelector('.hititle'), sch=head.querySelector('.schedtitle');
+ if(hi) hi.setAttribute('aria-hidden','false');
+ if(sch) sch.setAttribute('aria-hidden','true');
+}
+function grunionsWakeHome(force){
+ grunionsHomeHeader();
+ if(window.grunionsRefreshMap) window.grunionsRefreshMap(document.getElementById('homeMap'), !!force);
+}
+window.grunionsWakeHome=grunionsWakeHome;
+window.addEventListener('pageshow',function(e){
+ if(!e.persisted) return;
+ grunionsWakeHome(true);
+});
 window.addEventListener('popstate',function(){
  var from=''; try{from=sessionStorage.getItem('grunionsNavFrom')||''}catch(e){}
  var dest=location.pathname+location.search;
  if(grunionsChildBack(from, dest)) grunionsMarkBack(location.href);
  else try{sessionStorage.removeItem('grunionsBackNav')}catch(e){}
  if(document.querySelector('nav.tabs')) grunionsGo(location.href,true);
+ else if(window.grunionsWakeHome) grunionsWakeHome();
 });
 window.grunionsOpenSheet=function(d){
  if(!d||d.classList.contains('closing')) return;
@@ -1938,8 +1974,15 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
  if(!el) return;
  opts=opts||{};
  function boot(){
-  if(el._gmap){ try{ el._gmap.resize(); }catch(e){} return; }
-  if(!el.isConnected||el.dataset.mapon) return;
+  el._mapOpts=opts;
+  if(el._gmap){
+   try{ if(el._gmap.resize) el._gmap.resize(); }catch(e){}
+   try{ if(el._gmap.invalidateSize) el._gmap.invalidateSize(); }catch(e){}
+   try{ if(el._reframe) el._reframe(); }catch(e){}
+   return;
+  }
+  if(!el.isConnected) return;
+  if(el.dataset.mapon && !el._mapOpts) return;
   var pins=opts.pins||[];
   if(!pins.length) return;
   var mb=window.GRUNIONS_MAPBOX||{};
@@ -2176,6 +2219,7 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
   el.dataset.mapon='1';
   var still=opts.mode==='still';
   var map=L.map(el,{zoomControl:false,attributionControl:!still,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false});
+  el._gmap=map;
   var tileUrl=window.GRUNIONS_MAP_TILES||'';
   var tiles;
   if(tileUrl){
@@ -2283,6 +2327,39 @@ window.grunionsShowYou=function(lat,lng){
  var el=document.getElementById('homeMap'); if(!el) return;
  el._you={lat:lat,lng:lng};
  if(el._reframe) el._reframe();
+};
+window.grunionsRefreshMap=function(el, force){
+ if(!el) return;
+ if((window.scrollY||0)<8) el.style.opacity='';
+ if(force && el._gmap){
+  var parent=el.parentNode, next=el.nextSibling;
+  try{ el._gmap.remove(); }catch(e){}
+  if(parent && el.isConnected===false) parent.insertBefore(el, next);
+  el._gmap=null;
+  delete el.dataset.mapon;
+  delete el.dataset.leaflet;
+  delete el.dataset.marked;
+  el.innerHTML='';
+  el.className='homemap';
+ }
+ var map=el._gmap;
+ if(map && !force){
+  try{ if(map.resize) map.resize(); }catch(e){}
+  try{ if(map.invalidateSize) map.invalidateSize(); }catch(e){}
+  try{ if(map.triggerRepaint) map.triggerRepaint(); }catch(e){}
+  try{ if(el._reframe) el._reframe(); }catch(e){}
+  requestAnimationFrame(function(){
+   try{ if(el._gmap&&el._gmap.resize) el._gmap.resize(); }catch(e){}
+   try{ if(el._gmap&&el._gmap.invalidateSize) el._gmap.invalidateSize(); }catch(e){}
+   try{ if(el._reframe) el._reframe(); }catch(e){}
+  });
+  return;
+ }
+ if(el._mapOpts && window.grunionsMountMap){
+  delete el.dataset.mapon;
+  delete el.dataset.leaflet;
+  window.grunionsMountMap(el, el._mapOpts);
+ }
 };
 '''
 
@@ -2447,9 +2524,9 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
  if(window.ResizeObserver&&alerts) new ResizeObserver(function(){ measure(); }).observe(alerts);
  function land(){
   var hash=location.hash;
-  if(typeof window.grunionsRestoreY==='number') return;
-  if(head.getAttribute('data-entry')==='schedule' && (!hash || hash==='#schedule')) window.scrollTo(0, range());
-  document.body.classList.remove('schedopen');
+  var held=typeof window.grunionsRestoreY==='number' && window.grunionsRestoreY>0;
+  if(!held && head.getAttribute('data-entry')==='schedule' && (!hash || hash==='#schedule')) window.scrollTo(0, range());
+  if(location.pathname==='/home') document.body.classList.remove('schedopen');
   paint();
  }
  land();
