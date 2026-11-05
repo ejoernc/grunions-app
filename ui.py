@@ -1230,6 +1230,7 @@ window.grunionsMountMap=function(el, opts){
   var pins=opts.pins||[];
   if(!pins.length) return;
   var mb=window.GRUNIONS_MAPBOX||{};
+  try{ if(sessionStorage.getItem('grunionsMapbox')==='no') mb={}; }catch(err){}
   function pinText(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
   if(mb.token&&mb.style){ bootMapbox(pins); return; }
   if(!window.L) return;
@@ -1242,6 +1243,21 @@ window.grunionsMountMap=function(el, opts){
    mapboxgl.accessToken=mb.token;
    var map=new mapboxgl.Map({container:el,style:mb.style,interactive:false,attributionControl:true,fadeDuration:0});
    el._gmap=map;
+   map.on('error', function(ev){
+    var err=ev&&ev.error, status=err&&(err.status||err.statusCode), msg=String(err&&err.message||'');
+    if(status!==401 && !/unauthorized|status:\s*401|\b401\b/i.test(msg)) return;
+    if(el.dataset.mapfail) return;
+    el.dataset.mapfail='1';
+    try{ sessionStorage.setItem('grunionsMapbox','no'); }catch(e){}
+    try{ map.remove(); }catch(e){}
+    el._gmap=null; delete el.dataset.mapon;
+    if(window.L) bootLeaflet();
+    else {
+     var s=document.querySelector('script[data-leaflet]');
+     if(!s){ s=document.createElement('script'); s.src='/static/leaflet/leaflet.js'; s.setAttribute('data-leaflet','1'); s.onload=bootLeaflet; document.body.appendChild(s); }
+     else s.addEventListener('load', bootLeaflet);
+    }
+   });
    var youMarker=null;
    function hideLabels(){
     var style=map.getStyle(); if(!style||!style.layers) return;
