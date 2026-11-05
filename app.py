@@ -308,6 +308,7 @@ def migrate_messages(d):
     cols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
     for c, t in (("channel", "TEXT DEFAULT 'team'"), ("image", "TEXT"), ("edited_at", "TEXT"), ("deleted", "INTEGER DEFAULT 0"), ("deleted_at", "TEXT"), ("reply_to", "INTEGER"), ("image_w", "INTEGER"), ("image_h", "INTEGER")):
         if c not in cols: d.execute("ALTER TABLE messages ADD COLUMN %s %s" % (c, t))
+    d.execute("CREATE INDEX IF NOT EXISTS messages_channel_id ON messages(channel, id)")
     pending = d.execute("SELECT id, image FROM messages WHERE COALESCE(image,'')!='' AND (image_w IS NULL OR image_h IS NULL)").fetchall()
     for row in pending:
         w, h = chat_thumb_size(row["image"])
@@ -1582,11 +1583,21 @@ def api_messages():
           rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM + """
           WHERE m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT 80""", (ch, deleted_cutoff())).fetchall()
         return messages_json(with_seen(d, ch, list(reversed(rows)), info), info)
-    after = request.args.get("after", 0, type=int)
-    rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first,
+    raw_limit = request.args.get("limit", type=int)
+    limit = 200 if raw_limit is None else max(1, min(raw_limit, 200))
+    before = request.args.get("before", type=int)
+    msg_sql = """SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first,
       rm.body AS reply_body, rm.deleted AS reply_deleted, rm.image AS reply_image,
-      rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM + """
-      WHERE m.id>? AND m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT 200""", (after, ch, deleted_cutoff())).fetchall()
+      rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM
+    if before:
+        rows = d.execute(msg_sql + """
+          WHERE m.id<? AND m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT ?""",
+                         (before, ch, deleted_cutoff(), limit)).fetchall()
+    else:
+        after = request.args.get("after", 0, type=int)
+        rows = d.execute(msg_sql + """
+          WHERE m.id>? AND m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT ?""",
+                         (after, ch, deleted_cutoff(), limit)).fetchall()
     return messages_json(with_seen(d, ch, list(reversed(rows)), info), info)
 
 @app.route("/api/drive", methods=["POST"])
