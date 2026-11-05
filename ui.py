@@ -43,11 +43,14 @@ body:has(#chat) main{flex:1;min-width:0;width:100%;max-width:640px;min-height:0;
 ::view-transition-group(grunions-header){animation:none;overflow:clip}
 ::view-transition-old(grunions-header){display:none}
 ::view-transition-new(grunions-header){animation:none;mix-blend-mode:normal}
-#boot{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:#090D0B;transition:opacity .4s ease}
+#boot{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:#090D0B;overflow:hidden;isolation:isolate;transition:opacity .4s ease}
 #boot.gone{opacity:0;pointer-events:none}
-#boot svg{width:min(78vw,420px);height:auto;display:block}
+#boot .mark{width:min(78vw,420px);height:calc(min(78vw,420px)*207/480);overflow:hidden;isolation:isolate;flex:none;container-type:inline-size;transform-origin:center;animation:bootPulse 2.4s linear infinite}
+#boot .fit{width:480px;height:207px;overflow:hidden;transform-origin:0 0;transform:scale(calc(100cqw / 480px))}
+#boot svg{width:480px;height:207px;display:block;overflow:hidden}
+#boot .m{animation:none!important;transform:none!important}
 html.booted #boot{display:none}
-@media (prefers-reduced-motion:reduce){ #boot{transition:none}}
+@media (prefers-reduced-motion:reduce){ #boot{transition:none}#boot .mark{animation:none}#boot .s{display:none}}
 [hidden]{display:none!important}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--color-bg);color:var(--t1);font:var(--type-body-1-size)/var(--type-body-1-leading) var(--font-sans);overflow-wrap:break-word}
@@ -741,8 +744,8 @@ dialog.memberedit .help a{color:var(--t1)}
 </style>
 <script>try{if(sessionStorage.getItem("grunionsBoot"))document.documentElement.classList.add("booted")}catch(e){}</script>
 </head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' or tab=='manage' %}adminpage{% endif %}{% if tab=='event_new' or tab=='lineup_edit' or tab=='series_edit' or (tab=='practice' and editing) %} editor{% endif %}">
-<div id=boot role=status aria-label="Loading">__LOADER_SVG__</div>
-<script>(function(){var el=document.getElementById("boot");if(!el)return;if(document.documentElement.classList.contains("booted")){el.remove();return;}function hide(){try{sessionStorage.setItem("grunionsBoot","1")}catch(e){}el.classList.add("gone");var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;setTimeout(function(){if(el.parentNode)el.remove()},reduce?0:420);}if(document.readyState==="complete")hide();else window.addEventListener("load",hide);setTimeout(hide,2400);})();</script>
+<div id=boot role=status aria-label="Loading"><div class=mark><div class=fit>__LOADER_SVG__</div></div></div>
+<script>(function(){var el=document.getElementById("boot");if(!el)return;if(document.documentElement.classList.contains("booted")){el.remove();return;}function hide(){try{sessionStorage.setItem("grunionsBoot","1")}catch(e){}var mark=el.querySelector(".mark");if(mark)mark.remove();el.classList.add("gone");var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;setTimeout(function(){if(el.parentNode)el.remove()},reduce?0:420);}if(document.readyState==="complete")hide();else window.addEventListener("load",hide);setTimeout(hide,2400);})();</script>
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
