@@ -694,8 +694,10 @@ dialog.memberedit h3{font-size:13px;letter-spacing:.04em;text-transform:uppercas
 dialog.memberedit h3[data-section=membership]{margin-top:0}
 dialog.memberedit .help{margin:0 0 12px}
 dialog.memberedit .help a{color:var(--t1)}
-.datefield{position:relative}
-.datefield .dateph{display:none;position:absolute;left:14px;right:42px;bottom:0;height:48px;line-height:48px;color:var(--t3);pointer-events:none;font-size:16px}
+.datefield{position:relative;display:block;width:100%;min-width:0;margin:0}
+.li.editonly .datefield{flex:1 1 100%}
+.datefield input[type=date]{width:100%;height:var(--size-button);min-height:var(--size-button);margin-top:6px;box-sizing:border-box}
+.datefield .dateph{display:none;position:absolute;left:14px;right:42px;bottom:0;height:var(--size-button);line-height:var(--size-button);color:var(--t3);pointer-events:none;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .datefield.empty .dateph{display:block}
 .datefield.empty input[type=date]{color:transparent}
 .datefield.empty input[type=date]::-webkit-datetime-edit,.datefield.empty input[type=date]::-webkit-datetime-edit-fields-wrapper{color:transparent}
@@ -802,7 +804,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% endmacro %}
 {% macro detail_hiddens(r) %}{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}{% endmacro %}
 {% macro cred_side(iso) %}{% if iso %}<span class=cred><span class="dot {{ date_dot(iso) }}" aria-hidden=true></span>{{ fmt_long(iso) }}</span>{% else %}<span class=t3>Not on file</span>{% endif %}{% endmacro %}
-{% macro date_field(label, name, value) %}<label class="datefield{% if not value %} empty{% endif %}">{{ label }}<input type=date name={{ name }} value="{{ value or '' }}"><span class=dateph>Not on file · add date</span></label>{% endmacro %}
+{% macro date_field(label, name, value) %}<label class="datefield{% if not value %} empty{% endif %}">{{ label }}<input type=date name={{ name }} value="{{ value or '' }}" placeholder="Not on file"><span class=dateph>Not on file</span></label>{% endmacro %}
 {% macro rsvp_btn(label, selected, on_value) -%}
 <button class="btn {{ 'btn-primary' if selected else 'btn-secondary' }}" name=action value="{{ 'clear' if selected else on_value }}">{% if selected %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ label }}</button>
 {%- endmacro %}
@@ -2896,7 +2898,11 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 {% if me().is_admin %}
 <div class=seclabel>Actions</div>
 <button type=button class="btn btn-secondary full viewonly" id=memberRecheck>Recheck</button>
-<form method=post action="/admin/member/{{ m.id }}" style="margin-top:10px">{{ csrf_field() }}<input type=hidden name=member_id value={{ m.id }}><button class="btn btn-secondary full" name=action value=ask_bot {% if m.vr_status=='pending' %}disabled{% endif %}>Ask Grunions to verify</button></form>
+{% set chk = list_row_status(m, 'members') %}
+{% if chk.tone in ('bad', 'warn') %}
+{% if m.vr_status == 'pending' %}<p class="t2 sm" style="margin:10px 0 0">Check requested</p>
+{% else %}<form method=post action="/admin/member/{{ m.id }}" style="margin-top:10px">{{ csrf_field() }}<input type=hidden name=member_id value={{ m.id }}><button class="btn btn-secondary full" name=action value=ask_bot>Ask Grunions to verify</button></form>{% endif %}
+{% endif %}
 {% endif %}
 <script>
 (function(){

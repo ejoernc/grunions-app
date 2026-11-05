@@ -4375,7 +4375,8 @@ def handle_member_detail(d, mid):
               usawp_valid_until=COALESCE(?,usawp_valid_until), usawp_updated=?, usawp_verified_by=?, usawp_verified_at=? WHERE id=?""",
               (num, vu.isoformat() if vu else None, now, f"{me()['first']} {me()['last']}", now, mid))
     elif act == "ask_bot":
-        flash(create_verify_request(d, mid), "toast")
+        msg = create_verify_request(d, mid)
+        flash("Check requested" if msg.startswith("Asked") else msg, "toast")
     elif act == "req":
         rid = int(request.form["req_id"]); done = parse_date(request.form.get("completed_on")); exp = parse_date(request.form.get("expires_on"))
         q = d.execute("SELECT * FROM requirements WHERE id=?", (rid,)).fetchone()
