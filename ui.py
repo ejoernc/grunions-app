@@ -2029,7 +2029,7 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
     var inset=24;
     var bottom=Math.round(v.box.height-span*4/5+inset);
     if(bottom<inset) bottom=inset;
-    return {top:inset, bottom:bottom, left:48, right:140};
+    return {top:inset, bottom:bottom, left:36, right:200};
    }
    function staticCredit(){
     var logo=el.querySelector('.mapboxgl-ctrl-logo');
@@ -2244,7 +2244,7 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
     var inset=24;
     var bottom=Math.round(el.clientHeight-span*4/5+inset);
     if(bottom<inset) bottom=inset;
-    map.fitBounds(focus,{paddingTopLeft:[48, inset], paddingBottomRight:[140, bottom], maxZoom:focus.length===1?12:15, animate:false});
+    map.fitBounds(focus,{paddingTopLeft:[36, inset], paddingBottomRight:[200, bottom], maxZoom:focus.length===1?12:15, animate:false});
     return;
    }
    var framed=bounds.slice();
