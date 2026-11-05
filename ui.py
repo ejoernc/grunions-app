@@ -18,8 +18,8 @@ BASE = """<!doctype html><html lang=en style="background:#090D0B;color-scheme:da
 <title>Regulars</title>
 <style>{{ foundation_css|safe }}
 html,body{background:var(--color-bg);color:var(--color-text)}html{color-scheme:dark}
-@view-transition{navigation:auto}
-::view-transition{background:#090D0B}
+@view-transition{navigation:none}
+::view-transition{display:none;background:#090D0B}
 ::view-transition-group(root){animation:none;background:#090D0B}
 ::view-transition-image-pair(root){isolation:auto}
 ::view-transition-old(root),::view-transition-new(root){animation:none;animation-duration:0s;mix-blend-mode:normal}
@@ -276,6 +276,7 @@ body.adminpage main{padding-top:var(--space-5)}
 button.morebtn{width:32px;height:32px;padding:0;background:transparent;color:var(--t3);font-size:22px;line-height:1;border-radius:8px}button.morebtn svg,.m .more svg{width:20px;height:20px;display:block}
 button.morebtn[aria-expanded=true]{background:var(--surface2);color:var(--t1)}
 .menu{position:absolute;left:0;top:36px;z-index:20;min-width:232px;padding:6px;background:var(--color-surface);border:1px solid var(--line);border-radius:var(--radius-button);box-shadow:var(--shadow-overlay)}
+.menu.floating{position:fixed;z-index:50;left:auto;top:auto;right:auto;margin:0;max-height:min(320px,calc(100dvh - var(--nav-clear) - 24px));overflow:auto}
 .menu form{margin:0}
 .menu button{width:100%;height:40px;padding:0 12px;justify-content:flex-start;background:transparent;color:var(--t1);font-weight:500;font-size:15px;border-radius:8px}
 .menu button:disabled{color:var(--t3)}
@@ -358,9 +359,9 @@ button:disabled,.btn:disabled{opacity:.45}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--t3);flex:none;display:inline-block}.dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}.dot.warn{background:var(--warn)}
 .list .menu{left:auto;right:0;min-width:280px}
 .row.wrap{flex-wrap:wrap}
-dialog.modal{border:0;padding:0;background:transparent;color:var(--t1);width:min(440px,calc(100vw - 32px));overflow:visible}
+dialog.modal{border:0;padding:0;background:transparent;color:var(--t1);width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:hidden}
 dialog.modal::backdrop{background:var(--color-backdrop)}
-dialog.modal .sheet{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;overflow:visible}
+dialog.modal .sheet{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-height:calc(100dvh - 32px);overflow:auto}
 dialog.modal .sheet form>.btn,dialog.modal .sheet form>button.btn,dialog.modal .sheet form>.row:last-child,dialog.botsheet .sheet form>.btn,dialog.botsheet .sheet form>button.btn,dialog.botsheet .sheet form>.row:last-child,dialog.modal .sheet>.btn,dialog.botsheet .sheet>.btn{margin-top:var(--space-form-action)}
 dialog.modal .sheet form>:has(+.btn),dialog.modal .sheet form>:has(+button.btn),dialog.modal .sheet form>:has(+.row),dialog.botsheet .sheet form>:has(+.btn),dialog.botsheet .sheet form>:has(+button.btn),dialog.modal .sheet>:has(+.btn),dialog.botsheet .sheet>:has(+.btn){margin-bottom:0}
 #photoDlg .sheet{padding:var(--space-5)}
@@ -826,7 +827,7 @@ dialog.memberedit .help a{color:var(--t1)}
 </div>
 <label>Address<span class=locok {% if not p.social_address %}hidden{% endif %}><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address value="{{ p.social_address or '' }}" data-places data-place-name=social_place autocomplete=off placeholder="Search for an address"></label>
 <label>Place name<input name=social_place value="{{ p.social_place or '' }}" autocomplete=off placeholder="Name of the place"></label>
-<label>Time (optional)<input type=time name=social_time value="{{ p.social_time or '' }}"></label>
+<label>Time (optional)<input data-native type=time name=social_time min="{{ (p.end or '20:30')[:5] }}" value="{{ p.social_time or (p.end or '20:30')[:5] }}"></label>
 <label>Note (optional)<textarea class=planfield name=social_note rows=4>{{ p.social_note or '' }}</textarea></label>
 {% endmacro %}
 {% macro message_fields(p) %}
@@ -974,6 +975,9 @@ TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab !=
 </nav>{% endif %}
 <script>
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=115');
+function grunionsClearTransition(){try{var t=document.activeViewTransition; if(t&&t.skipTransition) t.skipTransition();}catch(e){}}
+grunionsClearTransition();
+window.addEventListener('pageshow', grunionsClearTransition);
 function grunionsCaptureArea(){
  var replaced=false;
  try{
@@ -1325,6 +1329,7 @@ function grunionsApply(html,url,pop,replace){
  var newMain=doc.querySelector('main'), newNav=doc.querySelector('nav.tabs');
  if(!newMain||!newNav){location.href=url; return;}
  grunionsClearPage();
+ document.querySelectorAll('body>.menu.floating').forEach(function(m){ m.remove(); });
  var scripts=[].slice.call(newMain.querySelectorAll('script'));
  scripts.forEach(function(s){if(s.parentNode) s.parentNode.removeChild(s);});
  if(doc.body) document.body.className=doc.body.className;
@@ -1435,6 +1440,8 @@ window.addEventListener('pageshow',function(e){
  grunionsWakeHome(true);
 });
 window.addEventListener('popstate',function(){
+ if(window.grunionsMenuPop){ window.grunionsMenuPop=0; if(window.grunionsCloseMenu) window.grunionsCloseMenu(true); return; }
+ if(window.grunionsCloseMenu && window.grunionsCloseMenu(true)) return;
  var from=''; try{from=sessionStorage.getItem('grunionsNavFrom')||''}catch(e){}
  var dest=location.pathname+location.search;
  if(grunionsChildBack(from, dest)) grunionsMarkBack(location.href);
@@ -1708,7 +1715,7 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
  };
  window.grunionsBindPickers=function(){
   document.querySelectorAll('input[type=date],input[type=time],input[type=month]').forEach(function(input){
-   if(input.dataset.matarm||input.classList.contains('pickhold')) return;
+   if(input.dataset.matarm||input.classList.contains('pickhold')||input.hasAttribute('data-native')) return;
    input.dataset.matarm='1';
    input.addEventListener('pointerdown', function(e){ e.preventDefault(); if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input); });
    input.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '||e.key==='ArrowDown'){ e.preventDefault(); if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input); } });
@@ -2859,7 +2866,6 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 <div class="li prow viewonly">{% set rf = referee_eligibility(m) %}{{ titledot(date_dot(cred.referee), 'Referee') }}<span class=v>{% if cred.referee %}{{ fmt_long(cred.referee) }}{% else %}Not on file{% endif %}{% if rf.eligible %} {{ referee_tag(m) }}{% elif rf.expired %}<span class="st st-bad ref-elig">Referee eligibility expired {{ fmt_long(rf.expired) }}</span>{% elif rf.text %} {{ referee_tag(m) }}{% endif %}</span></div>
 {% if cc or ce.eligible or ce.text %}<div class="li prow viewonly">{% if cc %}{{ titledot('ok' if cc.ok else 'bad', 'Coaching') }}<span class=v>{{ 'cleared' if cc.ok else cc.text }}</span>{% elif ce.eligible %}{{ titledot('ok', 'Coaching') }}<span class=v>Coach eligible</span>{% else %}{{ titledot('bad' if ce.expired else 'warn', 'Coaching') }}<span class=v>{{ ce.text or 'Not eligible' }}</span>{% endif %}</div>{% endif %}
 {% if me().is_admin %}
-<div class="li editonly"><p class="t3 sm" style="margin:0">Look this member up on Sport:80 and enter what you find. Grunions does not contact Sport:80.{% if m.vr_status == 'pending' %} Saving answers the pending verification request.{% endif %}</p></div>
 <div class="li editonly"><label class=prefedit style="width:100%;margin:0">USAWP number<input name=number inputmode=numeric autocomplete=off value="{{ m.usawp_number or '' }}"></label></div>
 <div class="li editonly"><label class=prefedit style="width:100%;margin:0">Status<select name=verified><option value=yes {{ 'selected' if m.usawp_status=='verified' }}>Verified</option><option value=no {{ 'selected' if m.usawp_status!='verified' }}>Not verified</option></select></label></div>
 <div class="li editonly"><label class=prefedit style="width:100%;margin:0">Membership type<input name=membership_type value="{{ m.membership_type or '' }}" placeholder="Individual Membership, Coach" autocomplete=off></label></div>
@@ -2871,7 +2877,7 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 {% endif %}
 </div>
 {% if not on_trial and ps.reason %}<p class="sm viewonly" style="margin:8px 0 0">{{ ps.reason }}</p>{% endif %}
-{% if not cl.ok or m.usawp_status != 'verified' %}<p class="sm viewonly" style="margin:8px 0 0"><a target=_blank rel=noopener href="https://usawp.sport80.com/" onclick="navigator.clipboard&&navigator.clipboard.writeText('{{ m.first }} {{ m.last }}')">Verify {{ m.first }} on Sport:80</a></p>{% endif %}
+{% if not cl.ok or m.usawp_status != 'verified' %}<p class="t3 sm viewonly" style="margin:8px 0 0"><a target=_blank rel=noopener href="https://usawp.sport80.com/">Open Sport:80</a> if you want to look it up yourself.</p>{% endif %}
 <div class=seclabel>Personal</div>
 <div class=list>
 <div class="li prow viewonly"><span class=k>Legal name</span><span class=v>{{ m.first }} {{ m.last }}</span></div>
@@ -2897,20 +2903,22 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 </form>
 {% if me().is_admin %}
 <div class=seclabel>Actions</div>
-<button type=button class="btn btn-secondary full viewonly" id=memberRecheck>Recheck</button>
+{% if not verify_webhook_configured() %}<div class=note>Set VERIFY_WEBHOOK_URL so Grunions can look members up on Sport:80. Results come back through /api/verify-requests/&lt;id&gt;/result.</div>{% endif %}
+{% if m.vr_status == 'pending' %}<p class="t2 sm viewonly" style="margin:0 0 10px">Check requested · looking up on Sport:80</p>{% endif %}
+<form method=post action="/admin/member/{{ m.id }}" class=viewonly style="margin:0">{{ csrf_field() }}<input type=hidden name=member_id value={{ m.id }}><button class="btn btn-secondary full" name=action value=ask_bot>Verify</button></form>
+<button type=button class="btn btn-secondary full viewonly" id=memberManual style="margin-top:10px">Manual Entry</button>
 {% set chk = list_row_status(m, 'members') %}
-{% if chk.tone in ('bad', 'warn') %}
-{% if m.vr_status == 'pending' %}<p class="t2 sm" style="margin:10px 0 0">Check requested</p>
-{% else %}<form method=post action="/admin/member/{{ m.id }}" style="margin-top:10px">{{ csrf_field() }}<input type=hidden name=member_id value={{ m.id }}><button class="btn btn-secondary full" name=action value=ask_bot>Ask Grunions to verify</button></form>{% endif %}
-{% endif %}
+{% if chk.tone in ('bad', 'warn') and m.vr_status != 'pending' %}<form method=post action="/admin/member/{{ m.id }}" class=viewonly style="margin-top:10px">{{ csrf_field() }}<input type=hidden name=member_id value={{ m.id }}><button class="btn btn-secondary full" name=action value=ask_bot>Ask Grunions to verify</button></form>{% endif %}
 {% endif %}
 <script>
 (function(){
- var edit=document.getElementById('profileEdit'), cancel=document.getElementById('profileCancel'), back=document.getElementById('profileBack'), recheck=document.getElementById('memberRecheck');
- if(edit) edit.onclick=function(){document.body.classList.add('profile-edit'); var el=document.getElementById('membership'); if(el) el.scrollIntoView({block:'start'});};
+ var edit=document.getElementById('profileEdit'), cancel=document.getElementById('profileCancel'), back=document.getElementById('profileBack'), manual=document.getElementById('memberManual');
+ function openManual(){document.body.classList.add('profile-edit'); var el=document.getElementById('membership'); if(el) el.scrollIntoView({block:'start'});}
+ if(edit) edit.onclick=openManual;
+ if(manual) manual.onclick=openManual;
  if(cancel) cancel.onclick=function(){document.body.classList.remove('profile-edit'); if(/[?&]edit=1/.test(location.search)) history.replaceState(null,'',location.pathname);};
  if(back) back.onclick=function(){ grunionsLeave('{{ "/members" if me().is_admin else "/admin" }}'); };
- if(recheck) recheck.onclick=function(){document.body.classList.add('profile-edit'); var el=document.getElementById('membership'); if(el) el.scrollIntoView({block:'start'});};
+ if(/[?&]edit=1/.test(location.search)) openManual();
 })();
 </script>"""
 
@@ -3496,7 +3504,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label id=socialCustom {% if not dup or dup.social_kind != 'Other' %}hidden{% endif %}>Label<input name=social_custom value="{{ dup.social_custom if dup else '' }}" autocomplete=off></label>
 <label>Address<span class=locok {% if not dup or not dup.social_address %}hidden{% endif %}><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address id=socPlace value="{{ dup.social_address if dup else '' }}" data-places data-place-name=social_place autocomplete=off placeholder="Search for an address"></label>
 <label>Place name<input name=social_place value="{{ dup.social_place if dup else '' }}" autocomplete=off placeholder="Name of the place"></label>
-<label>Time (optional)<input type=time name=social_time value="{{ dup.social_time if dup else '' }}"></label>
+<label>Time (optional)<input data-native type=time name=social_time min="{{ (dup.end if dup else '20:30')[:5] }}" value="{{ (dup.social_time or dup.end) if dup else '20:30' }}"></label>
 <label>Note<textarea class=planfield name=social_note rows=4>{{ dup.social_note if dup else '' }}</textarea></label>
 <button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=setNotes><div class=sheet><div class=grab></div><h2>Notes &amp; media</h2>
@@ -3928,7 +3936,7 @@ T["practice"] = """{% set p = x.p %}
 <button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
 <label>Address<span class=locok {% if not p.social_address %}hidden{% endif %}><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address value="{{ p.social_address or '' }}" data-places data-place-name=social_place autocomplete=off placeholder="Search for an address"></label>
 <label>Place name<input name=social_place value="{{ p.social_place or '' }}" autocomplete=off placeholder="Name of the place"></label>
-<label>Time (optional)<input type=time name=social_time value="{{ p.social_time or '' }}"></label>
+<label>Time (optional)<input data-native type=time name=social_time min="{{ (p.end or '20:30')[:5] }}" value="{{ p.social_time or (p.end or '20:30')[:5] }}"></label>
 <label>Notes (optional)<textarea class=planfield name=social_note rows=4>{{ p.social_note or '' }}</textarea></label>
 <button type=button class="btn btn-danger full" id=socialRemove>Remove social</button>
 <input type=hidden name=social_kind value="" id=socialClear {% if ns.kind %}disabled{% endif %}>
@@ -4234,6 +4242,8 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pa
 {% macro prow(r, kind) %}<div class="li personrow">{% call person_link(r) %}{% endcall %}
 <span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></button>
 <div class=menu hidden role=menu>
+{% set rowst = list_row_status(r, view) %}
+{% if rowst.tone in ('bad', 'warn') and (r.vr_status or '') != 'pending' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=ask_bot>Check USAWP</button></form>{% endif %}
 {% if kind == 'members' %}
 {% if r.is_admin %}{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=remove_admin>Remove admin</button></form>{% endif %}{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=make_admin>Make admin</button></form>{% endif %}
 {% if r.id in listed %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=remove_coaching>Remove from coaches</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=add_coaching>Add to coaches</button></form>{% endif %}
@@ -4261,13 +4271,71 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pa
 </script>
 <script>
 (function(){
- function closeAll(){document.querySelectorAll('.menu').forEach(function(m){m.hidden=true; var b=m.parentNode.querySelector('.morebtn'); if(b) b.setAttribute('aria-expanded','false')})}
- document.querySelectorAll('.morebtn').forEach(function(btn){
-  btn.onclick=function(e){e.stopPropagation(); var menu=btn.parentNode.querySelector('.menu'); var open=menu.hidden; closeAll(); if(open){menu.hidden=false; btn.setAttribute('aria-expanded','true')}};
+ var state=window.grunionsPeopleMenu||(window.grunionsPeopleMenu={btn:null,pushed:false});
+ document.querySelectorAll('body>.menu.floating').forEach(function(m){ m.remove(); });
+ function menuOf(btn){ return btn && (btn._menu || (btn.parentNode && btn.parentNode.querySelector('.menu'))); }
+ function hide(){
+  document.querySelectorAll('.menu').forEach(function(m){ m.hidden=true; });
+  if(state.btn) state.btn.setAttribute('aria-expanded','false');
+  state.btn=null;
+ }
+ function closeAll(fromPop){
+  hide();
+  if(fromPop){ state.pushed=false; return; }
+  if(state.pushed){ state.pushed=false; window.grunionsMenuPop=1; history.back(); }
+ }
+ function place(btn){
+  var menu=menuOf(btn); if(!menu) return;
+  if(!menu._btn){ menu._btn=btn; btn._menu=menu; }
+  if(menu.parentNode!==document.body) document.body.appendChild(menu);
+  menu.classList.add('floating');
+  menu.hidden=false;
+  var nav=document.querySelector('nav.tabs');
+  var limit=nav ? nav.getBoundingClientRect().top-8 : window.innerHeight-8;
+  menu.style.maxHeight=Math.max(120, limit-16)+'px';
+  var r=btn.getBoundingClientRect();
+  var mw=menu.offsetWidth, mh=menu.offsetHeight;
+  var left=Math.max(8, Math.min(window.innerWidth-mw-8, r.right-mw));
+  var top=r.bottom+6;
+  if(top+mh>limit){
+   var above=r.top-6-mh;
+   top=above>=8 ? above : Math.max(8, limit-mh);
+  }
+  menu.style.left=Math.round(left)+'px';
+  menu.style.top=Math.round(top)+'px';
+  menu.style.right='auto';
+ }
+ document.querySelectorAll('.people .morebtn').forEach(function(btn){
+  btn.onclick=function(e){
+   e.preventDefault(); e.stopPropagation();
+   var menu=menuOf(btn);
+   var was=menu && !menu.hidden && state.btn===btn;
+   hide();
+   if(was){ if(state.pushed){ state.pushed=false; window.grunionsMenuPop=1; history.back(); } return; }
+   if(!menu) return;
+   state.btn=btn;
+   btn.setAttribute('aria-expanded','true');
+   place(btn);
+   if(!state.pushed){ history.pushState({grunionsMenu:1}, '', location.href); state.pushed=true; }
+  };
  });
- if(!window.grunionsMore){window.grunionsMore=1;
-  document.addEventListener('click', closeAll);
-  document.addEventListener('keydown', function(e){if(e.key==='Escape') closeAll()});
+ window.grunionsCloseMenu=function(){
+  if(!state.btn && !document.querySelector('.menu.floating:not([hidden])')) return false;
+  closeAll(true);
+  return true;
+ };
+ window.grunionsPlacePeopleMenu=function(){ if(state.btn) place(state.btn); };
+ if(!window.grunionsPeopleMenuBound){ window.grunionsPeopleMenuBound=1;
+  document.addEventListener('click', function(e){
+   if(e.target.closest && e.target.closest('.menu,.morebtn')) return;
+   var st=window.grunionsPeopleMenu; if(!st||(!st.btn&&!st.pushed)) return;
+   if(st.pushed && e.target.closest && e.target.closest('a[href]')){ st.pushed=false; try{ history.replaceState({grunions:1}, '', location.href); }catch(err){} if(window.grunionsCloseMenu) window.grunionsCloseMenu(true); return; }
+   closeAll(false);
+  });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && window.grunionsPeopleMenu && window.grunionsPeopleMenu.btn) closeAll(false); });
+  document.addEventListener('submit', function(){ var st=window.grunionsPeopleMenu; if(st&&st.pushed){ st.pushed=false; try{ history.replaceState({grunions:1}, '', location.href); }catch(err){} } }, true);
+  window.addEventListener('resize', function(){ if(window.grunionsPlacePeopleMenu) window.grunionsPlacePeopleMenu(); });
+  window.addEventListener('scroll', function(){ if(window.grunionsPlacePeopleMenu) window.grunionsPlacePeopleMenu(); }, true);
  }
 })();
 </script>"""
@@ -4279,7 +4347,7 @@ T["expiring"] = ADMIN_NAV + """{{ admin_page('Expiring', 'Membership, SafeSport,
 <div class=list>{% for r in rep[key] %}<div class=li><a class=grow href="/admin/member/{{ r.id }}" style="color:inherit;text-decoration:none;min-width:0"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span class=ell style="font-weight:500;flex:1">{{display_first(r)}} {{r.last}}</span>
 <span class="chip-info daybadge"><span class="dot {{ 'bad' if r.days_left < 0 else ('warn' if r.days_left <= 7 else '') }}" aria-hidden=true></span>{% if r.days_left < 0 %}{{ -r.days_left }}d ago{% elif r.days_left == 0 %}Today{% else %}{{ r.days_left }}d left{% endif %}</span></div>
 <div class="t3 xs">{{ r.item }} · {{ fmt_long(r.usawp_valid_until) }}</div></a>
-<a class="btn btn-secondary" href="/admin/member/{{ r.id }}?edit=1">Recheck</a></div>{% else %}<div class=li><span class=t3>None</span></div>{% endfor %}</div>{% endfor %}
+<form method=post action="/admin/member/{{ r.id }}" style="margin:0">{{ csrf_field() }}<input type=hidden name=member_id value={{ r.id }}><button class="btn btn-secondary" name=action value=ask_bot>Verify</button></form></div>{% else %}<div class=li><span class=t3>None</span></div>{% endfor %}</div>{% endfor %}
 <form method=post style="margin-top:20px">{{csrf_field()}}<input type=hidden name=action value=ask_all><input type=hidden name=days value="{{days}}"><button class="btn btn-primary full">Ask Grunions to recheck all</button></form>
 <p class="t3 sm" style="margin-top:10px">Asks Grunions to look up everyone listed. Daily report: <a href=/api/expiring>/api/expiring</a>.</p>
 </div>"""

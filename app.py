@@ -22,7 +22,7 @@ ADMIN_EMAIL = next(iter(sorted(ADMIN_EMAILS)), "")
 LINK_MINUTES = int(os.environ.get("LINK_MINUTES", 15))
 SMTP = {k: os.environ.get(k) for k in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "MAIL_FROM")}
 EXPIRING_DAYS = int(os.environ.get("EXPIRING_DAYS", 30))
-VERIFY_WEBHOOK_URL = os.environ.get("VERIFY_WEBHOOK_URL")  # outbound: new verification requests are POSTed here
+VERIFY_WEBHOOK_URL = os.environ.get("VERIFY_WEBHOOK_URL")  # required: POST each Sport:80 lookup to Eli's assistant; the assistant writes the result to /api/verify-requests/<id>/result
 VERIFY_WEBHOOK_KEY = os.environ.get("VERIFY_WEBHOOK_KEY")  # if set, Authorization: Bearer <key> (unless HEADER overrides)
 VERIFY_WEBHOOK_HEADER = os.environ.get("VERIFY_WEBHOOK_HEADER")  # if set, this header carries the raw key
 BOT_API_KEY = os.environ.get("BOT_API_KEY")  # inbound: bearer token for the bot read APIs
@@ -823,7 +823,13 @@ def list_status(d, member, view):
     return {"tone": tone, "word": word, "rest": " · %s thru %s" % (it["name"], fmt_long(it["date"])), "ok": True}
 def view_list_status(member, view):
     if not can_see_member_status(member): return {"tone": "ok", "word": "", "rest": "", "ok": True, "hidden": True}
-    return list_status(db(), member, view)
+    st = list_status(db(), member, view)
+    try:
+        if (member["vr_status"] or "") == "pending":
+            return {"tone": "warn", "word": "Check pending", "rest": "", "ok": st.get("ok", False)}
+    except (TypeError, KeyError, IndexError):
+        pass
+    return st
 app.jinja_env.globals.update(list_row_status=view_list_status)
 def coach_row_expiry(d, member):
     """Earliest membership, SafeSport, or background date for the Coaches list chip."""
@@ -923,7 +929,10 @@ def on_coaching_list(member):
     try: mid = member["id"]
     except (TypeError, KeyError, IndexError): return False
     return db().execute("SELECT 1 FROM coaching_list WHERE member_id=?", (mid,)).fetchone() is not None
-app.jinja_env.globals.update(is_staff=is_staff, can_host_practice=can_host_practice, approval_count=approval_count, role_label=role_label, usawp_coach_badge=view_usawp_coach_badge, coach_eligibility=view_coach_eligibility, referee_eligibility=view_referee_eligibility, credential_dates=view_credential_dates, coach_row_expiry=view_coach_row_expiry, fmt_long=fmt_long, fmt_when=fmt_when, date_dot=date_dot, panel_status=view_panel_status, on_coaching_list=on_coaching_list)
+def verify_webhook_configured():
+    """True when VERIFY_WEBHOOK_URL is set. The key and header are optional."""
+    return bool((VERIFY_WEBHOOK_URL or "").strip())
+app.jinja_env.globals.update(is_staff=is_staff, can_host_practice=can_host_practice, approval_count=approval_count, role_label=role_label, usawp_coach_badge=view_usawp_coach_badge, coach_eligibility=view_coach_eligibility, referee_eligibility=view_referee_eligibility, credential_dates=view_credential_dates, coach_row_expiry=view_coach_row_expiry, fmt_long=fmt_long, fmt_when=fmt_when, date_dot=date_dot, panel_status=view_panel_status, on_coaching_list=on_coaching_list, verify_webhook_configured=verify_webhook_configured)
 def staff_required(f):
     @functools.wraps(f)
     def w(*a, **k):
@@ -2260,9 +2269,20 @@ def clean_social(form):
             social_time = ""
     if not kind: return "", "", "", "", ""
     return kind, place, address, social_time, note
+def _clock_minutes(raw, fallback="20:30"):
+    text = (raw or fallback or "20:30").strip()
+    try:
+        hh, mm = text.split(":", 1)
+        return int(hh) * 60 + int(mm[:2])
+    except (TypeError, ValueError):
+        return 20 * 60 + 30
 def save_social(d, pid, form):
     kind, place, address, social_time, note = clean_social(form)
     if kind and not place: return False
+    end_row = d.execute("SELECT end FROM practices WHERE id=?", (pid,)).fetchone()
+    end = ((end_row["end"] if end_row else "") or "20:30")[:5]
+    if social_time and _clock_minutes(social_time) < _clock_minutes(end):
+        social_time = end
     old = d.execute("SELECT social_place, social_address, social_kind FROM practices WHERE id=?", (pid,)).fetchone()
     d.execute("""UPDATE practices SET social_kind=?, social_place=?, social_address=?, social_time=?, social_note=? WHERE id=?""",
               (kind, place, address, social_time, note, pid))
@@ -4375,8 +4395,11 @@ def handle_member_detail(d, mid):
               usawp_valid_until=COALESCE(?,usawp_valid_until), usawp_updated=?, usawp_verified_by=?, usawp_verified_at=? WHERE id=?""",
               (num, vu.isoformat() if vu else None, now, f"{me()['first']} {me()['last']}", now, mid))
     elif act == "ask_bot":
-        msg = create_verify_request(d, mid)
-        flash("Check requested" if msg.startswith("Asked") else msg, "toast")
+        if not verify_webhook_configured():
+            flash("Set VERIFY_WEBHOOK_URL so Grunions can look this member up on Sport:80.", "toast")
+        else:
+            create_verify_request(d, mid, update_pending=True)
+            flash("Check requested · looking up on Sport:80", "toast")
     elif act == "req":
         rid = int(request.form["req_id"]); done = parse_date(request.form.get("completed_on")); exp = parse_date(request.form.get("expires_on"))
         q = d.execute("SELECT * FROM requirements WHERE id=?", (rid,)).fetchone()
