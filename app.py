@@ -1,5 +1,5 @@
 """Grunions Water Polo team app prototype: member login, team chat, admin check-in tools. Flask + SQLite."""
-import csv, io, os, re, sqlite3, secrets, hashlib, datetime as dt, functools, base64, threading
+import csv, io, os, re, sqlite3, secrets, hashlib, datetime as dt, functools, base64, threading, logging
 import json, urllib.request, urllib.parse, urllib.error
 import gspread
 from google.oauth2.service_account import Credentials
@@ -37,6 +37,10 @@ except ValueError:
 MAX_UPLOAD = 8 * 1024 * 1024
 REACTIONS = ["👍", "👎", "❤️", "😂", "🎉", "😮", "🔥", "👀", "🙏", "🥲", "💯"]
 app = Flask(__name__)
+logging.warning(
+    "MAPBOX_TOKEN set=%s length=%d pk_prefix=%s",
+    bool(MAPBOX_TOKEN), len(MAPBOX_TOKEN), MAPBOX_TOKEN.startswith("pk."),
+)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD + 64 * 1024
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
@@ -2400,7 +2404,8 @@ def ensure_social_route(d, p):
     if not p or "social_routed" not in p.keys(): return
     if not has_social_address(p) or p["lat"] is None or p["lng"] is None or p["social_lat"] is None or p["social_lng"] is None:
         return
-    if p["social_routed"]: return
+    if p["social_route"]: return
+    if p["social_routed"] and (drive_service.provider is None or drive_service.auth_failed): return
     now = now_pt()
     got = drive_service.line((p["lat"], p["lng"]), (p["social_lat"], p["social_lng"]), now)
     if not got:

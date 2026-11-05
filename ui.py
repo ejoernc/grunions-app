@@ -123,6 +123,12 @@ body.practicepage main{padding-top:0}
 .homemap.tiles .leaflet-tile-pane{opacity:1}
 .homemap .leaflet-control-attribution{background:var(--color-scrim);color:var(--color-text-secondary);font-size:10px;max-width:70%}
 .homemap .leaflet-control-attribution a{color:var(--color-icon)}
+.mapboxgl-ctrl-bottom-right{opacity:.42;margin:0 6px 6px 0}
+.mapboxgl-ctrl-attrib.mapboxgl-compact{min-height:0;background:transparent}
+.mapboxgl-ctrl-attrib{font-size:9px;line-height:1.2;background:rgba(0,0,0,.28);padding:0 4px}
+.mapboxgl-ctrl-attrib a{color:inherit}
+.mapboxgl-ctrl-logo{opacity:.55;transform:scale(.62);transform-origin:right bottom;margin:0}
+body.homefull .homemap .mapboxgl-ctrl-bottom-right{position:absolute;right:6px;left:auto;bottom:var(--map-attrib,12px);margin:0;pointer-events:auto;z-index:2;display:flex;flex-direction:column;align-items:flex-end}
 .homemap .leaflet-bar a,.homemap .leaflet-bar a:hover{background:var(--color-surface-2);color:var(--color-text);border-bottom-color:var(--color-border)}
 .homemap .leaflet-marker-icon.mpin{background:transparent;border:0;box-shadow:none;overflow:visible}
 .pinrow{display:flex;align-items:center;gap:6px;height:18px;width:max-content}
@@ -1238,30 +1244,59 @@ window.grunionsMountMap=function(el, opts){
   bootLeaflet();
  function bootMapbox(pins){
   function start(){
-   if(!el.isConnected||el.dataset.mapon||!window.mapboxgl) return;
+   if(!el.isConnected||el.dataset.mapon||el.dataset.leaflet||!window.mapboxgl) return;
+   var map;
+   try{
+    mapboxgl.accessToken=mb.token;
+    var camera={};
+    var seed=null;
+    pins.forEach(function(p){ if(!seed){ var lng=Number(p.lng), lat=Number(p.lat); if(isFinite(lng)&&isFinite(lat)) seed=[lng, lat]; } });
+    if(seed){ camera.center=seed; camera.zoom=13; }
+    map=new mapboxgl.Map(Object.assign({container:el,style:mb.style,interactive:false,attributionControl:false,logoPosition:'bottom-right',fadeDuration:0}, camera));
+    map.addControl(new mapboxgl.AttributionControl({compact:true}), 'bottom-right');
+   }catch(err){ useOSM(); return; }
    el.dataset.mapon='1';
-   mapboxgl.accessToken=mb.token;
-   var map=new mapboxgl.Map({container:el,style:mb.style,interactive:false,attributionControl:true,fadeDuration:0});
    el._gmap=map;
-   map.on('error', function(ev){
-    var err=ev&&ev.error, status=err&&(err.status||err.statusCode), msg=String(err&&err.message||'');
-    if(status!==401 && !/unauthorized|status:\s*401|\b401\b/i.test(msg)) return;
-    if(el.dataset.mapfail) return;
-    el.dataset.mapfail='1';
-    try{ sessionStorage.setItem('grunionsMapbox','no'); }catch(e){}
+   var settled=false;
+   function tuckAttrib(){
+    var card=document.querySelector('.nextcard');
+    if((opts.mode!=='home'&&el.id!=='homeMap')||!card) return;
+    var box=el.getBoundingClientRect();
+    var lift=Math.max(6, Math.round(box.bottom-card.getBoundingClientRect().top+6));
+    el.style.setProperty('--map-attrib', lift+'px');
+   }
+   tuckAttrib();
+   setTimeout(tuckAttrib, 0);
+   setTimeout(tuckAttrib, 250);
+   window.addEventListener('resize', tuckAttrib);
+   function giveUp(){
+    if(settled||el.dataset.leaflet) return;
+    settled=true;
+    var parent=el.parentNode, next=el.nextSibling;
     try{ map.remove(); }catch(e){}
-    el._gmap=null; delete el.dataset.mapon;
-    if(window.L) bootLeaflet();
-    else {
-     var s=document.querySelector('script[data-leaflet]');
-     if(!s){ s=document.createElement('script'); s.src='/static/leaflet/leaflet.js'; s.setAttribute('data-leaflet','1'); s.onload=bootLeaflet; document.body.appendChild(s); }
-     else s.addEventListener('load', bootLeaflet);
-    }
+    if(parent&&!el.isConnected) parent.insertBefore(el, next);
+    el.innerHTML='';
+    el.classList.remove('mapboxgl-map');
+    el.removeAttribute('style');
+    el._gmap=null;
+    delete el.dataset.mapon;
+    useOSM();
+   }
+   var timer=setTimeout(giveUp, 5000);
+   map.on('error', function(ev){
+    if(settled) return;
+    var err=ev&&ev.error, status=err&&(err.status||err.statusCode), msg=String((err&&err.message)||'');
+    if((status&&status>=400)||/unauthorized|forbidden|invalid token|failed to load style|style not found/i.test(msg)) giveUp();
    });
    var youMarker=null;
    function hideLabels(){
-    var style=map.getStyle(); if(!style||!style.layers) return;
-    style.layers.forEach(function(layer){ if(layer.type==='symbol') map.setLayoutProperty(layer.id,'visibility','none'); });
+    try{
+     var style=map.getStyle(); if(!style||!style.layers) return;
+     style.layers.forEach(function(layer){
+      if(layer.type!=='symbol') return;
+      try{ map.setLayoutProperty(layer.id,'visibility','none'); }catch(e){}
+     });
+    }catch(e){}
    }
    function pads(){
     var head=document.querySelector('header.homehead'), card=document.querySelector('.nextcard');
@@ -1273,13 +1308,20 @@ window.grunionsMountMap=function(el, opts){
    }
    function points(){
     var pts=[];
-    pins.forEach(function(p){ pts.push([p.lng,p.lat]); });
-    (opts.route||[]).forEach(function(p){ if(p&&p.length>=2) pts.push([p[1],p[0]]); });
-    if(el._you) pts.push([el._you.lng, el._you.lat]);
+    pins.forEach(function(p){ var ll=lngLat(p); if(ll) pts.push(ll); });
+    (opts.route||[]).forEach(function(p){ if(p&&p.length>=2 && isFinite(Number(p[0])) && isFinite(Number(p[1]))) pts.push([Number(p[1]), Number(p[0])]); });
+    if(el._you && isFinite(el._you.lng) && isFinite(el._you.lat)) pts.push([el._you.lng, el._you.lat]);
     return pts;
    }
+   function lngLat(p){
+    if(!p) return null;
+    var lng=Number(p.lng), lat=Number(p.lat);
+    if(!isFinite(lng)||!isFinite(lat)) return null;
+    return [lng, lat];
+   }
    function frame(){
-    var pts=points(); if(!pts.length||!map.loaded()) return;
+    var pts=points().filter(function(p){ return p && isFinite(p[0]) && isFinite(p[1]); });
+    if(!pts.length) return;
     if(pts.length===1){ map.jumpTo({center:pts[0], zoom:14}); return; }
     var lngs=pts.map(function(p){return p[0];}), lats=pts.map(function(p){return p[1];});
     map.fitBounds([[Math.min.apply(null,lngs), Math.min.apply(null,lats)],[Math.max.apply(null,lngs), Math.max.apply(null,lats)]], {padding:pads(), maxZoom:15, animate:false});
@@ -1291,20 +1333,35 @@ window.grunionsMountMap=function(el, opts){
     node.innerHTML='<span class=pinrow><span class=pinhold><span class=pindot></span></span>'+pill+'</span>';
     return node;
    }
-   map.on('load', function(){
+   function draw(){
+    if(settled) return;
+    settled=true;
+    clearTimeout(timer);
+    tuckAttrib();
     hideLabels();
-    var route=opts.route||[];
-    if(route.length>1){
-     var accent=(getComputedStyle(document.documentElement).getPropertyValue('--color-lime')||'#B2DE64').trim()||'#B2DE64';
-     map.addSource('social-route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:route.map(function(p){return [p[1],p[0]];})}}});
-     map.addLayer({id:'social-route',type:'line',source:'social-route',paint:{'line-color':accent,'line-width':4,'line-opacity':0.95}});
-    }
-    pins.forEach(function(p){
-     new mapboxgl.Marker({element:pinEl(p.kind, p.label), anchor:'top-left', offset:[-9,-9]}).setLngLat([p.lng,p.lat]).addTo(map);
-    });
-    if(opts.mode==='card'&&pins[0]) el.addEventListener('click',function(){ grunionsDirections(pins[0].lat, pins[0].lng); });
-    frame();
-   });
+    try{
+     var route=opts.route||[];
+     if(route.length>1 && !map.getSource('social-route')){
+      var accent=(getComputedStyle(document.documentElement).getPropertyValue('--color-lime')||'#B2DE64').trim()||'#B2DE64';
+      map.addSource('social-route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:route.map(function(p){return [Number(p[1]), Number(p[0])];})}}});
+      map.addLayer({id:'social-route',type:'line',source:'social-route',paint:{'line-color':accent,'line-width':4,'line-opacity':0.95}});
+     }
+    }catch(e){}
+    try{
+     if(!el.dataset.marked){
+      el.dataset.marked='1';
+      pins.forEach(function(p){
+       var ll=lngLat(p); if(!ll) return;
+       new mapboxgl.Marker({element:pinEl(p.kind, p.label), anchor:'top-left', offset:[-9,-9]}).setLngLat(ll).addTo(map);
+      });
+      if(opts.mode==='card'&&pins[0]) el.addEventListener('click',function(){ grunionsDirections(pins[0].lat, pins[0].lng); });
+     }
+    }catch(e){}
+    try{ frame(); }catch(e){}
+    tuckAttrib();
+   }
+   map.on('load', draw);
+   if(map.loaded()) draw();
    el._reframe=function(){
     if(el._you){
      if(!youMarker){
@@ -1315,15 +1372,27 @@ window.grunionsMountMap=function(el, opts){
     frame();
    };
   }
+  function useOSM(){
+   try{ sessionStorage.setItem('grunionsMapbox','no'); }catch(e){}
+   if(window.L){ bootLeaflet(); return; }
+   var s=document.querySelector('script[data-leaflet]');
+   if(!s){ s=document.createElement('script'); s.src='/static/leaflet/leaflet.js'; s.setAttribute('data-leaflet','1'); s.onload=bootLeaflet; document.body.appendChild(s); }
+   else if(window.L) bootLeaflet();
+   else s.addEventListener('load', bootLeaflet);
+  }
   if(window.mapboxgl){ start(); return; }
   if(!document.querySelector('link[data-mapbox]')){
    var css=document.createElement('link'); css.rel='stylesheet'; css.href='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css'; css.setAttribute('data-mapbox','1'); document.head.appendChild(css);
   }
   var s=document.querySelector('script[data-mapbox]');
-  if(!s){ s=document.createElement('script'); s.src='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js'; s.setAttribute('data-mapbox','1'); s.onload=start; document.head.appendChild(s); }
-  else s.addEventListener('load', start);
+  if(!s){ s=document.createElement('script'); s.src='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js'; s.setAttribute('data-mapbox','1'); s.onerror=useOSM; s.onload=start; document.head.appendChild(s); }
+  else if(window.mapboxgl) start();
+  else { s.addEventListener('load', start); s.addEventListener('error', useOSM); }
  }
  function bootLeaflet(){
+  if(el.dataset.leaflet) return;
+  el.dataset.leaflet='1';
+  el.dataset.mapon='1';
   var still=opts.mode==='still';
   var map=L.map(el,{zoomControl:false,attributionControl:!still,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false});
   var tileUrl=window.GRUNIONS_MAP_TILES||'';
