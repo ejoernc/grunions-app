@@ -1998,16 +1998,18 @@ def stop_series_before(d, sid, cut):
 def cancel_series_from(d, sid, opened_iso, scope, reason):
     cut = series_scope_cut(opened_iso, scope)
     stop_series_before(d, sid, cut)
-    for p in d.execute("SELECT id, cancelled FROM practices WHERE series_id=? AND date>=?", (sid, cut.isoformat())):
+    for p in d.execute("SELECT * FROM practices WHERE series_id=? AND date>=?", (sid, cut.isoformat())):
+        if practice_ended(p): continue
         if not p["cancelled"]:
             d.execute("UPDATE practices SET cancelled=1, cancel_reason=? WHERE id=?", (reason, p["id"]))
             flag_practice(d, p["id"], "cancel", me()["id"])
 def delete_series_from(d, sid, opened_iso, scope):
     cut = series_scope_cut(opened_iso, scope)
     stop_series_before(d, sid, cut)
-    rows = list(d.execute("SELECT id, date, location, series_id FROM practices WHERE series_id=? AND date>=?", (sid, cut.isoformat())))
+    rows = list(d.execute("SELECT * FROM practices WHERE series_id=? AND date>=?", (sid, cut.isoformat())))
     dates = []
     for p in rows:
+        if practice_ended(p): continue
         note_schedule_gap(d, p["date"], p["location"])
         d.execute("INSERT OR IGNORE INTO series_skips(series_id, date) VALUES(?,?)", (sid, p["date"]))
         delete_practice_row(d, p["id"])
@@ -2081,6 +2083,23 @@ def practice_span(p):
     sh, sm = hm(p["start"], "19:00")
     eh, em = hm(p["end"], "20:30")
     return dt.datetime.combine(day, dt.time(sh, sm)), dt.datetime.combine(day, dt.time(eh, em))
+PAST_EVENT_MSG = "This event has already ended, so it can't be canceled or deleted."
+def practice_ended(p, now=None):
+    """True once the practice end has passed in Pacific time. A month session lasts through its last date."""
+    if not p: return False
+    now = wall_pt(now)
+    if practice_is_month(p):
+        raw = ""
+        if "end_date" in p.keys() and p["end_date"]: raw = str(p["end_date"])[:10]
+        elif p["date"]: raw = str(p["date"])[:10]
+        try: end = dt.date.fromisoformat(raw)
+        except ValueError: return False
+        return now.date() > end
+    try:
+        _start, end = practice_span(p)
+    except (TypeError, ValueError):
+        return False
+    return now > end
 def practice_live_chip(p, now=None):
     """Upcoming until the session starts, In progress through its end, then After practice for the social hour."""
     if not p or practice_is_month(p): return "Upcoming"
@@ -2941,19 +2960,22 @@ def handle_practice_post(d):
     elif a == "assign" and pid:
         save_practice_coaches(d, pid, request.form.getlist("coach"))
     elif a in ("cancel", "restore") and pid:
-        was = d.execute("SELECT cancelled, series_id, date FROM practices WHERE id=?", (pid,)).fetchone()
-        reason = " ".join((request.form.get("reason") or "").split())[:300]
-        scope = request.form.get("series_scope") or "once"
-        if a == "cancel" and was and was["series_id"] and scope in ("following", "all"):
-            cancel_series_from(d, was["series_id"], was["date"], scope, reason)
-        elif a == "cancel":
-            d.execute("UPDATE practices SET cancelled=1, cancel_reason=? WHERE id=?", (reason, pid))
-            if not was or not was["cancelled"]: flag_practice(d, pid, "cancel", me()["id"])
+        was = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+        if a == "cancel" and practice_ended(was):
+            flash(PAST_EVENT_MSG, "toast")
         else:
-            d.execute("UPDATE practices SET cancelled=0, cancel_reason='' WHERE id=?", (pid,))
-            d.execute("DELETE FROM sent_notices WHERE kind IN (?,?)", ("email:practice_cancelled:%s" % pid, "push:practice_cancelled:%s" % pid))
-            d.execute("DELETE FROM practice_notices WHERE practice_id=? AND kind='cancel'", (pid,))
-            if was and was["cancelled"]: flag_practice(d, pid, "change", me()["id"])
+            reason = " ".join((request.form.get("reason") or "").split())[:300]
+            scope = request.form.get("series_scope") or "once"
+            if a == "cancel" and was and was["series_id"] and scope in ("following", "all"):
+                cancel_series_from(d, was["series_id"], was["date"], scope, reason)
+            elif a == "cancel":
+                d.execute("UPDATE practices SET cancelled=1, cancel_reason=? WHERE id=?", (reason, pid))
+                if not was or not was["cancelled"]: flag_practice(d, pid, "cancel", me()["id"])
+            else:
+                d.execute("UPDATE practices SET cancelled=0, cancel_reason='' WHERE id=?", (pid,))
+                d.execute("DELETE FROM sent_notices WHERE kind IN (?,?)", ("email:practice_cancelled:%s" % pid, "push:practice_cancelled:%s" % pid))
+                d.execute("DELETE FROM practice_notices WHERE practice_id=? AND kind='cancel'", (pid,))
+                if was and was["cancelled"]: flag_practice(d, pid, "change", me()["id"])
     elif a == "duplicate" and pid:
         return redirect("/events/new?lane=schedule&copy=%d" % pid)
     elif a == "skip" and pid:
@@ -2972,12 +2994,14 @@ def handle_practice_post(d):
             if prow["skipped"]: d.execute("UPDATE practices SET cancelled=0, skipped=0, cancel_reason='' WHERE id=?", (pid,))
             sync_series(d, prow["series_id"])
     elif a == "delete" and pid:
-        prow = d.execute("SELECT series_id, date, location FROM practices WHERE id=?", (pid,)).fetchone()
-        scope = request.form.get("series_scope") or "once"
-        if prow and prow["series_id"] and scope in ("following", "all"):
-            delete_series_from(d, prow["series_id"], prow["date"], scope)
+        prow = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+        if practice_ended(prow):
+            flash(PAST_EVENT_MSG, "toast")
         else:
-            if prow:
+            scope = request.form.get("series_scope") or "once"
+            if prow and prow["series_id"] and scope in ("following", "all"):
+                delete_series_from(d, prow["series_id"], prow["date"], scope)
+            elif prow:
                 note_schedule_gap(d, prow["date"], prow["location"])
                 if prow["series_id"]:
                     d.execute("INSERT OR IGNORE INTO series_skips(series_id, date) VALUES(?,?)", (prow["series_id"], prow["date"]))
@@ -2986,13 +3010,13 @@ def handle_practice_post(d):
                 drop_orphan_checkins(d, day)
             else:
                 delete_practice_row(d, pid)
-        pid = None
+            pid = None
     if pid and a in ("going", "notgoing", "clear"): mark_practice_seen(d, me()["id"], pid)
     d.commit()
     if a in ("going", "notgoing", "clear", "edit", "add", "cancel", "restore", "assign", "duplicate", "delete", "skip", "unskip"): sync_practice_sheets(d)
     if a == "cancel" and pid:
         p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
-        if p and p["cancelled"]:
+        if p and p["cancelled"] and not practice_ended(p):
             try: notify_practice_cancelled(d, p)
             except Exception as e: app.logger.warning("cancel notify failed: %s", e)
     return redirect_practice(pid, a)
@@ -3268,6 +3292,16 @@ def event_window(e):
     end = dt.datetime.combine(end_day, dt.time(eh, em))
     if end < start: end = dt.datetime.combine(end_day, dt.time(23, 59))
     return start, end
+def lineup_ended(row, now=None):
+    """True once a Lineup event's end has passed in Pacific time."""
+    if not row: return False
+    now = wall_pt(now)
+    try:
+        _start, end = event_window(row)
+    except (TypeError, ValueError):
+        return False
+    return now > end
+app.jinja_env.globals.update(practice_ended=practice_ended, lineup_ended=lineup_ended)
 def event_chip_label(start, end, now=None):
     """Upcoming until the event starts, In progress through its end."""
     now = wall_pt(now)
@@ -3853,6 +3887,9 @@ def lineup_edit(eid):
     row = lineup_event_row(d, eid)
     if not row: abort(404)
     if not lineupfeed.can_edit_event(me(), row, can_host_practice()): abort(403)
+    if request.method == "POST" and request.form.get("action") in ("delete", "cancel") and lineup_ended(row):
+        flash(PAST_EVENT_MSG, "toast")
+        return redirect("/lineup/%d/edit" % eid)
     if request.method == "POST" and request.form.get("action") == "delete":
         if not can_host_practice() and (row["status"] or "") not in ("draft", "declined", "changes_requested", "canceled"): abort(403)
         days = []
@@ -3881,8 +3918,9 @@ def lineup_edit(eid):
             flash(str(e)); values = lineupfeed.form_values(_form_last(), mode="edit")
     ctx = lineup_template_ctx(d, "edit", values, event_id=eid, banner=row["banner"] or "")
     ctx["sports_row"] = row
-    ctx["show_cancel"] = can_host_practice() and (row["status"] or "") == "published"
-    ctx["show_delete"] = can_host_practice() or (row["created_by"] == me()["id"] and (row["status"] or "") in ("draft", "declined", "changes_requested"))
+    ended = lineup_ended(row)
+    ctx["show_cancel"] = can_host_practice() and (row["status"] or "") == "published" and not ended
+    ctx["show_delete"] = (not ended) and (can_host_practice() or (row["created_by"] == me()["id"] and (row["status"] or "") in ("draft", "declined", "changes_requested")))
     return page(T["lineup_edit"], tab="lineup_edit", action="/lineup/%d/edit" % eid, **ctx)
 @app.route("/lineup-image/<int:eid>")
 @login_required

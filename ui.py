@@ -911,10 +911,10 @@ dialog.memberedit .help a{color:var(--t1)}
 <a href="/admin?date={{ p.date }}">Check in</a>
 <a href="/practices/{{ p.id }}?edit=1">Edit practice</a>
 {% if p.cancelled %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}"><button name=action value=restore>Undo cancel</button></form>
-{% else %}<button type=button data-open="cancel{{ p.id }}">Send cancellation</button>{% endif %}
+{% elif not practice_ended(p) %}<button type=button data-open="cancel{{ p.id }}">Send cancellation</button>{% endif %}
 <a href="/events/new?lane=schedule&amp;copy={{ p.id }}">Duplicate practice</a>
 <button type=button data-copy="{{ app_base() }}/practices/{{ p.id }}">Copy link</button>
-<button type=button data-open="delete{{ p.id }}">Delete practice</button>
+{% if not practice_ended(p) %}<button type=button data-open="delete{{ p.id }}">Delete practice</button>{% endif %}
 </div></span>
 {{ practice_extra_dialogs(p, back) }}
 <dialog class=modal id=assign{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Assign coaches</h2>
@@ -922,6 +922,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=checks role=group aria-label="Coaches">{% for c in coach_choices %}<label><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
 {% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
 <div class=row><button class="btn btn-primary" name=action value=assign>Save</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
+{% if not practice_ended(p) %}
 <dialog class=modal id=cancel{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Send cancellation</h2>
 <p class="t2 sm">Members get an email and a push that include this reason.</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
@@ -931,6 +932,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <p class="t2 sm">{% if practice_is_month(p) %}{{ practice_when(p) }} at {{ p.location }}.{% else %}{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.{% endif %}</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
 <div class=row><button class="btn btn-danger" name=action value=delete>Delete practice</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
+{% endif %}
 {% endmacro %}
 {% macro mount_map(id, pins, mode, href='', route=None) %}{% if pins %}{{ map_boot() }}{% endif %}<section class="homemap cardmap {{ 'banner' if mode == 'card' else ('still tappable' if mode == 'tap' else 'still') }}" id="{{ id }}" {% if mode == 'tap' and pins %}data-map-open data-directions="{{ pins[0].lat }},{{ pins[0].lng }}" data-map-href="{{ href }}" data-map-label="{{ pins[0].label or 'Location' }}" role=button tabindex=0 aria-label="Map of {{ pins[0].label or 'the location' }}"{% elif mode == 'still' %}aria-hidden=true{% else %}aria-label="Map"{% endif %}></section>
 <script>(function(){var pins={{ pins|tojson }};var route={{ route|tojson if route else '[]' }};function start(){var el=document.getElementById({{ id|tojson }});if(el&&window.grunionsMountMap)grunionsMountMap(el,{pins:pins,mode:'{{ 'still' if mode == 'tap' else mode }}',route:route});}if(window.grunionsMountMap)start();else document.addEventListener('DOMContentLoaded',start);})();</script>{% endmacro %}
@@ -3945,8 +3947,8 @@ T["practice"] = """{% set p = x.p %}
 {% if p.location %}<p class=pracemeta>{{ p.location }}</p>{% endif %}
 <div class=pracestatus>{% if p.cancelled %}{{ st('bad','Cancelled') }}{% else %}{{ st('ok','Scheduled') }}{% endif %}</div>
 {% if p.cancelled and p.cancel_reason %}<p class="t3 sm" style="margin:6px 0 0">{{ p.cancel_reason }}</p>{% endif %}
-{% if me().is_admin and p.cancelled and not editing and p.skipped %}<div class=eventacts><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=unskip>Undo skip</button></form><button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button></div>
-{% elif me().is_admin and p.cancelled and not editing %}<div class=eventacts><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=restore>Undo cancel</button></form><button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button></div>{% endif %}
+{% if me().is_admin and p.cancelled and not editing and p.skipped %}<div class=eventacts><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=unskip>Undo skip</button></form>{% if not practice_ended(p) %}<button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button>{% endif %}</div>
+{% elif me().is_admin and p.cancelled and not editing %}<div class=eventacts><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=restore>Undo cancel</button></form>{% if not practice_ended(p) %}<button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button>{% endif %}</div>{% endif %}
 {% if me().is_admin and p.series_id and not p.cancelled %}<div style="display:flex;gap:10px;margin-top:12px"><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=skip onclick="return confirm('Skip this date?')">Skip this date</button></form><a class="btn btn-secondary" href="/practices/series/{{ p.series_id }}">Edit series</a><a class="btn btn-secondary" href="/practices/series/{{ p.series_id }}#manage">Manage series</a></div>{% endif %}
 <div class="stats trio">
 <div class=stattile><b>{{ x.going|length }}</b><span>Going</span></div>
@@ -4029,10 +4031,10 @@ T["practice"] = """{% set p = x.p %}
 <a class="li rowbtn" href="/events/new?lane=schedule&amp;copy={{ p.id }}">Duplicate practice</a>
 <button type=button class="li rowbtn" data-copy="{{ app_base() }}/practices/{{ p.id }}">Copy link</button>
 </div>
-<div class=eventacts>
+{% if not practice_ended(p) %}<div class=eventacts>
 {% if not p.cancelled %}<button type=button class="btn btn-secondary" data-open="cancel{{ p.id }}">Cancel event</button>{% endif %}
 <button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button>
-</div>
+</div>{% endif %}
 {% endif %}
 {% else %}
 {% set spin = namespace(p=None) %}
@@ -4105,6 +4107,7 @@ T["practice"] = """{% set p = x.p %}
 <div class=checks role=group aria-label="Coaches">{% for c in coach_choices %}<label><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in x.coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
 {% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
 <div class=row><button class="btn btn-primary" name=action value=assign>Save</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
+{% if not practice_ended(p) %}
 <dialog class=modal id=cancel{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Send cancellation</h2>
 <p class="t2 sm">Members get an email and a push that include this reason.</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
@@ -4124,6 +4127,7 @@ T["practice"] = """{% set p = x.p %}
 <label><input type=radio name=series_scope value=all> All events</label>
 </div>{% endif %}
 <div class=row><button class="btn btn-danger" name=action value=delete>Delete practice</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
+{% endif %}
 {% endif %}""" + _PRACTICE_JS
 
 _CHEV_L = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>'
