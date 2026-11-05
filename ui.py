@@ -1364,7 +1364,7 @@ function grunionsRestoreHomeMap(main){
  var slot=main.querySelector('#homeMap');
  if(!slot) return;
  slot.replaceWith(parked);
- try{ if(parked._gmap&&parked._gmap.resize) parked._gmap.resize(); }catch(e){}
+ if(window.grunionsRefreshMap) grunionsRefreshMap(parked, true);
 }
 function grunionsApply(html,url,pop,replace){
  var doc=new DOMParser().parseFromString(html,'text/html');
@@ -1477,9 +1477,23 @@ function grunionsWakeHome(force){
  if(window.grunionsRefreshMap) window.grunionsRefreshMap(document.getElementById('homeMap'), !!force);
 }
 window.grunionsWakeHome=grunionsWakeHome;
-window.addEventListener('pageshow',function(e){
- if(!e.persisted) return;
- grunionsWakeHome(true);
+window.addEventListener('pageshow',function(){
+ grunionsHomeHeader();
+ var el=document.getElementById('homeMap');
+ if(!el) return;
+ if(window.grunionsMapAlive && grunionsMapAlive(el)) grunionsWakeHome(false);
+ else grunionsWakeHome(true);
+});
+document.addEventListener('visibilitychange',function(){
+ if(document.hidden||location.pathname!=='/home') return;
+ var el=document.getElementById('homeMap');
+ if(el&&window.grunionsMapAlive&&!grunionsMapAlive(el)) grunionsWakeHome(true);
+});
+window.addEventListener('load',function(){
+ var el=document.getElementById('homeMap');
+ if(!el||!window.grunionsRefreshMap) return;
+ if(window.grunionsMapAlive&&grunionsMapAlive(el)) grunionsRefreshMap(el, false);
+ else grunionsRefreshMap(el, true);
 });
 window.addEventListener('popstate',function(){
  if(window.grunionsMenuPop){ window.grunionsMenuPop=0; if(window.grunionsCloseMenu) window.grunionsCloseMenu(true); return; }
@@ -2048,14 +2062,45 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
  opts=opts||{};
  function boot(){
   el._mapOpts=opts;
-  if(el._gmap){
+  if(!el._glLost){
+   el._glLost=1;
+   el.addEventListener('webglcontextlost', function(ev){
+    ev.preventDefault();
+    if(ev.target&&ev.target.dataset) ev.target.dataset.lost='1';
+    el._mapDead=true;
+    el._mapSpins=(el._mapSpins||0)+1;
+    if(el._mapSpins>5) return;
+    setTimeout(function(){ if(window.grunionsRefreshMap) grunionsRefreshMap(el, true); }, 30);
+   }, true);
+  }
+  if(window.ResizeObserver&&!el._mapWatch){
+   el._mapWatch=1;
+   new ResizeObserver(function(){
+    if(el.clientWidth<2||el.clientHeight<2) return;
+    var live=el._gmap;
+    if(!live) return;
+    try{ if(live.resize) live.resize(); }catch(e){}
+    try{ if(live.invalidateSize) live.invalidateSize(); }catch(e){}
+    try{ if(el._reframe) el._reframe(); }catch(e){}
+   }).observe(el);
+  }
+  if(el._gmap && !el._mapDead && window.grunionsMapAlive && grunionsMapAlive(el)){
    try{ if(el._gmap.resize) el._gmap.resize(); }catch(e){}
    try{ if(el._gmap.invalidateSize) el._gmap.invalidateSize(); }catch(e){}
    try{ if(el._reframe) el._reframe(); }catch(e){}
    return;
   }
+  if(el._gmap){
+   var parent=el.parentNode, next=el.nextSibling;
+   try{ el._gmap.remove(); }catch(e){}
+   if(parent&&el.isConnected===false) parent.insertBefore(el, next);
+   el._gmap=null;
+  }
+  el._mapDead=false;
+  delete el.dataset.mapon;
+  delete el.dataset.leaflet;
+  delete el.dataset.marked;
   if(!el.isConnected) return;
-  if(el.dataset.mapon && !el._mapOpts) return;
   var pins=opts.pins||[];
   if(!pins.length) return;
   var mb=window.GRUNIONS_MAPBOX||{};
@@ -2066,9 +2111,18 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', go); else go();
   }
   afterPaint(function(){
-   if(!el.isConnected||el._gmap||el.dataset.leaflet) return;
-   if(mb.token&&mb.style) bootMapbox(pins);
-   else useOSM();
+   var tries=0;
+   function begin(){
+    if(!el.isConnected||el._gmap||el.dataset.leaflet) return;
+    if(mb.token&&mb.style) bootMapbox(pins);
+    else useOSM();
+   }
+   function waitSize(){
+    if(!el.isConnected) return;
+    if((el.clientWidth>1&&el.clientHeight>1)||tries++>90) begin();
+    else requestAnimationFrame(waitSize);
+   }
+   waitSize();
   });
   return;
  function bootMapbox(pins){
@@ -2295,6 +2349,7 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
     if(settled) return;
     settled=true;
     gaveUp=true;
+    el._mapSpins=0;
     clearTimeout(timer);
     tuckAttrib();
     staticCredit();
@@ -2499,9 +2554,18 @@ window.grunionsShowYou=function(lat,lng){
  el._you={lat:lat,lng:lng};
  if(el._reframe) el._reframe();
 };
+window.grunionsMapAlive=function(el){
+ if(!el||!el.isConnected||el._mapDead||!el._gmap) return false;
+ if(el.clientWidth<2||el.clientHeight<2) return false;
+ var canvas=el.querySelector('canvas');
+ if(el.classList.contains('leaflet-container')) return true;
+ if(!canvas||canvas.dataset.lost==='1') return false;
+ return canvas.width>1&&canvas.height>1;
+};
 window.grunionsRefreshMap=function(el, force){
  if(!el) return;
  if((window.scrollY||0)<8) el.style.opacity='';
+ if(!force && el._mapOpts && window.grunionsMapAlive && !grunionsMapAlive(el)) force=true;
  if(force && el._gmap){
   var parent=el.parentNode, next=el.nextSibling;
   try{ el._gmap.remove(); }catch(e){}
