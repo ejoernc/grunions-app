@@ -251,7 +251,7 @@ cmid = eli.get("/api/messages?c=coaches").get_json()[-1]["id"]
 ok(jane.post(f"/api/messages/{cmid}/react", json={"emoji": "👍"}, headers={"X-CSRF": tj3}).status_code == 403 and jane.get("/api/reactions?c=coaches").status_code == 403, "no reactions on private channel for members")
 r = jane.post("/api/messages", data={"body": "Pool photo", "image": (img_bytes(), "pool.png")}, headers={"X-CSRF": tj3}, content_type="multipart/form-data")
 m = jane.get("/api/messages").get_json()[-1]
-ok(r.status_code == 200 and m["image"] and m["body"] == "Pool photo", "image upload creates message")
+ok(r.status_code == 200 and m["image"] and m["body"] == "Pool photo" and m["image"]["w"] == 480 and m["image"]["h"] == 360, "image upload creates message and stores the thumbnail size")
 full = jane.get(m["image"]["full"]); th = jane.get(m["image"]["thumb"])
 ok(full.status_code == 200 and max(Image.open(io.BytesIO(full.data)).size) == 1600 and max(Image.open(io.BytesIO(th.data)).size) == 480, "auto-resize full 1600 / thumb 480")
 ok(A.app.test_client().get(m["image"]["full"]).status_code == 302, "images need login")
@@ -271,7 +271,7 @@ ok('href="/practices/' in pg and " going</span>" in pg and 'class="nxtitle cardt
 ch = jane.get("/chat").get_data(as_text=True)
 ca = eli.get("/chat").get_data(as_text=True)
 cc = eli.get("/chat?c=coaches").get_data(as_text=True)
-ok("rows=1" in ch and "scrollbar-width:none" in ch and "shiftKey" in ch and 'id=attach' in ch and 'id=ann' not in ca and '>Announce<' not in ca and 'id=ann' not in cc and '>Announce<' not in cc and 'aria-label=Send' in ch and 'aria-label=Send' in ca and 'aria-label=Send' in cc and 'class="iconbtn send"' in ch and 'class="iconbtn send"' in cc, "composer: icon send on team and coaches, no announce checkbox")
+ok("rows=1" in ch and "scrollbar-width:none" in ch and "shiftKey" in ch and 'id=attach' in ch and 'id=ann' not in ca and '>Announce<' not in ca and 'id=ann' not in cc and '>Announce<' not in cc and 'aria-label=Send' in ch and 'aria-label=Send' in ca and 'aria-label=Send' in cc and 'class="iconbtn send"' in ch and 'class="iconbtn send"' in cc and "aspect-ratio:var(--iw, 4) / var(--ih, 3)" in ch and "box.scrollTop=box.scrollHeight" in ch and "function nearBottom" in ch and ".chat>.m:first-child{margin-top:auto}" in ch and "if(follow&&stick)pinBottom" in ch, "composer: icon send on team and coaches, no announce checkbox, and chat opens pinned to the bottom")
 
 # member USAWP number on the Not cleared card
 jh = jane.get("/home").get_data(as_text=True)

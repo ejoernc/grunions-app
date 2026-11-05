@@ -303,8 +303,12 @@ def migrate_series(d):
 def migrate_messages(d):
     """Add chat columns missing from a database created by an older version (production SQLite on DATA_DIR)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
-    for c, t in (("channel", "TEXT DEFAULT 'team'"), ("image", "TEXT"), ("edited_at", "TEXT"), ("deleted", "INTEGER DEFAULT 0"), ("deleted_at", "TEXT"), ("reply_to", "INTEGER")):
+    for c, t in (("channel", "TEXT DEFAULT 'team'"), ("image", "TEXT"), ("edited_at", "TEXT"), ("deleted", "INTEGER DEFAULT 0"), ("deleted_at", "TEXT"), ("reply_to", "INTEGER"), ("image_w", "INTEGER"), ("image_h", "INTEGER")):
         if c not in cols: d.execute("ALTER TABLE messages ADD COLUMN %s %s" % (c, t))
+    pending = d.execute("SELECT id, image FROM messages WHERE COALESCE(image,'')!='' AND (image_w IS NULL OR image_h IS NULL)").fetchall()
+    for row in pending:
+        w, h = chat_thumb_size(row["image"])
+        if w and h: d.execute("UPDATE messages SET image_w=?, image_h=? WHERE id=?", (w, h, row["id"]))
 def clean_preferred(v):
     v = str(v or "").strip()[:40]
     return v or None
@@ -1295,7 +1299,9 @@ def msg_dict(r):
             "deleted_at": (r["deleted_at"] if deleted and "deleted_at" in r.keys() else None) or None,
             "can_delete": (mine or bool(me()["is_admin"])) and not deleted,
             "reply": reply,
-            "image": None if deleted or not r["image"] else {"thumb": f"/media/{r['id']}/thumb", "full": f"/media/{r['id']}/full"}}
+            "image": None if deleted or not r["image"] else {"thumb": f"/media/{r['id']}/thumb", "full": f"/media/{r['id']}/full",
+                "w": r["image_w"] if "image_w" in r.keys() and r["image_w"] else None,
+                "h": r["image_h"] if "image_h" in r.keys() and r["image_h"] else None}}
 def load_message(d, mid):
     return d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first,
         rm.body AS reply_body, rm.deleted AS reply_deleted, rm.image AS reply_image,
@@ -1392,6 +1398,22 @@ def save_image(f):
     th = Image.open(os.path.join(UPLOADS, f"{name}.{ext}")); th = th.convert("RGBA" if th.mode in ("RGBA", "P") else "RGB"); th.thumbnail((480, 480))
     th.save(os.path.join(UPLOADS, name + "_t.webp"), "WEBP", quality=80)
     return f"{name}.{ext}"
+def chat_thumb_size(filename):
+    """Pixel size of the chat thumbnail, so the thread can reserve the box before the file loads."""
+    base = os.path.basename(str(filename or ""))
+    if not base: return None, None
+    stem = base.rsplit(".", 1)[0]
+    for name in (stem + "_t.webp", base):
+        path = os.path.join(UPLOADS, name)
+        if not os.path.isfile(path): continue
+        try:
+            from PIL import Image
+            with Image.open(path) as im:
+                w, h = im.size
+            if w > 0 and h > 0: return int(w), int(h)
+        except Exception:
+            continue
+    return None, None
 def save_banner(f):
     """Event banner: center-crop to 3:2, longest edge 1600, stored on the uploads disk."""
     from PIL import Image, ImageOps
@@ -1545,7 +1567,9 @@ def api_messages():
         body = (j.get("body") or "").strip()[:2000]
         if not body and not image: abort(400)
         ann = 1 if (j.get("announcement") in (True, "true", "1") and me()["is_admin"] and ch == "team") else 0
-        d.execute("INSERT INTO messages(member_id,body,announcement,channel,image,reply_to) VALUES(?,?,?,?,?,?)", (me()["id"], body, ann, ch, image, reply_target(d, ch, j.get("reply_to")))); d.commit()
+        iw, ih = chat_thumb_size(image) if image else (None, None)
+        d.execute("INSERT INTO messages(member_id,body,announcement,channel,image,image_w,image_h,reply_to) VALUES(?,?,?,?,?,?,?,?)",
+                  (me()["id"], body, ann, ch, image, iw, ih, reply_target(d, ch, j.get("reply_to")))); d.commit()
         mark_chat_read(d, me()["id"], ch)
         try: notify_chat(d, ch, me(), body, bool(image))
         except Exception as e: app.logger.warning("chat push failed: %s", e)

@@ -18,6 +18,9 @@ BASE = """<!doctype html><html lang=en style="background:#090D0B;color-scheme:da
 <title>Regulars</title>
 <style>{{ foundation_css|safe }}
 html,body{background:var(--color-bg);color:var(--color-text)}html{color-scheme:dark}
+html:has(#chat),body:has(#chat){height:100dvh;overflow:hidden}
+body:has(#chat){display:flex;flex-direction:column}
+body:has(#chat) main{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding-top:8px;padding-bottom:0}
 @view-transition{navigation:none}
 ::view-transition{display:none;background:#090D0B}
 ::view-transition-group(root){animation:none;background:#090D0B}
@@ -437,7 +440,7 @@ nav.tabs a:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px
 nav.tabs a .badge{position:absolute;top:0;right:0;margin:0}.datetile{position:relative}.datetile .pdate{position:absolute;top:0;right:0}.datetile .pdate .badge{position:absolute;top:-4px;right:-4px;margin:0}
 /* Phosphor icons. Nav uses Regular, and Fill on the selected circle. */
 nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:block}
-.chat{display:flex;flex-direction:column;gap:0}.m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}.m.g-mid,.m.g-last{margin-top:2px}.chat>.m:first-child{margin-top:0}.m .who{font-size:13px;color:var(--t3);margin:0 0 3px}.m .txt{background:var(--color-bubble);border-radius:var(--radius-card);padding:10px 14px;display:inline-block;max-width:85%;white-space:pre-wrap;word-wrap:break-word;color:var(--color-text)}.m .txt a.msglink{color:var(--accent);text-decoration:none}
+.chat{display:flex;flex-direction:column;gap:0;flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;overflow-anchor:none;overscroll-behavior:contain}.m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}.m.g-mid,.m.g-last{margin-top:2px}.chat>.m:first-child{margin-top:auto}.m .who{font-size:13px;color:var(--t3);margin:0 0 3px}.m .txt{background:var(--color-bubble);border-radius:var(--radius-card);padding:10px 14px;display:inline-block;max-width:85%;white-space:pre-wrap;word-wrap:break-word;color:var(--color-text)}.m .txt a.msglink{color:var(--accent);text-decoration:none}
 .m.g-first:not(.mine) .txt,.m.g-first:not(.mine) .img img{border-bottom-left-radius:5px}.m.g-mid:not(.mine) .txt,.m.g-mid:not(.mine) .img img{border-top-left-radius:5px;border-bottom-left-radius:5px}.m.g-last:not(.mine) .txt,.m.g-last:not(.mine) .img img{border-top-left-radius:5px}
 .m.g-first.mine .txt,.m.g-first.mine .img img{border-bottom-right-radius:5px}.m.g-mid.mine .txt,.m.g-mid.mine .img img{border-top-right-radius:5px;border-bottom-right-radius:5px}.m.g-last.mine .txt,.m.g-last.mine .img img{border-top-right-radius:5px}
 .m.mine{text-align:right;align-items:flex-end}.m.mine .txt{background:var(--color-bubble-mine);text-align:left;color:var(--color-text)}.m.ann{align-items:stretch}.m.ann .txt{display:block;max-width:none;border:1px solid var(--line);background:var(--surface)}
@@ -447,20 +450,20 @@ nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:bloc
 @media (hover:hover) and (pointer:fine){.m:hover .more{display:inline-flex}}
 .m .editbox textarea{min-height:72px;height:auto;margin:0}
 .composer{position:fixed;left:0;right:0;bottom:calc(var(--nav-clear) + env(safe-area-inset-bottom));background:var(--bg);padding:10px 20px;border-top:1px solid var(--line);z-index:10}
-.chatpad{height:calc(var(--composer-h, 69px) + 16px)}
+.chatpad{flex:none;height:calc(var(--composer-h, 69px) + var(--nav-clear) + env(safe-area-inset-bottom) + 12px)}
 .composer form{max-width:600px;margin:auto;display:flex;gap:8px;align-items:flex-end}
 .composer textarea{margin:0;height:48px;min-height:48px;max-height:136px;resize:none;line-height:22px;padding:12px 14px;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
 .composer textarea::-webkit-scrollbar{display:none}.iconbtn{width:48px;padding:0;flex:none;color:var(--t2)}.iconbtn svg{width:24px;height:24px;display:block}
 .iconbtn.send{color:var(--accent)}
 .preview{max-width:600px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;color:var(--t2);font-size:14px}.preview img{height:48px;border-radius:8px}
-.m .img{display:block;margin:0}.m .txt+.img{margin-top:4px}.m.mine .img{margin-left:auto}.m .img img{max-width:min(70vw,280px);max-height:280px;border-radius:12px;display:block;background:var(--surface)}.m.mine .img{width:fit-content}
-.m .bubble{display:inline-block;max-width:min(85%,280px);background:var(--color-bubble);border-radius:var(--radius-card);overflow:hidden}.m.mine .bubble{background:var(--color-bubble-mine)}.m .bubble .txt{background:transparent;display:block;max-width:min(70vw,280px);border-radius:0}.m .bubble .img,.m .bubble .txt+.img{margin:0}.m .bubble .img img{max-width:min(70vw,280px);width:auto;height:auto;border-radius:0}
+.m .img{display:block;margin:0;width:min(70vw,280px,calc(var(--iw, 4) * 1px),calc(280px * var(--iw, 4) / var(--ih, 3)));aspect-ratio:var(--iw, 4) / var(--ih, 3);max-height:280px}.m .txt+.img{margin-top:4px}.m.mine .img{margin-left:auto}.m .img img{width:100%;height:100%;max-width:none;max-height:none;object-fit:cover;border-radius:12px;display:block;background:var(--surface)}
+.m .bubble{display:inline-block;max-width:min(85%,280px);background:var(--color-bubble);border-radius:var(--radius-card);overflow:hidden}.m.mine .bubble{background:var(--color-bubble-mine)}.m .bubble .txt{background:transparent;display:block;max-width:min(70vw,280px);border-radius:0}.m .bubble .img,.m .bubble .txt+.img{margin:0}.m .bubble .img img{border-radius:0}
 .mstack{display:inline-flex;flex-direction:column;align-items:stretch;align-self:flex-start;width:max-content;max-width:85%;min-width:0}
 .m.mine .mstack{align-self:flex-end}
 .m.ann .mstack{display:flex;width:100%;max-width:none;align-self:stretch}
 .m .mstack>.txt{max-width:none;align-self:stretch;min-width:0}
 .m .mstack>.bubble{align-self:stretch;min-width:0;width:max-content;max-width:min(70vw,280px)}
-.m .mstack>.img{align-self:stretch;min-width:0;width:max-content;max-width:min(70vw,280px);margin-left:0;margin-right:0}
+.m .mstack>.img{align-self:flex-start;min-width:0;max-width:min(70vw,280px);margin-left:0;margin-right:0}
 .m .mstack>.quotechip{width:0;min-width:100%;max-width:100%;box-sizing:border-box;overflow:hidden}
 .msgfoot{display:flex;align-items:center;gap:8px;width:0;min-width:100%;max-width:100%;box-sizing:border-box;align-self:stretch;flex-wrap:nowrap;overflow:hidden}
 .msgfoot:has(.rx:not(:empty)),.msgfoot:has(.seenline){margin-top:6px}
@@ -3033,7 +3036,12 @@ function bodyHtml(m){
  let h='';
  if(m.reply) h+=`<div class=quotechip><b>${esc(m.reply.who||'')}</b><span>${esc(m.reply.body||'')}</span></div>`;
  var text=m.body?`<div class=txt>${linkify(m.body)}${m.edited?' <span class=edited>(edited)</span>':''}</div>`:'';
- var img=m.image?`<a class=img href="${m.image.full}" data-full="${m.image.full}"><img src="${m.image.thumb}" alt="Photo from ${esc(m.who)}" loading=lazy></a>`:'';
+ var img='';
+ if(m.image){
+  var iw=+m.image.w||0, ih=+m.image.h||0;
+  if(!(iw>0&&ih>0)){iw=4;ih=3}
+  img=`<a class=img style="--iw:${iw};--ih:${ih}" href="${m.image.full}" data-full="${m.image.full}"><img src="${m.image.thumb}" alt="Photo from ${esc(m.who)}" width="${iw}" height="${ih}"></a>`;
+ }
  if(text&&img) return h+`<div class=bubble>${img}${text}</div>`;
  return h+text+img||'<div class=txt></div>'}
 function fill(d,m){
@@ -3108,9 +3116,11 @@ function receipt(res, rows){
  if(header===null) return null;
  return undefined;
 }
-async function poll(){const gen=++pollGen,epoch=window.grunionsNavEpoch|0;try{const r=await fetch('/api/messages?c='+CH+'&after='+last);const j=await r.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;const end=innerHeight+scrollY>=document.body.scrollHeight-120;
- grouping=true;j.forEach(add);const rs=await fetch('/api/messages?c='+CH+'&sync=1');const sync=await rs.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch){grouping=false;return}sync.forEach(function(m){if(gen===pollGen)upsert(m)});grouping=false;groupMessages();
- const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;paintRx(rx);sweepDeleted();var info=receipt(rs,sync);if(info)paintSeen([{id:info.id,seen:info}]);else if(info===null)clearSeen();if(window.grunionsRefresh)grunionsRefresh();if(j.length&&end)scrollTo(0,document.body.scrollHeight)}catch(e){grouping=false}}
+async function poll(){const gen=++pollGen,epoch=window.grunionsNavEpoch|0;try{const r=await fetch('/api/messages?c='+CH+'&after='+last);const j=await r.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;const follow=stick,first=!box.querySelector('.m');
+ if(first)box.style.visibility='hidden';
+ grouping=true;j.forEach(add);grouping=false;groupMessages();if(follow)pinBottom();if(first)box.style.visibility='';
+ const rs=await fetch('/api/messages?c='+CH+'&sync=1');const sync=await rs.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch){grouping=false;return}sync.forEach(function(m){if(gen===pollGen)upsert(m)});grouping=false;groupMessages();
+ const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;paintRx(rx);sweepDeleted();var info=receipt(rs,sync);if(info)paintSeen([{id:info.id,seen:info}]);else if(info===null)clearSeen();if(window.grunionsRefresh)grunionsRefresh();if(follow&&stick)pinBottom()}catch(e){grouping=false;box.style.visibility=''}}
 let seenInfo=null;
 function personRow(p){
  const av=p.photo?`<span class="avatar seenav"><img src="${esc(p.photo)}" alt="" width="32" height="32"></span>`:`<span class="avatar seenav">${esc(p.initials||'')}</span>`;
@@ -3214,7 +3224,12 @@ box.addEventListener('click',async e=>{
  if(b.dataset.act){openSheet(+b.dataset.act);return}
  if(b.dataset.e){if(b.dataset.held){delete b.dataset.held;return}pollGen++;await fetch('/api/messages/'+b.dataset.m+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:b.dataset.e})});poll()}});
 const ta=document.getElementById('body'),file=document.getElementById('file'),prev=document.getElementById('prev');
-function syncComposer(){var c=document.querySelector('.composer');if(c)document.documentElement.style.setProperty('--composer-h',c.offsetHeight+'px')}
+let stick=true;
+function nearBottom(){return box.scrollHeight-box.scrollTop-box.clientHeight<=80}
+function pinBottom(){box.scrollTop=box.scrollHeight;stick=true}
+box.addEventListener('scroll',function(){stick=nearBottom()},{passive:true});
+box.addEventListener('load',function(e){if(e.target&&e.target.tagName==='IMG'&&stick)pinBottom()},true);
+function syncComposer(){var c=document.querySelector('.composer');if(c)document.documentElement.style.setProperty('--composer-h',c.offsetHeight+'px');if(stick)pinBottom()}
 function grow(){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,136)+'px';syncComposer()}ta.addEventListener('input',grow);grow();if(window.ResizeObserver){var comp=document.querySelector('.composer');if(comp)new ResizeObserver(syncComposer).observe(comp)}
 document.getElementById('attach').onclick=()=>file.click();
 file.onchange=()=>{const f=file.files[0];if(!f)return;if(f.size>8*1024*1024){alert('Image is larger than 8 MB.');file.value='';return}
@@ -3232,9 +3247,9 @@ document.getElementById('f').onsubmit=async e=>{e.preventDefault();if(sending)re
   r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'X-CSRF':CSRF},body:fd})}
  else r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:text,reply_to:replyTo})});
  if(!r.ok){const j=await r.json().catch(()=>({}));alert(j.error||'Could not send.');return}
- const epoch=window.grunionsNavEpoch|0;clearCompose();await poll();if((window.grunionsNavEpoch|0)!==epoch)return;scrollTo(0,document.body.scrollHeight)}finally{sending=false}};
+ const epoch=window.grunionsNavEpoch|0;clearCompose();stick=true;await poll();if((window.grunionsNavEpoch|0)!==epoch)return;if(stick)pinBottom()}finally{sending=false}};
 ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();document.getElementById('f').requestSubmit()}});
-poll().then(()=>scrollTo(0,document.body.scrollHeight));setInterval(poll,3000);setInterval(sweepDeleted,15000);
+poll();setInterval(poll,3000);setInterval(sweepDeleted,15000);
 </script>"""
 
 _PRACTICE_JS = """<script>
