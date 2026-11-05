@@ -3139,7 +3139,12 @@ def combined_view(entry):
     nextp = hide_coaching_plan(nextp)
     next_joined = bool(nextp and d.execute("SELECT 1 FROM social_joins WHERE practice_id=? AND member_id=?", (nextp["id"], m["id"])).fetchone())
     notices = d.execute("SELECT * FROM notices WHERE member_id=? AND seen=0 ORDER BY id DESC", (m["id"],)).fetchall()
-    d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (m["id"],)); d.commit()
+    shown = [n for n in notices if "not verified" not in (n["body"] or "").lower()]
+    if shown:
+        marks = ",".join("?" * len(shown))
+        d.execute("UPDATE notices SET seen=1 WHERE id IN (%s)" % marks, [n["id"] for n in shown])
+        d.commit()
+    notices = shown
     ann = d.execute("SELECT m.*, p.first, p.preferred_first FROM messages m JOIN members p ON p.id=m.member_id WHERE announcement=1 AND channel='team' AND COALESCE(m.deleted,0)=0 ORDER BY m.id DESC LIMIT 1").fetchone()
     vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
     pins = map_pins(nextp)

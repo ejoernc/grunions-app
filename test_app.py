@@ -239,6 +239,17 @@ bodies = [r[0] for r in D.execute("SELECT body FROM messages").fetchall()]
 ok("Bring dark + white caps Friday." in bodies and "See you Tuesday" in bodies and "Verification for the weekend: bring caps" in bodies and not any(b.startswith("Verification for Old") for b in bodies) and D.execute("SELECT COUNT(*) FROM reactions WHERE message_id=?", (old_id,)).fetchone()[0] == 0, "old bot verification messages are deleted from chat")
 a = eli.get("/admin?date=2026-10-27").get_data(as_text=True)
 ok("Verification for Ana Lopez" in a and "bot answered" not in a and "verification requested" not in a, "admin notification stays, and the row does not say who answered")
+_jay = D.execute("SELECT id FROM members WHERE email='jane@example.com'").fetchone()[0]
+_jay_before = D.execute("SELECT usawp_status, usawp_raw, usawp_number, usawp_valid_until, usawp_updated, usawp_verified_by, usawp_verified_at FROM members WHERE id=?", (_jay,)).fetchone()
+eli.post("/admin", data=dict(csrf=tok_e, member_id=_jay, action="ask_bot"), follow_redirects=True)
+_jrid = D.execute("SELECT id FROM verify_requests WHERE member_id=? AND status='pending' ORDER BY id DESC LIMIT 1", (_jay,)).fetchone()[0]
+c0.post("/api/verify-requests/%d/result" % _jrid, headers=H, json={"verified": False, "note": "Not on the club list"})
+_eli_home = eli.get("/home").get_data(as_text=True)
+ok("NOT verified" not in _eli_home and "Verification for Jane Doe" not in _eli_home and "Verification for Jane Doe" in eli.get("/admin").get_data(as_text=True) and D.execute("SELECT usawp_status FROM members WHERE id=?", (_jay,)).fetchone()[0] == "expired" and "Jane Doe" in eli.get("/members").get_data(as_text=True) and "Jane Doe" in eli.get("/admin/member/%d" % _jay).get_data(as_text=True), "an unverified result stays off Home and remains on People and the member page")
+D.execute("UPDATE members SET usawp_status=?, usawp_raw=?, usawp_number=?, usawp_valid_until=?, usawp_updated=?, usawp_verified_by=?, usawp_verified_at=? WHERE id=?", (*tuple(_jay_before), _jay))
+D.execute("DELETE FROM notices WHERE body LIKE 'Verification for Jane Doe:%'")
+D.execute("DELETE FROM verify_requests WHERE id=?", (_jrid,))
+D.commit()
 members_now = eli.get("/members").get_data(as_text=True)
 ok("bot@grunions.local" not in members_now and "Grunions bot" not in members_now.split(">Verified<")[0], "bot account hidden from member list")
 ahome = ana.get("/profile").get_data(as_text=True)
