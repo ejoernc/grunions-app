@@ -2066,13 +2066,47 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
     var cardTop=card?card.getBoundingClientRect().top:(box.top+box.height*0.62);
     return {box:box, cardTop:cardTop};
    }
+   function headerFloor(){
+    var best=0;
+    ['header.homehead .titlestack','header.homehead .usawpchip','header.homehead .hititle','header.homehead .headplus','header.homehead a.avatar','header.homehead'].forEach(function(sel){
+     var n=document.querySelector(sel); if(!n) return;
+     var b=n.getBoundingClientRect().bottom;
+     if(b>best) best=b;
+    });
+    return best||76;
+   }
+   function chipPad(){
+    var above=11, wide=18;
+    el.querySelectorAll('.pinpill,.pinrow').forEach(function(n){
+     var r=n.getBoundingClientRect();
+     if(r.height>above*2) above=Math.ceil(r.height/2);
+     if(r.width>wide) wide=Math.ceil(r.width);
+    });
+    return {above:above+2, left:48, right:Math.max(160, wide-9+24)};
+   }
    function focalPad(){
     var v=cardEdge();
-    var span=Math.max(80, v.cardTop-v.box.top);
-    var inset=24;
-    var bottom=Math.round(v.box.height-span*4/5+inset);
-    if(bottom<inset) bottom=inset;
-    return {top:inset, bottom:bottom, left:36, right:200};
+    var box=v.box, chip=chipPad();
+    var top=Math.round(headerFloor()-box.top+24+chip.above);
+    var minBottom=Math.max(24, Math.round(box.bottom-v.cardTop+24));
+    var span=Math.max(80, v.cardTop-box.top);
+    var focal=span*2/5;
+    var h=box.height||el.clientHeight||1, minInner=80;
+    if(top+minBottom>h-minInner){
+     var room=Math.max(0, h-minInner);
+     if(room>top+24) minBottom=room-top;
+     else { var sum=top+minBottom||1; top=Math.round(room*top/sum); minBottom=room-top; }
+    }
+    var delta=2*focal-h, bottom=minBottom;
+    if(bottom+delta>=top) top=bottom+delta;
+    else if(top-delta>=minBottom) bottom=top-delta;
+    top=Math.max(0, Math.round(top));
+    bottom=Math.max(0, Math.round(bottom));
+    if(top+bottom>h-minInner){
+     var room2=Math.max(0, h-minInner), sum2=top+bottom||1;
+     top=Math.round(room2*top/sum2); bottom=room2-top;
+    }
+    return {top:top, bottom:bottom, left:chip.left, right:chip.right};
    }
    function staticCredit(){
     var logo=el.querySelector('.mapboxgl-ctrl-logo');
@@ -2134,16 +2168,48 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
    function focusPoints(){
     var pts=[];
     pins.forEach(function(p){ var ll=lngLat(p); if(ll) pts.push(ll); });
+    (opts.route||[]).forEach(function(p){
+     if(p&&p.length>=2&&isFinite(+p[0])&&isFinite(+p[1])) pts.push([+p[1], +p[0]]);
+    });
     if(el._you && isFinite(el._you.lng) && isFinite(el._you.lat)) pts.push([Number(el._you.lng), Number(el._you.lat)]);
     return pts;
+   }
+   function contentFits(){
+    var floor=headerFloor()+24, box=el.getBoundingClientRect(), above=chipPad().above;
+    function north(lng, lat, lift){
+     var pt; try{ pt=map.project([+lng, +lat]); }catch(e){ return floor; }
+     if(!pt||!isFinite(pt.y)) return floor;
+     return box.top+pt.y-lift;
+    }
+    var i, p;
+    for(i=0;i<pins.length;i++){
+     p=pins[i];
+     if(isFinite(+p.lng)&&isFinite(+p.lat)&&north(p.lng, p.lat, above)<floor-1) return false;
+    }
+    var route=opts.route||[];
+    for(i=0;i<route.length;i++){
+     p=route[i];
+     if(p&&p.length>=2&&isFinite(+p[0])&&isFinite(+p[1])&&north(p[1], p[0], 3)<floor-1) return false;
+    }
+    return true;
    }
    function frame(){
     var pts=(homeView()?focusPoints():points()).filter(function(p){ return p && isFinite(p[0]) && isFinite(p[1]); });
     if(!pts.length) return;
     var lngs=pts.map(function(p){return p[0];}), lats=pts.map(function(p){return p[1];});
     var pad=homeView()?focalPad():pads();
-    var maxZoom=homeView()?(pts.length===1?12:15):(pts.length===1?14:15);
-    map.fitBounds([[Math.min.apply(null,lngs), Math.min.apply(null,lats)],[Math.max.apply(null,lngs), Math.max.apply(null,lats)]], {padding:pad, maxZoom:maxZoom, animate:false});
+    var pinsOnly=0;
+    pins.forEach(function(p){ if(lngLat(p)) pinsOnly++; });
+    var multi=pinsOnly>1||(opts.route&&opts.route.length>1);
+    var cap=homeView()?(multi?15:12):(pts.length===1?14:15);
+    var bounds=[[Math.min.apply(null,lngs), Math.min.apply(null,lats)],[Math.max.apply(null,lngs), Math.max.apply(null,lats)]];
+    var guard=0;
+    while(guard<8){
+     map.fitBounds(bounds, {padding:pad, maxZoom:cap, animate:false});
+     if(!homeView()||contentFits()||cap<=8) break;
+     cap=Math.max(8, map.getZoom()-0.5);
+     guard++;
+    }
    }
    function pinEl(kind, label){
     var name=pinText(label), pill=name?'<span class=pinpill>'+name+'</span>':'';
@@ -2283,12 +2349,44 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
    var focus=[];
    pins.forEach(function(p){ if(isFinite(p.lat)&&isFinite(p.lng)) focus.push([p.lat, p.lng]); });
    if(el._you && isFinite(el._you.lat)&&isFinite(el._you.lng)) focus.push([el._you.lat, el._you.lng]);
-   if(focus.length){
-    var span=Math.max(80, cardTop-box.top);
-    var inset=24;
-    var bottom=Math.round(el.clientHeight-span*4/5+inset);
-    if(bottom<inset) bottom=inset;
-    map.fitBounds(focus,{paddingTopLeft:[36, inset], paddingBottomRight:[200, bottom], maxZoom:focus.length===1?12:15, animate:false});
+   if(focus.length||bounds.length){
+    var fit=bounds.slice();
+    if(el._you) fit.push([el._you.lat, el._you.lng]);
+    var headBest=0;
+    ['header.homehead .titlestack','header.homehead .usawpchip','header.homehead .hititle','header.homehead .headplus','header.homehead a.avatar','header.homehead'].forEach(function(sel){
+     var n=document.querySelector(sel); if(!n) return;
+     var b=n.getBoundingClientRect().bottom; if(b>headBest) headBest=b;
+    });
+    if(!headBest) headBest=box.top+76;
+    var above=11, wide=18;
+    el.querySelectorAll('.pinpill,.pinrow').forEach(function(n){
+     var r=n.getBoundingClientRect();
+     if(r.height>above*2) above=Math.ceil(r.height/2);
+     if(r.width>wide) wide=Math.ceil(r.width);
+    });
+    above+=2;
+    var top=Math.round(headBest-box.top+24+above);
+    var bottom=Math.max(24, Math.round(box.bottom-cardTop+24));
+    var h=el.clientHeight||box.height||1, minInner=80;
+    if(top+bottom>h-minInner){
+     var room=Math.max(0, h-minInner);
+     if(room>top+24) bottom=room-top;
+     else { var sum=top+bottom||1; top=Math.round(room*top/sum); bottom=room-top; }
+    }
+    var right=Math.max(160, wide-9+24);
+    var cap=(pins.length>1||(opts.route&&opts.route.length>1))?15:12;
+    var guard=0, floor=headBest+24;
+    while(guard<8){
+     map.fitBounds(fit,{paddingTopLeft:[48, top], paddingBottomRight:[right, bottom], maxZoom:cap, animate:false});
+     var bad=false, i, q;
+     for(i=0;i<fit.length;i++){
+      q=map.latLngToContainerPoint(fit[i]);
+      if(box.top+q.y-(i<pins.length?above:3)<floor-1) bad=true;
+     }
+     if(!bad||cap<=8) break;
+     cap=Math.max(8, map.getZoom()-0.5);
+     guard++;
+    }
     return;
    }
    var framed=bounds.slice();
