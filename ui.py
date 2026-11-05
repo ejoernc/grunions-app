@@ -34,7 +34,7 @@ body:has(#chat) main{flex:1;min-height:0;display:flex;flex-direction:column;over
 #boot.gone{opacity:0;pointer-events:none}
 #boot img{width:min(78vw,420px);height:auto;display:block}
 html.booted #boot{display:none}
-@media (prefers-reduced-motion:reduce){#boot{transition:none}}
+@media (prefers-reduced-motion:reduce){ #boot{transition:none}}
 [hidden]{display:none!important}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--color-bg);color:var(--t1);font:var(--type-body-1-size)/var(--type-body-1-leading) var(--font-sans);overflow-wrap:break-word}
