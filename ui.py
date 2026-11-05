@@ -123,12 +123,10 @@ body.practicepage main{padding-top:0}
 .homemap.tiles .leaflet-tile-pane{opacity:1}
 .homemap .leaflet-control-attribution{background:var(--color-scrim);color:var(--color-text-secondary);font-size:10px;max-width:70%}
 .homemap .leaflet-control-attribution a{color:var(--color-icon)}
-.mapboxgl-ctrl-bottom-right{opacity:.42;margin:0 6px 6px 0}
-.mapboxgl-ctrl-attrib.mapboxgl-compact{min-height:0;background:transparent}
-.mapboxgl-ctrl-attrib{font-size:9px;line-height:1.2;background:rgba(0,0,0,.28);padding:0 4px}
-.mapboxgl-ctrl-attrib a{color:inherit}
-.mapboxgl-ctrl-logo{opacity:.55;transform:scale(.62);transform-origin:right bottom;margin:0}
-body.homefull .homemap .mapboxgl-ctrl-bottom-right{position:absolute;right:6px;left:auto;bottom:var(--map-attrib,12px);margin:0;pointer-events:auto;z-index:2;display:flex;flex-direction:column;align-items:flex-end}
+.mapboxgl-ctrl-bottom-right{margin:0 6px 6px 0}
+.mapboxgl-ctrl-logo{opacity:.5;transform:scale(.62);transform-origin:right bottom;margin:0}
+.mapcredit{font-size:9px;line-height:1;color:rgba(255,255,255,.5);pointer-events:none;white-space:nowrap;margin:0 0 1px 0}
+body.homefull .homemap .mapboxgl-ctrl-bottom-right{position:absolute;right:6px;left:auto;bottom:var(--map-attrib,12px);margin:0;pointer-events:auto;z-index:2;display:flex;flex-direction:row;align-items:flex-end;gap:4px}
 .homemap .leaflet-bar a,.homemap .leaflet-bar a:hover{background:var(--color-surface-2);color:var(--color-text);border-bottom-color:var(--color-border)}
 .homemap .leaflet-marker-icon.mpin{background:transparent;border:0;box-shadow:none;overflow:visible}
 .pinrow{display:flex;align-items:center;gap:6px;height:18px;width:max-content}
@@ -1287,9 +1285,10 @@ window.grunionsMountMap=function(el, opts){
     var camera={};
     var seed=null;
     pins.forEach(function(p){ if(!seed){ var lng=Number(p.lng), lat=Number(p.lat); if(isFinite(lng)&&isFinite(lat)) seed=[lng, lat]; } });
-    if(seed){ camera.center=seed; camera.zoom=13; }
+    var home=opts.mode==='home'||el.id==='homeMap';
+    if(seed){ camera.center=seed; camera.zoom=home?12:14; }
     map=new mapboxgl.Map(Object.assign({container:el,style:mb.style,interactive:false,attributionControl:false,logoPosition:'bottom-right',fadeDuration:0}, camera));
-    map.addControl(new mapboxgl.AttributionControl({compact:true}), 'bottom-right');
+    staticCredit();
    }catch(err){ useOSM(); return; }
    el.dataset.mapon='1';
    el._gmap=map;
@@ -1334,6 +1333,29 @@ window.grunionsMountMap=function(el, opts){
      });
     }catch(e){}
    }
+   function homeView(){ return opts.mode==='home'||el.id==='homeMap'; }
+   function cardEdge(){
+    var box=el.getBoundingClientRect();
+    var card=document.querySelector('.nextcard');
+    var cardTop=card?card.getBoundingClientRect().top:(box.top+box.height*0.62);
+    return {box:box, cardTop:cardTop};
+   }
+   function focalPad(){
+    var v=cardEdge();
+    var span=Math.max(80, v.cardTop-v.box.top);
+    var inset=24;
+    var bottom=Math.round(v.box.height-span*4/5+inset);
+    if(bottom<inset) bottom=inset;
+    return {top:inset, bottom:bottom, left:48, right:140};
+   }
+   function staticCredit(){
+    var corner=el.querySelector('.mapboxgl-ctrl-bottom-right');
+    if(!corner||corner.querySelector('.mapcredit')) return;
+    var credit=document.createElement('span');
+    credit.className='mapcredit';
+    credit.textContent='© Mapbox © OpenStreetMap';
+    corner.appendChild(credit);
+   }
    function pads(){
     var head=document.querySelector('header.homehead'), card=document.querySelector('.nextcard');
     var box=el.getBoundingClientRect();
@@ -1355,12 +1377,19 @@ window.grunionsMountMap=function(el, opts){
     if(!isFinite(lng)||!isFinite(lat)) return null;
     return [lng, lat];
    }
+   function focusPoints(){
+    var pts=[];
+    pins.forEach(function(p){ var ll=lngLat(p); if(ll) pts.push(ll); });
+    if(el._you && isFinite(el._you.lng) && isFinite(el._you.lat)) pts.push([Number(el._you.lng), Number(el._you.lat)]);
+    return pts;
+   }
    function frame(){
-    var pts=points().filter(function(p){ return p && isFinite(p[0]) && isFinite(p[1]); });
+    var pts=(homeView()?focusPoints():points()).filter(function(p){ return p && isFinite(p[0]) && isFinite(p[1]); });
     if(!pts.length) return;
-    if(pts.length===1){ map.jumpTo({center:pts[0], zoom:14}); return; }
     var lngs=pts.map(function(p){return p[0];}), lats=pts.map(function(p){return p[1];});
-    map.fitBounds([[Math.min.apply(null,lngs), Math.min.apply(null,lats)],[Math.max.apply(null,lngs), Math.max.apply(null,lats)]], {padding:pads(), maxZoom:15, animate:false});
+    var pad=homeView()?focalPad():pads();
+    var maxZoom=homeView()?(pts.length===1?12:15):(pts.length===1?14:15);
+    map.fitBounds([[Math.min.apply(null,lngs), Math.min.apply(null,lats)],[Math.max.apply(null,lngs), Math.max.apply(null,lats)]], {padding:pad, maxZoom:maxZoom, animate:false});
    }
    function pinEl(kind, label){
     var name=pinText(label), pill=name?'<span class=pinpill>'+name+'</span>':'';
@@ -1374,6 +1403,7 @@ window.grunionsMountMap=function(el, opts){
     settled=true;
     clearTimeout(timer);
     tuckAttrib();
+    staticCredit();
     hideLabels();
     try{
      var route=opts.route||[];
@@ -1490,6 +1520,17 @@ window.grunionsMountMap=function(el, opts){
      if(q.x<pad||q.y<topLimit||q.x>el.clientWidth-pad||q.y>botLimit) return false;
     }
     return true;
+   }
+   var focus=[];
+   pins.forEach(function(p){ if(isFinite(p.lat)&&isFinite(p.lng)) focus.push([p.lat, p.lng]); });
+   if(el._you && isFinite(el._you.lat)&&isFinite(el._you.lng)) focus.push([el._you.lat, el._you.lng]);
+   if(focus.length){
+    var span=Math.max(80, cardTop-box.top);
+    var inset=24;
+    var bottom=Math.round(el.clientHeight-span*4/5+inset);
+    if(bottom<inset) bottom=inset;
+    map.fitBounds(focus,{paddingTopLeft:[48, inset], paddingBottomRight:[140, bottom], maxZoom:focus.length===1?12:15, animate:false});
+    return;
    }
    var framed=bounds.slice();
    if(el._you) framed.push([el._you.lat, el._you.lng]);
