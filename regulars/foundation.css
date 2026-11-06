@@ -2,7 +2,7 @@
    The app paints dark. [data-theme=light] is the light theme.
    Dark surfaces: Deep Forest #090D0B, Dark Clubhouse #0F1512, Raised #131A16.
    Subtle Border #1B221E is decorative. Interactive edges use --color-control.
-   Muted Lime #B2DE64 is the brand, not success. Deep Cyan is cleared.
+   Lime #C4E65A is the brand, not success. Deep Cyan is cleared.
    Text on the dark surfaces and on the bright fills was checked at 7:1.
    Icons are Phosphor. Headings use Space Grotesk.
    Everything else uses Plus Jakarta Sans. */
@@ -23,7 +23,7 @@
   --color-clubhouse: #0F1512;
   --color-raised: #131A16;
   --color-chalk: #F2F6F1;
-  --color-lime: #B2DE64;
+  --color-lime: #C4E65A;
   --color-cyan: #50C6CF;
   --color-yellow: #E4C84D;
   --color-coral: #F48782;

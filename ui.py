@@ -79,7 +79,8 @@ body.homefull .homedock .card:has(.sweep-host),body.homefull .schedlist .card:ha
 .rsvprow{flex-wrap:nowrap}
 .rsvprow .btn{white-space:nowrap;padding:0 8px;min-width:0}
 .rsvpcheck{width:16px;height:16px;flex:none;display:block}
-.pills .btn{flex:1;min-width:0}
+.pills .btn,.rsvprow .btn,.nxsocial .btn{flex:1;min-width:0;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:center;white-space:nowrap}
+.nxsocial .btn{flex:none}
 .pills button.on{background:var(--accent);color:var(--color-on-primary)}
 .nxdiv{height:1px;background:var(--line);margin:14px 0}
 .nxsocial{display:flex;align-items:center;gap:12px}
@@ -746,12 +747,26 @@ dialog.memberedit .help a{color:var(--t1)}
   transition: none;
 }
 .btn[data-sweep]{position:relative;overflow:visible}
+.btn[data-sweep]:not(.primary),
+.btn[data-sweep]:not(.primary):hover,
+.btn[data-sweep]:not(.primary):active {
+  background: transparent;
+  color: #fff;
+  border: 1px solid #fff;
+}
 .sweep-clip, .sweep-halo, .sweep-face, .sweep-label {
   pointer-events: none;
 }
 .sweep-label {
   position: relative;
   z-index: 2;
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  white-space: nowrap;
   color: inherit;
   mix-blend-mode: normal;
 }
@@ -885,7 +900,7 @@ dialog.memberedit .help a{color:var(--t1)}
   }
   document.addEventListener("click", function (event) {
     var button = event.target.closest && event.target.closest("[data-sweep]");
-    if (!button || !button.classList.contains("primary")) return;
+    if (!button) return;
     if (button.value === "clear" || button.value === "social_leave" || button.value === "notgoing" || button.value === "interested") return;
     if (reduce) return;
     if (button.dataset.sweeping) { event.preventDefault(); event.stopPropagation(); return; }
@@ -893,6 +908,8 @@ dialog.memberedit .help a{color:var(--t1)}
     if (!form) return;
     event.preventDefault();
     event.stopPropagation();
+    button.classList.add("primary");
+    button.classList.remove("btn-secondary");
     button.dataset.sweeping = "playing";
     button.classList.add("is-sweeping");
     var data = new FormData(form);
@@ -1048,7 +1065,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro date_field(label, name, value) %}<label class="datefield{% if not value %} empty{% endif %}">{{ label }}<input type=date name={{ name }} value="{{ value or '' }}" placeholder="Not on file"><span class=dateph>Not on file</span></label>{% endmacro %}
 {% macro rsvp_btn(label, selected, on_value) -%}
 {%- set sweep = (not selected) and on_value == 'going' and label == 'Going' -%}
-<button class="btn {{ 'primary' if sweep else ('btn-primary' if selected else 'btn-secondary') }}"{% if sweep %} data-sweep{% endif %} name=action value="{{ 'clear' if selected else on_value }}">{% if selected %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ label }}</button>
+<button class="btn {{ 'btn-primary' if selected else 'btn-secondary' }}"{% if sweep %} data-sweep{% endif %} name=action value="{{ 'clear' if selected else on_value }}">{% if selected %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ label }}</button>
 {%- endmacro %}
 {% macro glyph_clock() %}<svg class="nxglyph" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg>{% endmacro %}
 {% macro glyph_pin() %}<svg class="nxglyph" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,64a40,40,0,1,0,40,40A40,40,0,0,0,128,64Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,128Zm0-112a88.1,88.1,0,0,0-88,88c0,31.4,14.51,64.68,42,96.25a254.19,254.19,0,0,0,41.45,38.3,8,8,0,0,0,9.18,0A254.19,254.19,0,0,0,174,200.25c27.45-31.57,42-64.85,42-96.25A88.1,88.1,0,0,0,128,16Zm0,206c-16.53-13-72-60.75-72-118a72,72,0,0,1,144,0C200,161.23,144.53,209,128,222Z"/></svg>{% endmacro %}
@@ -2571,7 +2588,7 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
     try{
      var route=opts.route||[];
      if(route.length>1 && !map.getSource('social-route')){
-      var accent=(getComputedStyle(document.documentElement).getPropertyValue('--color-lime')||'#B2DE64').trim()||'#B2DE64';
+      var accent=(getComputedStyle(document.documentElement).getPropertyValue('--color-lime')||'#C4E65A').trim()||'#C4E65A';
       map.addSource('social-route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:route.map(function(p){return [Number(p[1]), Number(p[0])];})}}});
       map.addLayer({id:'social-route',type:'line',source:'social-route',paint:{'line-color':accent,'line-width':4,'line-opacity':0.95}});
      }
@@ -2750,7 +2767,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {% if sh %}<div class=nxdiv></div><div class=nxsocial><a class=cardlink href="/practices/{{nextp.id}}" style="display:flex;align-items:center;gap:12px">{{ social_icon() }}
 <div class=grow><div class=nxtitle>{{ sh.title }}</div><div class="t2 sm">{{ sh.place }}</div></div></a>
 <form method=post action=/practices>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
-<button class="btn {{ 'btn-primary' if next_joined else 'primary' }}"{% if not next_joined %} data-sweep{% endif %} name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ 'Joined' if next_joined else 'Join' }}</button></form></div>{% endif %}
+<button class="btn {{ 'btn-primary' if next_joined else 'btn-secondary' }}"{% if not next_joined %} data-sweep{% endif %} name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ 'Joined' if next_joined else 'Join' }}</button></form></div>{% endif %}
 </div>{% endif %}
 </div>
 <div class=schedlist id=schedule>
