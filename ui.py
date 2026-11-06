@@ -484,7 +484,7 @@ button.earlier{width:100%;height:auto;min-height:0;margin:0;padding:8px 0 4px;ba
 .msgfoot{display:flex;align-items:center;gap:8px;width:0;min-width:100%;max-width:100%;box-sizing:border-box;align-self:stretch;flex-wrap:nowrap;overflow:hidden}
 .msgfoot:has(.rx:not(:empty)){margin-top:6px}.msgfoot:has(.seenline){margin-top:3px}
 .rx{display:flex;flex-wrap:nowrap;gap:6px;margin:0;flex:1 1 auto;min-width:0;justify-content:flex-start;overflow:hidden}
-.seenline{display:block;width:fit-content;max-width:100%;min-width:0;height:auto;min-height:1.3em;margin:0 0 0 auto;padding:0;background:none;border:0;border-radius:0;color:var(--t3);font-size:12px;font-weight:500;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
+.seenline{display:block;width:fit-content;max-width:100%;min-width:0;height:auto;min-height:1.3em;margin:0 0 0 auto;padding:0;background:none;border:0;border-radius:0;color:var(--t3);font-size:12px;font-weight:500;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;align-self:flex-start}
 span.avatar.seenav,span.avatar.seenav img{width:32px;height:32px;min-width:32px;max-width:32px;min-height:32px;max-height:32px;flex:0 0 32px;font-size:12px}
 .seenrow{display:flex;align-items:center;gap:10px;min-height:40px}
 .seenlist{max-height:38vh;overflow:auto}

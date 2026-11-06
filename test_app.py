@@ -881,7 +881,7 @@ _seen_out = {}
 try: _seen_out = json.loads(_seen_proc.stdout or "{}")
 except ValueError: _seen_out = {}
 ok(_seen_proc.returncode == 0 and _seen_out.get("afterDup") == 1 and _seen_out.get("count") == 1 and _seen_out.get("same") and _seen_out.get("quiet") and _seen_out.get("moved") and _seen_out.get("kept") and _seen_out.get("label") == "Seen by 1", "several seen polls leave one stable line and do not rewrite it")
-ok("m.seen&&m.seen.label" in chui and "seenNow=receipt(r,j)" in chui and ".msgfoot:has(.seenline){margin-top:3px}" in chui and ".msgfoot:has(.rx:not(:empty)){margin-top:6px}" in chui, "seen by is painted with the message, and the gap under the bubble is half")
+ok("m.seen&&m.seen.label" in chui and "seenNow=receipt(r,j)" in chui and ".msgfoot:has(.seenline){margin-top:3px}" in chui and ".msgfoot:has(.rx:not(:empty)){margin-top:6px}" in chui and "align-self:flex-start" in chui.split(".seenline{")[1].split("}")[0], "seen by is painted with the message, and the label lines up with the top of a reaction")
 _when_src = chui[chui.find("function chatWhen"):chui.find("const t=iso")]
 _when_proc = subprocess.run(["node", "-e", _when_src + r'''
 var old=chatWhen("2026-10-30T20:32:00-07:00", "2026-11-04T12:00:00-08:00");
