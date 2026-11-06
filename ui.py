@@ -80,7 +80,8 @@ body.homefull .homedock .card:has(.sweep-host),body.homefull .schedlist .card:ha
 .rsvprow{flex-wrap:nowrap}
 .rsvprow .btn{white-space:nowrap;padding:0 8px;min-width:0}
 .rsvpcheck{width:16px;height:16px;flex:none;display:block}
-.pills .btn,.rsvprow .btn{flex:1;min-width:0;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:center;white-space:nowrap}
+.pills .btn,.rsvprow .btn,.nxsocial .btn{flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:center;white-space:nowrap;transition:none}
+.pills .btn,.rsvprow .btn{flex:1;min-width:0}
 .nxsocial{display:flex;align-items:center;gap:12px}
 .nxsocial>.cardlink,.nxsocial>a{flex:1 1 auto;min-width:0}
 .nxsocial .grow{min-width:0}
@@ -936,6 +937,95 @@ dialog.memberedit .help a{color:var(--t1)}
     });
     delete form.dataset.rsvpBusy;
   }
+  function choiceOf(btn) {
+    var t = textOf(btn);
+    if (t === "Join" || t === "Joined") return "social";
+    if (t === "Going" || t === "Waitlist" || t === "Join waitlist") return "going";
+    if (t === "Not going") return "not";
+    if (t === "Interested") return "interested";
+    return t;
+  }
+  function plainLabel(choice, btn) {
+    if (choice === "social") return "Join";
+    if (choice === "going") return textOf(btn) === "Join waitlist" ? "Join waitlist" : (textOf(btn) === "Waitlist" ? "Going" : textOf(btn));
+    return textOf(btn);
+  }
+  function writeLabel(btn, label, wantCheck) {
+    btn.querySelectorAll(".rsvpcheck").forEach(function (n) { n.remove(); });
+    var textNode = null;
+    Array.prototype.forEach.call(btn.childNodes, function (n) { if (n.nodeType === 3) textNode = n; });
+    if (!textNode) { textNode = document.createTextNode(""); btn.appendChild(textNode); }
+    textNode.nodeValue = label;
+    if (wantCheck) btn.insertAdjacentHTML("afterbegin", CHECK);
+  }
+  function deselect(btn) {
+    if (btn.dataset.sweeping === "playing") return;
+    var choice = choiceOf(btn);
+    btn.classList.remove("btn-primary", "primary", "is-sweeping");
+    btn.classList.add("btn-secondary");
+    if (choice === "going") {
+      var goingLabel = textOf(btn);
+      if (goingLabel === "Waitlist") goingLabel = "Join waitlist";
+      btn.value = "going";
+      if (goingLabel === "Going") btn.setAttribute("data-sweep", "");
+      else btn.removeAttribute("data-sweep");
+      writeLabel(btn, goingLabel, false);
+    }
+    else if (choice === "not") { btn.value = "notgoing"; btn.removeAttribute("data-sweep"); writeLabel(btn, "Not going", false); }
+    else if (choice === "interested") { btn.value = "interested"; btn.removeAttribute("data-sweep"); writeLabel(btn, "Interested", false); }
+    else if (choice === "social") { btn.value = "social_join"; btn.setAttribute("data-sweep", ""); writeLabel(btn, "Join", false); }
+    else { btn.removeAttribute("data-sweep"); writeLabel(btn, plainLabel(choice, btn), false); }
+  }
+  function selectVisual(btn) {
+    if (btn.dataset.sweeping === "playing") return;
+    var choice = choiceOf(btn);
+    btn.classList.remove("btn-secondary", "primary", "is-sweeping");
+    btn.classList.add("btn-primary");
+    btn.removeAttribute("data-sweep");
+    btn.value = choice === "social" ? "social_leave" : "clear";
+    var current = textOf(btn);
+    var label = current;
+    if (choice === "social") label = "Joined";
+    else if (choice === "going" && current === "Join waitlist") label = "Waitlist";
+    else if (choice === "going") label = "Going";
+    writeLabel(btn, label, true);
+  }
+  function cancelSweeps(forms) {
+    forms.forEach(function (f) {
+      var host = f.querySelector(".sweep-host");
+      if (host) {
+        var btn = host.querySelector("button");
+        if (btn) {
+          host.parentNode.insertBefore(btn, host);
+          var label = btn.querySelector(".sweep-label");
+          if (label) { while (label.firstChild) btn.insertBefore(label.firstChild, label); label.remove(); }
+          btn.querySelectorAll(".sweep-clip").forEach(function (n) { n.remove(); });
+          delete btn.dataset.sweeping;
+        }
+        host.remove();
+      }
+      Array.prototype.forEach.call(f.querySelectorAll("button"), function (b) {
+        b.style.pointerEvents = "";
+        b.style.flex = "";
+        b.style.width = "";
+        b.style.minWidth = "";
+        b.style.maxWidth = "";
+      });
+      delete f.dataset.rsvpBusy;
+    });
+  }
+  function showExclusive(forms, chosen, posted) {
+    var choice = choiceOf(chosen);
+    var selecting = posted !== "clear" && posted !== "social_leave";
+    var sweepThis = selecting && !reduce && chosen.hasAttribute("data-sweep") && (posted === "going" || posted === "social_join");
+    forms.forEach(function (f) {
+      Array.prototype.forEach.call(f.querySelectorAll('button[name="action"]'), function (b) {
+        if (b === chosen && sweepThis) return;
+        if (selecting && choiceOf(b) === choice) selectVisual(b);
+        else deselect(b);
+      });
+    });
+  }
   function paintButton(btn, label, wantCheck) {
     var layers = btn.querySelector(".sweep-clip");
     btn.querySelectorAll(".rsvpcheck").forEach(function (n) { n.remove(); });
@@ -1111,22 +1201,44 @@ dialog.memberedit .help a{color:var(--t1)}
       other.style.pointerEvents = "none";
     });
   }
+  var rsvpGen = {};
   function save(button, sweep) {
     var form = button.form;
     var pid = field(form, "pid"), eid = field(form, "event_id");
-    var snap = snapshot(form);
+    var key = pid ? ("p" + pid) : ("e" + eid);
+    var gen = (rsvpGen[key] || 0) + 1;
+    rsvpGen[key] = gen;
+    var posted = button.value;
+    var forms = matchingForms(document, pid, eid);
+    if (!forms.length) forms = [form];
+    var snaps = forms.map(function (f) { return {form: f, snap: snapshot(f)}; });
+    cancelSweeps(forms);
+    showExclusive(forms, button, posted);
     if (sweep) startSweep(button);
     var data = new FormData(form);
-    if (button.name) data.set(button.name, button.value);
+    if (button.name) data.set(button.name, posted);
     var action = form.getAttribute("action") || location.href;
     var pending = {ok: false, html: "", done: false};
     fetch(action, {method: "POST", body: data, credentials: "same-origin", redirect: "follow", headers: {Accept: "text/html"}})
       .then(function (res) { return res.text().then(function (html) { if (!res.ok) throw new Error("save"); pending.ok = true; pending.html = html; }); })
-      .then(function () { pending.done = true; if (pending.ok) applyHtml(pending.html, pid, eid); })
-      .catch(function () { pending.done = true; pending.ok = false; });
+      .then(function () { pending.done = true; if (pending.ok && rsvpGen[key] === gen) applyHtml(pending.html, pid, eid); })
+      .catch(function () {
+        pending.done = true;
+        pending.ok = false;
+        if (rsvpGen[key] !== gen || pending.handled) return;
+        pending.handled = true;
+        snaps.forEach(function (row) { restore(row.form, row.snap); });
+        showError();
+      });
     function finish() {
+      if (rsvpGen[key] !== gen || pending.handled) return;
       if (!pending.done) { window.setTimeout(finish, 40); return; }
-      if (!pending.ok) { restore(form, snap); showError(); return; }
+      if (!pending.ok) {
+        pending.handled = true;
+        snaps.forEach(function (row) { restore(row.form, row.snap); });
+        showError();
+        return;
+      }
       if (sweep) settle(button);
       else delete form.dataset.rsvpBusy;
     }
@@ -1136,7 +1248,7 @@ dialog.memberedit .help a{color:var(--t1)}
   document.addEventListener("click", function (event) {
     var button = event.target.closest && event.target.closest('button[name="action"]');
     if (!button || !button.form || !RSVP[button.value]) return;
-    if (button.dataset.sweeping || button.form.dataset.rsvpBusy) { event.preventDefault(); event.stopPropagation(); return; }
+    if (button.dataset.sweeping === "playing") { event.preventDefault(); event.stopPropagation(); return; }
     event.preventDefault();
     event.stopPropagation();
     var sweep = !reduce && button.hasAttribute("data-sweep") && (button.value === "going" || button.value === "social_join");
