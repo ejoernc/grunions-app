@@ -3424,17 +3424,18 @@ def lineup_pack(d, rows):
     mid = me()["id"] if me() else 0
     organizer = can_host_practice() if me() else False
     ids = [r["id"] for r in rows]
-    counts, mine, going_names = {}, {}, {}
+    counts, mine, going_names, interested_names = {}, {}, {}, {}
     if ids:
         marks = ",".join("?" * len(ids))
         for eid, state, n in d.execute("SELECT event_id, state, COUNT(*) FROM lineup_rsvps WHERE event_id IN (%s) GROUP BY event_id, state" % marks, ids):
             counts.setdefault(eid, {})[state or "going"] = n
         for eid, state in d.execute("SELECT event_id, state FROM lineup_rsvps WHERE member_id=? AND event_id IN (%s)" % marks, (mid, *ids)):
             mine[eid] = state
-        for eid, first, last, preferred, mid_row, photo in d.execute("""SELECT r.event_id, m.first, m.last, m.preferred_first, m.id, COALESCE(m.photo,'')
+        for eid, state, first, last, preferred, mid_row, photo in d.execute("""SELECT r.event_id, r.state, m.first, m.last, m.preferred_first, m.id, COALESCE(m.photo,'')
             FROM lineup_rsvps r JOIN members m ON m.id=r.member_id
-            WHERE r.state='going' AND r.event_id IN (%s)""" % marks, ids):
-            going_names.setdefault(eid, []).append(redact_member_status({"id": mid_row, "first": first, "last": last, "preferred_first": preferred, "photo": photo}))
+            WHERE r.state IN ('going','interested') AND r.event_id IN (%s)""" % marks, ids):
+            bucket = going_names if state == "going" else interested_names
+            bucket.setdefault(eid, []).append(redact_member_status({"id": mid_row, "first": first, "last": last, "preferred_first": preferred, "photo": photo}))
     out = []
     for r in rows:
         c = counts.get(r["id"], {})
@@ -3442,6 +3443,7 @@ def lineup_pack(d, rows):
         wait_n = c.get("waitlist", 0)
         intent = r["team_intent"] or ""
         people = practice_people(going_names.get(r["id"], []))
+        interested_people = practice_people(interested_names.get(r["id"], []))
         names = [("%s %s" % (display_first(p), p["last"] or "")).strip() for p in people]
         try:
             span = (dt.date.fromisoformat(str(r["end_date"] or r["date"])[:10]) - dt.date.fromisoformat(str(r["date"])[:10])).days + 1
@@ -3471,7 +3473,7 @@ def lineup_pack(d, rows):
         start, end = event_window(r)
         out.append({"id": r["id"], "title": r["title"], "slug": r["cat_slug"] or "", "category": r["cat_name"] or r["kind"] or "Event",
             "event_type": etype, "tag": lineup_tag(r), "card_line": lineup_card_line(etype, host_names, card_mode), "days": span, "pins": pins,
-            "status_kind": status_kind, "status_text": status_text, "people": people,
+            "status_kind": status_kind, "status_text": status_text, "people": people, "interested": interested_people,
             "chip": r["cat_chip"] or "", "subtype": r["subtype"] or "", "hosting": lineupfeed.hosting_label(r["hosting"]),
             "official": bool(r["official"]), "intent": intent, "status": r["status"] or "published", "status_label": lineup_status_label(r),
             "host_line": lineup_host_line(r), "member_event": not r["official"], "featured": bool(r["featured"]),

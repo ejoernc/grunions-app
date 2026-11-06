@@ -1111,6 +1111,32 @@ dialog.memberedit .help a{color:var(--t1)}
         for (var i = 0; i < lb.length; i++) lb[i].textContent = fb[i].textContent;
       }
     }
+    if (!social && location.pathname.indexOf("/lineup/") === 0) {
+      function rosterList(root, label) {
+        var labels = root.querySelectorAll(".seclabel");
+        for (var i = 0; i < labels.length; i++) {
+          if (labels[i].textContent.trim() === label) {
+            var list = labels[i].nextElementSibling;
+            if (list && list.classList && list.classList.contains("list")) return list;
+          }
+        }
+        return null;
+      }
+      ["Who's interested", "Who's going"].forEach(function (label) {
+        var localList = rosterList(document, label), freshList = rosterList(doc, label);
+        if (localList && freshList) localList.innerHTML = freshList.innerHTML;
+      });
+      function spotValue(root) {
+        var rows = root.querySelectorAll(".li.prow");
+        for (var i = 0; i < rows.length; i++) {
+          var k = rows[i].querySelector(".k");
+          if (k && k.textContent.trim() === "Spots") return rows[i].querySelector(".v");
+        }
+        return null;
+      }
+      var spotLocal = spotValue(document), spotFresh = spotValue(doc);
+      if (spotLocal && spotFresh) spotLocal.textContent = spotFresh.textContent;
+    }
     if (social && location.pathname.indexOf("/practices/") === 0) {
       function joining(root) {
         var nodes = root.querySelectorAll("div");
@@ -1486,7 +1512,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro mount_map(id, pins, mode, href='', route=None) %}{% if pins %}{{ map_boot() }}{% endif %}<section class="homemap cardmap {{ 'banner' if mode == 'card' else ('still tappable' if mode == 'tap' else 'still') }}" id="{{ id }}" {% if mode == 'tap' and pins %}data-map-open data-directions="{{ pins[0].lat }},{{ pins[0].lng }}" data-map-href="{{ href }}" data-map-label="{{ pins[0].label or 'Location' }}" role=button tabindex=0 aria-label="Map of {{ pins[0].label or 'the location' }}"{% elif mode == 'still' %}aria-hidden=true{% else %}aria-label="Map"{% endif %}></section>
 <script>(function(){var pins={{ pins|tojson }};var route={{ route|tojson if route else '[]' }};function start(){var el=document.getElementById({{ id|tojson }});if(el&&window.grunionsMountMap)grunionsMountMap(el,{pins:pins,mode:'{{ 'still' if mode == 'tap' else mode }}',route:route});}if(window.grunionsMountMap)start();else document.addEventListener('DOMContentLoaded',start);})();</script>{% endmacro %}
 {% macro event_hero(id, pins, banner_src, label, route=None) %}{% if banner_src %}<div class=evhero><img src="{{ banner_src }}" alt=""></div>{% else %}{{ mount_map(id, pins, 'card', '', route) }}{% endif %}{% endmacro %}
-{% macro whos_going(people) %}<div class=seclabel>Who's going</div><div class=list>{% for r in people %}<div class=li>{% if me().is_admin or is_staff() %}<a class=ci-name href="/admin/member/{{ r.id }}">{% else %}<span class=ci-name>{% endif %}{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span></span>{% if me().is_admin or is_staff() %}</a>{% else %}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>{% endmacro %}
+{% macro whos_going(people, kind="going") %}<div class=seclabel>{% if kind == "interested" %}Who's interested{% else %}Who's going{% endif %}</div><div class=list>{% for r in people %}<div class=li>{% if me().is_admin or is_staff() %}<a class=ci-name href="/admin/member/{{ r.id }}">{% else %}<span class=ci-name>{% endif %}{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span></span>{% if me().is_admin or is_staff() %}</a>{% else %}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>{% endmacro %}
 {% macro event_location(id, pins, name, sub, href, route=None, route_min=None) %}<div class=seclabel>Location</div><div class="list loccard">{{ mount_map(id, pins, 'tap' if pins else 'still', href, route) }}{% if route_min %}<div class="li"><span class="t3 sm">{{ route_min }} min drive</span></div>{% endif %}<div class="li locrow"><span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ name }}</span>{% if sub and sub != name %}<span class="t3 sm">{{ sub }}</span>{% endif %}</span><a class="btn btn-secondary" href="{{ href }}" target=_blank rel=noopener {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %}>Open in Maps</a></div></div>{% endmacro %}
 {% macro lineup_card(e, back='/lineup') %}<div class="card tap tripcard{% if e.status == 'canceled' %} cancelled{% endif %}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
 <a class=cardlink href="/lineup/{{ e.id }}">
@@ -3876,6 +3902,7 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 </div>
 {% if e.levels_raw %}<details class=card><summary>Skill levels</summary><div class=body>{% for row in SPORTS.LEVELS %}{% if row[0] in e.levels_raw.split(',') %}<p><b>{{ row[1] }}</b> {{ row[2] }}</p>{% endif %}{% endfor %}</div></details>{% endif %}
 {% if e.review_note and e.status in ('changes_requested', 'declined') %}<div class=note>{{ e.review_note }}</div>{% endif %}
+{{ whos_going(e.interested, "interested") }}
 {{ whos_going(e.people) }}
 {% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="btn btn-primary full" name=action value=official>Make official</button></form>{% endif %}
 {% if e.venue or e.city %}{{ event_location('lineLoc', e.pins, e.venue or e.city, e.city if e.venue else '', e.dir_href) }}{% endif %}
