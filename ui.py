@@ -40,7 +40,7 @@ body:has(#chat) main{flex:1;min-width:0;width:100%;max-width:640px;min-height:0;
 ::view-transition-new(grunions-header){animation:none;mix-blend-mode:normal}
 #boot{position:fixed;top:0;left:0;right:0;height:100dvh;z-index:80;display:flex;align-items:center;justify-content:center;background:#0A0D0A;overflow:hidden;isolation:isolate;transition:opacity .7s ease}
 #boot.gone{opacity:0;pointer-events:none}
-#boot .mark{width:calc(186px * 0.97);height:calc(186px * 0.97 * 360 / 726);flex:none;line-height:0;transform:translateY(calc((env(safe-area-inset-bottom) - env(safe-area-inset-top)) / 2 - 10px))}
+#boot .mark{width:calc(186px * 0.97);height:calc(186px * 0.97 * 360 / 726);flex:none;line-height:0;transform:translateY(calc((env(safe-area-inset-bottom) - env(safe-area-inset-top)) / 2 - 12px))}
 #boot video,#boot .bootstill{width:calc(186px * 0.97);height:calc(186px * 0.97 * 360 / 726);display:block;margin:0;object-fit:fill;object-position:center;background:transparent;aspect-ratio:726/360}
 #boot .bootstill{display:none}
 #boot.bootstill video{display:none}
