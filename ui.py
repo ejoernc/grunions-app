@@ -80,11 +80,17 @@ body.homefull .homedock .card:has(.sweep-host),body.homefull .schedlist .card:ha
 .rsvprow{flex-wrap:nowrap}
 .rsvprow .btn{white-space:nowrap;padding:0 8px;min-width:0}
 .rsvpcheck{width:16px;height:16px;flex:none;display:block}
-.pills .btn,.rsvprow .btn,.nxsocial .btn{flex:1;min-width:0;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:center;white-space:nowrap}
-.nxsocial .btn{flex:none}
+.pills .btn,.rsvprow .btn{flex:1;min-width:0;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:center;white-space:nowrap}
+.nxsocial{display:flex;align-items:center;gap:12px}
+.nxsocial>.cardlink,.nxsocial>a{flex:1 1 auto;min-width:0}
+.nxsocial .grow{min-width:0}
+.nxsocial .nxtitle,.nxsocial .t2{white-space:normal;overflow-wrap:anywhere}
+.nxsocial>form,.nxsocial .sweep-host,.nxsocial .btn{flex:0 0 auto;width:auto;min-width:136px;max-width:none}
+.nxsocial .btn{display:inline-flex;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:center;white-space:nowrap;padding-left:16px;padding-right:16px}
+.nxsocial .sweep-host{display:flex}
+.nxsocial .sweep-host>.btn{width:100%;min-width:0;height:100%}
 .pills button.on{background:var(--accent);color:var(--color-on-primary)}
 .nxdiv{height:1px;background:var(--line);margin:14px 0}
-.nxsocial{display:flex;align-items:center;gap:12px}
 .nxicon{width:40px;height:40px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--color-icon)}
 .nxicon svg{display:block}
 .joinpill{flex:none}
@@ -744,8 +750,14 @@ dialog.memberedit .help a{color:var(--t1)}
 .btn.primary[data-sweep]:hover {
   background: #C4E65A;
   color: #090D0B;
-  border: 0;
+  border: 1px solid #C4E65A;
   transition: none;
+}
+.pills > .btn.btn-primary,
+.rsvprow > .btn.btn-primary,
+.pills > .sweep-host > .btn.btn-primary,
+.rsvprow > .sweep-host > .btn.btn-primary {
+  border: 1px solid var(--color-lime);
 }
 .btn[data-sweep]{position:relative;overflow:visible}
 .btn[data-sweep][value="going"]:not(.primary),
@@ -1055,6 +1067,7 @@ dialog.memberedit .help a{color:var(--t1)}
   function startSweep(button) {
     var form = button.form;
     var held = lockRow(form, button);
+    if (button.value === "social_join" || button.value === "social_leave") held = Math.max(held, 136);
     button.classList.add("primary");
     button.classList.remove("btn-secondary");
     button.dataset.sweeping = "playing";
