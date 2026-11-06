@@ -881,6 +881,7 @@ _seen_out = {}
 try: _seen_out = json.loads(_seen_proc.stdout or "{}")
 except ValueError: _seen_out = {}
 ok(_seen_proc.returncode == 0 and _seen_out.get("afterDup") == 1 and _seen_out.get("count") == 1 and _seen_out.get("same") and _seen_out.get("quiet") and _seen_out.get("moved") and _seen_out.get("kept") and _seen_out.get("label") == "Seen by 1", "several seen polls leave one stable line and do not rewrite it")
+ok("m.seen&&m.seen.label" in chui and "seenNow=receipt(r,j)" in chui and ".msgfoot:has(.seenline){margin-top:3px}" in chui and ".msgfoot:has(.rx:not(:empty)){margin-top:6px}" in chui, "seen by is painted with the message, and the gap under the bubble is half")
 _when_src = chui[chui.find("function chatWhen"):chui.find("const t=iso")]
 _when_proc = subprocess.run(["node", "-e", _when_src + r'''
 var old=chatWhen("2026-10-30T20:32:00-07:00", "2026-11-04T12:00:00-08:00");
@@ -2285,9 +2286,10 @@ _ended_edit = eli.get("/practices/%d?edit=1" % _ended).get_data(as_text=True)
 _deny = eli.post("/practices/%d" % _ended, data=dict(csrf=csrf(eli, "/practices/%d" % _ended), pid=_ended, action="delete", back="page"), follow_redirects=True).get_data(as_text=True)
 _deny_c = eli.post("/practices/%d" % _ended, data=dict(csrf=csrf(eli, "/practices/%d" % _ended), pid=_ended, action="cancel", reason="Too late", back="page"), follow_redirects=True).get_data(as_text=True)
 ok(">Delete event</button>" not in _ended_page and ">Cancel event</button>" not in _ended_page and "Send cancellation" not in _ended_page and "Delete practice" not in _ended_page and ">Cancel</a>" in _ended_edit and ">Delete event</button>" not in _ended_edit and ">Cancel event</button>" not in _ended_edit and D.execute("SELECT id, cancelled FROM practices WHERE id=?", (_ended,)).fetchone() == (_ended, 0) and "already ended" in _deny and "already ended" in _deny_c, "an ended practice cannot be canceled or deleted")
-eli.post("/practices/%d" % _rfirst[0], data=dict(csrf=csrf(eli, "/practices/%d" % _rfirst[0]), pid=_rfirst[0], action="delete", series_scope="once"))
+_rcut = D.execute("SELECT id, date FROM practices WHERE series_id=? AND date>? ORDER BY date LIMIT 1", (_rsid[0], A.today_pt().isoformat())).fetchone()
+eli.post("/practices/%d" % _rcut[0], data=dict(csrf=csrf(eli, "/practices/%d" % _rcut[0]), pid=_rcut[0], action="delete", series_scope="once"))
 eli.get("/home")
-ok(not D.execute("SELECT 1 FROM practices WHERE id=?", (_rfirst[0],)).fetchone() and not D.execute("SELECT 1 FROM practices WHERE series_id=? AND date=?", (_rsid[0], _rfirst[1])).fetchone() and D.execute("SELECT 1 FROM practices WHERE location='Frozen Lane'").fetchone(), "deleting one date of a series does not bring it back and leaves the past date")
+ok(not D.execute("SELECT 1 FROM practices WHERE id=?", (_rcut[0],)).fetchone() and not D.execute("SELECT 1 FROM practices WHERE series_id=? AND date=?", (_rsid[0], _rcut[1])).fetchone() and D.execute("SELECT 1 FROM practices WHERE location='Frozen Lane'").fetchone(), "deleting one date of a series does not bring it back and leaves the past date")
 _line_del_day = (A.today_pt() + dt.timedelta(days=21)).isoformat()
 eli.post("/lineup/new", data=dict(csrf=csrf(eli, "/lineup/new"), mode="create", event_type="Social", hosting="Hosting", team_intent="official", title="Delete Me Social", location="Delete Deck", description="Going away.", date=_line_del_day, start_time="18:00"))
 _ldid = D.execute("SELECT id FROM lineup_events WHERE title='Delete Me Social'").fetchone()[0]

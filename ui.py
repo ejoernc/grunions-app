@@ -482,7 +482,7 @@ button.earlier{width:100%;height:auto;min-height:0;margin:0;padding:8px 0 4px;ba
 .m .mstack>.img{align-self:flex-start;min-width:0;max-width:min(70vw,280px);margin-left:0;margin-right:0}
 .m .mstack>.quotechip{width:0;min-width:100%;max-width:100%;box-sizing:border-box;overflow:hidden}
 .msgfoot{display:flex;align-items:center;gap:8px;width:0;min-width:100%;max-width:100%;box-sizing:border-box;align-self:stretch;flex-wrap:nowrap;overflow:hidden}
-.msgfoot:has(.rx:not(:empty)),.msgfoot:has(.seenline){margin-top:6px}
+.msgfoot:has(.rx:not(:empty)){margin-top:6px}.msgfoot:has(.seenline){margin-top:3px}
 .rx{display:flex;flex-wrap:nowrap;gap:6px;margin:0;flex:1 1 auto;min-width:0;justify-content:flex-start;overflow:hidden}
 .seenline{display:block;width:fit-content;max-width:100%;min-width:0;height:auto;min-height:1.3em;margin:0 0 0 auto;padding:0;background:none;border:0;border-radius:0;color:var(--t3);font-size:12px;font-weight:500;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
 span.avatar.seenav,span.avatar.seenav img{width:32px;height:32px;min-width:32px;max-width:32px;min-height:32px;max-height:32px;flex:0 0 32px;font-size:12px}
@@ -3039,7 +3039,9 @@ function fill(d,m){
   '<div class=mstack>'+bodyHtml(m)+`<div class=msgfoot><div class=rx>${rxHtml(m.id,m.rx)}</div></div></div>`;
  d.innerHTML=html;
  var rxEl=d.querySelector('.rx'); if(rxEl) rxEl.dataset.h=rxHtml(m.id,m.rx);
- if(kept){ var foot=d.querySelector('.msgfoot'); if(foot) foot.appendChild(kept); else d.appendChild(kept); }}
+ var foot=d.querySelector('.msgfoot'), home=foot||d;
+ if(m&&m.seen&&m.seen.label){ seenInfo=m.seen; var line=kept||document.getElementById('seenLine'); if(!line){ line=document.createElement('button'); line.type='button'; line.id='seenLine'; line.className='seenline'; } var key=seenKey(m.seen); if(line.dataset.seen!==key){ if(line.textContent!==m.seen.label) line.textContent=m.seen.label; line.dataset.seen=key; } if(line.parentNode!==home) home.appendChild(line); }
+ else if(kept){ if(foot) foot.appendChild(kept); else d.appendChild(kept); }}
 let grouping=false;
 function sameGroup(prev,cur){
  if(!prev||!cur||prev.uid!==cur.uid) return false;
@@ -3111,7 +3113,7 @@ async function refreshOpen(gen,epoch){try{const rs=await fetch('/api/messages?c=
 let pollN=0;
 async function poll(){const gen=++pollGen,epoch=window.grunionsNavEpoch|0;try{const first=!box.querySelector('.m');const r=await fetch('/api/messages?c='+CH+'&after='+last+(first?'&limit='+PAGE:''));const j=await r.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;const follow=stick;
  if(first)box.style.visibility='hidden';
- grouping=true;j.forEach(add);grouping=false;groupMessages();if(first){more=j.length>=PAGE;paintEarlier()}if((first||j.length)&&follow&&stick)pinBottom();if(first)box.style.visibility='';
+ grouping=true;j.forEach(add);grouping=false;groupMessages();var seenNow=receipt(r,j);if(seenNow)paintSeen([{id:seenNow.id,seen:seenNow}]);else if(seenNow===null)clearSeen();if(first){more=j.length>=PAGE;paintEarlier()}if((first||j.length)&&follow&&stick)pinBottom();if(first)box.style.visibility='';
  pollN++;if(first){setTimeout(function(){refreshOpen(gen,epoch).then(function(){if(stick)pinBottom()})},0);return}if(pollN%4===0){var h=box.scrollHeight;await refreshOpen(gen,epoch);if(follow&&stick&&box.scrollHeight!==h)pinBottom()}else if(j.length){if(follow&&stick)pinBottom()}}catch(e){grouping=false;box.style.visibility=''}}
 let seenInfo=null;
 function personRow(p){
@@ -3125,16 +3127,27 @@ function paintSeen(list){
  if(!hit) return;
  var row=document.getElementById('msg'+hit.seen.id);
  var line=document.getElementById('seenLine');
+ var extras=0;
+ document.querySelectorAll('.seenline').forEach(function(el){ if(el!==line) extras++; });
+ var key=seenKey(hit.seen);
+ var foot=row&&row.querySelector('.msgfoot'), home=row?(foot||row):null;
+ var same=!!(row&&line&&line.dataset.seen===key&&line.textContent===hit.seen.label&&line.parentNode===home&&!extras);
+ var hold=!same&&typeof box!=='undefined'&&!!box&&!!box.getBoundingClientRect;
+ var anchor=null, beforeTop=0, follow=false;
+ if(hold){ follow=!!stick; anchoring=true; box.style.overflowAnchor='none'; var edge=box.getBoundingClientRect().top+4, rows=box.querySelectorAll('.m'); for(var i=0;i<rows.length;i++){ if(rows[i].getBoundingClientRect().bottom>edge){ anchor=rows[i]; beforeTop=anchor.getBoundingClientRect().top; break; } } }
  document.querySelectorAll('.seenline').forEach(function(el){ if(el!==line) el.remove(); });
- if(!row) return;
+ if(!row){ if(hold){ box.style.overflowAnchor=''; anchoring=false; } return; }
  Object.keys(msgs).forEach(function(id){ if(+id!==+hit.seen.id&&msgs[id]&&msgs[id].seen) delete msgs[id].seen; });
  if(msgs[hit.seen.id]) msgs[hit.seen.id].seen=hit.seen;
  seenInfo=hit.seen;
  if(!line){ line=document.createElement('button'); line.type='button'; line.id='seenLine'; line.className='seenline'; }
- var key=seenKey(seenInfo);
  if(line.dataset.seen!==key){ if(line.textContent!==seenInfo.label) line.textContent=seenInfo.label; line.dataset.seen=key; }
- var foot=row.querySelector('.msgfoot'), home=foot||row;
  if(line.parentNode!==home) home.appendChild(line);
+ if(!hold) return;
+ if(follow) pinBottom();
+ else if(anchor){ var dy=anchor.getBoundingClientRect().top-beforeTop; if(dy) box.scrollTop+=dy; }
+ box.style.overflowAnchor='';
+ requestAnimationFrame(function(){ anchoring=false; if(!follow) stick=nearBottom(); });
 }
 function openSeen(info){
  document.getElementById('seenPeople').innerHTML=(info.seen||[]).map(personRow).join('')||'<p class="t3 sm">No one has seen this yet.</p>';
