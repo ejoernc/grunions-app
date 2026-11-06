@@ -40,8 +40,8 @@ body:has(#chat) main{flex:1;min-width:0;width:100%;max-width:640px;min-height:0;
 ::view-transition-new(grunions-header){animation:none;mix-blend-mode:normal}
 #boot{position:fixed;inset:0;width:100%;height:100dvh;z-index:80;display:flex;align-items:center;justify-content:center;background:#0A0D0A;overflow:hidden;isolation:isolate;transition:opacity .7s ease}
 #boot.gone{opacity:0;pointer-events:none}
-#boot .mark{width:240px;height:119px;flex:none}
-#boot video,#boot .bootstill{width:240px;height:119px;display:block;object-fit:contain;background:transparent;aspect-ratio:726/360}
+#boot .mark{width:170px;height:84px;flex:none}
+#boot video,#boot .bootstill{width:170px;height:84px;display:block;object-fit:contain;background:transparent;aspect-ratio:726/360}
 #boot .bootstill{display:none}
 #boot.bootstill video{display:none}
 #boot.bootstill .bootstill{display:block}
