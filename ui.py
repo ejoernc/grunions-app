@@ -71,8 +71,9 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:var(--ty
 .nxchev{color:var(--t3);font-size:22px;line-height:1;flex:none}
 .nxnote{margin-top:10px;color:var(--t3);font-size:13px;line-height:1.4}
 .pills{display:flex;gap:var(--space-2);margin-top:var(--space-4)}
-.pills .sweep-host{flex:1;width:auto;min-width:0;display:flex}
-.pills .sweep-host>.btn{flex:1;width:100%}
+.pills > .btn,.pills > .sweep-host,.rsvprow > .btn,.rsvprow > .sweep-host{flex:1 1 0%;width:0;min-width:0;max-width:none}
+.pills > .sweep-host,.rsvprow > .sweep-host{display:flex}
+.pills > .sweep-host > .btn,.rsvprow > .sweep-host > .btn{flex:1 1 auto;width:100%;min-width:0;max-width:none;height:100%}
 form:has(.sweep-host){position:relative;z-index:3}
 .nextcard:has(.sweep-host),.card:has(.sweep-host),.tripcard:has(.sweep-host),
 body.homefull .homedock .card:has(.sweep-host),body.homefull .schedlist .card:has(.sweep-host){overflow:visible;z-index:6}
@@ -747,12 +748,12 @@ dialog.memberedit .help a{color:var(--t1)}
   transition: none;
 }
 .btn[data-sweep]{position:relative;overflow:visible}
-.btn[data-sweep]:not(.primary),
-.btn[data-sweep]:not(.primary):hover,
-.btn[data-sweep]:not(.primary):active {
+.btn[data-sweep][value="going"]:not(.primary),
+.btn[data-sweep][value="going"]:not(.primary):hover,
+.btn[data-sweep][value="going"]:not(.primary):active {
   background: transparent;
-  color: #fff;
-  border: 1px solid #fff;
+  color: var(--color-lime);
+  border: 1px solid var(--color-lime);
 }
 .sweep-clip, .sweep-halo, .sweep-face, .sweep-label {
   pointer-events: none;
@@ -836,24 +837,24 @@ dialog.memberedit .help a{color:var(--t1)}
   mask-repeat: no-repeat;
 }
 @keyframes regulars-band {
-  0% { left: -28%; width: 80%; }
+  0% { left: -80%; width: 80%; }
   8% { left: 14%; width: 100%; }
   22% { left: 32%; width: 120%; }
   38% { left: 48%; width: 128%; }
   55% { left: 56%; width: 130%; }
   70% { left: 72%; width: 126%; }
   84% { left: 94%; width: 108%; }
-  100% { left: 128%; width: 78%; }
+  100% { left: 180%; width: 78%; }
 }
 @keyframes regulars-halo {
-  0% { -webkit-mask-size: 113% 170%; mask-size: 113% 170%; -webkit-mask-position: 522% 50%; mask-position: 522% 50%; }
+  0% { -webkit-mask-size: 113% 170%; mask-size: 113% 170%; -webkit-mask-position: 760% 50%; mask-position: 760% 50%; }
   8% { -webkit-mask-size: 142% 170%; mask-size: 142% 170%; -webkit-mask-position: 120% 50%; mask-position: 120% 50%; }
   22% { -webkit-mask-size: 170% 170%; mask-size: 170% 170%; -webkit-mask-position: 71% 50%; mask-position: 71% 50%; }
   38% { -webkit-mask-size: 181% 170%; mask-size: 181% 170%; -webkit-mask-position: 52% 50%; mask-position: 52% 50%; }
   55% { -webkit-mask-size: 184% 170%; mask-size: 184% 170%; -webkit-mask-position: 44% 50%; mask-position: 44% 50%; }
   70% { -webkit-mask-size: 179% 170%; mask-size: 179% 170%; -webkit-mask-position: 27% 50%; mask-position: 27% 50%; }
   84% { -webkit-mask-size: 153% 170%; mask-size: 153% 170%; -webkit-mask-position: -17% 50%; mask-position: -17% 50%; }
-  100% { -webkit-mask-size: 111% 170%; mask-size: 111% 170%; -webkit-mask-position: -550% 50%; mask-position: -550% 50%; }
+  100% { -webkit-mask-size: 111% 170%; mask-size: 111% 170%; -webkit-mask-position: -820% 50%; mask-position: -820% 50%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .sweep-ribbon, .sweep-halo { animation: none; }
@@ -864,64 +865,200 @@ dialog.memberedit .help a{color:var(--t1)}
 <div id=boot role=status aria-label="Loading"><div class=mark><video class=bootvid autoplay muted loop playsinline preload=auto poster=/static/loader-first-frame.png><source src=/static/regulars-loader-hevc.mov type='video/quicktime; codecs="hvc1"'><source src=/static/regulars-loader-transparent.webm type=video/webm></video><img class=bootstill alt="" src=/static/regulars-logo.svg></div></div>
 <script>(function(){var el=document.getElementById("boot");if(!el)return;if(document.documentElement.classList.contains("booted")){el.remove();return;}var vid=el.querySelector("video"),still=el.querySelector(".bootstill");var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;var ios=/iPhone|iPad|iPod/.test(navigator.userAgent||"")||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);function showStill(){el.classList.add("bootstill");if(!vid)return;try{vid.pause()}catch(e){}vid.removeAttribute("src");while(vid.firstChild)vid.removeChild(vid.firstChild);try{vid.load()}catch(e){}}function blackFrame(){if(!vid||vid.readyState<2)return false;try{var c=document.createElement("canvas");c.width=16;c.height=8;var g=c.getContext("2d",{willReadFrequently:true});if(!g)return false;g.drawImage(vid,0,0,16,8);var d=g.getImageData(0,0,16,8).data,lime=0,dark=0,n=0;for(var i=0;i<d.length;i+=4){n++;var r=d[i],gc=d[i+1],b=d[i+2],a=d[i+3];if(a<12)continue;if(gc>80&&gc>r+15&&gc>b+10)lime++;else if(r<28&&gc<28&&b<28)dark++;}return lime===0&&dark>n*0.6;}catch(e){return false;}}if(reduce)showStill();else if(vid){try{vid.currentTime=0}catch(e){}function fast(){try{vid.playbackRate=2.0}catch(e){}}fast();vid.addEventListener("loadedmetadata",fast);vid.addEventListener("play",fast);vid.addEventListener("error",showStill);var play=vid.play();if(play&&play.catch)play.catch(function(){showStill()});if(ios){setTimeout(function(){if(blackFrame())showStill();},350);setTimeout(function(){if(blackFrame())showStill();},800);}}var started=Date.now(),MIN=2000,arm=false;function hide(){if(arm)return;arm=true;setTimeout(finish,Math.max(0,MIN-(Date.now()-started)));}function finish(){try{sessionStorage.setItem("grunionsBoot","1")}catch(e){}el.classList.add("gone");setTimeout(function(){if(el.parentNode)el.remove()},reduce?480:760);}if(document.readyState==="complete")hide();else window.addEventListener("load",hide);setTimeout(hide,8000);})();</script>
 <script>
-/* regulars23: post the RSVP immediately, then keep the 2.6s pass visible. */
+/* regulars23: post the RSVP immediately, keep the 2.6s pass on the same boxes, and do not navigate. */
 (function () {
   var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var RSVP = {going:1, notgoing:1, clear:1, interested:1, social_join:1, social_leave:1};
   var CHECK = '<svg class="rsvpcheck" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>';
-  function paintChosen(button) {
-    var label = button.querySelector(".sweep-label");
-    if (!label) return;
-    if (!label.querySelector(".rsvpcheck")) label.insertAdjacentHTML("afterbegin", CHECK);
-    if (button.value === "social_join") {
-      var node = label.lastChild;
-      while (node && node.nodeType !== 3) node = node.previousSibling;
-      if (node) node.nodeValue = "Joined";
-    }
-    var form = button.form;
-    if (!form) return;
-    Array.prototype.forEach.call(form.querySelectorAll("button"), function (other) {
-      if (other === button) return;
-      other.style.pointerEvents = "none";
-      var mark = other.querySelector(".rsvpcheck");
-      if (mark) mark.remove();
-      other.classList.remove("btn-primary");
-      if (!other.classList.contains("btn-secondary") && !other.classList.contains("primary")) other.classList.add("btn-secondary");
+  function textOf(el) { return (el.textContent || "").replace(/\\s+/g, " ").trim(); }
+  function field(form, name) {
+    var el = form.querySelector('input[name="' + name + '"]');
+    return el ? el.value : "";
+  }
+  function matchingForms(root, pid, eid) {
+    return Array.prototype.filter.call(root.querySelectorAll("form"), function (f) {
+      return (pid && field(f, "pid") === pid) || (eid && field(f, "event_id") === eid);
     });
   }
-  function destination(form, resUrl) {
-    var url = resUrl || location.href;
-    try {
-      var u = new URL(url, location.href);
-      var pid = form.querySelector('input[name=pid]');
-      var back = form.querySelector('input[name=back]');
-      if (pid && u.pathname === "/practices" && location.pathname.indexOf("/home") < 0 && (!back || back.value !== "page")) u.hash = "p" + pid.value;
-      return u.href;
-    } catch (e) { return url; }
+  function goingSpan(root) {
+    var spans = root.querySelectorAll(".nxrow span");
+    for (var i = 0; i < spans.length; i++) if (/\\d+ going/.test(spans[i].textContent)) return spans[i];
+    return null;
   }
-  document.addEventListener("click", function (event) {
-    var button = event.target.closest && event.target.closest("[data-sweep]");
-    if (!button) return;
-    if (button.value === "clear" || button.value === "social_leave" || button.value === "notgoing" || button.value === "interested") return;
-    if (reduce) return;
-    if (button.dataset.sweeping) { event.preventDefault(); event.stopPropagation(); return; }
+  function showError() {
+    var old = document.querySelector(".toast.rsvperr");
+    if (old) old.remove();
+    var t = document.createElement("div");
+    t.className = "toast noprint rsvperr";
+    t.setAttribute("role", "status");
+    t.textContent = "Couldn't save that. Try again.";
+    var main = document.querySelector("main") || document.body;
+    main.insertBefore(t, main.firstChild);
+    window.setTimeout(function () { if (t.parentNode) t.remove(); }, 3200);
+  }
+  function snapshot(form) {
+    return Array.prototype.map.call(form.querySelectorAll('button[name="action"]'), function (b) {
+      return {button: b, className: b.className, value: b.value, html: b.innerHTML, sweep: b.hasAttribute("data-sweep")};
+    });
+  }
+  function restore(form, snap) {
+    var host = form.querySelector(".sweep-host");
+    if (host) {
+      var btn = host.querySelector("button");
+      if (btn) host.parentNode.insertBefore(btn, host);
+      host.remove();
+    }
+    snap.forEach(function (s) {
+      if (!s.button.isConnected) return;
+      s.button.className = s.className;
+      s.button.value = s.value;
+      s.button.innerHTML = s.html;
+      if (s.sweep) s.button.setAttribute("data-sweep", "");
+      else s.button.removeAttribute("data-sweep");
+      delete s.button.dataset.sweeping;
+      s.button.style.pointerEvents = "";
+      s.button.style.flex = "";
+      s.button.style.width = "";
+      s.button.style.minWidth = "";
+      s.button.style.maxWidth = "";
+    });
+    delete form.dataset.rsvpBusy;
+  }
+  function paintButton(btn, label, wantCheck) {
+    var layers = btn.querySelector(".sweep-clip");
+    btn.querySelectorAll(".rsvpcheck").forEach(function (n) { n.remove(); });
+    var textNode = null;
+    Array.prototype.forEach.call(btn.childNodes, function (n) {
+      if (n.nodeType === 3) textNode = n;
+    });
+    if (!textNode) {
+      textNode = document.createTextNode("");
+      var labelEl = btn.querySelector(".sweep-label");
+      (labelEl || btn).appendChild(textNode);
+    }
+    textNode.nodeValue = label;
+    if (wantCheck) {
+      var parent = btn.querySelector(".sweep-label") || btn;
+      parent.insertAdjacentHTML("afterbegin", CHECK);
+    }
+    if (layers && layers.parentNode !== btn) btn.insertBefore(layers, btn.firstChild);
+  }
+  function syncButtons(localForm, freshForm) {
+    var fresh = Array.prototype.slice.call(freshForm.querySelectorAll('button[name="action"]'));
+    Array.prototype.forEach.call(localForm.querySelectorAll('button[name="action"]'), function (local, idx) {
+      var match = fresh[idx];
+      if (!match) return;
+      if (local.dataset.sweeping === "playing") {
+        local.dataset.finalClass = match.className;
+        local.dataset.finalValue = match.value;
+        local.dataset.finalSweep = match.hasAttribute("data-sweep") ? "1" : "";
+        local.dataset.finalCheck = match.querySelector(".rsvpcheck") ? "1" : "";
+        local.dataset.finalLabel = textOf(match);
+        return;
+      }
+      local.className = match.className;
+      local.value = match.value;
+      if (match.hasAttribute("data-sweep")) local.setAttribute("data-sweep", "");
+      else local.removeAttribute("data-sweep");
+      paintButton(local, textOf(match), !!match.querySelector(".rsvpcheck"));
+    });
+  }
+  function applyHtml(html, pid, eid) {
+    var doc = new DOMParser().parseFromString(html, "text/html");
+    var freshForms = matchingForms(doc, pid, eid);
+    var localForms = matchingForms(document, pid, eid);
+    function signature(form) {
+      return Array.prototype.map.call(form.querySelectorAll('button[name="action"]'), function (b) {
+        var t = textOf(b);
+        if (t === "Join" || t === "Joined") return "social";
+        if (t === "Going" || t === "Waitlist" || t === "Join waitlist") return "going";
+        if (t === "Not going") return "not";
+        if (t === "Interested") return "interested";
+        return t;
+      }).join("|");
+    }
+    localForms.forEach(function (local) {
+      var key = signature(local);
+      var fresh = null;
+      for (var i = 0; i < freshForms.length; i++) if (signature(freshForms[i]) === key) { fresh = freshForms[i]; break; }
+      if (!fresh) return;
+      syncButtons(local, fresh);
+      var card = local.closest(".card");
+      var freshCard = fresh.closest(".card");
+      if (card && freshCard) {
+        var a = goingSpan(card), b = goingSpan(freshCard);
+        if (a && b) a.textContent = b.textContent;
+      }
+    });
+    if (location.pathname.indexOf("/practices/") === 0 || location.pathname.indexOf("/lineup/") === 0) {
+      var lb = document.querySelectorAll(".stattile b"), fb = doc.querySelectorAll(".stattile b");
+      if (lb.length && lb.length === fb.length) {
+        for (var i = 0; i < lb.length; i++) lb[i].textContent = fb[i].textContent;
+      }
+      function joining(root) {
+        var nodes = root.querySelectorAll("div");
+        for (var i = 0; i < nodes.length; i++) if (/^\\d+ joining$/.test(nodes[i].textContent.trim())) return nodes[i];
+        return null;
+      }
+      var ja = joining(document), jb = joining(doc);
+      if (ja && jb) ja.textContent = jb.textContent.trim();
+    }
+  }
+  function settle(button) {
     var form = button.form;
-    if (!form) return;
-    event.preventDefault();
-    event.stopPropagation();
+    var host = button.parentNode;
+    if (host && host.classList && host.classList.contains("sweep-host")) {
+      host.parentNode.insertBefore(button, host);
+      host.remove();
+    }
+    button.querySelectorAll(".sweep-clip").forEach(function (n) { n.remove(); });
+    var label = button.querySelector(".sweep-label");
+    if (label) {
+      while (label.firstChild) button.insertBefore(label.firstChild, label);
+      label.remove();
+    }
+    if (button.dataset.finalClass) {
+      button.className = button.dataset.finalClass;
+      button.value = button.dataset.finalValue || button.value;
+      if (button.dataset.finalSweep) button.setAttribute("data-sweep", "");
+      else button.removeAttribute("data-sweep");
+      paintButton(button, button.dataset.finalLabel || textOf(button), button.dataset.finalCheck === "1");
+    }
+    delete button.dataset.sweeping;
+    button.style.pointerEvents = "";
+    button.style.flex = "";
+    button.style.width = "";
+    button.style.minWidth = "";
+    button.style.maxWidth = "";
+    if (form) {
+      Array.prototype.forEach.call(form.querySelectorAll("button"), function (other) {
+        other.style.pointerEvents = "";
+        other.style.flex = "";
+        other.style.width = "";
+        other.style.minWidth = "";
+        other.style.maxWidth = "";
+      });
+      delete form.dataset.rsvpBusy;
+    }
+  }
+  function lockRow(form, button) {
+    Array.prototype.forEach.call(form.querySelectorAll(":scope > button.btn"), function (el) {
+      var w = el.getBoundingClientRect().width;
+      el.style.flex = "0 0 " + w + "px";
+      el.style.width = w + "px";
+      el.style.minWidth = w + "px";
+      el.style.maxWidth = w + "px";
+    });
+    var held = button.getBoundingClientRect().width;
+    return held;
+  }
+  function startSweep(button) {
+    var form = button.form;
+    var held = lockRow(form, button);
     button.classList.add("primary");
     button.classList.remove("btn-secondary");
     button.dataset.sweeping = "playing";
     button.classList.add("is-sweeping");
-    var data = new FormData(form);
-    if (button.name) data.set(button.name, button.value);
-    var action = form.getAttribute("action") || location.href;
-    var pending = {html: "", url: "", ok: false, done: false};
-    var navAt = (typeof grunionsNavGen === "number") ? grunionsNavGen : 0;
-    var scrollY = window.scrollY || 0;
-    fetch(action, {method: "POST", body: data, credentials: "same-origin", redirect: "follow", headers: {Accept: "text/html"}})
-      .then(function (res) { pending.ok = res.ok; pending.url = res.url || location.href; return res.text(); })
-      .then(function (html) { pending.html = html; pending.done = true; })
-      .catch(function () { pending.done = true; });
     if (!button.querySelector(".sweep-label")) {
       var label = document.createElement("span");
       label.className = "sweep-label";
@@ -938,26 +1075,60 @@ dialog.memberedit .help a{color:var(--t1)}
       button.parentNode.insertBefore(host, button);
       host.appendChild(button);
     }
+    host.style.flex = "0 0 " + held + "px";
+    host.style.width = held + "px";
+    host.style.minWidth = held + "px";
+    host.style.maxWidth = held + "px";
+    button.style.flex = "1 1 auto";
+    button.style.width = "100%";
+    button.style.minWidth = "0";
+    button.style.maxWidth = "none";
     if (!host.querySelector(".sweep-halo")) {
       host.insertAdjacentHTML("afterbegin", '<span class="sweep-halo" aria-hidden="true"><span class="sweep-rim sweep-rim-soft"></span><span class="sweep-rim sweep-rim-tight"></span><span class="sweep-rim sweep-rim-tight"></span></span>');
     }
-    paintChosen(button);
-    window.setTimeout(function finish() {
+    var labelEl = button.querySelector(".sweep-label");
+    if (labelEl && !labelEl.querySelector(".rsvpcheck")) labelEl.insertAdjacentHTML("afterbegin", CHECK);
+    if (button.value === "social_join") {
+      var node = labelEl && labelEl.lastChild;
+      while (node && node.nodeType !== 3) node = node.previousSibling;
+      if (node) node.nodeValue = "Joined";
+    }
+    Array.prototype.forEach.call(form.querySelectorAll("button"), function (other) {
+      if (other === button) return;
+      other.style.pointerEvents = "none";
+    });
+  }
+  function save(button, sweep) {
+    var form = button.form;
+    var pid = field(form, "pid"), eid = field(form, "event_id");
+    var snap = snapshot(form);
+    if (sweep) startSweep(button);
+    var data = new FormData(form);
+    if (button.name) data.set(button.name, button.value);
+    var action = form.getAttribute("action") || location.href;
+    var pending = {ok: false, html: "", done: false};
+    fetch(action, {method: "POST", body: data, credentials: "same-origin", redirect: "follow", headers: {Accept: "text/html"}})
+      .then(function (res) { return res.text().then(function (html) { if (!res.ok) throw new Error("save"); pending.ok = true; pending.html = html; }); })
+      .then(function () { pending.done = true; if (pending.ok) applyHtml(pending.html, pid, eid); })
+      .catch(function () { pending.done = true; pending.ok = false; });
+    function finish() {
       if (!pending.done) { window.setTimeout(finish, 40); return; }
-      button.dataset.sweeping = "played";
-      if (!button.isConnected) return;
-      if (typeof grunionsNavGen === "number" && grunionsNavGen !== navAt) return;
-      if (!pending.ok || !pending.html) { location.reload(); return; }
-      var url = destination(form, pending.url);
-      if (typeof grunionsApply === "function") {
-        try {
-          grunionsApply(pending.html, url, false, false);
-          if (url.indexOf("#") < 0) scrollTo(0, scrollY);
-          return;
-        } catch (err) {}
-      }
-      location.assign(url);
-    }, 2600);
+      if (!pending.ok) { restore(form, snap); showError(); return; }
+      if (sweep) settle(button);
+      else delete form.dataset.rsvpBusy;
+    }
+    if (sweep) window.setTimeout(finish, 2640);
+    else finish();
+  }
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest && event.target.closest('button[name="action"]');
+    if (!button || !button.form || !RSVP[button.value]) return;
+    if (button.dataset.sweeping || button.form.dataset.rsvpBusy) { event.preventDefault(); event.stopPropagation(); return; }
+    event.preventDefault();
+    event.stopPropagation();
+    var sweep = !reduce && button.hasAttribute("data-sweep") && (button.value === "going" || button.value === "social_join");
+    button.form.dataset.rsvpBusy = "1";
+    save(button, sweep);
   }, true);
 })();
 </script>
