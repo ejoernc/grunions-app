@@ -38,10 +38,10 @@ body:has(#chat) main{flex:1;min-width:0;width:100%;max-width:640px;min-height:0;
 ::view-transition-group(grunions-header){animation:none;overflow:clip}
 ::view-transition-old(grunions-header){display:none}
 ::view-transition-new(grunions-header){animation:none;mix-blend-mode:normal}
-#boot{position:fixed;inset:0;width:100%;height:100dvh;z-index:80;display:flex;align-items:center;justify-content:center;background:#0A0D0A;overflow:hidden;isolation:isolate;transition:opacity .7s ease}
+#boot{position:fixed;top:0;left:0;right:0;height:100dvh;z-index:80;display:flex;align-items:center;justify-content:center;background:#0A0D0A;overflow:hidden;isolation:isolate;transition:opacity .7s ease}
 #boot.gone{opacity:0;pointer-events:none}
-#boot .mark{width:170px;height:84px;flex:none}
-#boot video,#boot .bootstill{width:170px;height:84px;display:block;object-fit:contain;background:transparent;aspect-ratio:726/360}
+#boot .mark{width:186px;height:calc(186px * 360 / 726);flex:none;line-height:0;transform:translateY(calc((env(safe-area-inset-bottom) - env(safe-area-inset-top)) / 2))}
+#boot video,#boot .bootstill{width:186px;height:calc(186px * 360 / 726);display:block;margin:0;object-fit:fill;object-position:center;background:transparent;aspect-ratio:726/360}
 #boot .bootstill{display:none}
 #boot.bootstill video{display:none}
 #boot.bootstill .bootstill{display:block}
