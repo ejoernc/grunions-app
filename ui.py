@@ -893,6 +893,15 @@ dialog.memberedit .help a{color:var(--t1)}
       return (pid && field(f, "pid") === pid) || (eid && field(f, "event_id") === eid);
     });
   }
+  function isSocialForm(form) {
+    var buttons = form.querySelectorAll('button[name="action"]');
+    if (!buttons.length) return false;
+    for (var i = 0; i < buttons.length; i++) if (choiceOf(buttons[i]) !== "social") return false;
+    return true;
+  }
+  function groupForms(root, pid, eid, social) {
+    return matchingForms(root, pid, eid).filter(function (f) { return isSocialForm(f) === social; });
+  }
   function goingSpan(root) {
     var spans = root.querySelectorAll(".nxrow span");
     for (var i = 0; i < spans.length; i++) if (/\\d+ going/.test(spans[i].textContent)) return spans[i];
@@ -928,6 +937,10 @@ dialog.memberedit .help a{color:var(--t1)}
       s.button.innerHTML = s.html;
       if (s.sweep) s.button.setAttribute("data-sweep", "");
       else s.button.removeAttribute("data-sweep");
+      var clip = s.button.querySelector(".sweep-clip");
+      if (clip) clip.remove();
+      var label = s.button.querySelector(".sweep-label");
+      if (label) { while (label.firstChild) s.button.insertBefore(label.firstChild, label); label.remove(); }
       delete s.button.dataset.sweeping;
       s.button.style.pointerEvents = "";
       s.button.style.flex = "";
@@ -1065,10 +1078,10 @@ dialog.memberedit .help a{color:var(--t1)}
       paintButton(local, textOf(match), !!match.querySelector(".rsvpcheck"));
     });
   }
-  function applyHtml(html, pid, eid) {
+  function applyHtml(html, pid, eid, social) {
     var doc = new DOMParser().parseFromString(html, "text/html");
-    var freshForms = matchingForms(doc, pid, eid);
-    var localForms = matchingForms(document, pid, eid);
+    var freshForms = groupForms(doc, pid, eid, social);
+    var localForms = groupForms(document, pid, eid, social);
     function signature(form) {
       return Array.prototype.map.call(form.querySelectorAll('button[name="action"]'), function (b) {
         var t = textOf(b);
@@ -1087,16 +1100,18 @@ dialog.memberedit .help a{color:var(--t1)}
       syncButtons(local, fresh);
       var card = local.closest(".card");
       var freshCard = fresh.closest(".card");
-      if (card && freshCard) {
+      if (!social && card && freshCard) {
         var a = goingSpan(card), b = goingSpan(freshCard);
         if (a && b) a.textContent = b.textContent;
       }
     });
-    if (location.pathname.indexOf("/practices/") === 0 || location.pathname.indexOf("/lineup/") === 0) {
+    if (!social && (location.pathname.indexOf("/practices/") === 0 || location.pathname.indexOf("/lineup/") === 0)) {
       var lb = document.querySelectorAll(".stattile b"), fb = doc.querySelectorAll(".stattile b");
       if (lb.length && lb.length === fb.length) {
         for (var i = 0; i < lb.length; i++) lb[i].textContent = fb[i].textContent;
       }
+    }
+    if (social && location.pathname.indexOf("/practices/") === 0) {
       function joining(root) {
         var nodes = root.querySelectorAll("div");
         for (var i = 0; i < nodes.length; i++) if (/^\\d+ joining$/.test(nodes[i].textContent.trim())) return nodes[i];
@@ -1196,32 +1211,42 @@ dialog.memberedit .help a{color:var(--t1)}
       while (node && node.nodeType !== 3) node = node.previousSibling;
       if (node) node.nodeValue = "Joined";
     }
-    Array.prototype.forEach.call(form.querySelectorAll("button"), function (other) {
-      if (other === button) return;
-      other.style.pointerEvents = "none";
-    });
   }
   var rsvpGen = {};
+  var rsvpAbort = {};
   function save(button, sweep) {
     var form = button.form;
     var pid = field(form, "pid"), eid = field(form, "event_id");
-    var key = pid ? ("p" + pid) : ("e" + eid);
-    var gen = (rsvpGen[key] || 0) + 1;
-    rsvpGen[key] = gen;
+    var social = isSocialForm(form);
+    var key = (pid ? ("p" + pid) : ("e" + eid)) + (social ? ":social" : ":rsvp");
     var posted = button.value;
-    var forms = matchingForms(document, pid, eid);
+    var forms = groupForms(document, pid, eid, social);
     if (!forms.length) forms = [form];
+    if (rsvpGen[key] == null) {
+      var floor = 0;
+      forms.forEach(function (f) {
+        var v = parseInt(field(f, "rsvp_base"), 10);
+        if (v > floor) floor = v;
+      });
+      rsvpGen[key] = floor;
+    }
+    var gen = rsvpGen[key] + 1;
+    rsvpGen[key] = gen;
     var snaps = forms.map(function (f) { return {form: f, snap: snapshot(f)}; });
     cancelSweeps(forms);
     showExclusive(forms, button, posted);
     if (sweep) startSweep(button);
     var data = new FormData(form);
     if (button.name) data.set(button.name, posted);
+    data.set("rsvp_seq", String(gen));
     var action = form.getAttribute("action") || location.href;
     var pending = {ok: false, html: "", done: false};
-    fetch(action, {method: "POST", body: data, credentials: "same-origin", redirect: "follow", headers: {Accept: "text/html"}})
+    if (rsvpAbort[key]) rsvpAbort[key].abort();
+    var ctrl = new AbortController();
+    rsvpAbort[key] = ctrl;
+    fetch(action, {method: "POST", body: data, credentials: "same-origin", redirect: "follow", headers: {Accept: "text/html"}, signal: ctrl.signal})
       .then(function (res) { return res.text().then(function (html) { if (!res.ok) throw new Error("save"); pending.ok = true; pending.html = html; }); })
-      .then(function () { pending.done = true; if (pending.ok && rsvpGen[key] === gen) applyHtml(pending.html, pid, eid); })
+      .then(function () { pending.done = true; if (pending.ok && rsvpGen[key] === gen) applyHtml(pending.html, pid, eid, social); })
       .catch(function () {
         pending.done = true;
         pending.ok = false;
@@ -1248,7 +1273,15 @@ dialog.memberedit .help a{color:var(--t1)}
   document.addEventListener("click", function (event) {
     var button = event.target.closest && event.target.closest('button[name="action"]');
     if (!button || !button.form || !RSVP[button.value]) return;
-    if (button.dataset.sweeping === "playing") { event.preventDefault(); event.stopPropagation(); return; }
+    if (button.dataset.sweeping === "playing") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (choiceOf(button) !== "social") return;
+      delete button.dataset.sweeping;
+      button.value = "social_leave";
+      save(button, false);
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     var sweep = !reduce && button.hasAttribute("data-sweep") && (button.value === "going" || button.value === "social_join");
@@ -1363,6 +1396,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {%- set sweep = (not selected) and on_value == 'going' and label == 'Going' -%}
 <button class="btn {{ 'btn-primary' if selected else 'btn-secondary' }}"{% if sweep %} data-sweep{% endif %} name=action value="{{ 'clear' if selected else on_value }}">{% if selected %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ label }}</button>
 {%- endmacro %}
+{% macro rsvp_base(key) -%}<input type=hidden name=rsvp_base value="{{ (session.get('rsvp_seq') or {}).get(key, 0) }}">{%- endmacro %}
 {% macro glyph_clock() %}<svg class="nxglyph" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg>{% endmacro %}
 {% macro glyph_pin() %}<svg class="nxglyph" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,64a40,40,0,1,0,40,40A40,40,0,0,0,128,64Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,128Zm0-112a88.1,88.1,0,0,0-88,88c0,31.4,14.51,64.68,42,96.25a254.19,254.19,0,0,0,41.45,38.3,8,8,0,0,0,9.18,0A254.19,254.19,0,0,0,174,200.25c27.45-31.57,42-64.85,42-96.25A88.1,88.1,0,0,0,128,16Zm0,206c-16.53-13-72-60.75-72-118a72,72,0,0,1,144,0C200,161.23,144.53,209,128,222Z"/></svg>{% endmacro %}
 {% macro glyph_people() %}<svg class="nxglyph" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.7a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,37.71A8,8,0,0,1,250.14,206.7Z"/></svg>{% endmacro %}
@@ -1462,7 +1496,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% if e.city %}<div class=nxrow>{{ glyph_pin() }}<span>{{ e.city }}</span></div>{% endif %}
 <div class=nxrow>{{ glyph_people() }}<span>{{ e.count_line }}</span></div></div></div></a>
 {% if e.status != 'published' %}<div class="t3 sm">{{ e.status_label }}{% if e.review_note %} · {{ e.review_note }}{% endif %}</div>{% else %}
-<form method=post action=/lineup class="pills rsvprow">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><input type=hidden name=back value="{{ back }}">
+<form method=post action=/lineup class="pills rsvprow">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><input type=hidden name=back value="{{ back }}">{{ rsvp_base('e' ~ e.id) }}
 {{ rsvp_btn('Interested', e.mine == 'interested', 'interested') }}
 {{ rsvp_btn('Going', e.mine == 'going', 'going') }}
 {{ rsvp_btn('Not going', e.mine == 'notgoing', 'notgoing') }}</form>{% endif %}
@@ -3042,7 +3076,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ nextev.when }}</span></div>
 {% if nextev.where %}<div class=nxrow>{{ glyph_pin() }}<span>{{ nextev.where }}</span></div>{% endif %}
 <div class=nxrow>{{ glyph_people() }}<span>{{ nextev.count_line }} · {{ nextev.host_line }}</span></div></div></div></a></div>
-<form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ nextev.id }}><input type=hidden name=back value=/home>
+<form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ nextev.id }}><input type=hidden name=back value=/home>{{ rsvp_base('e' ~ nextev.id) }}
 {{ rsvp_btn('Going', nextev.mine == 'going', 'going') }}
 {{ rsvp_btn('Not going', nextev.mine == 'notgoing', 'notgoing') }}</form>
 </div>{% elif nextp %}{% set sh = social_home(nextp) %}<div class="card tap nextcard{% if nextp.cancelled %} cancelled{% endif %}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label,.drivechip,.nxmap'))return;location.href='/practices/{{nextp.id}}'">
@@ -3057,12 +3091,12 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <div class=nxrow>{{ glyph_pin() }}<span>{{ nextp.location }}</span></div>
 <div class=nxrow>{{ glyph_people() }}<span>{{ practice_going_line(nextp_n, nextp) }}</span></div></div></div>
 {% if nextp.coach_note %}<div class=nxnote>{{ nextp.coach_note }} · {{ nextp.coach_note_by }} · {{ fmt_stamp(nextp.coach_note_at) }}</div>{% endif %}</a></div>
-<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
+<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>{{ rsvp_base('p' ~ nextp.id) }}
 {{ rsvp_btn('Going', nextp_mine==1, 'going') }}
 {{ rsvp_btn('Not going', nextp_mine==0, 'notgoing') }}</form>
 {% if sh %}<div class=nxdiv></div><div class=nxsocial><a class=cardlink href="/practices/{{nextp.id}}" style="display:flex;align-items:center;gap:12px">{{ social_icon() }}
 <div class=grow><div class=nxtitle>{{ sh.title }}</div><div class="t2 sm">{{ sh.place }}</div></div></a>
-<form method=post action=/practices>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
+<form method=post action=/practices>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>{{ rsvp_base('ps' ~ nextp.id) }}
 <button class="btn {{ 'btn-primary' if next_joined else 'btn-secondary' }}"{% if not next_joined %} data-sweep{% endif %} name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ 'Joined' if next_joined else 'Join' }}</button></form></div>{% endif %}
 </div>{% endif %}
 </div>
@@ -3078,7 +3112,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {% if p.cancelled %}{{ st('bad','Cancelled') }}{% if p.cancel_reason %}<div class="t3 sm">{{ p.cancel_reason }}</div>{% endif %}{% endif %}
 {% if p.note %}<div class=nxnote>{{p.note}}</div>{% endif %}
 {% if p.coach_note %}<div class=nxnote>{{ p.coach_note }} · {{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</div>{% endif %}</a>
-{% if not p.cancelled %}<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{p.id}}>
+{% if not p.cancelled %}<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{p.id}}>{{ rsvp_base('p' ~ p.id) }}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>
 {% endif %}</div>{% endfor %}
@@ -3822,7 +3856,7 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.capacity %}<div class=stattile><b>{{ e.capacity }}</b><span>Spots</span></div>{% else %}<div class=stattile><b>{{ e.days }}</b><span>Days</span></div>{% endif %}
 </div>
 </div>
-{% if e.status == 'published' %}<form method=post action="/lineup/{{ e.id }}" class="pills rsvprow">{{ csrf_field() }}
+{% if e.status == 'published' %}<form method=post action="/lineup/{{ e.id }}" class="pills rsvprow">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>{{ rsvp_base('e' ~ e.id) }}
 {% set going_label = 'Join waitlist' if e.full and e.mine != 'going' and e.mine != 'waitlist' else ('Waitlist' if e.mine == 'waitlist' else 'Going') %}
 {{ rsvp_btn('Interested', e.mine == 'interested', 'interested') }}
 {{ rsvp_btn(going_label, e.mine == 'going' or e.mine == 'waitlist', 'going') }}
@@ -4394,7 +4428,7 @@ T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp
 {% if p.cancelled %}{{ st('bad','Cancelled') }}{% if p.cancel_reason %}<div class="t3 sm">{{ p.cancel_reason }}</div>{% endif %}{% endif %}
 {% if p.note %}<div class=nxnote>{{p.note}}</div>{% endif %}
 {% if p.coach_note %}<div class=nxnote>{{ p.coach_note }} · {{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</div>{% endif %}</a>
-{% if not p.cancelled %}<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{p.id}}>
+{% if not p.cancelled %}<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{p.id}}>{{ rsvp_base('p' ~ p.id) }}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>
 {% endif %}</div>{% endfor %}
@@ -4502,7 +4536,7 @@ T["practice"] = """{% set p = x.p %}
 {% endif %}
 {% else %}
 {% set spin = namespace(p=None) %}
-{% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=pills style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+{% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=pills style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>{{ rsvp_base('p' ~ p.id) }}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>{% endif %}
 <div class=seclabel>Details</div>

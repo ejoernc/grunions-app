@@ -2862,10 +2862,25 @@ def redirect_practice(pid, action):
     if action == "delete" or not pid: return redirect("/practices")
     if request.form.get("back") == "page": return redirect("/practices/%s" % pid)
     return redirect("/practices#p%s" % pid)
+def rsvp_seq_fresh(key):
+    """True when this RSVP is the newest tap for that practice or event.
+    A missing sequence still applies, so older clients and tests keep working."""
+    raw = request.form.get("rsvp_seq")
+    if raw is None or raw == "": return True
+    try: seq = int(raw)
+    except (TypeError, ValueError): return True
+    book = session.get("rsvp_seq") or {}
+    if seq <= int(book.get(key) or 0): return False
+    book[key] = seq
+    session["rsvp_seq"] = book
+    session.modified = True
+    return True
 def handle_practice_post(d):
     """RSVP and admin actions for a practice. Returns the redirect."""
     a = request.form.get("action"); pid = request.form.get("pid", type=int)
     if pid and not d.execute("SELECT 1 FROM practices WHERE id=?", (pid,)).fetchone() and a != "add": abort(404)
+    if a in ("going", "notgoing", "clear", "social_join", "social_leave") and pid and not rsvp_seq_fresh(("ps%d" % pid) if a in ("social_join", "social_leave") else ("p%d" % pid)):
+        return redirect_practice(pid, a)
     new_id = None
     if a in ("going", "notgoing", "clear"):
         if a == "clear": d.execute("DELETE FROM rsvps WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
@@ -3841,6 +3856,8 @@ def lineup():
                 d.execute("UPDATE lineup_events SET team_intent='official', team_plan='committed', stage='going', status=CASE WHEN status IS NULL OR status='' OR status='draft' THEN 'published' ELSE status END WHERE id=?", (eid,))
                 d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "official"); d.commit()
             return redirect(back if back.startswith("/lineup/") else "/lineup/%d" % eid)
+        if action in ("interested", "going", "notgoing", "clear") and not rsvp_seq_fresh("e%d" % eid):
+            return redirect(back)
         try: set_lineup_rsvp(d, row, action)
         except ValueError as e:
             flash(str(e)); return redirect(back)
@@ -3898,6 +3915,8 @@ def lineup_detail(eid):
             if (row["team_intent"] or "") == "considering":
                 d.execute("UPDATE lineup_events SET team_intent='official', team_plan='committed', stage='going', status=CASE WHEN status IS NULL OR status='' OR status='draft' THEN 'published' ELSE status END WHERE id=?", (eid,))
                 d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "official"); d.commit()
+            return redirect("/lineup/%d" % eid)
+        if action in ("interested", "going", "notgoing", "clear") and not rsvp_seq_fresh("e%d" % eid):
             return redirect("/lineup/%d" % eid)
         try: set_lineup_rsvp(d, row, action)
         except ValueError as e:
