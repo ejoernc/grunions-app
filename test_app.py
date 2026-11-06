@@ -269,6 +269,9 @@ eli.post(f"/api/messages/{mid0}/react", json={"emoji": "🤽"}, headers={"X-CSRF
 ok(jane.get("/api/reactions?c=team").get_json()[str(mid0)]["🤽"] == {"n": 2, "mine": True}, "reaction counts via polling endpoint")
 jane.post(f"/api/messages/{mid0}/react", json={"emoji": "🤽"}, headers={"X-CSRF": tj3})
 ok(jane.get("/api/reactions?c=team").get_json()[str(mid0)]["🤽"] == {"n": 1, "mine": False}, "toggle own reaction off")
+_rx_msgs = jane.get("/api/messages?after=0").get_json()
+_rx_hit = next(m for m in _rx_msgs if m["id"] == mid0)
+ok(_rx_hit["rx"]["🤽"] == {"n": 1, "mine": False} and all("rx" in m for m in _rx_msgs) and "rxHtml(m.id,m.rx)" in jane.get("/chat").get_data(as_text=True), "reactions travel with each message so the first paint includes them")
 ok(jane.post(f"/api/messages/{mid0}/react", json={"emoji": "nope"}, headers={"X-CSRF": tj3}).status_code == 400, "a word is not a reaction")
 cmid = eli.get("/api/messages?c=coaches").get_json()[-1]["id"]
 ok(jane.post(f"/api/messages/{cmid}/react", json={"emoji": "👍"}, headers={"X-CSRF": tj3}).status_code == 403 and jane.get("/api/reactions?c=coaches").status_code == 403, "no reactions on private channel for members")

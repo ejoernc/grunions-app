@@ -2964,7 +2964,7 @@ function chatWhen(iso, now){
  return p.weekday+' '+clock+' '+p.dayPeriod;
 }
 const t=iso=>chatWhen(iso);
-function rxHtml(id,r){r=r||{};return Object.keys(r).map(e=>`<button type=button class="${r[e].mine?'on':''}" data-m=${id} data-e="${esc(e)}">${e} ${r[e].n}</button>`).join('')}
+function rxHtml(id,r){r=r||{};return Object.keys(r).sort().map(e=>`<button type=button class="${r[e].mine?'on':''}" data-m=${id} data-e="${esc(e)}">${e} ${r[e].n}</button>`).join('')}
 function safeHttp(url){
  var u=String(url||'');
  if(/^www\\./i.test(u)) u='https://'+u;
@@ -3036,8 +3036,9 @@ function fill(d,m){
  d.className='m'+(m.mine?' mine':'')+(m.ann&&!m.deleted?' ann':'');
  d.dataset.g='';
  var html=(m.deleted?'':`<button type=button class=more data-act=${m.id} aria-label="Message actions"><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></button>`)+
-  '<div class=mstack>'+bodyHtml(m)+`<div class=msgfoot><div class=rx>${rxHtml(m.id)}</div></div></div>`;
+  '<div class=mstack>'+bodyHtml(m)+`<div class=msgfoot><div class=rx>${rxHtml(m.id,m.rx)}</div></div></div>`;
  d.innerHTML=html;
+ var rxEl=d.querySelector('.rx'); if(rxEl) rxEl.dataset.h=rxHtml(m.id,m.rx);
  if(kept){ var foot=d.querySelector('.msgfoot'); if(foot) foot.appendChild(kept); else d.appendChild(kept); }}
 let grouping=false;
 function sameGroup(prev,cur){
@@ -3073,7 +3074,7 @@ function groupMessages(){
    else { var w=el.querySelector('.who'); if(w) w.remove(); }
   }
   i=j+1}}
-function mergeSeen(m){var prev=msgs[m.id];if(prev&&prev.seen&&m&&m.seen==null)m.seen=prev.seen;return m}
+function mergeSeen(m){var prev=msgs[m.id];if(prev&&prev.seen&&m&&m.seen==null)m.seen=prev.seen;if(m&&m.deleted)m.rx={};else if(m&&m.rx==null&&prev&&prev.rx)m.rx=prev.rx;return m}
 function expiredDelete(m){
  if(!m||!m.deleted) return false;
  var at=m.deleted_at?Date.parse(m.deleted_at):0;
@@ -3089,7 +3090,7 @@ function sameBubble(a,b){
  var rep=function(x){return x&&x.reply?x.reply.id+'|'+x.reply.who+'|'+x.reply.body:''};
  return a.body===b.body&&!!a.deleted===!!b.deleted&&!!a.edited===!!b.edited&&!!a.ann===!!b.ann&&a.who===b.who&&!!a.mine===!!b.mine&&a.uid===b.uid&&img(a)===img(b)&&rep(a)===rep(b)}
 function upsert(m,force){m=mergeSeen(m);if(expiredDelete(m)){dropMessage(m.id);if(!grouping)groupMessages();return}var prev=msgs[m.id];msgs[m.id]=m;const d=document.getElementById('msg'+m.id);if(!d){if(!oldest||m.id>=oldest)add(m);return}last=Math.max(last,m.id);if(!force&&d.querySelector('.editbox'))return;if(!force&&sameBubble(prev,m))return;fill(d,m);if(!grouping)groupMessages()}
-function paintRx(map){document.querySelectorAll('.m').forEach(el=>{const id=el.id.slice(3),rx=el.querySelector('.rx');if(!rx)return;const h=rxHtml(id,map[id]);if(rx.dataset.h!==h){rx.innerHTML=h;rx.dataset.h=h}})}
+function paintRx(map){var floor=last-300,rows=[].slice.call(box.querySelectorAll('.m')),pending=[];rows.forEach(function(el){var id=el.id.slice(3),rx=el.querySelector('.rx');if(!rx)return;var known=Object.prototype.hasOwnProperty.call(map,id);if(!known&&+id<=floor)return;var data=known?map[id]:{};if(msgs[id])msgs[id].rx=data;var h=rxHtml(id,data);if(rx.dataset.h===h)return;pending.push(rx,h)});if(!pending.length)return;var anchor=null,before=0,edge=box.getBoundingClientRect().top+4,follow=stick;for(var i=0;i<rows.length;i++){if(rows[i].getBoundingClientRect().bottom>edge){anchor=rows[i];before=anchor.getBoundingClientRect().top;break}}anchoring=true;box.style.overflowAnchor='none';for(var p=0;p<pending.length;p+=2){pending[p].innerHTML=pending[p+1];pending[p].dataset.h=pending[p+1]}if(follow)pinBottom();else if(anchor){var dy=anchor.getBoundingClientRect().top-before;if(dy)box.scrollTop+=dy}box.style.overflowAnchor='';requestAnimationFrame(function(){anchoring=false;if(!follow)stick=nearBottom()})}
 let pollGen=0;
 function receipt(res, rows){
  var raw=res&&res.headers?res.headers.get('X-Chat-Seen'):null, header;

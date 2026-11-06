@@ -1355,11 +1355,24 @@ def latest_seen(d, channel):
         ORDER BY id DESC LIMIT 1""", (channel,)).fetchone()
     if not latest: return None
     return seen_summary(d, channel, latest["id"], latest["member_id"])
+def reactions_for_ids(d, ids):
+    """Reaction pills for these messages, so the thread can paint them with the bubble."""
+    out = {}
+    ids = [int(i) for i in ids if i]
+    if not ids: return out
+    marks = ",".join("?" * len(ids))
+    me_id = me()["id"]
+    for x in d.execute("""SELECT message_id, emoji, COUNT(*) n, SUM(member_id=?) mine FROM reactions
+        WHERE message_id IN (%s) GROUP BY message_id, emoji""" % marks, (me_id, *ids)):
+        out.setdefault(str(x["message_id"]), {})[x["emoji"]] = {"n": x["n"], "mine": bool(x["mine"])}
+    return out
 def with_seen(d, channel, rows, info=None):
     if info is None: info = latest_seen(d, channel)
+    rx = reactions_for_ids(d, [r["id"] for r in rows])
     out = []
     for r in rows:
         item = msg_dict(r)
+        item["rx"] = {} if item["deleted"] else rx.get(str(item["id"]), {})
         if info and int(item["id"]) == int(info["id"]): item["seen"] = info
         out.append(item)
     return out
