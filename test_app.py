@@ -1686,7 +1686,9 @@ ok(D.execute("SELECT social_kind FROM practices WHERE id=?", (nid,)).fetchone()[
 eli.post("/practices/%d" % nid, data=dict(csrf=csrf(eli, "/practices/%d" % nid), pid=nid, action="edit", back="page", date=nrow[0], start=nrow[1], end=nrow[2], location=nrow[3], note=nrow[4], social_kind="Social", social_place="Clubhouse", social_address="", social_time="", social_note="", message="Warmup laps"))
 ok("Social after" in jane.get("/home").get_data(as_text=True) and "Clubhouse" in jane.get("/home").get_data(as_text=True) and "Warmup laps" in jane.get("/practices/%d" % nid).get_data(as_text=True) and "Eli Joern" in jane.get("/practices/%d" % nid).get_data(as_text=True) and line not in jane.get("/home").get_data(as_text=True), "edit mode saves the social and the coach message")
 jane.post("/practices/%d" % nid, data=dict(csrf=csrf(jane, "/home"), pid=nid, action="social_join"))
-ok(">Joined ✓<" in jane.get("/home").get_data(as_text=True) and ">1 joining<" in jane.get("/practices/%d" % nid).get_data(as_text=True), "joining a social marks the Home pill and counts on the practice page")
+_joined_home = jane.get("/home").get_data(as_text=True)
+_joined_btn = _joined_home.split("</svg>Joined</button>")[0][-500:]
+ok("</svg>Joined</button>" in _joined_home and ">Joined ✓<" not in _joined_home and "class=rsvpcheck" in _joined_btn and "M229.66,77.66" in _joined_btn and ">1 joining<" in jane.get("/practices/%d" % nid).get_data(as_text=True), "joining a social marks the Home pill and counts on the practice page")
 jane.post("/practices/%d" % nid, data=dict(csrf=csrf(jane, "/home"), pid=nid, action="social_leave"))
 ok(">Join<" in jane.get("/home").get_data(as_text=True) and ">Joined ✓<" not in jane.get("/home").get_data(as_text=True) and ">0 joining<" in jane.get("/practices/%d" % nid).get_data(as_text=True), "leaving a social clears the pill and the count")
 _soc_end = (nrow[2] or "20:30")[:5]

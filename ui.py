@@ -2527,7 +2527,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {% if sh %}<div class=nxdiv></div><div class=nxsocial><a class=cardlink href="/practices/{{nextp.id}}" style="display:flex;align-items:center;gap:12px">{{ social_icon() }}
 <div class=grow><div class=nxtitle>{{ sh.title }}</div><div class="t2 sm">{{ sh.place }}</div></div></a>
 <form method=post action=/practices>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
-<button class="btn {{ 'btn-primary' if next_joined else 'btn-secondary' }}" name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}Joined ✓{% else %}Join{% endif %}</button></form></div>{% endif %}
+<button class="btn {{ 'btn-primary' if next_joined else 'btn-secondary' }}" name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ 'Joined' if next_joined else 'Join' }}</button></form></div>{% endif %}
 </div>{% endif %}
 </div>
 <div class=schedlist id=schedule>
