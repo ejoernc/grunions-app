@@ -966,10 +966,20 @@ app.jinja_env.globals.update(REACTIONS=REACTIONS, csrf_token=csrf_token, csrf_fi
 def start_session(mid):
     session.clear(); session.permanent = True; session["mid"] = mid; csrf_token()
 
+_MACRO_AT = ui.BASE.find("{% macro")
+_BODY_AT = ui.BASE.find("<body")
+_BODY_END = ui.BASE.find(">", _BODY_AT) + 1
+_NAV_DOC = ("<!doctype html><html lang=en><head><meta charset=utf-8><title>Regulars</title></head>"
+            + ui.BASE[_BODY_AT:_BODY_END] + ui.BASE[_MACRO_AT:])
+_TABS_NAV = ui.TABS[:ui.TABS.find("<script>")]
 def page(body, tab="", **kw):
-    html = render_template_string(ui.BASE + body + ui.TABS, tab=tab, **kw)
+    """Full documents carry the shell. In-app navigation asks for the page only.
+    Both are private and uncached so RSVP, chat, and profile data stay fresh."""
+    partial = request.headers.get("X-Grunions-Nav") == "1"
+    template = (_NAV_DOC + body + _TABS_NAV) if partial else (ui.BASE + body + ui.TABS)
+    html = render_template_string(template, tab=tab, **kw)
     resp = Response(html, mimetype="text/html; charset=utf-8")
-    resp.headers["Cache-Control"] = "no-store"
+    resp.headers["Cache-Control"] = "private, no-store"
     return resp
 
 # ---------- public: signup + login ----------
@@ -1558,14 +1568,24 @@ def api_reactions():
     ch = request.args.get("c", "team")
     if ch not in ("team", "coaches") or not can_read(ch): abort(403)
     return jsonify(reactions_for(db(), ch))
+def chat_page_messages(d, ch, limit=50):
+    """The same first page the thread would fetch, so chat can paint without a second round trip."""
+    info = latest_seen(d, ch)
+    rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first,
+      rm.body AS reply_body, rm.deleted AS reply_deleted, rm.image AS reply_image,
+      rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM + """
+      WHERE m.id>? AND m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT ?""",
+      (0, ch, deleted_cutoff(), limit)).fetchall()
+    return with_seen(d, ch, list(reversed(rows)), info)
 @app.route("/chat")
 @login_required
 def chat():
     ch = request.args.get("c", "team")
     if ch == "coaches" and not is_staff(): abort(403)
     if ch not in ("team", "coaches"): ch = "team"
-    mark_chat_read(db(), me()["id"], ch)
-    return page(T["chat"], tab="chat", ch=ch)
+    d = db()
+    mark_chat_read(d, me()["id"], ch)
+    return page(T["chat"], tab="chat", ch=ch, chat_seed=chat_page_messages(d, ch, 50))
 @app.route("/api/messages", methods=["GET", "POST"])
 @login_required
 def api_messages():

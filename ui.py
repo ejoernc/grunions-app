@@ -1949,7 +1949,7 @@ function grunionsRestoreHomeMap(main){
 function grunionsApply(html,url,pop,replace){
  var doc=new DOMParser().parseFromString(html,'text/html');
  var newMain=doc.querySelector('main'), newNav=doc.querySelector('nav.tabs');
- if(!newMain||!newNav){location.href=url; return;}
+ if(!newMain){location.href=url; return;}
  grunionsClearPage();
  document.querySelectorAll('body>.menu.floating').forEach(function(m){ m.remove(); });
  var scripts=[].slice.call(newMain.querySelectorAll('script'));
@@ -1959,7 +1959,11 @@ function grunionsApply(html,url,pop,replace){
  grunionsParkHomeMap();
  main.replaceChildren.apply(main, [].slice.call(newMain.childNodes));
  grunionsRestoreHomeMap(main);
- grunionsSyncNav(newNav);
+ var nav=document.querySelector('nav.tabs');
+ if(newNav){
+  if(nav) grunionsSyncNav(newNav);
+  else main.insertAdjacentElement('afterend', document.importNode(newNav, true));
+ } else if(nav) nav.remove();
  var nextHead=doc.querySelector('header'), curHead=document.querySelector('header');
  if(nextHead&&curHead&&curHead.outerHTML!==nextHead.outerHTML) curHead.replaceWith(nextHead);
  else if(nextHead&&!curHead) document.body.insertBefore(nextHead, document.querySelector('main'));
@@ -1986,7 +1990,7 @@ function grunionsGo(url,pop,replace){
  var abs; try{abs=new URL(url,location.href);}catch(e){location.href=url; return;}
  if(abs.origin!==location.origin){location.href=abs.href; return;}
  var gen=++grunionsNavGen;
- fetch(abs.href,{credentials:'same-origin',cache:'no-store',headers:{Accept:'text/html'}}).then(function(res){
+ fetch(abs.href,{credentials:'same-origin',cache:'no-store',headers:{Accept:'text/html','X-Grunions-Nav':'1'}}).then(function(res){
   if(gen!==grunionsNavGen) return;
   var ct=res.headers.get('content-type')||'';
   if(ct.indexOf('text/html')===-1){location.href=abs.href; return;}
@@ -3499,7 +3503,7 @@ T["notifications"] = """
 <p class="t3 sm">These emails go out 7 days before, 1 day before, and on the day it expires. Practice cancellation emails always send.</p>
 <button class="btn btn-primary full">Save</button></form>"""
 
-T["chat"] = """<div class=chat id=chat><div class=chatin><button type=button id=earlier class=earlier hidden>Load earlier messages</button></div></div><div class=chatpad></div>
+T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template><div class=chat id=chat><div class=chatin><button type=button id=earlier class=earlier hidden>Load earlier messages</button></div></div><div class=chatpad></div>
 <div class="composer noprint"><div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=preview id=prev hidden><img id=prevImg alt=""><span id=prevName></span><button type=button class="quiet compact" id=prevX>Remove</button></div>
 <form id=f><input type=file id=file accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic" hidden>
 <button type=button class="iconbtn" id=attach title="Attach image" aria-label="Attach image"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z"/></svg></button>
@@ -3528,6 +3532,7 @@ T["chat"] = """<div class=chat id=chat><div class=chatin><button type=button id=
 </div></dialog>
 <script>
 const CSRF="{{csrf_token()}}",CH="{{ch}}",EMO={{REACTIONS|tojson}},PAGE=50;let last=0,oldest=0,more=false,loadingOlder=false;const box=document.getElementById('chat'),msgs={};
+var chatSeedNode=document.getElementById('chatSeed'); if(chatSeedNode){ try{ window.GRUNIONS_CHAT_SEED=JSON.parse(chatSeedNode.textContent); }catch(e){} chatSeedNode.remove(); }
 const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function chatWhen(iso, now){
  var zone='America/Los_Angeles';
@@ -3689,7 +3694,7 @@ function paintEarlier(){var btn=document.getElementById('earlier');if(btn)btn.hi
 async function loadEarlier(){if(!more||loadingOlder||!oldest)return;loadingOlder=true;stick=false;try{const r=await fetch('/api/messages?c='+CH+'&before='+oldest+'&limit='+PAGE);const j=await r.json();if(!Array.isArray(j)||j.length<PAGE)more=false;var frag=document.createDocumentFragment(),home=thread();grouping=true;(j||[]).forEach(function(m){m=mergeSeen(m);if(!m||expiredDelete(m)||document.getElementById('msg'+m.id))return;msgs[m.id]=m;track(m);var d=document.createElement('div');d.id='msg'+m.id;fill(d,m);frag.appendChild(d)});var rows=home.querySelectorAll('.m'),anchor=rows[0]||null,edge=box.getBoundingClientRect().top+4;for(var i=0;i<rows.length;i++){if(rows[i].getBoundingClientRect().bottom>edge){anchor=rows[i];break}}var before=anchor?anchor.getBoundingClientRect().top:0;box.style.overflowAnchor='none';var firstMsg=rows[0];if(firstMsg)home.insertBefore(frag,firstMsg);else home.appendChild(frag);grouping=false;groupMessages();paintEarlier();function hold(){if(!anchor)return;var dy=anchor.getBoundingClientRect().top-before;if(dy)box.scrollTop+=dy}if(anchor){anchoring=true;hold();requestAnimationFrame(function(){hold();box.style.overflowAnchor='';anchoring=false;stick=nearBottom()})}else{box.style.overflowAnchor='';stick=nearBottom()}}catch(e){grouping=false;box.style.overflowAnchor=''}loadingOlder=false}
 async function refreshOpen(gen,epoch){try{const rs=await fetch('/api/messages?c='+CH+'&sync=1');const sync=await rs.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;grouping=true;sync.forEach(function(m){if(gen===pollGen)upsert(m)});grouping=false;groupMessages();const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;paintRx(rx);sweepDeleted();var info=receipt(rs,sync);if(info)paintSeen([{id:info.id,seen:info}]);else if(info===null)clearSeen();if(window.grunionsRefresh)grunionsRefresh()}catch(e){grouping=false}}
 let pollN=0;
-async function poll(){const gen=++pollGen,epoch=window.grunionsNavEpoch|0;try{const first=!box.querySelector('.m');const r=await fetch('/api/messages?c='+CH+'&after='+last+(first?'&limit='+PAGE:''));const j=await r.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;const follow=stick;
+async function poll(){const gen=++pollGen,epoch=window.grunionsNavEpoch|0;try{const first=!box.querySelector('.m');var r=null,j;if(first&&window.GRUNIONS_CHAT_SEED){j=window.GRUNIONS_CHAT_SEED;window.GRUNIONS_CHAT_SEED=null;}else{r=await fetch('/api/messages?c='+CH+'&after='+last+(first?'&limit='+PAGE:''));j=await r.json();}if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;const follow=stick;
  if(first)box.style.visibility='hidden';
  grouping=true;j.forEach(add);grouping=false;groupMessages();var seenNow=receipt(r,j);if(seenNow)paintSeen([{id:seenNow.id,seen:seenNow}]);else if(seenNow===null)clearSeen();if(first){more=j.length>=PAGE;paintEarlier()}if((first||j.length)&&follow&&stick)pinBottom();if(first)box.style.visibility='';
  pollN++;if(first){setTimeout(function(){refreshOpen(gen,epoch).then(function(){if(stick)pinBottom()})},0);return}if(pollN%4===0){var h=box.scrollHeight;await refreshOpen(gen,epoch);if(follow&&stick&&box.scrollHeight!==h)pinBottom()}else if(j.length){if(follow&&stick)pinBottom()}}catch(e){grouping=false;box.style.visibility=''}}
