@@ -145,6 +145,8 @@ body.practicepage main{padding-top:0}
 .mapattrib a{color:rgba(255,255,255,.72);text-decoration:none}
 .mapattrib a+a{margin-left:8px}
 body.homefull .homemap .mapboxgl-ctrl-bottom-right{position:absolute;right:6px;left:auto;bottom:var(--map-attrib,12px);margin:0;pointer-events:auto;z-index:460}
+body.homefull .homemap .mpin{pointer-events:auto;cursor:pointer}
+body.homefull .homemap .mpin.you{pointer-events:none;cursor:default}
 .pinrow{display:flex;align-items:center;gap:6px;height:18px;width:max-content}
 .pinhold{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex:none}
 .pindot{display:block;width:18px;height:18px;box-sizing:border-box;border-radius:50%;background:var(--color-lime);border:3px solid var(--color-bg);box-shadow:0 0 0 1px var(--color-lime)}
@@ -1220,6 +1222,12 @@ window.grunionsDirections=function(lat,lng){
  var dest=lat+','+lng, ua=navigator.userAgent||'';
  var apple=/iPhone|iPad|iPod/.test(ua), android=/Android/i.test(ua);
  var url=apple?('https://maps.apple.com/?daddr='+encodeURIComponent(dest)):(android?('geo:0,0?q='+encodeURIComponent(dest)):('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest)));
+ if(android) location.href=url; else window.open(url,'_blank','noopener');
+};
+window.grunionsPlace=function(lat,lng,label){
+ var ll=lat+','+lng, name=String(label||'').trim(), ua=navigator.userAgent||'';
+ var apple=/iPhone|iPad|iPod/.test(ua), android=/Android/i.test(ua);
+ var url=apple?('https://maps.apple.com/?ll='+encodeURIComponent(ll)+'&q='+encodeURIComponent(name||ll)):(android?('geo:'+ll+'?q='+encodeURIComponent(ll+(name?'('+name+')':''))):('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(ll)));
  if(android) location.href=url; else window.open(url,'_blank','noopener');
 };
 window.grunionsOfferMaps=function(el){
@@ -2330,11 +2338,20 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
      guard++;
     }
    }
-   function pinEl(kind, label){
+   function pinEl(kind, label, lat, lng){
     var name=pinText(label), pill=name?'<span class=pinpill>'+name+'</span>':'';
     var node=document.createElement('div');
     node.className='mpin'+(kind==='social'?' social':'');
     node.innerHTML='<span class=pinrow><span class=pinhold><span class=pindot></span></span>'+pill+'</span>';
+    node.setAttribute('role','link');
+    node.tabIndex=0;
+    node.setAttribute('aria-label', (label||'Location')+' in Maps');
+    function openPlace(ev){
+     if(ev){ ev.preventDefault(); ev.stopPropagation(); }
+     if(window.grunionsPlace) grunionsPlace(lat, lng, label);
+    }
+    node.addEventListener('click', openPlace);
+    node.addEventListener('keydown', function(ev){ if(ev.key==='Enter'||ev.key===' ') openPlace(ev); });
     return node;
    }
    function draw(){
@@ -2358,7 +2375,7 @@ MAP_JS = '''window.grunionsMountMap=function(el, opts){
       el.dataset.marked='1';
       pins.forEach(function(p){
        var ll=lngLat(p); if(!ll) return;
-       new mapboxgl.Marker({element:pinEl(p.kind, p.label), anchor:'top-left', offset:[-9,-9]}).setLngLat(ll).addTo(map);
+       new mapboxgl.Marker({element:pinEl(p.kind, p.label, p.lat, p.lng), anchor:'top-left', offset:[-9,-9]}).setLngLat(ll).addTo(map);
       });
       if(opts.mode==='card'&&pins[0]) el.addEventListener('click',function(){ grunionsDirections(pins[0].lat, pins[0].lng); });
      }
