@@ -71,6 +71,11 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:var(--ty
 .nxchev{color:var(--t3);font-size:22px;line-height:1;flex:none}
 .nxnote{margin-top:10px;color:var(--t3);font-size:13px;line-height:1.4}
 .pills{display:flex;gap:var(--space-2);margin-top:var(--space-4)}
+.pills .sweep-host{flex:1;width:auto;min-width:0;display:flex}
+.pills .sweep-host>.btn{flex:1;width:100%}
+form:has(.sweep-host){position:relative;z-index:3}
+.nextcard:has(.sweep-host),.card:has(.sweep-host),.tripcard:has(.sweep-host),
+body.homefull .homedock .card:has(.sweep-host),body.homefull .schedlist .card:has(.sweep-host){overflow:visible;z-index:6}
 .rsvprow{flex-wrap:nowrap}
 .rsvprow .btn{white-space:nowrap;padding:0 8px;min-width:0}
 .rsvpcheck{width:16px;height:16px;flex:none;display:block}
@@ -100,7 +105,8 @@ a.usawpchip .usawpok{width:16px;height:16px;flex:none;color:var(--color-status-c
 a.usawpchip.warn,a.usawpchip.bad{color:var(--color-text)}
 .numcard .nxtitle{font-size:17px;line-height:1.3}
 #membership{scroll-margin-top:72px}
-.pimg{position:relative;line-height:0}.pimg img{width:100%;height:200px;object-fit:cover;display:block}
+.pimg{position:relative;line-height:0;overflow:hidden}.pimg img{width:100%;height:200px;object-fit:cover;display:block}
+.nextcard .pimg{border-top-left-radius:var(--radius-card);border-top-right-radius:var(--radius-card)}
 .nxbadge{position:absolute;top:12px;left:12px;background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-badge-border);border-radius:var(--radius-chip);padding:5px 10px;font-size:11px;font-weight:700;letter-spacing:.8px;line-height:1}
 .nxrow{display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-2);color:var(--t1);font-size:15px}
 .nxrow+.nxrow{margin-top:var(--space-meta)}
@@ -731,11 +737,213 @@ dialog.memberedit .help a{color:var(--t1)}
 .datefield.empty input[type=date]{color:transparent}
 .datefield.empty input[type=date]::-webkit-datetime-edit,.datefield.empty input[type=date]::-webkit-datetime-edit-fields-wrapper{color:transparent}
 @media print{header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{background:#fff}}
+/* Regulars loader sweep, approved as regulars23 / run #19. */
+.btn.primary[data-sweep],
+.btn.primary[data-sweep]:hover {
+  background: #C4E65A;
+  color: #090D0B;
+  border: 0;
+  transition: none;
+}
+.btn[data-sweep]{position:relative;overflow:visible}
+.sweep-clip, .sweep-halo, .sweep-face, .sweep-label {
+  pointer-events: none;
+}
+.sweep-label {
+  position: relative;
+  z-index: 2;
+  color: inherit;
+  mix-blend-mode: normal;
+}
+.sweep-clip, .sweep-halo, .sweep-face {
+  position: absolute;
+}
+.sweep-face {
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  background: #C4E65A;
+}
+.sweep-clip {
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  overflow: hidden;
+}
+.sweep-label { z-index: 3; }
+.sweep-host {
+  position: relative;
+  display: inline-flex;
+  width: max-content;
+  overflow: visible;
+  vertical-align: middle;
+  z-index: 0;
+}
+.sweep-host > .btn {
+  position: relative;
+  z-index: 1;
+}
+.sweep-halo {
+  position: absolute;
+  inset: -28px;
+  z-index: 0;
+  pointer-events: none;
+  overflow: visible;
+  opacity: 0.5;
+  -webkit-mask-image: url("/static/sweep/sweep-halo-mask.svg?v=23");
+  mask-image: url("/static/sweep/sweep-halo-mask.svg?v=23");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: regulars-halo 2.6s linear 1 both;
+}
+.sweep-rim {
+  position: absolute;
+  inset: 27px;
+  border-radius: 13px;
+  background: #E8F55A;
+}
+.sweep-rim-soft { filter: blur(8px); opacity: 1; }
+.sweep-rim-tight { filter: blur(1px); opacity: 1; }
+.sweep-rim-tight + .sweep-rim-tight { mix-blend-mode: plus-lighter; }
+.sweep-ribbon {
+  position: absolute;
+  top: -30%;
+  bottom: -30%;
+  transform: translateX(-50%);
+  transform-origin: center center;
+  animation: regulars-band 2.6s linear 1 both;
+  background: #F2F2AE;
+  -webkit-mask-image: url("/static/sweep/sweep-band.svg?v=22");
+  mask-image: url("/static/sweep/sweep-band.svg?v=22");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+@keyframes regulars-band {
+  0% { left: -28%; width: 80%; }
+  8% { left: 14%; width: 100%; }
+  22% { left: 32%; width: 120%; }
+  38% { left: 48%; width: 128%; }
+  55% { left: 56%; width: 130%; }
+  70% { left: 72%; width: 126%; }
+  84% { left: 94%; width: 108%; }
+  100% { left: 128%; width: 78%; }
+}
+@keyframes regulars-halo {
+  0% { -webkit-mask-size: 113% 170%; mask-size: 113% 170%; -webkit-mask-position: 522% 50%; mask-position: 522% 50%; }
+  8% { -webkit-mask-size: 142% 170%; mask-size: 142% 170%; -webkit-mask-position: 120% 50%; mask-position: 120% 50%; }
+  22% { -webkit-mask-size: 170% 170%; mask-size: 170% 170%; -webkit-mask-position: 71% 50%; mask-position: 71% 50%; }
+  38% { -webkit-mask-size: 181% 170%; mask-size: 181% 170%; -webkit-mask-position: 52% 50%; mask-position: 52% 50%; }
+  55% { -webkit-mask-size: 184% 170%; mask-size: 184% 170%; -webkit-mask-position: 44% 50%; mask-position: 44% 50%; }
+  70% { -webkit-mask-size: 179% 170%; mask-size: 179% 170%; -webkit-mask-position: 27% 50%; mask-position: 27% 50%; }
+  84% { -webkit-mask-size: 153% 170%; mask-size: 153% 170%; -webkit-mask-position: -17% 50%; mask-position: -17% 50%; }
+  100% { -webkit-mask-size: 111% 170%; mask-size: 111% 170%; -webkit-mask-position: -550% 50%; mask-position: -550% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sweep-ribbon, .sweep-halo { animation: none; }
+}
 </style>
 <script>try{if(sessionStorage.getItem("grunionsBoot"))document.documentElement.classList.add("booted")}catch(e){}</script>
 </head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' or tab=='manage' %}adminpage{% endif %}{% if tab=='event_new' or tab=='lineup_edit' or tab=='series_edit' or (tab=='practice' and editing) %} editor{% endif %}">
 <div id=boot role=status aria-label="Loading"><div class=mark><video class=bootvid autoplay muted loop playsinline preload=auto poster=/static/loader-first-frame.png><source src=/static/regulars-loader-hevc.mov type='video/quicktime; codecs="hvc1"'><source src=/static/regulars-loader-transparent.webm type=video/webm></video><img class=bootstill alt="" src=/static/regulars-logo.svg></div></div>
 <script>(function(){var el=document.getElementById("boot");if(!el)return;if(document.documentElement.classList.contains("booted")){el.remove();return;}var vid=el.querySelector("video"),still=el.querySelector(".bootstill");var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;var ios=/iPhone|iPad|iPod/.test(navigator.userAgent||"")||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);function showStill(){el.classList.add("bootstill");if(!vid)return;try{vid.pause()}catch(e){}vid.removeAttribute("src");while(vid.firstChild)vid.removeChild(vid.firstChild);try{vid.load()}catch(e){}}function blackFrame(){if(!vid||vid.readyState<2)return false;try{var c=document.createElement("canvas");c.width=16;c.height=8;var g=c.getContext("2d",{willReadFrequently:true});if(!g)return false;g.drawImage(vid,0,0,16,8);var d=g.getImageData(0,0,16,8).data,lime=0,dark=0,n=0;for(var i=0;i<d.length;i+=4){n++;var r=d[i],gc=d[i+1],b=d[i+2],a=d[i+3];if(a<12)continue;if(gc>80&&gc>r+15&&gc>b+10)lime++;else if(r<28&&gc<28&&b<28)dark++;}return lime===0&&dark>n*0.6;}catch(e){return false;}}if(reduce)showStill();else if(vid){try{vid.currentTime=0}catch(e){}function fast(){try{vid.playbackRate=2.0}catch(e){}}fast();vid.addEventListener("loadedmetadata",fast);vid.addEventListener("play",fast);vid.addEventListener("error",showStill);var play=vid.play();if(play&&play.catch)play.catch(function(){showStill()});if(ios){setTimeout(function(){if(blackFrame())showStill();},350);setTimeout(function(){if(blackFrame())showStill();},800);}}var started=Date.now(),MIN=2000,arm=false;function hide(){if(arm)return;arm=true;setTimeout(finish,Math.max(0,MIN-(Date.now()-started)));}function finish(){try{sessionStorage.setItem("grunionsBoot","1")}catch(e){}el.classList.add("gone");setTimeout(function(){if(el.parentNode)el.remove()},reduce?480:760);}if(document.readyState==="complete")hide();else window.addEventListener("load",hide);setTimeout(hide,8000);})();</script>
+<script>
+/* regulars23: post the RSVP immediately, then keep the 2.6s pass visible. */
+(function () {
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var CHECK = '<svg class="rsvpcheck" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>';
+  function paintChosen(button) {
+    var label = button.querySelector(".sweep-label");
+    if (!label) return;
+    if (!label.querySelector(".rsvpcheck")) label.insertAdjacentHTML("afterbegin", CHECK);
+    if (button.value === "social_join") {
+      var node = label.lastChild;
+      while (node && node.nodeType !== 3) node = node.previousSibling;
+      if (node) node.nodeValue = "Joined";
+    }
+    var form = button.form;
+    if (!form) return;
+    Array.prototype.forEach.call(form.querySelectorAll("button"), function (other) {
+      if (other === button) return;
+      other.style.pointerEvents = "none";
+      var mark = other.querySelector(".rsvpcheck");
+      if (mark) mark.remove();
+      other.classList.remove("btn-primary");
+      if (!other.classList.contains("btn-secondary") && !other.classList.contains("primary")) other.classList.add("btn-secondary");
+    });
+  }
+  function destination(form, resUrl) {
+    var url = resUrl || location.href;
+    try {
+      var u = new URL(url, location.href);
+      var pid = form.querySelector('input[name=pid]');
+      var back = form.querySelector('input[name=back]');
+      if (pid && u.pathname === "/practices" && location.pathname.indexOf("/home") < 0 && (!back || back.value !== "page")) u.hash = "p" + pid.value;
+      return u.href;
+    } catch (e) { return url; }
+  }
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest && event.target.closest("[data-sweep]");
+    if (!button || !button.classList.contains("primary")) return;
+    if (button.value === "clear" || button.value === "social_leave" || button.value === "notgoing" || button.value === "interested") return;
+    if (reduce) return;
+    if (button.dataset.sweeping) { event.preventDefault(); event.stopPropagation(); return; }
+    var form = button.form;
+    if (!form) return;
+    event.preventDefault();
+    event.stopPropagation();
+    button.dataset.sweeping = "playing";
+    button.classList.add("is-sweeping");
+    var data = new FormData(form);
+    if (button.name) data.set(button.name, button.value);
+    var action = form.getAttribute("action") || location.href;
+    var pending = {html: "", url: "", ok: false, done: false};
+    var navAt = (typeof grunionsNavGen === "number") ? grunionsNavGen : 0;
+    var scrollY = window.scrollY || 0;
+    fetch(action, {method: "POST", body: data, credentials: "same-origin", redirect: "follow", headers: {Accept: "text/html"}})
+      .then(function (res) { pending.ok = res.ok; pending.url = res.url || location.href; return res.text(); })
+      .then(function (html) { pending.html = html; pending.done = true; })
+      .catch(function () { pending.done = true; });
+    if (!button.querySelector(".sweep-label")) {
+      var label = document.createElement("span");
+      label.className = "sweep-label";
+      while (button.firstChild) label.appendChild(button.firstChild);
+      button.appendChild(label);
+    }
+    if (!button.querySelector(".sweep-clip")) {
+      button.insertAdjacentHTML("afterbegin", '<span class="sweep-clip" aria-hidden="true"><span class="sweep-ribbon"></span></span>');
+    }
+    var host = button.parentNode;
+    if (!host || !host.classList || !host.classList.contains("sweep-host")) {
+      host = document.createElement("span");
+      host.className = "sweep-host";
+      button.parentNode.insertBefore(host, button);
+      host.appendChild(button);
+    }
+    if (!host.querySelector(".sweep-halo")) {
+      host.insertAdjacentHTML("afterbegin", '<span class="sweep-halo" aria-hidden="true"><span class="sweep-rim sweep-rim-soft"></span><span class="sweep-rim sweep-rim-tight"></span><span class="sweep-rim sweep-rim-tight"></span></span>');
+    }
+    paintChosen(button);
+    window.setTimeout(function finish() {
+      if (!pending.done) { window.setTimeout(finish, 40); return; }
+      button.dataset.sweeping = "played";
+      if (!button.isConnected) return;
+      if (typeof grunionsNavGen === "number" && grunionsNavGen !== navAt) return;
+      if (!pending.ok || !pending.html) { location.reload(); return; }
+      var url = destination(form, pending.url);
+      if (typeof grunionsApply === "function") {
+        try {
+          grunionsApply(pending.html, url, false, false);
+          if (url.indexOf("#") < 0) scrollTo(0, scrollY);
+          return;
+        } catch (err) {}
+      }
+      location.assign(url);
+    }, 2600);
+  }, true);
+})();
+</script>
 {% macro st(kind, label) %}<span class="st st-{{kind}}">{{label}}</span>{% endmacro %}
 {% macro bubble(n) %}{% if n %}<span class=badge>{{ n if n < 100 else '99+' }}</span>{% endif %}{% endmacro %}
 {% macro usawp(s) %}{{ st({'verified':'ok','expired':'bad','pending':'warn'}.get(s,'none'), 'USAWP ' ~ s) }}{% endmacro %}
@@ -839,7 +1047,8 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro cred_side(iso) %}{% if iso %}<span class=cred><span class="dot {{ date_dot(iso) }}" aria-hidden=true></span>{{ fmt_long(iso) }}</span>{% else %}<span class=t3>Not on file</span>{% endif %}{% endmacro %}
 {% macro date_field(label, name, value) %}<label class="datefield{% if not value %} empty{% endif %}">{{ label }}<input type=date name={{ name }} value="{{ value or '' }}" placeholder="Not on file"><span class=dateph>Not on file</span></label>{% endmacro %}
 {% macro rsvp_btn(label, selected, on_value) -%}
-<button class="btn {{ 'btn-primary' if selected else 'btn-secondary' }}" name=action value="{{ 'clear' if selected else on_value }}">{% if selected %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ label }}</button>
+{%- set sweep = (not selected) and on_value == 'going' and label == 'Going' -%}
+<button class="btn {{ 'primary' if sweep else ('btn-primary' if selected else 'btn-secondary') }}"{% if sweep %} data-sweep{% endif %} name=action value="{{ 'clear' if selected else on_value }}">{% if selected %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ label }}</button>
 {%- endmacro %}
 {% macro glyph_clock() %}<svg class="nxglyph" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg>{% endmacro %}
 {% macro glyph_pin() %}<svg class="nxglyph" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,64a40,40,0,1,0,40,40A40,40,0,0,0,128,64Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,128Zm0-112a88.1,88.1,0,0,0-88,88c0,31.4,14.51,64.68,42,96.25a254.19,254.19,0,0,0,41.45,38.3,8,8,0,0,0,9.18,0A254.19,254.19,0,0,0,174,200.25c27.45-31.57,42-64.85,42-96.25A88.1,88.1,0,0,0,128,16Zm0,206c-16.53-13-72-60.75-72-118a72,72,0,0,1,144,0C200,161.23,144.53,209,128,222Z"/></svg>{% endmacro %}
@@ -2541,7 +2750,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {% if sh %}<div class=nxdiv></div><div class=nxsocial><a class=cardlink href="/practices/{{nextp.id}}" style="display:flex;align-items:center;gap:12px">{{ social_icon() }}
 <div class=grow><div class=nxtitle>{{ sh.title }}</div><div class="t2 sm">{{ sh.place }}</div></div></a>
 <form method=post action=/practices>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>
-<button class="btn {{ 'btn-primary' if next_joined else 'btn-secondary' }}" name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ 'Joined' if next_joined else 'Join' }}</button></form></div>{% endif %}
+<button class="btn {{ 'btn-primary' if next_joined else 'primary' }}"{% if not next_joined %} data-sweep{% endif %} name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ 'Joined' if next_joined else 'Join' }}</button></form></div>{% endif %}
 </div>{% endif %}
 </div>
 <div class=schedlist id=schedule>

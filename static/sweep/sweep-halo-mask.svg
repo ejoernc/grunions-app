@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 0 200 100" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="white" stop-opacity="0"/>
+      <stop offset="0.04" stop-color="white" stop-opacity="0.1"/>
+      <stop offset="0.16" stop-color="white" stop-opacity="0.32"/>
+      <stop offset="0.28" stop-color="white" stop-opacity="0.68"/>
+      <stop offset="0.38" stop-color="white" stop-opacity="1"/>
+      <stop offset="0.62" stop-color="white" stop-opacity="1"/>
+      <stop offset="0.72" stop-color="white" stop-opacity="0.68"/>
+      <stop offset="0.84" stop-color="white" stop-opacity="0.32"/>
+      <stop offset="0.96" stop-color="white" stop-opacity="0.1"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="feather" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2.4"/>
+    </filter>
+  </defs>
+  <!-- Padded so the -30deg skew and the blur die out inside the viewBox. No hard rectangle. -->
+  <g transform="translate(50 50) skewX(-30) translate(-50 -50)" filter="url(#feather)">
+    <path fill="url(#fade)" d="M 28 14 C 36 42, 36 58, 28 86 L 72 86 C 64 58, 64 42, 72 14 Z"/>
+  </g>
+</svg>
