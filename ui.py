@@ -67,7 +67,7 @@ p{margin:0 0 12px}.t2{color:var(--t2)}.t3{color:var(--t3)}.sm{font-size:var(--ty
 .schedrows .nxrow{font-size:15px}.schedrows .nxrow:first-child{margin-top:0}
 .nxtitle{font-size:var(--type-t4-size);font-weight:var(--type-t4-weight);line-height:var(--type-t4-line)}
 .cardtitle{font-size:var(--type-t3-size);line-height:var(--type-t3-line);font-weight:var(--type-t3-weight)}
-.nextcard .nxcardhead>.cardtitle{flex:1;min-width:0}
+.nextcard .nxcardhead>.cardtitle{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nxchev{color:var(--t3);font-size:22px;line-height:1;flex:none}
 .nxnote{margin-top:10px;color:var(--t3);font-size:13px;line-height:1.4}
 .pills{display:flex;gap:var(--space-2);margin-top:var(--space-4)}
@@ -189,7 +189,7 @@ header.homehead .schedtitle{opacity:var(--titlefade)}
 header.homehead .titlestack a.usawpchip{position:absolute;top:calc(100% + 2px);left:0;margin:0;opacity:calc(1 - var(--titlefade))}
 header.homehead.titleaway .titlestack a.usawpchip{pointer-events:none}
 body.schedopen header.homehead{--titlefade:1}
-.nextcard .daychip{height:32px;margin:0 -8px 0 0;padding:0 11px;font-size:16px;align-self:center}
+.nextcard .daychip{height:32px;margin:0 -8px 0 0;padding:0 11px;font-size:16px;align-self:center;flex:none}
 body.schedopen header.homehead{background:var(--color-bg)}
 body.homefull .homemap{opacity:0}
 body.homefull .homemap.mapready{opacity:1}
@@ -1878,6 +1878,13 @@ function grunionsClearCommute(){
  if(el._youMarker){ try{ el._youMarker.remove(); }catch(e){} el._youMarker=null; }
  if(el._applyRoute) el._applyRoute();
 }
+function grunionsLeaveChip(label){
+ var chip=document.querySelector('.nextcard .daychip');
+ if(!chip) return;
+ var live=chip.getAttribute('data-live')||'Upcoming';
+ if(label){ chip.textContent=label; return; }
+ if(chip.textContent.indexOf('Leave by ')===0) chip.textContent=live;
+}
 function grunionsDriveEnd(row){
  if(!row || row.dataset.driveEnded==='1') return;
  row.dataset.driveEnded='1';
@@ -1885,6 +1892,8 @@ function grunionsDriveEnd(row){
  if(row._driveTimer){ clearTimeout(row._driveTimer); row._driveTimer=0; }
  if(row._driveRefresh){ clearTimeout(row._driveRefresh); row._driveRefresh=0; }
  grunionsClearCommute();
+ var chip=document.querySelector('.nextcard .daychip');
+ if(chip && (chip.textContent.indexOf('Leave by ')===0 || (chip.getAttribute('data-live')||'Upcoming')==='Upcoming')) chip.textContent='In progress';
 }
 function grunionsDriveArmEnd(row){
  if(row._driveTimer) clearTimeout(row._driveTimer);
@@ -1959,6 +1968,7 @@ function grunionsAskDrive(row, quiet){
     if(!(res.ok && res.j && res.j.text)){ if(!grunionsKeepDrive(row, line, btn)){ if(btn){ btn.disabled=false; btn.hidden=false; } if(line){ line.hidden=false; line.textContent='Could not check drive time.'; } } return; }
     if(btn) btn.hidden=true;
     if(line){ line.hidden=false; line.dataset.saved='1'; line.dataset.driveRetry=res.j.stale?'1':''; grunionsPaintDrive(line, res.j.text); }
+    if(!res.j.estimated) grunionsLeaveChip(res.j.chip||'');
     row.dataset.driveFetched=String(Date.now()-((+res.j.stale)?grunionsDriveAge(row)*1000:0));
     if(!res.j.stale) row.setAttribute('data-drive-age','0');
     if(res.j.line && res.j.line.length && !res.j.estimated && !res.j.stale) grunionsShowDriveLine(res.j.line, {lat:pos.coords.latitude,lng:pos.coords.longitude}, res.j.congestion);
@@ -2100,8 +2110,13 @@ function grunionsApply(html,url,pop,replace){
   else main.insertAdjacentElement('afterend', document.importNode(newNav, true));
  } else if(nav) nav.remove();
  var nextHead=doc.querySelector('header'), curHead=document.querySelector('header');
- if(nextHead&&curHead&&curHead.outerHTML!==nextHead.outerHTML) curHead.replaceWith(nextHead);
- else if(nextHead&&!curHead) document.body.insertBefore(nextHead, document.querySelector('main'));
+ if(nextHead&&curHead){
+  if(curHead.outerHTML!==nextHead.outerHTML){
+   [].slice.call(curHead.attributes).forEach(function(a){ if(!nextHead.hasAttribute(a.name)) curHead.removeAttribute(a.name); });
+   [].slice.call(nextHead.attributes).forEach(function(a){ curHead.setAttribute(a.name, a.value); });
+   curHead.innerHTML=nextHead.innerHTML;
+  }
+ } else if(nextHead&&!curHead) document.body.insertBefore(nextHead, document.querySelector('main'));
  document.title=doc.title||document.title;
  if(!pop){ if(replace) history.replaceState({grunions:1},'',url); else history.pushState({grunions:1},'',url); }
  var backY=grunionsTakeBack(url);
@@ -3439,7 +3454,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {% if social_after and sh %}<div class="nxnote afterline">After practice: {{ sh.place }}{% if social_mins %} · {{ social_mins }} min drive{% endif %}</div>{% endif %}
 {% if nextp.image %}<a class=cardlink href="/practices/{{nextp.id}}"><div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div></a>{% endif %}
 <div class=nxbody><a class=cardlink href="/practices/{{nextp.id}}">
-<div class=nxcardhead><div class="nxtitle cardtitle">{{ practice_title(nextp) }}</div><span class="chip-info daychip">{{ practice_live_chip(nextp) }}</span></div>
+<div class=nxcardhead><div class="nxtitle cardtitle">{{ practice_title(nextp) }}</div><span class="chip-info daychip" data-live="{{ practice_live_chip(nextp) }}">{% if drive_chip %}{{ drive_chip }}{% else %}{{ practice_live_chip(nextp) }}{% endif %}</span></div>
 {% set tile = practice_tile(nextp) %}
 <div class=nxmain><div class=datetile><span class=wd>{{ tile.wd }}</span><span class=dn>{{ tile.dn }}</span><span class=mo>{{ tile.mo }}</span></div>
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{% if practice_is_month(nextp) %}{{ practice_when(nextp) }}{% else %}{{ fmt_span(nextp.start, nextp.end) }}{% endif %}</span></div>

@@ -747,7 +747,7 @@ try:
     nxt = home[home.find('class="card tap nextcard"'):]
     nxt = nxt[:nxt.find("class=pills")]
     adm = eli.get("/admin").get_data(as_text=True)
-    ok("class=dn>23<" in sched and "class=mo>OCT<" in sched and "7:00 – 8:30 PM" in sched and "Westminster High School" in sched and 'class="nxtitle cardtitle">Water Polo Practice</div>' in nxt and "7:00 – 8:30 PM" in nxt and "class=datetile" in nxt and "class=wd>TODAY<" in nxt and "class=\"chip-info daychip\">Upcoming<" in nxt and ("Westminster High School" in nxt or "Past Pool" in nxt) and 'value="2026-10-23"' in adm, "at 5:30pm Pacific, Friday's practice is on the schedule and check-in uses that date")
+    ok("class=dn>23<" in sched and "class=mo>OCT<" in sched and "7:00 – 8:30 PM" in sched and "Westminster High School" in sched and 'class="nxtitle cardtitle">Water Polo Practice</div>' in nxt and "7:00 – 8:30 PM" in nxt and "class=datetile" in nxt and "class=wd>TODAY<" in nxt and "chip-info daychip" in nxt and "Upcoming" in nxt and ("Westminster High School" in nxt or "Past Pool" in nxt) and 'value="2026-10-23"' in adm, "at 5:30pm Pacific, Friday's practice is on the schedule and check-in uses that date")
     ok(D.execute("SELECT COUNT(*) FROM practices WHERE date=? AND location='Westminster High School'", (fri,)).fetchone()[0] == 1, "opening the schedule does not delete Friday's practice")
     A.now_pt = lambda: dt.datetime(2026, 10, 24, 3, 30, tzinfo=dt.timezone.utc)  # 8:30pm PDT
     ok("class=dn>23<" in jane.get("/practices").get_data(as_text=True), "the practice stays up through 8:30pm Pacific")
@@ -1747,7 +1747,7 @@ _today, _tom, _soon, _later = A.today_pt(), A.today_pt()+dt.timedelta(days=1), A
 _nxt = D.execute("SELECT date FROM practices WHERE date>=? AND cancelled=0 ORDER BY date, start LIMIT 1", (_today.isoformat(),)).fetchone()
 _hero = body.split("id=schedule", 1)[0]
 _later_cards = body.split("id=schedule", 1)[-1]
-ok(A.relative_day(_today.isoformat()) == "TODAY" and A.relative_day(_tom.isoformat()) == "TOMORROW" and A.relative_day(_soon.isoformat()) == _soon.strftime("%A").upper() and A.relative_day(_later.isoformat()) == A.fmt_md(_later.isoformat()) and _nxt and ('class="chip-info daychip">Upcoming<' in _hero or 'class="chip-info daychip">In progress<' in _hero) and "class=datetile" in _hero and ".nextcard .daychip{height:32px;margin:0 -8px 0 0;padding:0 11px;font-size:16px;align-self:center}" in head and 'class="nxtitle cardtitle"' in _hero and 'class="nxtitle cardtitle"' in _later_cards and ".cardtitle{font-size:var(--type-t3-size);line-height:var(--type-t3-line);font-weight:var(--type-t3-weight)}" in head and "nxsocial" not in _later_cards, "the next card uses the list layout with an Upcoming or In progress chip, and later cards have no social")
+ok(A.relative_day(_today.isoformat()) == "TODAY" and A.relative_day(_tom.isoformat()) == "TOMORROW" and A.relative_day(_soon.isoformat()) == _soon.strftime("%A").upper() and A.relative_day(_later.isoformat()) == A.fmt_md(_later.isoformat()) and _nxt and ('data-live="Upcoming"' in _hero or 'class="chip-info daychip">In progress<' in _hero) and "class=datetile" in _hero and ".nextcard .daychip{height:32px;margin:0 -8px 0 0;padding:0 11px;font-size:16px;align-self:center;flex:none}" in head and 'class="nxtitle cardtitle"' in _hero and 'class="nxtitle cardtitle"' in _later_cards and ".cardtitle{font-size:var(--type-t3-size);line-height:var(--type-t3-line);font-weight:var(--type-t3-weight)}" in head and "nxsocial" not in _later_cards, "the next card uses the list layout with an Upcoming or In progress chip, and later cards have no social")
 _prev_mem = D.execute("SELECT usawp_number, usawp_status, usawp_valid_until FROM members WHERE email='jane@example.com'").fetchone()
 D.execute("UPDATE members SET usawp_number='4242421', usawp_status='verified', usawp_valid_until=? WHERE email='jane@example.com'", ((_today + dt.timedelta(days=40)).isoformat(),)); D.commit()
 _hh, _bb = jane.get("/home").get_data(as_text=True).split("<main>", 1)
@@ -1792,6 +1792,7 @@ ok("id=homeMap" in mapped and "class=homedock" in mapped and "padding:0 0 12px;m
 ok("grunionsMapAlive" in mapped and "webglcontextlost" in mapped and "if(!e.persisted) return" not in mapped and "waitSize" in mapped, "a refresh or a lost WebGL context rebuilds the Home map")
 ok("body.homefull .homemap{opacity:0}" in mapped and "body.homefull .homemap.mapready.mapin{transition:opacity .3s ease}" in mapped and "function revealMap()" in mapped and "function revealOpen()" in mapped and "map.once('render', function(){ revealMap(); })" in mapped and "var wait=revealOpen()?0:280" in mapped, "the home map fades in for 300ms once venues are framed, and a location during that fade eases without waiting it out")
 ok("window.grunionsPinStack=function(practice,social,gap){gap=gap==null?2:gap;" in mapped and "grunionsPinGap(practice,social)>=gap" in mapped and "(practice.bottom+gap)-social.top" in mapped, "colliding practice and social labels separate by at least 2px with the practice label kept above")
+ok("curHead.innerHTML=nextHead.innerHTML" in mapped and "curHead.replaceWith(nextHead)" not in mapped, "moving between pages updates the header in place")
 ok("window.grunionsPlace=function(lat,lng,label)" in mapped and "maps.apple.com/?ll=" in mapped and "geo:'+ll+'?q=" in mapped and "google.com/maps/search/?api=1&query=" in mapped and "interactive:false" in mapped and "dragPan:false" in mapped and "pinEl(p.kind, p.label, p.lat, p.lng)" in mapped and "body.homefull .homemap .mpin{pointer-events:auto" in mapped and "body.homefull main{" in mapped and "pointer-events:none" in mapped.split("body.homefull main{")[1][:220] and "body.homefull .homedock{" in mapped and "pointer-events:none" in mapped.split("body.homefull .homedock{")[1][:420] and "body.homefull .homedock .card" in mapped and "z-index:4;pointer-events:auto" in mapped, "a Home pin or its label opens that place in the device maps app")
 import urllib.request as _ureq
 class _GeoResp:
@@ -2505,9 +2506,17 @@ try:
     D.commit()
     _body = "".join(r.get_data(as_text=True) for r in (_near, _again, _outside, _capped, _denied, _begun, _checked))
     _cache_cols = [c[1] for c in D.execute("PRAGMA table_info(drive_cache)")]
-    ok(_near.status_code == 200 and _near_j.get("show") is True and _near_j["text"].startswith("23 min with traffic") and "leave by" in _near_j["text"] and "updated just now" in _near_j["text"] and _again.get_json()["text"].startswith("23 min with traffic") and "updated" in _again.get_json()["text"] and _one_lookup and _outside.get_json().get("show") is False and _capped.get_json().get("estimated") is True and "est." in _capped.get_json()["text"] and _denied.get_json().get("estimated") is True and _begun.get_json().get("show") is False and _checked.get_json().get("show") is False and "33.70" not in _body and "lat" not in _cache_cols and "lng" not in _cache_cols, "drive time is traffic-only inside the window, cached 15 minutes per member, and stores no location")
+    _leave_at = _soon - dt.timedelta(minutes=23)
+    _leave_hm = "%d:%02d" % ((_leave_at.hour - 1) % 12 + 1, _leave_at.minute)
+    ok(_near.status_code == 200 and _near_j.get("show") is True and _near_j["text"].startswith("23 min with traffic") and "leave by" not in _near_j["text"] and "leave now" not in _near_j["text"] and _near_j.get("chip") == "Leave by " + _leave_hm and "AM" not in _near_j["chip"] and "PM" not in _near_j["chip"] and "updated just now" in _near_j["text"] and _again.get_json()["text"].startswith("23 min with traffic") and "updated" in _again.get_json()["text"] and _one_lookup and _outside.get_json().get("show") is False and _capped.get_json().get("estimated") is True and "est." in _capped.get_json()["text"] and _capped.get_json().get("chip") == "" and _denied.get_json().get("estimated") is True and _begun.get_json().get("show") is False and _checked.get_json().get("show") is False and "33.70" not in _body and "lat" not in _cache_cols and "lng" not in _cache_cols, "drive time is traffic-only inside the window, cached 15 minutes per member, and stores no location")
+    A.drive_service.auth_failed = False
+    _fake_route.fail = None
+    _shown = _drive(33.70, -118.00)
     _saved_home = eli.get("/home").get_data(as_text=True)
-    ok(".drivechiptext .driveage{font-weight:400" in _saved_home and ".drivechiptext{padding:8px 12px;font-size:13px;font-weight:650" in _saved_home and '<span class=driveage> · updated just now</span>' in _saved_home and "23 min with traffic" in _saved_home.split('<span class=driveage>', 1)[0][-80:], "the drive overlay keeps the update age in a lighter weight")
+    _pill = _saved_home.split("data-drive-line", 1)[1].split("</p>", 1)[0] if "data-drive-line" in _saved_home else ""
+    _chip_at = _saved_home.find('class="chip-info daychip"')
+    _chip_snip = _saved_home[_chip_at:_chip_at+220]
+    ok(".drivechiptext .driveage{font-weight:400" in _saved_home and ".drivechiptext{padding:8px 12px;font-size:13px;font-weight:650" in _saved_home and '<span class=driveage> · updated just now</span>' in _saved_home and "23 min with traffic" in _saved_home.split('<span class=driveage>', 1)[0][-80:] and "leave by" not in _pill.lower() and ("Leave by " + _leave_hm) in _chip_snip and "AM" not in _chip_snip and "PM" not in _chip_snip, "the drive overlay keeps the update age in a lighter weight and the status chip carries Leave by without AM or PM")
     ok(_near_j.get("congestion") == ["heavy"] and _near_j["line"][-1] == [33.75, -118.01] and _near_j["line"][0] == [33.751, -118.011] and "33.70" not in _near.get_data(as_text=True) and "--color-yellow" in _saved_home and "--color-coral" in _saved_home and "'moderate',yellow,'heavy',coral,'severe',coral,lime" in _saved_home, "traffic segments use the app yellow and coral only where Mapbox congestion lines up")
     _plain, _none = A.drive_line_public((34.0, -118.0), [[34.0, -118.0], [34.01, -118.01], [34.02, -118.02]], ["low"])
     _kept, _cong = A.drive_line_public((34.0, -118.0), [[34.0, -118.0], [34.01, -118.01], [34.02, -118.02], [34.03, -118.03]], ["unknown", "moderate", "severe"])
@@ -2520,5 +2529,43 @@ try:
     _after = eli.get("/home").get_data(as_text=True)
     _after_card = _after[_after.find('class="card tap nextcard"'):_after.find("id=schedule")]
     ok("After practice: Michael" in _after_card and "data-drive=" not in _after_card and "class=pindot" in _after, "the social hour keeps the practice on Home without a drive-time lookup")
+    _keep_date, _keep_start, _keep_end, _keep_lat = D.execute("SELECT date, start, end, lat FROM practices WHERE id=?", (_drive_pid,)).fetchone()
+    _far_start = _clock + dt.timedelta(hours=2, minutes=45)
+    _far_end = _far_start + dt.timedelta(minutes=90)
+    D.execute("UPDATE practices SET date=?, start=?, end=?, lat=? WHERE id=?", (_far_start.date().isoformat(), "%02d:%02d" % (_far_start.hour, _far_start.minute), "%02d:%02d" % (_far_end.hour, _far_end.minute), 33.75, _drive_pid))
+    D.execute("DELETE FROM drive_cache WHERE practice_id=?", (_drive_pid,))
+    D.commit()
+    A.drive_service.auth_failed = False
+    _fake_route.fail = None
+    A.now_pt = lambda: _clock
+    _held = _drive(33.70, -118.00)
+    _far_leave = _far_start - dt.timedelta(minutes=23)
+    _far_hm = "%d:%02d" % ((_far_leave.hour - 1) % 12 + 1, _far_leave.minute)
+    A.now_pt = lambda: _clock + dt.timedelta(hours=2)
+    _return = eli.get("/home").get_data(as_text=True)
+    _return_pill = _return.split("data-drive-line", 1)[1].split("</p>", 1)[0] if "data-drive-line" in _return else ""
+    _jane_home = jane.get("/home").get_data(as_text=True)
+    _late = A.now_pt()
+    A.drive_service.auth_failed = False
+    _fake_route.fail = 401
+    _stale = _drive(33.71, -118.00)
+    _fake_route.fail = None
+    A.drive_service.auth_failed = False
+    D.execute("UPDATE practices SET lat=? WHERE id=?", (33.80, _drive_pid))
+    D.commit()
+    _moved = eli.get("/home").get_data(as_text=True)
+    D.execute("UPDATE practices SET lat=? WHERE id=?", (33.75, _drive_pid))
+    D.commit()
+    A.now_pt = lambda: _far_start
+    _started = eli.get("/home").get_data(as_text=True)
+    _jane_id = D.execute("SELECT id FROM members WHERE email='jane@example.com'").fetchone()[0]
+    D.execute("INSERT INTO drive_cache(member_id, practice_id, minutes, traffic, estimated, fetched_at, place) VALUES(?,?,?,1,0,?,?)", (_jane_id, _drive_pid, 23, _clock.isoformat(), "33.75000,-118.01000"))
+    D.commit()
+    jane.get("/logout")
+    _gone = D.execute("SELECT 1 FROM drive_cache WHERE member_id=?", (_jane_id,)).fetchone()
+    D.execute("UPDATE practices SET date=?, start=?, end=?, lat=? WHERE id=?", (_keep_date, _keep_start, _keep_end, _keep_lat, _drive_pid))
+    D.commit()
+    A.now_pt = lambda: _clock
+    ok(_held.get_json().get("chip") == "Leave by " + _far_hm and "updated 120 min ago" in _return and "23 min with traffic" in _return_pill and "leave by" not in _return_pill.lower() and ("Leave by " + _far_hm) in _return and "23 min with traffic" not in _jane_home and "23 min with traffic" not in _moved and _stale.get_json().get("stale") is True and _stale.get_json().get("text", "").startswith("23 min with traffic") and "33.71" not in _stale.get_data(as_text=True) and "data-drive=" not in _started and _gone is None, "a drive time from two hours earlier stays on Home until practice starts, and only for that member")
 finally:
     A.now_pt = _real_now

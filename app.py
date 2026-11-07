@@ -1681,6 +1681,7 @@ def api_drive():
     result, age = drive_cached(d, me()["id"], p["id"], (lat, lng), (p["lat"], p["lng"]), now)
     stale = bool(age is not None and age >= routing.CACHE_FOR)
     payload = {"ok": True, "show": True, "text": drive_phrase(result, arrive, now) + _updated_phrase(age),
+               "chip": "" if result.estimated else leave_by_label(result, arrive, now),
                "minutes": result.minutes, "traffic": result.traffic, "estimated": result.estimated, "stale": stale}
     if not result.estimated and not stale:
         got = drive_service.traffic_line((lat, lng), (p["lat"], p["lng"]), now)
@@ -2681,20 +2682,24 @@ def drive_line_public(origin, points, congestion=None):
         levels = list(congestion[cut:])
         if len(kept) < 2 or len(levels) != len(kept) - 1: levels = None
     return kept, levels
-def drive_phrase(result, arrive, now):
+def drive_head(result):
     if result.estimated:
-        head = "%d min est." % result.minutes
-    elif result.traffic:
-        head = "%d min with traffic" % result.minutes
-    else:
-        head = "%d min" % result.minutes
-    if arrive is None:
-        return head
-    leave = arrive - dt.timedelta(minutes=result.minutes)
+        return "%d min est." % result.minutes
+    if result.traffic:
+        return "%d min with traffic" % result.minutes
+    return "%d min" % result.minutes
+def leave_by_label(result, arrive, now):
+    """'Leave by 6:24' when a real traffic departure is still ahead. No meridiem."""
+    if not result or result.estimated or not result.traffic or arrive is None:
+        return ""
+    leave = arrive - dt.timedelta(minutes=int(result.minutes))
     if leave <= now:
-        return head + " · leave now"
+        return ""
     wall = wall_pt(leave)
-    return head + " · leave by " + fmt_clock("%d:%02d" % (wall.hour, wall.minute))
+    return "Leave by %d:%02d" % ((wall.hour - 1) % 12 + 1, wall.minute)
+def drive_phrase(result, arrive, now):
+    """Overlay text is the drive duration. The departure clock is the status chip."""
+    return drive_head(result)
 def _updated_phrase(age):
     if age is None: return ""
     mins = int(age.total_seconds() // 60)
@@ -3285,20 +3290,22 @@ def combined_view(entry):
     route = social_route_points(nextp) if nextp else []
     drive_on = next_kind == "practice" and bool(nextp) and drive_offer(d, nextp, m["id"])
     drive_until = practice_start_epoch(nextp) if drive_on and nextp else 0
-    drive_saved, drive_age = "", 0
+    drive_saved, drive_age, drive_chip = "", 0, ""
     if drive_on and nextp:
         remembered = drive_remembered(d, m["id"], nextp, now_pt())
         if remembered:
             saved, saved_age = remembered
             start, _end = practice_span(nextp)
-            drive_saved = drive_phrase(saved, start.replace(tzinfo=PT), now_pt()) + _updated_phrase(saved_age)
+            arrive = start.replace(tzinfo=PT)
+            drive_saved = drive_phrase(saved, arrive, now_pt()) + _updated_phrase(saved_age)
+            drive_chip = leave_by_label(saved, arrive, now_pt())
             drive_age = int(saved_age.total_seconds())
     social_after = next_kind == "practice" and bool(nextp) and social_after_window(nextp)
     social_mins = int(nextp["social_drive_min"]) if nextp and "social_drive_min" in nextp.keys() and nextp["social_drive_min"] else None
     return page(T["home"], tab="practices" if entry == "practices" else "home",
         m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices,
         nextp=nextp, next_kind=next_kind, nextev=nextev, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined,
-        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, route=route, drive_on=drive_on, drive_until=drive_until, drive_saved=drive_saved, drive_age=drive_age,
+        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, route=route, drive_on=drive_on, drive_until=drive_until, drive_saved=drive_saved, drive_age=drive_age, drive_chip=drive_chip,
         social_after=social_after, social_mins=social_mins, data=data, coach_choices=coach_candidates(d) if m["is_admin"] else [])
 @app.route("/practices", methods=["GET", "POST"])
 @login_required
