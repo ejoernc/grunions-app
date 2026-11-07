@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS route_budget(day TEXT PRIMARY KEY, calls INTEGER NOT 
 CREATE TABLE IF NOT EXISTS search_sessions(token TEXT PRIMARY KEY, day TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS drive_cache(member_id INTEGER NOT NULL, practice_id INTEGER NOT NULL,
   minutes INTEGER NOT NULL, traffic INTEGER NOT NULL, estimated INTEGER NOT NULL, fetched_at TEXT NOT NULL,
-  PRIMARY KEY(member_id, practice_id));
+  place TEXT, PRIMARY KEY(member_id, practice_id));
 CREATE TABLE IF NOT EXISTS lineup_events(id INTEGER PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL, date TEXT NOT NULL,
   end_date TEXT, city TEXT, venue TEXT, start TEXT, location TEXT, description TEXT, link TEXT, stage TEXT, hosting TEXT);
 CREATE TABLE IF NOT EXISTS lineup_rsvps(event_id INTEGER NOT NULL, member_id INTEGER NOT NULL, going INTEGER NOT NULL,
@@ -154,6 +154,7 @@ def db():
         migrate_social_joins(g.db)
         migrate_referee_list(g.db)
         migrate_verify_requests(g.db)
+        migrate_drive_cache(g.db)
         if not g.db.execute("SELECT 1 FROM requirements").fetchone():
             g.db.executemany("INSERT INTO requirements(name,applies_to,keywords,expires) VALUES(?,?,?,?)", DEFAULT_REQS); g.db.commit()
         drop_club_waiver(g.db)
@@ -180,6 +181,12 @@ def migrate_referee_list(d):
     """Referee list mirrors the coaching list. Existing members are not added."""
     d.execute("""CREATE TABLE IF NOT EXISTS referee_list(
         member_id INTEGER PRIMARY KEY, source TEXT NOT NULL DEFAULT 'manual', at TEXT)""")
+def migrate_drive_cache(d):
+    """Remember which pool a saved drive time belongs to. The member's own location is not stored."""
+    cols = [r[1] for r in d.execute("PRAGMA table_info(drive_cache)")]
+    if "place" not in cols:
+        d.execute("ALTER TABLE drive_cache ADD COLUMN place TEXT")
+        d.commit()
 def migrate_practices(d):
     """Store a cancellation reason, an optional social, and a coach message. Existing practices stay unchanged."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(practices)")]
@@ -1102,7 +1109,14 @@ def auth_google_callback():
     return redirect("/login")
 
 @app.route("/logout")
-def logout(): session.clear(); return redirect("/login")
+def logout():
+    mid = session.get("mid")
+    if mid:
+        d = db()
+        d.execute("DELETE FROM drive_cache WHERE member_id=?", (mid,))
+        d.commit()
+    session.clear()
+    return redirect("/login")
 
 # ---------- member ----------
 @app.route("/home", methods=["GET", "POST"])
@@ -1665,8 +1679,15 @@ def api_drive():
     start, _end = practice_span(p)
     arrive = start.replace(tzinfo=PT)
     result, age = drive_cached(d, me()["id"], p["id"], (lat, lng), (p["lat"], p["lng"]), now)
-    resp = jsonify(ok=True, show=True, text=drive_phrase(result, arrive, now) + _updated_phrase(age),
-                   minutes=result.minutes, traffic=result.traffic, estimated=result.estimated)
+    stale = bool(age is not None and age >= routing.CACHE_FOR)
+    payload = {"ok": True, "show": True, "text": drive_phrase(result, arrive, now) + _updated_phrase(age),
+               "minutes": result.minutes, "traffic": result.traffic, "estimated": result.estimated, "stale": stale}
+    if not result.estimated and not stale:
+        got = drive_service.traffic_line((lat, lng), (p["lat"], p["lng"]), now)
+        points, levels = drive_line_public((lat, lng), got[1] if got else [], got[2] if got and len(got) > 2 else None)
+        if len(points) >= 1: payload["line"] = points
+        if levels: payload["congestion"] = levels
+    resp = jsonify(payload)
     resp.headers["Cache-Control"] = "no-store"
     return resp
 # ---------- practices ----------
@@ -2116,6 +2137,14 @@ def has_social_address_text(addr):
 def has_social_address(p):
     if not p or not hasattr(p, "keys") or "social_address" not in p.keys(): return False
     return has_social_address_text(p["social_address"])
+def practice_start_epoch(p):
+    """Unix start of a dated practice in Pacific time. 0 when it has no clock time."""
+    if not p or practice_is_month(p): return 0
+    try:
+        start, _end = practice_span(p)
+    except (TypeError, ValueError):
+        return 0
+    return int(start.replace(tzinfo=PT).timestamp())
 def practice_span(p):
     day = dt.date.fromisoformat(str(p["date"])[:10])
     def hm(raw, default):
@@ -2542,33 +2571,56 @@ def drive_offer(d, p, member_id, now=None):
     if d.execute("SELECT 1 FROM checkins WHERE member_id=? AND practice_date=?", (member_id, day.isoformat())).fetchone():
         return False
     return True
-def _cache_age(fetched_at, now):
+def drive_place_key(lat, lng):
+    """Public pool identity for a saved drive time. Not the member's location."""
+    return "%.5f,%.5f" % (round(float(lat), 5), round(float(lng), 5))
+def _fetched_age(fetched_at, now):
     try:
         fetched = dt.datetime.fromisoformat(fetched_at)
     except (TypeError, ValueError):
         return None
     if fetched.tzinfo is None: fetched = fetched.replace(tzinfo=PT)
     age = as_pt(now) - as_pt(fetched)
-    if age < dt.timedelta(0) or age >= routing.CACHE_FOR: return None
+    if age < dt.timedelta(0): return None
     return age
+def _cache_age(fetched_at, now):
+    age = _fetched_age(fetched_at, now)
+    if age is None or age >= routing.CACHE_FOR: return None
+    return age
+def _drive_row(d, member_id, practice_id):
+    return d.execute("SELECT minutes, traffic, estimated, fetched_at, place FROM drive_cache WHERE member_id=? AND practice_id=?",
+                     (member_id, practice_id)).fetchone()
+def drive_remembered(d, member_id, p, now):
+    """Last real drive time for this member and pool, including results older than 15 minutes."""
+    if not p or p["lat"] is None or p["lng"] is None: return None
+    row = _drive_row(d, member_id, p["id"])
+    if not row or row["estimated"] or (row["place"] or "") != drive_place_key(p["lat"], p["lng"]): return None
+    age = _fetched_age(row["fetched_at"], now)
+    if age is None: return None
+    return routing.Route(row["minutes"], traffic=bool(row["traffic"]), estimated=False), age
 def drive_cached(d, member_id, practice_id, origin, dest, now):
-    """Return a stored Mapbox result for 15 minutes. Coordinates are never written."""
-    row = d.execute("SELECT minutes, traffic, estimated, fetched_at FROM drive_cache WHERE member_id=? AND practice_id=?",
-                    (member_id, practice_id)).fetchone()
-    if row and not row["estimated"]:
+    """Reuse a live result for 15 minutes. A failed refresh keeps the last real one. Coordinates are never written."""
+    place = drive_place_key(dest[0], dest[1])
+    row = _drive_row(d, member_id, practice_id)
+    same = row and not row["estimated"] and (row["place"] or "") == place
+    if same:
         age = _cache_age(row["fetched_at"], now)
         if age is not None:
             return routing.Route(row["minutes"], traffic=bool(row["traffic"]), estimated=False), age
     result = drive_service.drive(origin, dest, now)
     if not result.estimated:
         stamp = as_pt(now).replace(microsecond=0).isoformat()
-        d.execute("""INSERT INTO drive_cache(member_id, practice_id, minutes, traffic, estimated, fetched_at)
-            VALUES(?,?,?,?,0,?)
+        d.execute("""INSERT INTO drive_cache(member_id, practice_id, minutes, traffic, estimated, fetched_at, place)
+            VALUES(?,?,?,?,0,?,?)
             ON CONFLICT(member_id, practice_id) DO UPDATE SET
-              minutes=excluded.minutes, traffic=excluded.traffic, estimated=0, fetched_at=excluded.fetched_at""",
-                  (member_id, practice_id, result.minutes, 1 if result.traffic else 0, stamp))
+              minutes=excluded.minutes, traffic=excluded.traffic, estimated=0, fetched_at=excluded.fetched_at, place=excluded.place""",
+                  (member_id, practice_id, result.minutes, 1 if result.traffic else 0, stamp, place))
         d.commit()
         return result, dt.timedelta(0)
+    if same:
+        kept = _fetched_age(row["fetched_at"], now)
+        if kept is not None:
+            return routing.Route(row["minutes"], traffic=bool(row["traffic"]), estimated=False), kept
     return result, None
 def drive_target(d, kind, eid):
     """Destination coordinates and the Pacific arrival time for one event. None when it has no pin."""
@@ -2604,6 +2656,31 @@ def drive_target(d, kind, eid):
             arrive = start.replace(tzinfo=PT)
         return {"dest": (row["lat"], row["lng"]), "arrive": arrive, "key": "lineup:%d" % row["id"]}
     return None
+def drive_line_public(origin, points, congestion=None):
+    """Road points for the map, without echoing the device coordinate back.
+    Congestion stays aligned with the segments that remain, or is dropped."""
+    if not points: return [], None
+    try:
+        olat, olng = float(origin[0]), float(origin[1])
+    except (TypeError, ValueError):
+        return [], None
+    cut = 0
+    while cut < len(points):
+        try:
+            lat, lng = float(points[cut][0]), float(points[cut][1])
+        except (TypeError, ValueError, IndexError):
+            return [], None
+        if abs(lat - olat) < 1e-4 and abs(lng - olng) < 1e-4: cut += 1
+        else: break
+    kept = []
+    for pair in points[cut:]:
+        try: kept.append([round(float(pair[0]), 5), round(float(pair[1]), 5)])
+        except (TypeError, ValueError, IndexError): return [], None
+    levels = None
+    if congestion is not None and len(points) >= 2 and len(congestion) == len(points) - 1 and cut <= len(congestion):
+        levels = list(congestion[cut:])
+        if len(kept) < 2 or len(levels) != len(kept) - 1: levels = None
+    return kept, levels
 def drive_phrase(result, arrive, now):
     if result.estimated:
         head = "%d min est." % result.minutes
@@ -3207,12 +3284,21 @@ def combined_view(entry):
     data = upcoming_schedule(d)
     route = social_route_points(nextp) if nextp else []
     drive_on = next_kind == "practice" and bool(nextp) and drive_offer(d, nextp, m["id"])
+    drive_until = practice_start_epoch(nextp) if drive_on and nextp else 0
+    drive_saved, drive_age = "", 0
+    if drive_on and nextp:
+        remembered = drive_remembered(d, m["id"], nextp, now_pt())
+        if remembered:
+            saved, saved_age = remembered
+            start, _end = practice_span(nextp)
+            drive_saved = drive_phrase(saved, start.replace(tzinfo=PT), now_pt()) + _updated_phrase(saved_age)
+            drive_age = int(saved_age.total_seconds())
     social_after = next_kind == "practice" and bool(nextp) and social_after_window(nextp)
     social_mins = int(nextp["social_drive_min"]) if nextp and "social_drive_min" in nextp.keys() and nextp["social_drive_min"] else None
     return page(T["home"], tab="practices" if entry == "practices" else "home",
         m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices,
         nextp=nextp, next_kind=next_kind, nextev=nextev, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined,
-        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, route=route, drive_on=drive_on,
+        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, route=route, drive_on=drive_on, drive_until=drive_until, drive_saved=drive_saved, drive_age=drive_age,
         social_after=social_after, social_mins=social_mins, data=data, coach_choices=coach_candidates(d) if m["is_admin"] else [])
 @app.route("/practices", methods=["GET", "POST"])
 @login_required

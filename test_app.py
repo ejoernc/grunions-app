@@ -1790,6 +1790,8 @@ pic_pool = A.pool_place(pic_loc)
 pool_lat = str(pic_pool["lat"]) if pic_pool else "33.5"
 ok("id=homeMap" in mapped and "class=homedock" in mapped and "padding:0 0 12px;min-height:" in mapped and "flex-end;gap:12px" in mapped and 'class="homefull"' in mapped and "span*2/5" in mapped and "headerFloor" in mapped and "grunionsPlaceMap" in mapped and "dragPan:false" in mapped and "touchZoomRotate:false" in mapped and "doubleClickZoom:false" in mapped and "boxZoom:false" in mapped and "keyboard:false" in mapped and mapped.find("id=homeMap") < i_card and 'class="card playcard"' not in mapped and pool_lat in mapped and "33.6" in mapped and "tile.openstreetmap.org" not in mapped and "leaflet" not in mapped and "useOSM" not in mapped and "openstreetmap.org" not in mapped and "maps.apple.com" in mapped and "google.com/maps/dir/" in mapped and "id=schedule" in jane.get("/practices").get_data(as_text=True) and "mapbox-gl.js" not in jane.get("/practices").get_data(as_text=True) and "grunionsMountMap" not in jane.get("/practices").get_data(as_text=True) and "requestAnimationFrame" in mapped and "passive:true" in mapped and "prefers-reduced-motion" in mapped and "<summary>Attendance</summary>" not in mapped and "<summary>Profile</summary>" not in mapped and "name=preferred_first" in jane.get("/profile").get_data(as_text=True), "the map fills the home screen behind the cards at a regional zoom, with the pool and social pins")
 ok("grunionsMapAlive" in mapped and "webglcontextlost" in mapped and "if(!e.persisted) return" not in mapped and "waitSize" in mapped, "a refresh or a lost WebGL context rebuilds the Home map")
+ok("body.homefull .homemap{opacity:0}" in mapped and "body.homefull .homemap.mapready.mapin{transition:opacity .3s ease}" in mapped and "function revealMap()" in mapped and "function revealOpen()" in mapped and "map.once('render', function(){ revealMap(); })" in mapped and "var wait=revealOpen()?0:280" in mapped, "the home map fades in for 300ms once venues are framed, and a location during that fade eases without waiting it out")
+ok("window.grunionsPinStack=function(practice,social,gap){gap=gap==null?2:gap;" in mapped and "grunionsPinGap(practice,social)>=gap" in mapped and "(practice.bottom+gap)-social.top" in mapped, "colliding practice and social labels separate by at least 2px with the practice label kept above")
 ok("window.grunionsPlace=function(lat,lng,label)" in mapped and "maps.apple.com/?ll=" in mapped and "geo:'+ll+'?q=" in mapped and "google.com/maps/search/?api=1&query=" in mapped and "interactive:false" in mapped and "dragPan:false" in mapped and "pinEl(p.kind, p.label, p.lat, p.lng)" in mapped and "body.homefull .homemap .mpin{pointer-events:auto" in mapped and "body.homefull main{" in mapped and "pointer-events:none" in mapped.split("body.homefull main{")[1][:220] and "body.homefull .homedock{" in mapped and "pointer-events:none" in mapped.split("body.homefull .homedock{")[1][:420] and "body.homefull .homedock .card" in mapped and "z-index:4;pointer-events:auto" in mapped, "a Home pin or its label opens that place in the device maps app")
 import urllib.request as _ureq
 class _GeoResp:
@@ -2449,6 +2451,9 @@ class _FakeRoute:
     def route_line(self, origin, dest):
         self.calls.append("line")
         return 8, [[round(origin[0], 5), round(origin[1], 5)], [round(dest[0], 5), round(dest[1], 5)]]
+    def traffic_line(self, origin, dest):
+        self.calls.append("traffic-line")
+        return 23, [[round(origin[0], 5), round(origin[1], 5)], [33.751, -118.011], [round(dest[0], 5), round(dest[1], 5)]], ["low", "heavy"]
 _fake_route = _FakeRoute()
 A.drive_service.provider = _fake_route
 A.drive_service.auth_failed = False
@@ -2496,9 +2501,20 @@ try:
     D.execute("INSERT OR IGNORE INTO checkins(member_id, practice_date, location) VALUES(?,?,?)", (eli_id, _soon.date().isoformat(), "Drive Pool"))
     D.commit()
     _checked = _drive(33.70, -118.00)
+    D.execute("DELETE FROM checkins WHERE member_id=? AND practice_date=?", (eli_id, _soon.date().isoformat()))
+    D.commit()
     _body = "".join(r.get_data(as_text=True) for r in (_near, _again, _outside, _capped, _denied, _begun, _checked))
     _cache_cols = [c[1] for c in D.execute("PRAGMA table_info(drive_cache)")]
     ok(_near.status_code == 200 and _near_j.get("show") is True and _near_j["text"].startswith("23 min with traffic") and "leave by" in _near_j["text"] and "updated just now" in _near_j["text"] and _again.get_json()["text"].startswith("23 min with traffic") and "updated" in _again.get_json()["text"] and _one_lookup and _outside.get_json().get("show") is False and _capped.get_json().get("estimated") is True and "est." in _capped.get_json()["text"] and _denied.get_json().get("estimated") is True and _begun.get_json().get("show") is False and _checked.get_json().get("show") is False and "33.70" not in _body and "lat" not in _cache_cols and "lng" not in _cache_cols, "drive time is traffic-only inside the window, cached 15 minutes per member, and stores no location")
+    _saved_home = eli.get("/home").get_data(as_text=True)
+    ok(".drivechiptext .driveage{font-weight:400" in _saved_home and ".drivechiptext{padding:8px 12px;font-size:13px;font-weight:650" in _saved_home and '<span class=driveage> · updated just now</span>' in _saved_home and "23 min with traffic" in _saved_home.split('<span class=driveage>', 1)[0][-80:], "the drive overlay keeps the update age in a lighter weight")
+    ok(_near_j.get("congestion") == ["heavy"] and _near_j["line"][-1] == [33.75, -118.01] and _near_j["line"][0] == [33.751, -118.011] and "33.70" not in _near.get_data(as_text=True) and "--color-yellow" in _saved_home and "--color-coral" in _saved_home and "'moderate',yellow,'heavy',coral,'severe',coral,lime" in _saved_home, "traffic segments use the app yellow and coral only where Mapbox congestion lines up")
+    _plain, _none = A.drive_line_public((34.0, -118.0), [[34.0, -118.0], [34.01, -118.01], [34.02, -118.02]], ["low"])
+    _kept, _cong = A.drive_line_public((34.0, -118.0), [[34.0, -118.0], [34.01, -118.01], [34.02, -118.02], [34.03, -118.03]], ["unknown", "moderate", "severe"])
+    _empty = A.routing.congestion_levels({"legs": [{"annotation": {}}]}, 3)
+    _shifted = A.routing.congestion_levels({"legs": [{"annotation": {"congestion": ["low", "heavy"]}}]}, 5)
+    _fit = A.routing.congestion_levels({"legs": [{"annotation": {"congestion": ["low", "moderate", "heavy"]}}]}, 4)
+    ok(_none is None and _kept == [[34.01, -118.01], [34.02, -118.02], [34.03, -118.03]] and _cong == ["moderate", "severe"] and _empty is None and _shifted is None and _fit == ["low", "moderate", "heavy"], "a congestion list is kept only when it matches the road segments, and a short list is not colored")
     ok(_fake_route.calls.count("line") == 1 and D.execute("SELECT social_drive_min, social_routed FROM practices WHERE id=?", (_drive_pid,)).fetchone()[0] == 8, "the social road line is fetched once when the address is saved")
     A.now_pt = lambda: _end_at + dt.timedelta(minutes=10)
     _after = eli.get("/home").get_data(as_text=True)

@@ -42,6 +42,20 @@ def estimate_minutes(origin, dest):
     return max(1, int(round(km / 40 * 60)))
 
 
+CONGESTION_LEVELS = ("unknown", "low", "moderate", "heavy", "severe")
+def congestion_levels(route, point_count):
+    """One Mapbox congestion value per segment between consecutive coordinates.
+    None when the annotation is missing or does not line up with the geometry."""
+    if not route or point_count < 2: return None
+    levels = []
+    for leg in route.get("legs") or []:
+        ann = leg.get("annotation") if isinstance(leg, dict) else None
+        raw = (ann or {}).get("congestion") if isinstance(ann, dict) else None
+        if not isinstance(raw, list): return None
+        levels.extend(raw)
+    if len(levels) != point_count - 1: return None
+    if any(level not in CONGESTION_LEVELS for level in levels): return None
+    return levels
 def wants_traffic(arrive_at, now):
     """Live traffic only when the event starts within the next three hours."""
     if arrive_at is None or now is None:
@@ -57,16 +71,18 @@ class MapboxProvider:
         self.token = token
         self.opener = opener or urllib.request.urlopen
 
-    def _directions(self, origin, dest, profile, geometry):
+    def _directions(self, origin, dest, profile, geometry, annotate=False):
         olng, olat = origin[1], origin[0]
         dlng, dlat = dest[1], dest[0]
         coords = "%s,%s;%s,%s" % (olng, olat, dlng, dlat)
-        query = urllib.parse.urlencode({
+        query = {
             "access_token": self.token,
-            "overview": "simplified" if geometry else "false",
+            "overview": "full" if annotate else ("simplified" if geometry else "false"),
             "geometries": "geojson",
             "alternatives": "false",
-        })
+        }
+        if annotate: query["annotations"] = "congestion"
+        query = urllib.parse.urlencode(query)
         url = "https://api.mapbox.com/directions/v5/mapbox/%s/%s?%s" % (profile, coords, query)
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
         try:
@@ -93,7 +109,8 @@ class MapboxProvider:
             return minutes
         coords = ((routes[0].get("geometry") or {}).get("coordinates") or [])
         points = [[round(float(pair[1]), 5), round(float(pair[0]), 5)] for pair in coords if isinstance(pair, (list, tuple)) and len(pair) >= 2]
-        return minutes, points
+        if not annotate: return minutes, points
+        return minutes, points, congestion_levels(routes[0], len(points))
 
     def route(self, origin, dest, profile):
         return self._directions(origin, dest, profile, False)
@@ -101,6 +118,10 @@ class MapboxProvider:
     def route_line(self, origin, dest):
         """Plain driving geometry. No traffic and no turn-by-turn steps."""
         return self._directions(origin, dest, "driving", True)
+
+    def traffic_line(self, origin, dest):
+        """Full driving-traffic geometry plus segment congestion. The caller's coordinate is not stored here."""
+        return self._directions(origin, dest, "driving-traffic", True, annotate=True)
 
 
 class RoutingService:
@@ -118,12 +139,19 @@ class RoutingService:
 
     def line(self, origin, dest, now):
         """One plain-driving road line. None when the provider cannot be called."""
-        if self.provider is None or self.auth_failed or not hasattr(self.provider, "route_line"):
+        return self._line(origin, dest, now, "route_line")
+
+    def traffic_line(self, origin, dest, now):
+        """One traffic-aware road line. None when it cannot be fetched. Not stored."""
+        return self._line(origin, dest, now, "traffic_line")
+
+    def _line(self, origin, dest, now, method):
+        if self.provider is None or self.auth_failed or not hasattr(self.provider, method):
             return None
         if self.cap is not None and not self.cap.try_take(now):
             return None
         try:
-            return self.provider.route_line(origin, dest)
+            return getattr(self.provider, method)(origin, dest)
         except AuthError:
             self.auth_failed = True
             return None
