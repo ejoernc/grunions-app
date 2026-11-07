@@ -161,6 +161,7 @@ def db():
         drop_concussion_rule(g.db)
         ensure_referee_req(g.db)
         migrate_messages(g.db)
+        migrate_notices(g.db)
         migrate_lineup(g.db)
         migrate_series(g.db)
         backfill_checkin_going(g.db)
@@ -310,6 +311,17 @@ def migrate_series(d):
         if c not in scols:
             d.execute("ALTER TABLE practice_series ADD COLUMN %s %s" % (c, t))
     d.execute("UPDATE practice_series SET interval_weeks=1 WHERE interval_weeks IS NULL OR interval_weeks NOT IN (1, 2)")
+def migrate_notices(d):
+    """Retry bookkeeping for notices. Rows already stored were successful sends."""
+    cols = [r[1] for r in d.execute("PRAGMA table_info(sent_notices)")]
+    for col, sql in (
+        ("delivered", "ALTER TABLE sent_notices ADD COLUMN delivered INTEGER NOT NULL DEFAULT 1"),
+        ("attempts", "ALTER TABLE sent_notices ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0"),
+        ("next_at", "ALTER TABLE sent_notices ADD COLUMN next_at TEXT"),
+    ):
+        if col in cols: continue
+        try: d.execute(sql)
+        except sqlite3.OperationalError: pass
 def migrate_messages(d):
     """Add chat columns missing from a database created by an older version (production SQLite on DATA_DIR)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
@@ -1024,15 +1036,55 @@ def join():
     return page(T["join"])
 
 def smtp_ready(): return all(SMTP.values())
+class MailError(Exception):
+    """SMTP failed at one named step. The message never includes a password."""
+    def __init__(self, stage, cause):
+        self.stage = stage
+        self.cause = cause
+        super().__init__("%s: %s" % (stage, cause.__class__.__name__))
+def _smtp_ehlo_name():
+    """A real hostname for EHLO. A container id is not one, and some relays drop the session."""
+    raw = (PUBLIC_URL or "").split("://", 1)[-1].split("/")[0].split(":")[0].strip().lower()
+    if raw and "." in raw and all(c.isalnum() or c in ".-" for c in raw): return raw
+    return "localhost"
 def send_email(to, subject, text):
-    """Send via SMTP (Gmail app password, Resend, Brevo...). Port 465 = SSL, otherwise STARTTLS."""
+    """Send via SMTP. Port 465 is implicit TLS. Every other port must upgrade with STARTTLS.
+    The certificate check stays on. The connection is closed even when a later step fails."""
     import smtplib, ssl
     from email.message import EmailMessage
-    msg = EmailMessage(); msg["From"] = SMTP["MAIL_FROM"]; msg["To"] = to; msg["Subject"] = subject; msg.set_content(text)
-    port = int(SMTP["SMTP_PORT"]); ctx = ssl.create_default_context()
-    if port == 465: srv = smtplib.SMTP_SSL(SMTP["SMTP_HOST"], port, context=ctx, timeout=15)
-    else: srv = smtplib.SMTP(SMTP["SMTP_HOST"], port, timeout=15); srv.starttls(context=ctx)
-    with srv: srv.login(SMTP["SMTP_USER"], SMTP["SMTP_PASSWORD"]); srv.send_message(msg)
+    msg = EmailMessage()
+    msg["From"] = SMTP["MAIL_FROM"]; msg["To"] = to; msg["Subject"] = subject; msg.set_content(text)
+    host = (SMTP["SMTP_HOST"] or "").strip()
+    port = int(SMTP["SMTP_PORT"])
+    ctx = ssl.create_default_context()
+    ehlo = _smtp_ehlo_name()
+    srv = None
+    stage = "connect"
+    try:
+        if port == 465:
+            srv = smtplib.SMTP_SSL(host, port, local_hostname=ehlo, context=ctx, timeout=20)
+        else:
+            srv = smtplib.SMTP(host, port, local_hostname=ehlo, timeout=20)
+            stage = "tls"
+            srv.ehlo(ehlo)
+            if not srv.has_extn("starttls"):
+                raise smtplib.SMTPException("server does not offer STARTTLS")
+            srv.starttls(context=ctx)
+            srv.ehlo(ehlo)
+        stage = "auth"
+        srv.login(SMTP["SMTP_USER"], SMTP["SMTP_PASSWORD"])
+        stage = "send"
+        srv.send_message(msg)
+    except MailError:
+        raise
+    except Exception as e:
+        raise MailError(stage, e) from e
+    finally:
+        if srv is not None:
+            try: srv.quit()
+            except Exception:
+                try: srv.close()
+                except Exception: pass
 def send_link(email):
     m = db().execute("SELECT id, first, preferred_first FROM members WHERE email=? AND COALESCE(role,'')!='system'", (email,)).fetchone()
     link = None
@@ -1044,10 +1096,11 @@ def send_link(email):
         if smtp_ready():
             try: send_email(email, "Your Grunions login link", f"Hi {display_first(m)},\n\nTap to sign in to the Grunions team app:\n{link}\n\n"
                             f"This link works once and expires in {LINK_MINUTES} minutes. If you didn't ask for it, ignore this email.\n\nGrunions Water Polo")
-            except Exception as e: app.logger.error("login email to %s failed: %s", email, e)
+            except Exception as e:
+                app.logger.error("login email failed at %s: %s", getattr(e, "stage", "send"), getattr(e, "cause", e).__class__.__name__)
         elif DEV_SHOW_LINKS: app.logger.warning("MAGIC LINK for %s: %s", email, link)
-        else: app.logger.error("No SMTP configured; login link for %s not sent", email)
-    msg = f"If that email is on the team, a login link is on its way (valid {LINK_MINUTES} minutes)."
+        else: app.logger.error("No SMTP configured; login link not sent")
+    msg = f"If that email is on the team, a login link is on its way (valid {LINK_MINUTES} minutes). If it does not arrive, try again in a few minutes."
     if DEV_SHOW_LINKS and link: msg += f'<br><b>Dev mode:</b> <a href="{link}">open your login link</a>'
     flash(msg); return redirect("/login")
 
@@ -5895,13 +5948,44 @@ def app_base():
 app.jinja_env.globals.update(app_base=app_base)
 def open_db():
     d = sqlite3.connect(DB, timeout=30); d.row_factory = sqlite3.Row
-    d.executescript(SCHEMA); migrate_members(d); migrate_messages(d); migrate_practices(d); migrate_lineup(d); migrate_series(d)
+    d.executescript(SCHEMA); migrate_members(d); migrate_messages(d); migrate_notices(d); migrate_practices(d); migrate_lineup(d); migrate_series(d)
     seed_chat_reads(d); d.commit(); return d
 def claim_notice(d, member_id, kind):
-    cur = d.execute("INSERT OR IGNORE INTO sent_notices(member_id, kind, sent_at) VALUES(?,?,?)", (member_id, kind, dt.datetime.now().isoformat(timespec="seconds")))
+    cur = d.execute("INSERT OR IGNORE INTO sent_notices(member_id, kind, sent_at, delivered, attempts) VALUES(?,?,?,1,0)", (member_id, kind, dt.datetime.now().isoformat(timespec="seconds")))
     d.commit(); return cur.rowcount == 1
 def release_notice(d, member_id, kind):
     d.execute("DELETE FROM sent_notices WHERE member_id=? AND kind=?", (member_id, kind)); d.commit()
+_NOTICE_BACKOFF_MIN = (30, 120, 480, 1440)
+_NOTICE_MAX_ATTEMPTS = 5
+def notice_due(d, member_id, kind):
+    """True when this notice should be sent now. A delivered row is never sent again.
+    The row is reserved for the first backoff window so a second caller does not send a duplicate."""
+    now = dt.datetime.now()
+    now_s = now.isoformat(timespec="seconds")
+    hold = (now + dt.timedelta(minutes=_NOTICE_BACKOFF_MIN[0])).isoformat(timespec="seconds")
+    d.execute("INSERT OR IGNORE INTO sent_notices(member_id, kind, sent_at, delivered, attempts, next_at) VALUES(?,?,?,0,0,?)",
+              (member_id, kind, now_s, now_s))
+    cur = d.execute("""UPDATE sent_notices SET next_at=?
+        WHERE member_id=? AND kind=? AND COALESCE(delivered,0)=0 AND COALESCE(attempts,0)<?
+          AND (next_at IS NULL OR next_at<=?)""",
+                    (hold, member_id, kind, _NOTICE_MAX_ATTEMPTS, now_s))
+    d.commit()
+    return cur.rowcount == 1
+def notice_sent(d, member_id, kind):
+    d.execute("UPDATE sent_notices SET delivered=1, sent_at=? WHERE member_id=? AND kind=?", (dt.datetime.now().isoformat(timespec="seconds"), member_id, kind))
+    d.commit()
+def notice_failed(d, member_id, kind):
+    """Record a failed try and wait longer before the next one. The row stays, so a later success is not duplicated."""
+    now = dt.datetime.now()
+    row = d.execute("SELECT attempts FROM sent_notices WHERE member_id=? AND kind=?", (member_id, kind)).fetchone()
+    attempts = ((row["attempts"] if row else 0) or 0) + 1
+    wait = _NOTICE_BACKOFF_MIN[min(attempts - 1, len(_NOTICE_BACKOFF_MIN) - 1)]
+    nxt = (now + dt.timedelta(minutes=wait)).isoformat(timespec="seconds")
+    d.execute("UPDATE sent_notices SET attempts=?, next_at=?, sent_at=?, delivered=0 WHERE member_id=? AND kind=?",
+              (attempts, nxt, now.isoformat(timespec="seconds"), member_id, kind))
+    d.commit()
+    if attempts >= _NOTICE_MAX_ATTEMPTS:
+        app.logger.error("expiry notice stopped after %s attempts for member %s", attempts, member_id)
 def claim_job(d, name, ttl):
     now = dt.datetime.now()
     try: d.execute("BEGIN IMMEDIATE")
@@ -6016,15 +6100,17 @@ def deliver_expiry(d, m, kind, date_iso, left):
     base_key = "expiry:%s:%s:%s" % (kind, date_iso, left)
     if wants_email_reminders(m) and m["email"]:
         ek = "email:" + base_key
-        if claim_notice(d, m["id"], ek):
-            if not smtp_ready(): release_notice(d, m["id"], ek)
+        if notice_due(d, m["id"], ek):
+            if not smtp_ready(): notice_failed(d, m["id"], ek)
             else:
                 text = ("Hi %s,\n\n%s\n\nReverify in the app: %s/home\nGet a USAWP membership: %s\n\n"
                         "You can turn off these reminder emails in Notification settings. Practice cancellation emails still send.\n\nGrunions Water Polo\n") % (
                         display_first(m), sentence, app_base(), TRIAL_JOIN_URL)
-                try: send_email(m["email"], title, text)
+                try:
+                    send_email(m["email"], title, text); notice_sent(d, m["id"], ek)
                 except Exception as e:
-                    app.logger.error("expiry email to %s failed: %s", m["email"], e); release_notice(d, m["id"], ek)
+                    app.logger.error("expiry email failed at %s: %s", getattr(e, "stage", "send"), getattr(e, "cause", e).__class__.__name__)
+                    notice_failed(d, m["id"], ek)
     if wants_push(m, "expiry"):
         pk = "push:" + base_key
         if claim_notice(d, m["id"], pk) and not push_member(d, m, "expiry", title, sentence, url):

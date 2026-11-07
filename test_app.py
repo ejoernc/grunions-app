@@ -32,6 +32,175 @@ ok("Hi, Jane" in x.get(link, follow_redirects=True).get_data(as_text=True), "mag
 ok("invalid or expired" in client().get(link, follow_redirects=True).get_data(as_text=True), "magic link single-use")
 r = client(); t = r.post("/login", data=dict(csrf=csrf(r, "/login"), email="nobody@example.com"), follow_redirects=True).get_data(as_text=True)
 ok("/auth/" not in t and "If that email" in t, "unknown email: no link, no account enumeration")
+def _smtp_checks():
+    """Local SMTP only. No message leaves this machine."""
+    import socket, ssl, threading, smtplib, ipaddress, datetime as _dt
+    saved_smtp, saved_url = dict(A.SMTP), A.PUBLIC_URL
+    saved_send, saved_ready, saved_dev = A.send_email, A.smtp_ready, A.DEV_SHOW_LINKS
+    real_ctx, real_smtp, real_ssl = ssl.create_default_context, smtplib.SMTP, smtplib.SMTP_SSL
+    try:
+        from cryptography import x509
+        from cryptography.x509.oid import NameOID
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+        cert = (x509.CertificateBuilder().subject_name(name).issuer_name(name).public_key(key.public_key())
+                .serial_number(x509.random_serial_number())
+                .not_valid_before(_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(minutes=5))
+                .not_valid_after(_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(days=1))
+                .add_extension(x509.SubjectAlternativeName([x509.DNSName("localhost"), x509.IPAddress(ipaddress.ip_address("127.0.0.1"))]), critical=False)
+                .sign(key, hashes.SHA256()))
+        cert_pem = cert.public_bytes(serialization.Encoding.PEM)
+        key_pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL, serialization.NoEncryption())
+        ctx_box, ehlo_seen = {}, []
+        def trusting():
+            c = real_ctx()
+            c.load_verify_locations(cadata=cert_pem.decode())
+            ctx_box["ctx"] = c
+            return c
+        ssl.create_default_context = trusting
+        def serve(implicit_tls, accepted, closed):
+            raw = socket.socket(); raw.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            raw.bind(("127.0.0.1", 0)); raw.listen(1)
+            port = raw.getsockname()[1]
+            ready.append(port)
+            conn, _ = raw.accept()
+            try:
+                if implicit_tls:
+                    srv_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                    srv_ctx.load_cert_chain(certfile=cert_path, keyfile=key_path)
+                    conn = srv_ctx.wrap_socket(conn, server_side=True)
+                conn.sendall(b"220 localhost ESMTP\r\n")
+                buf = b""
+                tls_done = implicit_tls
+                while True:
+                    chunk = conn.recv(4096)
+                    if not chunk:
+                        closed.append("eof"); break
+                    buf += chunk
+                    while b"\n" in buf:
+                        line, buf = buf.split(b"\n", 1)
+                        cmd = line.strip().split(b" ")[0].upper()
+                        if cmd == b"EHLO":
+                            ehlo_seen.append(line.decode(errors="replace").strip())
+                            feats = b"250-STARTTLS\r\n" if not tls_done else b""
+                            conn.sendall(b"250-localhost\r\n" + feats + b"250 AUTH PLAIN\r\n")
+                        elif cmd == b"STARTTLS":
+                            conn.sendall(b"220 Ready\r\n")
+                            srv_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                            srv_ctx.load_cert_chain(certfile=cert_path, keyfile=key_path)
+                            conn = srv_ctx.wrap_socket(conn, server_side=True)
+                            tls_done = True; buf = b""
+                        elif cmd == b"AUTH":
+                            conn.sendall(b"235 ok\r\n")
+                        elif cmd == b"DATA":
+                            conn.sendall(b"354 go\r\n")
+                            body = buf
+                            while b"\r\n.\r\n" not in body:
+                                more = conn.recv(4096)
+                                if not more: break
+                                body += more
+                            accepted.append(body)
+                            conn.sendall(b"250 queued\r\n")
+                            buf = b""
+                        elif cmd == b"QUIT":
+                            conn.sendall(b"221 bye\r\n"); closed.append("quit"); return
+                        else:
+                            conn.sendall(b"250 ok\r\n")
+            finally:
+                try: conn.close()
+                except Exception: pass
+                raw.close()
+        import tempfile as _tf
+        cert_path = _tf.mktemp(suffix=".pem"); key_path = _tf.mktemp(suffix=".pem")
+        open(cert_path, "wb").write(cert_pem); open(key_path, "wb").write(key_pem)
+        A.PUBLIC_URL = "https://grunions.regulars.team"
+        A.SMTP = {"SMTP_HOST": "127.0.0.1", "SMTP_PORT": "0", "SMTP_USER": "smtp-user", "SMTP_PASSWORD": "smtp-secret", "MAIL_FROM": "Grunions <team@test>"}
+        ready, accepted, closed = [], [], []
+        th = threading.Thread(target=serve, args=(False, accepted, closed), daemon=True); th.start()
+        while not ready: pass
+        A.SMTP["SMTP_PORT"] = str(ready[0])
+        A.send_email("person@example.com", "Hello", "A login link for the test.")
+        th.join(5)
+        ctx = ctx_box.get("ctx")
+        ok(bool(accepted) and b"person@example.com" in accepted[0] and any("grunions.regulars.team" in line for line in ehlo_seen) and ctx is not None and ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname is True and "quit" in closed, "port 587 completes STARTTLS with certificate checks and then closes")
+        ready, accepted, closed = [], [], []
+        th = threading.Thread(target=serve, args=(True, accepted, closed), daemon=True); th.start()
+        while not ready: pass
+        listen = ready[0]
+        class ToLocal(real_ssl):
+            def __init__(self, host, port=0, local_hostname=None, **kwargs):
+                assert port == 465
+                super().__init__(host, listen, local_hostname=local_hostname, **kwargs)
+        smtplib.SMTP_SSL = ToLocal
+        A.SMTP["SMTP_PORT"] = "465"
+        try:
+            A.send_email("person@example.com", "Hello", "Implicit TLS.")
+        finally:
+            smtplib.SMTP_SSL = real_ssl
+        th.join(5)
+        ok(bool(accepted) and b"Implicit TLS." in accepted[0], "port 465 uses implicit TLS and the server accepts the message")
+        def drop():
+            s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(("127.0.0.1", 0)); s.listen(1)
+            ready.append(s.getsockname()[1])
+            c, _ = s.accept()
+            try:
+                c.sendall(b"220 localhost ESMTP\r\n"); c.shutdown(socket.SHUT_WR); c.settimeout(2)
+                try:
+                    while c.recv(1024): pass
+                    closed.append("eof")
+                except socket.timeout:
+                    closed.append("timeout")
+            finally:
+                c.close(); s.close()
+        ready, closed = [], []
+        th = threading.Thread(target=drop, daemon=True); th.start()
+        while not ready: pass
+        A.SMTP["SMTP_PORT"] = str(ready[0])
+        raised = None
+        try: A.send_email("person@example.com", "Hello", "nope")
+        except A.MailError as e: raised = e
+        th.join(5)
+        ok(raised is not None and raised.stage in ("connect", "tls") and "smtp-secret" not in str(raised) and closed == ["eof"], "a server that hangs up is closed from our side and the error names the step without the password")
+        class Plain:
+            def __init__(self, *a, **k):
+                self.calls = []; instances.append(self)
+                self.esmtp_features = {"auth": "PLAIN"}
+            def ehlo(self, name=""): self.calls.append(("ehlo", name))
+            def has_extn(self, name): return name.lower() in self.esmtp_features
+            def starttls(self, context=None): self.calls.append(("starttls", context))
+            def login(self, u, p): self.calls.append(("login", u))
+            def send_message(self, m): self.calls.append(("send",))
+            def quit(self): self.calls.append(("quit",))
+            def close(self): self.calls.append(("close",))
+        instances = []
+        smtplib.SMTP = Plain
+        try:
+            A.send_email("person@example.com", "Hello", "clear")
+            refused = False
+        except A.MailError as e:
+            refused = e.stage == "tls"
+        ok(refused and instances and ("login", "smtp-user") not in instances[0].calls and ("quit",) in instances[0].calls, "without STARTTLS the client does not authenticate or send, and it still closes")
+        A.DEV_SHOW_LINKS = False
+        A.smtp_ready = lambda: True
+        def fail_send(*a, **k):
+            raise A.MailError("auth", smtplib.SMTPServerDisconnected("Connection unexpectedly closed"))
+        A.send_email = fail_send
+        c_fail, c_unknown = client(), client()
+        failed = c_fail.post("/login", data=dict(csrf=csrf(c_fail, "/login"), email="jane@example.com"), follow_redirects=True).get_data(as_text=True)
+        unknown = c_unknown.post("/login", data=dict(csrf=csrf(c_unknown, "/login"), email="nobody-mail@example.com"), follow_redirects=True).get_data(as_text=True)
+        def note(html):
+            i = html.find("<div class=note>")
+            return html[i:html.find("</div>", i)] if i >= 0 else ""
+        ok("/auth/" not in failed and note(failed) == note(unknown) and "If that email" in failed and "15 minutes" in failed and "try again" in failed, "a failed login send uses the same on-screen message as an unknown address and does not show the link")
+    finally:
+        ssl.create_default_context = real_ctx
+        smtplib.SMTP, smtplib.SMTP_SSL = real_smtp, real_ssl
+        A.SMTP, A.PUBLIC_URL = saved_smtp, saved_url
+        A.send_email, A.smtp_ready, A.DEV_SHOW_LINKS = saved_send, saved_ready, saved_dev
+_smtp_checks()
 # chat
 tok = csrf(jane, "/chat")
 jane.post("/api/messages", json={"body": "See everyone Tuesday at Marina! <b>hi</b>", "announcement": True}, headers={"X-CSRF": tok})
@@ -624,6 +793,66 @@ sue_mail = [e for e in emails if e[0] == "sue@example.com"]
 ss_mail = [e for e in emails if "SafeSport" in e[1]]
 trial_mail = [e for e in emails if e[0] == "tess.trial@example.com"]
 ok(len(jane_mail) == 1 and "in 7 days" in jane_mail[0][2] and "/home" in jane_mail[0][2] and A.TRIAL_JOIN_URL in jane_mail[0][2] and sue_mail == [] and not any(e[0] == "ren@example.com" and "in 8 days" in e[2] for e in emails) and len(ss_mail) == 1 and "tomorrow" in ss_mail[0][2] and len(trial_mail) == 1 and "today" in trial_mail[0][2] and A.TRIAL_JOIN_URL in trial_mail[0][2] and any(p[0] == sue_id and p[1]["url"] == "/home" and "membership" in p[1]["body"].lower() for p in pushes) and any(p[1]["url"] == "/home" and "SafeSport" in p[1]["body"] for p in pushes) and any(p[1]["url"] == "/home" and "trial" in p[1]["body"].lower() for p in pushes), "expiry emails and pushes go out 7 days, 1 day, and the day it expires, once, and reminder emails can be turned off")
+def _notice_row(email):
+    c = sqlite3.connect(os.environ["GRUNIONS_DB"]); c.row_factory = sqlite3.Row
+    mid = c.execute("SELECT id FROM members WHERE email=?", (email,)).fetchone()[0]
+    row = c.execute("SELECT delivered, attempts, next_at, kind FROM sent_notices WHERE member_id=? AND kind LIKE 'email:expiry:membership:%'", (mid,)).fetchone()
+    c.close(); return row
+def _run_expiry():
+    nd = A.open_db()
+    try: A.run_expiry_notices(nd)
+    finally: nd.close()
+def _make_due(email):
+    c = sqlite3.connect(os.environ["GRUNIONS_DB"])
+    mid = c.execute("SELECT id FROM members WHERE email=?", (email,)).fetchone()[0]
+    past = (dt.datetime.now() - dt.timedelta(minutes=1)).isoformat(timespec="seconds")
+    c.execute("UPDATE sent_notices SET next_at=? WHERE member_id=? AND kind LIKE 'email:expiry:%'", (past, mid)); c.commit(); c.close()
+keeper = A.send_email
+state = {"retry": 0, "cap": 0}
+sent_retry = []
+def flaky(to, subj, text):
+    if to == "retry.notice@example.com":
+        state["retry"] += 1
+        if state["retry"] < 3: raise RuntimeError("Connection unexpectedly closed")
+        sent_retry.append(subj); return
+    if to == "cap.notice@example.com":
+        state["cap"] += 1
+        raise RuntimeError("Connection unexpectedly closed")
+    if to == "old.notice@example.com":
+        state["old"] = state.get("old", 0) + 1
+        return
+    return keeper(to, subj, text)
+A.send_email = flaky
+join(A.app.test_client(), "Retry", "Notice", "retry.notice@example.com")
+D.execute("UPDATE members SET usawp_valid_until=?, email_reminders=1, usawp_status='verified' WHERE email='retry.notice@example.com'", (soon,)); D.commit()
+_run_expiry(); _run_expiry()
+row = _notice_row("retry.notice@example.com")
+wait = (dt.datetime.fromisoformat(row["next_at"]) - dt.datetime.now()).total_seconds() / 60
+ok(state["retry"] == 1 and row["delivered"] == 0 and row["attempts"] == 1 and 25 < wait < 35 and sent_retry == [], "a failed expiry email waits about 30 minutes instead of retrying immediately")
+_make_due("retry.notice@example.com"); _run_expiry()
+row = _notice_row("retry.notice@example.com")
+wait = (dt.datetime.fromisoformat(row["next_at"]) - dt.datetime.now()).total_seconds() / 60
+ok(state["retry"] == 2 and row["attempts"] == 2 and 100 < wait < 140, "the next expiry failure waits about two hours")
+_make_due("retry.notice@example.com"); _run_expiry(); _run_expiry()
+row = _notice_row("retry.notice@example.com")
+ok(state["retry"] == 3 and sent_retry and row["delivered"] == 1, "once an expiry email is accepted it is not sent again")
+join(A.app.test_client(), "Cap", "Notice", "cap.notice@example.com")
+D.execute("UPDATE members SET usawp_valid_until=?, email_reminders=1, usawp_status='verified' WHERE email='cap.notice@example.com'", (soon,)); D.commit()
+for i in range(5):
+    if i: _make_due("cap.notice@example.com")
+    _run_expiry()
+_make_due("cap.notice@example.com"); _run_expiry()
+row = _notice_row("cap.notice@example.com")
+ok(state["cap"] == 5 and row["delivered"] == 0 and row["attempts"] == 5, "an expiry email stops after five failures and keeps the row")
+old = A.app.test_client(); join(old, "Old", "Notice", "old.notice@example.com")
+D.execute("UPDATE members SET usawp_valid_until=?, email_reminders=1, usawp_status='verified' WHERE email='old.notice@example.com'", (tomorrow,))
+oid = D.execute("SELECT id FROM members WHERE email='old.notice@example.com'").fetchone()[0]
+D.execute("INSERT INTO sent_notices(member_id, kind, sent_at) VALUES(?,?,?)", (oid, "email:expiry:membership:%s:1" % tomorrow, dt.datetime.now().isoformat(timespec="seconds")))
+D.commit()
+_run_expiry()
+mailed = D.execute("SELECT delivered FROM sent_notices WHERE member_id=? AND kind=?", (oid, "email:expiry:membership:%s:1" % tomorrow)).fetchone()[0]
+ok(mailed == 1 and state.get("old", 0) == 0, "a notice recorded before retries existed is treated as already sent")
+A.send_email = keeper
 pushes.clear()
 vera = A.app.test_client(); join(vera, "Vera", "Fy", "vera@example.com")
 vid = D.execute("SELECT id FROM members WHERE email='vera@example.com'").fetchone()[0]
