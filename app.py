@@ -2573,6 +2573,9 @@ def drive_offer(d, p, member_id, now=None):
     if not (start - dt.timedelta(hours=3) <= now_w < start): return False
     if d.execute("SELECT 1 FROM checkins WHERE member_id=? AND practice_date=?", (member_id, day.isoformat())).fetchone():
         return False
+    rsvp = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (p["id"], member_id)).fetchone()
+    if rsvp is not None and rsvp[0] == 0:
+        return False
     return True
 def drive_place_key(lat, lng):
     """Public pool identity for a saved drive time. Not the member's location."""
@@ -3290,6 +3293,7 @@ def combined_view(entry):
     pins = map_pins(nextp)
     data = upcoming_schedule(d)
     route = social_route_points(nextp) if nextp else []
+    drive_going = "1" if nextp_mine == 1 else ("" if nextp_mine is None else "0")
     drive_on = next_kind == "practice" and bool(nextp) and drive_offer(d, nextp, m["id"])
     drive_until = practice_start_epoch(nextp) if drive_on and nextp else 0
     drive_saved, drive_age, drive_chip = "", 0, ""
@@ -3307,7 +3311,7 @@ def combined_view(entry):
     return page(T["home"], tab="practices" if entry == "practices" else "home",
         m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices,
         nextp=nextp, next_kind=next_kind, nextev=nextev, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined,
-        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, route=route, drive_on=drive_on, drive_until=drive_until, drive_saved=drive_saved, drive_age=drive_age, drive_chip=drive_chip,
+        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, route=route, drive_on=drive_on, drive_until=drive_until, drive_saved=drive_saved, drive_age=drive_age, drive_chip=drive_chip, drive_going=drive_going,
         social_after=social_after, social_mins=social_mins, data=data, coach_choices=coach_candidates(d) if m["is_admin"] else [])
 @app.route("/practices", methods=["GET", "POST"])
 @login_required

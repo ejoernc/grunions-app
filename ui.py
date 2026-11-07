@@ -35,9 +35,6 @@ body:has(#chat) main{flex:1;min-width:0;width:100%;max-width:640px;min-height:0;
 ::view-transition-image-pair(root){isolation:auto}
 ::view-transition-old(root),::view-transition-new(root){animation:none;animation-duration:0s;mix-blend-mode:normal}
 ::view-transition-group(grunions-nav),::view-transition-old(grunions-nav),::view-transition-new(grunions-nav){animation:none;mix-blend-mode:normal}
-::view-transition-group(grunions-header){animation:none;overflow:clip}
-::view-transition-old(grunions-header){display:none}
-::view-transition-new(grunions-header){animation:none;mix-blend-mode:normal}
 #boot{position:fixed;top:0;left:0;right:0;height:100dvh;z-index:80;display:flex;align-items:center;justify-content:center;background:#0A0D0A;overflow:hidden;isolation:isolate;transition:opacity .7s ease}
 #boot.gone{opacity:0;pointer-events:none}
 #boot .mark{width:calc(186px * 0.97);height:calc(186px * 0.97 * 360 / 726);flex:none;line-height:0;transform:translateY(calc((env(safe-area-inset-bottom) - env(safe-area-inset-top)) / 2 - 12px))}
@@ -95,7 +92,7 @@ body.homefull .homedock .card:has(.sweep-host),body.homefull .schedlist .card:ha
 .nxicon{width:40px;height:40px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--color-icon)}
 .nxicon svg{display:block}
 .joinpill{flex:none}
-header.homehead{position:sticky;top:0;left:0;right:0;z-index:8;display:flex;width:100%;max-width:none;background:var(--color-bg);align-items:center;gap:var(--space-3);height:calc(76px + env(safe-area-inset-top));min-height:calc(76px + env(safe-area-inset-top));box-sizing:border-box;padding:calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) var(--space-4);border:0;box-shadow:none;view-transition-name:grunions-header}
+header.homehead{position:sticky;top:0;left:0;right:0;z-index:8;display:flex;width:100%;max-width:none;background:var(--color-bg);align-items:center;gap:var(--space-3);height:calc(76px + env(safe-area-inset-top));min-height:calc(76px + env(safe-area-inset-top));box-sizing:border-box;padding:calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) var(--space-4);border:0;box-shadow:none;outline:none;view-transition-name:none}
 header.homehead .headmain{flex:1;min-width:0;height:44px;display:flex;align-items:center;padding-right:0}
 header.homehead h1{margin:0;height:var(--type-t2-line);font-size:var(--type-t2-size);line-height:var(--type-t2-line);font-weight:var(--type-t2-weight);letter-spacing:-.02em}
 header.homehead .headtabs{flex:1;min-width:0;height:44px;margin:0;padding:0;align-items:center}
@@ -136,10 +133,11 @@ a.usawpchip.warn,a.usawpchip.bad{color:var(--color-text)}
 .loccard{padding:0}
 a.locrow,span.locrow,div.locrow{display:flex;align-items:center;gap:12px;padding:14px 16px;color:inherit;text-decoration:none;width:100%}
 .locrow .btn,.driverow .btn{flex:none;height:40px;min-height:40px;padding:0 12px;white-space:nowrap}
+.locrow .t3{display:block;overflow-wrap:anywhere}
 a.mapgo{width:100%}
 .drivechip{position:relative;z-index:3;display:flex;justify-content:center;margin:0 0 10px}
 .nexstack{position:relative;width:100%;min-width:0}
-.nexstack>.drivechip{position:absolute;left:50%;bottom:calc(100% + 16px);transform:translateX(-50%);z-index:6;display:flex;justify-content:center;margin:0;max-width:100%;width:max-content;pointer-events:auto}
+.nexstack>.drivechip{position:absolute;left:50%;bottom:calc(100% + 16px);transform:translateX(-50%);z-index:3;display:flex;justify-content:center;margin:0;max-width:100%;width:max-content;pointer-events:auto}
 body.homefull .nexstack{pointer-events:none}
 body.homefull .nexstack>.card{pointer-events:auto}
 .drivechipbtn,.drivechiptext{margin:0;max-width:100%;border-radius:999px;background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-border);box-shadow:0 6px 20px rgba(0,0,0,.35)}
@@ -199,7 +197,7 @@ body.schedopen .homemap,body.schedopen .homemap.mapready,body.schedopen .homemap
 #schedule{scroll-margin-top:calc(var(--homehead, 88px) + 8px)}
 @media (prefers-reduced-motion:reduce){body.homefull .homemap,body.homefull .homemap.mapready.mapin{transition:none}}
 body.profilepage main{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
-header.profilebar{position:sticky;top:0;left:0;right:0;z-index:5;width:100%;max-width:none;background:var(--color-bg);display:grid;grid-template-columns:88px 1fr 88px;grid-template-rows:44px;align-items:center;padding:env(safe-area-inset-top) 6px 0;box-sizing:border-box;min-height:44px;border:0;box-shadow:none;view-transition-name:grunions-header}
+header.profilebar{position:sticky;top:0;left:0;right:0;z-index:5;width:100%;max-width:none;background:var(--color-bg);display:grid;grid-template-columns:88px 1fr 88px;grid-template-rows:44px;align-items:center;padding:env(safe-area-inset-top) 6px 0;box-sizing:border-box;min-height:44px;border:0;box-shadow:none;outline:none;view-transition-name:none}
 header.profilebar h1{margin:0;text-align:center;font-size:var(--type-t4-size);font-weight:var(--type-t4-weight);line-height:44px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header.profilebar .left,header.profilebar .right{display:flex;align-items:center;height:44px;min-width:0}
 header.profilebar .left{justify-self:start;justify-content:flex-start}header.profilebar .right{justify-self:end;justify-content:flex-end}
@@ -1254,6 +1252,7 @@ dialog.memberedit .help a{color:var(--t1)}
     var form = button.form;
     var pid = field(form, "pid"), eid = field(form, "event_id");
     var social = isSocialForm(form);
+    if(pid && !social && window.grunionsDriveSetGoing) window.grunionsDriveSetGoing(posted==="going"?"1":(posted==="notgoing"?"0":""));
     var key = (pid ? ("p" + pid) : ("e" + eid)) + (social ? ":social" : ":rsvp");
     var posted = button.value;
     var forms = groupForms(document, pid, eid, social);
@@ -1523,7 +1522,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <script>(function(){var pins={{ pins|tojson }};var route={{ route|tojson if route else '[]' }};function start(){var el=document.getElementById({{ id|tojson }});if(el&&window.grunionsMountMap)grunionsMountMap(el,{pins:pins,mode:'{{ 'still' if mode == 'tap' else mode }}',route:route});}if(window.grunionsMountMap)start();else document.addEventListener('DOMContentLoaded',start);})();</script>{% endmacro %}
 {% macro event_hero(id, pins, banner_src, label, route=None) %}{% if banner_src %}<div class=evhero><img src="{{ banner_src }}" alt=""></div>{% else %}{{ mount_map(id, pins, 'card', '', route) }}{% endif %}{% endmacro %}
 {% macro whos_going(people, kind="going") %}<div class=seclabel>{% if kind == "interested" %}Who's interested{% else %}Who's going{% endif %}</div><div class=list>{% for r in people %}<div class=li>{% if me().is_admin or is_staff() %}<a class=ci-name href="/admin/member/{{ r.id }}">{% else %}<span class=ci-name>{% endif %}{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span></span>{% if me().is_admin or is_staff() %}</a>{% else %}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>{% endmacro %}
-{% macro event_location(id, pins, name, sub, href, route=None, route_min=None) %}<div class=seclabel>Location</div><div class="list loccard">{{ mount_map(id, pins, 'tap' if pins else 'still', href, route) }}{% if route_min %}<div class="li"><span class="t3 sm">{{ route_min }} min drive</span></div>{% endif %}<div class="li locrow"><span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ name }}</span>{% if sub and sub != name %}<span class="t3 sm">{{ sub }}</span>{% endif %}</span><a class="btn btn-secondary" href="{{ href }}" target=_blank rel=noopener {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %}>Open in Maps</a></div></div>{% endmacro %}
+{% macro event_location(id, pins, name, sub, href, route=None, route_min=None, social_name='', social_sub='', social_href='', social_dest='') %}<div class=seclabel>Location</div><div class="list loccard">{{ mount_map(id, pins, 'tap' if pins else 'still', href, route) }}{% if route_min %}<div class="li"><span class="t3 sm">{{ route_min }} min drive</span></div>{% endif %}<div class="li locrow"><span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ name }}</span>{% if sub and sub != name %}<span class="t3 sm">{{ sub }}</span>{% endif %}</span><a class="btn btn-secondary" href="{{ href }}" target=_blank rel=noopener {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %}>Open in Maps</a></div>{% if social_name %}<div class="li locrow"><span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ social_name }}</span>{% if social_sub and social_sub != social_name %}<span class="t3 sm">{{ social_sub }}</span>{% endif %}</span><a class="btn btn-secondary" href="{{ social_href }}" target=_blank rel=noopener {% if social_dest %}data-directions="{{ social_dest }}"{% endif %}>Open in Maps</a></div>{% endif %}</div>{% endmacro %}
 {% macro lineup_card(e, back='/lineup') %}<div class="card tap tripcard{% if e.status == 'canceled' %} cancelled{% endif %}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
 <a class=cardlink href="/lineup/{{ e.id }}">
 <div class=nxcardhead><div class="nxtitle cardtitle">{{ e.title }}</div>{% if e.card_line %}<div class="cardsub ell">{{ e.card_line }}</div>{% endif %}</div>
@@ -1972,15 +1971,49 @@ function grunionsShowDriveLine(points, here, congestion){
  if(el._reframe) el._reframe();
  else if(el._applyRoute) el._applyRoute();
 }
-function grunionsAskDrive(row, quiet){
- if(!row||row.dataset.driveBusy||row.dataset.driveEnded==='1') return;
+function grunionsDriveHalt(row){
+ if(!row) return;
+ row.dataset.driveGen=String((+(row.dataset.driveGen)||0)+1);
+ row.dataset.driveBlocked='1';
+ row.dataset.driveBusy='';
+ row.hidden=true;
+ if(row._driveTimer){ clearTimeout(row._driveTimer); row._driveTimer=0; }
+ if(row._driveRefresh){ clearTimeout(row._driveRefresh); row._driveRefresh=0; }
+ grunionsClearCommute();
+ var chip=document.querySelector('.nextcard .daychip');
+ if(chip && chip.textContent.indexOf('Leave by ')===0) chip.textContent=chip.getAttribute('data-live')||'Upcoming';
+}
+window.grunionsDriveSetGoing=function(going){
+ var row=document.querySelector('[data-drive]');
+ if(!row) return;
+ var spec={}; try{ spec=JSON.parse(row.getAttribute('data-drive')||'{}'); }catch(e){}
+ if(String(spec.kind||'')!=='practice') return;
  if(grunionsDriveOver(row)){ grunionsDriveEnd(row); return; }
+ row.setAttribute('data-drive-going', going);
+ if(going==='0'){ grunionsDriveHalt(row); return; }
+ row.dataset.driveBlocked='';
+ row.hidden=false;
+ var line=row.querySelector('[data-drive-line]');
+ var saved=!!(line && line.dataset.saved==='1');
+ var btn=row.querySelector('[data-drive-ask]');
+ if(going==='1' && grunionsDriveConsent(row)==='yes'){ grunionsAskDrive(row, saved); return; }
+ if(!saved){
+  if(btn){ btn.hidden=false; btn.disabled=false; }
+  if(line && line.dataset.saved!=='1') line.hidden=true;
+ }
+};
+function grunionsAskDrive(row, quiet){
+ if(!row||row.dataset.driveBusy||row.dataset.driveEnded==='1'||row.dataset.driveBlocked==='1') return;
+ if(row.getAttribute('data-drive-going')==='0'){ grunionsDriveHalt(row); return; }
+ if(grunionsDriveOver(row)){ grunionsDriveEnd(row); return; }
+ var driveGen=row.dataset.driveGen||'0';
  if(!navigator.geolocation){ var missing=row.querySelector('[data-drive-line]'); if(missing && missing.dataset.saved!=='1'){ missing.hidden=false; missing.textContent='Location is not available on this device.'; } return; }
  row.dataset.driveBusy='1';
  var btn=row.querySelector('[data-drive-ask]'), line=row.querySelector('[data-drive-line]');
  if(btn) btn.disabled=true;
  if(line && !quiet && line.dataset.saved!=='1'){ line.hidden=false; line.textContent='Checking traffic…'; }
  navigator.geolocation.getCurrentPosition(function(pos){
+  if((row.dataset.driveGen||'0')!==driveGen||row.dataset.driveBlocked==='1'||row.getAttribute('data-drive-going')==='0'){ row.dataset.driveBusy=''; return; }
   if(grunionsDriveOver(row) || row.dataset.driveEnded==='1'){ row.dataset.driveBusy=''; return; }
   grunionsDriveRemember(row, 'yes');
   if(window.grunionsShowYou && document.querySelector('[data-drive]')) grunionsShowYou(pos.coords.latitude, pos.coords.longitude);
@@ -1989,8 +2022,9 @@ function grunionsAskDrive(row, quiet){
    .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
    .then(function(res){
     row.dataset.driveBusy='';
+    if((row.dataset.driveGen||'0')!==driveGen||row.dataset.driveBlocked==='1'||row.getAttribute('data-drive-going')==='0') return;
     if(grunionsDriveOver(row)){ grunionsDriveEnd(row); return; }
-    if(res.ok && res.j && res.j.show===false){ grunionsDriveEnd(row); return; }
+    if(res.ok && res.j && res.j.show===false){ if(row.getAttribute('data-drive-going')==='0') grunionsDriveHalt(row); else grunionsDriveEnd(row); return; }
     if(!(res.ok && res.j && res.j.text)){ if(!grunionsKeepDrive(row, line, btn)){ if(btn){ btn.disabled=false; btn.hidden=false; } if(line){ line.hidden=false; line.textContent='Could not check drive time.'; } } return; }
     if(btn) btn.hidden=true;
     if(line){ line.hidden=false; line.dataset.saved='1'; line.dataset.driveRetry=res.j.stale?'1':''; grunionsPaintDrive(line, res.j.text); }
@@ -2011,6 +2045,7 @@ function grunionsAskDrive(row, quiet){
 function grunionsDriveRefresh(){
  if(document.hidden) return;
  document.querySelectorAll('[data-drive]').forEach(function(row){
+  if(row.getAttribute('data-drive-going')==='0'||row.dataset.driveBlocked==='1'){ grunionsDriveHalt(row); return; }
   if(row.dataset.driveEnded==='1' || grunionsDriveOver(row)){ grunionsDriveEnd(row); return; }
   if(grunionsDriveConsent(row)!=='yes') return;
   var line=row.querySelector('[data-drive-line]');
@@ -2023,15 +2058,17 @@ window.grunionsDriveScan=function(){
  var onHome=location.pathname==='/home'||location.pathname==='/practices'||document.body.classList.contains('homefull');
  if(!rows.length){ if(onHome) grunionsClearCommute(); return; }
  rows.forEach(function(row){
+  if(row.getAttribute('data-drive-going')==='0'||row.dataset.driveBlocked==='1'){ grunionsDriveHalt(row); return; }
   if(grunionsDriveOver(row)){ grunionsDriveEnd(row); return; }
   grunionsDriveArmEnd(row);
   var consent=grunionsDriveConsent(row);
   var line=row.querySelector('[data-drive-line]');
   var saved=!!(line && line.dataset.saved==='1' && !line.hidden);
-  if(saved && consent==='yes') grunionsDriveArmRefresh(row);
+  if(saved && consent==='yes' && row.getAttribute('data-drive-going')==='1') grunionsDriveArmRefresh(row);
   if(row.dataset.driveOn==='1') return;
   row.dataset.driveOn='1';
   if(consent!=='yes') return;
+  if(row.getAttribute('data-drive-going')!=='1' && !saved) return;
   grunionsAskDrive(row, saved);
  });
 };
@@ -2826,7 +2863,9 @@ ADMIN_NAV = """{% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% 
 MAP_JS = '''window.grunionsPinHit=function(a,b,gap){gap=gap==null?8:gap;return !!(a&&b&&a.left<b.right+gap&&b.left<a.right+gap&&a.top<b.bottom+gap&&b.top<a.bottom+gap);};
 window.grunionsPinGap=function(a,b){if(!a||!b)return Infinity;var gx=0,gy=0;if(a.right<=b.left)gx=b.left-a.right;else if(b.right<=a.left)gx=a.left-b.right;if(a.bottom<=b.top)gy=b.top-a.bottom;else if(b.bottom<=a.top)gy=a.top-b.bottom;if(gx>0&&gy>0)return Math.hypot(gx,gy);if(gx>0)return gx;if(gy>0)return gy;return 0;};
 window.grunionsPinStack=function(practice,social,gap){gap=gap==null?2:gap;if(!practice||!social||window.grunionsPinGap(practice,social)>=gap)return {practice:0,social:0};return {practice:0,social:(practice.bottom+gap)-social.top};};
-window.grunionsBandTarget=function(top,low){var band=Math.max(80, low-top);return top+band/3;};
+window.grunionsBandTarget=function(top,low){var band=Math.max(80, low-top);return top+band*2/3;};
+window.grunionsProject=function(lng,lat,cam,w,h){var world=512*Math.pow(2,cam.zoom);var x=w/2+(lng-cam.lng)*world/360;function merc(la){var s=Math.sin(la*Math.PI/180);return 0.5-Math.log((1+s)/(1-s))/(4*Math.PI);}var y=h/2+(merc(lat)-merc(cam.lat))*world;return {x:x,y:y};};
+window.grunionsVisualCamera=function(items,view,safe,opts){opts=opts||{};var w=view.w,h=view.h;if(!items||!items.length||!(w>0)||!(h>0))return {lng:opts.lng||0,lat:opts.lat||0,zoom:opts.zoom||12};var zoom=opts.zoom==null?12:opts.zoom;var lng=opts.lng==null?items[0].lng:opts.lng;var lat=opts.lat==null?items[0].lat:opts.lat;var mode=opts.mode||'multi';var anchor=opts.anchor||null;var targetY=opts.targetY;var minZoom=opts.minZoom==null?8:opts.minZoom;function world(z){return 512*Math.pow(2,z);}function merc(la){var s=Math.sin(la*Math.PI/180);return 0.5-Math.log((1+s)/(1-s))/(4*Math.PI);}function unmerc(my){var e=Math.exp((0.5-my)*4*Math.PI);var s=(e-1)/(e+1);if(s>0.9999)s=0.9999;if(s<-0.9999)s=-0.9999;return Math.asin(s)*180/Math.PI;}function lockLat(z){if(mode!=='single'||!anchor||targetY==null)return lat;return unmerc(merc(anchor.lat)-(targetY-h/2)/world(z));}function union(cam){var rs=[],i,it,p,pi=-1,si=-1;for(i=0;i<items.length;i++){it=items[i];p=window.grunionsProject(it.lng,it.lat,cam,w,h);rs.push({left:p.x-it.dl,right:p.x+it.dr,top:p.y-it.dt,bottom:p.y+it.db,kind:it.kind||''});if((it.kind==='practice')&&pi<0)pi=i;if(it.kind==='social'&&si<0)si=i;}if(pi>=0&&si>=0){var pr=rs[pi],sr=rs[si];var apart=pr.right<=sr.left||sr.right<=pr.left||pr.bottom+2<=sr.top||sr.bottom+2<=pr.top;if(!apart){var dy=(pr.bottom+2)-sr.top;if(dy>0)rs[si]={left:sr.left,right:sr.right,top:sr.top+dy,bottom:sr.bottom+dy,kind:'social'};}}var L=Infinity,R=-Infinity,T=Infinity,B=-Infinity;for(i=0;i<rs.length;i++){if(rs[i].left<L)L=rs[i].left;if(rs[i].right>R)R=rs[i].right;if(rs[i].top<T)T=rs[i].top;if(rs[i].bottom>B)B=rs[i].bottom;}return {left:L,right:R,top:T,bottom:B};}function centerLng(z,la){var box=union({lng:lng,lat:la,zoom:z});var mid=(safe.left+(w-safe.right))/2;var shift=((box.left+box.right)/2)-mid;return lng+shift*360/world(z);}function deficit(z,la,ln){var box=union({lng:ln,lat:la,zoom:z});var d=Math.max(0,safe.left-box.left,box.right-(w-safe.right));if(mode!=='single')d=Math.max(d,(safe.top||0)-box.top,box.bottom-(h-(safe.bottom||0)));return d;}lat=lockLat(zoom);lng=centerLng(zoom,lat);var best={lng:lng,lat:lat,zoom:zoom,d:deficit(zoom,lat,lng)},guard=0;while(guard<28&&best.d>0.5&&zoom>minZoom+0.01){zoom=Math.max(minZoom,zoom-(best.d>120?0.8:best.d>40?0.4:0.2));lat=lockLat(zoom);lng=centerLng(zoom,lat);var d=deficit(zoom,lat,lng);if(d>=best.d-0.25){lng=best.lng;lat=best.lat;zoom=best.zoom;break;}best={lng:lng,lat:lat,zoom:zoom,d:d};guard++;}return {lng:best.lng,lat:best.lat,zoom:best.zoom};};
 window.grunionsPinNudge=function(a,b,gap){gap=gap==null?8:gap;if(!window.grunionsPinHit(a,b,gap))return {dx:0,dy:0};var up=(a.top-gap)-b.bottom,down=(a.bottom+gap)-b.top;if(Math.abs(up)<=Math.abs(down))return {dx:0,dy:up};return {dx:0,dy:down};};
 window.grunionsPinAbove=function(obstacle,pill,gap){gap=gap==null?8:gap;if(!window.grunionsPinHit(obstacle,pill,gap))return {dx:0,dy:0};return {dx:0,dy:(obstacle.top-gap)-pill.bottom};};
 window.grunionsPinClamp=function(rect,bounds,gap){gap=gap==null?8:gap;if(!rect||!bounds)return {dx:0,dy:0};var dx=0;if(rect.right>bounds.right-gap)dx=(bounds.right-gap)-rect.right;if(rect.left+dx<bounds.left+gap)dx=(bounds.left+gap)-rect.left;return {dx:dx,dy:0};};
@@ -3010,7 +3049,7 @@ window.grunionsMountMap=function(el, opts){
      var target=window.grunionsBandTarget(top, low);
      var bottom=Math.round(top+h-2*target);
      if(bottom<24) bottom=24;
-     return {top:top, bottom:bottom, left:chip.left, right:chip.right};
+     return {top:top, bottom:bottom, left:24, right:24};
     }
     top=Math.round(top+chip.above);
     var floor=lowerLimit()-16;
@@ -3021,7 +3060,7 @@ window.grunionsMountMap=function(el, opts){
      var room=Math.max(0, h-minInner), sum=top+bottomMulti||1;
      top=Math.round(room*top/sum); bottomMulti=room-top;
     }
-    return {top:top, bottom:bottomMulti, left:chip.left, right:chip.right};
+    return {top:top, bottom:bottomMulti, left:24, right:24};
    }
    function staticCredit(){
     var logo=el.querySelector('.mapboxgl-ctrl-logo');
@@ -3165,6 +3204,42 @@ window.grunionsMountMap=function(el, opts){
     stackLabels();
    }
    el._separatePins=separatePins;
+   function rowBox(node){
+    var row=node.querySelector('.pinrow')||node;
+    var w=row.offsetWidth||row.scrollWidth||0, h=row.offsetHeight||18;
+    if(w<18){
+     var label=(node.querySelector('.pinpill')||{}).textContent||'';
+     w=18+6+16+Math.ceil(label.length*7.2);
+    }
+    var pill=node.querySelector('.pinpill');
+    var extra=0;
+    if(pill&&pill.offsetHeight>h) extra=(pill.offsetHeight-h)/2;
+    return {dl:9, dt:9+extra, dr:Math.max(9, w-9), db:9+extra};
+   }
+   function footprints(){
+    var items=[], nodes=el.querySelectorAll('.mpin:not(.you)');
+    if(nodes.length){
+     nodes.forEach(function(node){
+      var lng=+node.dataset.lng, lat=+node.dataset.lat;
+      if(!isFinite(lng)||!isFinite(lat)) return;
+      var box=rowBox(node);
+      items.push({lng:lng, lat:lat, dl:box.dl, dt:box.dt, dr:box.dr, db:box.db, kind:node.dataset.kind||(node.classList.contains('social')?'social':'practice')});
+     });
+    } else pins.forEach(function(p){
+     var ll=lngLat(p); if(!ll) return;
+     var w=18+6+16+Math.ceil(String(p.label||'').length*7.2);
+     items.push({lng:ll[0], lat:ll[1], dl:9, dt:9, dr:Math.max(9, w-9), db:9, kind:p.kind==='social'?'social':'practice'});
+    });
+    if(el._you&&isFinite(el._you.lng)&&isFinite(el._you.lat)) items.push({lng:+el._you.lng, lat:+el._you.lat, dl:11, dt:11, dr:11, db:11, kind:'you'});
+    function addRoute(route, rad){
+     (route||[]).forEach(function(p){
+      if(p&&p.length>=2&&isFinite(+p[0])&&isFinite(+p[1])) items.push({lng:+p[1], lat:+p[0], dl:rad, dt:rad, dr:rad, db:rad, kind:'route'});
+     });
+    }
+    if(homeView()) addRoute(el._driveRoute, 3);
+    addRoute(opts.route, 2);
+    return items;
+   }
    function frame(animate){
     var pts=(homeView()?(animate?commuteLL():venueLL()):points()).filter(function(p){ return p && isFinite(p[0]) && isFinite(p[1]); });
     if(!pts.length) return;
@@ -3172,9 +3247,35 @@ window.grunionsMountMap=function(el, opts){
     var pad=homeView()?focalPad(pts.length):pads();
     var pinsOnly=0;
     pins.forEach(function(p){ if(lngLat(p)) pinsOnly++; });
-    var multi=pinsOnly>1||(activeRoute().length>1);
+    var multi=pinsOnly>1||(activeRoute().length>1)||!!(homeView()&&el._you);
     var cap=homeView()?(multi?15:12):(pts.length===1?14:15);
     var bounds=[[Math.min.apply(null,lngs), Math.min.apply(null,lats)],[Math.max.apply(null,lngs), Math.max.apply(null,lats)]];
+    if(homeView() && window.grunionsVisualCamera){
+     if(el._mapHeld) return;
+     var box=el.getBoundingClientRect();
+     var w=box.width||el.clientWidth||1, h=box.height||el.clientHeight||1;
+     var topSafe=Math.round(headerFloor()-box.top+24);
+     var low=lowerLimit()-box.top;
+     var single=pts.length<=1;
+     var floor=lowerLimit()-16;
+     var safe={left:24, right:24, top:topSafe, bottom:single?Math.max(24, Math.round(h-low)):Math.max(24, Math.round(box.bottom-floor))};
+     var seedZoom=single?12:cap, seedLng=lngs[0], seedLat=lats[0];
+     if(!single && map.cameraForBounds){
+      var geoPad={top:pad.top, bottom:pad.bottom, left:24, right:24};
+      var cam0=map.cameraForBounds(bounds, {padding:geoPad, maxZoom:cap});
+      if(cam0&&cam0.center){ seedZoom=cam0.zoom; seedLng=cam0.center.lng; seedLat=cam0.center.lat; }
+     }
+     var anchor=single?{lng:pts[0][0], lat:pts[0][1]}:null;
+     var targetY=single?window.grunionsBandTarget(topSafe, low):null;
+     var visual=window.grunionsVisualCamera(footprints(), {w:w, h:h}, safe, {zoom:seedZoom, lng:seedLng, lat:seedLat, mode:single?'single':'multi', targetY:targetY, anchor:anchor, minZoom:8});
+     var dest={center:[visual.lng, visual.lat], zoom:visual.zoom, bearing:0, pitch:0};
+     if(animate && !reduceMotion() && map.easeTo){
+      map.easeTo(Object.assign({duration:800, essential:true}, dest));
+      map.once('moveend', function(){ separatePins(); });
+      return;
+     }
+     if(map.jumpTo){ map.jumpTo(dest); separatePins(); requestAnimationFrame(function(){ separatePins(); }); return; }
+    }
     if(animate && homeView() && !el._mapHeld && !reduceMotion() && map.cameraForBounds && map.easeTo){
      var cam=map.cameraForBounds(bounds, {padding:pad, maxZoom:cap});
      if(cam){
@@ -3258,6 +3359,7 @@ window.grunionsMountMap=function(el, opts){
     var name=pinText(label), pill=name?'<span class=pinpill>'+name+'</span>':'';
     var node=document.createElement('div');
     node.className='mpin'+(kind==='social'?' social':'');
+    node.dataset.lng=String(lng); node.dataset.lat=String(lat); node.dataset.kind=kind==='social'?'social':'practice';
     node.innerHTML='<span class=pinrow><span class=pinhold><span class=pindot></span></span>'+pill+'</span>';
     node.setAttribute('role','link');
     node.tabIndex=0;
@@ -3334,19 +3436,34 @@ window.grunionsMountMap=function(el, opts){
    }
    function paintTraffic(id, route, levels){
     var data=trafficData(route, levels);
-    if(!data){
-     if(map.getLayer(id)) map.removeLayer(id);
-     if(map.getSource(id)) map.removeSource(id);
-     return;
+    var keys=['lime','yellow','coral'];
+    function drop(lid){
+     if(map.getLayer&&map.getLayer(lid)) map.removeLayer(lid);
+     if(map.getSource&&map.getSource(lid)) map.removeSource(lid);
     }
+    if(!data){ keys.forEach(function(k){ drop(id+'-'+k); }); drop(id); return; }
     var yellow=mapToken('--color-yellow','#E4C84D'), coral=mapToken('--color-coral','#F48782'), lime=mapToken('--color-lime','#C4E65A');
-    var color=['match',['get','traffic'],'moderate',yellow,'heavy',coral,'severe',coral,'low',lime,'unknown',lime,lime];
-    if(map.getSource(id)) map.getSource(id).setData(data);
-    else {
-     map.addSource(id,{type:'geojson',data:data});
-     map.addLayer({id:id,type:'line',source:id,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':color,'line-width':6,'line-opacity':1}});
-    }
-    try{ if(map.getLayer && map.getLayer(id) && map.moveLayer) map.moveLayer(id); }catch(e){}
+    var buckets={lime:[], yellow:[], coral:[]};
+    data.features.forEach(function(f){
+     var t=f.properties&&f.properties.traffic;
+     var key=(t==='heavy'||t==='severe')?'coral':(t==='moderate'?'yellow':'lime');
+     buckets[key].push(f);
+    });
+    var order=[['lime', lime], ['yellow', yellow], ['coral', coral]];
+    var empty={type:'FeatureCollection', features:[]};
+    order.forEach(function(pair){
+     var lid=id+'-'+pair[0], features=buckets[pair[0]], fc={type:'FeatureCollection', features:features};
+     if(!features.length){ if(map.getSource(lid)) map.getSource(lid).setData(empty); return; }
+     if(map.getSource(lid)) map.getSource(lid).setData(fc);
+     else {
+      map.addSource(lid,{type:'geojson',data:fc});
+      map.addLayer({id:lid,type:'line',source:lid,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':pair[1],'line-width':6,'line-opacity':1}});
+     }
+    });
+    order.forEach(function(pair){
+     var lid=id+'-'+pair[0];
+     try{ if(map.getLayer&&map.getLayer(lid)&&map.moveLayer) map.moveLayer(lid); }catch(e){}
+    });
    }
    el._applyRoute=function(){
     try{
@@ -3512,7 +3629,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ nextev.id }}><input type=hidden name=back value=/home>{{ rsvp_base('e' ~ nextev.id) }}
 {{ rsvp_btn('Going', nextev.mine == 'going', 'going') }}
 {{ rsvp_btn('Not going', nextev.mine == 'notgoing', 'notgoing') }}</form>
-</div>{% elif nextp %}{% set sh = social_home(nextp) %}<div class=nexstack>{% if drive_on %}<div class="drivechip" data-drive="{{ {'kind':'practice','id':nextp.id}|tojson|forceescape }}" data-drive-until="{{ drive_until }}" data-drive-user="{{ m.id }}" data-drive-age="{{ drive_age }}" data-drive-dest="{{ nextp.lat }},{{ nextp.lng }}"><button type=button class=drivechipbtn data-drive-ask{% if drive_saved %} hidden{% endif %}>Show my drive time</button><a class=drivechiptext data-drive-line{% if drive_saved %} data-saved=1 data-directions="{{ nextp.lat }},{{ nextp.lng }}" href="https://www.google.com/maps/dir/?api=1&destination={{ (nextp.lat|string ~ ',' ~ nextp.lng|string)|urlencode }}" target=_blank rel=noopener aria-label="Driving directions to practice, {{ drive_saved }}"{% else %} hidden{% endif %}>{% if drive_saved %}{{ drive_saved.split(' · updated', 1)[0] }}{% if ' · updated' in drive_saved %}<span class=driveage> · updated{{ drive_saved.split(' · updated', 1)[1] }}</span>{% endif %}{% endif %}</a></div>{% endif %}<div class="card tap nextcard{% if nextp.cancelled %} cancelled{% endif %}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label,.drivechip,.nxmap'))return;location.href='/practices/{{nextp.id}}'">
+</div>{% elif nextp %}{% set sh = social_home(nextp) %}<div class=nexstack>{% if drive_on %}<div class="drivechip" data-drive="{{ {'kind':'practice','id':nextp.id}|tojson|forceescape }}" data-drive-until="{{ drive_until }}" data-drive-user="{{ m.id }}" data-drive-age="{{ drive_age }}" data-drive-dest="{{ nextp.lat }},{{ nextp.lng }}" data-drive-going="{{ drive_going }}"><button type=button class=drivechipbtn data-drive-ask{% if drive_saved %} hidden{% endif %}>Show my drive time</button><a class=drivechiptext data-drive-line{% if drive_saved %} data-saved=1 data-directions="{{ nextp.lat }},{{ nextp.lng }}" href="https://www.google.com/maps/dir/?api=1&destination={{ (nextp.lat|string ~ ',' ~ nextp.lng|string)|urlencode }}" target=_blank rel=noopener aria-label="Driving directions to practice, {{ drive_saved }}"{% else %} hidden{% endif %}>{% if drive_saved %}{{ drive_saved.split(' · updated', 1)[0] }}{% if ' · updated' in drive_saved %}<span class=driveage> · updated{{ drive_saved.split(' · updated', 1)[1] }}</span>{% endif %}{% endif %}</a></div>{% endif %}<div class="card tap nextcard{% if nextp.cancelled %} cancelled{% endif %}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label,.drivechip,.nxmap'))return;location.href='/practices/{{nextp.id}}'">
 {% if social_after and sh %}<div class="nxnote afterline">After practice: {{ sh.place }}{% if social_mins %} · {{ social_mins }} min drive{% endif %}</div>{% endif %}
 {% if nextp.image %}<a class=cardlink href="/practices/{{nextp.id}}"><div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div></a>{% endif %}
 <div class=nxbody><a class=cardlink href="/practices/{{nextp.id}}">
@@ -4969,7 +5086,6 @@ T["practice"] = """{% set p = x.p %}
 </div>{% endif %}
 {% endif %}
 {% else %}
-{% set spin = namespace(p=None) %}
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=pills style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>{{ rsvp_base('p' ~ p.id) }}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>{% endif %}
@@ -4984,8 +5100,6 @@ T["practice"] = """{% set p = x.p %}
 {% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
 <div class="t3 sm">{{ x.social_n }} joining</div>
 {% if p.social_note %}<div class="t2 sm" style="white-space:pre-wrap">{{ p.social_note }}</div>{% endif %}
-{% for pin in pins %}{% if pin.kind == 'social' %}{% set spin.p = pin %}{% endif %}{% endfor %}
-{% if p.social_address %}{% if p.social_address.lower().startswith('http://') or p.social_address.lower().startswith('https://') %}<div class="sm"><a href="{{ p.social_address }}" target=_blank rel=noopener>Map</a></div>{% elif not spin.p %}<div class="t2 sm">{{ p.social_address }} · <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ p.social_address|urlencode }}" target=_blank rel=noopener>Map</a></div>{% else %}<div class="t2 sm">{{ p.social_address }}</div>{% endif %}{% endif %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
 </div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>
 <div class=seclabel>Coaches</div>
@@ -5011,7 +5125,7 @@ T["practice"] = """{% set p = x.p %}
 {% if can_host_practice() and x.checked %}<div class="sechead checkhead"><span class=seclabel>Checked in</span><a class="btn btn-secondary" href="{{ check_href }}">Check in</a></div>
 {% else %}<div class=seclabel>Checked in</div>{% endif %}
 <div class=list>{% for r in x.checked %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class="t3 grow">No one yet.</span>{% if can_host_practice() %}<a class="btn btn-secondary" href="{{ check_href }}">Check in</a>{% endif %}</div>{% endfor %}</div>
-{% if p.location %}{% set dest = (pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location) %}{{ event_location('practiceLoc', pins, p.location, p.address or '', 'https://www.google.com/maps/dir/?api=1&destination=' ~ (dest|urlencode), social_route_points(p), p.social_drive_min if pins|selectattr('kind','equalto','social')|list else none) }}{% endif %}
+{% if p.location %}{% set dest = (pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location) %}{% set soc = namespace(name='', sub='', href='', dest='') %}{% if social_line(p) %}{% set soc.name = (p.social_place or '')|trim %}{% set _saddr = (p.social_address or '')|trim %}{% if _saddr and not (_saddr.lower().startswith('http://') or _saddr.lower().startswith('https://')) %}{% set soc.sub = _saddr %}{% endif %}{% set _spin = namespace(lat=none, lng=none) %}{% for pin in pins %}{% if pin.kind == 'social' %}{% set _spin.lat = pin.lat %}{% set _spin.lng = pin.lng %}{% endif %}{% endfor %}{% if _saddr.lower().startswith('http://') or _saddr.lower().startswith('https://') %}{% set soc.href = _saddr %}{% elif _spin.lat is not none %}{% set soc.dest = _spin.lat|string ~ ',' ~ _spin.lng|string %}{% set soc.href = 'https://www.google.com/maps/dir/?api=1&destination=' ~ (soc.dest|urlencode) %}{% else %}{% set soc.href = 'https://www.google.com/maps/dir/?api=1&destination=' ~ ((soc.sub or soc.name)|urlencode) %}{% endif %}{% endif %}{{ event_location('practiceLoc', pins, p.location, p.address or '', 'https://www.google.com/maps/dir/?api=1&destination=' ~ (dest|urlencode), social_route_points(p), p.social_drive_min if pins|selectattr('kind','equalto','social')|list else none, soc.name, soc.sub, soc.href, soc.dest) }}{% endif %}
 {% endif %}
 {% if me().is_admin or is_staff() %}{{ practice_extra_dialogs(p, 'page') }}
 <dialog class=modal id=plan{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Practice plan</h2>
