@@ -3318,7 +3318,6 @@ window.grunionsMountMap=function(el, opts){
     return {type:'FeatureCollection', features:features};
    }
    function paintLine(id, route){
-    if(!map.getStyle || !map.isStyleLoaded || !map.isStyleLoaded()) return;
     var coords=routeCoords(route);
     if(coords.length<2){
      if(map.getLayer(id)) map.removeLayer(id);
@@ -3334,7 +3333,6 @@ window.grunionsMountMap=function(el, opts){
     }
    }
    function paintTraffic(id, route, levels){
-    if(!map.getStyle || !map.isStyleLoaded || !map.isStyleLoaded()) return;
     var data=trafficData(route, levels);
     if(!data){
      if(map.getLayer(id)) map.removeLayer(id);
@@ -3350,25 +3348,16 @@ window.grunionsMountMap=function(el, opts){
     }
     try{ if(map.getLayer && map.getLayer(id) && map.moveLayer) map.moveLayer(id); }catch(e){}
    }
-   function styleReady(){ return !!(map.isStyleLoaded && map.isStyleLoaded()); }
    el._applyRoute=function(){
-    if((homeView() && el._driveRoute && el._driveRoute.length>1 || (opts.route&&opts.route.length>1)) && !styleReady()){
-     if(!el._routeArmed){
-      el._routeArmed=1;
-      var again=function(){ el._routeArmed=0; if(el._applyRoute) el._applyRoute(); };
-      if(map.once){ map.once('idle', again); map.once('styledata', again); }
-     }
-     return;
-    }
     try{
      if(homeView()){
       paintLine('social-route', opts.route||[]);
       paintTraffic('practice-route', el._driveRoute||[], el._driveCongestion);
      } else paintLine('social-route', opts.route||[]);
     }catch(e){
-     if(!el._routeArmed && map.once){
+     if(!el._routeArmed && map.once && /not done loading/i.test(String(e&&e.message||e))){
       el._routeArmed=1;
-      map.once('idle', function(){ el._routeArmed=0; if(el._applyRoute) el._applyRoute(); });
+      map.once('load', function(){ el._routeArmed=0; if(el._applyRoute) el._applyRoute(); });
      }
     }
    };

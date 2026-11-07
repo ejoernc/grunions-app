@@ -1689,8 +1689,7 @@ def api_drive():
         if len(points) >= 1:
             payload["line"] = points
             if levels: payload["congestion"] = levels
-        else:
-            app.logger.info("drive line omitted: %s", "empty" if got else "unavailable")
+        app.logger.warning("drive geometry segments=%d congestion=%s", len(points), "yes" if levels else "no")
     resp = jsonify(payload)
     resp.headers["Cache-Control"] = "no-store"
     return resp

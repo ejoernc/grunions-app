@@ -2541,7 +2541,7 @@ try:
     D.commit()
     _aged = _drive(33.70, -118.00)
     _aged_j = _aged.get_json()
-    ok(_road and len(_road) == 2 and len(_road[1]) == 3 and "updated 13 min ago" in _aged_j["text"] and _aged_j.get("stale") is False and len(_aged_j.get("line") or []) >= 1 and "33.70" not in _aged.get_data(as_text=True) and "el._routeArmed" in _saved_home, "a congestion failure still returns the road, and a 13 minute old drive includes it")
+    ok(_road and len(_road) == 2 and len(_road[1]) == 3 and "updated 13 min ago" in _aged_j["text"] and _aged_j.get("stale") is False and len(_aged_j.get("line") or []) >= 1 and "33.70" not in _aged.get_data(as_text=True) and "el._routeArmed" in _saved_home and "isStyleLoaded" not in _saved_home, "a congestion failure still returns the road, and a 13 minute old drive includes it")
     ok(_fake_route.calls.count("line") == 1 and D.execute("SELECT social_drive_min, social_routed FROM practices WHERE id=?", (_drive_pid,)).fetchone()[0] == 8, "the social road line is fetched once when the address is saved")
     A.now_pt = lambda: _end_at + dt.timedelta(minutes=10)
     _after = eli.get("/home").get_data(as_text=True)
