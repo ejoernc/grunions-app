@@ -1686,8 +1686,11 @@ def api_drive():
     if not result.estimated and not stale:
         got = drive_service.traffic_line((lat, lng), (p["lat"], p["lng"]), now)
         points, levels = drive_line_public((lat, lng), got[1] if got else [], got[2] if got and len(got) > 2 else None)
-        if len(points) >= 1: payload["line"] = points
-        if levels: payload["congestion"] = levels
+        if len(points) >= 1:
+            payload["line"] = points
+            if levels: payload["congestion"] = levels
+        else:
+            app.logger.info("drive line omitted: %s", "empty" if got else "unavailable")
     resp = jsonify(payload)
     resp.headers["Cache-Control"] = "no-store"
     return resp

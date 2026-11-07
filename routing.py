@@ -120,8 +120,18 @@ class MapboxProvider:
         return self._directions(origin, dest, "driving", True)
 
     def traffic_line(self, origin, dest):
-        """Full driving-traffic geometry plus segment congestion. The caller's coordinate is not stored here."""
-        return self._directions(origin, dest, "driving-traffic", True, annotate=True)
+        """Driving-traffic road geometry, with congestion when the provider returns it.
+        A congestion failure still returns the road. The caller's coordinate is not stored here."""
+        annotated = None
+        try:
+            annotated = self._directions(origin, dest, "driving-traffic", True, annotate=True)
+        except AuthError:
+            raise
+        except RouteError:
+            annotated = None
+        if annotated and len(annotated) > 1 and annotated[1]:
+            return annotated
+        return self._directions(origin, dest, "driving-traffic", True, annotate=False)
 
 
 class RoutingService:

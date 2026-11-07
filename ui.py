@@ -145,6 +145,7 @@ body.homefull .nexstack>.card{pointer-events:auto}
 .drivechipbtn,.drivechiptext{margin:0;max-width:100%;border-radius:999px;background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-border);box-shadow:0 6px 20px rgba(0,0,0,.35)}
 button.drivechipbtn{height:36px;min-height:36px;padding:0 14px;font-size:13px;font-weight:650}
 .drivechiptext{padding:8px 12px;font-size:13px;font-weight:650;line-height:1.3;white-space:normal;text-align:center}
+a.drivechiptext{display:block;text-decoration:none;cursor:pointer;color:var(--color-text)}
 .drivechiptext .driveage{font-weight:400;color:var(--color-text)}
 .mpin .pinpill{position:relative;z-index:1}
 .afterline{color:var(--color-lime);font-weight:650}
@@ -1915,16 +1916,37 @@ function grunionsDriveArmRefresh(row){
  var wait=Math.max(1000, (15*60-grunionsDriveAge(row))*1000);
  row._driveRefresh=setTimeout(function(){ if(!document.hidden) grunionsAskDrive(row, true); }, wait);
 }
+function grunionsDriveDest(row){
+ var dest=(row&&row.getAttribute('data-drive-dest')||'').trim();
+ return dest.indexOf(',')>0 ? dest : '';
+}
+function grunionsDriveLink(line, on){
+ if(!line) return;
+ var row=line.closest&&line.closest('[data-drive]');
+ var dest=on?grunionsDriveDest(row):'';
+ if(dest){
+  line.setAttribute('data-directions', dest);
+  line.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(dest);
+  line.setAttribute('aria-label', 'Driving directions to practice, '+(line.textContent||'').replace(/\\s+/g,' ').trim());
+ } else {
+  line.removeAttribute('data-directions');
+  line.removeAttribute('href');
+  line.removeAttribute('aria-label');
+ }
+}
 function grunionsPaintDrive(line, text){
  if(!line) return;
  var mark=' · updated', i=String(text||'').indexOf(mark);
  while(line.firstChild) line.removeChild(line.firstChild);
- if(i<0){ line.appendChild(document.createTextNode(text||'')); return; }
- line.appendChild(document.createTextNode(text.slice(0,i)));
- var age=document.createElement('span');
- age.className='driveage';
- age.textContent=text.slice(i);
- line.appendChild(age);
+ if(i<0){ line.appendChild(document.createTextNode(text||'')); }
+ else {
+  line.appendChild(document.createTextNode(text.slice(0,i)));
+  var age=document.createElement('span');
+  age.className='driveage';
+  age.textContent=text.slice(i);
+  line.appendChild(age);
+ }
+ grunionsDriveLink(line, line.dataset.saved==='1');
 }
 function grunionsKeepDrive(row, line, btn){
  if(!line || line.dataset.saved!=='1') return false;
@@ -2039,6 +2061,13 @@ if(!window.grunionsDirClick){window.grunionsDirClick=1;
   if(parts.length<2||!parts[0]||!parts[1]) return;
   e.preventDefault();
   grunionsDirections(parts[0], parts[1]);
+ });
+ document.addEventListener('keydown',function(e){
+  if(e.key!==' ') return;
+  var a=e.target.closest&&e.target.closest('a[data-directions]');
+  if(!a||e.target!==a) return;
+  e.preventDefault();
+  a.click();
  });
 }
 function grunionsPinHead(){
@@ -3313,19 +3342,35 @@ window.grunionsMountMap=function(el, opts){
      return;
     }
     var yellow=mapToken('--color-yellow','#E4C84D'), coral=mapToken('--color-coral','#F48782'), lime=mapToken('--color-lime','#C4E65A');
+    var color=['match',['get','traffic'],'moderate',yellow,'heavy',coral,'severe',coral,'low',lime,'unknown',lime,lime];
     if(map.getSource(id)) map.getSource(id).setData(data);
     else {
      map.addSource(id,{type:'geojson',data:data});
-     map.addLayer({id:id,type:'line',source:id,paint:{'line-color':['match',['get','traffic'],'moderate',yellow,'heavy',coral,'severe',coral,lime],'line-width':5,'line-opacity':0.95}});
+     map.addLayer({id:id,type:'line',source:id,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':color,'line-width':6,'line-opacity':1}});
     }
+    try{ if(map.getLayer && map.getLayer(id) && map.moveLayer) map.moveLayer(id); }catch(e){}
    }
+   function styleReady(){ return !!(map.isStyleLoaded && map.isStyleLoaded()); }
    el._applyRoute=function(){
+    if((homeView() && el._driveRoute && el._driveRoute.length>1 || (opts.route&&opts.route.length>1)) && !styleReady()){
+     if(!el._routeArmed){
+      el._routeArmed=1;
+      var again=function(){ el._routeArmed=0; if(el._applyRoute) el._applyRoute(); };
+      if(map.once){ map.once('idle', again); map.once('styledata', again); }
+     }
+     return;
+    }
     try{
      if(homeView()){
       paintLine('social-route', opts.route||[]);
       paintTraffic('practice-route', el._driveRoute||[], el._driveCongestion);
      } else paintLine('social-route', opts.route||[]);
-    }catch(e){}
+    }catch(e){
+     if(!el._routeArmed && map.once){
+      el._routeArmed=1;
+      map.once('idle', function(){ el._routeArmed=0; if(el._applyRoute) el._applyRoute(); });
+     }
+    }
    };
    map.on('load', draw);
    if(map.loaded()) draw();
@@ -3478,7 +3523,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <form method=post action=/lineup class=pills>{{ csrf_field() }}<input type=hidden name=event_id value={{ nextev.id }}><input type=hidden name=back value=/home>{{ rsvp_base('e' ~ nextev.id) }}
 {{ rsvp_btn('Going', nextev.mine == 'going', 'going') }}
 {{ rsvp_btn('Not going', nextev.mine == 'notgoing', 'notgoing') }}</form>
-</div>{% elif nextp %}{% set sh = social_home(nextp) %}<div class=nexstack>{% if drive_on %}<div class="drivechip" data-drive="{{ {'kind':'practice','id':nextp.id}|tojson|forceescape }}" data-drive-until="{{ drive_until }}" data-drive-user="{{ m.id }}" data-drive-age="{{ drive_age }}">{% if drive_saved %}<button type=button class=drivechipbtn data-drive-ask hidden>Show my drive time</button><p class=drivechiptext data-drive-line data-saved=1>{{ drive_saved.split(' · updated', 1)[0] }}{% if ' · updated' in drive_saved %}<span class=driveage> · updated{{ drive_saved.split(' · updated', 1)[1] }}</span>{% endif %}</p>{% else %}<button type=button class=drivechipbtn data-drive-ask>Show my drive time</button><p class=drivechiptext data-drive-line hidden></p>{% endif %}</div>{% endif %}<div class="card tap nextcard{% if nextp.cancelled %} cancelled{% endif %}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label,.drivechip,.nxmap'))return;location.href='/practices/{{nextp.id}}'">
+</div>{% elif nextp %}{% set sh = social_home(nextp) %}<div class=nexstack>{% if drive_on %}<div class="drivechip" data-drive="{{ {'kind':'practice','id':nextp.id}|tojson|forceescape }}" data-drive-until="{{ drive_until }}" data-drive-user="{{ m.id }}" data-drive-age="{{ drive_age }}" data-drive-dest="{{ nextp.lat }},{{ nextp.lng }}"><button type=button class=drivechipbtn data-drive-ask{% if drive_saved %} hidden{% endif %}>Show my drive time</button><a class=drivechiptext data-drive-line{% if drive_saved %} data-saved=1 data-directions="{{ nextp.lat }},{{ nextp.lng }}" href="https://www.google.com/maps/dir/?api=1&destination={{ (nextp.lat|string ~ ',' ~ nextp.lng|string)|urlencode }}" target=_blank rel=noopener aria-label="Driving directions to practice, {{ drive_saved }}"{% else %} hidden{% endif %}>{% if drive_saved %}{{ drive_saved.split(' · updated', 1)[0] }}{% if ' · updated' in drive_saved %}<span class=driveage> · updated{{ drive_saved.split(' · updated', 1)[1] }}</span>{% endif %}{% endif %}</a></div>{% endif %}<div class="card tap nextcard{% if nextp.cancelled %} cancelled{% endif %}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label,.drivechip,.nxmap'))return;location.href='/practices/{{nextp.id}}'">
 {% if social_after and sh %}<div class="nxnote afterline">After practice: {{ sh.place }}{% if social_mins %} · {{ social_mins }} min drive{% endif %}</div>{% endif %}
 {% if nextp.image %}<a class=cardlink href="/practices/{{nextp.id}}"><div class=pimg><img src="/practice-image/{{ nextp.id }}?v={{ nextp.image }}" alt=""><span class="chip-info nxbadge">{% if nextp.date == today %}TODAY{% else %}{{ fmt_d(nextp.date) }}{% endif %}</span></div></a>{% endif %}
 <div class=nxbody><a class=cardlink href="/practices/{{nextp.id}}">

@@ -2514,17 +2514,34 @@ try:
     _fake_route.fail = None
     _shown = _drive(33.70, -118.00)
     _saved_home = eli.get("/home").get_data(as_text=True)
-    _pill = _saved_home.split("data-drive-line", 1)[1].split("</p>", 1)[0] if "data-drive-line" in _saved_home else ""
+    _pill = _saved_home.split("data-drive-line", 1)[1].split("</a>", 1)[0] if "data-drive-line" in _saved_home else ""
     _chip_at = _saved_home.find('class="chip-info daychip"')
     _chip_snip = _saved_home[_chip_at:_chip_at+220]
-    ok(".drivechiptext .driveage{font-weight:400" in _saved_home and ".drivechiptext{padding:8px 12px;font-size:13px;font-weight:650" in _saved_home and '<span class=driveage> · updated just now</span>' in _saved_home and "23 min with traffic" in _saved_home.split('<span class=driveage>', 1)[0][-80:] and "leave by" not in _pill.lower() and ("Leave by " + _leave_hm) in _chip_snip and "AM" not in _chip_snip and "PM" not in _chip_snip, "the drive overlay keeps the update age in a lighter weight and the status chip carries Leave by without AM or PM")
-    ok(_near_j.get("congestion") == ["heavy"] and _near_j["line"][-1] == [33.75, -118.01] and _near_j["line"][0] == [33.751, -118.011] and "33.70" not in _near.get_data(as_text=True) and "--color-yellow" in _saved_home and "--color-coral" in _saved_home and "'moderate',yellow,'heavy',coral,'severe',coral,lime" in _saved_home, "traffic segments use the app yellow and coral only where Mapbox congestion lines up")
+    ok(".drivechiptext .driveage{font-weight:400" in _saved_home and ".drivechiptext{padding:8px 12px;font-size:13px;font-weight:650" in _saved_home and '<span class=driveage> · updated just now</span>' in _saved_home and "23 min with traffic" in _saved_home.split('<span class=driveage>', 1)[0][-80:] and "leave by" not in _pill.lower() and ("Leave by " + _leave_hm) in _chip_snip and "AM" not in _chip_snip and "PM" not in _chip_snip and '<a class=drivechiptext' in _saved_home and 'data-directions="33.75,-118.01"' in _pill and "maps/dir/?api=1&destination=33.75%2C-118.01" in _pill and "33.70" not in _pill and "maps.apple.com/?daddr=" in _saved_home, "the drive overlay keeps the update age in a lighter weight, the status chip carries Leave by, and the result opens directions to the pool")
+    ok(_near_j.get("congestion") == ["heavy"] and _near_j["line"][-1] == [33.75, -118.01] and _near_j["line"][0] == [33.751, -118.011] and "33.70" not in _near.get_data(as_text=True) and "--color-yellow" in _saved_home and "--color-coral" in _saved_home and "'moderate',yellow,'heavy',coral,'severe',coral,'low',lime,'unknown',lime,lime" in _saved_home, "traffic segments use the app yellow and coral only where Mapbox congestion lines up")
     _plain, _none = A.drive_line_public((34.0, -118.0), [[34.0, -118.0], [34.01, -118.01], [34.02, -118.02]], ["low"])
     _kept, _cong = A.drive_line_public((34.0, -118.0), [[34.0, -118.0], [34.01, -118.01], [34.02, -118.02], [34.03, -118.03]], ["unknown", "moderate", "severe"])
     _empty = A.routing.congestion_levels({"legs": [{"annotation": {}}]}, 3)
     _shifted = A.routing.congestion_levels({"legs": [{"annotation": {"congestion": ["low", "heavy"]}}]}, 5)
     _fit = A.routing.congestion_levels({"legs": [{"annotation": {"congestion": ["low", "moderate", "heavy"]}}]}, 4)
     ok(_none is None and _kept == [[34.01, -118.01], [34.02, -118.02], [34.03, -118.03]] and _cong == ["moderate", "severe"] and _empty is None and _shifted is None and _fit == ["low", "moderate", "heavy"], "a congestion list is kept only when it matches the road segments, and a short list is not colored")
+    import io as _io, urllib.error as _uerr
+    def _road_open(req, timeout=4):
+        url = req.full_url
+        if "annotations=" in url:
+            raise _uerr.HTTPError(url, 422, "bad", {}, _io.BytesIO(b"{}"))
+        raw = b'{"routes":[{"duration":480,"geometry":{"coordinates":[[-118.05,33.8],[-118.03,33.77],[-118.01105,33.75375]]}}]}'
+        class _Body:
+            def read(self): return raw
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+        return _Body()
+    _road = A.routing.MapboxProvider("pk.test", opener=_road_open).traffic_line((33.8, -118.05), (33.75375, -118.01105))
+    D.execute("UPDATE drive_cache SET fetched_at=? WHERE practice_id=?", ((_clock - dt.timedelta(minutes=13)).isoformat(), _drive_pid))
+    D.commit()
+    _aged = _drive(33.70, -118.00)
+    _aged_j = _aged.get_json()
+    ok(_road and len(_road) == 2 and len(_road[1]) == 3 and "updated 13 min ago" in _aged_j["text"] and _aged_j.get("stale") is False and len(_aged_j.get("line") or []) >= 1 and "33.70" not in _aged.get_data(as_text=True) and "el._routeArmed" in _saved_home, "a congestion failure still returns the road, and a 13 minute old drive includes it")
     ok(_fake_route.calls.count("line") == 1 and D.execute("SELECT social_drive_min, social_routed FROM practices WHERE id=?", (_drive_pid,)).fetchone()[0] == 8, "the social road line is fetched once when the address is saved")
     A.now_pt = lambda: _end_at + dt.timedelta(minutes=10)
     _after = eli.get("/home").get_data(as_text=True)
@@ -2544,7 +2561,7 @@ try:
     _far_hm = "%d:%02d" % ((_far_leave.hour - 1) % 12 + 1, _far_leave.minute)
     A.now_pt = lambda: _clock + dt.timedelta(hours=2)
     _return = eli.get("/home").get_data(as_text=True)
-    _return_pill = _return.split("data-drive-line", 1)[1].split("</p>", 1)[0] if "data-drive-line" in _return else ""
+    _return_pill = _return.split("data-drive-line", 1)[1].split("</a>", 1)[0] if "data-drive-line" in _return else ""
     _jane_home = jane.get("/home").get_data(as_text=True)
     _late = A.now_pt()
     A.drive_service.auth_failed = False
