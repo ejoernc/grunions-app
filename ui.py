@@ -1867,6 +1867,10 @@ function grunionsDriveAge(row){
  return +(row.getAttribute('data-drive-age')||0);
 }
 function grunionsDriveStale(row){ return grunionsDriveAge(row)>=15*60; }
+function grunionsNeedLine(){
+ var el=document.getElementById('homeMap');
+ return !(el && el._you && el._driveRoute && el._driveRoute.length>1);
+}
 function grunionsDriveOver(row){
  var until=+(row.getAttribute('data-drive-until')||0);
  return !!(until && Date.now()>=until*1000);
@@ -1988,7 +1992,7 @@ function grunionsDriveRefresh(){
   if(row.dataset.driveEnded==='1' || grunionsDriveOver(row)){ grunionsDriveEnd(row); return; }
   if(grunionsDriveConsent(row)!=='yes') return;
   var line=row.querySelector('[data-drive-line]');
-  if(line && line.dataset.saved==='1' && !line.hidden && !grunionsDriveStale(row)) return;
+  if(line && line.dataset.saved==='1' && !line.hidden && !grunionsDriveStale(row) && !grunionsNeedLine()) return;
   grunionsAskDrive(row, !!(line && line.dataset.saved==='1'));
  });
 }
@@ -2006,7 +2010,6 @@ window.grunionsDriveScan=function(){
   if(row.dataset.driveOn==='1') return;
   row.dataset.driveOn='1';
   if(consent!=='yes') return;
-  if(saved && !grunionsDriveStale(row)) return;
   grunionsAskDrive(row, saved);
  });
 };
@@ -2794,6 +2797,7 @@ ADMIN_NAV = """{% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% 
 MAP_JS = '''window.grunionsPinHit=function(a,b,gap){gap=gap==null?8:gap;return !!(a&&b&&a.left<b.right+gap&&b.left<a.right+gap&&a.top<b.bottom+gap&&b.top<a.bottom+gap);};
 window.grunionsPinGap=function(a,b){if(!a||!b)return Infinity;var gx=0,gy=0;if(a.right<=b.left)gx=b.left-a.right;else if(b.right<=a.left)gx=a.left-b.right;if(a.bottom<=b.top)gy=b.top-a.bottom;else if(b.bottom<=a.top)gy=a.top-b.bottom;if(gx>0&&gy>0)return Math.hypot(gx,gy);if(gx>0)return gx;if(gy>0)return gy;return 0;};
 window.grunionsPinStack=function(practice,social,gap){gap=gap==null?2:gap;if(!practice||!social||window.grunionsPinGap(practice,social)>=gap)return {practice:0,social:0};return {practice:0,social:(practice.bottom+gap)-social.top};};
+window.grunionsBandTarget=function(top,low){var band=Math.max(80, low-top);return top+band/3;};
 window.grunionsPinNudge=function(a,b,gap){gap=gap==null?8:gap;if(!window.grunionsPinHit(a,b,gap))return {dx:0,dy:0};var up=(a.top-gap)-b.bottom,down=(a.bottom+gap)-b.top;if(Math.abs(up)<=Math.abs(down))return {dx:0,dy:up};return {dx:0,dy:down};};
 window.grunionsPinAbove=function(obstacle,pill,gap){gap=gap==null?8:gap;if(!window.grunionsPinHit(obstacle,pill,gap))return {dx:0,dy:0};return {dx:0,dy:(obstacle.top-gap)-pill.bottom};};
 window.grunionsPinClamp=function(rect,bounds,gap){gap=gap==null?8:gap;if(!rect||!bounds)return {dx:0,dy:0};var dx=0;if(rect.right>bounds.right-gap)dx=(bounds.right-gap)-rect.right;if(rect.left+dx<bounds.left+gap)dx=(bounds.left+gap)-rect.left;return {dx:dx,dy:0};};
@@ -2957,29 +2961,38 @@ window.grunionsMountMap=function(el, opts){
     });
     return {above:above+2, left:48, right:Math.max(160, wide-9+24)};
    }
-   function focalPad(){
-    var v=cardEdge();
-    var box=v.box, chip=chipPad();
-    var top=Math.round(headerFloor()-box.top+24+chip.above);
-    var minBottom=Math.max(24, Math.round(box.bottom-v.cardTop+24));
-    var span=Math.max(80, v.cardTop-box.top);
-    var focal=span*2/5;
-    var h=box.height||el.clientHeight||1, minInner=80;
-    if(top+minBottom>h-minInner){
-     var room=Math.max(0, h-minInner);
-     if(room>top+24) minBottom=room-top;
-     else { var sum=top+minBottom||1; top=Math.round(room*top/sum); minBottom=room-top; }
+   function lowerLimit(){
+    var box=el.getBoundingClientRect();
+    var card=document.querySelector('.nextcard');
+    var edge=card?card.getBoundingClientRect().top:(box.top+box.height*0.62);
+    var chip=document.querySelector('.nexstack>.drivechip');
+    if(chip && !chip.hidden && chip.getClientRects().length){
+     var c=chip.getBoundingClientRect();
+     if(c.height>1 && c.top<edge) edge=c.top;
     }
-    var delta=2*focal-h, bottom=minBottom;
-    if(bottom+delta>=top) top=bottom+delta;
-    else if(top-delta>=minBottom) bottom=top-delta;
-    top=Math.max(0, Math.round(top));
-    bottom=Math.max(0, Math.round(bottom));
-    if(top+bottom>h-minInner){
-     var room2=Math.max(0, h-minInner), sum2=top+bottom||1;
-     top=Math.round(room2*top/sum2); bottom=room2-top;
+    return edge;
+   }
+   function focalPad(count){
+    var box=el.getBoundingClientRect(), chip=chipPad();
+    var top=Math.round(headerFloor()-box.top+24);
+    var low=lowerLimit()-box.top;
+    var h=box.height||el.clientHeight||1;
+    if((count||1)<=1){
+     var target=window.grunionsBandTarget(top, low);
+     var bottom=Math.round(top+h-2*target);
+     if(bottom<24) bottom=24;
+     return {top:top, bottom:bottom, left:chip.left, right:chip.right};
     }
-    return {top:top, bottom:bottom, left:chip.left, right:chip.right};
+    top=Math.round(top+chip.above);
+    var floor=lowerLimit()-16;
+    var bottomMulti=Math.round(box.bottom-floor+chip.above);
+    if(bottomMulti<24) bottomMulti=24;
+    var minInner=80;
+    if(top+bottomMulti>h-minInner){
+     var room=Math.max(0, h-minInner), sum=top+bottomMulti||1;
+     top=Math.round(room*top/sum); bottomMulti=room-top;
+    }
+    return {top:top, bottom:bottomMulti, left:chip.left, right:chip.right};
    }
    function staticCredit(){
     var logo=el.querySelector('.mapboxgl-ctrl-logo');
@@ -3127,7 +3140,7 @@ window.grunionsMountMap=function(el, opts){
     var pts=(homeView()?(animate?commuteLL():venueLL()):points()).filter(function(p){ return p && isFinite(p[0]) && isFinite(p[1]); });
     if(!pts.length) return;
     var lngs=pts.map(function(p){return p[0];}), lats=pts.map(function(p){return p[1];});
-    var pad=homeView()?focalPad():pads();
+    var pad=homeView()?focalPad(pts.length):pads();
     var pinsOnly=0;
     pins.forEach(function(p){ if(lngLat(p)) pinsOnly++; });
     var multi=pinsOnly>1||(activeRoute().length>1);
@@ -3141,17 +3154,32 @@ window.grunionsMountMap=function(el, opts){
       return;
      }
     }
+    function southClear(){
+     var low=lowerLimit()-16, high=headerFloor()+8, nodes=el.querySelectorAll('.mpin:not(.you) .pinpill, .mpin:not(.you) .pindot'), i, r;
+     for(i=0;i<nodes.length;i++){
+      r=nodes[i].getBoundingClientRect();
+      if(r.height<1) continue;
+      if(r.bottom>low+0.5||r.top<high-0.5) return false;
+     }
+     return true;
+    }
     var guard=0;
     while(guard<8){
      map.fitBounds(bounds, {padding:pad, maxZoom:cap, animate:false});
-     if(!homeView()||contentFits()||cap<=8) break;
-     cap=Math.max(8, map.getZoom()-0.5);
+     if(homeView() && pts.length>1){
+      separatePins();
+      var southOk=southClear(), northOk=contentFits();
+      if(southOk && northOk) break;
+      if(!southOk) pad={top:pad.top, bottom:pad.bottom+16, left:pad.left, right:pad.right};
+      if(!northOk) cap=Math.max(8, map.getZoom()-0.5);
+     } else if(!homeView()||contentFits()||cap<=8) break;
+     else cap=Math.max(8, map.getZoom()-0.5);
      guard++;
     }
     requestAnimationFrame(function(){ separatePins(); });
    }
    function viewContains(pts){
-    var box=el.getBoundingClientRect(), pad=homeView()?focalPad():pads(), i, pt;
+    var box=el.getBoundingClientRect(), pad=homeView()?focalPad(pts.length):pads(), i, pt;
     for(i=0;i<pts.length;i++){
      try{ pt=map.project(pts[i]); }catch(e){ return false; }
      if(!pt||!isFinite(pt.x)||!isFinite(pt.y)) return false;
