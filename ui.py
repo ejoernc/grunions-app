@@ -2864,8 +2864,6 @@ MAP_JS = '''window.grunionsPinHit=function(a,b,gap){gap=gap==null?8:gap;return !
 window.grunionsPinGap=function(a,b){if(!a||!b)return Infinity;var gx=0,gy=0;if(a.right<=b.left)gx=b.left-a.right;else if(b.right<=a.left)gx=a.left-b.right;if(a.bottom<=b.top)gy=b.top-a.bottom;else if(b.bottom<=a.top)gy=a.top-b.bottom;if(gx>0&&gy>0)return Math.hypot(gx,gy);if(gx>0)return gx;if(gy>0)return gy;return 0;};
 window.grunionsPinStack=function(practice,social,gap){gap=gap==null?2:gap;if(!practice||!social||window.grunionsPinGap(practice,social)>=gap)return {practice:0,social:0};return {practice:0,social:(practice.bottom+gap)-social.top};};
 window.grunionsBandTarget=function(top,low){var band=Math.max(80, low-top);return top+band*2/3;};
-window.grunionsProject=function(lng,lat,cam,w,h){var world=512*Math.pow(2,cam.zoom);var x=w/2+(lng-cam.lng)*world/360;function merc(la){var s=Math.sin(la*Math.PI/180);return 0.5-Math.log((1+s)/(1-s))/(4*Math.PI);}var y=h/2+(merc(lat)-merc(cam.lat))*world;return {x:x,y:y};};
-window.grunionsVisualCamera=function(items,view,safe,opts){opts=opts||{};var w=view.w,h=view.h;if(!items||!items.length||!(w>0)||!(h>0))return {lng:opts.lng||0,lat:opts.lat||0,zoom:opts.zoom||12};var zoom=opts.zoom==null?12:opts.zoom;var lng=opts.lng==null?items[0].lng:opts.lng;var lat=opts.lat==null?items[0].lat:opts.lat;var mode=opts.mode||'multi';var anchor=opts.anchor||null;var targetY=opts.targetY;var minZoom=opts.minZoom==null?8:opts.minZoom;function world(z){return 512*Math.pow(2,z);}function merc(la){var s=Math.sin(la*Math.PI/180);return 0.5-Math.log((1+s)/(1-s))/(4*Math.PI);}function unmerc(my){var e=Math.exp((0.5-my)*4*Math.PI);var s=(e-1)/(e+1);if(s>0.9999)s=0.9999;if(s<-0.9999)s=-0.9999;return Math.asin(s)*180/Math.PI;}function lockLat(z){if(mode!=='single'||!anchor||targetY==null)return lat;return unmerc(merc(anchor.lat)-(targetY-h/2)/world(z));}function union(cam){var rs=[],i,it,p,pi=-1,si=-1;for(i=0;i<items.length;i++){it=items[i];p=window.grunionsProject(it.lng,it.lat,cam,w,h);rs.push({left:p.x-it.dl,right:p.x+it.dr,top:p.y-it.dt,bottom:p.y+it.db,kind:it.kind||''});if((it.kind==='practice')&&pi<0)pi=i;if(it.kind==='social'&&si<0)si=i;}if(pi>=0&&si>=0){var pr=rs[pi],sr=rs[si];var apart=pr.right<=sr.left||sr.right<=pr.left||pr.bottom+2<=sr.top||sr.bottom+2<=pr.top;if(!apart){var dy=(pr.bottom+2)-sr.top;if(dy>0)rs[si]={left:sr.left,right:sr.right,top:sr.top+dy,bottom:sr.bottom+dy,kind:'social'};}}var L=Infinity,R=-Infinity,T=Infinity,B=-Infinity;for(i=0;i<rs.length;i++){if(rs[i].left<L)L=rs[i].left;if(rs[i].right>R)R=rs[i].right;if(rs[i].top<T)T=rs[i].top;if(rs[i].bottom>B)B=rs[i].bottom;}return {left:L,right:R,top:T,bottom:B};}function centerLng(z,la){var box=union({lng:lng,lat:la,zoom:z});var mid=(safe.left+(w-safe.right))/2;var shift=((box.left+box.right)/2)-mid;return lng+shift*360/world(z);}function deficit(z,la,ln){var box=union({lng:ln,lat:la,zoom:z});var d=Math.max(0,safe.left-box.left,box.right-(w-safe.right));if(mode!=='single')d=Math.max(d,(safe.top||0)-box.top,box.bottom-(h-(safe.bottom||0)));return d;}lat=lockLat(zoom);lng=centerLng(zoom,lat);var best={lng:lng,lat:lat,zoom:zoom,d:deficit(zoom,lat,lng)},guard=0;while(guard<28&&best.d>0.5&&zoom>minZoom+0.01){zoom=Math.max(minZoom,zoom-(best.d>120?0.8:best.d>40?0.4:0.2));lat=lockLat(zoom);lng=centerLng(zoom,lat);var d=deficit(zoom,lat,lng);if(d>=best.d-0.25){lng=best.lng;lat=best.lat;zoom=best.zoom;break;}best={lng:lng,lat:lat,zoom:zoom,d:d};guard++;}return {lng:best.lng,lat:best.lat,zoom:best.zoom};};
 window.grunionsPinNudge=function(a,b,gap){gap=gap==null?8:gap;if(!window.grunionsPinHit(a,b,gap))return {dx:0,dy:0};var up=(a.top-gap)-b.bottom,down=(a.bottom+gap)-b.top;if(Math.abs(up)<=Math.abs(down))return {dx:0,dy:up};return {dx:0,dy:down};};
 window.grunionsPinAbove=function(obstacle,pill,gap){gap=gap==null?8:gap;if(!window.grunionsPinHit(obstacle,pill,gap))return {dx:0,dy:0};return {dx:0,dy:(obstacle.top-gap)-pill.bottom};};
 window.grunionsPinClamp=function(rect,bounds,gap){gap=gap==null?8:gap;if(!rect||!bounds)return {dx:0,dy:0};var dx=0;if(rect.right>bounds.right-gap)dx=(bounds.right-gap)-rect.right;if(rect.left+dx<bounds.left+gap)dx=(bounds.left+gap)-rect.left;return {dx:dx,dy:0};};
@@ -3204,41 +3202,63 @@ window.grunionsMountMap=function(el, opts){
     stackLabels();
    }
    el._separatePins=separatePins;
-   function rowBox(node){
-    var row=node.querySelector('.pinrow')||node;
-    var w=row.offsetWidth||row.scrollWidth||0, h=row.offsetHeight||18;
-    if(w<18){
-     var label=(node.querySelector('.pinpill')||{}).textContent||'';
-     w=18+6+16+Math.ceil(label.length*7.2);
+   function groupScreen(){
+    var L=Infinity,R=-Infinity,T=Infinity,B=-Infinity, box=el.getBoundingClientRect();
+    function take(l,t,r,b){
+     if(!isFinite(l)||!isFinite(t)||!isFinite(r)||!isFinite(b)) return;
+     if(l<L)L=l; if(r>R)R=r; if(t<T)T=t; if(b>B)B=b;
     }
-    var pill=node.querySelector('.pinpill');
-    var extra=0;
-    if(pill&&pill.offsetHeight>h) extra=(pill.offsetHeight-h)/2;
-    return {dl:9, dt:9+extra, dr:Math.max(9, w-9), db:9+extra};
-   }
-   function footprints(){
-    var items=[], nodes=el.querySelectorAll('.mpin:not(.you)');
-    if(nodes.length){
-     nodes.forEach(function(node){
-      var lng=+node.dataset.lng, lat=+node.dataset.lat;
-      if(!isFinite(lng)||!isFinite(lat)) return;
-      var box=rowBox(node);
-      items.push({lng:lng, lat:lat, dl:box.dl, dt:box.dt, dr:box.dr, db:box.db, kind:node.dataset.kind||(node.classList.contains('social')?'social':'practice')});
-     });
-    } else pins.forEach(function(p){
-     var ll=lngLat(p); if(!ll) return;
-     var w=18+6+16+Math.ceil(String(p.label||'').length*7.2);
-     items.push({lng:ll[0], lat:ll[1], dl:9, dt:9, dr:Math.max(9, w-9), db:9, kind:p.kind==='social'?'social':'practice'});
+    el.querySelectorAll('.mpin').forEach(function(n){
+     var rec=n.getBoundingClientRect();
+     if(rec.width<1&&rec.height<1) return;
+     var extra=n.classList.contains('you')?11:0;
+     take(rec.left-extra, rec.top-extra, rec.right+extra, rec.bottom+extra);
     });
-    if(el._you&&isFinite(el._you.lng)&&isFinite(el._you.lat)) items.push({lng:+el._you.lng, lat:+el._you.lat, dl:11, dt:11, dr:11, db:11, kind:'you'});
     function addRoute(route, rad){
      (route||[]).forEach(function(p){
-      if(p&&p.length>=2&&isFinite(+p[0])&&isFinite(+p[1])) items.push({lng:+p[1], lat:+p[0], dl:rad, dt:rad, dr:rad, db:rad, kind:'route'});
+      if(!p||p.length<2||!isFinite(+p[0])||!isFinite(+p[1])) return;
+      var pt; try{ pt=map.project([+p[1], +p[0]]); }catch(e){ return; }
+      if(!pt||!isFinite(pt.x)||!isFinite(pt.y)) return;
+      take(box.left+pt.x-rad, box.top+pt.y-rad, box.left+pt.x+rad, box.top+pt.y+rad);
      });
     }
     if(homeView()) addRoute(el._driveRoute, 3);
     addRoute(opts.route, 2);
-    return items;
+    if(!isFinite(L)) return null;
+    return {left:L, right:R, top:T, bottom:B};
+   }
+   function shiftCamera(sx, sy, pad){
+    var c=map.project(map.getCenter());
+    var next=map.unproject([c.x+sx, c.y+sy]);
+    map.jumpTo({center:next, zoom:map.getZoom(), bearing:0, pitch:0, padding:pad});
+   }
+   function settleHome(pad, bounds, cap){
+    var guard=0;
+    while(guard<8){
+     separatePins();
+     var g=groupScreen();
+     if(!g) break;
+     var box=el.getBoundingClientRect();
+     var band={left:box.left+24, right:box.right-24, top:headerFloor()+24, bottom:lowerLimit()-16};
+     var roomW=band.right-band.left, roomH=band.bottom-band.top;
+     if((g.right-g.left)>roomW+1 || (g.bottom-g.top)>roomH+1){
+      cap=Math.max(8, map.getZoom()-0.35);
+      map.fitBounds(bounds, {padding:pad, maxZoom:cap, animate:false, bearing:0, pitch:0});
+      guard++;
+      continue;
+     }
+     var dx=((g.left+g.right)/2)-((band.left+band.right)/2);
+     var leftAfter=g.left-dx;
+     if(leftAfter<band.left) dx=g.left-band.left;
+     if(g.right-dx>band.right) dx=g.right-band.right;
+     var dy=0;
+     if(g.top<band.top) dy=g.top-band.top;
+     else if(g.bottom>band.bottom) dy=g.bottom-band.bottom;
+     if(Math.abs(dx)<1 && Math.abs(dy)<1) break;
+     shiftCamera(dx, dy, pad);
+     guard++;
+    }
+    separatePins();
    }
    function frame(animate){
     var pts=(homeView()?(animate?commuteLL():venueLL()):points()).filter(function(p){ return p && isFinite(p[0]) && isFinite(p[1]); });
@@ -3250,37 +3270,19 @@ window.grunionsMountMap=function(el, opts){
     var multi=pinsOnly>1||(activeRoute().length>1)||!!(homeView()&&el._you);
     var cap=homeView()?(multi?15:12):(pts.length===1?14:15);
     var bounds=[[Math.min.apply(null,lngs), Math.min.apply(null,lats)],[Math.max.apply(null,lngs), Math.max.apply(null,lats)]];
-    if(homeView() && window.grunionsVisualCamera){
+    if(homeView()){
      if(el._mapHeld) return;
-     var box=el.getBoundingClientRect();
-     var w=box.width||el.clientWidth||1, h=box.height||el.clientHeight||1;
-     var topSafe=Math.round(headerFloor()-box.top+24);
-     var low=lowerLimit()-box.top;
-     var single=pts.length<=1;
-     var floor=lowerLimit()-16;
-     var safe={left:24, right:24, top:topSafe, bottom:single?Math.max(24, Math.round(h-low)):Math.max(24, Math.round(box.bottom-floor))};
-     var seedZoom=single?12:cap, seedLng=lngs[0], seedLat=lats[0];
-     if(!single && map.cameraForBounds){
-      var geoPad={top:pad.top, bottom:pad.bottom, left:24, right:24};
-      var cam0=map.cameraForBounds(bounds, {padding:geoPad, maxZoom:cap});
-      if(cam0&&cam0.center){ seedZoom=cam0.zoom; seedLng=cam0.center.lng; seedLat=cam0.center.lat; }
+     if(animate && !reduceMotion() && map.cameraForBounds && map.easeTo){
+      var cam=map.cameraForBounds(bounds, {padding:pad, maxZoom:cap});
+      if(cam){
+       map.easeTo({center:cam.center, zoom:cam.zoom, padding:pad, bearing:0, pitch:0, duration:800, essential:true});
+       map.once('moveend', function(){ settleHome(pad, bounds, cap); });
+       return;
+      }
      }
-     var anchor=single?{lng:pts[0][0], lat:pts[0][1]}:null;
-     var targetY=single?window.grunionsBandTarget(topSafe, low):null;
-     var visual=window.grunionsVisualCamera(footprints(), {w:w, h:h}, safe, {zoom:seedZoom, lng:seedLng, lat:seedLat, mode:single?'single':'multi', targetY:targetY, anchor:anchor, minZoom:8});
-     var dest={center:[visual.lng, visual.lat], zoom:visual.zoom, bearing:0, pitch:0};
-     if(animate && !reduceMotion() && map.easeTo){
-      map.easeTo(Object.assign({duration:800, essential:true}, dest));
-      map.once('moveend', function(){ separatePins(); });
-      return;
-     }
-     if(map.jumpTo){ map.jumpTo(dest); separatePins(); requestAnimationFrame(function(){ separatePins(); }); return; }
-    }
-    if(animate && homeView() && !el._mapHeld && !reduceMotion() && map.cameraForBounds && map.easeTo){
-     var cam=map.cameraForBounds(bounds, {padding:pad, maxZoom:cap});
-     if(cam){
-      map.easeTo({center:cam.center, zoom:cam.zoom, bearing:0, pitch:0, duration:800, essential:true});
-      map.once('moveend', function(){ separatePins(); });
+     if(map.fitBounds){
+      map.fitBounds(bounds, {padding:pad, maxZoom:cap, animate:false, bearing:0, pitch:0});
+      settleHome(pad, bounds, cap);
       return;
      }
     }
