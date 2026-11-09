@@ -23,9 +23,15 @@ HTML is on by default. Set `HTML_EMAILS_ENABLED=0` to send plain text only. Othe
 
 There is no Manage page and no `/admin/emails` page. `scripts/render_email_samples.py` writes samples locally and does not send them.
 
+## Phase 2
+
+`/manage/pricing` is under Club settings and is admin-only. It stores one program’s regular days, times, places, season dates, and public flag, plus any prices and the free-trial offer the admin actually enters.
+
+Blank prices are not shown. The page does not invent a dollar amount, a venue, or a practice. Saving it writes `org_settings` only. Sessions are still created in Manage Schedule.
+
+A first-time trial cannot be claimed again after `trial_acknowledged_at` is set. That is the same acknowledgment the membership card already stores.
+
 ## Later phases
 
-- Phase 2 stores the public schedule, prices, and free-trial rules. Nothing is invented when a price is unset. Those settings do not create RSVP-able practices; an admin still creates sessions in Manage Schedule.
-
-- Phase 3 adds a read-only public feed and the embed, plus a Website Widget page under Club settings. Visitors do not see names, photos, or private notes.
+- Phase 3 adds a read-only public feed and the embed, plus a Website Widget page under Club settings. Visitors do not see names, photos, or private notes. The widget stays off until an admin enables it.
 - Phase 4 reuses the existing login and RSVP. Going in the widget opens that flow and does not mark anyone as registered until it finishes.

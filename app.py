@@ -8,6 +8,7 @@ import qrcode, qrcode.image.svg
 from markupsafe import Markup, escape
 import lineupfeed
 import mailhtml
+import publicfeed
 import routing
 import sports
 import ui
@@ -168,6 +169,7 @@ def db():
         migrate_notices(g.db)
         migrate_lineup(g.db)
         migrate_series(g.db)
+        publicfeed.ensure_schema(g.db)
         backfill_checkin_going(g.db)
         drop_bot_verify_messages(g.db)
         seed_chat_reads(g.db)
@@ -4019,6 +4021,24 @@ def api_places_retrieve():
 def usage_page():
     if not me()["is_admin"]: abort(403)
     return page(T["usage"], tab="manage", calls=mapbox_calls_today(), cap=MAPBOX_DAILY_CAP)
+@app.route("/manage/pricing", methods=["GET", "POST"])
+@admin_required
+def manage_pricing():
+    """Regular schedule, prices, and the free-trial offer. Nothing here creates a practice."""
+    d = db()
+    if request.method == "POST":
+        try:
+            publicfeed.save_form(d, request.form)
+            d.commit()
+            flash("Saved", "toast")
+            return redirect("/manage/pricing")
+        except ValueError as exc:
+            flash(str(exc))
+    settings = publicfeed.load(d)
+    pricing = settings["pricing"]
+    return page(ui.ADMIN_NAV + publicfeed.SETTINGS_PAGE, tab="admin", s=settings, slots=publicfeed.form_slots(settings),
+        day_names=publicfeed.DAY_SHORT, offer=publicfeed.public_view(settings),
+        pass_row=publicfeed._first(pricing.get("passes")), fee_row=publicfeed._first(pricing.get("fees")))
 @app.route("/lineup", methods=["GET", "POST"])
 @login_required
 def lineup():
@@ -4216,6 +4236,7 @@ def manage_home_groups(d):
         people.append(_manage_row("Admins", "Club administrators", "/members?view=admins", "seal", len(sets["admins"])))
         people.append(_manage_row("Referees", "Referee list and referee eligible", "/members?view=referees", "flag", len(sets["refs"])))
         people.append(_manage_row("Compliance", "Memberships & certifications", "/expiring", "shield", expiring_people_count(d), "warn"))
+        club.append(_manage_row("Schedule & pricing", "Regular times, prices, and a free trial", "/manage/pricing", "cal"))
         club.append(_manage_row("Usage", "Mapbox calls today", "/manage/usage", "rules"))
         club.append(_manage_row("Data transfer", "Import & export", "/transfer", "swap"))
         club.append(_manage_row("Rules", "Policies & requirements", "/requirements", "rules"))
