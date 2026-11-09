@@ -1622,7 +1622,7 @@ ok(len({nav_skeleton(h) for h in jane_pages}) == 1 and "href=/manage" not in nav
 ok("color-scheme:dark" in eli_pages[0][:600] and "content=dark" in eli_pages[0][:600] and "#090D0B" in eli_pages[0][:600] and '<body style="background:#090D0B' in eli_pages[0] and "color-scheme:dark" in login_html[:600] and "#090D0B" in login_html[:600], "dark background is in the first bytes, including the login page")
 _join_html = client().get("/join").get_data(as_text=True)
 _lock = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "regulars-lockup.svg"), encoding="utf-8").read()
-ok('class=loginlock' in login_html and "/static/regulars-lockup.svg" in login_html and login_html.find("loginlock") < login_html.find("<h1>Log in</h1>") and "regulars-lockup.svg" not in _join_html and 'fill="#C4E65A"' in _lock and 'fill="#FFFFFF"' in _lock, "the login page shows the corrected Regulars lockup and the join page does not")
+ok('class=loginlock' in login_html and "/static/regulars-lockup.svg" in login_html and "width:min(66%,calc(420px * 0.66))" in login_html and "height:auto" in login_html and login_html.find("loginlock") < login_html.find("<h1>Log in</h1>") and "regulars-lockup.svg" not in _join_html and 'fill="#C4E65A"' in _lock and 'fill="#FFFFFF"' in _lock, "the login page shows the corrected Regulars lockup at two thirds size and the join page does not")
 _hub = eli.get("/manage").get_data(as_text=True)
 _sample = A.mailhtml.sign_in_html("https://example.com", "Eli", "https://example.com/auth/preview-not-a-link", 15, "Test Club")
 _trial = A.mailhtml.expiry_html("https://example.com", "Eli", "Trial ending", "Your trial ends today.", "https://example.com/home", "Test Club", A.mailhtml.expiry_eyebrow("trial"))
