@@ -40,6 +40,7 @@ def blank():
             "enabled": False, "includes": "", "visits": "", "first_time_only": True,
             "days": "", "conditions": "", "message": "",
         },
+        "widget": widget_blank(),
     }
 
 
@@ -223,6 +224,7 @@ def save_sections(d, **sections):
     d.execute("""INSERT INTO org_settings(id, body, updated_at) VALUES(1, ?, ?)
         ON CONFLICT(id) DO UPDATE SET body=excluded.body, updated_at=excluded.updated_at""",
               (json.dumps(data, separators=(",", ":")), now))
+    _CACHE.clear()
     return data
 
 
@@ -348,6 +350,202 @@ def trial_claim_open(data, member):
     return not claimed
 
 
+CHIPS = (
+    ("all", "All"),
+    ("schedule", "Schedule"),
+    ("competitions", "Competitions"),
+    ("camps", "Camps"),
+    ("trips", "Trips"),
+    ("community", "Community"),
+)
+_LINEUP_CHIP = {
+    "Tournament": "competitions", "Competition": "competitions",
+    "Clinic": "camps", "Trip": "trips",
+    "Social": "community", "Volunteer": "community", "Fundraiser": "community",
+    "Meeting": "community", "Other": "community",
+}
+_CACHE = {}
+
+
+def widget_blank():
+    return {
+        "enabled": False, "theme": "night", "visitor_theme": True,
+        "chips": [slug for slug, _label in CHIPS], "default_chip": "all",
+        "show_pricing": True, "show_trial": True, "show_counts": False,
+        "hide_past": True, "limit": 12, "include_schedule": True,
+    }
+
+
+def parse_widget(form):
+    """Read the Website Widget form. Raises ValueError and writes nothing."""
+    data = widget_blank()
+    chosen = [slug for slug, _label in CHIPS if _get(form, "chip_%s" % slug) == "1"]
+    if not chosen:
+        chosen = ["all"]
+    if "all" not in chosen:
+        chosen.insert(0, "all")
+    data["chips"] = chosen
+    theme = _get(form, "theme")
+    data["theme"] = theme if theme in ("night", "day") else "night"
+    default = _get(form, "default_chip")
+    data["default_chip"] = default if default in chosen else "all"
+    data["enabled"] = _get(form, "widget_on") == "1"
+    data["visitor_theme"] = _get(form, "visitor_theme") == "1"
+    data["show_pricing"] = _get(form, "show_pricing") == "1"
+    data["show_trial"] = _get(form, "show_trial") == "1"
+    data["show_counts"] = _get(form, "show_counts") == "1"
+    data["hide_past"] = _get(form, "hide_past") == "1"
+    data["include_schedule"] = _get(form, "include_schedule") == "1"
+    limit = _count(_get(form, "limit") or "12", "how many events to show") or "12"
+    data["limit"] = min(40, max(1, int(limit)))
+    return data
+
+
+def _stamp(day, clock):
+    day = str(day or "")[:10]
+    clock = (clock or "00:00")[:5]
+    return "%sT%s" % (day, clock)
+
+
+def _ended(day, clock, now):
+    try:
+        date = dt.date.fromisoformat(str(day)[:10])
+        hour, minute = [int(part) for part in ((clock or "23:59")[:5].split(":") + ["0"])[:2]]
+    except (TypeError, ValueError):
+        return False
+    return dt.datetime.combine(date, dt.time(hour, minute)) < now
+
+
+def _cols(d, table):
+    try:
+        return {row[1] for row in d.execute("PRAGMA table_info(%s)" % table)}
+    except Exception:
+        return set()
+
+
+def _short_day(iso):
+    try:
+        day = dt.date.fromisoformat(str(iso)[:10])
+    except ValueError:
+        return ""
+    return day.strftime("%a, %b ") + str(day.day)
+
+
+def build_feed(d, data, practice_title, now, org):
+    """Public cards only. No names, photos, plans, or private notes."""
+    widget = data.get("widget") or widget_blank()
+    offer = public_view(data)
+    hide_past = widget.get("hide_past", True)
+    show_price = bool(widget.get("show_pricing"))
+    show_trial = bool(widget.get("show_trial")) and offer.get("trial")
+    show_counts = bool(widget.get("show_counts"))
+    drop_in = ""
+    if show_price:
+        for price in offer["prices"]:
+            if price["label"] == "Drop-in" and price.get("price"):
+                drop_in = price["price"]
+                break
+    trial_line = ""
+    if show_trial and offer["trial"].get("message"):
+        trial_line = offer["trial"]["message"]
+    events = []
+    pcols = _cols(d, "practices")
+    if "date" in pcols and widget.get("include_schedule", True):
+        rows = d.execute("""SELECT id, date, start, end, location, note, cancelled, cancel_reason,
+            activity_type, sport, title, opponent, segments FROM practices
+            WHERE COALESCE(date_precision,'exact')!='month' ORDER BY date, start, id""").fetchall()
+        ids = [row["id"] for row in rows]
+        counts = {}
+        if show_counts and ids:
+            marks = ",".join("?" * len(ids))
+            for pid, n in d.execute("SELECT practice_id, COUNT(*) FROM rsvps WHERE going=1 AND practice_id IN (%s) GROUP BY practice_id" % marks, ids):
+                counts[pid] = n
+        for row in rows:
+            if hide_past and _ended(row["date"], row["end"] or row["start"], now):
+                continue
+            item = {
+                "id": "p-%d" % row["id"],
+                "chip": "schedule",
+                "title": practice_title(row),
+                "when": "%s · %s" % (_short_day(row["date"]), _span({"start": row["start"], "end": row["end"]})),
+                "place": row["location"] or "",
+                "detail": _words(row["note"], 280),
+                "cancelled": bool(row["cancelled"]),
+                "reason": _words(row["cancel_reason"], 180) if row["cancelled"] else "",
+                "price": drop_in,
+                "trial": trial_line,
+                "count": counts.get(row["id"]) if show_counts else None,
+                "sort": _stamp(row["date"], row["start"]),
+            }
+            events.append(item)
+    lcols = _cols(d, "lineup_events")
+    if "title" in lcols and "status" in lcols:
+        for row in d.execute("""SELECT id, title, date, end_date, city, venue, start_time, end_time,
+            description, event_type, status, capacity, cost FROM lineup_events WHERE status='published'"""):
+            end_day = row["end_date"] or row["date"]
+            if hide_past and _ended(end_day, row["end_time"] or "23:59", now):
+                continue
+            chip = _LINEUP_CHIP.get(row["event_type"] or "", "community")
+            place = " · ".join(part for part in ((row["venue"] or "").strip(), (row["city"] or "").strip()) if part)
+            cost = _words(row["cost"], 40) if show_price else ""
+            events.append({
+                "id": "e-%d" % row["id"],
+                "chip": chip,
+                "title": _words(row["title"], 120),
+                "when": "%s · %s" % (_short_day(row["date"]), _span({"start": row["start_time"], "end": row["end_time"]})),
+                "place": place,
+                "detail": _words(row["description"], 280),
+                "cancelled": False,
+                "reason": "",
+                "price": cost,
+                "trial": "",
+                "count": None,
+                "capacity": row["capacity"] if row["capacity"] else None,
+                "sort": _stamp(row["date"], row["start_time"]),
+            })
+    events.sort(key=lambda item: (item["sort"], item["id"]))
+    limit = min(40, max(1, int(widget.get("limit") or 12)))
+    events = events[:limit]
+    for item in events:
+        item.pop("sort", None)
+    overview = offer["lines"] if widget.get("include_schedule", True) else []
+    chips = [slug for slug in widget.get("chips") or ["all"] if slug in dict(CHIPS)]
+    if "all" not in chips:
+        chips.insert(0, "all")
+    return {
+        "org": org,
+        "theme": widget.get("theme") if widget.get("theme") in ("night", "day") else "night",
+        "visitor_theme": bool(widget.get("visitor_theme")),
+        "chips": chips,
+        "default_chip": widget.get("default_chip") if widget.get("default_chip") in chips else "all",
+        "overview": overview,
+        "prices": offer["prices"] if show_price else [],
+        "trial": offer["trial"] if show_trial else None,
+        "events": events,
+    }
+
+
+def feed_body(d, data, practice_title, now, org):
+    """Small cached JSON. At most a few dozen cards, refreshed about every 30 seconds."""
+    import time
+    stamp = ""
+    try:
+        row = d.execute("SELECT updated_at FROM org_settings WHERE id=1").fetchone()
+        stamp = row["updated_at"] if row else ""
+    except Exception:
+        stamp = ""
+    key = stamp or "none"
+    now_s = time.monotonic()
+    hit = _CACHE.get(key)
+    if hit and now_s - hit[0] < 30:
+        return hit[1]
+    body = json.dumps(build_feed(d, data, practice_title, now, org), separators=(",", ":")).encode()
+    if len(_CACHE) > 3:
+        _CACHE.clear()
+    _CACHE[key] = (now_s, body)
+    return body
+
+
 SETTINGS_PAGE = """<style>
 .daypick{display:flex;flex-wrap:wrap;gap:8px 12px;margin:0 0 12px}
 .daypick label{display:flex;align-items:center;gap:6px;margin:0;min-height:40px;color:var(--t1);font-size:15px}
@@ -426,4 +624,204 @@ SETTINGS_PAGE = """<style>
 {% if offer.trial %}{% if offer.trial.message %}<p>{{ offer.trial.message }}</p>{% endif %}{% if offer.trial.includes %}<p class="t3 sm">{{ offer.trial.includes }}</p>{% endif %}{% if offer.trial.visits %}<p class="t3 sm">{{ offer.trial.visits }} free practices</p>{% endif %}
 {% else %}<p class="t3 sm">No free-trial offer.</p>{% endif %}
 </div>
+"""
+
+
+def embed_snippet(base):
+    src = base.rstrip("/") + "/widget"
+    return (
+        '<iframe id="regulars-schedule" src="%s" title="Schedule" '
+        'style="width:100%%;border:0;min-height:640px" loading="lazy"></iframe>\n'
+        '<script>\n'
+        'window.addEventListener("message",function(e){\n'
+        '  var f=document.getElementById("regulars-schedule");\n'
+        '  if(!f||e.source!==f.contentWindow||!e.data||e.data.type!=="regulars-widget")return;\n'
+        '  if(e.data.height)f.style.height=Math.max(320,e.data.height)+"px";\n'
+        '});\n'
+        '</script>'
+    ) % src
+
+
+def widget_document(payload, theme=None):
+    """Standalone iframe document. Host styles cannot reach it."""
+    import html as htmlmod
+    theme = theme if theme in ("night", "day") else payload.get("theme") or "night"
+    chips = [(slug, label) for slug, label in CHIPS if slug in (payload.get("chips") or ["all"])]
+    if not chips:
+        chips = [("all", "All")]
+    active = payload.get("default_chip") if payload.get("default_chip") in dict(chips) else chips[0][0]
+    e = htmlmod.escape
+
+    def chip_buttons():
+        parts = []
+        for slug, label in chips:
+            pressed = "true" if slug == active else "false"
+            parts.append('<button type=button role=tab aria-pressed="%s" data-chip="%s">%s</button>' % (pressed, e(slug), e(label)))
+        return "".join(parts)
+
+    def cards():
+        rows = []
+        for item in payload.get("events") or []:
+            bits = ['<article class=card data-chip="%s"' % e(item.get("chip") or "community")]
+            if item.get("chip") != active and active != "all":
+                bits[0] += " hidden"
+            bits[0] += ">"
+            title = e(item.get("title") or "Event")
+            if item.get("cancelled"):
+                title = '<s>%s</s>' % title
+            bits.append("<h2>%s</h2>" % title)
+            if item.get("cancelled"):
+                bits.append('<p class=meta>Cancelled%s</p>' % ((" · " + e(item["reason"])) if item.get("reason") else ""))
+            if item.get("when"):
+                bits.append("<p>%s</p>" % e(item["when"]))
+            if item.get("place"):
+                bits.append('<p class=meta>%s</p>' % e(item["place"]))
+            if item.get("detail"):
+                bits.append("<p>%s</p>" % e(item["detail"]))
+            if item.get("price"):
+                bits.append('<p class=meta>%s</p>' % e(item["price"]))
+            if item.get("trial"):
+                bits.append('<p class=trial>%s</p>' % e(item["trial"]))
+            if item.get("capacity"):
+                bits.append('<p class=meta>%s spots</p>' % e(str(item["capacity"])))
+            if item.get("count") is not None:
+                bits.append('<p class=meta>%s going</p>' % e(str(item["count"])))
+            bits.append("</article>")
+            rows.append("".join(bits))
+        return "".join(rows) or '<p class=empty data-empty>Nothing coming up.</p>'
+
+    overview = []
+    for line in payload.get("overview") or []:
+        text = e(line.get("when") or "")
+        if line.get("place"):
+            text += " · " + e(line["place"])
+        overview.append("<p class=usual>%s</p>" % text)
+    prices = []
+    for price in payload.get("prices") or []:
+        text = e(price.get("label") or "")
+        if price.get("price"):
+            text += " · " + e(price["price"])
+        prices.append("<p class=meta>%s</p>" % text)
+    trial = ""
+    if payload.get("trial") and payload["trial"].get("message"):
+        trial = '<p class=trial>%s</p>' % e(payload["trial"]["message"])
+    toggle = ""
+    if payload.get("visitor_theme"):
+        other = "Day" if theme == "night" else "Night"
+        toggle = '<button type=button id=theme>%s</button>' % other
+    return """<!doctype html><html lang=en data-theme="%s"><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>%s</title>
+<style>
+:root{color-scheme:dark;--bg:#0A0D0A;--card:#171C18;--text:#F4F7F2;--muted:#9AA59C;--line:#2C342F;--lime:#C4E65A;--ink:#141614}
+html[data-theme=day]{color-scheme:light;--bg:#F3F4F0;--card:#FFFFFF;--text:#141614;--muted:#5C6560;--line:#E1E4DC}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 "Plus Jakarta Sans",Segoe UI,sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 16px 0}
+h1{font:600 22px/1.2 "Space Grotesk",Segoe UI,sans-serif;margin:0}
+button,article{font:inherit}
+#theme, .chips button{border:1px solid var(--line);background:transparent;color:var(--text);border-radius:999px;min-height:36px;padding:0 12px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 16px 4px}
+.chips button[aria-pressed=true]{background:var(--lime);color:var(--ink);border-color:var(--lime);font-weight:650}
+main{padding:8px 16px 24px}
+.usual,.meta{color:var(--muted);margin:0 0 8px}
+.trial{margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 12px}
+.card h2{font:600 18px/1.25 "Space Grotesk",Segoe UI,sans-serif;margin:0 0 6px}
+.card p{margin:0 0 6px}.empty{color:var(--muted)}
+:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+</style></head><body>
+<header><h1>%s</h1>%s</header>
+<div class=chips role=tablist aria-label="Categories">%s</div>
+<main>%s%s%s<div id=list>%s</div></main>
+<script>
+(function(){
+  var root=document.documentElement, list=document.getElementById("list"), chips=[].slice.call(document.querySelectorAll(".chips button"));
+  function show(name){
+    chips.forEach(function(btn){btn.setAttribute("aria-pressed", btn.getAttribute("data-chip")===name ? "true" : "false");});
+    [].slice.call(list.children).forEach(function(card){
+      if(!card.getAttribute) return;
+      var chip=card.getAttribute("data-chip");
+      if(!chip){card.hidden = name!=="all" && !list.querySelector('[data-chip="'+name+'"]'); return;}
+      card.hidden = name!=="all" && chip!==name;
+    });
+    report();
+  }
+  chips.forEach(function(btn){btn.addEventListener("click", function(){show(btn.getAttribute("data-chip"));});});
+  var themeBtn=document.getElementById("theme");
+  if(themeBtn) themeBtn.addEventListener("click", function(){
+    var next=root.getAttribute("data-theme")==="night"?"day":"night";
+    root.setAttribute("data-theme", next);
+    themeBtn.textContent = next==="night" ? "Day" : "Night";
+    report();
+  });
+  function report(){
+    var h=Math.ceil(document.documentElement.scrollHeight);
+    try{parent.postMessage({type:"regulars-widget", height:h}, "*");}catch(e){}
+  }
+  report();
+  window.addEventListener("resize", report);
+})();
+</script></body></html>""" % (
+        e(theme), e(payload.get("org") or "Schedule"), e(payload.get("org") or "Schedule"),
+        toggle, chip_buttons(), trial, "".join(prices), "".join(overview), cards(),
+    )
+
+
+WIDGET_ADMIN = """<style>
+.daypick{display:flex;flex-wrap:wrap;gap:8px 12px;margin:0 0 12px}
+.daypick label{display:flex;align-items:center;gap:6px;margin:0;min-height:40px;color:var(--t1);font-size:15px}
+</style>
+{{ admin_page('Website widget', 'Visitors see this only after you publish it. The embed keeps working when you change these settings.') }}
+<form method=post>
+{{ csrf_field() }}
+<label class=switchrow>Publish on the website<span class=switch><input type=checkbox name=widget_on value=1 {% if w.enabled %}checked{% endif %}><span></span></span></label>
+<div class=seclabel>Default appearance</div>
+<div class=daypick role=radiogroup aria-label="Theme">
+<label><input type=radio name=theme value=night {% if w.theme != 'day' %}checked{% endif %}> Night</label>
+<label><input type=radio name=theme value=day {% if w.theme == 'day' %}checked{% endif %}> Day</label>
+</div>
+<label class=switchrow>Visitors can switch Night and Day<span class=switch><input type=checkbox name=visitor_theme value=1 {% if w.visitor_theme %}checked{% endif %}><span></span></span></label>
+<div class=seclabel>Chips</div>
+<div class=daypick role=group aria-label="Chips">
+{% for slug, label in chip_choices %}<label><input type=checkbox name="chip_{{ slug }}" value=1 {% if slug in w.chips %}checked{% endif %}> {{ label }}</label>{% endfor %}
+</div>
+<label>Opens on<select name=default_chip>{% for slug, label in chip_choices %}<option value="{{ slug }}" {% if w.default_chip == slug %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+<label class=switchrow>Show the regular schedule<span class=switch><input type=checkbox name=include_schedule value=1 {% if w.include_schedule %}checked{% endif %}><span></span></span></label>
+<label class=switchrow>Show prices that are filled in<span class=switch><input type=checkbox name=show_pricing value=1 {% if w.show_pricing %}checked{% endif %}><span></span></span></label>
+<label class=switchrow>Show the free-trial message<span class=switch><input type=checkbox name=show_trial value=1 {% if w.show_trial %}checked{% endif %}><span></span></span></label>
+<label class=switchrow>Show how many are going<span class=switch><input type=checkbox name=show_counts value=1 {% if w.show_counts %}checked{% endif %}><span></span></span></label>
+<p class="t3 sm">Counts are numbers only. Names and photos stay off the widget.</p>
+<label class=switchrow>Hide events that already ended<span class=switch><input type=checkbox name=hide_past value=1 {% if w.hide_past %}checked{% endif %}><span></span></span></label>
+<label>Upcoming events to show<input name=limit inputmode=numeric value="{{ w.limit }}"></label>
+<button class="btn btn-primary full" type=submit>Save</button>
+</form>
+<h2>Preview</h2>
+<p class="t3 sm">This preview uses your admin login. The public embed stays empty until you publish.</p>
+<div class=daypick>
+<button type=button class="btn btn-secondary" id=prevMobile>390</button>
+<button type=button class="btn btn-secondary" id=prevDesk>1280</button>
+</div>
+<iframe id=widgetPreview title="Widget preview" src="/widget?preview=1" style="width:min(100%,390px);height:640px;border:1px solid var(--line);border-radius:16px;background:#0A0D0A"></iframe>
+<h2>Embed code</h2>
+<p class="t3 sm">Paste this once. Later changes show up without a new snippet.</p>
+<textarea id=embedCode class=planfield rows=8 readonly>{{ embed }}</textarea>
+<button type=button class="btn btn-secondary" id=copyEmbed>Copy embed code</button>
+<p class="t3 sm" id=copied hidden>Copied.</p>
+<p><a href="/widget?preview=1">Open the preview</a></p>
+<script>
+(function(){
+  var frame=document.getElementById("widgetPreview");
+  document.getElementById("prevMobile").onclick=function(){frame.style.width="min(100%,390px)";};
+  document.getElementById("prevDesk").onclick=function(){frame.style.width="min(100%,1280px)";};
+  document.getElementById("copyEmbed").onclick=function(){
+    var text=document.getElementById("embedCode").value;
+    if(navigator.clipboard) navigator.clipboard.writeText(text);
+    document.getElementById("copied").hidden=false;
+  };
+  window.addEventListener("message", function(e){
+    if(!frame||e.source!==frame.contentWindow||!e.data||e.data.type!=="regulars-widget") return;
+    if(e.data.height) frame.style.height=Math.max(320, e.data.height)+"px";
+  });
+})();
+</script>
 """

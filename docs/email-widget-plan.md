@@ -31,7 +31,14 @@ Blank prices are not shown. The page does not invent a dollar amount, a venue, o
 
 A first-time trial cannot be claimed again after `trial_acknowledged_at` is set. That is the same acknowledgment the membership card already stores.
 
+## Phase 3
+
+`/manage/widget` is the next Club settings row. It is admin-only. The public page `/widget` and `/api/public/feed` answer 404 until Publish is on. Preview uses the admin’s login and does not publish the embed.
+
+The feed is practices and published Lineup events only. Cards have a title, time, place, public note, and a price or trial line when one was entered. Names, photos, coach plans, and draft events are left out. A going count is a number, and only when that switch is on. The response is cached for about 30 seconds and capped at 40 cards.
+
+The iframe uses Night or Day, and the chips All, Schedule, Competitions, Camps, Trips, and Community. Host CSS cannot style the frame. The embed snippet does not change when settings change.
+
 ## Later phases
 
-- Phase 3 adds a read-only public feed and the embed, plus a Website Widget page under Club settings. Visitors do not see names, photos, or private notes. The widget stays off until an admin enables it.
 - Phase 4 reuses the existing login and RSVP. Going in the widget opens that flow and does not mark anyone as registered until it finishes.

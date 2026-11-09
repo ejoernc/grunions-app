@@ -4039,6 +4039,50 @@ def manage_pricing():
     return page(ui.ADMIN_NAV + publicfeed.SETTINGS_PAGE, tab="admin", s=settings, slots=publicfeed.form_slots(settings),
         day_names=publicfeed.DAY_SHORT, offer=publicfeed.public_view(settings),
         pass_row=publicfeed._first(pricing.get("passes")), fee_row=publicfeed._first(pricing.get("fees")))
+def _widget_payload(d):
+    return publicfeed.build_feed(d, publicfeed.load(d), practice_title, wall_pt(), org_name())
+@app.route("/api/public/feed")
+def public_feed_api():
+    """Read-only public cards. Unpublished widgets, names, and photos stay out."""
+    d = db()
+    data = publicfeed.load(d)
+    if not (data.get("widget") or {}).get("enabled"):
+        abort(404)
+    body = publicfeed.feed_body(d, data, practice_title, wall_pt(), org_name())
+    resp = Response(body, mimetype="application/json")
+    resp.headers["Cache-Control"] = "public, max-age=30"
+    return resp
+@app.route("/widget")
+def widget_frame():
+    """Embeddable schedule. Host page styles cannot reach this document."""
+    preview = request.args.get("preview") == "1"
+    if preview and not (me() and me()["is_admin"]):
+        abort(404)
+    d = db()
+    data = publicfeed.load(d)
+    if not (data.get("widget") or {}).get("enabled") and not preview:
+        abort(404)
+    theme = request.args.get("theme")
+    html = publicfeed.widget_document(_widget_payload(d), theme if theme in ("night", "day") else None)
+    resp = Response(html, mimetype="text/html; charset=utf-8")
+    resp.headers["Content-Security-Policy"] = "frame-ancestors *"
+    resp.headers["Cache-Control"] = "private, no-store" if preview else "public, max-age=30"
+    return resp
+@app.route("/manage/widget", methods=["GET", "POST"])
+@admin_required
+def manage_widget():
+    d = db()
+    if request.method == "POST":
+        try:
+            publicfeed.save_sections(d, widget=publicfeed.parse_widget(request.form))
+            d.commit()
+            flash("Saved", "toast")
+            return redirect("/manage/widget")
+        except ValueError as exc:
+            flash(str(exc))
+    base = (PUBLIC_URL or request.host_url or "").rstrip("/")
+    return page(ui.ADMIN_NAV + publicfeed.WIDGET_ADMIN, tab="admin", w=publicfeed.load(d)["widget"],
+        chip_choices=publicfeed.CHIPS, embed=publicfeed.embed_snippet(base or ""))
 @app.route("/lineup", methods=["GET", "POST"])
 @login_required
 def lineup():
@@ -4198,6 +4242,7 @@ _MANAGE_ICONS = {
  "qr": "M104,40H56A16,16,0,0,0,40,56v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,104,40Zm0,64H56V56h48Zm96-64H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,64H152V56h48ZM104,136H56a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,104,136Zm0,64H56V152h48Zm96-64H152a8,8,0,0,0-8,8v48a8,8,0,0,0,8,8h16v16a8,8,0,0,0,16,0V184h24a8,8,0,0,0,0-16H184V152h16a8,8,0,0,0,0-16Z",
  "seal": "M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z",
  "flag": "M42.76,50A8,8,0,0,0,40,56V224a8,8,0,0,0,16,0V179.77c26.79-21.16,49.87-9.75,76.45,3.41,16.4,8.11,31.32,15.51,48.22,15.51,13.93,0,28.54-4.75,43.82-18a8,8,0,0,0,2.76-6.25V56A8,8,0,0,0,218.76,50c-28,24.23-51.72,12.49-79.21-1.12C111.07,34.76,78.78,18.79,42.76,50ZM216,172.25c-26.79,21.16-49.87,9.74-76.45-3.41-25-12.35-50.81-25.11-83.55-8.93V59.79c26.79-21.16,49.87-9.75,76.45,3.4,25,12.35,50.81,25.12,83.55,8.94Z",
+ "widget": "M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V104H216ZM216,88H40V56H216Z",
 }
 def _manage_row(title, desc, href, icon, count=0, tone="info"):
     return {"title": title, "desc": desc, "href": href, "icon": _micon(_MANAGE_ICONS[icon]), "count": count or 0, "tone": tone}
@@ -4237,6 +4282,7 @@ def manage_home_groups(d):
         people.append(_manage_row("Referees", "Referee list and referee eligible", "/members?view=referees", "flag", len(sets["refs"])))
         people.append(_manage_row("Compliance", "Memberships & certifications", "/expiring", "shield", expiring_people_count(d), "warn"))
         club.append(_manage_row("Schedule & pricing", "Regular times, prices, and a free trial", "/manage/pricing", "cal"))
+        club.append(_manage_row("Website widget", "Embed the public schedule", "/manage/widget", "widget"))
         club.append(_manage_row("Usage", "Mapbox calls today", "/manage/usage", "rules"))
         club.append(_manage_row("Data transfer", "Import & export", "/transfer", "swap"))
         club.append(_manage_row("Rules", "Policies & requirements", "/requirements", "rules"))
