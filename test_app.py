@@ -301,7 +301,20 @@ ok(john.post("/api/messages?c=coaches", json={"body":"Coaches only: lineup for F
 ok(jane.get("/api/messages?c=coaches").status_code == 403 and jane.get("/chat?c=coaches").status_code == 403, "#coaches private from members")
 ok(len(eli.get("/api/messages?c=coaches").get_json()) == 1 and all("Coaches only" not in m["body"] for m in jane.get("/api/messages").get_json()), "channels separated")
 ok(john.get("/admin").status_code == 200 and john.get("/import").status_code == 403 and john.post("/admin", data=dict(csrf=tj, member_id=2, action="verify")).status_code == 403 and 'class="usawpcall' not in john.get("/admin").get_data(as_text=True), "coach can check in but not use admin tools")
-p = jane.get("/practices").get_data(as_text=True); ok("Marina High School" in p and "Westminster High School" in p and "class=datetile" in p and ">Going</button>" in p and ">Not going</button>" in p and "I'm going" not in p, "recurring Tue/Fri practices generated")
+_opened = jane.get("/practices").get_data(as_text=True)
+ok("Marina High School" not in _opened and "Westminster High School" not in _opened and D.execute("SELECT COUNT(*) FROM practices").fetchone()[0] == 0, "opening the schedule does not create practices")
+def _next_weekday(wd):
+    day = A.today_pt()
+    while day.weekday() != wd: day += dt.timedelta(days=1)
+    return day.isoformat()
+D.execute("INSERT INTO practices(date,start,end,location) VALUES(?,?,?,?)", (_next_weekday(1), "19:00", "20:30", "Marina High School"))
+D.execute("INSERT INTO practices(date,start,end,location) VALUES(?,?,?,?)", (_next_weekday(4), "19:00", "20:30", "Westminster High School")); D.commit()
+_n_practices = D.execute("SELECT COUNT(*) FROM practices").fetchone()[0]
+jane.get("/home"); eli.get("/admin"); jane.get("/practices")
+try: A.run_notify_jobs()
+except Exception: pass
+ok(D.execute("SELECT COUNT(*) FROM practices").fetchone()[0] == _n_practices and not hasattr(A, "ensure_schedule") and not hasattr(A, "sync_all_series"), "home, check-in, and the notify job do not add practices")
+p = jane.get("/practices").get_data(as_text=True); ok("Marina High School" in p and "Westminster High School" in p and "class=datetile" in p and ">Going</button>" in p and ">Not going</button>" in p and "I'm going" not in p, "the schedule shows practices that were created on purpose")
 sched = eli.get("/admin").get_data(as_text=True)
 sched_head = sched.split("<main>", 1)[0]
 past_day = (A.today_pt() - dt.timedelta(days=9)).isoformat()
@@ -1626,6 +1639,7 @@ real_now = A.now_pt
 try:
     A.now_pt = lambda: dt.datetime(2026, 10, 19, 19, 0, tzinfo=dt.timezone.utc)  # Monday noon Pacific
     D.execute("INSERT INTO practices(date,start,end,location,cancelled) VALUES('2026-10-16','19:00','20:30','Past Pool',0)")
+    D.execute("INSERT INTO practices(date,start,end,location,cancelled) VALUES('2026-10-20','19:00','20:30','Marina High School',0)")
     D.execute("INSERT INTO practices(date,start,end,location,cancelled) VALUES('2026-10-21','19:00','20:30','Cancelled Only Pool',1)")
     D.commit()
     adm = eli.get("/admin").get_data(as_text=True)
@@ -2564,6 +2578,8 @@ eli.post("/practices/series/%d" % _nsid, data={"csrf": csrf(eli, "/practices/ser
 eli.post("/practices/series/%d" % _nsid, data={"csrf": csrf(eli, "/practices/series/%d" % _nsid), "action": "cancel_selected", "pick": [str(_npicks[2][0]), str(_npast_id)], "reason": "Holiday"})
 eli.post("/practices/series/%d" % _nsid, data={"csrf": csrf(eli, "/practices/series/%d" % _nsid), "action": "delete_selected", "pick": [str(_npicks[3][0]), str(_npast_id)]})
 ok("Manage series" in _npage and ">Never</span>" in _npage and "Skip dates" in _npage and "name=pick" in _npage and D.execute("SELECT start, location FROM practices WHERE id=?", (_npast_id,)).fetchone() == ("19:00", "Never Pool") and D.execute("SELECT start, location, series_detached FROM practices WHERE id=?", (_npicks[1][0],)).fetchone() == ("18:15", "Moved Never", 1) and D.execute("SELECT start, location FROM practices WHERE id=?", (_npicks[0][0],)).fetchone() == ("19:00", "Never Pool") and D.execute("SELECT cancelled, cancel_reason FROM practices WHERE id=?", (_npicks[2][0],)).fetchone() == (1, "Holiday") and not D.execute("SELECT 1 FROM practices WHERE id=?", (_npicks[3][0],)).fetchone() and D.execute("SELECT 1 FROM series_skips WHERE series_id=? AND date=?", (_nsid, _npicks[3][1])).fetchone(), "selected upcoming dates can be edited, canceled, or deleted, and a past date stays")
+_marina_day = (A.today_pt() + dt.timedelta(days=3)).isoformat()
+D.execute("INSERT INTO practices(date,start,end,location,cancelled) VALUES(?,?,?,?,0)", (_marina_day, "19:00", "20:30", "Marina High School")); D.commit()
 _marina = D.execute("SELECT id, date FROM practices WHERE location='Marina High School' AND cancelled=0 AND date>=? ORDER BY date LIMIT 1", (A.today_pt().isoformat(),)).fetchone()
 D.execute("INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,0)", (_marina[0], jane_id))
 D.execute("INSERT INTO practice_coaches(practice_id, member_id, is_lead, focus, plan_note) VALUES(?,?,0,'Goalies','Press')", (_marina[0], eli_id))

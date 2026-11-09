@@ -27,6 +27,13 @@ D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until=?, usaw
 for mid, rid, done, exp in [(1,1,"2026-02-01","2027-02-01"),(1,3,"2026-09-01",None),(2,3,"2026-09-15",None),(5,1,"2026-03-01","2027-03-01"),(5,2,"2026-03-01","2028-03-01")]:
     D.execute("INSERT OR REPLACE INTO member_reqs VALUES(?,?,?,?,'manual','Eli Joern',?)", (mid, rid, done, exp, today.isoformat()))
 D.commit()
+def _next_wd(wd):
+    day = today
+    while day.weekday() != wd: day += dt.timedelta(days=1)
+    return day.isoformat()
+D.execute("INSERT INTO practices(date,start,end,location) VALUES(?,?,?,?)", (_next_wd(1), "19:00", "20:30", "Marina High School"))
+D.execute("INSERT INTO practices(date,start,end,location) VALUES(?,?,?,?)", (_next_wd(4), "19:00", "20:30", "Westminster High School"))
+D.commit()
 cl["Marcus"].get("/practices")
 pid = D.execute("SELECT id FROM practices WHERE date>=? AND location='Marina High School' ORDER BY date LIMIT 1", (today.isoformat(),)).fetchone()[0]
 for who, a in [("Jane","going"),("Marcus","going"),("Ana","going"),("John","notgoing")]: cl[who].post("/practices", data=dict(csrf=tok(cl[who],"/practices"), pid=pid, action=a))

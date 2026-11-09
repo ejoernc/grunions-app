@@ -1751,9 +1751,8 @@ def api_drive():
     resp.headers["Cache-Control"] = "no-store"
     return resp
 # ---------- practices ----------
-RECURRING = {1: ("Marina High School", "19:00", "20:30"), 4: ("Westminster High School", "19:00", "20:30")}  # Tue, Fri
 def note_schedule_gap(d, date, location):
-    """Remember a deleted date so the standing Tue/Fri seed does not put it back."""
+    """Remember a date an admin removed from a place."""
     date, location = str(date or "")[:10], " ".join(str(location or "").split())
     if date and location:
         d.execute("INSERT OR IGNORE INTO schedule_gaps(date, location) VALUES(?,?)", (date, location))
@@ -1771,19 +1770,6 @@ def drop_orphan_checkins(d, date):
         AND date<=? AND COALESCE(NULLIF(end_date,''), date)>=?""", (date, date)).fetchone():
         return
     d.execute("DELETE FROM checkins WHERE practice_date=?", (date,))
-def ensure_schedule(d, weeks=4):
-    today = today_pt()
-    gaps = {(r["date"], r["location"]) for r in d.execute("SELECT date, location FROM schedule_gaps")}
-    for i in range(weeks * 7):
-        day = today + dt.timedelta(days=i)
-        if day.weekday() in RECURRING:
-            loc, a, b = RECURRING[day.weekday()]
-            if (day.isoformat(), loc) in gaps: continue
-            d.execute("INSERT OR IGNORE INTO practices(date,start,end,location) VALUES(?,?,?,?)", (day.isoformat(), a, b, loc))
-    sync_all_series(d)
-    d.commit()
-    pin_known_pools(d)
-    d.commit()
 SERIES_HORIZON_DAYS = 183
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 def series_weekday_set(raw):
@@ -1983,9 +1969,22 @@ def sync_series(d, sid, today=None):
             continue
         clear_schedule_gap(d, iso, row["location"])
         copy_series_coaches(d, sid, cur.lastrowid)
-def sync_all_series(d):
-    for sid in [r["id"] for r in d.execute("SELECT id FROM practice_series")]:
-        sync_series(d, sid)
+def restore_series_date(d, sid, iso):
+    """Put back the single date an admin restored. No other date is created."""
+    iso = str(iso or "")[:10]
+    if not iso: return
+    if d.execute("SELECT 1 FROM practices WHERE series_id=? AND date=?", (sid, iso)).fetchone(): return
+    row = d.execute("SELECT * FROM practice_series WHERE id=?", (sid,)).fetchone()
+    if not row: return
+    if d.execute("SELECT 1 FROM practices WHERE date=? AND location=?", (iso, row["location"])).fetchone(): return
+    try:
+        sp = sports.sports_from_row(row)
+        cur = d.execute("""INSERT INTO practices(date,start,end,location,series_id,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (iso, row["start"], row["end"], row["location"], sid, *sports.sports_tuple(sp)))
+    except sqlite3.IntegrityError:
+        return
+    clear_schedule_gap(d, iso, row["location"])
+    copy_series_coaches(d, sid, cur.lastrowid)
 def series_end_mode(row):
     if series_end_count(row): return "count"
     if row is not None and row["end_date"]: return "date"
@@ -3192,7 +3191,6 @@ def handle_practice_post(d):
         if prow and prow["series_id"]:
             d.execute("DELETE FROM series_skips WHERE series_id=? AND date=?", (prow["series_id"], prow["date"]))
             if prow["skipped"]: d.execute("UPDATE practices SET cancelled=0, skipped=0, cancel_reason='' WHERE id=?", (pid,))
-            sync_series(d, prow["series_id"])
     elif a == "delete" and pid:
         prow = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
         if practice_ended(prow):
@@ -3316,7 +3314,6 @@ def combined_view(entry):
     m = me(); d = db()
     hist = d.execute("SELECT practice_date, location FROM checkins WHERE member_id=? ORDER BY practice_date DESC", (m["id"],)).fetchall()
     month = today_pt().strftime("%Y-%m")
-    ensure_schedule(d)
     picked = next_commitment(d, m["id"])
     next_kind, nextev = "practice", None
     _upcoming = d.execute("SELECT * FROM practices WHERE cancelled=0 AND " + upcoming_where(), upcoming_bounds()).fetchall()
@@ -3373,13 +3370,13 @@ def combined_view(entry):
 @app.route("/practices", methods=["GET", "POST"])
 @login_required
 def practices():
-    d = db(); ensure_schedule(d)
+    d = db()
     if request.method == "POST": return handle_practice_post(d)
     return combined_view("practices")
 @app.route("/practices/<int:pid>", methods=["GET", "POST"])
 @login_required
 def practice_page(pid):
-    d = db(); ensure_schedule(d)
+    d = db()
     if request.method == "POST":
         if request.form.get("pid", type=int) != pid: abort(400)
         return handle_practice_post(d)
@@ -3415,7 +3412,8 @@ def series_page(sid):
         if day >= today_pt().isoformat():
             d.execute("DELETE FROM series_skips WHERE series_id=? AND date=?", (sid, day))
             d.execute("UPDATE practices SET cancelled=0, skipped=0, cancel_reason='' WHERE series_id=? AND date=? AND skipped=1", (sid, day))
-            sync_series(d, sid); d.commit()
+            restore_series_date(d, sid, day)
+            d.commit()
         return redirect("/practices/series/%d" % sid)
     if action in ("edit_selected", "cancel_selected", "delete_selected"):
         try:
@@ -5023,7 +5021,6 @@ def admin():
         if filt != "going": kwargs["filt"] = filt
         if selected: kwargs["ev"] = selected["key"]
         return redirect(url_for("admin", **kwargs))
-    ensure_schedule(d)
     days = schedule_days(d)
     date = posted or default_checkin_date(days)
     q = request.args.get("q", "").strip()

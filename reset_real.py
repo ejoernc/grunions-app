@@ -37,7 +37,6 @@ def main():
                 if kw in (q["keywords"] or ""):
                     d.execute("INSERT OR REPLACE INTO member_reqs VALUES(?,?,NULL,?,'Sport:80 lookup','Grunions bot',?)", (mid, q["id"], exp, now))
         d.commit()
-        A.ensure_schedule(d)
         d.execute("VACUUM")
     if os.path.isdir(A.UPLOADS):
         for f in os.listdir(A.UPLOADS):
