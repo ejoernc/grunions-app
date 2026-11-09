@@ -4068,6 +4068,12 @@ def widget_frame():
     resp.headers["Content-Security-Policy"] = "frame-ancestors *"
     resp.headers["Cache-Control"] = "private, no-store" if preview else "public, max-age=30"
     return resp
+@app.after_request
+def _widget_can_be_framed(resp):
+    if request.path == "/widget":
+        resp.headers["Content-Security-Policy"] = "frame-ancestors *"
+        resp.headers.pop("X-Frame-Options", None)
+    return resp
 @app.route("/manage/widget", methods=["GET", "POST"])
 @admin_required
 def manage_widget():

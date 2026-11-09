@@ -74,7 +74,7 @@ def test_settings_are_admin_only_and_create_no_practices():
     body = saved.get_data(as_text=True)
     assert saved.status_code == 200
     assert "Fridays: 7:00 PM–8:30 PM · Westminster High School" in body
-    assert "Drop-in · 15" in body
+    assert "Drop-in $15" in body
     assert "Member" not in body.split("<h2>On the website</h2>", 1)[1]
     assert "Your first two practices are on us." in body
     assert "2 free practices" in body
@@ -84,7 +84,7 @@ def test_settings_are_admin_only_and_create_no_practices():
         eli_row = A.db().execute("SELECT trial_acknowledged_at FROM members WHERE email='eli@example.com'").fetchone()
     offer = publicfeed.public_view(stored)
     assert [row["label"] for row in offer["prices"]] == ["Drop-in"]
-    assert offer["prices"][0]["price"] == "15"
+    assert offer["prices"][0]["price"] == "$15" and offer["prices"][0]["line"] == "Drop-in $15"
     assert publicfeed.trial_claim_open(stored, eli_row)
     with A.app.app_context():
         A.db().execute("UPDATE members SET trial_acknowledged_at='2026-11-01' WHERE email='eli@example.com'")
@@ -146,7 +146,7 @@ def test_widget_is_off_until_an_admin_publishes_it():
     assert page.status_code == 200
     assert "Website widget" in html and "Night" in html and "Day" in html
     assert ">All<" in html and ">Schedule<" in html and ">Competitions<" in html and ">Camps<" in html and ">Trips<" in html and ">Community<" in html
-    assert 'src="/widget?preview=1"' in html and "<iframe" in html
+    assert 'src="/widget?preview=1"' in html and "https://grunions.regulars.team/widget" in html and "<iframe" in html
     preview = admin.get("/widget?preview=1")
     assert preview.status_code == 200 and 'data-theme="night"' in preview.get_data(as_text=True)
     assert 'data-theme="day"' in admin.get("/widget?preview=1&theme=day").get_data(as_text=True)
@@ -162,6 +162,13 @@ def test_widget_is_off_until_an_admin_publishes_it():
         d.execute("""INSERT INTO lineup_events(kind,title,date,status,event_type,description)
             VALUES('Social','Secret draft',?,'draft','Social','not public')""", (day,))
         d.commit()
+    admin.post("/manage/pricing", data={
+        "csrf": csrf(admin, "/manage/pricing"),
+        "program_name": "Water Polo", "timezone": "America/Los_Angeles", "schedule_public": "1",
+        "slot0_day": "4", "slot0_start": "19:00", "slot0_end": "20:30", "venue": "Westminster High School",
+        "price_dropin": "15", "trial_on": "1", "trial_first": "1",
+        "trial_message": "New to water polo? Your first two practices are on us.",
+    })
     published = admin.post("/manage/widget", data={
         "csrf": csrf(admin, "/manage/widget"),
         "widget_on": "1", "theme": "night", "visitor_theme": "1",
@@ -177,7 +184,9 @@ def test_widget_is_off_until_an_admin_publishes_it():
     assert "Bring a dark cap" in body and "Harbor Cup" in body and '"count":null' in body
     frame = member.get("/widget").get_data(as_text=True)
     assert "All" in frame and "Schedule" in frame and "Competitions" in frame and "Camps" in frame and "Trips" in frame and "Community" in frame
-    assert "Mia" not in frame and "secret drill" not in frame
+    assert "Space Grotesk" in frame and "datetile" in frame and "class=callout" in frame and frame.count("Your first two practices are on us.") == 1
+    assert "Loading the schedule" in frame and "Nothing coming up" in frame and "Couldn't load the schedule" in frame
+    assert "Drop-in $15" in frame and "Mia" not in frame and "secret drill" not in frame
     admin.post("/manage/widget", data={
         "csrf": csrf(admin, "/manage/widget"),
         "widget_on": "1", "theme": "day", "visitor_theme": "1",

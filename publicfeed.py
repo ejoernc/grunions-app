@@ -6,6 +6,7 @@ practices or Lineup events. Blank prices are omitted, never filled in.
 import datetime as dt
 import json
 import re
+from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
 DAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
@@ -262,6 +263,29 @@ def clock(value):
     return "%d:%02d %s" % (hour, minute, suffix)
 
 
+def money(raw):
+    """Show a typed amount as currency. Words such as Free stay as typed."""
+    text = (raw or "").strip()
+    if not text:
+        return ""
+    body = text[1:].strip() if text[:1] == "$" else text
+    try:
+        amount = Decimal(body.replace(",", ""))
+    except (InvalidOperation, ValueError):
+        return text
+    if amount == amount.to_integral_value():
+        return "$%d" % int(amount)
+    return "$%s" % format(amount.quantize(Decimal("0.01")), "f")
+
+
+def price_line(label, amount):
+    shown = money(amount)
+    label = (label or "").strip()
+    if label and shown:
+        return "%s %s" % (label, shown)
+    return shown or label
+
+
 def _day_phrase(days):
     days = list(days or [])
     if len(days) == 1:
@@ -295,7 +319,7 @@ def public_view(data):
         amount = (pricing.get(key) or "").strip()
         if not amount:
             continue
-        item = {"label": label, "price": amount, "detail": ""}
+        item = {"label": label, "price": money(amount), "detail": "", "line": price_line(label, amount)}
         if key == "monthly":
             item["detail"] = pricing.get("monthly_desc") or ""
         prices.append(item)
@@ -305,11 +329,13 @@ def public_view(data):
         detail = pas.get("description") or ""
         if pas.get("visits"):
             detail = ("%s visits" % pas["visits"] + (" · " + detail if detail else "")).strip()
-        prices.append({"label": pas.get("name") or "Practice pass", "price": pas.get("price") or "", "detail": detail})
+        label = pas.get("name") or "Practice pass"
+        prices.append({"label": label, "price": money(pas.get("price") or ""), "detail": detail, "line": price_line(label, pas.get("price") or "")})
     for fee in pricing.get("fees") or []:
         if not (fee.get("name") or fee.get("price")):
             continue
-        prices.append({"label": fee.get("name") or "Fee", "price": fee.get("price") or "", "detail": fee.get("description") or ""})
+        label = fee.get("name") or "Fee"
+        prices.append({"label": label, "price": money(fee.get("price") or ""), "detail": fee.get("description") or "", "line": price_line(label, fee.get("price") or "")})
     trial = None
     raw = data.get("trial") or {}
     if raw.get("enabled"):
@@ -431,6 +457,17 @@ def _short_day(iso):
     return day.strftime("%a, %b ") + str(day.day)
 
 
+def _tile(iso):
+    try:
+        day = dt.date.fromisoformat(str(iso)[:10])
+    except ValueError:
+        return {"wd": "", "dn": "", "mo": ""}
+    return {"wd": day.strftime("%a").upper(), "dn": str(day.day), "mo": day.strftime("%b").upper()}
+
+
+_CHIP_LABEL = dict(CHIPS)
+
+
 def build_feed(d, data, practice_title, now, org):
     """Public cards only. No names, photos, plans, or private notes."""
     widget = data.get("widget") or widget_blank()
@@ -445,9 +482,6 @@ def build_feed(d, data, practice_title, now, org):
             if price["label"] == "Drop-in" and price.get("price"):
                 drop_in = price["price"]
                 break
-    trial_line = ""
-    if show_trial and offer["trial"].get("message"):
-        trial_line = offer["trial"]["message"]
     events = []
     pcols = _cols(d, "practices")
     if "date" in pcols and widget.get("include_schedule", True):
@@ -466,14 +500,16 @@ def build_feed(d, data, practice_title, now, org):
             item = {
                 "id": "p-%d" % row["id"],
                 "chip": "schedule",
+                "category": "Schedule",
                 "title": practice_title(row),
+                "tile": _tile(row["date"]),
+                "time": _span({"start": row["start"], "end": row["end"]}),
                 "when": "%s · %s" % (_short_day(row["date"]), _span({"start": row["start"], "end": row["end"]})),
                 "place": row["location"] or "",
                 "detail": _words(row["note"], 280),
                 "cancelled": bool(row["cancelled"]),
                 "reason": _words(row["cancel_reason"], 180) if row["cancelled"] else "",
-                "price": drop_in,
-                "trial": trial_line,
+                "price": price_line("Drop-in", drop_in) if drop_in else "",
                 "count": counts.get(row["id"]) if show_counts else None,
                 "sort": _stamp(row["date"], row["start"]),
             }
@@ -491,14 +527,16 @@ def build_feed(d, data, practice_title, now, org):
             events.append({
                 "id": "e-%d" % row["id"],
                 "chip": chip,
+                "category": _CHIP_LABEL.get(chip, "Community"),
                 "title": _words(row["title"], 120),
+                "tile": _tile(row["date"]),
+                "time": _span({"start": row["start_time"], "end": row["end_time"]}),
                 "when": "%s · %s" % (_short_day(row["date"]), _span({"start": row["start_time"], "end": row["end_time"]})),
                 "place": place,
                 "detail": _words(row["description"], 280),
                 "cancelled": False,
                 "reason": "",
-                "price": cost,
-                "trial": "",
+                "price": price_line("", cost) if cost else "",
                 "count": None,
                 "capacity": row["capacity"] if row["capacity"] else None,
                 "sort": _stamp(row["date"], row["start_time"]),
@@ -619,7 +657,7 @@ SETTINGS_PAGE = """<style>
 {% for line in offer.lines %}<p class=offerline>{{ line.when }}{% if line.place %} · {{ line.place }}{% endif %}</p>{% endfor %}
 {% if offer.season_start or offer.season_end %}<p class="t3 sm">{{ offer.season_start }}{% if offer.season_end %} – {{ offer.season_end }}{% endif %}</p>{% endif %}
 {% else %}<p class="t3 sm">The regular schedule is hidden until you turn it on.</p>{% endif %}
-{% if offer.prices %}<div class=seclabel>Pricing</div>{% for price in offer.prices %}<p class=offerline>{{ price.label }}{% if price.price %} · {{ price.price }}{% endif %}{% if price.detail %} · {{ price.detail }}{% endif %}</p>{% endfor %}
+{% if offer.prices %}<div class=seclabel>Pricing</div>{% for price in offer.prices %}<p class=offerline>{{ price.line }}{% if price.detail %} · {{ price.detail }}{% endif %}</p>{% endfor %}
 {% else %}<p class="t3 sm">No prices to show.</p>{% endif %}
 {% if offer.trial %}{% if offer.trial.message %}<p>{{ offer.trial.message }}</p>{% endif %}{% if offer.trial.includes %}<p class="t3 sm">{{ offer.trial.includes }}</p>{% endif %}{% if offer.trial.visits %}<p class="t3 sm">{{ offer.trial.visits }} free practices</p>{% endif %}
 {% else %}<p class="t3 sm">No free-trial offer.</p>{% endif %}
@@ -627,8 +665,11 @@ SETTINGS_PAGE = """<style>
 """
 
 
-def embed_snippet(base):
-    src = base.rstrip("/") + "/widget"
+WIDGET_URL = "https://grunions.regulars.team/widget"
+
+
+def embed_snippet(base=None):
+    """The paste-once snippet. The custom domain stays the source when Render's hostname changes."""
     return (
         '<iframe id="regulars-schedule" src="%s" title="Schedule" '
         'style="width:100%%;border:0;min-height:640px" loading="lazy"></iframe>\n'
@@ -639,11 +680,16 @@ def embed_snippet(base):
         '  if(e.data.height)f.style.height=Math.max(320,e.data.height)+"px";\n'
         '});\n'
         '</script>'
-    ) % src
+    ) % WIDGET_URL
+
+
+_CLOCK = '<svg class=nxglyph width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg>'
+_PIN = '<svg class=nxglyph width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,64a40,40,0,1,0,40,40A40,40,0,0,0,128,64Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,128Zm0-112a88.1,88.1,0,0,0-88,88c0,31.4,14.51,64.68,42,96.25a254.19,254.19,0,0,0,41.45,38.3,8,8,0,0,0,9.18,0A254.19,254.19,0,0,0,174,200.25c27.45-31.57,42-64.85,42-96.25A88.1,88.1,0,0,0,128,16Zm0,206c-16.53-13-72-60.75-72-118a72,72,0,0,1,144,0C200,161.23,144.53,209,128,222Z"/></svg>'
+_SUN = '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Zm-16,0a48,48,0,1,0-48,48A48.05,48.05,0,0,0,176,128ZM58.34,69.66A8,8,0,0,1,69.66,58.34l16,16a8,8,0,0,1-11.32,11.32Zm0,116.68,16-16a8,8,0,0,1,11.32,11.32l-16,16a8,8,0,0,1-11.32-11.32ZM192,72a8,8,0,0,1,5.66-2.34l16-16a8,8,0,0,1,11.32,11.32l-16,16A8,8,0,0,1,192,72Zm5.66,114.34a8,8,0,0,1,0-11.32,8,8,0,0,1,11.32,0l16,16a8,8,0,0,1-11.32,11.32ZM40,120H16a8,8,0,0,0,0,16H40a8,8,0,0,0,0-16Zm200,0H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16ZM128,200a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V208A8,8,0,0,0,128,200Z"/></svg>'
 
 
 def widget_document(payload, theme=None):
-    """Standalone iframe document. Host styles cannot reach it."""
+    """Standalone iframe. It uses the app fonts and Lineup card structure. Host CSS cannot reach it."""
     import html as htmlmod
     theme = theme if theme in ("night", "day") else payload.get("theme") or "night"
     chips = [(slug, label) for slug, label in CHIPS if slug in (payload.get("chips") or ["all"])]
@@ -651,119 +697,170 @@ def widget_document(payload, theme=None):
         chips = [("all", "All")]
     active = payload.get("default_chip") if payload.get("default_chip") in dict(chips) else chips[0][0]
     e = htmlmod.escape
+    org = payload.get("org") or "Schedule"
 
     def chip_buttons():
         parts = []
         for slug, label in chips:
+            on = " chip on" if slug == active else ""
             pressed = "true" if slug == active else "false"
-            parts.append('<button type=button role=tab aria-pressed="%s" data-chip="%s">%s</button>' % (pressed, e(slug), e(label)))
+            parts.append('<button type=button class="chip%s" role=tab aria-pressed="%s" data-chip="%s">%s</button>' % (on, pressed, e(slug), e(label)))
         return "".join(parts)
 
     def cards():
         rows = []
         for item in payload.get("events") or []:
-            bits = ['<article class=card data-chip="%s"' % e(item.get("chip") or "community")]
-            if item.get("chip") != active and active != "all":
-                bits[0] += " hidden"
-            bits[0] += ">"
+            hidden = "" if active == "all" or item.get("chip") == active else " hidden"
+            tile = item.get("tile") or {}
             title = e(item.get("title") or "Event")
             if item.get("cancelled"):
-                title = '<s>%s</s>' % title
-            bits.append("<h2>%s</h2>" % title)
-            if item.get("cancelled"):
-                bits.append('<p class=meta>Cancelled%s</p>' % ((" · " + e(item["reason"])) if item.get("reason") else ""))
-            if item.get("when"):
-                bits.append("<p>%s</p>" % e(item["when"]))
+                title = "<s>%s</s>" % title
+            bits = ['<article class="card tripcard" data-chip="%s"%s>' % (e(item.get("chip") or "community"), hidden)]
+            bits.append('<div class=nxmain><div class=datetile><span class=wd>%s</span><span class=dn>%s</span><span class=mo>%s</span></div>' % (e(tile.get("wd") or ""), e(tile.get("dn") or ""), e(tile.get("mo") or "")))
+            bits.append('<div class="grow schedrows"><h2 class=nxtitle>%s</h2>' % title)
+            if item.get("time"):
+                bits.append('<div class=nxrow>%s<span>%s</span></div>' % (_CLOCK, e(item["time"])))
             if item.get("place"):
-                bits.append('<p class=meta>%s</p>' % e(item["place"]))
-            if item.get("detail"):
-                bits.append("<p>%s</p>" % e(item["detail"]))
+                bits.append('<div class=nxrow>%s<span>%s</span></div>' % (_PIN, e(item["place"])))
+            bits.append('<div class=tags><span class=chip-info>%s</span>' % e(item.get("category") or "Event"))
             if item.get("price"):
-                bits.append('<p class=meta>%s</p>' % e(item["price"]))
-            if item.get("trial"):
-                bits.append('<p class=trial>%s</p>' % e(item["trial"]))
-            if item.get("capacity"):
-                bits.append('<p class=meta>%s spots</p>' % e(str(item["capacity"])))
+                bits.append('<span class="chip-info cost">%s</span>' % e(item["price"]))
             if item.get("count") is not None:
-                bits.append('<p class=meta>%s going</p>' % e(str(item["count"])))
+                bits.append('<span class=chip-info>%s going</span>' % e(str(item["count"])))
+            if item.get("capacity"):
+                bits.append('<span class=chip-info>%s spots</span>' % e(str(item["capacity"])))
+            bits.append("</div></div></div>")
+            if item.get("cancelled"):
+                bits.append('<p class=reason>Cancelled%s</p>' % ((" · " + e(item["reason"])) if item.get("reason") else ""))
+            if item.get("detail"):
+                bits.append('<p class=detail>%s</p>' % e(item["detail"]))
             bits.append("</article>")
             rows.append("".join(bits))
-        return "".join(rows) or '<p class=empty data-empty>Nothing coming up.</p>'
+        return "".join(rows)
 
-    overview = []
-    for line in payload.get("overview") or []:
-        text = e(line.get("when") or "")
-        if line.get("place"):
-            text += " · " + e(line["place"])
-        overview.append("<p class=usual>%s</p>" % text)
-    prices = []
-    for price in payload.get("prices") or []:
-        text = e(price.get("label") or "")
-        if price.get("price"):
-            text += " · " + e(price["price"])
-        prices.append("<p class=meta>%s</p>" % text)
-    trial = ""
-    if payload.get("trial") and payload["trial"].get("message"):
-        trial = '<p class=trial>%s</p>' % e(payload["trial"]["message"])
+    offer_bits = []
+    if payload.get("overview") or payload.get("prices") or (payload.get("trial") or {}).get("message"):
+        offer_bits.append('<section class="card offer">')
+        if payload.get("overview"):
+            for line in payload["overview"]:
+                text = e(line.get("when") or "")
+                if line.get("place"):
+                    text += " · " + e(line["place"])
+                offer_bits.append("<p class=usual>%s</p>" % text)
+        if payload.get("prices"):
+            offer_bits.append('<div class=tags>')
+            for price in payload["prices"]:
+                offer_bits.append('<span class=chip-info>%s</span>' % e(price.get("line") or price_line(price.get("label"), price.get("price"))))
+            offer_bits.append("</div>")
+        trial = payload.get("trial") or {}
+        if trial.get("message"):
+            offer_bits.append('<p class=callout>%s</p>' % e(trial["message"]))
+        elif trial.get("includes"):
+            offer_bits.append('<p class=callout>%s</p>' % e(trial["includes"]))
+        offer_bits.append("</section>")
+    other = "Day" if theme == "night" else "Night"
     toggle = ""
     if payload.get("visitor_theme"):
-        other = "Day" if theme == "night" else "Night"
-        toggle = '<button type=button id=theme>%s</button>' % other
+        toggle = '<button type=button class=theme id=theme aria-label="Switch to %s">%s<span>%s</span></button>' % (other, _SUN, other)
     return """<!doctype html><html lang=en data-theme="%s"><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>%s</title>
 <style>
-:root{color-scheme:dark;--bg:#0A0D0A;--card:#171C18;--text:#F4F7F2;--muted:#9AA59C;--line:#2C342F;--lime:#C4E65A;--ink:#141614}
-html[data-theme=day]{color-scheme:light;--bg:#F3F4F0;--card:#FFFFFF;--text:#141614;--muted:#5C6560;--line:#E1E4DC}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 "Plus Jakarta Sans",Segoe UI,sans-serif}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 16px 0}
-h1{font:600 22px/1.2 "Space Grotesk",Segoe UI,sans-serif;margin:0}
-button,article{font:inherit}
-#theme, .chips button{border:1px solid var(--line);background:transparent;color:var(--text);border-radius:999px;min-height:36px;padding:0 12px}
-.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 16px 4px}
-.chips button[aria-pressed=true]{background:var(--lime);color:var(--ink);border-color:var(--lime);font-weight:650}
-main{padding:8px 16px 24px}
-.usual,.meta{color:var(--muted);margin:0 0 8px}
-.trial{margin:0 0 12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 12px}
-.card h2{font:600 18px/1.25 "Space Grotesk",Segoe UI,sans-serif;margin:0 0 6px}
-.card p{margin:0 0 6px}.empty{color:var(--muted)}
-:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+@font-face{font-family:"Space Grotesk";font-style:normal;font-weight:600;font-display:swap;src:url("/static/fonts/space-grotesk-600.woff2") format("woff2")}
+@font-face{font-family:"Space Grotesk";font-style:normal;font-weight:700;font-display:swap;src:url("/static/fonts/space-grotesk-700.woff2") format("woff2")}
+@font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:400;font-display:swap;src:url("/static/fonts/plus-jakarta-sans-400.woff2") format("woff2")}
+@font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:500;font-display:swap;src:url("/static/fonts/plus-jakarta-sans-500.woff2") format("woff2")}
+@font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:600;font-display:swap;src:url("/static/fonts/plus-jakarta-sans-600.woff2") format("woff2")}
+:root{color-scheme:dark;--font-display:"Space Grotesk","Plus Jakarta Sans",system-ui,sans-serif;--font-sans:"Plus Jakarta Sans",system-ui,sans-serif;--color-bg:#090D0B;--color-surface:#0F1512;--color-surface-2:#131A16;--color-border:#1B221E;--color-control:#5c665f;--color-text:#F2F6F1;--color-text-secondary:#BEC9C1;--color-lime:#C4E65A;--color-on-selected:#090D0B;--color-chip:#131A16;--radius-card:20px;--radius-control:16px;--radius-chip:999px;--size-chip:36px}
+html[data-theme=day]{color-scheme:light;--color-bg:#F2F6F1;--color-surface:#FFFFFF;--color-surface-2:#E8EEE9;--color-border:#D9E0DB;--color-control:#5C665F;--color-text:#090D0B;--color-text-secondary:#3A4A40;--color-on-selected:#090D0B;--color-chip:#E8EEE9}
+*{box-sizing:border-box}html,body{margin:0;background:var(--color-bg);color:var(--color-text)}
+body{font:400 16px/1.5 var(--font-sans);padding:0 0 28px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 20px 4px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand img{width:36px;height:36px;border-radius:10px;flex:none}
+.brand p{margin:0;color:var(--color-text-secondary);font-size:12px;font-weight:600;letter-spacing:.04em}
+h1,.nxtitle,.datetile .dn{font-family:var(--font-display)}
+h1{margin:0;font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.02em}
+button{font:inherit;color:inherit}
+.theme{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:999px;border:1px solid var(--color-control);background:var(--color-surface-2);cursor:pointer}
+.chipbar{position:relative;margin-top:8px}
+.chipbar:before,.chipbar:after{content:"";position:absolute;top:0;bottom:0;width:28px;z-index:1;pointer-events:none}
+.chipbar:before{left:0;background:linear-gradient(90deg,var(--color-bg),transparent)}
+.chipbar:after{right:0;background:linear-gradient(270deg,var(--color-bg),transparent)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 20px 12px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{position:relative;display:inline-flex;align-items:center;justify-content:center;height:var(--size-chip);padding:0 14px;border-radius:var(--radius-chip);border:1px solid var(--color-control);background:transparent;color:var(--color-text);font-size:14px;font-weight:500;line-height:1;white-space:nowrap;flex:none;cursor:pointer}
+.chip.on{background:var(--color-lime);color:var(--color-on-selected);border-color:var(--color-lime)}
+main{padding:4px 20px 0}
+.card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-card);padding:18px;margin:0 0 12px}
+.offer .usual{margin:0 0 8px;color:var(--color-text-secondary)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip-info{display:inline-flex;align-items:center;height:28px;padding:0 8px;border-radius:var(--radius-chip);border:1px solid var(--color-border);background:var(--color-chip);color:var(--color-text);font-size:12px;font-weight:500;line-height:1}
+.chip-info.cost{background:color-mix(in srgb,var(--color-lime) 22%%,var(--color-surface));border-color:color-mix(in srgb,var(--color-lime) 55%%,var(--color-border))}
+.callout{margin:12px 0 0;padding:12px 14px;border-radius:16px;background:color-mix(in srgb,var(--color-lime) 18%%,transparent);border:1px solid color-mix(in srgb,var(--color-lime) 50%%,transparent);font-weight:500}
+.nxmain{display:flex;align-items:center;gap:12px}
+.datetile{width:64px;height:64px;border-radius:var(--radius-control);background:var(--color-surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
+.datetile .wd,.datetile .mo{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--color-text-secondary);line-height:1}
+.datetile .dn{font-size:24px;font-weight:600;line-height:1.1;margin-top:2px}
+.grow{min-width:0;flex:1}
+.nxtitle{margin:0 0 4px;font-size:20px;line-height:28px;font-weight:600}
+.nxrow{display:flex;align-items:flex-start;gap:8px;color:var(--color-text-secondary);font-size:15px;line-height:1.35}
+.nxglyph{flex:none;margin-top:2px}
+.detail,.reason{margin:12px 0 0;color:var(--color-text-secondary)}
+.state{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:8px 4px 20px;color:var(--color-text-secondary)}
+.state[hidden],article[hidden]{display:none}
+.state h2{margin:0;font-family:var(--font-display);font-size:20px;color:var(--color-text)}
+.state p{margin:0}
+.spin{width:22px;height:22px;border:2px solid var(--color-border);border-top-color:var(--color-lime);border-radius:50%%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#retry{height:40px;padding:0 14px;border-radius:12px;border:1px solid var(--color-control);background:var(--color-surface-2);cursor:pointer}
+:focus-visible{outline:2px solid var(--color-lime);outline-offset:2px}
 </style></head><body>
-<header><h1>%s</h1>%s</header>
-<div class=chips role=tablist aria-label="Categories">%s</div>
-<main>%s%s%s<div id=list>%s</div></main>
+<header><div class=brand><img src="/static/icons/icon-192.png?v=119" alt="" width="36" height="36"><div><p>Regulars</p><h1>%s</h1></div></div>%s</header>
+<div class=chipbar><div class=chips role=tablist aria-label="Categories">%s</div></div>
+<main>%s
+<div id=loading class=state role=status><span class=spin aria-hidden=true></span><p>Loading the schedule</p></div>
+<div id=empty class=state hidden><h2>Nothing coming up</h2><p>Published practices and events will show here.</p></div>
+<div id=error class=state hidden><h2>Couldn't load the schedule</h2><p>Check the connection and try again.</p><button type=button id=retry>Try again</button></div>
+<div id=cards>%s</div>
+</main>
 <script>
 (function(){
-  var root=document.documentElement, list=document.getElementById("list"), chips=[].slice.call(document.querySelectorAll(".chips button"));
+  var root=document.documentElement, cards=document.getElementById("cards"), chips=[].slice.call(document.querySelectorAll(".chips button"));
+  var loading=document.getElementById("loading"), empty=document.getElementById("empty"), error=document.getElementById("error");
+  function report(){var h=Math.ceil(document.documentElement.scrollHeight);try{parent.postMessage({type:"regulars-widget",height:h},"*");}catch(e){}}
   function show(name){
-    chips.forEach(function(btn){btn.setAttribute("aria-pressed", btn.getAttribute("data-chip")===name ? "true" : "false");});
-    [].slice.call(list.children).forEach(function(card){
-      if(!card.getAttribute) return;
+    var n=0;
+    chips.forEach(function(btn){var on=btn.getAttribute("data-chip")===name;btn.setAttribute("aria-pressed",on?"true":"false");btn.classList.toggle("on",on);});
+    [].slice.call(cards.children).forEach(function(card){
       var chip=card.getAttribute("data-chip");
-      if(!chip){card.hidden = name!=="all" && !list.querySelector('[data-chip="'+name+'"]'); return;}
-      card.hidden = name!=="all" && chip!==name;
+      var hide=name!=="all"&&chip!==name;
+      card.hidden=hide; if(!hide) n++;
     });
+    empty.hidden=n>0;
     report();
   }
-  chips.forEach(function(btn){btn.addEventListener("click", function(){show(btn.getAttribute("data-chip"));});});
+  function ready(){loading.hidden=true; error.hidden=true; root.setAttribute("data-ready","1"); show(document.querySelector(".chips button.on") ? document.querySelector(".chips button.on").getAttribute("data-chip") : "all");}
+  chips.forEach(function(btn){btn.addEventListener("click",function(){show(btn.getAttribute("data-chip"));});});
   var themeBtn=document.getElementById("theme");
-  if(themeBtn) themeBtn.addEventListener("click", function(){
+  if(themeBtn) themeBtn.addEventListener("click",function(){
     var next=root.getAttribute("data-theme")==="night"?"day":"night";
     root.setAttribute("data-theme", next);
-    themeBtn.textContent = next==="night" ? "Day" : "Night";
+    var label=next==="night"?"Day":"Night";
+    themeBtn.setAttribute("aria-label","Switch to "+label);
+    themeBtn.querySelector("span").textContent=label;
     report();
   });
-  function report(){
-    var h=Math.ceil(document.documentElement.scrollHeight);
-    try{parent.postMessage({type:"regulars-widget", height:h}, "*");}catch(e){}
-  }
-  report();
+  document.getElementById("retry").addEventListener("click", function(){
+    loading.hidden=false; error.hidden=true; empty.hidden=true;
+    fetch("/api/public/feed",{credentials:"same-origin"}).then(function(r){if(!r.ok) throw new Error("bad"); return r.json();}).then(function(){ready();}).catch(function(){loading.hidden=true; error.hidden=false; report();});
+  });
+  if(cards.children.length) ready();
+  else { loading.hidden=true; empty.hidden=false; root.setAttribute("data-ready","1"); report(); }
   window.addEventListener("resize", report);
 })();
 </script></body></html>""" % (
-        e(theme), e(payload.get("org") or "Schedule"), e(payload.get("org") or "Schedule"),
-        toggle, chip_buttons(), trial, "".join(prices), "".join(overview), cards(),
+        e(theme), e(org), e(org), toggle, chip_buttons(), "".join(offer_bits), cards(),
     )
 
 

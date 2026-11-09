@@ -37,7 +37,7 @@ A first-time trial cannot be claimed again after `trial_acknowledged_at` is set.
 
 The feed is practices and published Lineup events only. Cards have a title, time, place, public note, and a price or trial line when one was entered. Names, photos, coach plans, and draft events are left out. A going count is a number, and only when that switch is on. The response is cached for about 30 seconds and capped at 40 cards.
 
-The iframe uses Night or Day, and the chips All, Schedule, Competitions, Camps, Trips, and Community. Host CSS cannot style the frame. The embed snippet does not change when settings change.
+The iframe uses the app fonts, Night or Day, and the chips All, Schedule, Competitions, Camps, Trips, and Community. Prices are shown as currency. The trial message is one callout, not a line on every card. Host CSS cannot style the frame. The embed snippet points at https://grunions.regulars.team/widget and does not change when settings change.
 
 ## Later phases
 
