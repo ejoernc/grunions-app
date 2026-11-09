@@ -1623,10 +1623,31 @@ ok("color-scheme:dark" in eli_pages[0][:600] and "content=dark" in eli_pages[0][
 _join_html = client().get("/join").get_data(as_text=True)
 _lock = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "regulars-lockup.svg"), encoding="utf-8").read()
 ok('class=loginlock' in login_html and "/static/regulars-lockup.svg" in login_html and login_html.find("loginlock") < login_html.find("<h1>Log in</h1>") and "regulars-lockup.svg" not in _join_html and 'fill="#C4E65A"' in _lock and 'fill="#FFFFFF"' in _lock, "the login page shows the corrected Regulars lockup and the join page does not")
-_emails = eli.get("/manage/emails").get_data(as_text=True)
-_signin = eli.get("/manage/emails/sign-in").get_data(as_text=True)
-_rsvp = eli.get("/manage/emails/practice-rsvp").get_data(as_text=True)
-ok("class=mtitle>Email previews" in eli.get("/manage").get_data(as_text=True) and "HTML sending is off" in _emails and jane.get("/manage/emails").status_code == 403 and "SECURE SIGN-IN" in _signin and "#C4E65A" in _signin and "Sign in securely" in _signin and "For your security" in _signin and "15 minutes" in _signin and "Sent by" in _signin and "Built for the people who show up." in _signin and "preview-not-a-link" in _signin and "WHEN" in _rsvp and "WHERE" in _rsvp and "STATUS" in _rsvp and "You're on the roster." in _rsvp and A.mailhtml.html_emails_enabled() is False, "admins can preview branded email, members cannot, and HTML sending stays off")
+_hub = eli.get("/manage").get_data(as_text=True)
+_sample = A.mailhtml.sign_in_html("https://example.com", "Eli", "https://example.com/auth/preview-not-a-link", 15, "Test Club")
+_trial = A.mailhtml.expiry_html("https://example.com", "Eli", "Trial ending", "Your trial ends today.", "https://example.com/home", "Test Club", A.mailhtml.expiry_eyebrow("trial"))
+import smtplib as _smtp
+class _Rec:
+    def __init__(self, *a, **k):
+        self.esmtp_features = {"starttls": "", "auth": "PLAIN"}
+        _Rec.inst = self
+    def ehlo(self, name=""): pass
+    def has_extn(self, name): return name.lower() in self.esmtp_features
+    def starttls(self, context=None): pass
+    def login(self, u, p): pass
+    def send_message(self, msg): self.msg = msg
+    def quit(self): pass
+    def close(self): pass
+_saved_smtp, _real_smtp = dict(A.SMTP), _smtp.SMTP
+A.SMTP = {"SMTP_HOST": "127.0.0.1", "SMTP_PORT": "587", "SMTP_USER": "u", "SMTP_PASSWORD": "pw", "MAIL_FROM": "Grunions <team@test>"}
+_smtp.SMTP = _Rec
+os.environ.pop("HTML_EMAILS_ENABLED", None)
+try:
+    A.send_email("person@example.com", "Hello", "plain text", html="<p>html</p>")
+finally:
+    _smtp.SMTP = _real_smtp
+    A.SMTP = _saved_smtp
+ok("Email previews" not in _hub and eli.get("/manage/emails").status_code == 404 and jane.get("/manage/emails").status_code == 404 and "Test Club" in _sample and "FREE TRIAL" in _trial and A.mailhtml.html_emails_enabled() and _Rec.inst.msg.get_content_type() == "multipart/alternative", "HTML mail is on for outgoing messages, and Manage has no email preview page")
 _boot = eli_pages[0][eli_pages[0].find("<div id=boot"):eli_pages[0].find("</div>", eli_pages[0].find("<div id=boot"))]
 ok("<div id=boot" in eli_pages[0] and "<video" in _boot and "autoplay" in _boot and "muted" in _boot and "loop" in _boot and "playsinline" in _boot and _boot.find("regulars-loader-hevc.mov") < _boot.find("regulars-loader-transparent.webm") and 'codecs="hvc1"' in _boot and "regulars-logo.svg" in _boot and "class=bootstill" in _boot and "grunionsBoot" in eli_pages[0] and "html.booted #boot{display:none}" in eli_pages[0] and "@keyframes bootSweep" not in eli_pages[0] and "{#" not in _boot, "the boot loader plays the compact logo video and keeps a still fallback")
 ok('class=mark' in eli_pages[0] and "#boot .mark{width:calc(186px * 0.97)" in eli_pages[0] and "safe-area-inset-top)) / 2 - 12px" in eli_pages[0] and "78vw" not in eli_pages[0] and "112vw" not in eli_pages[0] and "min(42vw,200px)" not in eli_pages[0] and "scale(1.18)" not in eli_pages[0] and 'id=boot' in eli_pages[0] and eli_pages[0].count('id=boot') == 1 and "MIN=2000" in eli_pages[0] and "vid.playbackRate=2.0" in eli_pages[0] and 'el.classList.add("gone")' in eli_pages[0] and "vid.currentTime=0" in eli_pages[0] and "poster=/static/loader-first-frame.png" in eli_pages[0] and "html.booted #boot{display:none}" in eli_pages[0] and "background:#0A0D0A" in eli_pages[0] and "blackFrame" in eli_pages[0] and "#boot video{display:none}" in eli_pages[0] and "splash-1170x2532.png" in eli_pages[0] and "device-width: 390px" in eli_pages[0] and "device-height: 844px" in eli_pages[0] and "-webkit-device-pixel-ratio: 3" in eli_pages[0] and "regulars-logo.svg?v=118" in eli_pages[0] and "/sw.js?v=118" in eli_pages[0], "the loader matches the splash mark for two seconds, then fades, and iOS can fall back to the still")

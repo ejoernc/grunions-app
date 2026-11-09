@@ -1,6 +1,6 @@
 # Email and website widget
 
-Reuse what the app already stores and sends. New mail stays behind `HTML_EMAILS_ENABLED`, which defaults to off. New public pages stay admin-only until a later phase turns them on.
+Reuse what the app already stores and sends. HTML mail is on unless `HTML_EMAILS_ENABLED=0`. New public pages stay admin-only until a later phase turns them on.
 
 ## Already in the app
 
@@ -13,10 +13,19 @@ Reuse what the app already stores and sends. New mail stays behind `HTML_EMAILS_
 
 ## Phase 1
 
-`mailhtml.py` builds one table layout: lockup, lime eyebrow, headline, black button, optional WHEN/WHERE/STATUS card, optional security note, fallback link, and the footer “Sent by Regulars for Grunions Water Polo.” plus the tagline. Plain text is unchanged. HTML is attached as `multipart/alternative` only when `HTML_EMAILS_ENABLED=1`. Admins preview samples at `/manage/emails`, a Club settings row. Previews are not delivered.
+`mailhtml.py` is the generic design for every notification email, not a per-team settings screen. The layout is a lockup, lime eyebrow, headline, black button, optional WHEN/WHERE/STATUS card, optional security note, fallback link, and the footer “Sent by Regulars for [org].” plus the tagline. The org name is filled at send time (`ORG_NAME`, otherwise Grunions Water Polo).
+
+HTML is on by default. Set `HTML_EMAILS_ENABLED=0` to send plain text only. Otherwise each existing send is `multipart/alternative`: the same plain text as before, plus the matching template.
+
+- Login magic link uses the sign-in template.
+- Practice cancellation uses the schedule-change template.
+- Expiry reminders use the membership template, with the eyebrow set from the kind (membership, SafeSport, background screening, or free trial).
+
+There is no Manage page and no `/admin/emails` page. `scripts/render_email_samples.py` writes samples locally and does not send them.
 
 ## Later phases
 
-- Phase 2 stores the public schedule, prices, and free-trial rules. Nothing is invented when a price is unset.
+- Phase 2 stores the public schedule, prices, and free-trial rules. Nothing is invented when a price is unset. Those settings do not create RSVP-able practices; an admin still creates sessions in Manage Schedule.
+
 - Phase 3 adds a read-only public feed and the embed, plus a Website Widget page under Club settings. Visitors do not see names, photos, or private notes.
 - Phase 4 reuses the existing login and RSVP. Going in the widget opens that flow and does not mark anyone as registered until it finishes.

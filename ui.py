@@ -4455,9 +4455,6 @@ T["approvals"] = """{% call admin_page('Events') %}<a class="btn quiet pageact" 
 T["usage"] = ADMIN_NAV + """{{ admin_page('Usage', 'Mapbox calls today for driving routes and place search. One typing session counts as one call.') }}
 <div class=card><h2 style="margin:0 0 8px">Today</h2>
 <p class="t2 sm" style="margin:0">{{ calls }} of {{ cap }}</p></div>"""
-T["email_previews"] = ADMIN_NAV + """{{ admin_page('Email previews', 'Sample branded messages. Nothing on this page is sent.') }}
-<p class="t2 sm">{% if html_on %}HTML versions are included when mail is sent.{% else %}HTML sending is off. Members still receive the plain-text mail.{% endif %}</p>
-<div class=list>{% for row in rows %}<a class=li href="/manage/emails/{{ row.key }}" style="color:inherit;text-decoration:none"><span class=grow><span class="ell" style="display:block;font-weight:600">{{ row.title }}</span></span></a>{% endfor %}</div>"""
 T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
 <div class=mgroups>
 {% for g in groups %}<section class=mgroup><h2>{{ g.label }}</h2><div class=mlist>{% for row in g.rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone) }}{% endfor %}</div></section>{% endfor %}

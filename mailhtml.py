@@ -1,4 +1,4 @@
-"""Branded HTML mail. Plain text stays the message that is sent unless HTML_EMAILS_ENABLED=1."""
+"""Branded HTML mail. Outgoing messages include this HTML unless HTML_EMAILS_ENABLED=0."""
 import html
 import os
 
@@ -15,7 +15,7 @@ EYEBROW = "#5E6B24"
 FONT = "'Space Grotesk','Plus Jakarta Sans',Arial,Helvetica,sans-serif"
 
 def html_emails_enabled():
-    return os.environ.get("HTML_EMAILS_ENABLED", "0") == "1"
+    return os.environ.get("HTML_EMAILS_ENABLED", "1") != "0"
 
 def _e(value):
     return html.escape(str(value if value is not None else ""), quote=False)
@@ -88,80 +88,82 @@ def render_email(eyebrow, headline, paragraphs, logo_url, cta=None, rows=None, n
 def logo_url(base):
     return base.rstrip("/") + "/static/email-lockup.png"
 
-def sign_in_html(base, first, link, minutes):
+def sign_in_html(base, first, link, minutes, org=ORG_NAME):
     return render_email(
-        "SECURE SIGN-IN", "Sign in to Grunions",
-        ["Hi %s," % first, "Use the button below to sign in to %s on Regulars." % ORG_NAME],
+        "SECURE SIGN-IN", "Sign in",
+        ["Hi %s," % first, "Use the button below to sign in to %s on Regulars." % org],
         logo_url(base), cta=("Sign in securely", link),
         note=("For your security", "This link works once and expires in %d minutes. Never share it with anyone." % minutes),
-        fallback=link)
+        fallback=link, org=org)
 
-def practice_cancelled_html(base, first, when, place, reason, url):
+def practice_cancelled_html(base, first, when, place, reason, url, org=ORG_NAME):
     rows = [("WHEN", when)]
     if place: rows.append(("WHERE", place))
     rows.append(("STATUS", "Cancelled"))
     paras = ["Hi %s," % first, "This session has been cancelled."]
     if reason: paras.append(reason)
     return render_email("SCHEDULE CHANGE", "Practice cancelled", paras, logo_url(base),
-                        cta=("View the schedule", url), rows=rows)
+                        cta=("View the schedule", url), rows=rows, org=org)
 
-def expiry_html(base, first, headline, sentence, url):
+def expiry_eyebrow(kind):
+    return {"membership": "MEMBERSHIP", "safesport": "SAFESPORT", "background": "BACKGROUND SCREENING", "trial": "FREE TRIAL"}.get(kind, "MEMBERSHIP")
+def expiry_html(base, first, headline, sentence, url, org=ORG_NAME, eyebrow="MEMBERSHIP"):
     return render_email(
-        "MEMBERSHIP", headline,
+        eyebrow, headline,
         ["Hi %s," % first, sentence, "You can turn off these reminder emails in Notification settings."],
-        logo_url(base), cta=("Open Regulars", url))
+        logo_url(base), cta=("Open Regulars", url), org=org)
 
-def preview_catalog(base):
-    """Sample messages for the admin preview. None of these are delivered."""
+def preview_catalog(base, org=ORG_NAME):
+    """Sample messages for a local render. None of these are delivered."""
     home = base.rstrip("/") + "/home"
     practice = base.rstrip("/") + "/practices/preview"
     link = "https://example.com/auth/preview-not-a-link"
     when = "Friday, November 13 · 7:00–8:30 PM"
     where = "Westminster High School"
     return [
-        ("sign-in", "Sign in", sign_in_html(base, "Eli", link, 15)),
+        ("sign-in", "Sign in", sign_in_html(base, "Eli", link, 15, org)),
         ("practice-rsvp", "Practice confirmation", render_email(
             "PRACTICE CONFIRMATION", "You're on the roster.",
-            ["Hi Eli,", "You're signed up for Water Polo Practice with %s." % ORG_NAME],
+            ["Hi Eli,", "You're signed up for Water Polo Practice with %s." % org],
             logo_url(base), cta=("View your RSVP", practice),
-            rows=[("WHEN", when), ("WHERE", where), ("STATUS", "You're going")])),
+            rows=[("WHEN", when), ("WHERE", where), ("STATUS", "You're going")], org=org)),
         ("rsvp-change", "RSVP change", render_email(
             "RSVP UPDATE", "You're marked not going.",
             ["Hi Eli,", "Your RSVP for Water Polo Practice was updated."],
             logo_url(base), cta=("Update your RSVP", practice),
-            rows=[("WHEN", when), ("WHERE", where), ("STATUS", "Not going")])),
+            rows=[("WHEN", when), ("WHERE", where), ("STATUS", "Not going")], org=org)),
         ("practice-reminder", "Practice reminder", render_email(
             "PRACTICE REMINDER", "See you at the pool.",
             ["Hi Eli,", "Water Polo Practice is coming up."],
             logo_url(base), cta=("View practice", practice),
-            rows=[("WHEN", when), ("WHERE", where), ("STATUS", "You're going")])),
+            rows=[("WHEN", when), ("WHERE", where), ("STATUS", "You're going")], org=org)),
         ("practice-cancelled", "Practice cancelled", practice_cancelled_html(
-            base, "Eli", when, where, "The pool is closed.", practice)),
+            base, "Eli", when, where, "The pool is closed.", practice, org)),
         ("schedule-change", "Schedule change", render_email(
             "SCHEDULE CHANGE", "The time has changed.",
             ["Hi Eli,", "Water Polo Practice has a new time."],
             logo_url(base), cta=("View practice", practice),
-            rows=[("WHEN", "Friday, November 13 · 6:30–8:00 PM"), ("WHERE", where), ("STATUS", "Updated")])),
+            rows=[("WHEN", "Friday, November 13 · 6:30–8:00 PM"), ("WHERE", where), ("STATUS", "Updated")], org=org)),
         ("lineup-confirm", "Lineup confirmation", render_email(
             "LINEUP", "You're registered.",
             ["Hi Eli,", "You're down for Sunday Cup."],
             logo_url(base), cta=("View the event", base.rstrip("/") + "/lineup/preview"),
-            rows=[("WHEN", "Sunday, March 1 · 9:00 AM"), ("WHERE", "First Pool"), ("STATUS", "Registered")])),
+            rows=[("WHEN", "Sunday, March 1 · 9:00 AM"), ("WHERE", "First Pool"), ("STATUS", "Registered")], org=org)),
         ("event-reminder", "Event reminder", render_email(
             "EVENT REMINDER", "Sunday Cup is coming up.",
             ["Hi Eli,", "Here's the event you're registered for."],
             logo_url(base), cta=("View the event", base.rstrip("/") + "/lineup/preview"),
-            rows=[("WHEN", "Sunday, March 1 · 9:00 AM"), ("WHERE", "First Pool"), ("STATUS", "Registered")])),
+            rows=[("WHEN", "Sunday, March 1 · 9:00 AM"), ("WHERE", "First Pool"), ("STATUS", "Registered")], org=org)),
         ("membership", "Membership", render_email(
             "MEMBERSHIP", "Your membership is confirmed.",
-            ["Hi Eli,", "Your USA Water Polo membership is on file with %s." % ORG_NAME],
-            logo_url(base), cta=("Open Regulars", home))),
+            ["Hi Eli,", "Your USA Water Polo membership is on file with %s." % org],
+            logo_url(base), cta=("Open Regulars", home), org=org)),
         ("trial-start", "Free trial", render_email(
             "FREE TRIAL", "Your trial has started.",
-            ["Hi Eli,", "Your first practices with %s are covered by the trial." % ORG_NAME],
-            logo_url(base), cta=("See the schedule", home))),
+            ["Hi Eli,", "Your first practices with %s are covered by the trial." % org],
+            logo_url(base), cta=("See the schedule", home), org=org)),
         ("trial-end", "Trial ending", expiry_html(
-            base, "Eli", "Your trial ends today", "Your 2-week USAWP trial ends today.", home)),
+            base, "Eli", "Your trial ends today", "Your 2-week USAWP trial ends today.", home, org)),
         ("expiry", "Expiry reminder", expiry_html(
-            base, "Eli", "Membership expiring", "Your USA Water Polo membership expires in 7 days.", home)),
+            base, "Eli", "Membership expiring", "Your USA Water Polo membership expires in 7 days.", home, org)),
     ]
