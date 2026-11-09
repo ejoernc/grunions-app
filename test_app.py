@@ -725,7 +725,7 @@ pushsub(eli, "https://push.example/eli"); pushsub(john, "https://push.example/jo
 pushes = []; emails = []
 A.send_push = lambda sub, payload: pushes.append((sub["member_id"], payload))
 A.smtp_ready = lambda: True
-A.send_email = lambda to, subj, text: emails.append((to, subj, text))
+A.send_email = lambda to, subj, text, html=None: emails.append((to, subj, text))
 D.execute("UPDATE members SET role='coach', is_admin=0 WHERE email='john@example.com'"); D.commit()
 jane.post("/notifications", data={"csrf": csrf(jane, "/notifications"), "email_reminders": "1", "push": keep + ["team_chat"]})
 eli.post("/api/messages", json={"body": "See you at the pool"}, headers={"X-CSRF": csrf(eli, "/chat")})
@@ -810,7 +810,7 @@ def _make_due(email):
 keeper = A.send_email
 state = {"retry": 0, "cap": 0}
 sent_retry = []
-def flaky(to, subj, text):
+def flaky(to, subj, text, html=None):
     if to == "retry.notice@example.com":
         state["retry"] += 1
         if state["retry"] < 3: raise RuntimeError("Connection unexpectedly closed")
@@ -1610,6 +1610,10 @@ ok("color-scheme:dark" in eli_pages[0][:600] and "content=dark" in eli_pages[0][
 _join_html = client().get("/join").get_data(as_text=True)
 _lock = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "regulars-lockup.svg"), encoding="utf-8").read()
 ok('class=loginlock' in login_html and "/static/regulars-lockup.svg" in login_html and login_html.find("loginlock") < login_html.find("<h1>Log in</h1>") and "regulars-lockup.svg" not in _join_html and 'fill="#C4E65A"' in _lock and 'fill="#FFFFFF"' in _lock, "the login page shows the corrected Regulars lockup and the join page does not")
+_emails = eli.get("/manage/emails").get_data(as_text=True)
+_signin = eli.get("/manage/emails/sign-in").get_data(as_text=True)
+_rsvp = eli.get("/manage/emails/practice-rsvp").get_data(as_text=True)
+ok("class=mtitle>Email previews" in eli.get("/manage").get_data(as_text=True) and "HTML sending is off" in _emails and jane.get("/manage/emails").status_code == 403 and "SECURE SIGN-IN" in _signin and "#C4E65A" in _signin and "Sign in securely" in _signin and "For your security" in _signin and "15 minutes" in _signin and "Sent by" in _signin and "Built for the people who show up." in _signin and "preview-not-a-link" in _signin and "WHEN" in _rsvp and "WHERE" in _rsvp and "STATUS" in _rsvp and "You're on the roster." in _rsvp and A.mailhtml.html_emails_enabled() is False, "admins can preview branded email, members cannot, and HTML sending stays off")
 _boot = eli_pages[0][eli_pages[0].find("<div id=boot"):eli_pages[0].find("</div>", eli_pages[0].find("<div id=boot"))]
 ok("<div id=boot" in eli_pages[0] and "<video" in _boot and "autoplay" in _boot and "muted" in _boot and "loop" in _boot and "playsinline" in _boot and _boot.find("regulars-loader-hevc.mov") < _boot.find("regulars-loader-transparent.webm") and 'codecs="hvc1"' in _boot and "regulars-logo.svg" in _boot and "class=bootstill" in _boot and "grunionsBoot" in eli_pages[0] and "html.booted #boot{display:none}" in eli_pages[0] and "@keyframes bootSweep" not in eli_pages[0] and "{#" not in _boot, "the boot loader plays the compact logo video and keeps a still fallback")
 ok('class=mark' in eli_pages[0] and "#boot .mark{width:calc(186px * 0.97)" in eli_pages[0] and "safe-area-inset-top)) / 2 - 12px" in eli_pages[0] and "78vw" not in eli_pages[0] and "112vw" not in eli_pages[0] and "min(42vw,200px)" not in eli_pages[0] and "scale(1.18)" not in eli_pages[0] and 'id=boot' in eli_pages[0] and eli_pages[0].count('id=boot') == 1 and "MIN=2000" in eli_pages[0] and "vid.playbackRate=2.0" in eli_pages[0] and 'el.classList.add("gone")' in eli_pages[0] and "vid.currentTime=0" in eli_pages[0] and "poster=/static/loader-first-frame.png" in eli_pages[0] and "html.booted #boot{display:none}" in eli_pages[0] and "background:#0A0D0A" in eli_pages[0] and "blackFrame" in eli_pages[0] and "#boot video{display:none}" in eli_pages[0] and "splash-1170x2532.png" in eli_pages[0] and "device-width: 390px" in eli_pages[0] and "device-height: 844px" in eli_pages[0] and "-webkit-device-pixel-ratio: 3" in eli_pages[0] and "regulars-logo.svg?v=118" in eli_pages[0] and "/sw.js?v=118" in eli_pages[0], "the loader matches the splash mark for two seconds, then fades, and iOS can fall back to the still")

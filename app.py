@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 import qrcode, qrcode.image.svg
 from markupsafe import Markup, escape
 import lineupfeed
+import mailhtml
 import routing
 import sports
 import ui
@@ -1047,13 +1048,14 @@ def _smtp_ehlo_name():
     raw = (PUBLIC_URL or "").split("://", 1)[-1].split("/")[0].split(":")[0].strip().lower()
     if raw and "." in raw and all(c.isalnum() or c in ".-" for c in raw): return raw
     return "localhost"
-def send_email(to, subject, text):
+def send_email(to, subject, text, html=None):
     """Send via SMTP. Port 465 is implicit TLS. Every other port must upgrade with STARTTLS.
     The certificate check stays on. The connection is closed even when a later step fails."""
     import smtplib, ssl
     from email.message import EmailMessage
     msg = EmailMessage()
     msg["From"] = SMTP["MAIL_FROM"]; msg["To"] = to; msg["Subject"] = subject; msg.set_content(text)
+    if html and mailhtml.html_emails_enabled(): msg.add_alternative(html, subtype="html")
     host = (SMTP["SMTP_HOST"] or "").strip()
     port = int(SMTP["SMTP_PORT"])
     ctx = ssl.create_default_context()
@@ -1094,8 +1096,10 @@ def send_link(email):
                      (dt.datetime.utcnow() + dt.timedelta(minutes=LINK_MINUTES)).isoformat())); db().commit()
         link = (PUBLIC_URL.rstrip("/") if PUBLIC_URL else request.host_url.rstrip("/")) + "/auth/" + tok
         if smtp_ready():
-            try: send_email(email, "Your Grunions login link", f"Hi {display_first(m)},\n\nTap to sign in to the Grunions team app:\n{link}\n\n"
-                            f"This link works once and expires in {LINK_MINUTES} minutes. If you didn't ask for it, ignore this email.\n\nGrunions Water Polo")
+            try:
+                plain = (f"Hi {display_first(m)},\n\nTap to sign in to the Grunions team app:\n{link}\n\n"
+                         f"This link works once and expires in {LINK_MINUTES} minutes. If you didn't ask for it, ignore this email.\n\nGrunions Water Polo")
+                send_email(email, "Your Grunions login link", plain, html=mailhtml.sign_in_html(PUBLIC_URL or request.host_url, display_first(m), link, LINK_MINUTES))
             except Exception as e:
                 app.logger.error("login email failed at %s: %s", getattr(e, "stage", "send"), getattr(e, "cause", e).__class__.__name__)
         elif DEV_SHOW_LINKS: app.logger.warning("MAGIC LINK for %s: %s", email, link)
@@ -4211,6 +4215,7 @@ def manage_home_groups(d):
         people.append(_manage_row("Admins", "Club administrators", "/members?view=admins", "seal", len(sets["admins"])))
         people.append(_manage_row("Referees", "Referee list and referee eligible", "/members?view=referees", "flag", len(sets["refs"])))
         people.append(_manage_row("Compliance", "Memberships & certifications", "/expiring", "shield", expiring_people_count(d), "warn"))
+        club.append(_manage_row("Email previews", "Branded messages, not sent", "/manage/emails", "tray"))
         club.append(_manage_row("Usage", "Mapbox calls today", "/manage/usage", "rules"))
         club.append(_manage_row("Data transfer", "Import & export", "/transfer", "swap"))
         club.append(_manage_row("Rules", "Policies & requirements", "/requirements", "rules"))
@@ -4503,6 +4508,20 @@ def signup_days(d):
         vday = _stamp_day(r["usawp_verified_at"], utc=False)
         if vday: verified.append(vday)
     return joined, verified
+@app.route("/manage/emails")
+@admin_required
+def manage_emails():
+    rows = [{"key": key, "title": title} for key, title, _html in mailhtml.preview_catalog(app_base())]
+    return page(T["email_previews"], tab="manage", rows=rows, html_on=mailhtml.html_emails_enabled())
+@app.route("/manage/emails/<key>")
+@admin_required
+def manage_email_preview(key):
+    for item_key, _title, html in mailhtml.preview_catalog(app_base()):
+        if item_key == key:
+            resp = Response(html, mimetype="text/html; charset=utf-8")
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
+    abort(404)
 @app.route("/manage")
 @login_required
 def manage_home():
@@ -6055,7 +6074,7 @@ def notify_practice_cancelled(d, p):
                 text = "Hi %s,\n\nPractice is cancelled.\n\n%s\n%s\n" % (display_first(m), when, loc)
                 if reason: text += "\n%s\n" % reason
                 text += "\nGrunions Water Polo\n"
-                try: send_email(m["email"], subject, text)
+                try: send_email(m["email"], subject, text, html=mailhtml.practice_cancelled_html(app_base(), display_first(m), when, loc, reason, app_base() + url))
                 except Exception as e:
                     app.logger.error("cancel email to %s failed: %s", m["email"], e); release_notice(d, m["id"], ek)
         if wants_push(m, "practice_cancelled") and claim_notice(d, m["id"], pk):
@@ -6107,7 +6126,7 @@ def deliver_expiry(d, m, kind, date_iso, left):
                         "You can turn off these reminder emails in Notification settings. Practice cancellation emails still send.\n\nGrunions Water Polo\n") % (
                         display_first(m), sentence, app_base(), TRIAL_JOIN_URL)
                 try:
-                    send_email(m["email"], title, text); notice_sent(d, m["id"], ek)
+                    send_email(m["email"], title, text, html=mailhtml.expiry_html(app_base(), display_first(m), title, sentence, app_base() + "/home")); notice_sent(d, m["id"], ek)
                 except Exception as e:
                     app.logger.error("expiry email failed at %s: %s", getattr(e, "stage", "send"), getattr(e, "cause", e).__class__.__name__)
                     notice_failed(d, m["id"], ek)

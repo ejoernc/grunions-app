@@ -6,7 +6,7 @@ os.environ.update(DATA_DIR=D, ADMIN_EMAIL="boss@example.com, second@example.com"
 os.environ.pop("GRUNIONS_DB", None); os.environ.pop("GRUNIONS_UPLOADS", None)
 import app as A
 SENT = []
-A.send_email = lambda to, subj, text: SENT.append((to, subj, text))
+A.send_email = lambda to, subj, text, html=None: SENT.append((to, subj, text))
 HERE = os.path.dirname(os.path.abspath(__file__))
 def csrf(c, p): return re.search(r'(?:name=csrf value=|const CSRF=)"([^"]+)"', c.get(p).get_data(as_text=True)).group(1)
 def join(first, last, email):
