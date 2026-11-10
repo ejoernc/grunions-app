@@ -445,6 +445,7 @@ header.homehead .headtabs.chiprow{height:44px;margin:0;width:auto;padding:0;alig
 .admintabs a.chip,header.homehead .headtabs a.chip{flex:none;height:var(--size-chip);min-height:var(--size-chip);padding:0 14px;border-radius:var(--radius-chip);border:1px solid var(--color-control);background:transparent;color:var(--color-text);box-shadow:none}
 .admintabs a.chip.on,header.homehead .headtabs a.chip.on,header.homehead .headtabs a.chip.chip-active.on{background:var(--color-selected);color:var(--color-on-selected);border-color:var(--color-selected);box-shadow:none}
 .pagetitle{display:flex;justify-content:space-between;align-items:baseline;gap:12px}.pagetitle h1{margin-bottom:12px}
+.people{padding-bottom:48px}
 .peoplebar{position:sticky;top:var(--headh,0px);z-index:6;background:var(--color-bg);margin:0 -20px 0;padding:0 20px 18px}
 .peoplebar input{height:48px;margin:0}
 .fchips{margin-top:10px;margin-bottom:0}
@@ -5575,14 +5576,6 @@ T["transfer"] = ADMIN_NAV + """{{ admin_page('Transfer', 'Bring in a Sport:80 ex
 
 T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pageact" href=/members.csv>Export CSV</a>{% endcall %}
 <div class=peoplebar>
-<div class="rolechips chiprow" data-seg role=group aria-label="Role">
-<a class="chip{{ ' on' if view=='members' }}" href="/members">Members</a>
-<a class="chip{{ ' on' if view=='coaches' }}" href="/members?view=coaches">Coaches</a>
-<a class="chip{{ ' on' if view=='admins' }}" href="/members?view=admins">Admins</a>
-<a class="chip{{ ' on' if view=='compliance' }}" href="/members?view=compliance">Compliance</a>
-<a class="chip{{ ' on' if view=='membership' }}" href="/members?view=membership">Membership</a>
-<a class="chip{{ ' on' if view=='referees' }}" href="/members?view=referees">Referees</a>
-</div>
 <form method=get action=/members><input name=q value="{{q}}" placeholder="Search people..." autocomplete=off>{% if view != 'members' %}<input type=hidden name=view value="{{view}}">{% endif %}{% if filt %}<input type=hidden name=filt value="{{ filt }}">{% endif %}</form>
 <div class="fchips chiprow" data-seg>
 <a href="/members{% if view != 'members' %}?view={{ view }}{% endif %}{% if q %}{{ '&amp;' if view != 'members' else '?' }}q={{ q|urlencode }}{% endif %}{% if pay %}{{ '&amp;' if view != 'members' or q else '?' }}pay={{ pay }}{% endif %}" class="chip{{ ' chip-active on' if not filt }}">All</a>

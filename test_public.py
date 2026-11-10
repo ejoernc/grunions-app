@@ -272,17 +272,21 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     assert ">Sports</b>" in club or "Sports" in club
     assert 'href="/manage/club/programs"' in club and "Plans &amp; passes" in club and ">Requirements</span>" not in club
     assert "Schedule &amp; pricing" not in club
-    people = admin.get("/manage/area/people", follow_redirects=True).get_data(as_text=True)
-    assert "<h1>Members</h1>" in people and ">Members</a>" in people and ">Coaches</a>" in people and ">Admins</a>" in people and ">Compliance</a>" in people and ">Membership</a>" in people
+    people = admin.get("/manage/area/people").get_data(as_text=True)
+    assert "<h1>People</h1>" in people and "Members, coaches, admins, and referees" in people
+    assert "class=mtitle>Members" in people and "class=mtitle>Coaches" in people and "class=mtitle>Admins" in people
+    assert "class=mtitle>Referees" in people and "class=mtitle>Compliance" in people and "class=mtitle>Membership" in people
     assert 'href="/members?view=coaches"' in people and 'href="/members?view=compliance"' in people and 'href="/members?view=membership"' in people
+    assert "class=hubback href=/manage" in people and "class=hubback href=/manage/area/" not in people
     tools = admin.get("/manage/area/tools").get_data(as_text=True)
     assert "QR codes" in tools and "Data transfer" in tools and ">Usage<" in tools
     roster = admin.get("/members").get_data(as_text=True)
-    assert 'data-seg role=group aria-label="Role"' in roster and ">All</a>" in roster and ">Members</a>" in roster and ">Coaches</a>" in roster
+    assert "aria-label=\"Role\"" not in roster and ">Expiring</a>" in roster and ">Paying</a>" in roster and "Export CSV" in roster
+    assert "class=hubback href=/manage/area/people" in roster and ".people{padding-bottom:48px}" in roster
     coaches = admin.get("/members?view=coaches").get_data(as_text=True)
     admins = admin.get("/members?view=admins").get_data(as_text=True)
-    assert "<h1>Coaches</h1>" in coaches and 'href="/members?view=coaches"' in coaches
-    assert "<h1>Admins</h1>" in admins and 'href="/members?view=admins"' in admins
+    assert "<h1>Coaches</h1>" in coaches and "aria-label=\"Role\"" not in coaches and "Search people..." in coaches
+    assert "<h1>Admins</h1>" in admins and admin.get("/members?view=all").headers.get("Location", "").endswith("/members")
     assert "<h1>Members</h1>" in roster
     assert 'id=manageClear' in page and "/manage/search?q=" in page and "No matches for" in page
     assert "min-height:72px;padding:16px 12px 16px 10px" in page

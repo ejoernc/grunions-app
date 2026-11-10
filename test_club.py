@@ -138,15 +138,17 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
         mid = d.execute("SELECT id FROM members WHERE email='bea.paytag@example.com'").fetchone()["id"]
         plan = d.execute("SELECT id FROM payment_plans WHERE kind='monthly'").fetchone()["id"]
         before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
-    page = admin.get("/manage/area/people", follow_redirects=True).get_data(as_text=True)
-    assert "Unpaid" in page and ">Paying</a>" in page and ">Not paying</a>" in page and ">Compliance</a>" in page and ">Membership</a>" in page and 'data-seg' in page
+    page = admin.get("/manage/area/people").get_data(as_text=True)
+    assert "<h1>People</h1>" in page and "class=mtitle>Members" in page and "class=mtitle>Membership" in page
+    roster = admin.get("/members").get_data(as_text=True)
+    assert "Unpaid" in roster and ">Paying</a>" in roster and ">Not paying</a>" in roster and 'data-seg' in roster
     passes = admin.get("/manage/club/plans").get_data(as_text=True)
     assert "Create pass" in passes and "Monthly Membership" in passes and "Water Polo 2-Week Free Trial" in passes and "Drop-in" in passes
     assert "Swimming drop-in" not in passes and "min-height:72px" in passes
     editor = admin.get("/manage/club/plans/%d" % plan).get_data(as_text=True)
     assert "Summary" in editor and "cid=103002" in editor and "Water Polo" in editor and "Does not" not in editor
     assert "A pass grants access only" in editor and "name=kind" in editor and "Renews indefinitely" in editor
-    assert "<h2>Members</h2>" not in page
+    assert "<h2>Members</h2>" not in page and "<h1>Members</h1>" not in page
     admin.post("/admin/member/%d" % mid, data={
         "csrf": csrf(admin, "/admin/member/%d" % mid), "action": "paid", "paid_action": "save",
         "plan_id": str(plan), "paid_status": "active", "valid_from": "2026-11-01", "paid_through": "2027-01-31",

@@ -4871,7 +4871,7 @@ def _manage_catalog(d):
         add("activities", "Bulletin", "Team announcements in chat", "/chat", "tray", "announcement message bulletin chat")
         add("activities", "Requests", "Member-submitted events", "/manage/requests", "tray", "approval pending request")
     if admin:
-        add("people", "People", "Members, coaches, admins, and referees", "/members", "people", "member coach admin referee roster compliance membership certification expiring", expiring_people_count(d), "warn")
+        add("people", "People", "Members, coaches, admins, and referees", "/manage/area/people", "people", "member coach admin referee roster compliance membership certification expiring", expiring_people_count(d), "warn")
         add("club", "Sports", "Programs, governing bodies, schedules, and requirements", "/manage/club/programs", "cal", "sport program water polo swimming schedule requirement safesport usawp usms eligibility")
         add("club", "Plans & passes", "Memberships, drop-ins, and which programs they cover", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass")
         add("club", "Website & sharing", "Public schedule and the website widget", "/manage/widget", "widget", "embed website widget preview")
@@ -4882,7 +4882,7 @@ def _manage_catalog(d):
     return rows
 _AREA_COPY = {
     "activities": ("Activities", "Schedule, Lineup, Bulletin, and requests"),
-    "people": ("People", "Members, roles, and compliance"),
+    "people": ("People", "Members, coaches, admins, and referees"),
     "club": ("Club", "Sports, plans, and sharing"),
     "tools": ("Tools", "QR codes, data transfer, and usage"),
 }
@@ -5132,8 +5132,30 @@ def manage_area(area):
     if not can_host_practice(): abort(403)
     if area == "people":
         if not me()["is_admin"]: abort(403)
-        qs = request.query_string.decode()
-        return redirect("/members" + (("?" + qs) if qs else ""))
+        if request.args.get("view"):
+            return redirect("/members?" + request.query_string.decode())
+        d = db()
+        sets = roster_sets(d)
+        def _n(count, one, many):
+            return "%d %s" % (count, one if count == 1 else many)
+        expiring_n = expiring_people_count(d)
+        paying_n = None
+        try:
+            import clubadmin
+            today = today_pt().isoformat()
+            paying_n = sum(1 for person in sets["rows"] if clubadmin.payment_view(d, person["id"], today)["paying"])
+        except Exception:
+            paying_n = None
+        packed = [
+            _manage_row("Members", _n(len(sets["rows"]), "person", "people"), "/members", "people"),
+            _manage_row("Coaches", _n(len(sets["coaches"]), "coach", "coaches"), "/members?view=coaches", "user"),
+            _manage_row("Admins", _n(len(sets["admins"]), "admin", "admins"), "/members?view=admins", "seal"),
+            _manage_row("Referees", _n(len(sets["refs"]), "referee", "referees"), "/members?view=referees", "flag"),
+            _manage_row("Compliance", _n(expiring_n, "expiring", "expiring"), "/members?view=compliance", "shield"),
+            _manage_row("Membership", _n(paying_n, "paying", "paying") if paying_n is not None else "Paid plans, trials, and drop-ins", "/members?view=membership", "seal"),
+        ]
+        return page(T["manage_area"], tab="admin", admin_back="/manage", title="People",
+            subtitle="Members, coaches, admins, and referees", rows=packed)
     rows = [row for row in _manage_catalog(db()) if row["area"] == area]
     if not rows: abort(403)
     title, subtitle = _AREA_COPY[area]
@@ -5580,7 +5602,7 @@ def members_back():
     if request.form.get("list_referee") == "eligible": view = view or "referees"
     q = (request.form.get("q") or "").strip()
     kwargs = {}
-    if view in ("coaches", "admins", "referees"): kwargs["view"] = view
+    if view in ("coaches", "admins", "referees", "compliance", "membership"): kwargs["view"] = view
     filt = (request.form.get("filt") or "").strip()
     if filt in ("expiring", "uncleared"): kwargs["filt"] = filt
     if q: kwargs["q"] = q
@@ -6101,6 +6123,9 @@ def members():
       (SELECT going FROM rsvps WHERE member_id=m.id AND practice_id=?) AS going
       FROM members m WHERE COALESCE(role,'')!='system' ORDER BY last, first""", (pr["id"] if pr else -1,)).fetchall()
     q = (request.args.get("q") or "").strip()
+    if request.args.get("view") == "all":
+        kept = {key: request.args.get(key) for key in request.args if key != "view" and request.args.get(key)}
+        return redirect(url_for("members", **kept))
     view = request.args.get("view") or "members"
     filt = (request.args.get("filt") or "").strip()
     if request.args.get("coach") == "eligible": view = "coaches"
@@ -6137,7 +6162,7 @@ def members():
     titles = {"members": "Members", "all": "People", "coaches": "Coaches", "admins": "Admins", "referees": "Referees",
               "compliance": "Compliance", "membership": "Membership"}
     return page(T["members"],
-        tab="admin", rows=rows, c=c, view=view, filt=filt, pay=pay, date=focus, q=q, title=titles[view],
+        tab="admin", admin_back="/manage/area/people", rows=rows, c=c, view=view, filt=filt, pay=pay, date=focus, q=q, title=titles[view],
         listed=sets["listed"], referees=sets["referees"], coach_ids=sets["coach_ids"], ref_ids=sets["ref_ids"],
         n_admins=len(sets["admins"]), boot=ADMIN_EMAILS)
 def csv_attachment(filename, header, rows):
