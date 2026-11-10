@@ -329,6 +329,17 @@ def verify_check(d, check_id, actor, today):
     audit(d, row["member_id"], actor, "payment verified", plan["name"])
 
 
+def card_status(d, member, practice, mine, today):
+    if mine == 1:
+        return "Going"
+    choice = decide(d, member, practice, today)
+    if choice["scenario"] in ("open", "A", "D"):
+        return "Eligible to register"
+    if choice["scenario"] == "C":
+        return "Verification required"
+    return "Payment required"
+
+
 def participate_page(decision, practice_title, when):
     scenario = decision["scenario"]
     if scenario == "C":

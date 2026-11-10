@@ -498,3 +498,11 @@ def test_payment_gate_stays_off_and_does_not_rewrite_rsvps():
         with A.app.app_context():
             sportspay.set_require_rsvp(A.db(), False)
             A.db().commit()
+
+
+def test_schedule_chips_appear_only_for_more_than_one_sport():
+    member = client()
+    join(member, "Sky", "Athlete", "sky.sport@example.com")
+    home = member.get("/home").get_data(as_text=True)
+    assert 'aria-label="Sport"' in home and ">Water Polo</button>" in home and ">Swimming</button>" in home
+    assert "Eligible to register" in home or "Going" in home

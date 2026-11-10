@@ -3668,10 +3668,11 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <button class="btn {{ 'btn-primary' if next_joined else 'btn-secondary' }}"{% if not next_joined %} data-sweep{% endif %} name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ 'Joined' if next_joined else 'Join' }}</button></form></div>{% endif %}
 </div></div>{% endif %}
 </div>
+{% if sport_filter_names() %}<div class="rolechips chiprow" id=sportFilters role=group aria-label="Sport">{% for name in [""] + sport_filter_names() %}<button type=button class="chip{{ ' on' if not name }}" data-sport="{{ name }}">{{ name or 'All' }}</button>{% endfor %}</div>{% endif %}
 <div class=schedlist id=schedule>
-{% for x in data %}{% set p = x.p %}<div class="card tap{% if nextp and p.id == nextp.id %} schedsame{% endif %}{% if p.cancelled %} cancelled{% endif %}" id=p{{p.id}} data-pid={{p.id}} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
+{% for x in data %}{% set p = x.p %}<div class="card tap{% if nextp and p.id == nextp.id %} schedsame{% endif %}{% if p.cancelled %} cancelled{% endif %}" id=p{{p.id}} data-pid={{p.id}} data-sport="{{ p.sport or 'Water Polo' }}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">
-<div class=nxcardhead><div class="nxtitle cardtitle">{{ practice_title(p) }}</div></div>
+<div class=nxcardhead><div class="nxtitle cardtitle">{{ practice_title(p) }}</div><span class="chip-info sportstat">{{ p.sport or 'Water Polo' }} · {{ sport_card_status(p, x.mine) }}</span></div>
 {% set tile = practice_tile(p) %}
 <div class=nxmain><div class=datetile><span class=pdate>{% if x.unseen %}<span class=badge data-seen={{p.id}}>{{ x.unseen if x.unseen < 100 else '99+' }}</span>{% endif %}</span><span class=wd>{{ tile.wd }}</span><span class=dn>{{ tile.dn }}</span><span class=mo>{{ tile.mo }}</span></div>
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{% if practice_is_month(p) %}{{ practice_when(p) }}{% else %}{{ fmt_span(p.start, p.end) }}{% endif %}</span></div>
@@ -3685,6 +3686,20 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>
 {% endif %}</div>{% endfor %}
 </div>
+<script>
+(function(){
+ var bar=document.getElementById("sportFilters"); if(!bar) return;
+ bar.addEventListener("click", function(ev){
+  var btn=ev.target.closest("button"); if(!btn) return;
+  [].slice.call(bar.querySelectorAll("button")).forEach(function(other){ other.classList.toggle("on", other===btn); });
+  var sport=btn.getAttribute("data-sport");
+  [].slice.call(document.querySelectorAll("#schedule .card")).forEach(function(card){
+   var label=card.getAttribute("data-sport")||"";
+   card.hidden=!!sport && label!==sport;
+  });
+ });
+})();
+</script>
 <script>
 (function(){
  var head=document.querySelector('header.homefade'); if(!head||head.dataset.bound) return; head.dataset.bound='1';

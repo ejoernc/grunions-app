@@ -3031,7 +3031,20 @@ def hide_coaching_plan(p):
     data = dict(p)
     data["coaching_plan"] = ""
     return data
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_live_chip=practice_live_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS)
+def sport_filter_names():
+    """Sport chips only when the org runs more than one active sport."""
+    try:
+        rows = [row["name"] for row in sportspay.sports(db()) if row["active"] and not row["archived"]]
+    except Exception:
+        return []
+    return rows if len(rows) > 1 else []
+def sport_card_status(practice, mine):
+    """Going, or whether this person can register, pay, or still needs verification."""
+    try:
+        return sportspay.card_status(db(), me(), practice, mine, today_pt().isoformat())
+    except Exception:
+        return ""
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_live_chip=practice_live_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS, sport_filter_names=sport_filter_names, sport_card_status=sport_card_status)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
