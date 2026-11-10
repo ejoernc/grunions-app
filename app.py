@@ -5139,20 +5139,12 @@ def manage_area(area):
         def _n(count, one, many):
             return "%d %s" % (count, one if count == 1 else many)
         expiring_n = expiring_people_count(d)
-        paying_n = None
-        try:
-            import clubadmin
-            today = today_pt().isoformat()
-            paying_n = sum(1 for person in sets["rows"] if clubadmin.payment_view(d, person["id"], today)["paying"])
-        except Exception:
-            paying_n = None
         packed = [
             _manage_row("Members", _n(len(sets["rows"]), "person", "people"), "/members", "people"),
             _manage_row("Coaches", _n(len(sets["coaches"]), "coach", "coaches"), "/members?view=coaches", "user"),
             _manage_row("Admins", _n(len(sets["admins"]), "admin", "admins"), "/members?view=admins", "seal"),
             _manage_row("Referees", _n(len(sets["refs"]), "referee", "referees"), "/members?view=referees", "flag"),
             _manage_row("Compliance", _n(expiring_n, "expiring", "expiring"), "/members?view=compliance", "shield"),
-            _manage_row("Membership", _n(paying_n, "paying", "paying") if paying_n is not None else "Paid plans, trials, and drop-ins", "/members?view=membership", "seal"),
         ]
         return page(T["manage_area"], tab="admin", admin_back="/manage", title="People",
             subtitle="Members, coaches, admins, and referees", rows=packed)
@@ -5602,7 +5594,9 @@ def members_back():
     if request.form.get("list_referee") == "eligible": view = view or "referees"
     q = (request.form.get("q") or "").strip()
     kwargs = {}
-    if view in ("coaches", "admins", "referees", "compliance", "membership"): kwargs["view"] = view
+    if view == "membership":
+        kwargs["pay"] = "paying"
+    elif view in ("coaches", "admins", "referees", "compliance"): kwargs["view"] = view
     filt = (request.form.get("filt") or "").strip()
     if filt in ("expiring", "uncleared"): kwargs["filt"] = filt
     if q: kwargs["q"] = q
@@ -6126,13 +6120,17 @@ def members():
     if request.args.get("view") == "all":
         kept = {key: request.args.get(key) for key in request.args if key != "view" and request.args.get(key)}
         return redirect(url_for("members", **kept))
+    if request.args.get("view") == "membership":
+        kept = {key: request.args.get(key) for key in request.args if key not in ("view", "pay") and request.args.get(key)}
+        kept["pay"] = "paying"
+        return redirect(url_for("members", **kept))
     view = request.args.get("view") or "members"
     filt = (request.args.get("filt") or "").strip()
     if request.args.get("coach") == "eligible": view = "coaches"
     if request.args.get("referee") == "eligible": view = "referees"
     if view == "expiring": view, filt = "members", "expiring"
     elif view == "uncleared": view, filt = "members", "uncleared"
-    if view not in ("members", "coaches", "admins", "referees", "all", "compliance", "membership"): view = "members"
+    if view not in ("members", "coaches", "admins", "referees", "all", "compliance"): view = "members"
     if filt not in ("", "expiring", "uncleared"): filt = ""
     pay = (request.args.get("pay") or "").strip()
     if pay not in ("", "paying", "not"): pay = ""
@@ -6160,7 +6158,7 @@ def members():
         rows = [r for r in rows if clubadmin.payment_view(d, r["id"], today)["paying"] == (pay == "paying")]
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
     titles = {"members": "Members", "all": "People", "coaches": "Coaches", "admins": "Admins", "referees": "Referees",
-              "compliance": "Compliance", "membership": "Membership"}
+              "compliance": "Compliance"}
     return page(T["members"],
         tab="admin", admin_back="/manage/area/people", rows=rows, c=c, view=view, filt=filt, pay=pay, date=focus, q=q, title=titles[view],
         listed=sets["listed"], referees=sets["referees"], coach_ids=sets["coach_ids"], ref_ids=sets["ref_ids"],

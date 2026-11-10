@@ -139,7 +139,7 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
         plan = d.execute("SELECT id FROM payment_plans WHERE kind='monthly'").fetchone()["id"]
         before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
     page = admin.get("/manage/area/people").get_data(as_text=True)
-    assert "<h1>People</h1>" in page and "class=mtitle>Members" in page and "class=mtitle>Membership" in page
+    assert "<h1>People</h1>" in page and "class=mtitle>Members" in page and "class=mtitle>Compliance" in page and "class=mtitle>Membership" not in page
     roster = admin.get("/members").get_data(as_text=True)
     assert "Unpaid" in roster and ">Paying</a>" in roster and ">Not paying</a>" in roster and 'data-seg' in roster
     passes = admin.get("/manage/club/plans").get_data(as_text=True)
