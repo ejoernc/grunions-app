@@ -47,9 +47,20 @@ def ensure(d):
         id INTEGER PRIMARY KEY, kind TEXT NOT NULL, ref_id INTEGER NOT NULL, reason TEXT NOT NULL,
         resolved INTEGER NOT NULL DEFAULT 0)""")
     d.execute("""CREATE TABLE IF NOT EXISTS club_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)""")
+    d.execute("""CREATE TABLE IF NOT EXISTS program_divisions(
+        id INTEGER PRIMARY KEY, program_id INTEGER NOT NULL, slug TEXT NOT NULL,
+        name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+        sort INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(program_id, slug))""")
+    d.execute("""CREATE TABLE IF NOT EXISTS leadership_roles(
+        id INTEGER PRIMARY KEY, program_id INTEGER, name TEXT NOT NULL,
+        permission TEXT NOT NULL DEFAULT 'none', sort INTEGER NOT NULL DEFAULT 0)""")
+    d.execute("""CREATE TABLE IF NOT EXISTS leadership_members(
+        role_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(role_id, member_id))""")
     _migrate(d)
     _ensure_pass_columns(d)
     _seed_passes(d)
+    _seed_org_structure(d)
 
 
 def _meta(d, key):
@@ -387,7 +398,10 @@ def display_tags(d, member, today):
         sports = [tag for tag in sports if tag != "Water Polo"]
     if "Swim coach" in coach:
         sports = [tag for tag in sports if tag != "Swimming"]
-    return sports + coach
+    names = leadership_tags(d, member["id"])
+    have = {tag.casefold() for tag in sports + coach}
+    extra = [tag for tag in names if tag.casefold() not in have]
+    return sports + coach + extra
 
 
 def _provider_kind(d, provider_id):
@@ -602,6 +616,145 @@ def add_program_html(d, csrf):
 </form>""" % (csrf, options)
 
 
+DEFAULT_DIVISIONS = (
+    ("beginner", "Beginner", "New to the sport or learning the basics."),
+    ("developing", "Developing", "Knows the fundamentals and is building consistency."),
+    ("intermediate", "Intermediate", "Comfortable playing and using core skills."),
+    ("experienced", "Experienced", "Proficient in advanced or competitive play."),
+)
+PERM_CLUB = (("none", "No admin access"), ("admin_lite", "Admin lite"), ("admin", "Admin"))
+PERM_SPORT = (("none", "No admin access"), ("sport_admin", "Sport admin"))
+REQ_GROUPS = (("athlete", "Members"), ("coach", "Coaches"), ("referee", "Referees"))
+
+
+def _seed_org_structure(d):
+    """Divisions and role homes for unassigned requirements. Does not enforce them or touch RSVPs."""
+    if _meta(d, "org_structure") == "1":
+        return
+    for program in d.execute("SELECT id FROM programs").fetchall():
+        for i, (slug, name, desc) in enumerate(DEFAULT_DIVISIONS):
+            d.execute("""INSERT OR IGNORE INTO program_divisions(program_id, slug, name, description, sort, archived)
+                VALUES(?,?,?,?,?,0)""", (program["id"], slug, name, desc, i))
+    for req in d.execute("SELECT id, name, keywords FROM requirements").fetchall():
+        blob = ((req["name"] or "") + " " + (req["keywords"] or "")).lower()
+        role = "coach" if "background" in blob else ("referee" if "referee" in blob else "")
+        if not role:
+            continue
+        scope = d.execute("SELECT review_status, affects_clearance FROM requirement_scopes WHERE requirement_id=?", (req["id"],)).fetchone()
+        if scope and scope["review_status"] == "active" and scope["affects_clearance"]:
+            continue
+        d.execute("""UPDATE requirement_scopes SET roles=?, everyone=0, affects_clearance=0, review_status='needs_review'
+            WHERE requirement_id=?""", (role, req["id"]))
+        for program in d.execute("SELECT id FROM programs").fetchall():
+            d.execute("INSERT OR IGNORE INTO requirement_programs(requirement_id, program_id) VALUES(?,?)", (req["id"], program["id"]))
+        d.execute("UPDATE scope_reviews SET resolved=1 WHERE kind='requirement' AND ref_id=?", (req["id"],))
+    _set_meta(d, "org_structure", "1")
+
+
+def level_rows(d, sport_name, selected=""):
+    """Active divisions for a sport, plus archived ones still saved on this event."""
+    program = program_for_label(d, sport_name or "")
+    chosen = {part.strip().lower() for part in str(selected or "").split(",") if part.strip()}
+    if not program:
+        import sports as sportsmod
+        return list(sportsmod.LEVELS)
+    rows = d.execute("""SELECT slug, name, description, archived FROM program_divisions
+        WHERE program_id=? ORDER BY sort, id""", (program["id"],)).fetchall()
+    if not rows:
+        import sports as sportsmod
+        return list(sportsmod.LEVELS)
+    out = []
+    for row in rows:
+        if row["archived"] and row["slug"] not in chosen:
+            continue
+        out.append((row["slug"], row["name"], row["description"], row["description"]))
+    return out or []
+
+
+def level_slugs(d, sport_name, include_archived=False):
+    program = program_for_label(d, sport_name or "")
+    if not program:
+        import sports as sportsmod
+        return list(sportsmod.LEVEL_IDS)
+    sql = "SELECT slug FROM program_divisions WHERE program_id=?"
+    if not include_archived:
+        sql += " AND archived=0"
+    sql += " ORDER BY sort, id"
+    return [row["slug"] for row in d.execute(sql, (program["id"],)).fetchall()]
+
+
+def member_has_permission(d, member_id, permission):
+    row = d.execute("""SELECT 1 FROM leadership_members m JOIN leadership_roles r ON r.id=m.role_id
+        WHERE m.member_id=? AND r.permission=? LIMIT 1""", (member_id, permission)).fetchone()
+    return bool(row)
+
+
+def leadership_tags(d, member_id):
+    return [row["name"] for row in d.execute("""SELECT r.name FROM leadership_roles r
+        JOIN leadership_members m ON m.role_id=r.id WHERE m.member_id=? ORDER BY r.name""", (member_id,)).fetchall()]
+
+
+def save_leadership_role(d, role_id, form, program_id):
+    name = " ".join((form.get("name") or "").split())
+    if len(name) < 2:
+        raise ValueError("Add a role name.")
+    allowed = dict(PERM_SPORT if program_id else PERM_CLUB)
+    permission = form.get("permission") or "none"
+    if permission not in allowed:
+        raise ValueError("Choose a permission level.")
+    if role_id:
+        row = d.execute("SELECT id, program_id FROM leadership_roles WHERE id=?", (role_id,)).fetchone()
+        if not row or (row["program_id"] or None) != (program_id or None):
+            raise ValueError("Choose a role.")
+        d.execute("UPDATE leadership_roles SET name=?, permission=? WHERE id=?", (name[:80], permission, role_id))
+    else:
+        sort = d.execute("SELECT COALESCE(MAX(sort),0)+1 FROM leadership_roles WHERE COALESCE(program_id,0)=COALESCE(?,0)", (program_id,)).fetchone()[0]
+        role_id = d.execute("INSERT INTO leadership_roles(program_id, name, permission, sort) VALUES(?,?,?,?)",
+                            (program_id, name[:80], permission, sort)).lastrowid
+    d.execute("DELETE FROM leadership_members WHERE role_id=?", (role_id,))
+    for mid in form.getlist("person"):
+        if str(mid).isdigit():
+            d.execute("INSERT OR IGNORE INTO leadership_members(role_id, member_id) VALUES(?,?)", (role_id, int(mid)))
+            if permission == "admin":
+                d.execute("UPDATE members SET is_admin=1 WHERE id=? AND COALESCE(role,'')!='system'", (int(mid),))
+    return role_id
+
+
+def save_division(d, program, div_id, form):
+    name = " ".join((form.get("name") or "").split())
+    if len(name) < 2:
+        raise ValueError("Add a division name.")
+    desc = " ".join((form.get("description") or "").split())[:180]
+    if div_id:
+        row = d.execute("SELECT id, slug FROM program_divisions WHERE id=? AND program_id=?", (div_id, program["id"])).fetchone()
+        if not row:
+            raise ValueError("Choose a division.")
+        d.execute("UPDATE program_divisions SET name=?, description=? WHERE id=?", (name[:80], desc, div_id))
+        return div_id
+    slug = _slug(name)
+    base, n = slug, 2
+    while d.execute("SELECT 1 FROM program_divisions WHERE program_id=? AND slug=?", (program["id"], slug)).fetchone():
+        slug = "%s-%d" % (base, n)
+        n += 1
+    sort = d.execute("SELECT COALESCE(MAX(sort),-1)+1 FROM program_divisions WHERE program_id=?", (program["id"],)).fetchone()[0]
+    return d.execute("""INSERT INTO program_divisions(program_id, slug, name, description, sort, archived)
+        VALUES(?,?,?,?,?,0)""", (program["id"], slug, name[:80], desc, sort)).lastrowid
+
+
+def move_division(d, program, div_id, direction):
+    rows = d.execute("SELECT id FROM program_divisions WHERE program_id=? AND archived=0 ORDER BY sort, id", (program["id"],)).fetchall()
+    ids = [row["id"] for row in rows]
+    if div_id not in ids:
+        return
+    i = ids.index(div_id)
+    j = i - 1 if direction == "up" else i + 1
+    if j < 0 or j >= len(ids):
+        return
+    ids[i], ids[j] = ids[j], ids[i]
+    for n, item in enumerate(ids):
+        d.execute("UPDATE program_divisions SET sort=? WHERE id=?", (n, item))
+
+
 def programs_html(d):
     bits = ['<div class=mlist>']
     for program in programs(d):
@@ -611,12 +764,6 @@ def programs_html(d):
         noun = "requirement" if count == 1 else "requirements"
         bits.append(_row("/manage/club/programs/%s" % program["slug"], program["name"], "%s · %s · %d %s" % (body, state, count, noun)))
     bits.append("</div>")
-    open_reviews = reviews(d)
-    if open_reviews:
-        bits.append('<h2 class=mseclabel>Needs a sport</h2><div class=mlist>')
-        for row in open_reviews:
-            bits.append(_row("/manage/club/requirements/%d" % row["ref_id"], row["req_name"] or "Requirement", "Not enforced until a sport is chosen"))
-        bits.append("</div>")
     return "".join(bits)
 
 
@@ -678,27 +825,127 @@ def program_detail_html(d, program, csrf):
         "".join(day_bits),
         escape(sched["start"] if sched else ""), escape(sched["end"] if sched else ""),
         escape(sched["venue"] if sched else ""), escape(sched["notes"] if sched else ""),
-        "".join(coach_bits) or "<p class=t3>No coaches to assign yet.</p>", program_requirements_html(d, program))
+        "".join(coach_bits) or "<p class=t3>No coaches to assign yet.</p>",
+        program_requirements_html(d, program) + divisions_html(d, program) + sport_leadership_html(d, program))
+
+
+def _req_role(scope):
+    if not scope or scope["everyone"] or not _csv(scope["roles"]):
+        return "athlete"
+    roles = _csv(scope["roles"])
+    for code, _label in REQ_GROUPS:
+        if code in roles:
+            return code
+    return "athlete"
+
+
+def _enforced(scope):
+    return bool(scope and scope["review_status"] == "active" and scope["affects_clearance"])
 
 
 def program_requirements_html(d, program):
-    rows = d.execute("""SELECT q.id, q.name FROM requirement_programs rp
-        JOIN requirements q ON q.id=rp.requirement_id
+    rows = d.execute("""SELECT q.id, q.name, s.roles, s.everyone, s.review_status, s.affects_clearance
+        FROM requirement_programs rp JOIN requirements q ON q.id=rp.requirement_id
+        LEFT JOIN requirement_scopes s ON s.requirement_id=q.id
         WHERE rp.program_id=? ORDER BY q.name""", (program["id"],)).fetchall()
-    bits = ['<h2>Requirements</h2><div class=mlist>']
-    if not rows:
-        bits.append('<p class="t3 sm" style="padding:12px 16px">No requirements yet.</p>')
+    grouped = {code: [] for code, _label in REQ_GROUPS}
     for row in rows:
-        others = [item["name"] for item in d.execute("""SELECT p.name FROM requirement_programs rp
-            JOIN programs p ON p.id=rp.program_id
-            WHERE rp.requirement_id=? AND p.id!=? ORDER BY p.name""", (row["id"], program["id"]))]
-        note = ("Also applies to: " + ", ".join(others)) if others else "This sport only"
-        if not program["active"]:
-            note += " · Not applied while this sport is off"
-        bits.append(_row("/manage/club/requirements/%d?sport=%s" % (row["id"], program["slug"]), row["name"], note))
-    bits.append(_row("/manage/club/programs/%s/requirements/new" % program["slug"], "Add requirement", "Starts checked for this sport"))
+        grouped.setdefault(_req_role(row), []).append(row)
+    bits = ['<h2>Requirements</h2><p class="t3 sm">A requirement applies only to that role, and only while this sport is on. Off means it is not enforced.</p>']
+    for code, label in REQ_GROUPS:
+        bits.append("<h2>%s</h2><div class=mlist>" % label)
+        items = grouped.get(code) or []
+        if not items:
+            bits.append('<p class="t3 sm" style="padding:12px 16px">No requirements yet.</p>')
+        for row in items:
+            others = [item["name"] for item in d.execute("""SELECT p.name FROM requirement_programs rp
+                JOIN programs p ON p.id=rp.program_id
+                WHERE rp.requirement_id=? AND p.id!=? ORDER BY p.name""", (row["id"], program["id"]))]
+            note = "On" if _enforced(row) else "Off"
+            if others:
+                note += " · Also applies to: " + ", ".join(others)
+            if not program["active"]:
+                note += " · Not applied while this sport is off"
+            bits.append(_row("/manage/club/requirements/%d?sport=%s" % (row["id"], program["slug"]), row["name"], note))
+        bits.append(_row("/manage/club/programs/%s/requirements/new?role=%s" % (program["slug"], code), "Add requirement", "For %s" % label.lower()))
+        bits.append("</div>")
+    return "".join(bits)
+
+
+def divisions_html(d, program):
+    rows = d.execute("""SELECT * FROM program_divisions WHERE program_id=? AND archived=0 ORDER BY sort, id""", (program["id"],)).fetchall()
+    bits = ['<h2>Divisions</h2><p class="t3 sm">These are the skill levels for this sport. All levels stays available on each session and is not stored here.</p><div class=mlist>']
+    if not rows:
+        bits.append('<p class="t3 sm" style="padding:12px 16px">No divisions yet.</p>')
+    for i, row in enumerate(rows):
+        bits.append(_row("/manage/club/programs/%s/divisions/%d" % (program["slug"], row["id"]), row["name"], row["description"] or "No description"))
+    bits.append(_row("/manage/club/programs/%s/divisions/new" % program["slug"], "Add division", "Name and a one-line description"))
     bits.append("</div>")
     return "".join(bits)
+
+
+def sport_leadership_html(d, program):
+    rows = d.execute("SELECT * FROM leadership_roles WHERE program_id=? ORDER BY sort, id", (program["id"],)).fetchall()
+    bits = ['<h2>Leadership</h2><p class="t3 sm">Roles for this sport. Sport admin is a title. It does not open club settings.</p><div class=mlist>']
+    if not rows:
+        bits.append('<p class="t3 sm" style="padding:12px 16px">No roles yet.</p>')
+    for row in rows:
+        n = d.execute("SELECT COUNT(*) FROM leadership_members WHERE role_id=?", (row["id"],)).fetchone()[0]
+        bits.append(_row("/manage/club/programs/%s/leadership/%d" % (program["slug"], row["id"]), row["name"], "%s · %d %s" % (dict(PERM_SPORT).get(row["permission"], row["permission"]), n, "person" if n == 1 else "people")))
+    bits.append(_row("/manage/club/programs/%s/leadership/new" % program["slug"], "Add role", "Name, permission, and people"))
+    bits.append("</div>")
+    return "".join(bits)
+
+
+def leadership_list_html(d):
+    rows = d.execute("SELECT * FROM leadership_roles WHERE program_id IS NULL ORDER BY sort, id").fetchall()
+    bits = ['<div class=mlist>']
+    if not rows:
+        bits.append('<p class="t3 sm" style="padding:12px 16px">No club roles yet.</p>')
+    for row in rows:
+        n = d.execute("SELECT COUNT(*) FROM leadership_members WHERE role_id=?", (row["id"],)).fetchone()[0]
+        bits.append(_row("/manage/club/leadership/%d" % row["id"], row["name"], "%s · %d %s" % (dict(PERM_CLUB).get(row["permission"], row["permission"]), n, "person" if n == 1 else "people")))
+    bits.append("</div>")
+    bits.append('<p style="margin-top:16px"><a class="btn btn-primary full" href="/manage/club/leadership/new">Add role</a></p>')
+    return "".join(bits)
+
+
+def leadership_edit_html(d, role, csrf, program=None):
+    perms = PERM_SPORT if program else PERM_CLUB
+    current = role["permission"] if role else "none"
+    chosen = set()
+    if role:
+        chosen = {row["member_id"] for row in d.execute("SELECT member_id FROM leadership_members WHERE role_id=?", (role["id"],)).fetchall()}
+    people = d.execute("""SELECT id, first, preferred_first, last FROM members
+        WHERE COALESCE(role,'')!='system' ORDER BY last, first""").fetchall()
+    boxes = []
+    for person in people:
+        name = ("%s %s" % (person["preferred_first"] or person["first"], person["last"] or "")).strip()
+        boxes.append('<label class=checkline><input type=checkbox name=person value="%d"%s> %s</label>' % (
+            person["id"], " checked" if person["id"] in chosen else "", escape(name)))
+    options = "".join('<option value="%s"%s>%s</option>' % (value, " selected" if value == current else "", escape(label)) for value, label in perms)
+    note = "Admin opens the whole club. Admin lite can run schedule and lineup the way an active coach can, and cannot open Club, plans, or People. Removing a role never removes an existing admin." if not program else "Sport admin is a title for this sport. It does not grant club admin or schedule access by itself."
+    return """<form method=post class=clubform>%s
+<label>Name<input name=name required value="%s"></label>
+<label>Permission<select name=permission>%s</select></label>
+<p class="t3 sm">%s</p>
+<p>People</p>
+%s
+<button class="btn btn-primary full" type=submit>Save</button>
+</form>""" % (csrf, escape(role["name"] if role else ""), options, escape(note), "".join(boxes) or "<p class=t3>No people yet.</p>")
+
+
+def division_edit_html(d, program, row, csrf):
+    extra = ""
+    if row:
+        extra = """<form method=post>%s<input type=hidden name=action value=up><button class="btn btn-secondary full" type=submit>Move up</button></form>
+<form method=post>%s<input type=hidden name=action value=down><button class="btn btn-secondary full" type=submit>Move down</button></form>
+<form method=post>%s<input type=hidden name=action value=remove><button class="btn btn-danger full" type=submit>Remove</button></form>""" % (csrf, csrf, csrf)
+    return """<form method=post class=clubform>%s
+<label>Name<input name=name required value="%s"></label>
+<label>Description<input name=description value="%s"></label>
+<button class="btn btn-primary full" type=submit>Save</button>
+</form>%s""" % (csrf, escape(row["name"] if row else ""), escape(row["description"] if row else ""), extra)
 
 
 PASS_COLUMNS = (
@@ -1290,7 +1537,7 @@ def plan_edit_html(d, plan, csrf):
         escape(core), escape(summary))
 
 
-def requirement_edit_html(d, req, scope, csrf, preset_ids=None, sport=""):
+def requirement_edit_html(d, req, scope, csrf, preset_ids=None, sport="", preset_role=""):
     linked = set()
     if req:
         linked = {row["program_id"] for row in d.execute("SELECT program_id FROM requirement_programs WHERE requirement_id=?", (req["id"],)).fetchall()}
@@ -1302,6 +1549,8 @@ def requirement_edit_html(d, req, scope, csrf, preset_ids=None, sport=""):
         boxes.append('<label class=checkline><input type=checkbox name=program value="%d"%s> %s</label>' % (
             program["id"], " checked" if program["id"] in linked else "", escape(program["name"])))
     roles = set(_csv(scope["roles"] if scope else ""))
+    if preset_role and not req:
+        roles.add(preset_role)
     acts = set(_csv(scope["activities"] if scope else ""))
     role_bits = "".join('<label class=checkline><input type=checkbox name="role_%s" value=1%s> %s</label>' % (
         code, " checked" if code in roles else "", label) for code, label in ROLES)

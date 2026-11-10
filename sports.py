@@ -70,16 +70,41 @@ def _ids(raw, allowed):
     return chosen
 
 
-def pack_levels(raw):
+def pack_levels(raw, extra=()):
     """Canonical comma-separated ids. Unknown ids are dropped. Order is fixed."""
-    return ",".join(_ids(raw, LEVEL_IDS))
+    allowed = list(LEVEL_IDS)
+    for pid in extra or ():
+        pid = str(pid or "").strip().lower()
+        if pid and pid not in allowed:
+            allowed.append(pid)
+    return ",".join(_ids(raw, allowed))
 
 
-def levels_label(raw):
-    ids = _ids(raw, LEVEL_IDS)
-    if not ids: return ""
-    if len(ids) == len(LEVEL_IDS): return "All levels"
-    return " · ".join(LEVEL_NAME[i] for i in ids)
+def stored_level_ids(raw):
+    """Keep saved slugs, including a division that was later removed."""
+    out = []
+    for part in str(raw or "").split(","):
+        pid = part.strip().lower()
+        if pid and all(ch.isalnum() or ch == "-" for ch in pid) and pid not in out:
+            out.append(pid)
+    return ",".join(out)
+
+
+def levels_label(raw, rows=None):
+    catalog = list(rows or LEVELS)
+    names = {row[0]: row[1] for row in catalog}
+    ids = [pid for pid in stored_level_ids(raw).split(",") if pid and (pid in names or not rows)]
+    if rows is None:
+        ids = _ids(raw, LEVEL_IDS)
+        if not ids: return ""
+        if len(ids) == len(LEVEL_IDS): return "All levels"
+        return " · ".join(LEVEL_NAME[i] for i in ids)
+    active = [row[0] for row in catalog]
+    ordered = [pid for pid in active if pid in ids]
+    ordered += [pid for pid in ids if pid not in ordered]
+    if not ordered: return ""
+    if active and set(active) <= set(ordered): return "All levels"
+    return " · ".join(names.get(pid, pid.replace("-", " ").title()) for pid in ordered)
 
 
 def pack_divisions(raw, custom=""):
@@ -173,9 +198,9 @@ def session_title(sport, activity, opponent="", segments="", custom=""):
     return "%s %s" % (name, ACTIVITY_NAME.get(kind, "Practice"))
 
 
-def sports_line(levels, divisions, custom="", comp=""):
+def sports_line(levels, divisions, custom="", comp="", level_rows=None):
     """One subtle line. Empty when nothing is set."""
-    parts = [levels_label(levels), divisions_label(divisions, custom), format_label(comp)]
+    parts = [levels_label(levels, level_rows), divisions_label(divisions, custom), format_label(comp)]
     return " · ".join(p for p in parts if p)
 
 
@@ -193,7 +218,7 @@ def _getlist(form, key):
     return val if isinstance(val, (list, tuple)) else [val]
 
 
-def sports_from_form(form):
+def sports_from_form(form, extra_levels=()):
     activity = str(_get(form, "activity_type") or "practice").strip().lower()
     if activity not in ACTIVITY_IDS: activity = "practice"
     opponent = " ".join(str(_get(form, "opponent") or "").split())[:80]
@@ -211,7 +236,7 @@ def sports_from_form(form):
         "activity_type": activity,
         "sport": sport,
         "title": title,
-        "skill_levels": pack_levels(_getlist(form, "level")),
+        "skill_levels": pack_levels(_getlist(form, "level"), extra_levels),
         "divisions": divs,
         "division_custom": custom,
         "opponent": opponent if activity == "game" else "",
@@ -235,7 +260,7 @@ def sports_from_row(row):
         "activity_type": activity,
         "sport": val("sport") or "Water Polo",
         "title": val("title") or "",
-        "skill_levels": pack_levels(val("skill_levels")),
+        "skill_levels": stored_level_ids(val("skill_levels")),
         "divisions": pack_divisions(val("divisions"), val("division_custom"))[0],
         "division_custom": pack_divisions(val("divisions"), val("division_custom"))[1],
         "opponent": val("opponent") or "",

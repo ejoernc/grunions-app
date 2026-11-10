@@ -61,10 +61,13 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
     detail = admin.get("/manage/club/programs/pool-swimming").get_data(as_text=True)
     assert "Regular schedule" in detail and "does not add sessions" in detail and "href=/manage/club/programs" in detail
     assert "Program is on" in detail
-    assert "Needs a sport" in sports and "Background screening" in sports and "Referee certification" in sports
-    assert "Not enforced until a sport is chosen" in sports
+    assert "Needs a sport" not in sports
     polo = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
     assert "SafeSport" in polo and "Add requirement" in polo and "/manage/club/programs/water-polo/requirements/new" in polo
+    assert "Coaches" in polo and "Referees" in polo and "Background screening" in polo and "Referee certification" in polo
+    assert "Divisions" in polo and "Beginner" in polo and "New to the sport or learning the basics." in polo
+    assert "Leadership" in admin.get("/manage/area/club").get_data(as_text=True)
+    assert "Off" in polo and "Specific events" not in polo
     assert ">Requirements</span>" not in admin.get("/manage/area/club").get_data(as_text=True)
     form = admin.get("/manage/club/programs/water-polo/requirements/new").get_data(as_text=True)
     assert "Water Polo" in form and 'name=program value="' in form

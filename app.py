@@ -671,9 +671,17 @@ def is_staff(m=None):
     """Check-in and coaches chat. Only active coaches."""
     return is_active_coach(m)
 def can_host_practice(m=None):
-    """Admins and active coaches can set a social and a coach message."""
+    """Admins, active coaches, and Admin lite can set a social and a coach message."""
     m = m or me()
-    return bool(m and (m["is_admin"] or is_active_coach(m)))
+    if not m:
+        return False
+    if m["is_admin"] or is_active_coach(m):
+        return True
+    try:
+        import clubadmin
+        return clubadmin.member_has_permission(db(), m["id"], "admin_lite")
+    except Exception:
+        return False
 def lineup_organizer_required(f):
     """Create, edit, and delete Lineup events. Members can still view and RSVP."""
     @functools.wraps(f)
@@ -2083,7 +2091,7 @@ def save_series(d, sid=None):
                 raise ValueError("Skip dates have to fall on a day this series meets.")
             iso = day.isoformat()
             if iso not in skips: skips.append(iso)
-    sp = sports.sports_from_form(request.form)
+    sp = _sports_form()
     tup = sports.sports_tuple(sp)
     if sid:
         d.execute("""UPDATE practice_series SET weekdays=?, start=?, end=?, location=?, start_date=?, end_date=?, interval_weeks=?, end_count=?,
@@ -2313,21 +2321,39 @@ def effective_sort_date(row):
     elif part == "late": n = min(25, _month_last(day).day)
     else: return _month_last(day).isoformat()
     return dt.date(day.year, day.month, n).isoformat()
+def _sports_form():
+    sport = " ".join((request.form.get("sport") or "").split()) or "Water Polo"
+    extra = []
+    try:
+        import clubadmin
+        extra = clubadmin.level_slugs(db(), sport, include_archived=True)
+    except Exception:
+        extra = []
+    return sports.sports_from_form(request.form, extra)
 def practice_title(p):
     """Live title is Sport + type. A custom title wins. Unset rows are Water Polo Practice."""
     if not p: return "Water Polo Practice"
     data = sports.sports_from_row(p)
     return sports.session_title(data["sport"], data["activity_type"], data["opponent"], data["segments"], data["title"])
+def level_catalog(sport, selected=""):
+    try:
+        import clubadmin
+        rows = clubadmin.level_rows(db(), sport or "Water Polo", selected or "")
+        if rows:
+            return rows
+    except Exception:
+        pass
+    return list(sports.LEVELS)
 def practice_sports_line(p):
     if not p: return ""
     data = sports.sports_from_row(p)
-    return sports.sports_line(data["skill_levels"], data["divisions"], data["division_custom"], data["comp_format"])
+    return sports.sports_line(data["skill_levels"], data["divisions"], data["division_custom"], data["comp_format"], level_catalog(data.get("sport"), data["skill_levels"]))
 def practice_going_line(n, p):
     """People row on a practice card: the going count, then skill and division."""
     parts = ["%d going" % int(n or 0)]
     if p:
         data = sports.sports_from_row(p)
-        level = sports.levels_label(data["skill_levels"])
+        level = sports.levels_label(data["skill_levels"], level_catalog(data.get("sport"), data["skill_levels"]))
         division = sports.divisions_label(data["divisions"], data["division_custom"])
         if level: parts.append(level)
         if division: parts.append(division)
@@ -2350,8 +2376,9 @@ def sports_editor(row=None, show_activity=True, show_format=False):
         parts.append("</div>")
         parts.append('<label>Title<input name=title id=actTitle value="%s" placeholder="%s" autocomplete=off></label>' % (escape(data["title"]), escape(sports.session_title(data["sport"], data["activity_type"], data["opponent"], data["segments"], ""))))
         parts.append('<label>Sport<input name=sport value="%s" autocomplete=off></label>' % escape(data["sport"] or "Water Polo"))
-    level_names = [name for pid, name, _short, _full in sports.LEVELS if pid in levels]
-    if level_names and len(level_names) == len(sports.LEVELS): level_sum = "All levels"
+    catalog = level_catalog(data.get("sport"), data["skill_levels"])
+    level_names = [name for pid, name, _short, _full in catalog if pid in levels]
+    if level_names and len(level_names) == len(catalog): level_sum = "All levels"
     elif len(level_names) == 1: level_sum = level_names[0]
     elif len(level_names) == 2: level_sum = level_names[0] + " + 1"
     elif level_names: level_sum = "%d selected" % len(level_names)
@@ -2360,8 +2387,8 @@ def sports_editor(row=None, show_activity=True, show_format=False):
     chev = '<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
     parts.append('<button type=button class="li selfield" data-open=sheetLevels><span class=selfieldk>Skill levels</span><span class="selfieldv ell" data-for=levels>%s</span>%s</button>' % (escape(level_sum), chev))
     parts.append('<dialog class=botsheet id=sheetLevels><div class=sheet><div class=grab></div><h2>Skill levels</h2><div class=sheetlist data-sum=levels data-empty="Not set">')
-    parts.append('<label class=sheetopt data-label="All levels"><input type=checkbox id=allLevels%s><span><b>All levels</b><small>Every skill level</small></span></label>' % (" checked" if level_names and len(level_names) == len(sports.LEVELS) else ""))
-    for pid, name, short, _full in sports.LEVELS:
+    parts.append('<label class=sheetopt data-label="All levels"><input type=checkbox id=allLevels%s><span><b>All levels</b><small>Every skill level</small></span></label>' % (" checked" if level_names and catalog and len(level_names) == len(catalog) else ""))
+    for pid, name, short, _full in catalog:
         checked = " checked" if pid in levels else ""
         parts.append('<label class=sheetopt data-label="%s"><input type=checkbox name=level value="%s"%s><span><b>%s</b><small>%s</small></span></label>' % (escape(name), pid, checked, escape(name), escape(short)))
     parts.append('</div><button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>')
@@ -3063,7 +3090,7 @@ def sport_card_status(practice, mine):
         return sportspay.card_status(db(), me(), practice, mine, today_pt().isoformat())
     except Exception:
         return ""
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_live_chip=practice_live_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS, sport_filter_names=sport_filter_names, sport_card_status=sport_card_status)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_live_chip=practice_live_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS, sport_filter_names=sport_filter_names, sport_card_status=sport_card_status, level_catalog=level_catalog)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
@@ -3149,7 +3176,7 @@ def handle_practice_post(d):
             except sqlite3.IntegrityError: flash("A practice already exists at that place on that date.")
         else:
             try:
-                sp = sports.sports_from_form(request.form)
+                sp = _sports_form()
                 d.execute("""INSERT INTO practices(date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (request.form["date"], request.form.get("start") or "19:00", request.form.get("end") or "20:30", request.form.get("location") or "TBD", request.form.get("note"), *sports.sports_tuple(sp)))
@@ -3170,7 +3197,7 @@ def handle_practice_post(d):
         if not date: flash("Enter the practice date.")
         elif opened_past:
             try:
-                sp = sports.sports_from_form(request.form) if "activity_type" in request.form else None
+                sp = _sports_form() if "activity_type" in request.form else None
                 if scope == "all":
                     apply_series_all(d, old["series_id"], start, end, loc, request.form.getlist("coach"), request.form.get("lead"), sp)
                 else:
@@ -3192,7 +3219,7 @@ def handle_practice_post(d):
                 if "message" in request.form: save_coach_note(d, pid, request.form.get("message"))
                 try: apply_practice_image(d, pid)
                 except ValueError as e: flash(str(e))
-                sp = sports.sports_from_form(request.form) if "activity_type" in request.form else None
+                sp = _sports_form() if "activity_type" in request.form else None
                 if sp:
                     d.execute("""UPDATE practices SET activity_type=?, sport=?, title=?, skill_levels=?, divisions=?, division_custom=?,
                         opponent=?, home_away=?, gameplay_notes=?, segments=?, comp_format=? WHERE id=?""", (*sports.sports_tuple(sp), pid))
@@ -3302,7 +3329,7 @@ def practice_copy_prefill(d, src):
         "end": str(src["end"] or "20:30")[:5],
         "location": src["location"] or "",
         "levels": levels,
-        "all_levels": bool(levels) and set(sports.LEVEL_IDS) <= set(levels),
+        "all_levels": bool(levels) and set(level_catalog(data["sport"], data["skill_levels"]) and [row[0] for row in level_catalog(data["sport"], data["skill_levels"])]) <= set(levels),
         "division": division,
         "division_custom": data["division_custom"] or "",
         "coaches": [r["member_id"] for r in coaches],
@@ -4051,10 +4078,15 @@ def _save_lineup(d, existing=None):
     apply_lineup_side_effects(d, info, existing)
     cat = d.execute("SELECT slug FROM lineup_categories c JOIN lineup_events e ON e.category_id=c.id WHERE e.id=?", (info["id"],)).fetchone()
     slug = cat["slug"] if cat else ""
-    levels = sports.pack_levels(request.form.getlist("level"))
+    sport = " ".join((request.form.get("sport") or "").split())[:40]
+    try:
+        import clubadmin
+        extra_levels = clubadmin.level_slugs(d, sport or "Water Polo", include_archived=True)
+    except Exception:
+        extra_levels = []
+    levels = sports.pack_levels(request.form.getlist("level"), extra_levels)
     divs, custom = sports.pack_divisions(request.form.getlist("division"), request.form.get("division_custom"))
     comp = sports.pack_format(request.form.get("comp_format")) if slug == "travel" else ""
-    sport = " ".join((request.form.get("sport") or "").split())[:40]
     d.execute("UPDATE lineup_events SET skill_levels=?, divisions=?, division_custom=?, comp_format=?, sport=? WHERE id=?",
               (levels, divs, custom, comp, sport or "Water Polo", info["id"]))
     d.commit()
@@ -4677,7 +4709,7 @@ def event_new():
         d = db()
         if (request.form.get("lane") or lane) != "lineup" and staff:
             try:
-                sp = sports.sports_from_form(request.form)
+                sp = _sports_form()
                 sp["activity_type"] = activity
                 if request.form.get("title_mode") != "custom": sp["title"] = ""
                 note = request.form.get("note") or ""
@@ -4795,7 +4827,7 @@ def approvals():
             start = (request.form.get("start") or "19:00").strip() or "19:00"
             end = (request.form.get("end") or "20:30").strip() or "20:30"
             try:
-                sp = sports.sports_from_form(request.form)
+                sp = _sports_form()
                 sp["activity_type"] = activity
                 d.execute("""INSERT INTO practices(date,start,end,location,note,activity_type,sport,title,skill_levels,divisions,division_custom,opponent,home_away,gameplay_notes,segments,comp_format)
                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
@@ -4875,6 +4907,7 @@ def _manage_catalog(d):
         add("club", "Sports", "Programs, governing bodies, schedules, and requirements", "/manage/club/programs", "cal", "sport program water polo swimming schedule requirement safesport usawp usms eligibility")
         add("club", "Plans & passes", "Memberships, drop-ins, and which programs they cover", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass")
         add("club", "Website & sharing", "Public schedule and the website widget", "/manage/widget", "widget", "embed website widget preview")
+        add("club", "Leadership", "Club roles and who holds them", "/manage/club/leadership", "people", "leadership president treasurer board role")
         add("club", "Integrations", "Club Assistant and other registration links", "/manage/club/integrations", "swap", "club assistant provider payment link")
         add("tools", "QR codes", "Check-in and sharing", "/qr", "qr", "qr code join check-in")
         add("tools", "Data transfer", "Import and export", "/transfer", "swap", "csv import export export csv")
@@ -5035,9 +5068,99 @@ def club_program_requirement_new(slug):
             return redirect("/manage/club/programs/" + slug)
         except ValueError as exc:
             flash(str(exc))
+    role = (request.args.get("role") or "").strip()
+    if role not in ("athlete", "coach", "referee"):
+        role = ""
     return page(ui.ADMIN_NAV + "{{ admin_page('Add requirement', subtitle) }}{{ club_body|safe }}",
         tab="admin", admin_back="/manage/club/programs/" + slug, subtitle="Starts checked for %s. Check another sport to share it." % program["name"],
-        club_body=clubadmin.requirement_edit_html(d, None, None, csrf_field(), preset_ids=[program["id"]], sport=slug))
+        club_body=clubadmin.requirement_edit_html(d, None, None, csrf_field(), preset_ids=[program["id"]], sport=slug, preset_role=role))
+@app.route("/manage/club/leadership", methods=["GET"])
+@admin_required
+def club_leadership():
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    return page(ui.ADMIN_NAV + "{{ admin_page('Leadership', 'Roles for the whole club. Sport roles stay on each sport.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.leadership_list_html(d))
+@app.route("/manage/club/leadership/new", methods=["GET", "POST"])
+@admin_required
+def club_leadership_new():
+    return _leadership_form(None, None)
+@app.route("/manage/club/leadership/<int:role_id>", methods=["GET", "POST"])
+@admin_required
+def club_leadership_edit(role_id):
+    return _leadership_form(role_id, None)
+@app.route("/manage/club/programs/<slug>/leadership/new", methods=["GET", "POST"])
+@admin_required
+def sport_leadership_new(slug):
+    return _leadership_form(None, slug)
+@app.route("/manage/club/programs/<slug>/leadership/<int:role_id>", methods=["GET", "POST"])
+@admin_required
+def sport_leadership_edit(slug, role_id):
+    return _leadership_form(role_id, slug)
+def _leadership_form(role_id, slug):
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    program = clubadmin.program_by_slug(d, slug) if slug else None
+    if slug and not program:
+        abort(404)
+    role = None
+    if role_id:
+        role = d.execute("SELECT * FROM leadership_roles WHERE id=?", (role_id,)).fetchone()
+        if not role:
+            abort(404)
+    back = ("/manage/club/programs/" + program["slug"]) if program else "/manage/club/leadership"
+    if request.method == "POST":
+        try:
+            clubadmin.save_leadership_role(d, role["id"] if role else None, request.form, program["id"] if program else None)
+            d.commit()
+            flash("Saved", "toast")
+            return redirect(back)
+        except ValueError as exc:
+            flash(str(exc))
+    title = role["name"] if role else "Add role"
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'A role is a title plus a permission. It does not change an RSVP.') }}{{ club_body|safe }}",
+        tab="admin", admin_back=back, title=title, club_body=clubadmin.leadership_edit_html(d, role, csrf_field(), program))
+@app.route("/manage/club/programs/<slug>/divisions/new", methods=["GET", "POST"])
+@admin_required
+def sport_division_new(slug):
+    return _division_form(slug, None)
+@app.route("/manage/club/programs/<slug>/divisions/<int:div_id>", methods=["GET", "POST"])
+@admin_required
+def sport_division_edit(slug, div_id):
+    return _division_form(slug, div_id)
+def _division_form(slug, div_id):
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    program = clubadmin.program_by_slug(d, slug)
+    if not program:
+        abort(404)
+    row = None
+    if div_id:
+        row = d.execute("SELECT * FROM program_divisions WHERE id=? AND program_id=?", (div_id, program["id"])).fetchone()
+        if not row:
+            abort(404)
+    back = "/manage/club/programs/" + program["slug"]
+    if request.method == "POST":
+        action = request.form.get("action") or "save"
+        try:
+            if action == "remove" and row:
+                d.execute("UPDATE program_divisions SET archived=1 WHERE id=?", (row["id"],))
+            elif action in ("up", "down") and row:
+                clubadmin.move_division(d, program, row["id"], action)
+            else:
+                clubadmin.save_division(d, program, row["id"] if row else None, request.form)
+            d.commit()
+            flash("Saved", "toast")
+            return redirect(back)
+        except ValueError as exc:
+            flash(str(exc))
+    title = row["name"] if row else "Add division"
+    body = clubadmin.division_edit_html(d, program, row, csrf_field()) if row else clubadmin.division_edit_html(d, program, None, csrf_field())
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Sessions keep a removed division if they already use it.') }}{{ club_body|safe }}",
+        tab="admin", admin_back=back, title=title, club_body=body)
 @app.route("/manage/club/plans", methods=["GET"])
 @admin_required
 def club_plans():

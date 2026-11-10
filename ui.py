@@ -4519,7 +4519,7 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.capacity %}<div class="li prow"><span class=k>Spots</span><span class=v>{{ e.going_n }} of {{ e.capacity }}{% if e.wait_n %} · {{ e.wait_n }} waitlisted{% endif %}</span></div>{% endif %}
 {% if e.reg_deadline %}<div class="li prow"><span class=k>Register by</span><span class=v>{{ e.reg_deadline }}</span></div>{% endif %}
 </div>
-{% if e.levels_raw %}<details class=card><summary>Skill levels</summary><div class=body>{% for row in SPORTS.LEVELS %}{% if row[0] in e.levels_raw.split(',') %}<p><b>{{ row[1] }}</b> {{ row[2] }}</p>{% endif %}{% endfor %}</div></details>{% endif %}
+{% if e.levels_raw %}<details class=card><summary>Skill levels</summary><div class=body>{% for row in level_catalog(e.sport if e.sport is defined else 'Water Polo', e.levels_raw) %}{% if row[0] in e.levels_raw.split(',') %}<p><b>{{ row[1] }}</b> {{ row[2] }}</p>{% endif %}{% endfor %}</div></details>{% endif %}
 {% if e.review_note and e.status in ('changes_requested', 'declined') %}<div class=note>{{ e.review_note }}</div>{% endif %}
 {{ whos_going(e.interested, "interested") }}
 {{ whos_going(e.people) }}
@@ -4818,7 +4818,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <dialog class=botsheet id=sheetLevels><div class=sheet><div class=grab></div><h2>Skill levels</h2>
 <div class=sheetlist data-sum=levels data-empty="Not set">
 <label class=sheetopt data-label="All levels"><input type=checkbox id=allLevels {% if dup and dup.all_levels %}checked{% endif %}><span><b>All levels</b><small>Every skill level</small></span></label>
-{% for pid, name, short, full in SPORTS.LEVELS %}<label class=sheetopt data-label="{{ name }}"><input type=checkbox name=level value="{{ pid }}" {% if dup and pid in dup.levels %}checked{% endif %}><span><b>{{ name }}</b><small>{{ short }}</small></span></label>{% endfor %}
+{% for pid, name, short, full in level_catalog(dup.sport if dup else 'Water Polo', (dup.levels|join(',')) if dup else '') %}<label class=sheetopt data-label="{{ name }}"><input type=checkbox name=level value="{{ pid }}" {% if dup and pid in dup.levels %}checked{% endif %}><span><b>{{ name }}</b><small>{{ short }}</small></span></label>{% endfor %}
 </div>
 <button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetDivision><div class=sheet><div class=grab></div><h2>Division</h2>
@@ -5223,7 +5223,7 @@ T["practice"] = """{% set p = x.p %}
 <div class=stattile><b>{{ x.checked|length }}</b><span>Checked in</span></div>
 </div>
 </div>
-{% if p.skill_levels %}<details class=card><summary>Skill levels</summary><div class=body>{% for row in SPORTS.LEVELS %}<p><b>{{ row[1] }}</b> {{ row[3] }}</p>{% endfor %}</div></details>{% endif %}
+{% if p.skill_levels %}<details class=card><summary>Skill levels</summary><div class=body>{% for row in level_catalog(p.sport, p.skill_levels) %}{% if row[0] in p.skill_levels.split(',') %}<p><b>{{ row[1] }}</b> {{ row[2] }}</p>{% endif %}{% endfor %}</div></details>{% endif %}
 {% if editing %}
 <form id=practiceForm method=post action="/practices/{{ p.id }}" class="card editorform" style="margin-top:16px" data-editorform enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <div class=formsec><h2>Practice details</h2>
