@@ -277,6 +277,7 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     assert "<h1>Members</h1>" in roster
     assert 'id=manageClear' in page and "/manage/search?q=" in page and "No matches for" in page
     assert "min-height:72px;padding:16px 12px 16px 10px" in page
+    assert "div.growthcard{position:relative;background:transparent;border:0;border-radius:0;padding:0;margin:0 0 16px}" in page
     assert "id=manageIndex" not in page
 
 

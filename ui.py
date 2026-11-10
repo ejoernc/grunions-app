@@ -672,7 +672,7 @@ dialog.matpick .matpart{flex-wrap:nowrap;margin:12px 4px 0}
 dialog.matpick .matpart span{white-space:nowrap;font-size:12px;padding:0 2px;height:36px;min-height:36px}
 .evhost{color:var(--t2);font-size:14px;margin:2px 0 8px}.evnote{color:var(--t2);font-size:15px;line-height:1.4;margin:8px 0}
 details.moredetails{margin:8px 0 12px}details.moredetails>summary{min-height:44px;padding:8px 0;font-weight:600}
-a.growthcard,div.growthcard{position:relative;padding:var(--space-4) var(--space-4) var(--space-2);margin:0 0 var(--space-3)}
+a.growthcard,div.growthcard{position:relative;background:transparent;border:0;border-radius:0;padding:0;margin:0 0 16px}
 a.growthcard,a.growthpane{display:block;color:inherit;text-decoration:none}
 .growthheadrow{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin:0 0 6px}
 .growthtitles{position:relative;flex:1;min-width:0;display:grid}
