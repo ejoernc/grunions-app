@@ -62,6 +62,7 @@ def ensure(d):
     _seed_passes(d)
     _seed_org_structure(d)
     _ensure_schedule_days(d)
+    _migrate_compliance_venues(d)
 
 
 def _meta(d, key):
@@ -418,6 +419,213 @@ def schedule_for(d, program_id):
     return d.execute("SELECT * FROM program_schedules WHERE program_id=? ORDER BY id LIMIT 1", (program_id,)).fetchone()
 
 
+def _kind_for(name, keywords):
+    blob = "%s %s" % (name or "", keywords or "")
+    blob = blob.lower()
+    if "safesport" in blob:
+        return "safesport"
+    if "background" in blob:
+        return "background"
+    if "referee" in blob:
+        return "referee"
+    if "insurance" in blob or "open water" in blob or "open-water" in blob:
+        return "insurance"
+    if "usawp" in blob or "usa water polo" in blob or "usms" in blob or "masters swimming" in blob:
+        return "membership"
+    if "waiver" in blob:
+        return "waiver"
+    if "coach" in blob and "cert" in blob:
+        return "coaching"
+    return "custom"
+
+
+def _default_roles(kind):
+    if kind == "safesport":
+        return "athlete,coach"
+    if kind in ("background", "coaching"):
+        return "coach"
+    if kind == "referee":
+        return "referee"
+    return "athlete"
+
+
+def _verify_from_scope(value):
+    if value == "external":
+        return "auto"
+    return "review"
+
+
+def _sync_rules(d, req_id, program_ids, roles, everyone, enforced, verification, tracks):
+    """Keep one per-sport rule for each linked sport. Does not touch member records."""
+    kind = ""
+    row = d.execute("SELECT kind, expires FROM requirements WHERE id=?", (req_id,)).fetchone()
+    if row:
+        kind = row["kind"] or ""
+        if tracks is None:
+            tracks = row["expires"] or 0
+    verify = _verify_from_scope(verification)
+    role_csv = ",".join(roles) if isinstance(roles, (list, tuple)) else (roles or "")
+    if not role_csv and not everyone:
+        role_csv = _default_roles(kind)
+    keep = set(program_ids)
+    for pid in keep:
+        found = d.execute("SELECT id FROM program_rules WHERE program_id=? AND requirement_id=?", (pid, req_id)).fetchone()
+        if found:
+            d.execute("""UPDATE program_rules SET roles=?, everyone=?, enforced=?, verification=?, tracks_expiration=?
+                WHERE id=?""", (role_csv, 1 if everyone else 0, 1 if enforced else 0, verify, 1 if tracks else 0, found["id"]))
+        else:
+            d.execute("""INSERT INTO program_rules(program_id, requirement_id, roles, everyone, enforced, timing, within_days, verification, tracks_expiration)
+                VALUES(?,?,?,?,?,'before_first',0,?,?)""", (pid, req_id, role_csv, 1 if everyone else 0, 1 if enforced else 0, verify, 1 if tracks else 0))
+    for old in d.execute("SELECT id, program_id FROM program_rules WHERE requirement_id=?", (req_id,)).fetchall():
+        if old["program_id"] not in keep:
+            d.execute("DELETE FROM program_rules WHERE id=?", (old["id"],))
+
+
+def _migrate_compliance_venues(d):
+    """One definition per requirement name, one rule per sport link, and venues from saved places."""
+    cols = {row[1] for row in d.execute("PRAGMA table_info(requirements)")}
+    if not cols:
+        return
+    if "kind" not in cols:
+        d.execute("ALTER TABLE requirements ADD COLUMN kind TEXT NOT NULL DEFAULT 'custom'")
+    d.execute("""CREATE TABLE IF NOT EXISTS program_rules(
+        id INTEGER PRIMARY KEY, program_id INTEGER NOT NULL, requirement_id INTEGER NOT NULL,
+        roles TEXT NOT NULL DEFAULT '', everyone INTEGER NOT NULL DEFAULT 0,
+        enforced INTEGER NOT NULL DEFAULT 0, timing TEXT NOT NULL DEFAULT 'before_first',
+        within_days INTEGER NOT NULL DEFAULT 0, verification TEXT NOT NULL DEFAULT 'review',
+        tracks_expiration INTEGER NOT NULL DEFAULT 0, UNIQUE(program_id, requirement_id))""")
+    d.execute("""CREATE TABLE IF NOT EXISTS venues(
+        id INTEGER PRIMARY KEY, name TEXT NOT NULL, address TEXT NOT NULL DEFAULT '',
+        instructions TEXT NOT NULL DEFAULT '')""")
+    d.execute("""CREATE TABLE IF NOT EXISTS venue_programs(
+        venue_id INTEGER NOT NULL, program_id INTEGER NOT NULL, PRIMARY KEY(venue_id, program_id))""")
+    if _meta(d, "compliance_venues_v1") == "1":
+        return
+    groups = {}
+    for req in d.execute("SELECT * FROM requirements ORDER BY id").fetchall():
+        key = " ".join((req["name"] or "").casefold().split())
+        groups.setdefault(key, []).append(req)
+    for rows in groups.values():
+        keep = rows[0]["id"]
+        for extra in rows[1:]:
+            d.execute("""DELETE FROM member_reqs WHERE req_id=? AND member_id IN (
+                SELECT member_id FROM member_reqs WHERE req_id=?)""", (extra["id"], keep))
+            d.execute("UPDATE member_reqs SET req_id=? WHERE req_id=?", (keep, extra["id"]))
+            for link in d.execute("SELECT program_id FROM requirement_programs WHERE requirement_id=?", (extra["id"],)).fetchall():
+                d.execute("INSERT OR IGNORE INTO requirement_programs(requirement_id, program_id) VALUES(?,?)", (keep, link["program_id"]))
+            d.execute("DELETE FROM requirement_programs WHERE requirement_id=?", (extra["id"],))
+            d.execute("DELETE FROM requirement_scopes WHERE requirement_id=?", (extra["id"],))
+            d.execute("DELETE FROM requirements WHERE id=?", (extra["id"],))
+    for req in d.execute("SELECT * FROM requirements").fetchall():
+        kind = _kind_for(req["name"], req["keywords"] if "keywords" in req.keys() else "")
+        d.execute("UPDATE requirements SET kind=? WHERE id=?", (kind, req["id"]))
+        scope = d.execute("SELECT * FROM requirement_scopes WHERE requirement_id=?", (req["id"],)).fetchone()
+        enforced = 1 if scope and scope["review_status"] == "active" and scope["affects_clearance"] else 0
+        roles = scope["roles"] if scope else _default_roles(kind)
+        everyone = scope["everyone"] if scope else 0
+        verify = _verify_from_scope(scope["verification"] if scope else "manual")
+        tracks = 1 if req["expires"] else 0
+        linked = [row["program_id"] for row in d.execute("SELECT program_id FROM requirement_programs WHERE requirement_id=?", (req["id"],)).fetchall()]
+        for pid in linked:
+            d.execute("""INSERT OR IGNORE INTO program_rules(program_id, requirement_id, roles, everyone, enforced, timing, within_days, verification, tracks_expiration)
+                VALUES(?,?,?,?,?,'before_first',0,?,?)""", (pid, req["id"], roles or _default_roles(kind), everyone, enforced, verify, tracks))
+    if not d.execute("""SELECT 1 FROM requirements WHERE kind='membership' AND (
+            lower(name) LIKE '%usa water polo%' OR lower(coalesce(keywords,'')) LIKE '%usawp%')""").fetchone():
+        req_id = d.execute("INSERT INTO requirements(name, applies_to, keywords, expires, active, kind) VALUES(?,?,?,?,1,?)",
+                           ("USA Water Polo membership", "athlete", "usawp", 1, "membership")).lastrowid
+        d.execute("""INSERT INTO requirement_scopes(requirement_id, description, category, issuer, activities, roles, everyone, effect, affects_clearance, verification, review_status)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?)""", (
+                req_id, "Current USA Water Polo membership.", "", "USA Water Polo", "", "athlete", 0, "checkin", 1, "external", "active"))
+        polo = d.execute("SELECT id FROM programs WHERE slug='water-polo'").fetchone()
+        if polo:
+            d.execute("INSERT OR IGNORE INTO requirement_programs(requirement_id, program_id) VALUES(?,?)", (req_id, polo["id"]))
+            d.execute("""INSERT OR IGNORE INTO program_rules(program_id, requirement_id, roles, everyone, enforced, timing, within_days, verification, tracks_expiration)
+                VALUES(?,?, 'athlete', 0, 1, 'before_first', 0, 'auto', 1)""", (polo["id"], req_id))
+    _seed_venues(d)
+    _set_meta(d, "compliance_venues_v1", "1")
+
+
+def _seed_venues(d):
+    def ensure_venue(name, address):
+        found = d.execute("SELECT id FROM venues WHERE lower(name)=?", (name.casefold(),)).fetchone()
+        if found:
+            if address and not (d.execute("SELECT address FROM venues WHERE id=?", (found["id"],)).fetchone()["address"] or ""):
+                d.execute("UPDATE venues SET address=? WHERE id=?", (address, found["id"]))
+            return found["id"]
+        return d.execute("INSERT INTO venues(name, address, instructions) VALUES(?,?,?)", (name, address or "", "")).lastrowid
+
+    def link(venue_id, program_id):
+        if venue_id and program_id:
+            d.execute("INSERT OR IGNORE INTO venue_programs(venue_id, program_id) VALUES(?,?)", (venue_id, program_id))
+
+    known = (
+        ("Marina High School", "15871 Springdale St, Huntington Beach, CA 92649"),
+        ("Westminster High School", "14325 Goldenwest St, Westminster, CA 92683"),
+    )
+    ids = {}
+    for name, address in known:
+        ids[name.casefold()] = ensure_venue(name, address)
+    for program in d.execute("SELECT id, venue FROM programs").fetchall():
+        name = " ".join((program["venue"] or "").split())
+        if name:
+            link(ensure_venue(name, ""), program["id"])
+    for sched in d.execute("SELECT program_id, venue FROM program_schedules").fetchall():
+        name = " ".join((sched["venue"] or "").split())
+        if name:
+            link(ensure_venue(name, ""), sched["program_id"])
+    try:
+        practices = d.execute("SELECT location, sport FROM practices WHERE trim(COALESCE(location,''))!=''").fetchall()
+    except Exception:
+        practices = []
+    for practice in practices:
+        name = " ".join((practice["location"] or "").split())
+        venue_id = ids.get(name.casefold())
+        if not venue_id:
+            found = d.execute("SELECT id FROM venues WHERE lower(name)=?", (name.casefold(),)).fetchone()
+            venue_id = found["id"] if found else None
+        if not venue_id:
+            continue
+        program = program_for_label(d, practice["sport"] or "")
+        if program:
+            link(venue_id, program["id"])
+
+
+def save_sport_identity(d, slug, form):
+    """Name stays put. Active and governing body only. Choosing a body does not add requirements."""
+    program = program_by_slug(d, slug)
+    if not program:
+        raise ValueError("Choose a program.")
+    body = (form.get("governing_body") or program["governing_body"] or "none").strip()
+    if body not in ("usawp", "usms", "none"):
+        raise ValueError("Choose a governing body.")
+    d.execute("UPDATE programs SET governing_body=? WHERE id=?", (body, program["id"]))
+
+
+def rules_for(d, program_id, role=None):
+    rows = d.execute("""SELECT r.*, q.name, q.kind FROM program_rules r
+        JOIN requirements q ON q.id=r.requirement_id
+        WHERE r.program_id=? ORDER BY q.name, r.id""", (program_id,)).fetchall()
+    if not role:
+        return rows
+    out = []
+    for row in rows:
+        if row["everyone"] or not _csv(row["roles"]) or role in _csv(row["roles"]):
+            out.append(row)
+    return out
+
+
+def _rule_note(d, program, rule):
+    note = "On" if rule["enforced"] else "Off"
+    others = [item["name"] for item in d.execute("""SELECT p.name FROM program_rules r
+        JOIN programs p ON p.id=r.program_id
+        WHERE r.requirement_id=? AND p.id!=? ORDER BY p.name""", (rule["requirement_id"], program["id"]))]
+    if others:
+        note += " · Also used by: " + ", ".join(others)
+    if not program["active"]:
+        note += " · Not applied while this sport is off"
+    return note
+
+
 def save_requirement(d, req_id, form):
     name = (form.get("name") or "").strip()
     if not name:
@@ -454,6 +662,7 @@ def save_requirement(d, req_id, form):
     for pid in program_ids:
         d.execute("INSERT INTO requirement_programs(requirement_id, program_id) VALUES(?,?)", (req_id, pid))
     d.execute("UPDATE scope_reviews SET resolved=1 WHERE kind='requirement' AND ref_id=?", (req_id,))
+    _sync_rules(d, req_id, program_ids, roles, everyone, 1 if affects else 0, verification, 1 if form.get("expires") else 0)
     return req_id
 
 
@@ -650,6 +859,9 @@ def eligibility(d, member, program, activity, role, today):
         linked = d.execute("SELECT 1 FROM requirement_programs WHERE requirement_id=? AND program_id=?", (req["id"], program["id"])).fetchone()
         if not linked:
             continue
+        rule = d.execute("SELECT * FROM program_rules WHERE program_id=? AND requirement_id=?", (program["id"], req["id"])).fetchone()
+        if rule is not None:
+            continue
         acts = _csv(scope["activities"])
         if acts and activity and activity not in acts:
             continue
@@ -657,6 +869,17 @@ def eligibility(d, member, program, activity, role, today):
             continue
         if not _req_met(d, member, req, scope, today):
             missing.append(req["name"])
+    for rule in d.execute("""SELECT r.*, q.name, q.expires, q.kind FROM program_rules r
+            JOIN requirements q ON q.id=r.requirement_id
+            WHERE r.program_id=? AND q.active=1 AND r.enforced=1""", (program["id"],)).fetchall():
+        if (rule["kind"] or "") == "membership":
+            continue
+        if not _role_ok(rule, role):
+            continue
+        req = {"id": rule["requirement_id"], "name": rule["name"], "expires": 1 if rule["tracks_expiration"] else 0}
+        scope = {"verification": "manual", "roles": rule["roles"], "everyone": rule["everyone"]}
+        if not _req_met(d, member, req, scope, today):
+            missing.append(rule["name"])
     if missing:
         return {"applied": True, "status": "Action needed", "missing": missing}
     if pending:
@@ -757,7 +980,19 @@ DEFAULT_DIVISIONS = (
 )
 PERM_CLUB = (("none", "No admin access"), ("admin_lite", "Admin lite"), ("admin", "Admin"))
 PERM_SPORT = (("none", "No admin access"), ("sport_admin", "Sport admin"))
-REQ_GROUPS = (("athlete", "Members"), ("coach", "Coaches"), ("referee", "Referees"))
+REQ_GROUPS = (("athlete", "Athletes"), ("coach", "Coaches"), ("referee", "Referees"))
+KIND_LABELS = (
+    ("membership", "Governing-body membership"),
+    ("safesport", "SafeSport"),
+    ("background", "Background screening"),
+    ("insurance", "Insurance"),
+    ("coaching", "Coaching certification"),
+    ("referee", "Referee certification"),
+    ("waiver", "Waiver"),
+    ("custom", "Custom"),
+)
+VERIFY_RULE = (("auto", "Automatic check"), ("review", "Admin review"), ("attest", "Self-attestation"))
+TIMING_RULE = (("before_first", "Before the first session"), ("within_days", "Within a number of days"))
 
 
 def _seed_org_structure(d):
@@ -891,83 +1126,53 @@ def move_division(d, program, div_id, direction):
 def programs_html(d):
     bits = ['<div class=mlist>']
     for program in programs(d):
-        state = "On" if program["active"] else "Off"
+        state = "Active" if program["active"] else "Inactive"
         body = {"usawp": "USA Water Polo", "usms": "US Masters Swimming", "none": "No governing body"}.get(program["governing_body"], program["governing_body"])
-        count = requirement_count(d, program["id"])
+        count = d.execute("SELECT COUNT(*) FROM program_rules WHERE program_id=?", (program["id"],)).fetchone()[0]
         noun = "requirement" if count == 1 else "requirements"
-        desc = "%s · %s · %d %s" % (body, state, count, noun)
-        phrase = schedule_phrase(schedule_days(d, program["id"]))
-        if phrase:
-            desc = "%s · %s" % (desc, phrase)
-        bits.append(_row("/manage/club/programs/%s" % program["slug"], program["name"], desc))
+        bits.append(_row("/manage/club/programs/%s" % program["slug"], program["name"], "%s · %s · %d %s" % (body, state, count, noun)))
     bits.append("</div>")
     return "".join(bits)
 
 
 def program_detail_html(d, program, csrf):
-    sched = schedule_for(d, program["id"])
-    slots = schedule_days(d, program["id"])
-    phrase = schedule_phrase(slots)
-    acts = set(_csv(program["activities"]))
-    coaches = d.execute("""SELECT id, first, preferred_first, last, role, is_admin FROM members
-        WHERE COALESCE(role,'')!='system' AND (role='coach' OR is_admin=1 OR id IN (SELECT member_id FROM coaching_list))
-        ORDER BY last, first""").fetchall()
-    assigned = {row["member_id"] for row in d.execute("SELECT member_id FROM program_coaches WHERE program_id=?", (program["id"],)).fetchall()}
-    slot_bits = []
-    for row in slots:
-        slot_bits.append('<a class=mrow href="/manage/club/programs/%s/schedule/%d"><span class=grow><span class=mtitle>%s</span></span><span class=mchev>%s</span></a>' % (
-            escape(program["slug"]), row["id"], escape(slot_line(row)), CHEV))
-    if not slot_bits:
-        slot_bits.append('<p class="t3 sm" style="padding:12px 16px">No days yet.</p>')
-    coach_bits = []
-    for person in coaches:
-        name = ("%s %s" % (person["preferred_first"] or person["first"], person["last"] or "")).strip()
-        coach_bits.append('<label class=checkline><input type=checkbox name=coach value="%d"%s> %s</label>' % (
-            person["id"], " checked" if person["id"] in assigned else "", escape(name)))
-    req_bits = ""
-    return """<form method=post class=clubform>
+    body_name = {"usawp": "USA Water Polo", "usms": "US Masters Swimming", "none": "None"}.get(program["governing_body"], program["governing_body"])
+    state = "Active" if program["active"] else "Inactive"
+    role_rows = []
+    blurbs = {
+        "athlete": "Insurance, training, and waivers",
+        "coach": "Screening and certifications",
+        "referee": "Officiating credentials",
+    }
+    for code, label in REQ_GROUPS:
+        rows = rules_for(d, program["id"], code)
+        blurb = ", ".join(row["name"] for row in rows[:3]) if rows else blurbs[code]
+        role_rows.append(_row("/manage/club/programs/%s/roles/%s" % (program["slug"], code), label, blurb))
+    div_count = d.execute("SELECT COUNT(*) FROM program_divisions WHERE program_id=? AND archived=0", (program["id"],)).fetchone()[0]
+    div_desc = "%d configured" % div_count if div_count else "None yet"
+    options = []
+    for value, label in (("usawp", "USA Water Polo"), ("usms", "US Masters Swimming"), ("none", "None")):
+        options.append('<option value="%s"%s>%s</option>' % (value, " selected" if program["governing_body"] == value else "", label))
+    return """<div style="padding-bottom:120px">
+<form method=post class=clubform>
 %s
-<input type=hidden name=action value=save>
-<h2>Overview</h2>
-<p class="t3 sm">%s</p>
-%s
-<label class=checkline><input type=checkbox name=active value=1%s> Program is on</label>
-<p class="t3 sm">While this is off, its requirements are not applied and it stays out of registration, Schedule filters, Lineup filters, and the widget.</p>
-<label>Governing body<select name=governing_body>
-<option value=usawp%s>USA Water Polo</option>
-<option value=usms%s>US Masters Swimming</option>
-<option value=none%s>None</option></select></label>
-<p>Activities</p>
-<label class=checkline><input type=checkbox name=activity_practice value=1%s> Practice</label>
-<label class=checkline><input type=checkbox name=activity_scrimmage value=1%s> Scrimmage</label>
-<label class=checkline><input type=checkbox name=activity_game value=1%s> Game</label>
-<h2>Venues</h2>
-<label>Venue<input name=venue value="%s"></label>
-<label>Notes<textarea class=planfield name=notes rows=3>%s</textarea></label>
-<h2>Regular schedule</h2>
-<p class="t3 sm">This is the usual pattern. Saving it does not add sessions. Real sessions stay on Schedule.</p>
-<label>Description<input name=description value="%s"></label>
-<label>Schedule notes<textarea class=planfield name=schedule_notes rows=2>%s</textarea></label>
-<div class=mlist>%s</div>
-<p style="margin-top:16px"><a class="btn btn-secondary full" href="/manage/club/programs/%s/schedule/new">Add day</a></p>
-<h2>Coaches</h2>
-%s
-<button class="btn btn-primary full" type=submit>Save</button>
+<input type=hidden name=action value=identity>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px"><p class="t3 sm" style="margin:0">Governing body: %s</p><span class="mbadge info">%s</span></div>
+<label>Governing body<select name=governing_body>%s</select></label>
+<label class=checkline><input type=checkbox name=active value=1%s> Active</label>
+<p class="t3 sm">While this is off, its requirements are not applied. Choosing a governing body does not add requirements.</p>
+<button class="btn btn-secondary" type=submit>Save</button>
 </form>
-%s""" % (
-        csrf, escape(program["family_name"]),
-        ('<p class="t3 sm">%s</p>' % escape(phrase)) if phrase else "",
+<h2>Compliance requirements</h2>
+<p class="t3 sm">Requirements for people in this sport.</p>
+<div class=mlist>%s</div>
+<h2>Divisions</h2>
+<div class=mlist>%s</div>
+</div>""" % (
+        csrf, escape(body_name), escape(state), "".join(options),
         " checked" if program["active"] else "",
-        " selected" if program["governing_body"] == "usawp" else "",
-        " selected" if program["governing_body"] == "usms" else "",
-        " selected" if program["governing_body"] == "none" else "",
-        " checked" if "practice" in acts else "", " checked" if "scrimmage" in acts else "", " checked" if "game" in acts else "",
-        escape(program["venue"] or ""), escape(program["notes"] or ""),
-        escape(sched["description"] if sched else ""),
-        escape(sched["notes"] if sched else ""),
-        "".join(slot_bits), escape(program["slug"]),
-        "".join(coach_bits) or "<p class=t3>No coaches to assign yet.</p>",
-        program_requirements_html(d, program) + divisions_html(d, program) + sport_leadership_html(d, program))
+        "".join(role_rows),
+        _row("/manage/club/programs/%s/divisions" % program["slug"], "Divisions", div_desc))
 
 
 def _req_role(scope):
@@ -1023,6 +1228,304 @@ def divisions_html(d, program):
     bits.append(_row("/manage/club/programs/%s/divisions/new" % program["slug"], "Add division", "Name and a one-line description"))
     bits.append("</div>")
     return "".join(bits)
+
+
+def role_rules_html(d, program, role):
+    label = dict(REQ_GROUPS).get(role, role)
+    bits = ['<div class=mlist>']
+    rows = rules_for(d, program["id"], role)
+    if not rows:
+        bits.append('<p class="t3 sm" style="padding:12px 16px">No requirements yet.</p>')
+    for row in rows:
+        bits.append(_row("/manage/club/programs/%s/rules/%d" % (program["slug"], row["id"]), row["name"], _rule_note(d, program, row)))
+    bits.append(_row("/manage/club/programs/%s/rules/new?role=%s" % (program["slug"], role), "Add requirement", "For %s" % label.lower()))
+    bits.append("</div>")
+    return "".join(bits)
+
+
+def _select(options, current):
+    return "".join('<option value="%s"%s>%s</option>' % (value, " selected" if value == current else "", label) for value, label in options)
+
+
+def rule_edit_html(d, program, rule, csrf, preset_role=""):
+    req_id = rule["requirement_id"] if rule else None
+    roles = set(_csv(rule["roles"])) if rule else set()
+    if preset_role and not rule:
+        roles.add(preset_role)
+    defs = d.execute("SELECT id, name FROM requirements WHERE active=1 ORDER BY name").fetchall()
+    options = ['<option value="">Choose a requirement</option>']
+    for item in defs:
+        options.append('<option value="%d"%s>%s</option>' % (item["id"], " selected" if item["id"] == req_id else "", escape(item["name"])))
+    role_bits = "".join('<label class=checkline><input type=checkbox name="role_%s" value=1%s> %s</label>' % (
+        code, " checked" if code in roles else "", label) for code, label in REQ_GROUPS)
+    timing = rule["timing"] if rule else "before_first"
+    verify = rule["verification"] if rule else "review"
+    kind = "custom"
+    if rule:
+        current = d.execute("SELECT kind FROM requirements WHERE id=?", (rule["requirement_id"],)).fetchone()
+        kind = (current["kind"] if current and current["kind"] else "custom")
+    within = rule["within_days"] if rule else 0
+    remove = ""
+    if rule:
+        remove = """<form method=post style="margin-top:12px">%s<input type=hidden name=action value=remove><button class="btn btn-danger full" type=submit>Remove from this sport</button></form>""" % csrf
+    return """<form method=post class=clubform style="padding-bottom:120px">%s
+<label>Requirement<select name=requirement>%s</select></label>
+<p class="t3 sm">Or create one. An existing name is reused, not copied.</p>
+<label>New name<input name=new_name placeholder="Leave blank to use the requirement above"></label>
+<label>Kind<select name=kind>%s</select></label>
+<p>Who</p>
+%s
+<label class=checkline><input type=checkbox name=enforced value=1%s> Enforced</label>
+<label>When<select name=timing>%s</select></label>
+<label>Days<input name=within_days inputmode=numeric value="%s"></label>
+<label>Verification<select name=verification>%s</select></label>
+<label class=checkline><input type=checkbox name=tracks_expiration value=1%s> Track expiration</label>
+<button class="btn btn-primary full" type=submit>Save</button>
+</form>%s""" % (
+        csrf, "".join(options), _select(KIND_LABELS, kind), role_bits,
+        " checked" if rule and rule["enforced"] else "",
+        _select(TIMING_RULE, timing), escape(str(within or "")),
+        _select(VERIFY_RULE, verify),
+        " checked" if rule and rule["tracks_expiration"] else "",
+        remove)
+
+
+def save_program_rule(d, program, rule_id, form):
+    """Attach a definition to this sport. Does not change other sports or member records."""
+    name = " ".join((form.get("new_name") or "").split())
+    req_raw = (form.get("requirement") or "").strip()
+    if name:
+        kind = form.get("kind") if form.get("kind") in dict(KIND_LABELS) else "custom"
+        found = d.execute("SELECT id FROM requirements WHERE lower(name)=?", (name.casefold(),)).fetchone()
+        if found:
+            req_id = found["id"]
+        else:
+            req_id = d.execute("INSERT INTO requirements(name, applies_to, keywords, expires, active, kind) VALUES(?,?,?,?,1,?)",
+                               (name[:80], "athlete", _slug(name)[:40], 1 if form.get("tracks_expiration") else 0, kind)).lastrowid
+            d.execute("""INSERT INTO requirement_scopes(requirement_id, description, category, issuer, activities, roles, everyone, effect, affects_clearance, verification, review_status)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?)""", (req_id, "", "", "", "", "", 0, "info", 0, "manual", "needs_review"))
+    elif req_raw.isdigit():
+        req_id = int(req_raw)
+        if not d.execute("SELECT 1 FROM requirements WHERE id=?", (req_id,)).fetchone():
+            raise ValueError("Choose a requirement.")
+    else:
+        raise ValueError("Choose a requirement.")
+    roles = [code for code, _label in REQ_GROUPS if form.get("role_%s" % code)]
+    if not roles:
+        raise ValueError("Choose who this applies to.")
+    timing = form.get("timing") if form.get("timing") in dict(TIMING_RULE) else "before_first"
+    try:
+        within = int(form.get("within_days") or 0)
+    except ValueError:
+        within = 0
+    if timing == "within_days" and within < 1:
+        raise ValueError("Add how many days.")
+    if timing != "within_days":
+        within = 0
+    verification = form.get("verification") if form.get("verification") in dict(VERIFY_RULE) else "review"
+    enforced = 1 if form.get("enforced") else 0
+    tracks = 1 if form.get("tracks_expiration") else 0
+    if rule_id:
+        row = d.execute("SELECT id FROM program_rules WHERE id=? AND program_id=?", (rule_id, program["id"])).fetchone()
+        if not row:
+            raise ValueError("That requirement is no longer on this sport.")
+        d.execute("""UPDATE program_rules SET requirement_id=?, roles=?, everyone=0, enforced=?, timing=?, within_days=?, verification=?, tracks_expiration=?
+            WHERE id=?""", (req_id, ",".join(roles), enforced, timing, within, verification, tracks, rule_id))
+    else:
+        found = d.execute("SELECT id FROM program_rules WHERE program_id=? AND requirement_id=?", (program["id"], req_id)).fetchone()
+        if found:
+            rule_id = found["id"]
+            d.execute("""UPDATE program_rules SET roles=?, everyone=0, enforced=?, timing=?, within_days=?, verification=?, tracks_expiration=?
+                WHERE id=?""", (",".join(roles), enforced, timing, within, verification, tracks, rule_id))
+        else:
+            rule_id = d.execute("""INSERT INTO program_rules(program_id, requirement_id, roles, everyone, enforced, timing, within_days, verification, tracks_expiration)
+                VALUES(?,?,?,0,?,?,?,?,?)""", (program["id"], req_id, ",".join(roles), enforced, timing, within, verification, tracks)).lastrowid
+    d.execute("INSERT OR IGNORE INTO requirement_programs(requirement_id, program_id) VALUES(?,?)", (req_id, program["id"]))
+    return rule_id
+
+
+def remove_program_rule(d, program, rule_id):
+    row = d.execute("SELECT requirement_id FROM program_rules WHERE id=? AND program_id=?", (rule_id, program["id"])).fetchone()
+    if not row:
+        return
+    d.execute("DELETE FROM program_rules WHERE id=?", (rule_id,))
+    d.execute("DELETE FROM requirement_programs WHERE requirement_id=? AND program_id=?", (row["requirement_id"], program["id"]))
+
+
+def compliance_html(d):
+    bits = ['<p class="t3 sm">Each requirement is defined once and can apply to one sport, several, or all of them.</p><div class=mlist>']
+    rows = d.execute("SELECT * FROM requirements WHERE active=1 ORDER BY name").fetchall()
+    if not rows:
+        bits.append('<p class="t3 sm" style="padding:12px 16px">No requirements yet.</p>')
+    labels = dict(KIND_LABELS)
+    for row in rows:
+        n = d.execute("SELECT COUNT(*) FROM program_rules WHERE requirement_id=?", (row["id"],)).fetchone()[0]
+        sport = "all sports" if n and n == d.execute("SELECT COUNT(*) FROM programs").fetchone()[0] else ("%d sports" % n if n != 1 else "1 sport")
+        bits.append(_row("/manage/club/compliance/%d" % row["id"], row["name"], "%s · %s" % (labels.get(row["kind"] or "custom", "Custom"), sport)))
+    bits.append("</div>")
+    bits.append('<p style="margin-top:16px"><a class="btn btn-primary full" href="/manage/club/compliance/new">Add requirement</a></p>')
+    return "".join(bits)
+
+
+def definition_edit_html(d, req, csrf):
+    kind = req["kind"] if req and "kind" in req.keys() else "custom"
+    scope = None
+    linked = set()
+    if req:
+        scope = d.execute("SELECT description FROM requirement_scopes WHERE requirement_id=?", (req["id"],)).fetchone()
+        linked = {row["program_id"] for row in d.execute("SELECT program_id FROM program_rules WHERE requirement_id=?", (req["id"],)).fetchall()}
+    boxes = []
+    programs_all = programs(d)
+    for program in programs_all:
+        boxes.append('<label class=checkline><input type=checkbox name=program value="%d"%s> %s</label>' % (
+            program["id"], " checked" if program["id"] in linked else "", escape(program["name"])))
+    return """<form method=post class=clubform style="padding-bottom:120px">%s
+<label>Name<input name=name required value="%s"></label>
+<label>Kind<select name=kind>%s</select></label>
+<label>Description<textarea class=planfield name=description rows=3>%s</textarea></label>
+<p>Sports</p>
+<label class=checkline><input type=checkbox name=all_sports value=1%s> All sports</label>
+%s
+<p class="t3 sm">Unchecking a sport removes the rule from that sport. It does not delete the definition or anyone's record.</p>
+<button class="btn btn-primary full" type=submit>Save</button>
+</form>""" % (
+        csrf, escape(req["name"] if req else ""), _select(KIND_LABELS, kind or "custom"),
+        escape(scope["description"] if scope else ""),
+        " checked" if programs_all and linked and linked >= {row["id"] for row in programs_all} else "",
+        "".join(boxes))
+
+
+def save_definition(d, req_id, form):
+    name = " ".join((form.get("name") or "").split())
+    if len(name) < 2:
+        raise ValueError("Add a name.")
+    kind = form.get("kind") if form.get("kind") in dict(KIND_LABELS) else "custom"
+    other = d.execute("SELECT id FROM requirements WHERE lower(name)=? AND id!=?", (name.casefold(), req_id or 0)).fetchone()
+    if other:
+        raise ValueError("That requirement already exists.")
+    description = (form.get("description") or "")[:500]
+    if req_id:
+        d.execute("UPDATE requirements SET name=?, kind=?, active=1 WHERE id=?", (name[:80], kind, req_id))
+    else:
+        req_id = d.execute("INSERT INTO requirements(name, applies_to, keywords, expires, active, kind) VALUES(?,?,?,?,1,?)",
+                           (name[:80], "athlete", _slug(name)[:40], 0, kind)).lastrowid
+    if d.execute("SELECT 1 FROM requirement_scopes WHERE requirement_id=?", (req_id,)).fetchone():
+        d.execute("UPDATE requirement_scopes SET description=? WHERE requirement_id=?", (description, req_id))
+    else:
+        d.execute("""INSERT INTO requirement_scopes(requirement_id, description, category, issuer, activities, roles, everyone, effect, affects_clearance, verification, review_status)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?)""", (req_id, description, "", "", "", "", 0, "info", 0, "manual", "needs_review"))
+    if form.get("all_sports"):
+        chosen = [row["id"] for row in programs(d)]
+    else:
+        chosen = [int(v) for v in form.getlist("program") if str(v).isdigit()]
+    have = {row["program_id"]: row["id"] for row in d.execute("SELECT id, program_id FROM program_rules WHERE requirement_id=?", (req_id,)).fetchall()}
+    for pid in chosen:
+        if pid in have:
+            continue
+        d.execute("""INSERT INTO program_rules(program_id, requirement_id, roles, everyone, enforced, timing, within_days, verification, tracks_expiration)
+            VALUES(?,?,?,0,0,'before_first',0,'review',0)""", (pid, req_id, _default_roles(kind)))
+        d.execute("INSERT OR IGNORE INTO requirement_programs(requirement_id, program_id) VALUES(?,?)", (req_id, pid))
+    for pid, rule_id in have.items():
+        if pid not in chosen:
+            d.execute("DELETE FROM program_rules WHERE id=?", (rule_id,))
+            d.execute("DELETE FROM requirement_programs WHERE requirement_id=? AND program_id=?", (req_id, pid))
+    return req_id
+
+
+def venues_html(d):
+    bits = ['<p class="t3 sm">A venue is a place. Days, times, and coaches stay on Schedule and People.</p><div class=mlist>']
+    rows = d.execute("SELECT * FROM venues ORDER BY name").fetchall()
+    if not rows:
+        bits.append('<p class="t3 sm" style="padding:12px 16px">No venues yet.</p>')
+    for row in rows:
+        names = [item["name"] for item in d.execute("""SELECT p.name FROM venue_programs vp
+            JOIN programs p ON p.id=vp.program_id WHERE vp.venue_id=? ORDER BY p.name""", (row["id"],)).fetchall()]
+        desc = row["address"] or "No address"
+        if names:
+            desc = "%s · %s" % (", ".join(names), desc)
+        bits.append(_row("/manage/club/venues/%d" % row["id"], row["name"], desc))
+    bits.append("</div>")
+    bits.append('<p style="margin-top:16px"><a class="btn btn-primary full" href="/manage/club/venues/new">Add venue</a></p>')
+    return "".join(bits)
+
+
+def venue_edit_html(d, venue, csrf):
+    linked = set()
+    if venue:
+        linked = {row["program_id"] for row in d.execute("SELECT program_id FROM venue_programs WHERE venue_id=?", (venue["id"],)).fetchall()}
+    boxes = []
+    for program in programs(d):
+        boxes.append('<label class=checkline><input type=checkbox name=program value="%d"%s> %s</label>' % (
+            program["id"], " checked" if program["id"] in linked else "", escape(program["name"])))
+    remove = ""
+    if venue:
+        remove = """<form method=post style="margin-top:12px">%s<input type=hidden name=action value=remove><button class="btn btn-danger full" type=submit>Remove venue</button></form>""" % csrf
+    return """<form method=post class=clubform style="padding-bottom:120px">%s
+<label>Name<input name=name required value="%s"></label>
+<label>Address<input name=address value="%s"></label>
+<label>Instructions<textarea class=planfield name=instructions rows=3>%s</textarea></label>
+<p>Sports</p>
+%s
+<p class="t3 sm">Unchecking a sport removes the link. Sessions that already use this place are left as they are.</p>
+<button class="btn btn-primary full" type=submit>Save</button>
+</form>%s""" % (
+        csrf, escape(venue["name"] if venue else ""), escape(venue["address"] if venue else ""),
+        escape(venue["instructions"] if venue else ""), "".join(boxes) or "<p class=t3>No sports yet.</p>", remove)
+
+
+def save_venue(d, venue_id, form):
+    name = " ".join((form.get("name") or "").split())
+    if len(name) < 2:
+        raise ValueError("Add a name.")
+    address = " ".join((form.get("address") or "").split())[:200]
+    instructions = (form.get("instructions") or "")[:500]
+    if venue_id:
+        row = d.execute("SELECT id FROM venues WHERE id=?", (venue_id,)).fetchone()
+        if not row:
+            raise ValueError("That venue is gone.")
+        d.execute("UPDATE venues SET name=?, address=?, instructions=? WHERE id=?", (name[:120], address, instructions, venue_id))
+    else:
+        venue_id = d.execute("INSERT INTO venues(name, address, instructions) VALUES(?,?,?)", (name[:120], address, instructions)).lastrowid
+    chosen = [int(v) for v in form.getlist("program") if str(v).isdigit()]
+    d.execute("DELETE FROM venue_programs WHERE venue_id=?", (venue_id,))
+    for pid in chosen:
+        d.execute("INSERT OR IGNORE INTO venue_programs(venue_id, program_id) VALUES(?,?)", (venue_id, pid))
+    return venue_id
+
+
+def remove_venue(d, venue_id):
+    d.execute("DELETE FROM venue_programs WHERE venue_id=?", (venue_id,))
+    d.execute("DELETE FROM venues WHERE id=?", (venue_id,))
+
+
+def venue_suggestions(d, q, sport=""):
+    """Club venues, with the session's sport first."""
+    rows = d.execute("SELECT * FROM venues ORDER BY name").fetchall()
+    wanted = None
+    if sport:
+        program = program_for_label(d, sport)
+        wanted = program["id"] if program else None
+    ranked = []
+    for row in rows:
+        linked = [item["program_id"] for item in d.execute("SELECT program_id FROM venue_programs WHERE venue_id=?", (row["id"],)).fetchall()]
+        if wanted and wanted not in linked and linked:
+            continue
+        if q and not _place_hit_local(q, row["name"], row["address"]):
+            continue
+        ranked.append(row)
+    if wanted:
+        ranked.sort(key=lambda row: 0 if d.execute("SELECT 1 FROM venue_programs WHERE venue_id=? AND program_id=?", (row["id"], wanted)).fetchone() else 1)
+    return ranked
+
+
+def _place_hit_local(q, name, detail=""):
+    needle = " ".join(str(q or "").casefold().split())
+    blob = " ".join(str(name or "").casefold().split()) + " " + " ".join(str(detail or "").casefold().split())
+    if not needle:
+        return True
+    if needle in blob:
+        return True
+    return all(part in blob for part in needle.split())
 
 
 def sport_leadership_html(d, program):
@@ -1093,7 +1596,7 @@ def schedule_day_edit_html(program, row, csrf, attempt=None):
     remove = ""
     if row:
         remove = """<form method=post style="margin-top:12px">%s<input type=hidden name=action value=remove><button class="btn btn-danger full" type=submit>Remove</button></form>""" % csrf
-    return """<form method=post class=clubform style="padding-bottom:48px">%s
+    return """<form method=post class=clubform style="padding-bottom:120px">%s
 <label>Day<select name=weekday>%s</select></label>
 <div class=row><label>Start<input type=time name=start required value="%s"></label><label>End<input type=time name=end required value="%s"></label></div>
 <button class="btn btn-primary full" type=submit>Save</button>

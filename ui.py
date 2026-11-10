@@ -2768,6 +2768,8 @@ window.grunionsPlaces=function(input){
  function show(q){
   var mine=++seq;
   var url='/api/places?q='+encodeURIComponent(q)+'&session='+encodeURIComponent(session());
+  var sport=document.querySelector('[name=sport]');
+  if(sport && sport.value) url+='&sport='+encodeURIComponent(sport.value);
   var near=proximity(); if(near) url+='&proximity='+encodeURIComponent(near);
   fetch(url).then(function(r){ return r.json(); }).then(function(rows){
    if(mine!==seq||input.value.trim()!==q) return;
@@ -4671,7 +4673,7 @@ T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
 })();
 </script>"""
 T["manage_area"] = ADMIN_NAV + """{{ admin_page(title, subtitle) }}
-<div class=mlist>{% for row in rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone) }}{% endfor %}</div>"""
+<div class=mlist style="margin-bottom:120px">{% for row in rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone) }}{% endfor %}</div>"""
 T["manage_schedule"] = ADMIN_NAV + """{{ admin_page('Schedule', 'Practices, scrimmages, and games.') }}
 {% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
 T["manage_lineup"] = ADMIN_NAV + """{{ admin_page('Lineup', 'Events, tournaments, camps, and socials.') }}

@@ -3899,9 +3899,16 @@ def _place_add(rows, name, detail, address="", map_url="", business=None):
     if not name: return
     if any(name.casefold() == row["name"].casefold() and detail.casefold() == row["detail"].casefold() for row in rows): return
     rows.append({"name": name, "detail": detail, "address": address, "map": map_url, "business": business, "verified": True})
-def local_places(d, q):
-    """Club pools first, then places the club has already saved."""
+def local_places(d, q, sport=""):
+    """Club venues and pools first, then places the club has already saved."""
     rows = []
+    if d is not None:
+        try:
+            import clubadmin
+            for venue in clubadmin.venue_suggestions(d, q, sport):
+                _place_add(rows, venue["name"], venue["address"] or "", venue["address"] or "")
+        except Exception:
+            pass
     for place in POOLS:
         if _place_hit(q, place["name"], place["address"]):
             _place_add(rows, place["name"], place["address"])
@@ -4044,14 +4051,14 @@ def nominatim_places(q):
     except Exception as e:
         app.logger.info("place suggest failed: %s", e)
     return rows
-def suggest_places(q, d=None, session="", proximity=""):
-    """Up to five places. Saved club pools come before Mapbox, then Nominatim if the cap is spent."""
+def suggest_places(q, d=None, session="", proximity="", sport=""):
+    """Up to five places. Saved club venues come before Mapbox, then Nominatim if the cap is spent."""
     q = " ".join(str(q or "").split())
     if len(q) < 3 or q.lower().startswith(("http://", "https://")): return []
     lng, lat = _proximity_pair(proximity)
-    key = "suggest3:%s|%s|%.3f,%.3f" % (_session_token(session) or "-", q.casefold(), lng, lat)
+    key = "suggest4:%s|%s|%s|%.3f,%.3f" % (_session_token(session) or "-", q.casefold(), (sport or "").casefold(), lng, lat)
     if key in _GEO_CACHE: return _GEO_CACHE[key]
-    rows = local_places(d, q)[:5]
+    rows = local_places(d, q, sport)[:5]
     remote = None
     if len(rows) < 5 and MAPBOX_TOKEN:
         remote = mapbox_suggest(q, session, "%.5f,%.5f" % (lng, lat))
@@ -4094,7 +4101,7 @@ def _save_lineup(d, existing=None):
 @app.route("/api/places")
 @login_required
 def api_places():
-    return jsonify(suggest_places(request.args.get("q"), db(), request.args.get("session") or "", request.args.get("proximity") or ""))
+    return jsonify(suggest_places(request.args.get("q"), db(), request.args.get("session") or "", request.args.get("proximity") or "", request.args.get("sport") or ""))
 @app.route("/api/places/retrieve")
 @login_required
 def api_places_retrieve():
@@ -4557,6 +4564,7 @@ _MANAGE_ICONS = {
  "seal": "M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z",
  "flag": "M42.76,50A8,8,0,0,0,40,56V224a8,8,0,0,0,16,0V179.77c26.79-21.16,49.87-9.75,76.45,3.41,16.4,8.11,31.32,15.51,48.22,15.51,13.93,0,28.54-4.75,43.82-18a8,8,0,0,0,2.76-6.25V56A8,8,0,0,0,218.76,50c-28,24.23-51.72,12.49-79.21-1.12C111.07,34.76,78.78,18.79,42.76,50ZM216,172.25c-26.79,21.16-49.87,9.74-76.45-3.41-25-12.35-50.81-25.11-83.55-8.93V59.79c26.79-21.16,49.87-9.75,76.45,3.4,25,12.35,50.81,25.12,83.55,8.94Z",
  "widget": "M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V104H216ZM216,88H40V56H216Z",
+ "pin": "M128,16a88.1,88.1,0,0,0-88,88c0,75.3,80,132.17,83.41,134.55a8,8,0,0,0,9.18,0C136,236.17,216,179.3,216,104A88.1,88.1,0,0,0,128,16Zm0,56a32,32,0,1,1-32,32A32,32,0,0,1,128,72Z",
 }
 def _manage_row(title, desc, href, icon, count=0, tone="info"):
     return {"title": title, "desc": desc, "href": href, "icon": _micon(_MANAGE_ICONS[icon]), "count": count or 0, "tone": tone}
@@ -4904,8 +4912,11 @@ def _manage_catalog(d):
         add("activities", "Requests", "Member-submitted events", "/manage/requests", "tray", "approval pending request")
     if admin:
         add("people", "People", "Members, coaches, admins, and referees", "/manage/area/people", "people", "member coach admin referee roster compliance membership certification expiring", expiring_people_count(d), "warn")
-        add("club", "Sports", "Programs, governing bodies, schedules, and requirements", "/manage/club/programs", "cal", "sport program water polo swimming schedule requirement safesport usawp usms eligibility")
-        add("club", "Plans & passes", "Memberships, drop-ins, and which programs they cover", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass")
+        add("club", "Sports", "Sport-specific compliance and requirements", "/manage/club/programs", "cal", "sport program water polo swimming requirement safesport usawp usms eligibility division")
+        add("club", "Compliance", "Shared requirements, credentials, insurance", "/manage/club/compliance", "shield", "compliance requirement safesport insurance waiver background screening certification")
+        add("club", "Venues", "Manage locations and assign them to sports", "/manage/club/venues", "pin", "venue pool location address marina westminster")
+        add("club", "Plans & passes", "Memberships, drop-ins, access and pricing", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass")
+        add("club", "People & roles", "Members, coaches, staff and permissions", "/manage/area/people", "people", "member coach admin referee staff role permission")
         add("club", "Website & sharing", "Public schedule and the website widget", "/manage/widget", "widget", "embed website widget preview")
         add("club", "Leadership", "Club roles and who holds them", "/manage/club/leadership", "people", "leadership president treasurer board role")
         add("club", "Integrations", "Club Assistant and other registration links", "/manage/club/integrations", "swap", "club assistant provider payment link")
@@ -5024,7 +5035,7 @@ def club_programs():
     d = db()
     clubadmin.ensure(d)
     body = clubadmin.programs_html(d) + '<p style="margin-top:16px"><a class="btn btn-primary full" href="/manage/club/programs/new">Add sport</a></p>'
-    return page(ui.ADMIN_NAV + "{{ admin_page('Sports', 'Each sport keeps its own schedule template and requirements.') }}{{ club_body|safe }}",
+    return page(ui.ADMIN_NAV + "{{ admin_page('Sports', 'Compliance and divisions for each sport.') }}{{ club_body|safe }}",
         tab="admin", admin_back="/manage/area/club", club_body=body)
 @app.route("/manage/club/programs/<slug>", methods=["GET", "POST"])
 @admin_required
@@ -5040,8 +5051,11 @@ def club_program(slug):
             before = d.execute("SELECT COUNT(*) FROM practices").fetchone()[0]
             rsvps = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
             clubadmin.set_active(d, slug, request.form.get("active") == "1")
-            clubadmin.save_overview(d, slug, request.form)
-            clubadmin.save_schedule(d, slug, request.form)
+            if request.form.get("activity_practice") or request.form.get("activity_scrimmage") or request.form.get("activity_game"):
+                clubadmin.save_overview(d, slug, request.form)
+                clubadmin.save_schedule(d, slug, request.form)
+            else:
+                clubadmin.save_sport_identity(d, slug, request.form)
             d.commit()
             if d.execute("SELECT COUNT(*) FROM practices").fetchone()[0] != before or d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != rsvps:
                 raise RuntimeError("a sport template must not change sessions or RSVPs")
@@ -5049,7 +5063,7 @@ def club_program(slug):
         except ValueError as exc:
             flash(str(exc))
         return redirect("/manage/club/programs/" + slug)
-    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Overview, regular schedule, requirements, and venue.') }}{{ club_body|safe }}",
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Compliance and divisions.') }}{{ club_body|safe }}",
         tab="admin", admin_back="/manage/club/programs", title=program["name"], club_body=clubadmin.program_detail_html(d, program, csrf_field()))
 @app.route("/manage/club/programs/<slug>/requirements/new", methods=["GET", "POST"])
 @admin_required
@@ -5074,6 +5088,161 @@ def club_program_requirement_new(slug):
     return page(ui.ADMIN_NAV + "{{ admin_page('Add requirement', subtitle) }}{{ club_body|safe }}",
         tab="admin", admin_back="/manage/club/programs/" + slug, subtitle="Starts checked for %s. Check another sport to share it." % program["name"],
         club_body=clubadmin.requirement_edit_html(d, None, None, csrf_field(), preset_ids=[program["id"]], sport=slug, preset_role=role))
+@app.route("/manage/club/programs/<slug>/roles/<role>", methods=["GET"])
+@admin_required
+def sport_role_rules(slug, role):
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    program = clubadmin.program_by_slug(d, slug)
+    if not program or role not in dict(clubadmin.REQ_GROUPS):
+        abort(404)
+    label = dict(clubadmin.REQ_GROUPS)[role]
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, subtitle) }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/club/programs/" + slug, title=label,
+        subtitle="Requirements for %s in %s." % (label.lower(), program["name"]),
+        club_body=clubadmin.role_rules_html(d, program, role))
+@app.route("/manage/club/programs/<slug>/rules/new", methods=["GET", "POST"])
+@admin_required
+def sport_rule_new(slug):
+    return _sport_rule_form(slug, None)
+@app.route("/manage/club/programs/<slug>/rules/<int:rule_id>", methods=["GET", "POST"])
+@admin_required
+def sport_rule_edit(slug, rule_id):
+    return _sport_rule_form(slug, rule_id)
+def _sport_rule_form(slug, rule_id):
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    program = clubadmin.program_by_slug(d, slug)
+    if not program:
+        abort(404)
+    row = None
+    if rule_id:
+        row = d.execute("SELECT * FROM program_rules WHERE id=? AND program_id=?", (rule_id, program["id"])).fetchone()
+        if not row:
+            abort(404)
+    role = (request.args.get("role") or (row["roles"].split(",")[0] if row and row["roles"] else "athlete")).strip()
+    if role not in dict(clubadmin.REQ_GROUPS):
+        role = "athlete"
+    back = "/manage/club/programs/%s/roles/%s" % (slug, role)
+    if request.method == "POST":
+        action = request.form.get("action") or "save"
+        try:
+            before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+            if action == "remove" and row:
+                clubadmin.remove_program_rule(d, program, row["id"])
+            else:
+                clubadmin.save_program_rule(d, program, row["id"] if row else None, request.form)
+            d.commit()
+            if d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != before:
+                raise RuntimeError("a compliance rule must not change RSVPs")
+            flash("Saved", "toast")
+            return redirect(back)
+        except ValueError as exc:
+            flash(str(exc))
+    title = row["name"] if False else ("Edit requirement" if row else "Add requirement")
+    if row:
+        named = d.execute("SELECT name FROM requirements WHERE id=?", (row["requirement_id"],)).fetchone()
+        title = named["name"] if named else "Edit requirement"
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'This rule applies to this sport only.') }}{{ club_body|safe }}",
+        tab="admin", admin_back=back, title=title, club_body=clubadmin.rule_edit_html(d, program, row, csrf_field(), preset_role=role))
+@app.route("/manage/club/programs/<slug>/divisions", methods=["GET"])
+@admin_required
+def sport_divisions(slug):
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    program = clubadmin.program_by_slug(d, slug)
+    if not program:
+        abort(404)
+    return page(ui.ADMIN_NAV + "{{ admin_page('Divisions', 'Skill levels for this sport. All levels stays available on each session.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/club/programs/" + slug, club_body=clubadmin.divisions_html(d, program))
+@app.route("/manage/club/compliance", methods=["GET"])
+@admin_required
+def club_compliance():
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    return page(ui.ADMIN_NAV + "{{ admin_page('Compliance', 'Shared requirements. A pass does not clear one.') }}<div style=\"padding-bottom:120px\">{{ club_body|safe }}</div>",
+        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.compliance_html(d))
+@app.route("/manage/club/compliance/new", methods=["GET", "POST"])
+@admin_required
+def club_compliance_new():
+    return _definition_form(None)
+@app.route("/manage/club/compliance/<int:req_id>", methods=["GET", "POST"])
+@admin_required
+def club_compliance_edit(req_id):
+    return _definition_form(req_id)
+def _definition_form(req_id):
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    req = None
+    if req_id:
+        req = d.execute("SELECT * FROM requirements WHERE id=?", (req_id,)).fetchone()
+        if not req:
+            abort(404)
+    if request.method == "POST":
+        try:
+            before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+            saved = clubadmin.save_definition(d, req["id"] if req else None, request.form)
+            d.commit()
+            if d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != before:
+                raise RuntimeError("a requirement definition must not change RSVPs")
+            flash("Saved", "toast")
+            return redirect("/manage/club/compliance/%d" % saved)
+        except ValueError as exc:
+            flash(str(exc))
+    title = req["name"] if req else "Add requirement"
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Defined once. Each sport sets its own rule.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/club/compliance", title=title, club_body=clubadmin.definition_edit_html(d, req, csrf_field()))
+@app.route("/manage/club/venues", methods=["GET"])
+@admin_required
+def club_venues():
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    return page(ui.ADMIN_NAV + "{{ admin_page('Venues', 'Places used when a session or event is created.') }}<div style=\"padding-bottom:120px\">{{ club_body|safe }}</div>",
+        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.venues_html(d))
+@app.route("/manage/club/venues/new", methods=["GET", "POST"])
+@admin_required
+def club_venue_new():
+    return _venue_form(None)
+@app.route("/manage/club/venues/<int:venue_id>", methods=["GET", "POST"])
+@admin_required
+def club_venue_edit(venue_id):
+    return _venue_form(venue_id)
+def _venue_form(venue_id):
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    row = None
+    if venue_id:
+        row = d.execute("SELECT * FROM venues WHERE id=?", (venue_id,)).fetchone()
+        if not row:
+            abort(404)
+    if request.method == "POST":
+        action = request.form.get("action") or "save"
+        try:
+            before = d.execute("SELECT COUNT(*) FROM practices").fetchone()[0]
+            rsvps = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+            if action == "remove" and row:
+                clubadmin.remove_venue(d, row["id"])
+                d.commit()
+                flash("Saved", "toast")
+                return redirect("/manage/club/venues")
+            saved = clubadmin.save_venue(d, row["id"] if row else None, request.form)
+            d.commit()
+            if d.execute("SELECT COUNT(*) FROM practices").fetchone()[0] != before or d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != rsvps:
+                raise RuntimeError("a venue must not change sessions or RSVPs")
+            flash("Saved", "toast")
+            return redirect("/manage/club/venues/%d" % saved)
+        except ValueError as exc:
+            flash(str(exc))
+    title = row["name"] if row else "Add venue"
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Name, address, and which sports use it.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/club/venues", title=title, club_body=clubadmin.venue_edit_html(d, row, csrf_field()))
 @app.route("/manage/club/leadership", methods=["GET"])
 @admin_required
 def club_leadership():
@@ -5184,7 +5353,7 @@ def _division_form(slug, div_id):
         row = d.execute("SELECT * FROM program_divisions WHERE id=? AND program_id=?", (div_id, program["id"])).fetchone()
         if not row:
             abort(404)
-    back = "/manage/club/programs/" + program["slug"]
+    back = "/manage/club/programs/" + program["slug"] + "/divisions"
     if request.method == "POST":
         action = request.form.get("action") or "save"
         try:

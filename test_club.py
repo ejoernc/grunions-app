@@ -56,36 +56,44 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
     assert 'href="/manage/club/programs"' in page and ">Sports</span>" in page
     sports = admin.get("/manage/club/programs").get_data(as_text=True)
     assert "Water Polo" in sports and "Pool Swimming" in sports and "Open Water Swimming" in sports
-    assert "Off" in sports and "USA Water Polo" in sports and "Add sport" in sports
+    assert "Inactive" in sports and "USA Water Polo" in sports and "Add sport" in sports
     assert "href=/manage/area/club" in sports
     detail = admin.get("/manage/club/programs/pool-swimming").get_data(as_text=True)
-    assert "Regular schedule" in detail and "does not add sessions" in detail and "href=/manage/club/programs" in detail
-    assert "Program is on" in detail
+    assert "Compliance requirements" in detail and "Regular schedule" not in detail and "href=/manage/club/programs" in detail
+    assert "Active" in detail and "does not add sessions" not in detail
     assert "Needs a sport" not in sports
     polo = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
-    assert "SafeSport" in polo and "Add requirement" in polo and "/manage/club/programs/water-polo/requirements/new" in polo
-    assert "Coaches" in polo and "Referees" in polo and "Background screening" in polo and "Referee certification" in polo
-    assert "Divisions" in polo and "Beginner" in polo and "New to the sport or learning the basics." in polo
+    assert "SafeSport" in polo and "Coaches" in polo and "Referees" in polo
+    assert "Background screening" in polo and "Referee certification" in polo
+    assert "Divisions" in polo and "4 configured" in polo
+    assert "Regular schedule" not in polo and "Add day" not in polo and "<h2>Leadership</h2>" not in polo and "<h2>Venues</h2>" not in polo
+    divs = admin.get("/manage/club/programs/water-polo/divisions").get_data(as_text=True)
+    assert "Beginner" in divs and "New to the sport or learning the basics." in divs
+    athletes = admin.get("/manage/club/programs/water-polo/roles/athlete").get_data(as_text=True)
+    coaches = admin.get("/manage/club/programs/water-polo/roles/coach").get_data(as_text=True)
+    assert "Add requirement" in athletes and "/manage/club/programs/water-polo/rules/new?role=athlete" in athletes
+    assert "SafeSport" in athletes and "On" in athletes
+    assert "Background screening" in coaches and "Off" in coaches
     assert "Leadership" in admin.get("/manage/area/club").get_data(as_text=True)
-    assert "Off" in polo and "Specific events" not in polo
+    assert "Compliance" in admin.get("/manage/area/club").get_data(as_text=True) and "Venues" in admin.get("/manage/area/club").get_data(as_text=True)
+    assert "Specific events" not in polo
     assert ">Requirements</span>" not in admin.get("/manage/area/club").get_data(as_text=True)
-    form = admin.get("/manage/club/programs/water-polo/requirements/new").get_data(as_text=True)
-    assert "Water Polo" in form and 'name=program value="' in form
+    form = admin.get("/manage/club/compliance/new").get_data(as_text=True)
+    assert "All sports" in form and "name=program" in form
     with A.app.app_context():
         d = A.db()
         wp_id = clubadmin.program_by_slug(d, "water-polo")["id"]
         pool_id = clubadmin.program_by_slug(d, "pool-swimming")["id"]
-    assert ('name=program value="%d" checked' % wp_id) in form or ('value="%d" checked' % wp_id) in form
-    made = admin.post("/manage/club/programs/water-polo/requirements/new", data={
-        "csrf": csrf(admin, "/manage/club/programs/water-polo/requirements/new"),
-        "name": "Shared clinic rule", "effect": "info", "verification": "manual",
+    made = admin.post("/manage/club/compliance/new", data={
+        "csrf": csrf(admin, "/manage/club/compliance/new"),
+        "name": "Shared clinic rule", "kind": "custom",
         "program": [str(wp_id), str(pool_id)],
     })
-    assert made.status_code == 302 and made.headers["Location"].endswith("/manage/club/programs/water-polo")
-    again = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
-    pool_page = admin.get("/manage/club/programs/pool-swimming").get_data(as_text=True)
-    assert "Shared clinic rule" in again and "Also applies to: Pool Swimming" in again
-    assert "Shared clinic rule" in pool_page and "Also applies to: Water Polo" in pool_page
+    assert made.status_code == 302
+    again = admin.get("/manage/club/programs/water-polo/roles/athlete").get_data(as_text=True)
+    pool_page = admin.get("/manage/club/programs/pool-swimming/roles/athlete").get_data(as_text=True)
+    assert "Shared clinic rule" in again and "Also used by: Pool Swimming" in again
+    assert "Shared clinic rule" in pool_page and "Also used by: Water Polo" in pool_page
 
 
 def test_inactive_program_requirements_do_not_block_and_schedules_do_not_create_sessions():
@@ -226,8 +234,8 @@ def test_regular_schedule_stores_each_day_with_its_own_times():
         assert copied == [("tue", "09:00", "11:00"), ("sun", "09:00", "11:00")]
         assert clubadmin.schedule_phrase(clubadmin.schedule_days(d, open_water["id"])) == "Tue & Sun 9 to 11 AM"
     page = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
-    assert "Add day" in page and "weekday_" not in page and "Schedule venue" not in page
-    assert "name=description" in page and "/manage/club/programs/water-polo/schedule/new" in page
+    assert "Add day" not in page and "Regular schedule" not in page and "Schedule venue" not in page
+    assert "Compliance requirements" in page
     editor = admin.get("/manage/club/programs/water-polo/schedule/new").get_data(as_text=True)
     assert "name=weekday" in editor and 'type=time name=start' in editor and ">Remove</button>" not in editor
     bad = admin.post("/manage/club/programs/water-polo/schedule/new", data={
@@ -242,12 +250,9 @@ def test_regular_schedule_stores_each_day_with_its_own_times():
         })
         assert saved.status_code == 302
     detail = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
-    assert "Tue · 7:00 to 9:00 PM" in detail and "Thu · 7:00 to 9:00 PM" in detail
-    assert "Sun · 9:00 to 11:00 AM" in detail and "Sun · 4:00 to 6:00 PM" in detail
-    assert "Tue &amp; Thu 7 to 9 PM · Sun 9 to 11 AM · Sun 4 to 6 PM" in detail
-    assert detail.index("Tue · 7:00") < detail.index("Sun · 9:00") < detail.index("Sun · 4:00")
+    assert "Tue · 7:00 to 9:00 PM" not in detail and "Add day" not in detail
     sports = admin.get("/manage/club/programs").get_data(as_text=True)
-    assert "Tue &amp; Thu 7 to 9 PM · Sun 9 to 11 AM · Sun 4 to 6 PM" in sports
+    assert "Tue &amp; Thu 7 to 9 PM" not in sports
     with A.app.app_context():
         d = A.db()
         second = [row["id"] for row in clubadmin.schedule_days(d, clubadmin.program_by_slug(d, "water-polo")["id"]) if row["weekday"] == "sun"][-1]
@@ -258,16 +263,9 @@ def test_regular_schedule_stores_each_day_with_its_own_times():
         "action": "remove",
     })
     assert gone.status_code == 302
-    after = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
-    assert "Sun · 4:00 to 6:00 PM" not in after and "Tue &amp; Thu 7 to 9 PM · Sun 9 to 11 AM" in after
-    admin.post("/manage/club/programs/water-polo", data={
-        "csrf": csrf(admin, "/manage/club/programs/water-polo"),
-        "action": "save", "governing_body": "usawp", "active": "1", "activity_practice": "1",
-        "description": "Evenings and a morning", "weekday_fri": "1", "start": "19:00", "end": "20:30",
-    })
-    kept = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
-    assert "Evenings and a morning" in kept and "Tue · 7:00 to 9:00 PM" in kept and "Fri ·" not in kept
     with A.app.app_context():
         d = A.db()
+        left = [row["weekday"] for row in clubadmin.schedule_days(d, clubadmin.program_by_slug(d, "water-polo")["id"])]
+        assert left.count("sun") == 1 and "tue" in left and "thu" in left
         assert d.execute("SELECT COUNT(*) FROM practices").fetchone()[0] == before
         assert d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] == rsvps
