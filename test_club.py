@@ -55,7 +55,7 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
     page = admin.get("/manage/area/club").get_data(as_text=True)
     assert 'href="/manage/club/programs"' in page and ">Sports</span>" in page
     sports = admin.get("/manage/club/programs").get_data(as_text=True)
-    assert "Water Polo" in sports and "Pool Swimming" in sports and "Open Water Swimming" in sports
+    assert "Water Polo" in sports and "class=mtitle>Swimming" in sports and "Open Water Swimming" in sports and "Pool Swimming" not in sports
     assert "Inactive" in sports and "USA Water Polo" in sports and "Add sport" in sports
     assert "href=/manage/area/club" in sports
     detail = admin.get("/manage/club/programs/pool-swimming").get_data(as_text=True)
@@ -92,7 +92,7 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
     assert made.status_code == 302
     again = admin.get("/manage/club/programs/water-polo/roles/athlete").get_data(as_text=True)
     pool_page = admin.get("/manage/club/programs/pool-swimming/roles/athlete").get_data(as_text=True)
-    assert "Shared clinic rule" in again and "Also used by: Pool Swimming" in again
+    assert "Shared clinic rule" in again and "Also used by: Swimming" in again
     assert "Shared clinic rule" in pool_page and "Also used by: Water Polo" in pool_page
 
 
@@ -200,7 +200,7 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
     })
     detail = admin.get("/admin/member/%d" % mid).get_data(as_text=True)
     assert "Paid membership" in detail and "Club Assistant link" in detail or "manual" in detail
-    assert "Water Polo" in detail and "Pool Swimming" in detail
+    assert "Water Polo" in detail and "Pool Swimming" not in detail
     with A.app.app_context():
         d = A.db()
         assert d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] == before

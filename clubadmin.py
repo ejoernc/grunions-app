@@ -63,6 +63,7 @@ def ensure(d):
     _seed_org_structure(d)
     _ensure_schedule_days(d)
     _migrate_compliance_venues(d)
+    _rename_pool_swimming(d)
 
 
 def _meta(d, key):
@@ -101,7 +102,7 @@ def _migrate(d):
     specs = (
         {"slug": "water-polo", "family": "water-polo", "name": "Water Polo", "public_name": "Water Polo",
          "body": "usawp", "activities": "practice,scrimmage,game", "active": 1, "public": 1, "legacy": "water-polo"},
-        {"slug": "pool-swimming", "family": "swimming", "name": "Pool Swimming", "public_name": "Swimming",
+        {"slug": "pool-swimming", "family": "swimming", "name": "Swimming", "public_name": "Swimming",
          "body": "usms", "activities": "practice", "active": 0, "public": 0, "legacy": "swimming"},
         {"slug": "open-water", "family": "swimming", "name": "Open Water Swimming", "public_name": "Open Water Swimming",
          "body": "none", "activities": "practice", "active": 0, "public": 0, "legacy": ""},
@@ -113,6 +114,15 @@ def _migrate(d):
     _map_requirements(d, ids)
     _copy_series(d, ids)
     _set_meta(d, "programs_seeded", "1")
+
+
+def _rename_pool_swimming(d):
+    """The pool program is named Swimming. The id and slug stay so links do not move."""
+    row = d.execute("SELECT id, name FROM programs WHERE slug='pool-swimming'").fetchone()
+    if row and row["name"] != "Swimming":
+        d.execute("UPDATE programs SET name='Swimming', public_name='Swimming' WHERE id=?", (row["id"],))
+    d.execute("""UPDATE requirement_scopes SET description='Current US Masters Swimming membership for swimming.'
+        WHERE description='Current US Masters Swimming membership for pool swimming.'""")
 
 
 def _map_plans(d, ids):
@@ -149,7 +159,7 @@ def _link(d, req_id, program_id):
 
 def _map_requirements(d, ids):
     usms = _ensure_requirement(d, "USMS membership", "usms")
-    _scope(d, usms, "Current US Masters Swimming membership for pool swimming.", "US Masters Swimming",
+    _scope(d, usms, "Current US Masters Swimming membership for swimming.", "US Masters Swimming",
            "practice", "athlete", 0, "register", 1, "manual", "active")
     _link(d, usms, ids["pool-swimming"])
     insurance = _ensure_requirement(d, "Open-water insurance", "openwater,insurance")
