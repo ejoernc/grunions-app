@@ -436,3 +436,65 @@ def test_paid_membership_is_separate_and_does_not_touch_rsvps():
 
 def SWIM_OK(plans):
     return "Swimming drop-in" in plans and "cid=92340" in plans and "cid=103002" in plans
+
+
+def test_payment_gate_stays_off_and_does_not_rewrite_rsvps():
+    import sportspay
+    sent = []
+    real = A.send_email
+    A.send_email = lambda *a, **k: sent.append(a)
+    try:
+        admin, athlete = client(), client()
+        join(admin, "Gate", "Admin", "gate.admin@example.com")
+        join(athlete, "Gale", "Athlete", "gale.pay@example.com")
+        with A.app.app_context():
+            d = A.db()
+            d.execute("UPDATE members SET is_admin=1 WHERE email='gate.admin@example.com'")
+            day = (A.today_pt() + __import__("datetime").timedelta(days=8)).isoformat()
+            pid = d.execute("""INSERT INTO practices(date,start,end,location,activity_type,sport)
+                VALUES(?,?,?,?,?,?)""", (day, "19:00", "20:30", "Gate Pool", "practice", "Water Polo")).lastrowid
+            d.commit()
+            gid = d.execute("SELECT id FROM members WHERE email='gale.pay@example.com'").fetchone()["id"]
+        athlete.post("/practices", data={"csrf": csrf(athlete, "/practices"), "action": "going", "pid": pid})
+        with A.app.app_context():
+            assert A.db().execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, gid)).fetchone()["going"] == 1
+            sportspay.set_require_rsvp(A.db(), True)
+            A.db().commit()
+        blocked = athlete.post("/practices", data={"csrf": csrf(athlete, "/practices"), "action": "going", "pid": pid})
+        assert blocked.status_code == 302 and "/participate" in blocked.headers["Location"]
+        page = athlete.get("/practices/%d/participate" % pid).get_data(as_text=True)
+        assert "Verification required" in page
+        with A.app.app_context():
+            A.db().execute("""UPDATE members SET usawp_status='verified', usawp_valid_until='2027-06-01', membership_type='Individual'
+                WHERE id=?""", (gid,))
+            A.db().commit()
+        choose = athlete.get("/practices/%d/participate" % pid).get_data(as_text=True)
+        assert "Choose How to Participate" in choose and "Become a Member" in choose and "not configured" in choose
+        with A.app.app_context():
+            assert A.db().execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, gid)).fetchone()["going"] == 1
+        plan = None
+        with A.app.app_context():
+            plan = A.db().execute("SELECT id FROM payment_plans WHERE kind='monthly'").fetchone()["id"]
+        athlete.post("/practices/%d/participate" % pid, data={
+            "csrf": csrf(athlete, "/practices/%d/participate" % pid), "action": "paid", "plan_id": str(plan),
+        })
+        with A.app.app_context():
+            d = A.db()
+            assert d.execute("SELECT status FROM payment_checks WHERE member_id=? AND practice_id=?", (gid, pid)).fetchone()["status"] == "pending"
+            assert d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, gid)).fetchone()["going"] == 1
+            check_id = d.execute("SELECT id FROM payment_checks WHERE member_id=?", (gid,)).fetchone()["id"]
+        admin.post("/manage/pricing/membership", data={
+            "csrf": csrf(admin, "/manage/pricing/membership"), "action": "verify_check", "check_id": str(check_id),
+        })
+        with A.app.app_context():
+            d = A.db()
+            assert d.execute("SELECT status FROM access_entitlements WHERE member_id=? ORDER BY id DESC LIMIT 1", (gid,)).fetchone()["status"] == "active"
+            assert d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, gid)).fetchone()["going"] == 1
+            sportspay.set_require_rsvp(d, False)
+            d.commit()
+        assert sent == []
+    finally:
+        A.send_email = real
+        with A.app.app_context():
+            sportspay.set_require_rsvp(A.db(), False)
+            A.db().commit()

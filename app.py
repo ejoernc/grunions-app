@@ -3061,6 +3061,12 @@ def handle_practice_post(d):
         return redirect_practice(pid, a)
     new_id = None
     if a in ("going", "notgoing", "clear"):
+        if a == "going" and sportspay.require_rsvp(d):
+            practice = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+            choice = sportspay.decide(d, me(), practice, today_pt().isoformat())
+            if not choice["allow"]:
+                session["pay_practice"] = pid
+                return redirect("/practices/%d/participate" % pid)
         if a == "clear": d.execute("DELETE FROM rsvps WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
         else: d.execute("INSERT INTO rsvps(practice_id,member_id,going) VALUES(?,?,?) ON CONFLICT DO UPDATE SET going=excluded.going, at=CURRENT_TIMESTAMP", (pid, me()["id"], int(a == "going")))
     elif a in ("social_join", "social_leave") and pid:
@@ -4139,10 +4145,46 @@ def manage_pay_providers():
                 flash("Saved", "toast")
         return redirect("/manage/pricing/providers")
     return _pay_page(sportspay.providers_page(sportspay.providers(d), sportspay.require_rsvp(d)), "providers")
-@app.route("/manage/pricing/membership")
+@app.route("/manage/pricing/membership", methods=["GET", "POST"])
 @admin_required
 def manage_pay_membership():
-    return _pay_page(sportspay.membership_page(sportspay.membership_rows(db())), "membership")
+    d = db()
+    if request.method == "POST" and request.form.get("action") == "verify_check":
+        try:
+            sportspay.verify_check(d, request.form.get("check_id", type=int), me(), today_pt().isoformat())
+            d.commit()
+            flash("Saved", "toast")
+        except ValueError as exc:
+            flash(str(exc))
+        return redirect("/manage/pricing/membership")
+    checks = []
+    for row in sportspay.pending_checks(d):
+        who = ("%s %s" % (row["preferred_first"] or row["first"], row["last"] or "")).strip()
+        checks.append('<form method=post class=card><input type=hidden name=action value=verify_check><input type=hidden name=check_id value="%d">{{ csrf_field() }}<p>%s · %s</p><button class="btn btn-primary" type=submit>Verify payment</button></form>' % (row["id"], escape(who), escape(row["plan_name"] or "Plan")))
+    body = sportspay.membership_page(sportspay.membership_rows(d)) + "".join(checks)
+    return _pay_page(body, "membership")
+@app.route("/practices/<int:pid>/participate", methods=["GET", "POST"])
+@login_required
+def participate(pid):
+    """Payment choices for one practice. Nothing is charged and no RSVP is written here."""
+    d = db()
+    practice = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+    if not practice:
+        abort(404)
+    if request.method == "POST" and request.form.get("action") == "paid":
+        sportspay.record_check(d, me()["id"], pid, request.form.get("plan_id", type=int), "Athlete reported payment")
+        d.commit()
+        flash("Payment verification needed. Once your payment is confirmed, you can complete your registration.")
+        return redirect("/practices/%d/participate" % pid)
+    choice = sportspay.decide(d, me(), practice, today_pt().isoformat())
+    if choice["allow"]:
+        return redirect("/practices/%d" % pid)
+    pending = d.execute("SELECT 1 FROM payment_checks WHERE member_id=? AND practice_id=? AND status='pending'", (me()["id"], pid)).fetchone()
+    when = "%s · %s" % (fmt_d(practice["date"]), fmt_span(practice["start"], practice["end"]))
+    body = sportspay.participate_page(choice, practice_title(practice), when)
+    if pending:
+        body = "<h1>Payment Verification Needed</h1><p>Once your payment is confirmed, you can complete your registration.</p>" + body
+    return page(body, tab="")
 def _widget_payload(d, event_limit=None):
     return publicfeed.build_feed(d, publicfeed.load(d), practice_title, wall_pt(), org_name(), event_limit=event_limit)
 @app.route("/api/public/feed")

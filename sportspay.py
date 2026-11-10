@@ -229,6 +229,144 @@ def membership_rows(d):
     return out
 
 
+def _sport_for(d, name):
+    needle = " ".join(str(name or "").split()).casefold()
+    for row in sports(d, include_archived=True):
+        if row["name"].casefold() == needle or row["slug"] == needle:
+            return row
+    return None
+
+
+def _gov_ok(d, member, body, today):
+    if body in ("", "none"):
+        return True
+    if body == "usawp":
+        status = str(member["usawp_status"] or "")
+        until = str(member["usawp_valid_until"] or "")[:10]
+        return status == "verified" and bool(until) and until >= today
+    row = d.execute("SELECT status, valid_until FROM external_memberships WHERE member_id=? AND body=?", (member["id"], body)).fetchone()
+    if not row:
+        return False
+    until = str(row["valid_until"] or "")[:10]
+    return row["status"] == "verified" and bool(until) and until >= today
+
+
+def _covers(plan, sport_slug, activity):
+    sports_ok = sport_slug in _csv(plan["sports"])
+    acts = _csv(plan["activities"])
+    return sports_ok and (not acts or activity in acts)
+
+
+def _entitlement_state(d, member_id, sport_slug, activity, today):
+    active = expired = None
+    rows = d.execute("""SELECT e.*, p.sports, p.activities, p.kind, p.name AS plan_name
+        FROM access_entitlements e JOIN payment_plans p ON p.id=e.plan_id
+        WHERE e.member_id=? ORDER BY e.id DESC""", (member_id,)).fetchall()
+    for row in rows:
+        if not _covers(row, sport_slug, activity):
+            continue
+        through = str(row["paid_through"] or "")[:10]
+        start = str(row["valid_from"] or "")[:10]
+        dated_out = (through and through < today) or (start and start > today) or row["status"] in ("expired", "inactive")
+        if row["status"] == "active" and not dated_out:
+            active = row
+            break
+        if expired is None:
+            expired = row
+    return active, expired
+
+
+def decide(d, member, practice, today):
+    """Read-only. allow means the existing Going write may run."""
+    if not require_rsvp(d):
+        return {"allow": True, "scenario": "open", "plans": [], "body": "", "sport": ""}
+    import publicfeed
+    sport_name = practice["sport"] or "Water Polo"
+    activity = (practice["activity_type"] or "practice").strip().lower()
+    sport = _sport_for(d, sport_name)
+    slug = sport["slug"] if sport else "water-polo"
+    body = sport["governing_body"] if sport else "usawp"
+    gov = _gov_ok(d, member, body, today)
+    active, expired = _entitlement_state(d, member["id"], slug, activity, today)
+    trial = publicfeed.normalize_trial((publicfeed.load(d).get("trial") or {}))
+    trial_hit = None
+    if trial.get("enabled") and publicfeed.activity_ok(trial, activity):
+        pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending' LIMIT 1", (member["id"],)).fetchone()
+        trial_hit = publicfeed.eligibility(trial, publicfeed.member_facts(member, bool(pending)), today, practice["date"])
+    options = [plan for plan in plans(d) if plan["active"] and _covers(plan, slug, activity)]
+    base = {"plans": options, "body": body, "sport": sport_name, "activity": activity, "slug": slug}
+    if gov and active:
+        return dict(base, allow=True, scenario="A")
+    if trial_hit and trial_hit["status"] == "active":
+        return dict(base, allow=True, scenario="D")
+    if expired and not active:
+        return dict(base, allow=False, scenario="E")
+    if gov:
+        return dict(base, allow=False, scenario="B")
+    return dict(base, allow=False, scenario="C")
+
+
+def record_check(d, member_id, practice_id, plan_id, note):
+    d.execute("""INSERT INTO payment_checks(member_id, practice_id, plan_id, status, note, at)
+        VALUES(?,?,?,'pending',?,?)""", (member_id, practice_id, plan_id, (note or "")[:300], _stamp()))
+
+
+def verify_check(d, check_id, actor, today):
+    """Confirm a reported payment. Adds a Going RSVP only when one does not exist."""
+    row = d.execute("SELECT * FROM payment_checks WHERE id=?", (check_id,)).fetchone()
+    if not row or row["status"] != "pending":
+        raise ValueError("That payment check is not pending.")
+    plan = d.execute("SELECT * FROM payment_plans WHERE id=?", (row["plan_id"],)).fetchone()
+    if not plan:
+        raise ValueError("Choose a plan.")
+    save_entitlement(d, row["member_id"], actor, plan["id"], "active", today, today, "Verified external payment")
+    d.execute("UPDATE payment_checks SET status='verified' WHERE id=?", (check_id,))
+    existing = d.execute("SELECT 1 FROM rsvps WHERE practice_id=? AND member_id=?", (row["practice_id"], row["member_id"])).fetchone()
+    if row["practice_id"] and not existing:
+        practice = d.execute("SELECT id, cancelled FROM practices WHERE id=?", (row["practice_id"],)).fetchone()
+        if practice and not practice["cancelled"]:
+            d.execute("INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)", (row["practice_id"], row["member_id"]))
+    audit(d, row["member_id"], actor, "payment verified", plan["name"])
+
+
+def participate_page(decision, practice_title, when):
+    scenario = decision["scenario"]
+    if scenario == "C":
+        body_name = dict(BODIES).get(decision["body"], "a governing-body membership")
+        return """<h1>Verification required</h1>
+<p>%s needs a verified %s before you can join.</p>
+<p class="t3 sm">Submit your membership details from your profile. This page does not confirm a spot.</p>
+<p><a class="btn btn-primary" href="/home">Open membership</a></p>""" % (escape(decision["sport"]), escape(body_name))
+    bits = ["<h1>Choose How to Participate</h1>",
+            "<p>Select a payment option to join this practice.</p>",
+            "<p class=nxtitle>%s</p>" % escape(practice_title),
+            "<p class=\"t3 sm\">%s</p>" % escape(when)]
+    if scenario == "E":
+        bits.append("<p>Your paid membership is not active. Renew it or use another option. Nothing is charged from this page.</p>")
+    found_drop = False
+    for plan in decision["plans"]:
+        if plan["kind"] == "drop_in":
+            found_drop = True
+        blurb = "Get access to eligible Grunions practices with a monthly membership." if plan["kind"] == "monthly" else "Pay for this practice only."
+        action = "Become a Member" if plan["kind"] == "monthly" else "Pay Drop-In"
+        bits.append("""<div class=card><h2>%s</h2><p>%s</p><p class=t3>%s</p>%s
+<form method=post><input type=hidden name=plan_id value="%d">{{ csrf_field() }}
+<button class="btn btn-secondary" name=action value=paid>I've completed payment</button></form></div>""" % (
+            escape(plan["name"]), blurb, escape(plan["external_url"]),
+            ('<p><a class="btn btn-primary" href="%s" target=_blank rel=noopener>%s</a></p>' % (escape(plan["external_url"]), action)) if plan["external_url"] else "",
+            plan["id"]))
+    if decision["slug"] == "water-polo" and not found_drop:
+        bits.append("<div class=card><h2>Single Practice</h2><p>A Water Polo drop-in is not configured. Contact the organizer.</p></div>")
+    return "".join(bits)
+
+
+def pending_checks(d):
+    return d.execute("""SELECT c.*, m.first, m.last, m.preferred_first, p.name AS plan_name
+        FROM payment_checks c JOIN members m ON m.id=c.member_id
+        LEFT JOIN payment_plans p ON p.id=c.plan_id
+        WHERE c.status='pending' ORDER BY c.id DESC""").fetchall()
+
+
 def nav(active):
     items = (("schedule", "Schedule", "/manage/pricing"), ("sports", "Sports", "/manage/pricing/sports"),
              ("plans", "Pricing", "/manage/pricing/plans"), ("providers", "Providers", "/manage/pricing/providers"),
