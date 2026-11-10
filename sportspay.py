@@ -130,7 +130,11 @@ def providers(d):
 
 
 def plans(d):
-    return d.execute("SELECT * FROM payment_plans ORDER BY active DESC, name").fetchall()
+    cols = {row[1] for row in d.execute("PRAGMA table_info(payment_plans)")}
+    sql = "SELECT * FROM payment_plans"
+    if "archived" in cols:
+        sql += " WHERE COALESCE(archived,0)=0"
+    return d.execute(sql + " ORDER BY active DESC, name").fetchall()
 
 
 def prices(d, plan_id):
@@ -324,12 +328,26 @@ def decide(d, member, practice, today):
         if cleared["applied"] and cleared["status"] != "Cleared":
             return dict({"plans": [], "body": body, "sport": sport_name, "activity": activity, "slug": slug}, allow=False, scenario="C")
     active, expired = _entitlement_state(d, member["id"], slug, activity, today)
-    trial = publicfeed.normalize_trial((publicfeed.load(d).get("trial") or {}))
+    shaped = clubadmin.trial_dict(d)
+    trial = publicfeed.normalize_trial(shaped if shaped is not None else (publicfeed.load(d).get("trial") or {}))
     trial_hit = None
     if trial.get("enabled") and publicfeed.activity_ok(trial, activity):
         pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending' LIMIT 1", (member["id"],)).fetchone()
         trial_hit = publicfeed.eligibility(trial, publicfeed.member_facts(member, bool(pending)), today, practice["date"])
-    options = [plan for plan in plans(d) if plan["active"] and _covers(plan, slug, activity)]
+    def offered(plan):
+        if plan["kind"] in ("trial", "free"):
+            return False
+        if not _covers(plan, slug, activity):
+            return False
+        keys = plan.keys()
+        chosen = _csv(plan["event_ids"]) if "event_ids" in keys else []
+        if chosen and ("p-%d" % practice["id"]) not in chosen:
+            return False
+        if "audience" in keys and plan["audience"] == "specific":
+            if not d.execute("SELECT 1 FROM plan_people WHERE plan_id=? AND member_id=?", (plan["id"], member["id"])).fetchone():
+                return False
+        return True
+    options = [plan for plan in plans(d) if plan["active"] and offered(plan)]
     base = {"plans": options, "body": body, "sport": sport_name, "activity": activity, "slug": slug}
     if gov and active:
         return dict(base, allow=True, scenario="A")

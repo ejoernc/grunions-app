@@ -43,10 +43,15 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
         assert d.execute("SELECT name FROM org_sports WHERE slug='swimming'").fetchone()["name"] == "Swimming"
         assert d.execute("SELECT COUNT(*) FROM practices").fetchone()[0] == before_p
         assert d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] == before_r
-        monthly = d.execute("SELECT external_url FROM payment_plans WHERE name LIKE '%Water Polo + Swim%'").fetchone()["external_url"]
-        assert "cid=103002" in monthly
-        names = clubadmin.plan_program_names(d, d.execute("SELECT id FROM payment_plans WHERE name LIKE '%Water Polo + Swim%'").fetchone()["id"])
-        assert "Water Polo" in names and "Pool Swimming" in names
+        monthly = d.execute("SELECT * FROM payment_plans WHERE name='Monthly Membership'").fetchone()
+        assert "cid=103002" in monthly["external_url"] and monthly["archived"] == 0
+        names = clubadmin.plan_program_names(d, monthly["id"])
+        assert names == ["Water Polo"]
+        archived = d.execute("SELECT external_url, archived FROM payment_plans WHERE name='Swimming drop-in'").fetchone()
+        assert archived["archived"] == 1 and "cid=92340" in archived["external_url"]
+        shown = [row["name"] for row in clubadmin.visible_plans(d)]
+        assert shown.count("Monthly Membership") == 1 and "Water Polo 2-Week Free Trial" in shown and "Drop-in" in shown
+        assert "Swimming drop-in" not in shown
     page = admin.get("/manage/area/club").get_data(as_text=True)
     assert 'href="/manage/club/programs"' in page and ">Sports</span>" in page
     sports = admin.get("/manage/club/programs").get_data(as_text=True)
@@ -135,6 +140,12 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
         before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
     page = admin.get("/manage/area/people", follow_redirects=True).get_data(as_text=True)
     assert "Unpaid" in page and ">Paying</a>" in page and ">Not paying</a>" in page and ">Compliance</a>" in page and ">Membership</a>" in page and 'data-seg' in page
+    passes = admin.get("/manage/club/plans").get_data(as_text=True)
+    assert "Create pass" in passes and "Monthly Membership" in passes and "Water Polo 2-Week Free Trial" in passes and "Drop-in" in passes
+    assert "Swimming drop-in" not in passes and "min-height:72px" in passes
+    editor = admin.get("/manage/club/plans/%d" % plan).get_data(as_text=True)
+    assert "Summary" in editor and "cid=103002" in editor and "Water Polo" in editor and "Does not" not in editor
+    assert "A pass grants access only" in editor and "name=kind" in editor and "Renews indefinitely" in editor
     assert "<h2>Members</h2>" not in page
     admin.post("/admin/member/%d" % mid, data={
         "csrf": csrf(admin, "/admin/member/%d" % mid), "action": "paid", "paid_action": "save",

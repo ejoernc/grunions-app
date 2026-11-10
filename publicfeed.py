@@ -281,7 +281,13 @@ def save_sections(d, **sections):
 
 def save_form(d, form):
     parsed = parse_form(form)
-    return save_sections(d, schedule=parsed["schedule"], pricing=parsed["pricing"], trial=parsed["trial"])
+    saved = save_sections(d, schedule=parsed["schedule"], pricing=parsed["pricing"], trial=parsed["trial"])
+    try:
+        import clubadmin
+        clubadmin.sync_trial_from_settings(d, saved.get("trial") or {})
+    except Exception:
+        pass
+    return saved
 
 
 def form_slots(data):
@@ -714,6 +720,17 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
     event_limit trims the admin preview. The live widget and feed leave it unset."""
     widget = data.get("widget") or widget_blank()
     offer = public_view(data)
+    try:
+        import clubadmin
+        shaped = clubadmin.trial_dict(d)
+    except Exception:
+        shaped = None
+    if shaped is not None:
+        if shaped.get("enabled"):
+            offer["trial"] = dict(shaped)
+            offer["trial"]["banner"] = banner(shaped)
+        else:
+            offer["trial"] = None
     hide_past = True
     show_price = bool(widget.get("show_pricing"))
     show_trial = bool(widget.get("show_trial")) and bool((offer.get("trial") or {}).get("banner"))
@@ -999,6 +1016,7 @@ def embed_snippet(base=None):
 
 _CLOCK = '<svg class=nxglyph width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg>'
 _PIN = '<svg class=nxglyph width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,64a40,40,0,1,0,40,40A40,40,0,0,0,128,64Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,128Zm0-112a88.1,88.1,0,0,0-88,88c0,31.4,14.51,64.68,42,96.25a254.19,254.19,0,0,0,41.45,38.3,8,8,0,0,0,9.18,0A254.19,254.19,0,0,0,174,200.25c27.45-31.57,42-64.85,42-96.25A88.1,88.1,0,0,0,128,16Zm0,206c-16.53-13-72-60.75-72-118a72,72,0,0,1,144,0C200,161.23,144.53,209,128,222Z"/></svg>'
+_PEOPLE = '<svg class=nxglyph width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.7a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,37.71A8,8,0,0,1,250.14,206.7Z"/></svg>'
 _SUN = '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Zm-16,0a48,48,0,1,0-48,48A48.05,48.05,0,0,0,176,128ZM58.34,69.66A8,8,0,0,1,69.66,58.34l16,16a8,8,0,0,1-11.32,11.32Zm0,116.68,16-16a8,8,0,0,1,11.32,11.32l-16,16a8,8,0,0,1-11.32-11.32ZM192,72a8,8,0,0,1,5.66-2.34l16-16a8,8,0,0,1,11.32,11.32l-16,16A8,8,0,0,1,192,72Zm5.66,114.34a8,8,0,0,1,0-11.32,8,8,0,0,1,11.32,0l16,16a8,8,0,0,1-11.32,11.32ZM40,120H16a8,8,0,0,0,0,16H40a8,8,0,0,0,0-16Zm200,0H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16ZM128,200a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V208A8,8,0,0,0,128,200Z"/></svg>'
 
 
@@ -1061,16 +1079,9 @@ def widget_document(payload, theme=None, preview=False):
                 bits.append('<div class=nxrow>%s<span>%s</span></div>' % (_CLOCK, e(item["time"])))
             if item.get("place"):
                 bits.append('<div class=nxrow>%s<span>%s</span></div>' % (_PIN, e(item["place"])))
-            bits.append('<div class=tags><span class=chip-info>%s</span>' % e(item.get("category") or "Event"))
-            if item.get("sport"):
-                bits.append('<span class=chip-info>%s</span>' % e(item["sport"]))
-            if item.get("price"):
-                bits.append('<span class="chip-info cost">%s</span>' % e(item["price"]))
             if item.get("count") is not None:
-                bits.append('<span class=chip-info>%s going</span>' % e(str(item["count"])))
-            if item.get("capacity"):
-                bits.append('<span class=chip-info>%s spots</span>' % e(str(item["capacity"])))
-            bits.append("</div></div></div>")
+                bits.append('<div class=nxrow>%s<span>%s going</span></div>' % (_PEOPLE, e(str(item["count"]))))
+            bits.append("</div></div>")
             if item.get("cancelled"):
                 bits.append('<p class=reason>Cancelled%s</p>' % ((" · " + e(item["reason"])) if item.get("reason") else ""))
             if item.get("detail"):
@@ -1155,16 +1166,6 @@ article.card{cursor:pointer;display:block;width:100%%}
 .state{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:8px 4px 20px;color:var(--color-text-secondary)}
 .state[hidden],article[hidden],#browse[hidden],#sheet[hidden]{display:none}
 #sheet{padding:0 0 24px}
-.sheetbar{display:grid;grid-template-columns:72px 1fr 72px;align-items:center;min-height:44px;padding:8px 8px 0}
-.sheetbar h1{margin:0;text-align:center;font-family:var(--font-display);font-size:20px;line-height:1.2;font-weight:650}
-#sheetBack{height:36px;padding:0 12px;border:0;background:transparent;color:inherit;cursor:pointer;font-weight:600}
-.profilehero{padding:8px 20px 0}
-.profilename,.profilehero h1{font-family:var(--font-display)}
-.pracestatus{margin:12px 0 0;font-weight:650}
-.stats{display:flex;gap:8px;margin-top:16px}
-.stattile{flex:1;background:var(--color-surface);border:1px solid var(--color-border);border-radius:16px;padding:12px;text-align:center}
-.stattile b{display:block;font-size:20px;line-height:1.2}
-.stattile span{color:var(--color-text-secondary);font-size:13px}
 .seclabel{margin:20px 20px 8px;font-size:13px;font-weight:650;color:var(--color-text-secondary)}
 .list{margin:0 20px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:16px;overflow:hidden}
 .li{padding:14px 16px;border-top:1px solid var(--color-border)}
@@ -1172,14 +1173,28 @@ article.card{cursor:pointer;display:block;width:100%%}
 .prow{display:flex;justify-content:space-between;gap:12px}
 .prow .k{color:var(--color-text-secondary)}
 .prow .v{text-align:right}
-.btn{display:flex;align-items:center;justify-content:center;height:48px;margin:16px 20px 0;border-radius:999px;font-weight:650;text-decoration:none}
+a{color:inherit;text-decoration:none}
+header.profilebar{display:grid;grid-template-columns:72px 1fr 72px;align-items:center;min-height:44px;padding:8px 6px 0;background:var(--color-bg)}
+header.profilebar h1{margin:0;text-align:center;font-family:var(--font-display);font-size:20px;line-height:44px;font-weight:650}
+header.profilebar .left,header.profilebar .right{display:flex;align-items:center;height:44px}
+header.profilebar .profileback{background:none;border:0;color:inherit;height:44px;min-width:44px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.profilehero{display:flex;flex-direction:column;align-items:center;padding:12px 20px 4px}
+.profilename{margin:14px 0 4px;font-family:var(--font-display);font-size:24px;font-weight:650;letter-spacing:-.3px;text-align:center}
+.pracemeta{color:var(--color-text-secondary);text-align:center;margin:0;font-size:15px}
+.pracemeta+.pracemeta{margin-top:2px}
+.profilehero .nxrow{margin-top:8px;color:var(--color-text-secondary);font-size:15px}
+.pracestatus{margin:10px 0 2px}
+.st{display:inline-flex;align-items:center;gap:8px;min-height:28px;color:var(--color-text-secondary);font-size:15px}
+.st svg{flex:none;color:#3F9AA0}
+.st-bad svg{color:#C4524A}
+.pills{display:flex;gap:8px;margin:16px 20px 0}
+.pills .btn{flex:1;margin:0}
+.btn{display:flex;align-items:center;justify-content:center;height:48px;border:0;border-radius:999px;font-weight:650;text-decoration:none;cursor:pointer}
 .btn-primary{background:var(--color-lime);color:#090D0B}
 .btn-secondary{height:40px;width:auto;margin:0;padding:0 14px;background:transparent;color:inherit;border:1px solid var(--color-control);flex:none}
 .locrow{display:flex;align-items:center;gap:12px}
-.profilename{margin:0 0 12px;font-size:22px;line-height:1.25;font-weight:650}
+.locrow .grow{font-weight:500}
 #sheet [hidden]{display:none !important}
-#sheet .datetile{width:64px;height:64px}
-#sheet .datetile .dn{font-size:22px}
 .state h2{margin:0;font-family:var(--font-display);font-size:20px;color:var(--color-text)}
 .state p{margin:0}
 .spin{width:22px;height:22px;border:2px solid var(--color-border);border-top-color:var(--color-lime);border-radius:50%%;animation:spin .7s linear infinite}
@@ -1198,26 +1213,27 @@ article.card{cursor:pointer;display:block;width:100%%}
 </main>
 </div>
 <div id=sheet hidden>
-<header class=sheetbar><button type=button id=sheetBack aria-label="Back">Back</button><h1 id=sheetKind>Event</h1></header>
+<header class=profilebar><div class=left><button type=button class=profileback id=sheetBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button></div><h1 id=sheetKind>Practice</h1><div class=right></div></header>
 <div class=profilehero>
 <div class=profilename id=sheetTitle></div>
-<div class=nxmain><div class=datetile><span class=wd id=sheetWd></span><span class=dn id=sheetDn></span><span class=mo id=sheetMo></span></div>
-<div class="grow schedrows"><div class=nxrow>CLOCK<span id=sheetTime></span></div><div class=nxrow id=sheetPlaceRow>PIN<a id=sheetPlace target=_blank rel=noopener></a></div></div></div>
-<div class=tags id=sheetChips></div>
-<p class=pracestatus id=sheetStatus></p>
-<div class="stats trio" id=sheetStats hidden><div class=stattile><b id=sheetCount></b><span>Going</span></div></div>
+<p class=pracemeta id=sheetWhen></p>
+<p class=pracemeta id=sheetWhere></p>
+<div class=nxrow id=sheetCountRow hidden>PEOPLE<span id=sheetCount></span></div>
+<div class=pracestatus><span class="st st-ok" id=sheetStatus><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg><span id=sheetStatusText>Scheduled</span></span></div>
 </div>
+<div class=pills id=sheetActions><a id=sheetSignup class="btn btn-primary" target=_top>Sign up</a></div>
+<div id=sheetNotes hidden>
 <div class=seclabel>Details</div>
 <div class=list>
-<div class="li evdescrow" id=sheetDetailRow hidden><div class=prow><span class=k>Notes</span><span class=v id=sheetDetail></span></div></div>
+<div class="li" id=sheetDetailRow hidden><div class=prow><span class=k>Notes</span><span class=v id=sheetDetail></span></div></div>
 <div class="li prow" id=sheetPriceRow hidden><span class=k>Price</span><span class=v id=sheetPrice></span></div>
 <div class="li prow" id=sheetTrialRow hidden><span class=k>Eligibility</span><span class=v id=sheetTrial></span></div>
+</div>
 </div>
 <div id=sheetLoc hidden>
 <div class=seclabel>Location</div>
 <div class="list loccard"><div class="li locrow"><span class=grow id=sheetLocName></span><a id=sheetDir class="btn btn-secondary" target=_blank rel=noopener>Open in Maps</a></div></div>
 </div>
-<a id=sheetSignup class="btn btn-primary full" target=_top>Sign up</a>
 </div>
 <script type="application/json" id=eventData>%s</script>
 <script>
@@ -1229,29 +1245,25 @@ article.card{cursor:pointer;display:block;width:100%%}
   var opener=null;
   function report(){var h=Math.ceil(document.documentElement.scrollHeight);try{parent.postMessage({type:"regulars-widget",height:h},"*");}catch(e){}}
   function showRow(id, value){ var el=document.getElementById(id); if(!el) return; el.hidden=!value; if(value) el.textContent=value; }
-  function chip(label){ var s=document.createElement("span"); s.className="chip-info"; s.textContent=label; return s; }
   function openDetail(id, from){
     var ev=events[id]; if(!ev) return;
     opener=from||null;
     document.getElementById("sheetTitle").textContent=ev.title||"Event";
     document.getElementById("sheetKind").textContent=ev.activity||ev.category||"Event";
-    var tile=ev.tile||{};
-    document.getElementById("sheetWd").textContent=tile.wd||"";
-    document.getElementById("sheetDn").textContent=tile.dn||"";
-    document.getElementById("sheetMo").textContent=tile.mo||"";
-    document.getElementById("sheetTime").textContent=ev.time||ev.when||"";
-    var box=document.getElementById("sheetChips"); box.textContent="";
-    if(ev.sport) box.appendChild(chip(ev.sport));
-    if(ev.activity) box.appendChild(chip(ev.activity));
-    if(ev.category && ev.category!==ev.activity) box.appendChild(chip(ev.category));
-    var place=document.getElementById("sheetPlace"), row=document.getElementById("sheetPlaceRow"), dir=document.getElementById("sheetDir"), loc=document.getElementById("sheetLoc");
+    var when=document.getElementById("sheetWhen");
+    when.textContent=[ev.date, ev.time||ev.when].filter(Boolean).join(" · ");
+    when.hidden=!when.textContent;
+    var where=document.getElementById("sheetWhere");
+    where.textContent=ev.place||"";
+    where.hidden=!ev.place;
+    var countRow=document.getElementById("sheetCountRow"), count=document.getElementById("sheetCount");
+    if(ev.count==null){ countRow.hidden=true; } else { count.textContent=ev.count+" going"; countRow.hidden=false; }
+    var loc=document.getElementById("sheetLoc"), dir=document.getElementById("sheetDir");
     if(ev.place){
-      place.textContent=ev.place;
-      place.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(ev.place);
       document.getElementById("sheetLocName").textContent=ev.place;
       dir.href="https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(ev.place);
-      row.hidden=false; loc.hidden=false;
-    } else { row.hidden=true; loc.hidden=true; }
+      loc.hidden=false;
+    } else loc.hidden=true;
     var detail=document.getElementById("sheetDetail");
     detail.textContent=ev.detail||"";
     document.getElementById("sheetDetailRow").hidden=!ev.detail;
@@ -1259,10 +1271,10 @@ article.card{cursor:pointer;display:block;width:100%%}
     document.getElementById("sheetPriceRow").hidden=!ev.price;
     showRow("sheetTrial", ev.trial||"");
     document.getElementById("sheetTrialRow").hidden=!ev.trial;
+    document.getElementById("sheetNotes").hidden=!(ev.detail||ev.price||ev.trial);
     var status=document.getElementById("sheetStatus");
-    status.textContent=ev.cancelled?(ev.reason?("Cancelled · "+ev.reason):"Cancelled"):"Scheduled";
-    var stats=document.getElementById("sheetStats"), count=document.getElementById("sheetCount");
-    if(ev.count==null){ stats.hidden=true; } else { count.textContent=String(ev.count); stats.hidden=false; }
+    document.getElementById("sheetStatusText").textContent=ev.cancelled?(ev.reason?("Cancelled · "+ev.reason):"Cancelled"):"Scheduled";
+    status.className=ev.cancelled?"st st-bad":"st st-ok";
     var go=document.getElementById("sheetSignup");
     if(ev.signup){ go.href=ev.signup; go.hidden=false; } else { go.hidden=true; go.removeAttribute("href"); }
     browse.hidden=true; sheet.hidden=false; back.focus(); report();
@@ -1304,7 +1316,7 @@ article.card{cursor:pointer;display:block;width:100%%}
 </script></body></html>""" % (
         "preview" if preview else "", e(org), e(org), chip_buttons(), "".join(offer_bits), cards(), event_blob,
     )
-    return html.replace("CLOCK", _CLOCK).replace("PIN", _PIN)
+    return html.replace("CLOCK", _CLOCK).replace("PIN", _PIN).replace("PEOPLE", _PEOPLE)
 
 
 WIDGET_ADMIN = """<style>

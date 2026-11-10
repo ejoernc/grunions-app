@@ -203,6 +203,9 @@ def test_widget_is_off_until_an_admin_publishes_it():
     counted = member.get("/api/public/feed").get_json()
     practice = next(item for item in counted["events"] if item["id"].startswith("p-"))
     assert practice["count"] == 1 and "Mia" not in str(counted) and practice["chip"] == "schedule"
+    counted_page = member.get("/widget").get_data(as_text=True)
+    articles = counted_page.split('id=cards>', 1)[1].split("</main>", 1)[0]
+    assert "chip-info" not in articles and ">Schedule</span>" not in articles and "1 going" in articles
     assert counted["theme"] == "day" and counted["default_chip"] == "schedule"
     with A.app.app_context():
         assert A.db().execute("SELECT COUNT(*) FROM practices").fetchone()[0] == before + 1
@@ -442,7 +445,7 @@ def test_paid_membership_is_separate_and_does_not_touch_rsvps():
         assert names[:2] == ["Water Polo", "Swimming"]
         stripe = d.execute("SELECT active FROM payment_providers WHERE kind='stripe'").fetchone()
         assert stripe["active"] == 0
-        monthly = d.execute("SELECT id FROM payment_plans WHERE name LIKE 'Grunions Water Polo%'").fetchone()
+        monthly = d.execute("SELECT id FROM payment_plans WHERE name='Monthly Membership'").fetchone()
         assert [row["amount_cents"] for row in sportspay.prices(d, monthly["id"])] == [4500, 5000]
         assert sportspay.price_on(sportspay.prices(d, monthly["id"]), "2026-11-09") is None
         assert sportspay.price_on(sportspay.prices(d, monthly["id"]), "2026-12-15")["amount_cents"] == 4500
@@ -461,8 +464,8 @@ def test_paid_membership_is_separate_and_does_not_touch_rsvps():
     providers = admin.get("/manage/pricing/providers").get_data(as_text=True)
     assert "Coming later" in providers and "Require payment access to RSVP" in providers
     plans = admin.get("/manage/pricing/plans").get_data(as_text=True)
-    assert "Grunions Water Polo + Swim Membership" in plans and "$45" in plans and "$50" in plans
-    assert SWIM_OK(plans)
+    assert "Monthly Membership" in plans and "$45" in plans and "$50" in plans and "cid=103002" in plans
+    assert "Swimming drop-in" not in plans
     person = admin.get("/admin/member/%d" % ada).get_data(as_text=True)
     assert "Paid membership" in person and "does not change an RSVP" in person
     admin.post("/admin/member/%d" % ada, data={
@@ -482,10 +485,6 @@ def test_paid_membership_is_separate_and_does_not_touch_rsvps():
     assert "Stripe is not available" in turned.get_data(as_text=True)
     with A.app.app_context():
         assert A.db().execute("SELECT active FROM payment_providers WHERE kind='stripe'").fetchone()["active"] == 0
-
-
-def SWIM_OK(plans):
-    return "Swimming drop-in" in plans and "cid=92340" in plans and "cid=103002" in plans
 
 
 def test_payment_gate_stays_off_and_does_not_rewrite_rsvps():

@@ -5044,26 +5044,48 @@ def club_plans():
     import clubadmin
     d = db()
     clubadmin.ensure(d)
-    return page(ui.ADMIN_NAV + "{{ admin_page('Plans & passes', 'A plan can cover more than one program. Paying does not clear USAWP or USMS.') }}{{ club_body|safe }}",
+    return page(ui.ADMIN_NAV + "{{ admin_page('Plans & passes', 'A pass grants access. It does not clear a sport requirement.') }}{{ club_body|safe }}",
         tab="admin", admin_back="/manage/area/club", club_body=clubadmin.plans_html(d))
+@app.route("/manage/club/plans/new", methods=["GET", "POST"])
+@admin_required
+def club_plan_new():
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    if request.method == "POST":
+        try:
+            before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+            plan_id = clubadmin.save_pass(d, None, request.form)
+            d.commit()
+            if d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != before:
+                raise RuntimeError("saving a pass must not change RSVPs")
+            flash("Saved", "toast")
+            return redirect("/manage/club/plans/%d" % plan_id)
+        except ValueError as exc:
+            flash(str(exc))
+    return page(ui.ADMIN_NAV + "{{ admin_page('Create pass', 'Access only. No card is collected.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/club/plans", club_body=clubadmin.plan_edit_html(d, None, csrf_field()))
 @app.route("/manage/club/plans/<int:plan_id>", methods=["GET", "POST"])
 @admin_required
 def club_plan(plan_id):
     import clubadmin
     d = db()
     clubadmin.ensure(d)
-    plan = d.execute("SELECT * FROM payment_plans WHERE id=?", (plan_id,)).fetchone()
+    plan = d.execute("SELECT * FROM payment_plans WHERE id=? AND COALESCE(archived,0)=0", (plan_id,)).fetchone()
     if not plan:
         abort(404)
     if request.method == "POST":
         try:
-            clubadmin.save_plan_programs(d, plan_id, request.form)
+            before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+            clubadmin.save_pass(d, plan_id, request.form)
             d.commit()
+            if d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != before:
+                raise RuntimeError("saving a pass must not change RSVPs")
             flash("Saved", "toast")
         except ValueError as exc:
             flash(str(exc))
         return redirect("/manage/club/plans/%d" % plan_id)
-    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Programs this plan covers.') }}{{ club_body|safe }}",
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Access only. Saving does not charge a card or change an RSVP.') }}{{ club_body|safe }}",
         tab="admin", admin_back="/manage/club/plans", title=plan["name"], club_body=clubadmin.plan_edit_html(d, plan, csrf_field()))
 @app.route("/manage/club/requirements/new", methods=["GET", "POST"])
 @admin_required

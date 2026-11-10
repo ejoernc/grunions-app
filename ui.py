@@ -312,6 +312,9 @@ button.mqclear{position:absolute;right:4px;top:50%;transform:translateY(-50%);wi
 .mrow{display:flex;align-items:center;gap:12px;min-height:72px;padding:16px 12px 16px 10px;color:inherit;text-decoration:none;border-top:1px solid var(--line)}
 .sporttag{display:inline-flex;align-items:center;height:22px;margin:4px 6px 0 0;padding:0 8px;border-radius:999px;border:1px solid var(--color-control);font-size:12px;font-weight:650}
 .clubform{padding-bottom:12px}
+.passform{padding-bottom:28px}
+.passform .btn-primary{margin-top:16px}
+#passForm [hidden]{display:none !important}
 .mrow:first-child{border-top:0}
 .mico{width:32px;height:32px;border-radius:8px;background:var(--color-surface-2);color:var(--color-text);display:flex;align-items:center;justify-content:center;flex:none}
 .mico svg{width:20px;height:20px;display:block}

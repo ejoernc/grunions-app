@@ -48,6 +48,8 @@ def ensure(d):
         resolved INTEGER NOT NULL DEFAULT 0)""")
     d.execute("""CREATE TABLE IF NOT EXISTS club_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)""")
     _migrate(d)
+    _ensure_pass_columns(d)
+    _seed_passes(d)
 
 
 def _meta(d, key):
@@ -699,29 +701,518 @@ def program_requirements_html(d, program):
     return "".join(bits)
 
 
+PASS_COLUMNS = (
+    ("description", "TEXT NOT NULL DEFAULT ''"),
+    ("currency", "TEXT NOT NULL DEFAULT 'USD'"),
+    ("renewal", "TEXT NOT NULL DEFAULT 'indefinite'"),
+    ("renewal_count", "INTEGER NOT NULL DEFAULT 0"),
+    ("frequency", "TEXT NOT NULL DEFAULT 'month'"),
+    ("length_mode", "TEXT NOT NULL DEFAULT ''"),
+    ("length_days", "INTEGER NOT NULL DEFAULT 0"),
+    ("length_sessions", "INTEGER NOT NULL DEFAULT 0"),
+    ("audience", "TEXT NOT NULL DEFAULT 'everyone'"),
+    ("one_per_person", "INTEGER NOT NULL DEFAULT 0"),
+    ("uses_per_event", "INTEGER NOT NULL DEFAULT 0"),
+    ("lineup_categories", "TEXT NOT NULL DEFAULT ''"),
+    ("event_ids", "TEXT NOT NULL DEFAULT ''"),
+    ("archived", "INTEGER NOT NULL DEFAULT 0"),
+    ("terms", "TEXT NOT NULL DEFAULT ''"),
+    ("offer_code", "TEXT NOT NULL DEFAULT ''"),
+)
+PASS_KINDS = (
+    ("monthly", "Membership (recurring)"),
+    ("drop_in", "Drop-in (single session)"),
+    ("pass", "Multi-session pack"),
+    ("trial", "Free trial"),
+    ("free", "Free"),
+)
+KIND_WORD = {"monthly": "Membership", "drop_in": "Drop-in", "pass": "Multi-session pack", "trial": "Free trial", "free": "Free"}
+FREQS = (("week", "week"), ("month", "month"), ("year", "year"))
+LINEUP_CATS = (("competitions", "Competitions"), ("camps", "Camps"), ("trips", "Trips"), ("community", "Community"))
+ACTIVITIES = (("practice", "Practice"), ("scrimmage", "Scrimmage"), ("game", "Game"))
+
+
+def _ensure_pass_columns(d):
+    cols = {row[1] for row in d.execute("PRAGMA table_info(payment_plans)")}
+    if not cols:
+        return
+    for name, decl in PASS_COLUMNS:
+        if name not in cols:
+            d.execute("ALTER TABLE payment_plans ADD COLUMN %s %s" % (name, decl))
+    d.execute("""CREATE TABLE IF NOT EXISTS plan_people(
+        plan_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(plan_id, member_id))""")
+
+
+def _provider_id(d, kind):
+    row = d.execute("SELECT id FROM payment_providers WHERE kind=? ORDER BY id LIMIT 1", (kind,)).fetchone()
+    return row["id"] if row else None
+
+
+def _dollars(raw):
+    text = (raw or "").strip().replace("$", "").replace(",", "")
+    if not text:
+        return None
+    if not __import__("re").fullmatch(r"\d+(\.\d{1,2})?", text):
+        raise ValueError("Use a price like 45 or 45.00.")
+    return int(round(float(text) * 100))
+
+
+def _price_rows(d, plan_id):
+    try:
+        return d.execute("SELECT * FROM payment_prices WHERE plan_id=? ORDER BY effective_on", (plan_id,)).fetchall()
+    except Exception:
+        return []
+
+
+def _shown_price(rows, today):
+    current = None
+    for row in rows:
+        if row["effective_on"] <= today:
+            current = row
+    if current:
+        return current["amount_cents"], ""
+    future = [row for row in rows if row["effective_on"] > today]
+    if future:
+        return future[0]["amount_cents"], future[0]["effective_on"]
+    return None, ""
+
+
+def _money(cents):
+    cents = int(cents or 0)
+    return "$%d" % (cents // 100) if cents % 100 == 0 else "$%d.%02d" % (cents // 100, cents % 100)
+
+
+def _period(plan):
+    kind = plan["kind"] if plan else ""
+    if kind == "monthly":
+        freq = (plan["frequency"] or "month") if "frequency" in plan.keys() else "month"
+        return "/ " + (freq if freq in ("week", "month", "year") else "month")
+    if kind == "drop_in":
+        return "/ session"
+    if kind == "pass":
+        count = plan["length_sessions"] if plan and "length_sessions" in plan.keys() else 0
+        return "for %d sessions" % count if count else "/ pack"
+    return ""
+
+
+def pass_summary(plan, program_names, cents, starts):
+    """One line such as '$45 / month · Water Polo practices'."""
+    kind = plan["kind"] if plan else "monthly"
+    if kind in ("trial", "free") or cents is None:
+        price = "Free" if kind in ("trial", "free") else "Price not set"
+    else:
+        price = _money(cents) + " " + _period(plan)
+        if starts:
+            price += " from " + starts
+    acts = _csv(plan["activities"] if plan and "activities" in plan.keys() else "")
+    act = ""
+    if acts == ["practice"]:
+        act = " practices"
+    elif acts:
+        act = " " + ", ".join(acts)
+    names = program_names or ["No sport yet"]
+    return "%s · %s%s" % (price.strip(), ", ".join(names), act)
+
+
+def visible_plans(d):
+    _ensure_pass_columns(d)
+    return d.execute("SELECT * FROM payment_plans WHERE COALESCE(archived,0)=0 ORDER BY active DESC, name").fetchall()
+
+
+def _seed_passes(d):
+    """Map the existing monthly plan and archive the rest. Does not delete rows or RSVPs."""
+    if _meta(d, "passes_v1") == "1":
+        return
+    _ensure_pass_columns(d)
+    if not d.execute("SELECT 1 FROM payment_plans LIMIT 1").fetchone():
+        _set_meta(d, "passes_v1", "1")
+        return
+    wp = program_by_slug(d, "water-polo")
+    wp_id = wp["id"] if wp else None
+    keep = []
+    monthly = d.execute("SELECT * FROM payment_plans WHERE kind='monthly' ORDER BY id LIMIT 1").fetchone()
+    if monthly:
+        d.execute("""UPDATE payment_plans SET name='Monthly Membership', sports='water-polo', frequency='month',
+            renewal='indefinite', audience='everyone', archived=0, currency='USD' WHERE id=?""", (monthly["id"],))
+        if wp_id:
+            d.execute("DELETE FROM plan_programs WHERE plan_id=?", (monthly["id"],))
+            d.execute("INSERT INTO plan_programs(plan_id, program_id) VALUES(?,?)", (monthly["id"], wp_id))
+        keep.append(monthly["id"])
+    drop = d.execute("""SELECT * FROM payment_plans WHERE kind='drop_in' AND COALESCE(archived,0)=0
+        AND (sports LIKE '%water-polo%' OR lower(name) LIKE '%water polo%') ORDER BY id LIMIT 1""").fetchone()
+    if drop:
+        priced = _price_rows(d, drop["id"]) or (drop["external_url"] or "").strip()
+        d.execute("""UPDATE payment_plans SET name='Drop-in', sports='water-polo', activities='practice', frequency='',
+            length_mode='sessions', length_sessions=1, audience='everyone', archived=0, active=? WHERE id=?""",
+                  (1 if priced else 0, drop["id"]))
+        if wp_id:
+            d.execute("DELETE FROM plan_programs WHERE plan_id=?", (drop["id"],))
+            d.execute("INSERT INTO plan_programs(plan_id, program_id) VALUES(?,?)", (drop["id"], wp_id))
+        keep.append(drop["id"])
+    else:
+        free_id = _provider_id(d, "free")
+        new_id = d.execute("""INSERT INTO payment_plans(name, kind, provider_id, external_url, sports, activities, active, notes, description, currency, length_mode, length_sessions, audience, archived)
+            VALUES('Drop-in','drop_in',?,'','water-polo','practice',0,'','','USD','sessions',1,'everyone',0)""", (free_id,)).lastrowid
+        if wp_id:
+            d.execute("INSERT INTO plan_programs(plan_id, program_id) VALUES(?,?)", (new_id, wp_id))
+        keep.append(new_id)
+    trial = {}
+    try:
+        import publicfeed
+        trial = publicfeed.normalize_trial((publicfeed.load(d).get("trial") or {}))
+        enabled = 1 if (publicfeed.load(d).get("trial") or {}).get("enabled") else 0
+    except Exception:
+        trial = {"mode": "duration", "duration_days": 14, "session_count": 2, "activities": ["practice"], "external": "usawp_trial", "first_time_only": True}
+        enabled = 0
+    mode = trial.get("mode") or "duration"
+    days = (trial.get("duration_days") or 14) if mode == "duration" else 0
+    sessions = (trial.get("session_count") or 2) if mode == "sessions" else 0
+    audience = "new" if trial.get("first_time_only", True) else "everyone"
+    tid = d.execute("""INSERT INTO payment_plans(name, kind, provider_id, external_url, sports, activities, quantity, active, notes,
+        description, currency, renewal, frequency, length_mode, length_days, length_sessions, audience, one_per_person, offer_code, archived)
+        VALUES('Water Polo 2-Week Free Trial','trial',?,'','water-polo',?,0,?,?,'','USD','','',?,?,?,?,1,?,0)""", (
+            _provider_id(d, "free"), ",".join(trial.get("activities") or ["practice"]), enabled,
+            "Uses the existing free-trial offer. It does not satisfy USA Water Polo.",
+            mode, days, sessions, audience, trial.get("external") or "usawp_trial")).lastrowid
+    if wp_id:
+        d.execute("INSERT INTO plan_programs(plan_id, program_id) VALUES(?,?)", (tid, wp_id))
+    keep.append(tid)
+    marks = ",".join("?" * len(keep))
+    d.execute("UPDATE payment_plans SET archived=1, active=0 WHERE id NOT IN (%s)" % marks, keep)
+    _set_meta(d, "passes_v1", "1")
+
+
+def trial_dict(d):
+    """The active free-trial pass, or an inactive one so the widget can stay quiet."""
+    _ensure_pass_columns(d)
+    row = d.execute("""SELECT * FROM payment_plans WHERE kind='trial' AND COALESCE(archived,0)=0 ORDER BY active DESC, id LIMIT 1""").fetchone()
+    if not row:
+        return None
+    mode = row["length_mode"] if row["length_mode"] in ("duration", "sessions") else "duration"
+    return {
+        "enabled": bool(row["active"]),
+        "mode": mode,
+        "duration_days": row["length_days"] or 14,
+        "session_count": row["length_sessions"] or 2,
+        "activities": _csv(row["activities"]) or ["practice"],
+        "external": row["offer_code"] if row["offer_code"] in ("usawp_trial", "none") else "usawp_trial",
+        "first_time_only": row["audience"] == "new" or bool(row["one_per_person"]),
+        "includes": row["description"] or "",
+        "visits": str(row["length_sessions"] or ""),
+        "days": str(row["length_days"] or ""),
+        "conditions": row["terms"] or "",
+        "message": row["description"] or "",
+    }
+
+
+def sync_trial_from_settings(d, trial):
+    """Keep the seeded trial pass aligned when the older trial form is saved."""
+    _seed_passes(d)
+    row = d.execute("SELECT id FROM payment_plans WHERE kind='trial' AND COALESCE(archived,0)=0 ORDER BY id LIMIT 1").fetchone()
+    if not row:
+        return
+    try:
+        import publicfeed
+        trial = publicfeed.normalize_trial(trial)
+    except Exception:
+        return
+    mode = trial.get("mode") or "duration"
+    d.execute("""UPDATE payment_plans SET active=?, length_mode=?, length_days=?, length_sessions=?, activities=?, audience=?, one_per_person=?, offer_code=?
+        WHERE id=?""", (
+            1 if trial.get("enabled") else 0, mode,
+            (trial.get("duration_days") or 14) if mode == "duration" else 0,
+            (trial.get("session_count") or 2) if mode == "sessions" else 0,
+            ",".join(trial.get("activities") or ["practice"]),
+            "new" if trial.get("first_time_only") else "everyone",
+            1 if trial.get("first_time_only") else 0,
+            trial.get("external") or "none", row["id"]))
+
+
+def _push_trial_settings(d, plan):
+    if plan["kind"] != "trial":
+        return
+    try:
+        import publicfeed
+    except Exception:
+        return
+    data = publicfeed.load(d)
+    trial = dict(data.get("trial") or {})
+    trial.update(trial_dict(d) or {})
+    publicfeed.save_sections(d, trial=publicfeed.normalize_trial(trial))
+
+
+def save_pass(d, plan_id, form):
+    """Write one pass. Does not touch RSVPs, cards, or governing-body clearance."""
+    _ensure_pass_columns(d)
+    name = " ".join((form.get("name") or "").split())
+    if len(name) < 3:
+        raise ValueError("Name needs at least 3 characters.")
+    kinds = dict(PASS_KINDS)
+    kind = form.get("kind") or ""
+    if kind not in kinds:
+        raise ValueError("Choose a pass type.")
+    programs = [int(v) for v in form.getlist("program") if str(v).isdigit()]
+    if not programs:
+        raise ValueError("Choose at least one sport.")
+    activities = [a for a, _label in ACTIVITIES if form.get("activity_%s" % a)]
+    cats = [a for a, _label in LINEUP_CATS if form.get("lineup_%s" % a)]
+    audience = form.get("audience") or "everyone"
+    if audience not in ("everyone", "new", "specific"):
+        raise ValueError("Choose who can get this pass.")
+    renewal = form.get("renewal") or "indefinite"
+    if renewal not in ("indefinite", "fixed"):
+        renewal = "indefinite"
+    try:
+        renewal_count = int(form.get("renewal_count") or 0)
+    except ValueError:
+        renewal_count = 0
+    frequency = form.get("frequency") or "month"
+    if frequency not in ("week", "month", "year"):
+        frequency = "month"
+    length_mode = form.get("length_mode") or ""
+    if length_mode not in ("duration", "sessions", ""):
+        length_mode = ""
+    try:
+        length_days = max(0, min(365, int(form.get("length_days") or 0)))
+        length_sessions = max(0, min(999, int(form.get("length_sessions") or 0)))
+        uses = max(0, min(99, int(form.get("uses_per_event") or 0)))
+    except ValueError as exc:
+        raise ValueError("Use whole numbers for the length and limits.") from exc
+    pay = form.get("pay") or "none"
+    if pay not in ("external", "manual", "none"):
+        pay = "none"
+    if kind in ("trial", "free"):
+        pay = "none"
+    url = (form.get("external_url") or "").strip()[:300]
+    if pay != "external":
+        url = url if pay == "manual" else ""
+    if url and not (url.startswith("https://") or url.startswith("http://")):
+        raise ValueError("The registration link has to start with https://.")
+    provider_kind = {"external": "external_link", "manual": "manual", "none": "free"}[pay]
+    provider = _provider_id(d, provider_kind)
+    if provider:
+        prow = d.execute("SELECT kind FROM payment_providers WHERE id=?", (provider,)).fetchone()
+        if prow and prow["kind"] == "stripe":
+            raise ValueError("Stripe is not available.")
+    if kind == "trial":
+        offer = "usawp_trial" if form.get("offer_code") == "usawp_trial" else "none"
+    else:
+        offer = ""
+    active = 1 if form.get("active") == "1" else 0
+    fields = (name, kind, provider, url, ",".join(activities), (form.get("description") or "")[:500],
+              "USD", renewal, renewal_count, frequency if kind == "monthly" else "",
+              length_mode, length_days, length_sessions, audience, 1 if form.get("one_per_person") else 0, uses,
+              ",".join(cats), ",".join(form.getlist("event")), (form.get("terms") or "")[:2000], offer, active)
+    if plan_id:
+        row = d.execute("SELECT id FROM payment_plans WHERE id=?", (plan_id,)).fetchone()
+        if not row:
+            raise ValueError("Choose a pass.")
+        d.execute("""UPDATE payment_plans SET name=?, kind=?, provider_id=?, external_url=?, activities=?, description=?, currency=?,
+            renewal=?, renewal_count=?, frequency=?, length_mode=?, length_days=?, length_sessions=?, audience=?, one_per_person=?,
+            uses_per_event=?, lineup_categories=?, event_ids=?, terms=?, offer_code=?, active=?, archived=0 WHERE id=?""", fields + (plan_id,))
+    else:
+        plan_id = d.execute("""INSERT INTO payment_plans(name, kind, provider_id, external_url, activities, description, currency,
+            renewal, renewal_count, frequency, length_mode, length_days, length_sessions, audience, one_per_person,
+            uses_per_event, lineup_categories, event_ids, terms, offer_code, active, archived, sports, notes)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'','')""", fields).lastrowid
+    cents = _dollars(form.get("price"))
+    if cents is not None:
+        today = dt.date.today().isoformat()
+        existing = d.execute("SELECT id FROM payment_prices WHERE plan_id=? AND effective_on=?", (plan_id, today)).fetchone()
+        if existing:
+            d.execute("UPDATE payment_prices SET amount_cents=? WHERE id=?", (cents, existing["id"]))
+        else:
+            d.execute("INSERT INTO payment_prices(plan_id, amount_cents, effective_on) VALUES(?,?,?)", (plan_id, cents, today))
+    d.execute("DELETE FROM plan_programs WHERE plan_id=?", (plan_id,))
+    for pid in programs:
+        d.execute("INSERT INTO plan_programs(plan_id, program_id) VALUES(?,?)", (plan_id, pid))
+    d.execute("DELETE FROM plan_people WHERE plan_id=?", (plan_id,))
+    if audience == "specific":
+        for mid in form.getlist("person"):
+            if str(mid).isdigit():
+                d.execute("INSERT OR IGNORE INTO plan_people(plan_id, member_id) VALUES(?,?)", (plan_id, int(mid)))
+    plan = d.execute("SELECT * FROM payment_plans WHERE id=?", (plan_id,)).fetchone()
+    _push_trial_settings(d, plan)
+    return plan_id
+
+
 def plans_html(d):
+    today = dt.date.today().isoformat()
     bits = ['<div class=mlist>']
-    for plan in d.execute("SELECT * FROM payment_plans ORDER BY active DESC, name").fetchall():
-        names = plan_program_names(d, plan["id"]) or ["No program yet"]
-        bits.append(_row("/manage/club/plans/%d" % plan["id"], plan["name"], ", ".join(names)))
-    bits.append("</div>")
+    rows = visible_plans(d)
+    if not rows:
+        bits.append('<p class="t3 sm" style="padding:12px 16px">No passes yet.</p>')
+    for plan in rows:
+        names = plan_program_names(d, plan["id"]) or ["No sport yet"]
+        cents, starts = _shown_price(_price_rows(d, plan["id"]), today)
+        price = "Free" if plan["kind"] in ("trial", "free") else ("Price not set" if cents is None else _money(cents) + " " + _period(plan))
+        if starts and cents is not None and plan["kind"] not in ("trial", "free"):
+            price += " from " + starts
+        state = "On" if plan["active"] else "Off"
+        desc = "%s · %s · %s · %s" % (KIND_WORD.get(plan["kind"], plan["kind"]), price.strip(), ", ".join(names), state)
+        bits.append(_row("/manage/club/plans/%d" % plan["id"], plan["name"], desc))
+    bits.append('</div><p style="margin-top:16px"><a class="btn btn-primary full" href="/manage/club/plans/new">Create pass</a></p>')
     return "".join(bits)
 
 
+def _check_boxes(name, options, selected):
+    chosen = set(selected)
+    return "".join('<label class=checkline><input type=checkbox name="%s" value="%s"%s> %s</label>' % (
+        name, escape(value), " checked" if value in chosen else "", escape(label)) for value, label in options)
+
+
 def plan_edit_html(d, plan, csrf):
-    linked = {row["program_id"] for row in d.execute("SELECT program_id FROM plan_programs WHERE plan_id=?", (plan["id"],)).fetchall()}
-    boxes = []
+    plan = plan or {}
+    pid = plan["id"] if plan and "id" in plan.keys() else None
+    linked = set()
+    people_on = set()
+    if pid:
+        linked = {row["program_id"] for row in d.execute("SELECT program_id FROM plan_programs WHERE plan_id=?", (pid,)).fetchall()}
+        people_on = {row["member_id"] for row in d.execute("SELECT member_id FROM plan_people WHERE plan_id=?", (pid,)).fetchall()}
+    today = dt.date.today().isoformat()
+    prices = _price_rows(d, pid) if pid else []
+    cents, starts = _shown_price(prices, today) if prices else (None, "")
+    kind = plan["kind"] if plan and "kind" in plan.keys() else "monthly"
+    program_boxes = []
     for program in programs(d):
-        boxes.append('<label class=checkline><input type=checkbox name=program value="%d"%s> %s%s</label>' % (
+        program_boxes.append('<label class=checkline><input type=checkbox name=program value="%d"%s> %s%s</label>' % (
             program["id"], " checked" if program["id"] in linked else "", escape(program["name"]),
             "" if program["active"] else " (off)"))
-    return """<form method=post class=clubform>%s
-<p class="t3 sm">%s · %s</p>
-<p class="t3 sm">%s</p>
-<p>Programs this plan covers. A payment does not satisfy USA Water Polo or USMS.</p>
+    acts = set(_csv(plan["activities"] if plan and "activities" in plan.keys() else "practice"))
+    cats = set(_csv(plan["lineup_categories"] if plan and "lineup_categories" in plan.keys() else ""))
+    events_on = set(_csv(plan["event_ids"] if plan and "event_ids" in plan.keys() else ""))
+    event_boxes = []
+    try:
+        for row in d.execute("""SELECT id, date, title, location, activity_type FROM practices
+                WHERE cancelled=0 AND date>=? ORDER BY date, start LIMIT 24""", (today,)):
+            key = "p-%d" % row["id"]
+            label = "%s · %s" % (row["date"], row["title"] or row["location"] or "Practice")
+            event_boxes.append((key, label))
+        for row in d.execute("""SELECT id, date, title, event_type FROM lineup_events
+                WHERE status='published' AND date>=? ORDER BY date LIMIT 24""", (today,)):
+            event_boxes.append(("e-%d" % row["id"], "%s · %s" % (row["date"], row["title"] or row["event_type"] or "Event")))
+    except Exception:
+        event_boxes = []
+    people = []
+    try:
+        people = d.execute("""SELECT id, first, preferred_first, last FROM members
+            WHERE COALESCE(role,'')!='system' ORDER BY last, first LIMIT 80""").fetchall()
+    except Exception:
+        people = []
+    person_boxes = []
+    for person in people:
+        person_boxes.append((str(person["id"]), ("%s %s" % (person["preferred_first"] or person["first"], person["last"] or "")).strip()))
+    pay = "none"
+    if plan and plan["provider_id"]:
+        prow = d.execute("SELECT kind FROM payment_providers WHERE id=?", (plan["provider_id"],)).fetchone()
+        pay = {"external_link": "external", "manual": "manual", "free": "none"}.get(prow["kind"] if prow else "", "none")
+    if plan and (plan["external_url"] or "") and pay == "none":
+        pay = "external"
+    price_lines = "".join("<p class=t3>%s from %s</p>" % (_money(row["amount_cents"]), escape(row["effective_on"])) for row in prices)
+    names = plan_program_names(d, pid) if pid else []
+    summary = pass_summary(plan if plan else {"kind": "monthly", "frequency": "month", "activities": "practice", "length_sessions": 0}, names, cents, starts)
+    freq = plan["frequency"] if plan and "frequency" in plan.keys() and plan["frequency"] else "month"
+    renewal = plan["renewal"] if plan and "renewal" in plan.keys() and plan["renewal"] else "indefinite"
+    length_mode = plan["length_mode"] if plan and "length_mode" in plan.keys() else ""
+    audience = plan["audience"] if plan and "audience" in plan.keys() and plan["audience"] else "everyone"
+    offer = plan["offer_code"] if plan and "offer_code" in plan.keys() else ""
+    def sel(options, current):
+        return "".join('<option value="%s"%s>%s</option>' % (value, " selected" if value == current else "", escape(label)) for value, label in options)
+    return """<form method=post class="clubform passform" id=passForm>%s
+<p class="t3 sm">A pass grants access only. It does not satisfy USA Water Polo, USMS, or any other sport requirement, and it does not change an RSVP.</p>
+<label>Name<input name=name required minlength=3 value="%s"></label>
+<label>Description<textarea class=planfield name=description rows=4>%s</textarea></label>
+<label>Type<select name=kind id=passKind>%s</select></label>
+<label>Price<input name=price id=passPrice inputmode=decimal placeholder="45" autocomplete=off></label>
+<label>Currency<select name=currency><option value=USD selected>USD</option></select></label>
+<p class="t3 sm">No fees are added here. A free trial or a free pass stays at no charge. Saving a price adds it from today and leaves later prices in place.</p>
 %s
+<div id=passRenew>
+<h2>Billing and renewal</h2>
+<label>Renewal<select name=renewal>%s</select></label>
+<label>Number of renewals<input name=renewal_count inputmode=numeric value="%s"></label>
+<label>Frequency<select name=frequency id=passFreq>%s</select></label>
+</div>
+<div id=passLength>
+<h2>Trial or pass length</h2>
+<label>Length<select name=length_mode id=passLengthMode>%s</select></label>
+<label>Days<input name=length_days id=passDays inputmode=numeric value="%s"></label>
+<label>Sessions<input name=length_sessions id=passSessions inputmode=numeric value="%s"></label>
+</div>
+<h2>Applies to</h2>
+<p class="t3 sm">Check the sports and the sessions this pass covers. Leave events unchecked to cover every matching session.</p>
+%s
+<p>Schedule activities</p>
+%s
+<p>Lineup categories</p>
+%s
+<p>Specific events</p>
+%s
+<h2>Who can get it</h2>
+<label>Audience<select name=audience id=passAudience>%s</select></label>
+<div id=passPeople>%s</div>
+<h2>Limits</h2>
+<label class=checkline><input type=checkbox name=one_per_person value=1%s> One per person</label>
+<label>Uses per event<input name=uses_per_event inputmode=numeric value="%s" placeholder="0 for no limit"></label>
+<h2>Where to pay</h2>
+<label>Payment<select name=pay>%s</select></label>
+<label>Registration URL<input name=external_url value="%s" placeholder="https://" autocomplete=off></label>
+<p class="t3 sm">External opens Club Assistant or another registration page. Manual is recorded by an admin. None is for a free pass or a trial. Stripe is not available.</p>
+<label class=checkline id=passUsawp><input type=checkbox name=offer_code value=usawp_trial%s> Requires a USA Water Polo trial membership</label>
+<label>Terms<textarea class=planfield name=terms rows=4>%s</textarea></label>
+<label class=switchrow>Pass is on<span class=switch><input type=checkbox name=active value=1%s><span></span></span></label>
+<div class=card id=passSummaryCard><h2>Summary</h2><p id=passSummary data-base="%s">%s</p></div>
 <button class="btn btn-primary full" type=submit>Save</button>
-</form>""" % (csrf, escape(plan["name"]), escape(plan["kind"]), escape(plan["external_url"] or "No external link"), "".join(boxes))
+</form>
+<script>
+(function(){
+  var form=document.getElementById("passForm"); if(!form) return;
+  var kind=document.getElementById("passKind"), freq=document.getElementById("passFreq"), mode=document.getElementById("passLengthMode");
+  var summary=document.getElementById("passSummary");
+  function show(id, on){ var el=document.getElementById(id); if(el) el.hidden=!on; }
+  function selected(name){
+    return [].slice.call(form.querySelectorAll('input[name="'+name+'"]:checked')).map(function(el){ return el.parentNode.textContent.trim(); });
+  }
+  function paint(){
+    var k=kind.value;
+    show("passRenew", k==="monthly");
+    show("passLength", k==="trial"||k==="pass"||k==="drop_in");
+    show("passPeople", form.querySelector('[name=audience]').value==="specific");
+    show("passUsawp", k==="trial");
+    var price=(form.querySelector('[name=price]').value||'').trim().replace(/^\\$/, "");
+    var sports=selected("program");
+    var acts=selected("activity_practice").concat(selected("activity_scrimmage"), selected("activity_game"));
+    if(!price && summary.getAttribute("data-base")){ summary.textContent=summary.getAttribute("data-base"); return; }
+    var money = k==="trial"||k==="free" ? "Free" : (price ? "$"+price : "Price not set");
+    var period = k==="monthly" ? " / "+freq.value : (k==="drop_in" ? " / session" : (k==="pass" ? " pack" : ""));
+    summary.textContent = money+period+" · "+(sports.join(", ")||"No sport yet")+(acts.length?" "+acts.join(", ").toLowerCase():"");
+  }
+  form.addEventListener("input", paint); form.addEventListener("change", paint); paint();
+})();
+</script>""" % (
+        csrf, escape(plan["name"] if plan and "name" in plan.keys() else ""),
+        escape(plan["description"] if plan and "description" in plan.keys() else ""),
+        sel(PASS_KINDS, kind), price_lines,
+        sel((("indefinite", "Renews indefinitely"), ("fixed", "Fixed number of renewals")), renewal),
+        escape(str(plan["renewal_count"] if plan and "renewal_count" in plan.keys() else 0)),
+        sel(FREQS, freq),
+        sel((("", "Not set"), ("duration", "A length of time"), ("sessions", "A number of sessions")), length_mode),
+        escape(str(plan["length_days"] if plan and "length_days" in plan.keys() else (14 if kind == "trial" else 0))),
+        escape(str(plan["length_sessions"] if plan and "length_sessions" in plan.keys() else (1 if kind == "drop_in" else 0))),
+        "".join(program_boxes),
+        "".join('<label class=checkline><input type=checkbox name="activity_%s" value=1%s> %s</label>' % (value, " checked" if value in acts else "", label) for value, label in ACTIVITIES),
+        "".join('<label class=checkline><input type=checkbox name="lineup_%s" value=1%s> %s</label>' % (value, " checked" if value in cats else "", label) for value, label in LINEUP_CATS),
+        "".join('<label class=checkline><input type=checkbox name=event value="%s"%s> %s</label>' % (escape(value), " checked" if value in events_on else "", escape(label)) for value, label in event_boxes) or "<p class=t3>No upcoming events.</p>",
+        sel((("everyone", "Everyone"), ("new", "New members only"), ("specific", "Specific people")), audience),
+        "".join('<label class=checkline><input type=checkbox name=person value="%s"%s> %s</label>' % (value, " checked" if int(value) in people_on else "", escape(label)) for value, label in person_boxes) or "<p class=t3>No people yet.</p>",
+        " checked" if plan and "one_per_person" in plan.keys() and plan["one_per_person"] else "",
+        escape(str(plan["uses_per_event"] if plan and "uses_per_event" in plan.keys() else 0)),
+        sel((("external", "External registration link"), ("manual", "Manual"), ("none", "None")), pay),
+        escape(plan["external_url"] if plan and "external_url" in plan.keys() else ""),
+        " checked" if offer == "usawp_trial" or (kind == "trial" and offer != "none") else "",
+        escape(plan["terms"] if plan and "terms" in plan.keys() else ""),
+        " checked" if plan and plan["active"] else "",
+        escape(summary), escape(summary))
 
 
 def requirement_edit_html(d, req, scope, csrf, preset_ids=None, sport=""):
