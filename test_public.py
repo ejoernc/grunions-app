@@ -206,6 +206,29 @@ def test_widget_is_off_until_an_admin_publishes_it():
     assert counted["theme"] == "day" and counted["default_chip"] == "schedule"
     with A.app.app_context():
         assert A.db().execute("SELECT COUNT(*) FROM practices").fetchone()[0] == before + 1
+    admin_page = admin.get("/manage/widget").get_data(as_text=True)
+    assert "Events in preview" in admin_page and "live widget shows every upcoming event" in admin_page
+    assert "scrolling=no" in admin_page and "pointer-events:none" in admin_page and "https://grunions.regulars.team/widget" in admin_page
+    with A.app.app_context():
+        d = A.db()
+        for offset, place in enumerate(("Pool A", "Pool B", "Pool C", "Pool D"), start=7):
+            when = (A.today_pt() + __import__("datetime").timedelta(days=offset)).isoformat()
+            d.execute("""INSERT INTO practices(date,start,end,location,activity_type,sport,note)
+                VALUES(?,?,?,?,?,?,?)""", (when, "19:00", "20:30", place, "practice", "Water Polo", "Extra session"))
+        d.commit()
+    admin.post("/manage/widget", data={
+        "csrf": csrf(admin, "/manage/widget"),
+        "widget_on": "1",
+        "chip_all": "1", "chip_schedule": "1", "chip_competitions": "1", "chip_camps": "1", "chip_trips": "1", "chip_community": "1",
+        "default_chip": "all", "include_schedule": "1", "show_pricing": "1", "show_trial": "1",
+        "hide_past": "1", "limit": "2",
+    })
+    public_frame = member.get("/widget").get_data(as_text=True)
+    preview_frame = admin.get("/widget?preview=1").get_data(as_text=True)
+    public_feed = member.get("/api/public/feed").get_json()
+    assert public_frame.count("<article") > 4 and public_frame.count("<article") == len(public_feed["events"])
+    assert "Extra session" in public_frame and preview_frame.count("Extra session") == 0
+    assert preview_frame.count("<article") == 2 and "html.preview" in preview_frame and 'class="preview"' in preview_frame
 
 
 def test_registration_checks_eligibility_and_does_not_charge_or_email():

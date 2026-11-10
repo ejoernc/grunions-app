@@ -666,7 +666,7 @@ def parse_widget(form):
     data["show_counts"] = _get(form, "show_counts") == "1"
     data["hide_past"] = _get(form, "hide_past") == "1"
     data["include_schedule"] = _get(form, "include_schedule") == "1"
-    limit = _count(_get(form, "limit") or "12", "how many events to show") or "12"
+    limit = _count(_get(form, "limit") or "4", "events in preview") or "4"
     data["limit"] = min(40, max(1, int(limit)))
     return data
 
@@ -712,8 +712,9 @@ def _tile(iso):
 _CHIP_LABEL = dict(CHIPS)
 
 
-def build_feed(d, data, practice_title, now, org):
-    """Public cards only. No names, photos, plans, or private notes."""
+def build_feed(d, data, practice_title, now, org, event_limit=None):
+    """Public cards only. No names, photos, plans, or private notes.
+    event_limit trims the admin preview. The live widget and feed leave it unset."""
     widget = data.get("widget") or widget_blank()
     offer = public_view(data)
     hide_past = widget.get("hide_past", True)
@@ -788,8 +789,8 @@ def build_feed(d, data, practice_title, now, org):
                 "sort": _stamp(row["date"], row["start_time"]),
             })
     events.sort(key=lambda item: (item["sort"], item["id"]))
-    limit = min(40, max(1, int(widget.get("limit") or 12)))
-    events = events[:limit]
+    if event_limit:
+        events = events[:max(1, int(event_limit))]
     for item in events:
         item.pop("sort", None)
     overview = offer["lines"] if widget.get("include_schedule", True) else []
@@ -990,7 +991,7 @@ _PIN = '<svg class=nxglyph width="16" height="16" viewBox="0 0 256 256" fill="cu
 _SUN = '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Zm-16,0a48,48,0,1,0-48,48A48.05,48.05,0,0,0,176,128ZM58.34,69.66A8,8,0,0,1,69.66,58.34l16,16a8,8,0,0,1-11.32,11.32Zm0,116.68,16-16a8,8,0,0,1,11.32,11.32l-16,16a8,8,0,0,1-11.32-11.32ZM192,72a8,8,0,0,1,5.66-2.34l16-16a8,8,0,0,1,11.32,11.32l-16,16A8,8,0,0,1,192,72Zm5.66,114.34a8,8,0,0,1,0-11.32,8,8,0,0,1,11.32,0l16,16a8,8,0,0,1-11.32,11.32ZM40,120H16a8,8,0,0,0,0,16H40a8,8,0,0,0,0-16Zm200,0H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16ZM128,200a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V208A8,8,0,0,0,128,200Z"/></svg>'
 
 
-def widget_document(payload, theme=None):
+def widget_document(payload, theme=None, preview=False):
     """Standalone iframe. It uses the app fonts and Lineup card structure. Host CSS cannot reach it."""
     import html as htmlmod
     theme = theme if theme in ("night", "day") else payload.get("theme") or "night"
@@ -1063,7 +1064,7 @@ def widget_document(payload, theme=None):
                 offer_bits.append('<a href="%s" target=_blank rel=noopener>%s</a>' % (e(banner_info["href"]), e(banner_info.get("link") or "Learn more")))
             offer_bits.append("</div>")
         offer_bits.append("</section>")
-    return """<!doctype html><html lang=en><head><meta charset=utf-8>
+    return """<!doctype html><html lang=en class="%s"><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>%s</title>
 <style>
@@ -1075,6 +1076,7 @@ def widget_document(payload, theme=None):
 :root{color-scheme:dark;--font-display:"Space Grotesk","Plus Jakarta Sans",system-ui,sans-serif;--font-sans:"Plus Jakarta Sans",system-ui,sans-serif;--color-bg:#090D0B;--color-surface:#0F1512;--color-surface-2:#131A16;--color-border:#1B221E;--color-control:#5c665f;--color-text:#F2F6F1;--color-text-secondary:#BEC9C1;--color-lime:#C4E65A;--color-on-selected:#090D0B;--color-chip:#131A16;--radius-card:20px;--radius-control:16px;--radius-chip:999px;--size-chip:36px}
 @media (prefers-color-scheme: light){:root{color-scheme:light;--color-bg:#F2F6F1;--color-surface:#FFFFFF;--color-surface-2:#E8EEE9;--color-border:#D9E0DB;--color-control:#5C665F;--color-text:#090D0B;--color-text-secondary:#3A4A40;--color-on-selected:#090D0B;--color-chip:#E8EEE9}}
 *{box-sizing:border-box}html,body{margin:0;background:var(--color-bg);color:var(--color-text)}
+html.preview,html.preview body{overflow:hidden}
 body{font:400 16px/1.5 var(--font-sans);padding:0 0 28px}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 20px 4px}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
@@ -1159,7 +1161,7 @@ main{padding:4px 20px 0;width:100%%}
   window.addEventListener("resize", report);
 })();
 </script></body></html>""" % (
-        e(org), e(org), chip_buttons(), "".join(offer_bits), cards(),
+        "preview" if preview else "", e(org), e(org), chip_buttons(), "".join(offer_bits), cards(),
     )
 
 
@@ -1167,6 +1169,8 @@ WIDGET_ADMIN = """<style>
 .daypick{display:flex;flex-wrap:wrap;gap:8px 12px;margin:0 0 12px}
 .pill{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--color-control);background:transparent;color:var(--t1);font:500 14px/1 var(--font-sans);cursor:pointer}
 .pill.on{background:var(--color-lime);border-color:var(--color-lime);color:#090D0B}
+#widgetPreview.desk{width:1280px;max-width:none;position:relative;left:50%;transform:translateX(-50%)}
+#prevMobile.on,#prevDesk.on{background:var(--color-lime);color:#090D0B;border-color:var(--color-lime)}
 </style>
 {{ admin_page('Website widget', 'Visitors see this only after you publish it. The embed keeps working when you change these settings.') }}
 <form method=post>
@@ -1184,16 +1188,17 @@ WIDGET_ADMIN = """<style>
 <label class=switchrow>Show how many are going<span class=switch><input type=checkbox name=show_counts value=1 {% if w.show_counts %}checked{% endif %}><span></span></span></label>
 <p class="t3 sm">Counts are numbers only. Names and photos stay off the widget.</p>
 <label class=switchrow>Hide events that already ended<span class=switch><input type=checkbox name=hide_past value=1 {% if w.hide_past %}checked{% endif %}><span></span></span></label>
-<label>Upcoming events to show<input name=limit inputmode=numeric value="{{ w.limit }}"></label>
+<label>Events in preview<input name=limit inputmode=numeric value="{{ w.limit }}"></label>
+<p class="t3 sm">The live widget shows every upcoming event. This number is only for the preview on this page.</p>
 <button class="btn btn-primary full" type=submit>Save</button>
 </form>
 <h2>Preview</h2>
-<p class="t3 sm">This preview uses your admin login. The public embed stays empty until you publish.</p>
+<p class="t3 sm">This preview uses your admin login and draws only the events in preview. It does not scroll. The live widget shows every upcoming event, and the public embed stays empty until you publish.</p>
 <div class=daypick>
 <button type=button class="btn btn-secondary" id=prevMobile>390</button>
 <button type=button class="btn btn-secondary" id=prevDesk>1280</button>
 </div>
-<iframe id=widgetPreview title="Widget preview" src="/widget?preview=1" style="width:min(100%,390px);height:640px;border:1px solid var(--line);border-radius:16px;background:#0A0D0A"></iframe>
+<iframe id=widgetPreview title="Widget preview" src="/widget?preview=1" scrolling=no style="width:390px;max-width:100%;height:320px;border:1px solid var(--line);border-radius:16px;background:#0A0D0A;overflow:hidden;pointer-events:none;display:block"></iframe>
 <h2>Embed code</h2>
 <p class="t3 sm">Paste this once. Later changes show up without a new snippet.</p>
 <textarea id=embedCode class=planfield rows=8 readonly>{{ embed }}</textarea>
@@ -1210,8 +1215,17 @@ WIDGET_ADMIN = """<style>
     });
   });
   var frame=document.getElementById("widgetPreview");
-  document.getElementById("prevMobile").onclick=function(){frame.style.width="min(100%,390px)";};
-  document.getElementById("prevDesk").onclick=function(){frame.style.width="min(100%,1280px)";};
+  var mobile=document.getElementById("prevMobile"), desk=document.getElementById("prevDesk");
+  function previewWidth(px){
+    frame.style.width=px+"px";
+    frame.style.maxWidth=px===390?"100%":"none";
+    frame.classList.toggle("desk", px===1280);
+    mobile.classList.toggle("on", px===390);
+    desk.classList.toggle("on", px===1280);
+  }
+  mobile.onclick=function(){previewWidth(390);};
+  desk.onclick=function(){previewWidth(1280);};
+  previewWidth(390);
   document.getElementById("copyEmbed").onclick=function(){
     var text=document.getElementById("embedCode").value;
     if(navigator.clipboard) navigator.clipboard.writeText(text);

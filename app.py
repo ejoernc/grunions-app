@@ -4051,8 +4051,8 @@ def manage_pricing():
     return page(ui.ADMIN_NAV + publicfeed.SETTINGS_PAGE, tab="admin", s=settings, slots=publicfeed.form_slots(settings),
         day_names=publicfeed.DAY_SHORT, offer=publicfeed.public_view(settings),
         pass_row=publicfeed._first(pricing.get("passes")), fee_row=publicfeed._first(pricing.get("fees")))
-def _widget_payload(d):
-    return publicfeed.build_feed(d, publicfeed.load(d), practice_title, wall_pt(), org_name())
+def _widget_payload(d, event_limit=None):
+    return publicfeed.build_feed(d, publicfeed.load(d), practice_title, wall_pt(), org_name(), event_limit=event_limit)
 @app.route("/api/public/feed")
 def public_feed_api():
     """Read-only public cards. Unpublished widgets, names, and photos stay out."""
@@ -4075,7 +4075,13 @@ def widget_frame():
     if not (data.get("widget") or {}).get("enabled") and not preview:
         abort(404)
     theme = request.args.get("theme")
-    html = publicfeed.widget_document(_widget_payload(d), theme if theme in ("night", "day") else None)
+    preview_limit = None
+    if preview:
+        try:
+            preview_limit = max(1, min(40, int((data.get("widget") or {}).get("limit") or 4)))
+        except (TypeError, ValueError):
+            preview_limit = 4
+    html = publicfeed.widget_document(_widget_payload(d, preview_limit), theme if theme in ("night", "day") else None, preview=preview)
     resp = Response(html, mimetype="text/html; charset=utf-8")
     resp.headers["Content-Security-Policy"] = "frame-ancestors *"
     resp.headers["Cache-Control"] = "private, no-store" if preview else "public, max-age=30"

@@ -37,7 +37,7 @@ A self-claim is `trial_acknowledged_at` plus an optional `trial_claim_until`. It
 
 `/manage/widget` is the next Club settings row. It is admin-only. The public page `/widget` and `/api/public/feed` answer 404 until Publish is on. Preview uses the admin’s login and does not publish the embed.
 
-The feed is practices and published Lineup events only. Cards have a title, time, place, public note, and a price or trial line when one was entered. Names, photos, coach plans, and draft events are left out. A going count is a number, and only when that switch is on. The response is cached for about 30 seconds and capped at 40 cards.
+The feed is practices and published Lineup events only. Cards have a title, time, place, public note, and a price or trial line when one was entered. Names, photos, coach plans, and draft events are left out. A going count is a number, and only when that switch is on. The response is cached for about 30 seconds. The live widget lists every upcoming event. Events in preview is only the static preview on the admin page.
 
 The iframe uses the app fonts and follows the visitor’s light or dark appearance with `prefers-color-scheme`. There is no Day/Night toggle. Chips are All, Schedule, Competitions, Camps, Trips, and Community. The schedule is a grid of `repeat(auto-fill, minmax(320px, 1fr))` and fills the container. Prices are shown as currency. The trial message is one callout above the grid, not a line on every card. Host CSS cannot style the frame. The embed snippet points at https://grunions.regulars.team/widget and does not change when settings change. Publish stays off until an admin turns it on.
 
