@@ -4241,12 +4241,7 @@ def widget_frame():
     if not (data.get("widget") or {}).get("enabled") and not preview:
         abort(404)
     theme = request.args.get("theme")
-    preview_limit = None
-    if preview:
-        try:
-            preview_limit = max(1, min(40, int((data.get("widget") or {}).get("limit") or 4)))
-        except (TypeError, ValueError):
-            preview_limit = 4
+    preview_limit = 4 if preview else None
     html = publicfeed.widget_document(_widget_payload(d, preview_limit), theme if theme in ("night", "day") else None, preview=preview)
     resp = Response(html, mimetype="text/html; charset=utf-8")
     resp.headers["Content-Security-Policy"] = "frame-ancestors *"
@@ -4355,7 +4350,13 @@ def manage_widget():
     d = db()
     if request.method == "POST":
         try:
-            publicfeed.save_sections(d, widget=publicfeed.parse_widget(request.form))
+            parsed = publicfeed.parse_widget(request.form)
+            old = (publicfeed.load(d).get("widget") or {})
+            if "hide_past" in old:
+                parsed["hide_past"] = old["hide_past"]
+            if "limit" in old:
+                parsed["limit"] = old["limit"]
+            publicfeed.save_sections(d, widget=parsed)
             d.commit()
             flash("Saved", "toast")
             return redirect("/manage/widget")
@@ -4870,10 +4871,9 @@ def _manage_catalog(d):
         add("activities", "Bulletin", "Team announcements in chat", "/chat", "tray", "announcement message bulletin chat")
         add("activities", "Requests", "Member-submitted events", "/manage/requests", "tray", "approval pending request")
     if admin:
-        add("people", "People", "Members, coaches, admins, and referees", "/manage/area/people", "people", "member coach admin referee roster compliance membership certification expiring", expiring_people_count(d), "warn")
-        add("club", "Sports", "Programs, governing bodies, and regular schedules", "/manage/club/programs", "cal", "sport program water polo swimming schedule")
+        add("people", "People", "Members, coaches, admins, and referees", "/members", "people", "member coach admin referee roster compliance membership certification expiring", expiring_people_count(d), "warn")
+        add("club", "Sports", "Programs, governing bodies, schedules, and requirements", "/manage/club/programs", "cal", "sport program water polo swimming schedule requirement safesport usawp usms eligibility")
         add("club", "Plans & passes", "Memberships, drop-ins, and which programs they cover", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass")
-        add("club", "Requirements", "Rules scoped to a program", "/manage/club/requirements", "rules", "requirement safesport usawp usms eligibility")
         add("club", "Website & sharing", "Public schedule and the website widget", "/manage/widget", "widget", "embed website widget preview")
         add("club", "Integrations", "Club Assistant and other registration links", "/manage/club/integrations", "swap", "club assistant provider payment link")
         add("tools", "QR codes", "Check-in and sharing", "/qr", "qr", "qr code join check-in")
@@ -4883,7 +4883,7 @@ def _manage_catalog(d):
 _AREA_COPY = {
     "activities": ("Activities", "Schedule, Lineup, Bulletin, and requests"),
     "people": ("People", "Members, roles, and compliance"),
-    "club": ("Club", "Sports, plans, requirements, and sharing"),
+    "club": ("Club", "Sports, plans, and sharing"),
     "tools": ("Tools", "QR codes, data transfer, and usage"),
 }
 @app.route("/manage")
@@ -5018,6 +5018,26 @@ def club_program(slug):
         return redirect("/manage/club/programs/" + slug)
     return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Overview, regular schedule, requirements, and venue.') }}{{ club_body|safe }}",
         tab="admin", admin_back="/manage/club/programs", title=program["name"], club_body=clubadmin.program_detail_html(d, program, csrf_field()))
+@app.route("/manage/club/programs/<slug>/requirements/new", methods=["GET", "POST"])
+@admin_required
+def club_program_requirement_new(slug):
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    program = clubadmin.program_by_slug(d, slug)
+    if not program:
+        abort(404)
+    if request.method == "POST":
+        try:
+            clubadmin.save_requirement(d, None, request.form)
+            d.commit()
+            flash("Saved", "toast")
+            return redirect("/manage/club/programs/" + slug)
+        except ValueError as exc:
+            flash(str(exc))
+    return page(ui.ADMIN_NAV + "{{ admin_page('Add requirement', subtitle) }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/club/programs/" + slug, subtitle="Starts checked for %s. Check another sport to share it." % program["name"],
+        club_body=clubadmin.requirement_edit_html(d, None, None, csrf_field(), preset_ids=[program["id"]], sport=slug))
 @app.route("/manage/club/plans", methods=["GET"])
 @admin_required
 def club_plans():
@@ -5048,27 +5068,11 @@ def club_plan(plan_id):
 @app.route("/manage/club/requirements/new", methods=["GET", "POST"])
 @admin_required
 def club_requirement_new():
-    import clubadmin
-    d = db()
-    clubadmin.ensure(d)
-    if request.method == "POST":
-        try:
-            req_id = clubadmin.save_requirement(d, None, request.form)
-            d.commit()
-            flash("Saved", "toast")
-            return redirect("/manage/club/requirements/%d" % req_id)
-        except ValueError as exc:
-            flash(str(exc))
-    return page(ui.ADMIN_NAV + "{{ admin_page('Add requirement', 'Choose the programs it applies to.') }}{{ club_body|safe }}",
-        tab="admin", admin_back="/manage/club/requirements", club_body=clubadmin.requirement_edit_html(d, None, None, csrf_field()))
+    return redirect("/manage/club/programs")
 @app.route("/manage/club/requirements", methods=["GET"])
 @admin_required
 def club_requirements():
-    import clubadmin
-    d = db()
-    clubadmin.ensure(d)
-    return page(ui.ADMIN_NAV + "{{ admin_page('Requirements', 'A requirement applies only to the programs you check.') }}{{ club_body|safe }}",
-        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.requirements_html(d))
+    return redirect("/manage/club/programs")
 @app.route("/manage/club/requirements/<int:req_id>", methods=["GET", "POST"])
 @admin_required
 def club_requirement(req_id):
@@ -5078,6 +5082,8 @@ def club_requirement(req_id):
     req = d.execute("SELECT * FROM requirements WHERE id=?", (req_id,)).fetchone()
     if not req:
         abort(404)
+    sport = (request.values.get("sport") or "").strip()
+    back = "/manage/club/programs/" + sport if sport and clubadmin.program_by_slug(d, sport) else "/manage/club/programs"
     if request.method == "POST":
         try:
             clubadmin.save_requirement(d, req_id, request.form)
@@ -5085,10 +5091,10 @@ def club_requirement(req_id):
             flash("Saved", "toast")
         except ValueError as exc:
             flash(str(exc))
-        return redirect("/manage/club/requirements/%d" % req_id)
+        return redirect("/manage/club/requirements/%d%s" % (req_id, ("?sport=" + sport) if sport else ""))
     scope = d.execute("SELECT * FROM requirement_scopes WHERE requirement_id=?", (req_id,)).fetchone()
     return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Scope, verification, and clearance.') }}{{ club_body|safe }}",
-        tab="admin", admin_back="/manage/club/requirements", title=req["name"], club_body=clubadmin.requirement_edit_html(d, req, scope, csrf_field()))
+        tab="admin", admin_back=back, title=req["name"], club_body=clubadmin.requirement_edit_html(d, req, scope, csrf_field(), sport=sport))
 @app.route("/manage/club/integrations", methods=["GET"])
 @admin_required
 def club_integrations():
@@ -5104,14 +5110,8 @@ def manage_area(area):
     if not can_host_practice(): abort(403)
     if area == "people":
         if not me()["is_admin"]: abort(403)
-        import clubadmin
-        d = db()
-        clubadmin.ensure(d)
-        pay = (request.args.get("pay") or "").strip()
-        if pay not in ("", "paying", "not"):
-            pay = ""
-        return page(ui.ADMIN_NAV + "{{ admin_page(title, subtitle) }}{{ club_body|safe }}", tab="admin", admin_back="/manage",
-            title="People", subtitle="Members, coaches, admins, and referees.", club_body=clubadmin.people_board_html(d, today_pt().isoformat(), pay))
+        qs = request.query_string.decode()
+        return redirect("/members" + (("?" + qs) if qs else ""))
     rows = [row for row in _manage_catalog(db()) if row["area"] == area]
     if not rows: abort(403)
     title, subtitle = _AREA_COPY[area]
@@ -5687,8 +5687,6 @@ def expiring_roster(d, rep):
 @app.route("/expiring", methods=["GET", "POST"])
 @admin_required
 def expiring():
-    if request.method == "GET":
-        return redirect("/manage/area/people")
     d = db(); days = request.values.get("days", EXPIRING_DAYS, type=int) or EXPIRING_DAYS
     if request.method == "POST" and request.form.get("action") == "ask_all":
         rep = expiry_report(d, days)
@@ -6087,7 +6085,7 @@ def members():
     if request.args.get("referee") == "eligible": view = "referees"
     if view == "expiring": view, filt = "members", "expiring"
     elif view == "uncleared": view, filt = "members", "uncleared"
-    if view not in ("members", "coaches", "admins", "referees", "all"): view = "members"
+    if view not in ("members", "coaches", "admins", "referees", "all", "compliance", "membership"): view = "members"
     if filt not in ("", "expiring", "uncleared"): filt = ""
     pay = (request.args.get("pay") or "").strip()
     if pay not in ("", "paying", "not"): pay = ""
@@ -6095,6 +6093,12 @@ def members():
     if view == "coaches": rows = [r for r in rows if r["id"] in sets["coaches"]]
     elif view == "admins": rows = [r for r in rows if r["id"] in sets["admins"]]
     elif view == "referees": rows = [r for r in rows if r["id"] in sets["refs"]]
+    elif view == "compliance":
+        watch = set()
+        for bucket in expiry_report(d, EXPIRING_DAYS).values():
+            for item in bucket:
+                watch.add(item["id"])
+        rows = [r for r in rows if r["id"] in watch]
     if q:
         needle = q.casefold()
         rows = [r for r in rows if needle in " ".join(x for x in (r["first"], r["preferred_first"], r["last"], r["email"]) if x).casefold()]
@@ -6108,7 +6112,8 @@ def members():
         today = today_pt().isoformat()
         rows = [r for r in rows if clubadmin.payment_view(d, r["id"], today)["paying"] == (pay == "paying")]
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
-    titles = {"members": "Members", "all": "People", "coaches": "Coaches", "admins": "Admins", "referees": "Referees"}
+    titles = {"members": "Members", "all": "People", "coaches": "Coaches", "admins": "Admins", "referees": "Referees",
+              "compliance": "Compliance", "membership": "Membership"}
     return page(T["members"],
         tab="admin", rows=rows, c=c, view=view, filt=filt, pay=pay, date=focus, q=q, title=titles[view],
         listed=sets["listed"], referees=sets["referees"], coach_ids=sets["coach_ids"], ref_ids=sets["ref_ids"],

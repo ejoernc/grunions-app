@@ -664,10 +664,7 @@ def parse_widget(form):
     data["show_pricing"] = _get(form, "show_pricing") == "1"
     data["show_trial"] = _get(form, "show_trial") == "1"
     data["show_counts"] = _get(form, "show_counts") == "1"
-    data["hide_past"] = _get(form, "hide_past") == "1"
     data["include_schedule"] = _get(form, "include_schedule") == "1"
-    limit = _count(_get(form, "limit") or "4", "events in preview") or "4"
-    data["limit"] = min(40, max(1, int(limit)))
     return data
 
 
@@ -717,7 +714,7 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
     event_limit trims the admin preview. The live widget and feed leave it unset."""
     widget = data.get("widget") or widget_blank()
     offer = public_view(data)
-    hide_past = widget.get("hide_past", True)
+    hide_past = True
     show_price = bool(widget.get("show_pricing"))
     show_trial = bool(widget.get("show_trial")) and bool((offer.get("trial") or {}).get("banner"))
     show_counts = bool(widget.get("show_counts"))
@@ -801,8 +798,11 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
     events.sort(key=lambda item: (item["sort"], item["id"]))
     if event_limit:
         events = events[:max(1, int(event_limit))]
+    private = {"people", "going", "interested", "checked", "coaches", "declined", "not_going", "attendees", "rsvps", "members", "names", "avatars"}
     for item in events:
         item.pop("sort", None)
+        for key in private:
+            item.pop(key, None)
     overview = offer["lines"] if widget.get("include_schedule", True) else []
     chips = [slug for slug in widget.get("chips") or ["all"] if slug in dict(CHIPS)]
     if "all" not in chips:
@@ -1040,6 +1040,8 @@ def widget_document(payload, theme=None, preview=False):
             "reason": item.get("reason") or "",
             "signup": href,
             "trial": item.get("trial_line") or "",
+            "tile": item.get("tile") or {},
+            "when": item.get("when") or "",
         }
 
     def cards():
@@ -1100,7 +1102,7 @@ def widget_document(payload, theme=None, preview=False):
                 offer_bits.append('<a href="%s" target=_blank rel=noopener>%s</a>' % (e(banner_info["href"]), e(banner_info.get("link") or "Learn more")))
             offer_bits.append("</div>")
         offer_bits.append("</section>")
-    return """<!doctype html><html lang=en class="%s"><head><meta charset=utf-8>
+    html = """<!doctype html><html lang=en class="%s"><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>%s</title>
 <style>
@@ -1152,11 +1154,32 @@ article.card{cursor:pointer;display:block;width:100%%}
 .detail,.reason{margin:12px 0 0;color:var(--color-text-secondary)}
 .state{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:8px 4px 20px;color:var(--color-text-secondary)}
 .state[hidden],article[hidden],#browse[hidden],#sheet[hidden]{display:none}
-#sheet{padding:8px 20px 20px}
-#sheetBack{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--color-control);background:var(--color-surface-2);color:inherit;cursor:pointer}
-#sheet h2{margin:16px 0 8px;font-size:22px;line-height:28px}
-#sheet p{margin:8px 0}
-#sheet a.place{color:inherit}
+#sheet{padding:0 0 24px}
+.sheetbar{display:grid;grid-template-columns:72px 1fr 72px;align-items:center;min-height:44px;padding:8px 8px 0}
+.sheetbar h1{margin:0;text-align:center;font-family:var(--font-display);font-size:20px;line-height:1.2;font-weight:650}
+#sheetBack{height:36px;padding:0 12px;border:0;background:transparent;color:inherit;cursor:pointer;font-weight:600}
+.profilehero{padding:8px 20px 0}
+.profilename,.profilehero h1{font-family:var(--font-display)}
+.pracestatus{margin:12px 0 0;font-weight:650}
+.stats{display:flex;gap:8px;margin-top:16px}
+.stattile{flex:1;background:var(--color-surface);border:1px solid var(--color-border);border-radius:16px;padding:12px;text-align:center}
+.stattile b{display:block;font-size:20px;line-height:1.2}
+.stattile span{color:var(--color-text-secondary);font-size:13px}
+.seclabel{margin:20px 20px 8px;font-size:13px;font-weight:650;color:var(--color-text-secondary)}
+.list{margin:0 20px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:16px;overflow:hidden}
+.li{padding:14px 16px;border-top:1px solid var(--color-border)}
+.li:first-child{border-top:0}
+.prow{display:flex;justify-content:space-between;gap:12px}
+.prow .k{color:var(--color-text-secondary)}
+.prow .v{text-align:right}
+.btn{display:flex;align-items:center;justify-content:center;height:48px;margin:16px 20px 0;border-radius:999px;font-weight:650;text-decoration:none}
+.btn-primary{background:var(--color-lime);color:#090D0B}
+.btn-secondary{height:40px;width:auto;margin:0;padding:0 14px;background:transparent;color:inherit;border:1px solid var(--color-control);flex:none}
+.locrow{display:flex;align-items:center;gap:12px}
+.profilename{margin:0 0 12px;font-size:22px;line-height:1.25;font-weight:650}
+#sheet [hidden]{display:none !important}
+#sheet .datetile{width:64px;height:64px}
+#sheet .datetile .dn{font-size:22px}
 .state h2{margin:0;font-family:var(--font-display);font-size:20px;color:var(--color-text)}
 .state p{margin:0}
 .spin{width:22px;height:22px;border:2px solid var(--color-border);border-top-color:var(--color-lime);border-radius:50%%;animation:spin .7s linear infinite}
@@ -1175,18 +1198,26 @@ article.card{cursor:pointer;display:block;width:100%%}
 </main>
 </div>
 <div id=sheet hidden>
-<button type=button id=sheetBack>Back</button>
-<h2 id=sheetTitle></h2>
+<header class=sheetbar><button type=button id=sheetBack aria-label="Back">Back</button><h1 id=sheetKind>Event</h1></header>
+<div class=profilehero>
+<div class=profilename id=sheetTitle></div>
+<div class=nxmain><div class=datetile><span class=wd id=sheetWd></span><span class=dn id=sheetDn></span><span class=mo id=sheetMo></span></div>
+<div class="grow schedrows"><div class=nxrow>CLOCK<span id=sheetTime></span></div><div class=nxrow id=sheetPlaceRow>PIN<a id=sheetPlace target=_blank rel=noopener></a></div></div></div>
 <div class=tags id=sheetChips></div>
-<p id=sheetDate></p>
-<p id=sheetTime></p>
-<p id=sheetPlace></p>
-<p id=sheetDetail></p>
-<p id=sheetCount></p>
-<p id=sheetPrice></p>
-<p id=sheetTrial></p>
-<p id=sheetReason></p>
-<a id=sheetSignup class=signup target=_top>Sign up</a>
+<p class=pracestatus id=sheetStatus></p>
+<div class="stats trio" id=sheetStats hidden><div class=stattile><b id=sheetCount></b><span>Going</span></div></div>
+</div>
+<div class=seclabel>Details</div>
+<div class=list>
+<div class="li evdescrow" id=sheetDetailRow hidden><div class=prow><span class=k>Notes</span><span class=v id=sheetDetail></span></div></div>
+<div class="li prow" id=sheetPriceRow hidden><span class=k>Price</span><span class=v id=sheetPrice></span></div>
+<div class="li prow" id=sheetTrialRow hidden><span class=k>Eligibility</span><span class=v id=sheetTrial></span></div>
+</div>
+<div id=sheetLoc hidden>
+<div class=seclabel>Location</div>
+<div class="list loccard"><div class="li locrow"><span class=grow id=sheetLocName></span><a id=sheetDir class="btn btn-secondary" target=_blank rel=noopener>Open in Maps</a></div></div>
+</div>
+<a id=sheetSignup class="btn btn-primary full" target=_top>Sign up</a>
 </div>
 <script type="application/json" id=eventData>%s</script>
 <script>
@@ -1197,29 +1228,41 @@ article.card{cursor:pointer;display:block;width:100%%}
   var events={}; try{ JSON.parse(document.getElementById("eventData").textContent).forEach(function(ev){ events[ev.id]=ev; }); }catch(err){}
   var opener=null;
   function report(){var h=Math.ceil(document.documentElement.scrollHeight);try{parent.postMessage({type:"regulars-widget",height:h},"*");}catch(e){}}
-  function text(id, value){ var el=document.getElementById(id); el.hidden=!value; el.textContent=value||""; }
+  function showRow(id, value){ var el=document.getElementById(id); if(!el) return; el.hidden=!value; if(value) el.textContent=value; }
   function chip(label){ var s=document.createElement("span"); s.className="chip-info"; s.textContent=label; return s; }
   function openDetail(id, from){
     var ev=events[id]; if(!ev) return;
     opener=from||null;
     document.getElementById("sheetTitle").textContent=ev.title||"Event";
+    document.getElementById("sheetKind").textContent=ev.activity||ev.category||"Event";
+    var tile=ev.tile||{};
+    document.getElementById("sheetWd").textContent=tile.wd||"";
+    document.getElementById("sheetDn").textContent=tile.dn||"";
+    document.getElementById("sheetMo").textContent=tile.mo||"";
+    document.getElementById("sheetTime").textContent=ev.time||ev.when||"";
     var box=document.getElementById("sheetChips"); box.textContent="";
     if(ev.sport) box.appendChild(chip(ev.sport));
     if(ev.activity) box.appendChild(chip(ev.activity));
-    if(ev.category) box.appendChild(chip(ev.category));
-    text("sheetDate", ev.date);
-    text("sheetTime", ev.time);
-    var place=document.getElementById("sheetPlace"); place.textContent="";
+    if(ev.category && ev.category!==ev.activity) box.appendChild(chip(ev.category));
+    var place=document.getElementById("sheetPlace"), row=document.getElementById("sheetPlaceRow"), dir=document.getElementById("sheetDir"), loc=document.getElementById("sheetLoc");
     if(ev.place){
-      var link=document.createElement("a"); link.className="place"; link.target="_blank"; link.rel="noopener";
-      link.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(ev.place);
-      link.textContent=ev.place; place.appendChild(link); place.hidden=false;
-    } else place.hidden=true;
-    text("sheetDetail", ev.detail);
-    text("sheetCount", ev.count==null?"":(ev.count+" going"));
-    text("sheetPrice", ev.price||"");
-    text("sheetTrial", ev.trial||"");
-    text("sheetReason", ev.cancelled?(ev.reason?("Cancelled · "+ev.reason):"Cancelled"):"");
+      place.textContent=ev.place;
+      place.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(ev.place);
+      document.getElementById("sheetLocName").textContent=ev.place;
+      dir.href="https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(ev.place);
+      row.hidden=false; loc.hidden=false;
+    } else { row.hidden=true; loc.hidden=true; }
+    var detail=document.getElementById("sheetDetail");
+    detail.textContent=ev.detail||"";
+    document.getElementById("sheetDetailRow").hidden=!ev.detail;
+    showRow("sheetPrice", ev.price||"");
+    document.getElementById("sheetPriceRow").hidden=!ev.price;
+    showRow("sheetTrial", ev.trial||"");
+    document.getElementById("sheetTrialRow").hidden=!ev.trial;
+    var status=document.getElementById("sheetStatus");
+    status.textContent=ev.cancelled?(ev.reason?("Cancelled · "+ev.reason):"Cancelled"):"Scheduled";
+    var stats=document.getElementById("sheetStats"), count=document.getElementById("sheetCount");
+    if(ev.count==null){ stats.hidden=true; } else { count.textContent=String(ev.count); stats.hidden=false; }
     var go=document.getElementById("sheetSignup");
     if(ev.signup){ go.href=ev.signup; go.hidden=false; } else { go.hidden=true; go.removeAttribute("href"); }
     browse.hidden=true; sheet.hidden=false; back.focus(); report();
@@ -1261,6 +1304,7 @@ article.card{cursor:pointer;display:block;width:100%%}
 </script></body></html>""" % (
         "preview" if preview else "", e(org), e(org), chip_buttons(), "".join(offer_bits), cards(), event_blob,
     )
+    return html.replace("CLOCK", _CLOCK).replace("PIN", _PIN)
 
 
 WIDGET_ADMIN = """<style>
@@ -1272,9 +1316,11 @@ WIDGET_ADMIN = """<style>
 .embedrow{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:16px}
 .embedrow .btn{margin:0}
 #copied{margin:12px 0 0}
+form.widgetset{padding-bottom:24px}
+form.widgetset>.btn-primary{margin-top:16px;margin-bottom:24px}
 </style>
 {{ admin_page('Website widget', 'Visitors see this only after you publish it. The embed keeps working when you change these settings.') }}
-<form method=post>
+<form method=post class=widgetset>
 {{ csrf_field() }}
 <label class=switchrow>Publish on the website<span class=switch><input type=checkbox name=widget_on value=1 {% if w.enabled %}checked{% endif %}><span></span></span></label>
 <p class="t3 sm">The public widget follows the visitor's light or dark appearance. There is no separate theme switch.</p>
@@ -1287,14 +1333,11 @@ WIDGET_ADMIN = """<style>
 <label class=switchrow>Show prices that are filled in<span class=switch><input type=checkbox name=show_pricing value=1 {% if w.show_pricing %}checked{% endif %}><span></span></span></label>
 <label class=switchrow>Show the free-trial message<span class=switch><input type=checkbox name=show_trial value=1 {% if w.show_trial %}checked{% endif %}><span></span></span></label>
 <label class=switchrow>Show how many are going<span class=switch><input type=checkbox name=show_counts value=1 {% if w.show_counts %}checked{% endif %}><span></span></span></label>
-<p class="t3 sm">Counts are numbers only. Names and photos stay off the widget.</p>
-<label class=switchrow>Hide events that already ended<span class=switch><input type=checkbox name=hide_past value=1 {% if w.hide_past %}checked{% endif %}><span></span></span></label>
-<label>Events in preview<input name=limit inputmode=numeric value="{{ w.limit }}"></label>
-<p class="t3 sm">The live widget shows every upcoming event. This number is only for the preview on this page.</p>
+<p class="t3 sm">Counts are numbers only. Names and photos stay off the widget. Events that already ended stay off the widget.</p>
 <button class="btn btn-primary full" type=submit>Save</button>
 </form>
 <h2>Preview</h2>
-<p class="t3 sm">Same schedule as the live widget, limited to the event count above. It is the full width of this page and does not scroll inside the frame. The public embed stays empty until you publish.</p>
+<p class="t3 sm">Same schedule as the live widget, showing the next 4 events. It is the full width of this page and does not scroll inside the frame. The live widget lists every upcoming event. The public embed stays empty until you publish.</p>
 <iframe id=widgetPreview title="Widget preview" src="/widget?preview=1" scrolling=no></iframe>
 <h2>Embed code</h2>
 <p class="t3 sm">Paste this once. Later changes show up without a new snippet.</p>

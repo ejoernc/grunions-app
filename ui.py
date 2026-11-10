@@ -1397,7 +1397,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro member_status(r) %}{{ roster_status(r) }}{% endmacro %}
 {% macro status_dot(s) %}{% set kind = {'verified':'ok','expired':'bad','pending':'warn'}.get(s, '') %}<span class="dot{% if kind %} {{kind}}{% endif %}" aria-hidden=true></span>{% endmacro %}
 {% macro checkin_status(r) %}{{ person_sub(r) }}{% endmacro %}
-{% macro person_sub(r) %}{% if can_see_member_status(r) %}{% if view is defined and view in ('members', 'coaches', 'admins', 'referees') %}{% set st = list_row_status(r, view) %}<span class="psub ell st-{{ st.tone }}"><span class=stword>{{ st.word }}</span>{% if st.rest %}<span class=strest>{{ st.rest }}</span>{% endif %}</span>{% else %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}{% set ns = namespace(tone='ok', word='Cleared', rest='') %}
+{% macro person_sub(r) %}{% if can_see_member_status(r) %}{% if view is defined and view in ('members', 'coaches', 'admins', 'referees', 'compliance', 'membership') %}{% set st = list_row_status(r, view) %}<span class="psub ell st-{{ st.tone }}"><span class=stword>{{ st.word }}</span>{% if st.rest %}<span class=strest>{{ st.rest }}</span>{% endif %}</span>{% else %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}{% set ns = namespace(tone='ok', word='Cleared', rest='') %}
 {% if dl is not none and dl >= 0 and dl <= EXPIRING_DAYS %}{% if dl == 0 %}{% set ns.rest = ' · expires today' %}{% elif dl == 1 %}{% set ns.rest = ' · expires in 1 day' %}{% else %}{% set ns.rest = ' · expires in ' ~ dl ~ ' days' %}{% endif %}{% endif %}
 {% if tw and tw.active and r.usawp_status != 'verified' and not ex.membership %}{% set ns.tone = 'warn' %}{% set ns.word = 'Trial' %}{% set ns.rest = ' · ' ~ trial_left_phrase(tw) %}
 {% elif tw and tw.expired and r.usawp_status != 'verified' %}{% set ns.tone = 'bad' %}{% set ns.word = 'Trial ended ' ~ tw.ends %}{% set ns.rest = '' %}
@@ -5573,10 +5573,11 @@ T["transfer"] = ADMIN_NAV + """{{ admin_page('Transfer', 'Bring in a Sport:80 ex
 T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pageact" href=/members.csv>Export CSV</a>{% endcall %}
 <div class=peoplebar>
 <div class="rolechips chiprow" data-seg role=group aria-label="Role">
-<a class="chip{{ ' on' if view=='all' }}" href="/members?view=all">All</a>
 <a class="chip{{ ' on' if view=='members' }}" href="/members">Members</a>
 <a class="chip{{ ' on' if view=='coaches' }}" href="/members?view=coaches">Coaches</a>
 <a class="chip{{ ' on' if view=='admins' }}" href="/members?view=admins">Admins</a>
+<a class="chip{{ ' on' if view=='compliance' }}" href="/members?view=compliance">Compliance</a>
+<a class="chip{{ ' on' if view=='membership' }}" href="/members?view=membership">Membership</a>
 <a class="chip{{ ' on' if view=='referees' }}" href="/members?view=referees">Referees</a>
 </div>
 <form method=get action=/members><input name=q value="{{q}}" placeholder="Search people..." autocomplete=off>{% if view != 'members' %}<input type=hidden name=view value="{{view}}">{% endif %}{% if filt %}<input type=hidden name=filt value="{{ filt }}">{% endif %}</form>

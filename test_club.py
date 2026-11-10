@@ -56,6 +56,28 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
     detail = admin.get("/manage/club/programs/pool-swimming").get_data(as_text=True)
     assert "Regular schedule" in detail and "does not add sessions" in detail and "href=/manage/club/programs" in detail
     assert "Program is on" in detail
+    assert "Needs a sport" in sports and "Background screening" in sports and "Referee certification" in sports
+    assert "Not enforced until a sport is chosen" in sports
+    polo = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
+    assert "SafeSport" in polo and "Add requirement" in polo and "/manage/club/programs/water-polo/requirements/new" in polo
+    assert ">Requirements</span>" not in admin.get("/manage/area/club").get_data(as_text=True)
+    form = admin.get("/manage/club/programs/water-polo/requirements/new").get_data(as_text=True)
+    assert "Water Polo" in form and 'name=program value="' in form
+    with A.app.app_context():
+        d = A.db()
+        wp_id = clubadmin.program_by_slug(d, "water-polo")["id"]
+        pool_id = clubadmin.program_by_slug(d, "pool-swimming")["id"]
+    assert ('name=program value="%d" checked' % wp_id) in form or ('value="%d" checked' % wp_id) in form
+    made = admin.post("/manage/club/programs/water-polo/requirements/new", data={
+        "csrf": csrf(admin, "/manage/club/programs/water-polo/requirements/new"),
+        "name": "Shared clinic rule", "effect": "info", "verification": "manual",
+        "program": [str(wp_id), str(pool_id)],
+    })
+    assert made.status_code == 302 and made.headers["Location"].endswith("/manage/club/programs/water-polo")
+    again = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
+    pool_page = admin.get("/manage/club/programs/pool-swimming").get_data(as_text=True)
+    assert "Shared clinic rule" in again and "Also applies to: Pool Swimming" in again
+    assert "Shared clinic rule" in pool_page and "Also applies to: Water Polo" in pool_page
 
 
 def test_inactive_program_requirements_do_not_block_and_schedules_do_not_create_sessions():
@@ -111,8 +133,9 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
         mid = d.execute("SELECT id FROM members WHERE email='bea.paytag@example.com'").fetchone()["id"]
         plan = d.execute("SELECT id FROM payment_plans WHERE kind='monthly'").fetchone()["id"]
         before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
-    page = admin.get("/manage/area/people").get_data(as_text=True)
-    assert "Unpaid" in page and "Paying" in page and "Not paying" in page and 'data-seg' in page
+    page = admin.get("/manage/area/people", follow_redirects=True).get_data(as_text=True)
+    assert "Unpaid" in page and ">Paying</a>" in page and ">Not paying</a>" in page and ">Compliance</a>" in page and ">Membership</a>" in page and 'data-seg' in page
+    assert "<h2>Members</h2>" not in page
     admin.post("/admin/member/%d" % mid, data={
         "csrf": csrf(admin, "/admin/member/%d" % mid), "action": "paid", "paid_action": "save",
         "plan_id": str(plan), "paid_status": "active", "valid_from": "2026-11-01", "paid_through": "2027-01-31",

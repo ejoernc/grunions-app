@@ -611,9 +611,9 @@ def programs_html(d):
     bits.append("</div>")
     open_reviews = reviews(d)
     if open_reviews:
-        bits.append('<h2 class=mseclabel>Needs a program choice</h2><div class=mlist>')
+        bits.append('<h2 class=mseclabel>Needs a sport</h2><div class=mlist>')
         for row in open_reviews:
-            bits.append(_row("/manage/club/requirements/%d" % row["ref_id"], row["req_name"] or "Requirement", row["reason"]))
+            bits.append(_row("/manage/club/requirements/%d" % row["ref_id"], row["req_name"] or "Requirement", "Not enforced until a sport is chosen"))
         bits.append("</div>")
     return "".join(bits)
 
@@ -626,10 +626,6 @@ def program_detail_html(d, program, csrf):
         WHERE COALESCE(role,'')!='system' AND (role='coach' OR is_admin=1 OR id IN (SELECT member_id FROM coaching_list))
         ORDER BY last, first""").fetchall()
     assigned = {row["member_id"] for row in d.execute("SELECT member_id FROM program_coaches WHERE program_id=?", (program["id"],)).fetchall()}
-    reqs = d.execute("""SELECT q.name, s.review_status FROM requirement_programs rp
-        JOIN requirements q ON q.id=rp.requirement_id
-        LEFT JOIN requirement_scopes s ON s.requirement_id=q.id
-        WHERE rp.program_id=? ORDER BY q.name""", (program["id"],)).fetchall()
     day_bits = []
     for code, label in WEEKDAYS:
         day_bits.append('<label class=checkline><input type=checkbox name="weekday_%s" value=1%s> %s</label>' % (
@@ -639,7 +635,7 @@ def program_detail_html(d, program, csrf):
         name = ("%s %s" % (person["preferred_first"] or person["first"], person["last"] or "")).strip()
         coach_bits.append('<label class=checkline><input type=checkbox name=coach value="%d"%s> %s</label>' % (
             person["id"], " checked" if person["id"] in assigned else "", escape(name)))
-    req_bits = "".join("<p>%s%s</p>" % (escape(row["name"]), "" if program["active"] else " · not applied while this program is off") for row in reqs) or "<p class=t3>No requirements yet.</p>"
+    req_bits = ""
     return """<form method=post class=clubform>
 %s
 <input type=hidden name=action value=save>
@@ -667,10 +663,9 @@ def program_detail_html(d, program, csrf):
 <label>Schedule notes<textarea class=planfield name=schedule_notes rows=2>%s</textarea></label>
 <h2>Coaches</h2>
 %s
-<h2>Requirements</h2>
-%s
 <button class="btn btn-primary full" type=submit>Save</button>
-</form>""" % (
+</form>
+%s""" % (
         csrf, escape(program["family_name"]), " checked" if program["active"] else "",
         " selected" if program["governing_body"] == "usawp" else "",
         " selected" if program["governing_body"] == "usms" else "",
@@ -681,7 +676,27 @@ def program_detail_html(d, program, csrf):
         "".join(day_bits),
         escape(sched["start"] if sched else ""), escape(sched["end"] if sched else ""),
         escape(sched["venue"] if sched else ""), escape(sched["notes"] if sched else ""),
-        "".join(coach_bits) or "<p class=t3>No coaches to assign yet.</p>", req_bits)
+        "".join(coach_bits) or "<p class=t3>No coaches to assign yet.</p>", program_requirements_html(d, program))
+
+
+def program_requirements_html(d, program):
+    rows = d.execute("""SELECT q.id, q.name FROM requirement_programs rp
+        JOIN requirements q ON q.id=rp.requirement_id
+        WHERE rp.program_id=? ORDER BY q.name""", (program["id"],)).fetchall()
+    bits = ['<h2>Requirements</h2><div class=mlist>']
+    if not rows:
+        bits.append('<p class="t3 sm" style="padding:12px 16px">No requirements yet.</p>')
+    for row in rows:
+        others = [item["name"] for item in d.execute("""SELECT p.name FROM requirement_programs rp
+            JOIN programs p ON p.id=rp.program_id
+            WHERE rp.requirement_id=? AND p.id!=? ORDER BY p.name""", (row["id"], program["id"]))]
+        note = ("Also applies to: " + ", ".join(others)) if others else "This sport only"
+        if not program["active"]:
+            note += " · Not applied while this sport is off"
+        bits.append(_row("/manage/club/requirements/%d?sport=%s" % (row["id"], program["slug"]), row["name"], note))
+    bits.append(_row("/manage/club/programs/%s/requirements/new" % program["slug"], "Add requirement", "Starts checked for this sport"))
+    bits.append("</div>")
+    return "".join(bits)
 
 
 def plans_html(d):
@@ -709,20 +724,12 @@ def plan_edit_html(d, plan, csrf):
 </form>""" % (csrf, escape(plan["name"]), escape(plan["kind"]), escape(plan["external_url"] or "No external link"), "".join(boxes))
 
 
-def requirements_html(d):
-    bits = ['<p><a class="btn btn-secondary" href="/manage/club/requirements/new">Add requirement</a></p><div class=mlist>']
-    for item in requirement_rows(d):
-        scope = item["scope"]
-        state = "Needs review" if not scope or scope["review_status"] != "active" else (", ".join(item["programs"]) or "No program")
-        bits.append(_row("/manage/club/requirements/%d" % item["req"]["id"], item["req"]["name"], state))
-    bits.append("</div>")
-    return "".join(bits)
-
-
-def requirement_edit_html(d, req, scope, csrf):
+def requirement_edit_html(d, req, scope, csrf, preset_ids=None, sport=""):
     linked = set()
     if req:
         linked = {row["program_id"] for row in d.execute("SELECT program_id FROM requirement_programs WHERE requirement_id=?", (req["id"],)).fetchall()}
+    elif preset_ids:
+        linked = set(preset_ids)
     scope = scope or {}
     boxes = []
     for program in programs(d):
@@ -736,7 +743,8 @@ def requirement_edit_html(d, req, scope, csrf):
         code, " checked" if code in acts else "", code.title()) for code in ("practice", "scrimmage", "game"))
     effect = scope["effect"] if scope else "info"
     verification = scope["verification"] if scope else "manual"
-    return """<form method=post class=clubform>%s
+    hidden_sport = '<input type=hidden name=sport value="%s">' % escape(sport) if sport else ""
+    return """<form method=post class=clubform>%s%s
 <label>Name<input name=name value="%s" required></label>
 <label>Description<textarea class=planfield name=description rows=3>%s</textarea></label>
 <label>Category<input name=category value="%s"></label>
@@ -755,7 +763,7 @@ def requirement_edit_html(d, req, scope, csrf):
 <label class=checkline><input type=checkbox name=affects_clearance value=1%s> Counts toward Cleared to Play</label>
 <button class="btn btn-primary full" type=submit>Save</button>
 </form>""" % (
-        csrf, escape(req["name"] if req else ""), escape(scope["description"] if scope else ""),
+        csrf, hidden_sport, escape(req["name"] if req else ""), escape(scope["description"] if scope else ""),
         escape(scope["category"] if scope else ""), escape(scope["issuer"] if scope else ""),
         "".join(boxes), act_bits, " checked" if scope and scope["everyone"] else "", role_bits,
         "".join('<option value="%s"%s>%s</option>' % (value, " selected" if value == effect else "", label) for value, label in EFFECTS),
@@ -773,70 +781,6 @@ def integrations_html(d):
         bits.append(_row("/manage/club/plans", row["name"], "%s · %s" % (row["kind"], state)))
     bits.append("</div>")
     return "".join(bits)
-
-
-def people_board_html(d, today, pay=""):
-    import app as A
-    sections = []
-    rows = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first, id").fetchall()
-    listed = {row[0] for row in d.execute("SELECT member_id FROM coaching_list")}
-    refs = {row[0] for row in d.execute("SELECT member_id FROM referee_list")}
-    grouped = {"Members": [], "Coaches": [], "Admins": [], "Referees": []}
-    for person in rows:
-        view = payment_view(d, person["id"], today)
-        if pay == "paying" and not view["paying"]:
-            continue
-        if pay == "not" and view["paying"]:
-            continue
-        grouped["Members"].append(person)
-        if (person["role"] or "") == "coach" or person["id"] in listed or coached_slugs(d, person["id"]):
-            grouped["Coaches"].append(person)
-        if person["is_admin"]:
-            grouped["Admins"].append(person)
-        if person["id"] in refs:
-            grouped["Referees"].append(person)
-    def chip(label, value, on):
-        href = "/manage/area/people" + (("?pay=%s" % value) if value else "")
-        return '<a class="chip%s" href="%s">%s</a>' % (" on" if on else "", href, escape(label))
-    bits = ['<div class="fchips chiprow" data-seg role=group aria-label="Payment">',
-            chip("All", "", not pay), chip("Paying", "paying", pay == "paying"), chip("Not paying", "not", pay == "not"),
-            "</div>"]
-    for title, people in (("Members", grouped["Members"]), ("Coaches", grouped["Coaches"]), ("Admins", grouped["Admins"]), ("Referees", grouped["Referees"])):
-        bits.append("<h2>%s</h2><div class=mlist>" % escape(title))
-        if not people:
-            bits.append('<p class="t3 sm" style="padding:12px 16px">No one in this section.</p>')
-        for person in people:
-            name = ("%s %s" % ((person["preferred_first"] or person["first"] or ""), person["last"] or "")).strip()
-            tags = display_tags(d, person, today)
-            pay_row = payment_view(d, person["id"], today)
-            pay_text = pay_row["label"] + ((" · " + pay_row["plan"]) if pay_row["plan"] else "")
-            try:
-                tone = A.list_status(d, person, "members")["word"]
-            except Exception:
-                tone = ""
-            desc = " · ".join(part for part in (tone, pay_text) if part)
-            tag_html = "".join('<span class=sporttag>%s</span>' % escape(tag) for tag in tags)
-            bits.append('<a class=mrow href="/admin/member/%d"><span class="avatar ciav">%s</span><span class=grow><span class=mtitle>%s</span><span class=mdesc>%s</span>%s</span></a>' % (
-                person["id"], escape(A.initials(person)), escape(name), escape(desc), tag_html))
-        bits.append("</div>")
-    return "".join(bits)
-
-
-def people_sections(d, today):
-    """Members, coaches, admins, and referees for the People screen."""
-    rows = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first, id").fetchall()
-    listed = {row[0] for row in d.execute("SELECT member_id FROM coaching_list")}
-    refs = {row[0] for row in d.execute("SELECT member_id FROM referee_list")}
-    sections = [("Members", rows), ("Coaches", []), ("Admins", []), ("Referees", [])]
-    coaches, admins, referees = [], [], []
-    for person in rows:
-        if (person["role"] or "") == "coach" or person["id"] in listed or coached_slugs(d, person["id"]):
-            coaches.append(person)
-        if person["is_admin"]:
-            admins.append(person)
-        if person["id"] in refs:
-            referees.append(person)
-    return [("Members", rows), ("Coaches", coaches), ("Admins", admins), ("Referees", referees)]
 
 
 def program_eligibility_html(d, member, today):

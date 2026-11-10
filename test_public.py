@@ -207,7 +207,8 @@ def test_widget_is_off_until_an_admin_publishes_it():
     with A.app.app_context():
         assert A.db().execute("SELECT COUNT(*) FROM practices").fetchone()[0] == before + 1
     admin_page = admin.get("/manage/widget").get_data(as_text=True)
-    assert "Events in preview" in admin_page and "live widget shows every upcoming event" in admin_page
+    assert "Events in preview" not in admin_page and "Hide events that already ended" not in admin_page
+    assert "showing the next 4 events" in admin_page and "Show the free-trial message" in admin_page and "Show how many are going" in admin_page
     assert "scrolling=no" in admin_page and "id=prevMobile" not in admin_page and "id=prevDesk" not in admin_page
     assert "embedrow" in admin_page and "https://grunions.regulars.team/widget" in admin_page
     assert "height:1px" in admin_page and "width:100%" in admin_page
@@ -229,8 +230,12 @@ def test_widget_is_off_until_an_admin_publishes_it():
     preview_frame = admin.get("/widget?preview=1").get_data(as_text=True)
     public_feed = member.get("/api/public/feed").get_json()
     assert public_frame.count("<article") > 4 and public_frame.count("<article") == len(public_feed["events"])
-    assert "Extra session" in public_frame and preview_frame.count("Extra session") == 0
-    assert preview_frame.count("<article") == 2 and "id=sheet" in preview_frame and "Back" in preview_frame
+    preview_cards = preview_frame.split('<script type="application/json"', 1)[0]
+    assert "Extra session" in public_frame and preview_cards.count("Extra session") == 2
+    assert preview_frame.count("<article") == 4 and "id=sheet" in preview_frame and "Back" in preview_frame
+    assert "profilehero" in preview_frame and "btn-primary" in preview_frame and "Who's going" not in preview_frame and "Checked in" not in preview_frame and "Not going" not in preview_frame
+    payload = preview_frame.split('id=eventData>', 1)[1].split("</script>", 1)[0]
+    assert "declined" not in payload and "attendees" not in payload and "Mia" not in payload
     assert public_frame.count("<h2>Try Water Polo Free for 2 Weeks</h2>") == preview_frame.count("<h2>Try Water Polo Free for 2 Weeks</h2>") == 1
     assert "Fridays" in public_frame and "Fridays" in preview_frame
     admin.post("/manage/widget", data={
@@ -244,7 +249,7 @@ def test_widget_is_off_until_an_admin_publishes_it():
     quiet_preview = admin.get("/widget?preview=1").get_data(as_text=True)
     assert "class=callout" not in quiet_public and "class=callout" not in quiet_preview
     assert "Fridays" in quiet_public and "Fridays" in quiet_preview
-    assert quiet_preview.count("<article") == 2 and quiet_public.count("<article") > 2
+    assert quiet_preview.count("<article") == 4 and quiet_public.count("<article") > 4
 
 
 def test_manage_home_groups_destinations_and_keeps_the_chart():
@@ -262,10 +267,11 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     assert ">Activities</b>" in page and ">People</b>" in page and ">Club</b>" in page and ">Tools</b>" in page
     club = admin.get("/manage/area/club").get_data(as_text=True)
     assert ">Sports</b>" in club or "Sports" in club
-    assert 'href="/manage/club/programs"' in club and "Plans &amp; passes" in club and "Requirements" in club
+    assert 'href="/manage/club/programs"' in club and "Plans &amp; passes" in club and ">Requirements</span>" not in club
     assert "Schedule &amp; pricing" not in club
-    people = admin.get("/manage/area/people").get_data(as_text=True)
-    assert "<h2>Members</h2>" in people and "<h2>Coaches</h2>" in people and "Paying" in people and ">Compliance<" not in people
+    people = admin.get("/manage/area/people", follow_redirects=True).get_data(as_text=True)
+    assert "<h1>Members</h1>" in people and ">Members</a>" in people and ">Coaches</a>" in people and ">Admins</a>" in people and ">Compliance</a>" in people and ">Membership</a>" in people
+    assert 'href="/members?view=coaches"' in people and 'href="/members?view=compliance"' in people and 'href="/members?view=membership"' in people
     tools = admin.get("/manage/area/tools").get_data(as_text=True)
     assert "QR codes" in tools and "Data transfer" in tools and ">Usage<" in tools
     roster = admin.get("/members").get_data(as_text=True)
@@ -309,7 +315,7 @@ def test_manage_search_matches_people_and_settings():
     assert any(row["title"] == "Plans & passes" for row in admin.get("/manage/search?q=free trial").get_json()["settings"])
     assert any(row["title"] == "Plans & passes" for row in admin.get("/manage/search?q=drop-in").get_json()["settings"])
     assert any(row["title"] == "Website & sharing" for row in admin.get("/manage/search?q=embed").get_json()["settings"])
-    assert any(row["title"] == "Requirements" for row in admin.get("/manage/search?q=SafeSport").get_json()["settings"])
+    assert any(row["title"] == "Sports" for row in admin.get("/manage/search?q=SafeSport").get_json()["settings"])
     assert any(row["title"] == "Data transfer" for row in admin.get("/manage/search?q=export CSV").get_json()["settings"])
     blank = admin.get("/manage/search?q=zzzz-nope").get_json()
     assert blank["people"] == [] and blank["settings"] == []
