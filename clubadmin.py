@@ -1570,6 +1570,127 @@ def sport_leadership_html(d, program):
     return "".join(bits)
 
 
+ADMIN_LEVELS = (("admin", "Admin"), ("admin_lite", "Admin lite"), ("sport_admin", "Sport admin"))
+
+
+def _person_name(person):
+    return ("%s %s" % (person["preferred_first"] or person["first"], person["last"] or "")).strip()
+
+
+def admin_level_roles(d):
+    return d.execute("""SELECT r.*, p.name AS program_name, p.slug AS program_slug
+        FROM leadership_roles r LEFT JOIN programs p ON p.id=r.program_id
+        WHERE r.permission IN ('admin', 'admin_lite', 'sport_admin')
+        ORDER BY CASE r.permission WHEN 'admin' THEN 0 WHEN 'admin_lite' THEN 1 ELSE 2 END, p.name, r.name""").fetchall()
+
+
+def permission_holders(d):
+    """People who already have Admin, Admin lite, or Sport admin. Read only."""
+    levels = dict(ADMIN_LEVELS)
+    grants = d.execute("""SELECT m.id AS member_id, m.first, m.preferred_first, m.last, m.is_admin,
+            r.id AS role_id, r.name AS role_name, r.permission, p.name AS program_name
+        FROM leadership_members lm
+        JOIN leadership_roles r ON r.id=lm.role_id
+        JOIN members m ON m.id=lm.member_id
+        LEFT JOIN programs p ON p.id=r.program_id
+        WHERE r.permission IN ('admin', 'admin_lite', 'sport_admin')
+          AND COALESCE(m.role,'')!='system'
+        ORDER BY m.last, m.first, r.name""").fetchall()
+    covered = {row["member_id"] for row in grants if row["permission"] == "admin"}
+    rows = []
+    for row in grants:
+        label = levels.get(row["permission"], row["permission"])
+        if row["program_name"]:
+            desc = "%s · %s · %s" % (row["role_name"], row["program_name"], label)
+        else:
+            desc = "%s · %s" % (row["role_name"], label)
+        rows.append({"id": row["member_id"], "name": _person_name(row), "desc": desc})
+    for person in d.execute("""SELECT id, first, preferred_first, last FROM members
+            WHERE is_admin=1 AND COALESCE(role,'')!='system' ORDER BY last, first""").fetchall():
+        if person["id"] in covered:
+            continue
+        rows.append({"id": person["id"], "name": _person_name(person), "desc": "Admin"})
+    rows.sort(key=lambda row: (row["name"].casefold(), row["desc"].casefold()))
+    return rows
+
+
+def permissions_html(d):
+    bits = ['<p class="t3 sm">Admin, Admin lite, and Sport admin. Opening this list does not change anyone.</p><div class=mlist>']
+    rows = permission_holders(d)
+    if not rows:
+        bits.append('<p class="t3 sm" style="padding:12px 16px">No admin-level access yet.</p>')
+    for row in rows:
+        bits.append(_row("/manage/club/permissions/%d" % row["id"], row["name"], row["desc"]))
+    bits.append(_row("/manage/club/permissions/new", "Assign", "Add someone to an existing admin-level role"))
+    bits.append("</div>")
+    return "".join(bits)
+
+
+def permission_edit_html(d, member, csrf):
+    roles = admin_level_roles(d)
+    held = set()
+    if member:
+        held = {row["role_id"] for row in d.execute("""SELECT lm.role_id FROM leadership_members lm
+            JOIN leadership_roles r ON r.id=lm.role_id
+            WHERE lm.member_id=? AND r.permission IN ('admin', 'admin_lite', 'sport_admin')""", (member["id"],)).fetchall()}
+    people = d.execute("""SELECT id, first, preferred_first, last FROM members
+        WHERE COALESCE(role,'')!='system' ORDER BY last, first""").fetchall()
+    if member:
+        who = '<p class="t3 sm">%s</p>' % escape(_person_name(member))
+    else:
+        options = ['<option value="">Choose a person</option>']
+        for person in people:
+            options.append('<option value="%d">%s</option>' % (person["id"], escape(_person_name(person))))
+        who = '<label>Person<select name=person required>%s</select></label>' % "".join(options)
+    boxes = []
+    for role in roles:
+        label = dict(ADMIN_LEVELS).get(role["permission"], role["permission"])
+        title = role["name"]
+        if role["program_name"]:
+            title = "%s · %s" % (role["name"], role["program_name"])
+        boxes.append('<label class=checkline><input type=checkbox name=role value="%d"%s> %s · %s</label>' % (
+            role["id"], " checked" if role["id"] in held else "", escape(title), escape(label)))
+    locked = ""
+    if member and member["is_admin"]:
+        locked = '<p class="t3 sm">Account admin stays on this person. Removing a role does not take it away.</p>'
+    empty = ""
+    if not roles:
+        empty = '<p class="t3 sm">No admin-level role exists yet. Club Leadership is where those roles are defined.</p><p><a class="btn btn-secondary" href="/manage/club/leadership">Leadership</a></p>'
+    return """<form method=post class=clubform style="padding-bottom:120px">%s
+%s
+<p>Roles</p>
+%s
+%s
+%s
+<button class="btn btn-primary full" type=submit>Save</button>
+</form>""" % (csrf, who, "".join(boxes) or empty, locked,
+              '<p class="t3 sm">Saving adds or removes only these roles. It never removes an existing admin.</p>' if roles else "")
+
+
+def save_permission_assignment(d, member_id, form):
+    """Add or remove admin-level role membership. Never clears is_admin."""
+    if member_id is None:
+        raw = form.get("person") or ""
+        if not str(raw).isdigit():
+            raise ValueError("Choose a person.")
+        member_id = int(raw)
+    member = d.execute("SELECT id FROM members WHERE id=? AND COALESCE(role,'')!='system'", (member_id,)).fetchone()
+    if not member:
+        raise ValueError("Choose a person.")
+    roles = {row["id"]: row["permission"] for row in admin_level_roles(d)}
+    wanted = {int(v) for v in form.getlist("role") if str(v).isdigit() and int(v) in roles}
+    current = {row["role_id"] for row in d.execute("""SELECT lm.role_id FROM leadership_members lm
+        JOIN leadership_roles r ON r.id=lm.role_id
+        WHERE lm.member_id=? AND r.permission IN ('admin', 'admin_lite', 'sport_admin')""", (member_id,)).fetchall()}
+    for role_id in wanted - current:
+        d.execute("INSERT OR IGNORE INTO leadership_members(role_id, member_id) VALUES(?,?)", (role_id, member_id))
+        if roles[role_id] == "admin":
+            d.execute("UPDATE members SET is_admin=1 WHERE id=? AND COALESCE(role,'')!='system'", (member_id,))
+    for role_id in current - wanted:
+        d.execute("DELETE FROM leadership_members WHERE role_id=? AND member_id=?", (role_id, member_id))
+    return member_id
+
+
 def leadership_list_html(d):
     rows = d.execute("SELECT * FROM leadership_roles WHERE program_id IS NULL ORDER BY sort, id").fetchall()
     bits = ['<div class=mlist>']

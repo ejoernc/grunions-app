@@ -74,7 +74,9 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
     assert "Add requirement" in athletes and "/manage/club/programs/water-polo/rules/new?role=athlete" in athletes
     assert "SafeSport" in athletes and "On" in athletes
     assert "Background screening" in coaches and "Off" in coaches
-    assert "Leadership" in admin.get("/manage/area/club").get_data(as_text=True)
+    club = admin.get("/manage/area/club").get_data(as_text=True)
+    assert "Leadership" in club and "class=mtitle>Permissions" in club
+    assert "Who can manage the club, sports and schedule" in club and 'href="/manage/club/permissions"' in club
     assert "Compliance" in admin.get("/manage/area/club").get_data(as_text=True) and "Venues" in admin.get("/manage/area/club").get_data(as_text=True)
     assert "Specific events" not in polo
     assert ">Requirements</span>" not in admin.get("/manage/area/club").get_data(as_text=True)
@@ -277,3 +279,39 @@ def test_regular_schedule_stores_each_day_with_its_own_times():
         assert left.count("sun") == 1 and "tue" in left and "thu" in left
         assert d.execute("SELECT COUNT(*) FROM practices").fetchone()[0] == before
         assert d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] == rsvps
+
+
+def test_permissions_lists_admins_and_does_not_raise_access_on_its_own():
+    admin, athlete = client(), client()
+    join(admin, "Nia", "Admin", "nia.perm@example.com")
+    join(athlete, "Bea", "Athlete", "bea.perm@example.com")
+    with A.app.app_context():
+        d = A.db()
+        d.execute("UPDATE members SET is_admin=1 WHERE email='nia.perm@example.com'")
+        d.commit()
+        nia = d.execute("SELECT id FROM members WHERE email='nia.perm@example.com'").fetchone()["id"]
+        bea = d.execute("SELECT id FROM members WHERE email='bea.perm@example.com'").fetchone()["id"]
+        before = d.execute("SELECT is_admin FROM members WHERE id=?", (nia,)).fetchone()["is_admin"]
+    page = admin.get("/manage/club/permissions").get_data(as_text=True)
+    assert "Nia" in page and "Admin" in page and "Assign" in page and "Bea" not in page
+    with A.app.app_context():
+        d = A.db()
+        assert d.execute("SELECT is_admin FROM members WHERE id=?", (nia,)).fetchone()["is_admin"] == before
+        role = d.execute("INSERT INTO leadership_roles(program_id, name, permission, sort) VALUES(NULL, 'Treasurer', 'admin_lite', 1)").lastrowid
+        d.commit()
+    saved = admin.post("/manage/club/permissions/new", data={
+        "csrf": csrf(admin, "/manage/club/permissions/new"),
+        "person": str(bea), "role": str(role),
+    })
+    assert saved.status_code == 302
+    with A.app.app_context():
+        d = A.db()
+        assert d.execute("SELECT is_admin FROM members WHERE id=?", (bea,)).fetchone()["is_admin"] == 0
+        assert d.execute("SELECT 1 FROM leadership_members WHERE role_id=? AND member_id=?", (role, bea)).fetchone()
+    cleared = admin.post("/manage/club/permissions/%d" % nia, data={
+        "csrf": csrf(admin, "/manage/club/permissions/%d" % nia),
+    })
+    assert cleared.status_code == 302
+    with A.app.app_context():
+        d = A.db()
+        assert d.execute("SELECT is_admin FROM members WHERE id=?", (nia,)).fetchone()["is_admin"] == 1

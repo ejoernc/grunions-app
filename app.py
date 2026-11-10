@@ -4565,6 +4565,7 @@ _MANAGE_ICONS = {
  "flag": "M42.76,50A8,8,0,0,0,40,56V224a8,8,0,0,0,16,0V179.77c26.79-21.16,49.87-9.75,76.45,3.41,16.4,8.11,31.32,15.51,48.22,15.51,13.93,0,28.54-4.75,43.82-18a8,8,0,0,0,2.76-6.25V56A8,8,0,0,0,218.76,50c-28,24.23-51.72,12.49-79.21-1.12C111.07,34.76,78.78,18.79,42.76,50ZM216,172.25c-26.79,21.16-49.87,9.74-76.45-3.41-25-12.35-50.81-25.11-83.55-8.93V59.79c26.79-21.16,49.87-9.75,76.45,3.4,25,12.35,50.81,25.12,83.55,8.94Z",
  "widget": "M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V104H216ZM216,88H40V56H216Z",
  "pin": "M128,16a88.1,88.1,0,0,0-88,88c0,75.3,80,132.17,83.41,134.55a8,8,0,0,0,9.18,0C136,236.17,216,179.3,216,104A88.1,88.1,0,0,0,128,16Zm0,56a32,32,0,1,1-32,32A32,32,0,0,1,128,72Z",
+ "key": "M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A79.73,79.73,0,0,0,160,176h.1A80,80,0,0,0,216.57,39.43ZM224,104a63.7,63.7,0,0,1-18.26,45.1,8,8,0,0,1-5.66,2.34H160a8,8,0,0,0-5.66,2.34L144,164.69V176H128a8,8,0,0,0-8,8v16H104a8,8,0,0,0-8,8v8H40V187.31l55.06-55.07A8,8,0,0,0,97.5,122,64,64,0,1,1,224,104Zm-56-24a16,16,0,1,1-16-16A16,16,0,0,1,168,80Z",
 }
 def _manage_row(title, desc, href, icon, count=0, tone="info"):
     return {"title": title, "desc": desc, "href": href, "icon": _micon(_MANAGE_ICONS[icon]), "count": count or 0, "tone": tone}
@@ -4916,7 +4917,7 @@ def _manage_catalog(d):
         add("club", "Compliance", "Shared requirements, credentials, insurance", "/manage/club/compliance", "shield", "compliance requirement safesport insurance waiver background screening certification")
         add("club", "Venues", "Manage locations and assign them to sports", "/manage/club/venues", "pin", "venue pool location address marina westminster")
         add("club", "Plans & passes", "Memberships, drop-ins, access and pricing", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass")
-        add("club", "People & roles", "Members, coaches, staff and permissions", "/manage/area/people", "people", "member coach admin referee staff role permission")
+        add("club", "Permissions", "Who can manage the club, sports and schedule", "/manage/club/permissions", "key", "permission admin admin lite sport admin who can manage")
         add("club", "Website & sharing", "Public schedule and the website widget", "/manage/widget", "widget", "embed website widget preview")
         add("club", "Leadership", "Club roles and who holds them", "/manage/club/leadership", "people", "leadership president treasurer board role")
         add("club", "Integrations", "Club Assistant and other registration links", "/manage/club/integrations", "swap", "club assistant provider payment link")
@@ -5243,6 +5244,46 @@ def _venue_form(venue_id):
     title = row["name"] if row else "Add venue"
     return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Name, address, and which sports use it.') }}{{ club_body|safe }}",
         tab="admin", admin_back="/manage/club/venues", title=title, club_body=clubadmin.venue_edit_html(d, row, csrf_field()))
+@app.route("/manage/club/permissions", methods=["GET"])
+@admin_required
+def club_permissions():
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    return page(ui.ADMIN_NAV + "{{ admin_page('Permissions', 'Who can manage the club, sports and schedule.') }}<div style=\"padding-bottom:120px\">{{ club_body|safe }}</div>",
+        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.permissions_html(d))
+@app.route("/manage/club/permissions/new", methods=["GET", "POST"])
+@admin_required
+def club_permission_new():
+    return _permission_form(None)
+@app.route("/manage/club/permissions/<int:member_id>", methods=["GET", "POST"])
+@admin_required
+def club_permission_edit(member_id):
+    return _permission_form(member_id)
+def _permission_form(member_id):
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    member = None
+    if member_id:
+        member = d.execute("SELECT * FROM members WHERE id=? AND COALESCE(role,'')!='system'", (member_id,)).fetchone()
+        if not member:
+            abort(404)
+    if request.method == "POST":
+        try:
+            before_admin = d.execute("SELECT id FROM members WHERE is_admin=1").fetchall()
+            saved = clubadmin.save_permission_assignment(d, member["id"] if member else None, request.form)
+            d.commit()
+            after = {row["id"] for row in d.execute("SELECT id FROM members WHERE is_admin=1").fetchall()}
+            if not {row["id"] for row in before_admin} <= after:
+                raise RuntimeError("saving permissions must not remove an admin")
+            flash("Saved", "toast")
+            return redirect("/manage/club/permissions/%d" % saved)
+        except ValueError as exc:
+            flash(str(exc))
+    title = clubadmin._person_name(member) if member else "Assign"
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Admin, Admin lite, or Sport admin.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/club/permissions", title=title, club_body=clubadmin.permission_edit_html(d, member, csrf_field()))
 @app.route("/manage/club/leadership", methods=["GET"])
 @admin_required
 def club_leadership():
