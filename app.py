@@ -6467,8 +6467,6 @@ def members():
     elif view == "uncleared": view, filt = "members", "uncleared"
     if view not in ("members", "coaches", "admins", "referees", "all", "compliance", "membership"): view = "members"
     if filt not in ("", "expiring", "uncleared"): filt = ""
-    pay = (request.args.get("pay") or "").strip()
-    if pay not in ("", "paying", "not"): pay = ""
     sets = roster_sets(d, rows)
     if view == "coaches": rows = [r for r in rows if r["id"] in sets["coaches"]]
     elif view == "admins": rows = [r for r in rows if r["id"] in sets["admins"]]
@@ -6484,7 +6482,6 @@ def members():
         clubadmin.ensure(d)
         today = today_pt().isoformat()
         rows = [r for r in rows if clubadmin.has_monthly_membership(d, r["id"], today)]
-        pay = ""
     if q:
         needle = q.casefold()
         rows = [r for r in rows if needle in " ".join(x for x in (r["first"], r["preferred_first"], r["last"], r["email"]) if x).casefold()]
@@ -6492,16 +6489,11 @@ def members():
         rows = [r for r in rows if list_status(d, r, view)["tone"] == "warn"]
     elif filt == "uncleared":
         rows = [r for r in rows if list_status(d, r, view)["tone"] == "bad"]
-    if pay:
-        import clubadmin
-        clubadmin.ensure(d)
-        today = today_pt().isoformat()
-        rows = [r for r in rows if clubadmin.payment_view(d, r["id"], today)["paying"] == (pay == "paying")]
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
     titles = {"members": "Participants", "all": "People", "coaches": "Coaches", "admins": "Admins", "referees": "Referees",
               "compliance": "Compliance", "membership": "Members"}
     return page(T["members"],
-        tab="admin", admin_back="/manage/area/people", rows=rows, c=c, view=view, filt=filt, pay=pay, date=focus, q=q, title=titles[view],
+        tab="admin", admin_back="/manage/area/people", rows=rows, c=c, view=view, filt=filt, pay="", date=focus, q=q, title=titles[view],
         listed=sets["listed"], referees=sets["referees"], coach_ids=sets["coach_ids"], ref_ids=sets["ref_ids"],
         n_admins=len(sets["admins"]), boot=ADMIN_EMAILS)
 def csv_attachment(filename, header, rows):

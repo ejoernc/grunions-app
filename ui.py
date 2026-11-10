@@ -5580,15 +5580,10 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pa
 <div class=peoplebar>
 <form method=get action=/members><input name=q value="{{q}}" placeholder="Search people..." autocomplete=off>{% if view != 'members' %}<input type=hidden name=view value="{{view}}">{% endif %}{% if filt %}<input type=hidden name=filt value="{{ filt }}">{% endif %}</form>
 <div class="fchips chiprow" data-seg>
-<a href="/members{% if view != 'members' %}?view={{ view }}{% endif %}{% if q %}{{ '&amp;' if view != 'members' else '?' }}q={{ q|urlencode }}{% endif %}{% if pay %}{{ '&amp;' if view != 'members' or q else '?' }}pay={{ pay }}{% endif %}" class="chip{{ ' chip-active on' if not filt }}">All</a>
-<a href="/members?{% if view != 'members' %}view={{ view }}&amp;{% endif %}filt=expiring{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if pay %}&amp;pay={{ pay }}{% endif %}" class="chip{{ ' chip-active on' if filt=='expiring' }}">Expiring</a>
-<a href="/members?{% if view != 'members' %}view={{ view }}&amp;{% endif %}filt=uncleared{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if pay %}&amp;pay={{ pay }}{% endif %}" class="chip{{ ' chip-active on' if filt=='uncleared' }}">Not cleared</a>
+<a href="/members{% if view != 'members' %}?view={{ view }}{% endif %}{% if q %}{{ '&amp;' if view != 'members' else '?' }}q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if not filt }}">All</a>
+<a href="/members?{% if view != 'members' %}view={{ view }}&amp;{% endif %}filt=expiring{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if filt=='expiring' }}">Expiring</a>
+<a href="/members?{% if view != 'members' %}view={{ view }}&amp;{% endif %}filt=uncleared{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if filt=='uncleared' }}">Not cleared</a>
 </div>
-{% if view != 'membership' %}<div class="fchips chiprow" data-seg role=group aria-label="Payment">
-<a href="/members{% if view != 'members' %}?view={{ view }}{% endif %}{% if filt %}{{ '&amp;' if view != 'members' else '?' }}filt={{ filt }}{% endif %}{% if q %}{{ '&amp;' if view != 'members' or filt else '?' }}q={{ q|urlencode }}{% endif %}" class="chip{{ ' on' if not pay }}">All</a>
-<a href="/members?{% if view != 'members' %}view={{ view }}&amp;{% endif %}{% if filt %}filt={{ filt }}&amp;{% endif %}{% if q %}q={{ q|urlencode }}&amp;{% endif %}pay=paying" class="chip{{ ' on' if pay=='paying' }}">Paying</a>
-<a href="/members?{% if view != 'members' %}view={{ view }}&amp;{% endif %}{% if filt %}filt={{ filt }}&amp;{% endif %}{% if q %}q={{ q|urlencode }}&amp;{% endif %}pay=not" class="chip{{ ' on' if pay=='not' }}">Not paying</a>
-</div>{% endif %}
 <p class="t2 sm peoplesum">{{ rows|length }} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}</p>
 </div>
 {% macro prow(r, kind) %}<div class="li personrow">{% call person_link(r) %}{% for tag in person_tags(r) %}<span class=sporttag>{{ tag }}</span>{% endfor %}<span class=sporttag>{{ pay_label(r) }}</span>{% endcall %}

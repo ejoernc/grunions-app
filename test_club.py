@@ -152,7 +152,7 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
     page = admin.get("/manage/area/people").get_data(as_text=True)
     assert "<h1>People</h1>" in page and "class=mtitle>Participants" in page and "class=mtitle>Members" in page and "class=mtitle>Compliance" in page and "class=mtitle>Membership" not in page
     roster = admin.get("/members").get_data(as_text=True)
-    assert "Unpaid" in roster and ">Paying</a>" in roster and ">Not paying</a>" in roster and 'data-seg' in roster
+    assert "Unpaid" in roster and ">Paying</a>" not in roster and ">Not paying</a>" not in roster and 'data-seg' in roster
     passes = admin.get("/manage/club/plans").get_data(as_text=True)
     assert "Create pass" in passes and "Monthly Membership" in passes and "Water Polo 2-Week Free Trial" in passes and "Drop-in" in passes
     assert "Swimming drop-in" not in passes and "min-height:72px" in passes
@@ -213,7 +213,9 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
     paying = admin.get("/members?view=membership").get_data(as_text=True)
     participants = admin.get("/members").get_data(as_text=True)
     assert "<h1>Members</h1>" in paying and "Bea" in paying and "Nia" not in paying and ">Paying</a>" not in paying
-    assert "<h1>Participants</h1>" in participants and "Bea" in participants and "Nia" in participants and ">Paying</a>" in participants
+    assert "<h1>Participants</h1>" in participants and "Bea" in participants and "Nia" in participants and ">Paying</a>" not in participants
+    old = admin.get("/members?pay=paying")
+    assert old.status_code == 200 and "Bea" in old.get_data(as_text=True) and "Nia" in old.get_data(as_text=True)
 
 
 def test_regular_schedule_stores_each_day_with_its_own_times():

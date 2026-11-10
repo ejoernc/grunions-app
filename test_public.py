@@ -282,7 +282,8 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     tools = admin.get("/manage/area/tools").get_data(as_text=True)
     assert "QR codes" in tools and "Data transfer" in tools and ">Usage<" in tools
     roster = admin.get("/members").get_data(as_text=True)
-    assert "aria-label=\"Role\"" not in roster and ">Expiring</a>" in roster and ">Paying</a>" in roster and "Export CSV" in roster
+    assert "aria-label=\"Role\"" not in roster and ">Expiring</a>" in roster and ">Paying</a>" not in roster and "Export CSV" in roster
+    assert admin.get("/members?pay=paying").status_code == 200 and ">Paying</a>" not in admin.get("/members?pay=paying").get_data(as_text=True)
     assert "class=hubback href=/manage/area/people" in roster and ".people{padding-bottom:48px}" in roster
     coaches = admin.get("/members?view=coaches").get_data(as_text=True)
     admins = admin.get("/members?view=admins").get_data(as_text=True)
