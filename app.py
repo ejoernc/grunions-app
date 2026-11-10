@@ -4911,7 +4911,7 @@ def _manage_catalog(d):
         add("activities", "Bulletin", "Team announcements in chat", "/chat", "tray", "announcement message bulletin chat")
         add("activities", "Requests", "Member-submitted events", "/manage/requests", "tray", "approval pending request")
     if admin:
-        add("people", "People", "Members, coaches, admins, and referees", "/manage/area/people", "people", "member coach admin referee roster compliance membership certification expiring", expiring_people_count(d), "warn")
+        add("people", "People", "Participants, members, coaches, admins, and referees", "/manage/area/people", "people", "participant member coach admin referee roster compliance membership certification expiring", expiring_people_count(d), "warn")
         add("club", "Sports", "Sport-specific compliance and requirements", "/manage/club/programs", "cal", "sport program water polo swimming requirement safesport usawp usms eligibility division")
         add("club", "Compliance", "Shared requirements, credentials, insurance", "/manage/club/compliance", "shield", "compliance requirement safesport insurance waiver background screening certification")
         add("club", "Venues", "Manage locations and assign them to sports", "/manage/club/venues", "pin", "venue pool location address marina westminster")
@@ -4926,7 +4926,7 @@ def _manage_catalog(d):
     return rows
 _AREA_COPY = {
     "activities": ("Activities", "Schedule, Lineup, Bulletin, and requests"),
-    "people": ("People", "Members, coaches, admins, and referees"),
+    "people": ("People", "Participants, members, coaches, admins, and referees"),
     "club": ("Club", "Sports, plans, and sharing"),
     "tools": ("Tools", "QR codes, data transfer, and usage"),
 }
@@ -5473,15 +5473,20 @@ def manage_area(area):
         def _n(count, one, many):
             return "%d %s" % (count, one if count == 1 else many)
         expiring_n = expiring_people_count(d)
+        import clubadmin
+        clubadmin.ensure(d)
+        today = today_pt().isoformat()
+        paying_n = sum(1 for person in sets["rows"] if clubadmin.has_monthly_membership(d, person["id"], today))
         packed = [
-            _manage_row("Members", _n(len(sets["rows"]), "person", "people"), "/members", "people"),
+            _manage_row("Participants", _n(len(sets["rows"]), "participant", "participants"), "/members", "people"),
+            _manage_row("Members", "%d paying" % paying_n, "/members?view=membership", "seal"),
             _manage_row("Coaches", _n(len(sets["coaches"]), "coach", "coaches"), "/members?view=coaches", "user"),
             _manage_row("Admins", _n(len(sets["admins"]), "admin", "admins"), "/members?view=admins", "seal"),
             _manage_row("Referees", _n(len(sets["refs"]), "referee", "referees"), "/members?view=referees", "flag"),
             _manage_row("Compliance", _n(expiring_n, "expiring", "expiring"), "/members?view=compliance", "shield"),
         ]
         return page(T["manage_area"], tab="admin", admin_back="/manage", title="People",
-            subtitle="Members, coaches, admins, and referees", rows=packed)
+            subtitle="Participants, members, coaches, admins, and referees", rows=packed)
     rows = [row for row in _manage_catalog(db()) if row["area"] == area]
     if not rows: abort(403)
     title, subtitle = _AREA_COPY[area]
@@ -5929,7 +5934,7 @@ def members_back():
     q = (request.form.get("q") or "").strip()
     kwargs = {}
     if view == "membership":
-        kwargs["pay"] = "paying"
+        kwargs["view"] = "membership"
     elif view in ("coaches", "admins", "referees", "compliance"): kwargs["view"] = view
     filt = (request.form.get("filt") or "").strip()
     if filt in ("expiring", "uncleared"): kwargs["filt"] = filt
@@ -6454,17 +6459,13 @@ def members():
     if request.args.get("view") == "all":
         kept = {key: request.args.get(key) for key in request.args if key != "view" and request.args.get(key)}
         return redirect(url_for("members", **kept))
-    if request.args.get("view") == "membership":
-        kept = {key: request.args.get(key) for key in request.args if key not in ("view", "pay") and request.args.get(key)}
-        kept["pay"] = "paying"
-        return redirect(url_for("members", **kept))
     view = request.args.get("view") or "members"
     filt = (request.args.get("filt") or "").strip()
     if request.args.get("coach") == "eligible": view = "coaches"
     if request.args.get("referee") == "eligible": view = "referees"
     if view == "expiring": view, filt = "members", "expiring"
     elif view == "uncleared": view, filt = "members", "uncleared"
-    if view not in ("members", "coaches", "admins", "referees", "all", "compliance"): view = "members"
+    if view not in ("members", "coaches", "admins", "referees", "all", "compliance", "membership"): view = "members"
     if filt not in ("", "expiring", "uncleared"): filt = ""
     pay = (request.args.get("pay") or "").strip()
     if pay not in ("", "paying", "not"): pay = ""
@@ -6478,6 +6479,12 @@ def members():
             for item in bucket:
                 watch.add(item["id"])
         rows = [r for r in rows if r["id"] in watch]
+    elif view == "membership":
+        import clubadmin
+        clubadmin.ensure(d)
+        today = today_pt().isoformat()
+        rows = [r for r in rows if clubadmin.has_monthly_membership(d, r["id"], today)]
+        pay = ""
     if q:
         needle = q.casefold()
         rows = [r for r in rows if needle in " ".join(x for x in (r["first"], r["preferred_first"], r["last"], r["email"]) if x).casefold()]
@@ -6491,8 +6498,8 @@ def members():
         today = today_pt().isoformat()
         rows = [r for r in rows if clubadmin.payment_view(d, r["id"], today)["paying"] == (pay == "paying")]
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
-    titles = {"members": "Members", "all": "People", "coaches": "Coaches", "admins": "Admins", "referees": "Referees",
-              "compliance": "Compliance"}
+    titles = {"members": "Participants", "all": "People", "coaches": "Coaches", "admins": "Admins", "referees": "Referees",
+              "compliance": "Compliance", "membership": "Members"}
     return page(T["members"],
         tab="admin", admin_back="/manage/area/people", rows=rows, c=c, view=view, filt=filt, pay=pay, date=focus, q=q, title=titles[view],
         listed=sets["listed"], referees=sets["referees"], coach_ids=sets["coach_ids"], ref_ids=sets["ref_ids"],

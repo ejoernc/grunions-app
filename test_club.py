@@ -150,7 +150,7 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
         plan = d.execute("SELECT id FROM payment_plans WHERE kind='monthly'").fetchone()["id"]
         before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
     page = admin.get("/manage/area/people").get_data(as_text=True)
-    assert "<h1>People</h1>" in page and "class=mtitle>Members" in page and "class=mtitle>Compliance" in page and "class=mtitle>Membership" not in page
+    assert "<h1>People</h1>" in page and "class=mtitle>Participants" in page and "class=mtitle>Members" in page and "class=mtitle>Compliance" in page and "class=mtitle>Membership" not in page
     roster = admin.get("/members").get_data(as_text=True)
     assert "Unpaid" in roster and ">Paying</a>" in roster and ">Not paying</a>" in roster and 'data-seg' in roster
     passes = admin.get("/manage/club/plans").get_data(as_text=True)
@@ -206,8 +206,14 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
         assert d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] == before
         view = clubadmin.payment_view(d, mid, "2026-11-09")
         assert view["paying"] is True and view["label"] == "Paid"
+        assert clubadmin.has_monthly_membership(d, mid, "2026-11-09") is True
+        assert clubadmin.has_monthly_membership(d, mid, "2027-02-01") is False
         usawp = d.execute("SELECT usawp_status FROM members WHERE id=?", (mid,)).fetchone()["usawp_status"]
         assert (usawp or "") != "verified"
+    paying = admin.get("/members?view=membership").get_data(as_text=True)
+    participants = admin.get("/members").get_data(as_text=True)
+    assert "<h1>Members</h1>" in paying and "Bea" in paying and "Nia" not in paying and ">Paying</a>" not in paying
+    assert "<h1>Participants</h1>" in participants and "Bea" in participants and "Nia" in participants and ">Paying</a>" in participants
 
 
 def test_regular_schedule_stores_each_day_with_its_own_times():

@@ -761,6 +761,25 @@ def payment_source(kind, provider_kind):
     return "manual"
 
 
+def has_monthly_membership(d, member_id, today):
+    """An active monthly membership. Trials, drop-ins, and expired or unpaid passes do not count."""
+    try:
+        rows = d.execute("""SELECT e.status, e.paid_through, e.valid_from, p.kind AS plan_kind
+            FROM access_entitlements e LEFT JOIN payment_plans p ON p.id=e.plan_id
+            WHERE e.member_id=?""", (member_id,)).fetchall()
+    except Exception:
+        return False
+    today = str(today or "")[:10]
+    for row in rows:
+        if (row["plan_kind"] or "") != "monthly":
+            continue
+        through = str(row["paid_through"] or "")[:10]
+        start = str(row["valid_from"] or "")[:10]
+        if row["status"] == "active" and not (through and through < today) and not (start and start > today):
+            return True
+    return False
+
+
 def payment_view(d, member_id, today):
     """Latest entitlement as a People-list label. Paying is not clearance."""
     try:
