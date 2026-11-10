@@ -29,7 +29,9 @@ There is no Manage page and no `/admin/emails` page. `scripts/render_email_sampl
 
 Blank prices are not shown. The page does not invent a dollar amount, a venue, or a practice. Saving it writes `org_settings` only. Sessions are still created in Manage Schedule.
 
-A first-time trial cannot be claimed again after `trial_acknowledged_at` is set. That is the same acknowledgment the membership card already stores.
+The free-trial block is one offer with two types. Duration is 7, 14, 30, or a custom number of days. Number of Sessions is 1, 2, 3, or a custom count. Grunions defaults to 14 days, water polo practices only, and a USA Water Polo trial membership. Scrimmages, games, and Lineup events stay off that offer unless an admin selects them. Saving still does not create practices or charge anyone.
+
+A self-claim is `trial_acknowledged_at` plus an optional `trial_claim_until`. It is not verification. Coverage uses the existing `usawp_status`, `usawp_valid_until`, and `membership_type`, and it never runs past the verified USA Water Polo date. The public banner is generated from the type: a 14-day USAWP offer says “Try Water Polo Free for 2 Weeks”. A session offer says “Get N Free Practices”.
 
 ## Phase 3
 
@@ -37,8 +39,8 @@ A first-time trial cannot be claimed again after `trial_acknowledged_at` is set.
 
 The feed is practices and published Lineup events only. Cards have a title, time, place, public note, and a price or trial line when one was entered. Names, photos, coach plans, and draft events are left out. A going count is a number, and only when that switch is on. The response is cached for about 30 seconds and capped at 40 cards.
 
-The iframe uses the app fonts, Night or Day, and the chips All, Schedule, Competitions, Camps, Trips, and Community. Prices are shown as currency. The trial message is one callout, not a line on every card. Host CSS cannot style the frame. The embed snippet points at https://grunions.regulars.team/widget and does not change when settings change.
+The iframe uses the app fonts and follows the visitor’s light or dark appearance with `prefers-color-scheme`. There is no Day/Night toggle. Chips are All, Schedule, Competitions, Camps, Trips, and Community. The schedule is a grid of `repeat(auto-fill, minmax(320px, 1fr))` and fills the container. Prices are shown as currency. The trial message is one callout above the grid, not a line on every card. Host CSS cannot style the frame. The embed snippet points at https://grunions.regulars.team/widget and does not change when settings change. Publish stays off until an admin turns it on.
 
-## Later phases
+## Phase 4
 
-- Phase 4 reuses the existing login and RSVP. Going in the widget opens that flow and does not mark anyone as registered until it finishes.
+Sign up on a practice opens `/register?event=p-<id>` in the top window. The page asks the visitor to sign in or create an account, then checks the offer. A missing USA Water Polo trial stays on Pending verification. The athlete can submit a number and dates; that writes the claim and a verification request, and it does not mark `usawp_status` verified or change `usawp_valid_until`. Confirm adds a Going RSVP only when eligibility is Active and the activity is covered. A session offer holds a credit on that RSVP, uses it at check-in, and releases it if the RSVP or the session is cancelled. The page does not charge a card, start a trial on view, or send mail.

@@ -20,6 +20,12 @@ def ensure_schema(d):
         id INTEGER PRIMARY KEY CHECK (id=1),
         body TEXT NOT NULL DEFAULT '{}',
         updated_at TEXT NOT NULL DEFAULT '')""")
+    d.execute("""CREATE TABLE IF NOT EXISTS trial_holds(
+        member_id INTEGER NOT NULL, practice_id INTEGER NOT NULL,
+        state TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY(member_id, practice_id))""")
+    member_cols = {row[1] for row in d.execute("PRAGMA table_info(members)")}
+    if member_cols and "trial_claim_until" not in member_cols:
+        d.execute("ALTER TABLE members ADD COLUMN trial_claim_until TEXT")
 
 
 def blank_slot():
@@ -38,8 +44,9 @@ def blank():
             "monthly": "", "monthly_desc": "", "passes": [], "fees": [],
         },
         "trial": {
-            "enabled": False, "includes": "", "visits": "", "first_time_only": True,
-            "days": "", "conditions": "", "message": "",
+            "enabled": False, "mode": "duration", "duration_days": 14, "session_count": 2,
+            "activities": ["practice"], "external": "usawp_trial", "first_time_only": True,
+            "includes": "", "visits": "", "days": "", "conditions": "", "message": "",
         },
         "widget": widget_blank(),
     }
@@ -180,10 +187,47 @@ def parse_form(form):
         pricing["fees"] = [fee]
     trial = data["trial"]
     trial["enabled"] = _get(form, "trial_on") == "1"
+    posted = set(form.keys()) if hasattr(form, "keys") else set()
+    trial["first_time_only"] = _get(form, "trial_first") == "1" if "trial_first" in posted else True
+    mode = _get(form, "trial_mode")
+    if mode not in ("duration", "sessions"):
+        if _get(form, "trial_visits") and not _get(form, "trial_days"):
+            mode = "sessions"
+        else:
+            mode = "duration"
+    trial["mode"] = mode
+    if mode == "sessions":
+        choice = _get(form, "trial_sessions") or _get(form, "trial_visits")
+        if choice == "custom":
+            choice = _count(_get(form, "trial_sessions_custom"), "free practices")
+        elif choice in ("1", "2", "3"):
+            pass
+        else:
+            choice = _count(choice, "free practices") if choice else "2"
+        trial["session_count"] = int(choice or "2")
+        trial["visits"] = str(trial["session_count"])
+        trial["duration_days"] = 14
+    else:
+        choice = _get(form, "trial_duration") or _get(form, "trial_days") or "14"
+        if choice == "custom":
+            choice = _count(_get(form, "trial_duration_custom"), "trial length") or "14"
+        elif str(choice) not in ("7", "14", "30") and not str(choice).isdigit():
+            raise ValueError("Use 7, 14, 30, or a custom number of days.")
+        elif str(choice).isdigit():
+            choice = _count(str(int(choice)), "trial length") or "14"
+        trial["duration_days"] = int(choice or "14")
+        trial["days"] = str(trial["duration_days"])
+    activities = [item for item in _listed(form, "trial_activity") if item in ("practice", "scrimmage", "game")]
+    if "trial_activity" not in posted and not activities:
+        activities = ["practice"]
+    if not activities:
+        activities = ["practice"]
+    trial["activities"] = activities
+    external = _get(form, "trial_external")
+    if external not in ("usawp_trial", "none"):
+        external = "usawp_trial" if mode == "duration" else "none"
+    trial["external"] = external
     trial["includes"] = _words(_get(form, "trial_includes"), 180)
-    trial["visits"] = _count(_get(form, "trial_visits"), "free practices")
-    trial["first_time_only"] = _get(form, "trial_first") == "1"
-    trial["days"] = _count(_get(form, "trial_days"), "how long the trial lasts")
     trial["conditions"] = _words(_get(form, "trial_conditions"), 500)
     trial["message"] = _words(_get(form, "trial_message"), 280)
     return data
@@ -212,7 +256,13 @@ def load(d):
         stored = json.loads(row["body"])
     except (TypeError, json.JSONDecodeError):
         return data
-    return _merge(data, stored if isinstance(stored, dict) else {})
+    stored = stored if isinstance(stored, dict) else {}
+    data = _merge(data, stored)
+    raw = stored.get("trial") if isinstance(stored.get("trial"), dict) else {}
+    if raw.get("mode") not in ("duration", "sessions"):
+        data["trial"]["mode"] = ""
+    data["trial"] = normalize_trial(data["trial"])
+    return data
 
 
 def save_sections(d, **sections):
@@ -337,17 +387,10 @@ def public_view(data):
         label = fee.get("name") or "Fee"
         prices.append({"label": label, "price": money(fee.get("price") or ""), "detail": fee.get("description") or "", "line": price_line(label, fee.get("price") or "")})
     trial = None
-    raw = data.get("trial") or {}
+    raw = normalize_trial(data.get("trial") or {})
     if raw.get("enabled"):
-        trial = {
-            "enabled": True,
-            "includes": raw.get("includes") or "",
-            "visits": raw.get("visits") or "",
-            "first_time_only": bool(raw.get("first_time_only")),
-            "days": raw.get("days") or "",
-            "conditions": raw.get("conditions") or "",
-            "message": raw.get("message") or "",
-        }
+        trial = dict(raw)
+        trial["banner"] = banner(raw)
     return {
         "name": schedule.get("name") or "" if schedule.get("public") else "",
         "description": schedule.get("description") or "" if schedule.get("public") else "",
@@ -360,20 +403,221 @@ def public_view(data):
     }
 
 
-def trial_claim_open(data, member):
-    """A first-time offer cannot be claimed again after the existing trial acknowledgment."""
-    trial = (data.get("trial") or {})
+def normalize_trial(trial):
+    """Fill the Grunions duration offer without turning it on or rewriting a saved choice."""
+    base = blank()["trial"]
+    trial = dict(base, **(trial or {}))
+    if trial.get("mode") not in ("duration", "sessions"):
+        if trial.get("visits") and not trial.get("days") and not trial.get("duration_days"):
+            trial["mode"] = "sessions"
+        else:
+            trial["mode"] = "duration"
+    if trial["mode"] == "sessions":
+        count = trial.get("session_count") or trial.get("visits") or 2
+        try:
+            trial["session_count"] = max(1, min(99, int(count)))
+        except (TypeError, ValueError):
+            trial["session_count"] = 2
+    else:
+        days = trial.get("duration_days") or trial.get("days") or 14
+        try:
+            trial["duration_days"] = max(1, min(365, int(days)))
+        except (TypeError, ValueError):
+            trial["duration_days"] = 14
+    activities = [item for item in (trial.get("activities") or []) if item in ("practice", "scrimmage", "game")]
+    trial["activities"] = activities or ["practice"]
+    if trial.get("external") not in ("usawp_trial", "none"):
+        trial["external"] = "usawp_trial"
+    return trial
+
+
+def banner(trial):
+    """Public copy from the offer type. A duration trial never uses session wording."""
+    trial = normalize_trial(trial)
     if not trial.get("enabled"):
-        return False
-    if not trial.get("first_time_only"):
-        return True
+        return None
+    if trial["mode"] == "sessions":
+        n = trial["session_count"]
+        noun = "Practice" if n == 1 else "Practices"
+        lower = "practice" if n == 1 else "practices"
+        return {
+            "title": "Get %d Free %s" % (n, noun),
+            "body": "New here? Select a practice below and sign up to claim your %d free %s." % (n, lower),
+            "link": "",
+            "href": "",
+        }
+    days = trial["duration_days"]
+    if days == 14:
+        title = "Try Water Polo Free for 2 Weeks"
+    elif days % 7 == 0:
+        title = "Try Water Polo Free for %d Weeks" % (days // 7)
+    else:
+        title = "Try Water Polo Free for %d Days" % days
+    body = "New to water polo? Select a practice below to sign up."
+    link, href = "", ""
+    if trial.get("external") == "usawp_trial":
+        body = "New to water polo? Select a practice below to sign up. A valid USA Water Polo trial membership is required to participate."
+        link = "Learn about USA Water Polo trial membership"
+        href = "https://usawp.sport80.com/public/widget/1"
+    return {"title": title, "body": body, "link": link, "href": href}
+
+
+def _member_get(member, key):
     if not member:
-        return True
+        return ""
     try:
-        claimed = member["trial_acknowledged_at"]
+        value = member[key]
     except (KeyError, TypeError, IndexError):
-        claimed = None
-    return not claimed
+        return ""
+    return value or ""
+
+
+def eligibility(trial, member, today, session_date=None):
+    """Read-only. A self-claim is not USAWP verification, and nothing is written."""
+    trial = normalize_trial(trial)
+    if not trial.get("enabled"):
+        return {"status": "ineligible", "label": "Ineligible", "reason": "No free-trial offer is on.", "start": "", "end": ""}
+    if not member:
+        return {"status": "not_started", "label": "Not started", "reason": "Sign in to check eligibility.", "start": "", "end": ""}
+    status = str(_member_get(member, "usawp_status"))
+    until = str(_member_get(member, "usawp_valid_until"))[:10]
+    kind = str(_member_get(member, "membership_type"))
+    claimed = str(_member_get(member, "trial_acknowledged_at"))[:10]
+    pending = str(_member_get(member, "verify_pending") or "")
+    today_s = today.isoformat() if hasattr(today, "isoformat") else str(today)[:10]
+    external = trial.get("external") == "usawp_trial"
+    trial_type = "trial" in kind.lower()
+    verified_cover = status == "verified" and bool(until) and until >= today_s and (trial_type or not external)
+    if external and status == "verified" and until and until >= today_s and kind and not trial_type:
+        return {"status": "ineligible", "label": "Ineligible", "reason": "This offer is only for a USA Water Polo trial membership.", "start": "", "end": until}
+    if trial.get("first_time_only") and claimed and not verified_cover:
+        try:
+            start = dt.date.fromisoformat(claimed)
+            end = start + dt.timedelta(days=int(trial["duration_days"]))
+            if str(end) < today_s and status != "pending" and not pending:
+                return {"status": "ineligible", "label": "Ineligible", "reason": "The USA Water Polo trial can be used once.", "start": claimed, "end": end.isoformat()}
+        except ValueError:
+            pass
+    if external and not verified_cover:
+        if claimed or status == "pending" or pending:
+            return {"status": "pending", "label": "Pending verification", "reason": "USA Water Polo has not verified this trial membership yet.", "start": "", "end": ""}
+        return {"status": "not_started", "label": "Not started", "reason": "A verified USA Water Polo trial membership is required.", "start": "", "end": ""}
+    if trial["mode"] == "duration":
+        if external:
+            end = until
+            start = claimed or ""
+            if start:
+                try:
+                    claim_end = (dt.date.fromisoformat(start) + dt.timedelta(days=int(trial["duration_days"]))).isoformat()
+                    if claim_end < end:
+                        end = claim_end
+                except ValueError:
+                    start = ""
+            if session_date and str(session_date)[:10] > end:
+                return {"status": "expired", "label": "Expired", "reason": "That session is after the USA Water Polo trial coverage.", "start": start, "end": end}
+            if end < today_s:
+                return {"status": "expired", "label": "Expired", "reason": "The trial coverage has ended.", "start": start, "end": end}
+            return {"status": "active", "label": "Active", "reason": "Verified USA Water Polo trial coverage.", "start": start, "end": end}
+        if not claimed:
+            return {"status": "not_started", "label": "Not started", "reason": "The trial has not been started.", "start": "", "end": ""}
+        start = claimed
+        end = (dt.date.fromisoformat(start) + dt.timedelta(days=int(trial["duration_days"]))).isoformat()
+        if end < today_s:
+            return {"status": "expired", "label": "Expired", "reason": "The trial period has ended.", "start": start, "end": end}
+        return {"status": "active", "label": "Active", "reason": "The trial period covers this session.", "start": start, "end": end}
+    return {"status": "active", "label": "Active", "reason": "Session credits are available.", "start": claimed, "end": until}
+
+
+def trial_claim_open(data, member):
+    """True only when the person has not already started the one-time offer."""
+    trial = normalize_trial((data or {}).get("trial") or data or {})
+    if not trial.get("enabled") or str(_member_get(member, "trial_acknowledged_at"))[:10]:
+        return False
+    found = eligibility(trial, member, dt.date.today())
+    return found["status"] in ("not_started", "active")
+
+
+def activity_ok(trial, activity):
+    trial = normalize_trial(trial)
+    return (activity or "practice") in (trial.get("activities") or ["practice"])
+
+
+def member_facts(member, pending=False):
+    """A plain dict so eligibility can see a pending request without writing the member row."""
+    if not member:
+        return None
+    try:
+        data = {key: member[key] for key in member.keys()}
+    except AttributeError:
+        data = dict(member)
+    data["verify_pending"] = "1" if pending else ""
+    return data
+
+
+def session_balance(d, member_id, trial):
+    """Credits still available. A cancelled RSVP or a cancelled session is not counted."""
+    trial = normalize_trial(trial)
+    total = int(trial.get("session_count") or 0) if trial.get("mode") == "sessions" else 0
+    used = held = 0
+    if total and member_id:
+        rows = d.execute("""SELECT h.state, p.cancelled, r.going
+            FROM trial_holds h
+            JOIN practices p ON p.id=h.practice_id
+            LEFT JOIN rsvps r ON r.practice_id=h.practice_id AND r.member_id=h.member_id
+            WHERE h.member_id=?""", (member_id,)).fetchall()
+        for row in rows:
+            if row["cancelled"] or not row["going"]:
+                continue
+            if row["state"] == "used":
+                used += 1
+            elif row["state"] == "held":
+                held += 1
+    return {"total": total, "used": used, "held": held, "remaining": max(0, total - used - held)}
+
+
+def release_practice_holds(d, practice_id):
+    """A cancelled session gives every held credit back."""
+    if practice_id:
+        d.execute("DELETE FROM trial_holds WHERE practice_id=?", (practice_id,))
+
+
+def sync_trial_hold(d, member_id, practice_id, today):
+    """Hold a credit while the athlete is Going, and use it only after check-in.
+    An RSVP that is cancelled, or a session that is cancelled, releases the credit.
+    People who are not eligible for the session offer are left alone."""
+    if not member_id or not practice_id:
+        return
+    trial = normalize_trial((load(d).get("trial") or {}))
+
+    def drop():
+        d.execute("DELETE FROM trial_holds WHERE member_id=? AND practice_id=?", (member_id, practice_id))
+
+    practice = d.execute("SELECT id, date, cancelled, activity_type FROM practices WHERE id=?", (practice_id,)).fetchone()
+    going = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (practice_id, member_id)).fetchone()
+    if (not trial.get("enabled") or trial.get("mode") != "sessions" or not practice or practice["cancelled"]
+            or not going or not going["going"] or not activity_ok(trial, practice["activity_type"] or "practice")):
+        drop()
+        return
+    member = d.execute("SELECT * FROM members WHERE id=?", (member_id,)).fetchone()
+    pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending' LIMIT 1", (member_id,)).fetchone()
+    found = eligibility(trial, member_facts(member, bool(pending)), today, practice["date"])
+    if found["status"] != "active":
+        drop()
+        return
+    existing = d.execute("SELECT state FROM trial_holds WHERE member_id=? AND practice_id=?", (member_id, practice_id)).fetchone()
+    checked = d.execute("SELECT 1 FROM checkins WHERE member_id=? AND practice_date=?", (member_id, practice["date"])).fetchone()
+    if not existing and not checked and session_balance(d, member_id, trial)["remaining"] <= 0:
+        return
+    state = "used" if checked else "held"
+    now = dt.datetime.now(ZoneInfo("America/Los_Angeles")).isoformat(timespec="seconds")
+    d.execute("""INSERT INTO trial_holds(member_id, practice_id, state, at) VALUES(?,?,?,?)
+        ON CONFLICT(member_id, practice_id) DO UPDATE SET state=excluded.state, at=excluded.at""",
+               (member_id, practice_id, state, now))
+
+
+def sync_holds_on_date(d, member_id, day, today):
+    for row in d.execute("SELECT id FROM practices WHERE date=?", (str(day)[:10],)):
+        sync_trial_hold(d, member_id, row["id"], today)
 
 
 CHIPS = (
@@ -398,7 +642,7 @@ def widget_blank():
         "enabled": False, "theme": "night", "visitor_theme": True,
         "chips": [slug for slug, _label in CHIPS], "default_chip": "all",
         "show_pricing": True, "show_trial": True, "show_counts": False,
-        "hide_past": True, "limit": 12, "include_schedule": True,
+        "hide_past": True, "limit": 4, "include_schedule": True,
     }
 
 
@@ -510,6 +754,7 @@ def build_feed(d, data, practice_title, now, org):
                 "cancelled": bool(row["cancelled"]),
                 "reason": _words(row["cancel_reason"], 180) if row["cancelled"] else "",
                 "price": price_line("Drop-in", drop_in) if drop_in else "",
+                "signup": (not row["cancelled"]) and activity_ok(data.get("trial") or {}, row["activity_type"] or "practice") and bool((data.get("trial") or {}).get("enabled")),
                 "count": counts.get(row["id"]) if show_counts else None,
                 "sort": _stamp(row["date"], row["start"]),
             }
@@ -537,6 +782,7 @@ def build_feed(d, data, practice_title, now, org):
                 "cancelled": False,
                 "reason": "",
                 "price": price_line("", cost) if cost else "",
+                "signup": False,
                 "count": None,
                 "capacity": row["capacity"] if row["capacity"] else None,
                 "sort": _stamp(row["date"], row["start_time"]),
@@ -587,6 +833,9 @@ def feed_body(d, data, practice_title, now, org):
 SETTINGS_PAGE = """<style>
 .daypick{display:flex;flex-wrap:wrap;gap:8px 12px;margin:0 0 12px}
 .daypick label{display:flex;align-items:center;gap:6px;margin:0;min-height:40px;color:var(--t1);font-size:15px}
+.pill{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--color-control);background:transparent;color:var(--t1);font:500 14px/1 var(--font-sans);cursor:pointer}
+.pill.on{background:var(--color-lime);border-color:var(--color-lime);color:#090D0B}
+.callout{margin:12px 0 0;padding:12px 14px;border-radius:16px;background:color-mix(in srgb,var(--color-lime) 18%,transparent)}
 .slotblock{margin:0 0 8px}
 .offerline{margin:0}
 </style>
@@ -640,13 +889,45 @@ SETTINGS_PAGE = """<style>
 <label>Description<input name=fee_desc value="{{ fee_row.description }}" autocomplete=off></label>
 <h2>Free trial</h2>
 <label class=switchrow>Offer a free trial<span class=switch><input type=checkbox name=trial_on value=1 {% if s.trial.enabled %}checked{% endif %}><span></span></span></label>
-<label>What it includes<input name=trial_includes value="{{ s.trial.includes }}" autocomplete=off></label>
-<label>Free practices<input name=trial_visits value="{{ s.trial.visits }}" inputmode=numeric autocomplete=off></label>
-<label class=switchrow>First time only<span class=switch><input type=checkbox name=trial_first value=1 {% if s.trial.first_time_only %}checked{% endif %}><span></span></span></label>
-<p class="t3 sm">Someone who already started the trial on their membership card cannot claim a first-time offer again.</p>
-<label>Expires after (days)<input name=trial_days value="{{ s.trial.days }}" inputmode=numeric autocomplete=off></label>
-<label>Conditions<textarea class=planfield name=trial_conditions rows=3>{{ s.trial.conditions }}</textarea></label>
-<label>Public message<textarea class=planfield name=trial_message rows=3 placeholder="Shown only when the trial is on">{{ s.trial.message }}</textarea></label>
+<div class=seclabel>Trial type</div>
+<div class="daypick pillset" id=trialType role=radiogroup aria-label="Trial type">
+<button type=button class="pill{% if s.trial.mode != 'sessions' %} on{% endif %}" data-mode=duration>Duration</button>
+<button type=button class="pill{% if s.trial.mode == 'sessions' %} on{% endif %}" data-mode=sessions>Number of Sessions</button>
+</div>
+<input type=hidden name=trial_mode id=trialMode value="{{ s.trial.mode or 'duration' }}">
+<div id=durationFields {% if s.trial.mode == 'sessions' %}hidden{% endif %}>
+<label>Length<select name=trial_duration id=trialDuration>
+<option value=7 {% if s.trial.duration_days|string == '7' %}selected{% endif %}>7 days</option>
+<option value=14 {% if s.trial.duration_days|string == '14' %}selected{% endif %}>14 days</option>
+<option value=30 {% if s.trial.duration_days|string == '30' %}selected{% endif %}>30 days</option>
+<option value=custom {% if s.trial.duration_days|string not in ['7','14','30'] %}selected{% endif %}>Custom</option>
+</select></label>
+<label>Custom days<input name=trial_duration_custom value="{{ '' if s.trial.duration_days|string in ['7','14','30'] else s.trial.duration_days }}" inputmode=numeric></label>
+<p class="t3 sm">During the period, eligible practices have no session fee. The window cannot run past verified USA Water Polo coverage.</p>
+</div>
+<div id=sessionFields {% if s.trial.mode != 'sessions' %}hidden{% endif %}>
+<label>Free practices<select name=trial_sessions>
+<option value=1 {% if s.trial.session_count|string == '1' %}selected{% endif %}>1</option>
+<option value=2 {% if s.trial.session_count|string == '2' %}selected{% endif %}>2</option>
+<option value=3 {% if s.trial.session_count|string == '3' %}selected{% endif %}>3</option>
+<option value=custom {% if s.trial.session_count|string not in ['1','2','3'] %}selected{% endif %}>Custom</option>
+</select></label>
+<label>Custom count<input name=trial_sessions_custom value="{{ '' if s.trial.session_count|string in ['1','2','3'] else s.trial.session_count }}" inputmode=numeric></label>
+<p class="t3 sm">A credit is used when the athlete attends. Cancelling the RSVP, or cancelling the session, gives it back.</p>
+</div>
+<div class=seclabel>Eligible schedule activities</div>
+<div class="daypick pillset" id=activityPills>
+{% for value, label in [('practice','Practices'),('scrimmage','Scrimmages'),('game','Games')] %}
+<button type=button class="pill{% if value in s.trial.activities %} on{% endif %}" data-activity="{{ value }}">{{ label }}</button>
+<input type=hidden name=trial_activity value="{{ value }}" {% if value not in s.trial.activities %}disabled{% endif %}>
+{% endfor %}
+</div>
+<p class="t3 sm">Scrimmages, games, and Lineup events are not included unless you select them here.</p>
+<label>External requirement<select name=trial_external>
+<option value=usawp_trial {% if s.trial.external != 'none' %}selected{% endif %}>USA Water Polo trial membership</option>
+<option value=none {% if s.trial.external == 'none' %}selected{% endif %}>None</option>
+</select></label>
+<label class=switchrow>One time only<span class=switch><input type=checkbox name=trial_first value=1 {% if s.trial.first_time_only %}checked{% endif %}><span></span></span></label>
 <button class="btn btn-primary full" type=submit>Save</button>
 </form>
 <h2>On the website</h2>
@@ -659,9 +940,30 @@ SETTINGS_PAGE = """<style>
 {% else %}<p class="t3 sm">The regular schedule is hidden until you turn it on.</p>{% endif %}
 {% if offer.prices %}<div class=seclabel>Pricing</div>{% for price in offer.prices %}<p class=offerline>{{ price.line }}{% if price.detail %} · {{ price.detail }}{% endif %}</p>{% endfor %}
 {% else %}<p class="t3 sm">No prices to show.</p>{% endif %}
-{% if offer.trial %}{% if offer.trial.message %}<p>{{ offer.trial.message }}</p>{% endif %}{% if offer.trial.includes %}<p class="t3 sm">{{ offer.trial.includes }}</p>{% endif %}{% if offer.trial.visits %}<p class="t3 sm">{{ offer.trial.visits }} free practices</p>{% endif %}
+{% if offer.trial and offer.trial.banner %}<div class=callout><b>{{ offer.trial.banner.title }}</b><p>{{ offer.trial.banner.body }}</p></div>
 {% else %}<p class="t3 sm">No free-trial offer.</p>{% endif %}
 </div>
+<script>
+(function(){
+  var mode=document.getElementById("trialMode");
+  document.querySelectorAll("#trialType .pill").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      document.querySelectorAll("#trialType .pill").forEach(function(other){other.classList.remove("on");});
+      btn.classList.add("on");
+      mode.value=btn.getAttribute("data-mode");
+      document.getElementById("durationFields").hidden=mode.value!=="duration";
+      document.getElementById("sessionFields").hidden=mode.value!=="sessions";
+    });
+  });
+  document.querySelectorAll("#activityPills .pill").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      btn.classList.toggle("on");
+      var input=btn.parentNode.querySelector('input[value="'+btn.getAttribute("data-activity")+'"]');
+      if(input) input.disabled=!btn.classList.contains("on");
+    });
+  });
+})();
+</script>
 """
 
 
@@ -734,12 +1036,15 @@ def widget_document(payload, theme=None):
                 bits.append('<p class=reason>Cancelled%s</p>' % ((" · " + e(item["reason"])) if item.get("reason") else ""))
             if item.get("detail"):
                 bits.append('<p class=detail>%s</p>' % e(item["detail"]))
+            if item.get("signup"):
+                bits.append('<a class=signup href="/register?event=%s" target=_top>Sign up</a>' % e(item["id"]))
             bits.append("</article>")
             rows.append("".join(bits))
         return "".join(rows)
 
+    banner_info = ((payload.get("trial") or {}).get("banner")) or {}
     offer_bits = []
-    if payload.get("overview") or payload.get("prices") or (payload.get("trial") or {}).get("message"):
+    if payload.get("overview") or payload.get("prices") or banner_info:
         offer_bits.append('<section class="card offer">')
         if payload.get("overview"):
             for line in payload["overview"]:
@@ -752,17 +1057,13 @@ def widget_document(payload, theme=None):
             for price in payload["prices"]:
                 offer_bits.append('<span class=chip-info>%s</span>' % e(price.get("line") or price_line(price.get("label"), price.get("price"))))
             offer_bits.append("</div>")
-        trial = payload.get("trial") or {}
-        if trial.get("message"):
-            offer_bits.append('<p class=callout>%s</p>' % e(trial["message"]))
-        elif trial.get("includes"):
-            offer_bits.append('<p class=callout>%s</p>' % e(trial["includes"]))
+        if banner_info:
+            offer_bits.append('<div class=callout><h2>%s</h2><p>%s</p>' % (e(banner_info.get("title") or ""), e(banner_info.get("body") or "")))
+            if banner_info.get("href"):
+                offer_bits.append('<a href="%s" target=_blank rel=noopener>%s</a>' % (e(banner_info["href"]), e(banner_info.get("link") or "Learn more")))
+            offer_bits.append("</div>")
         offer_bits.append("</section>")
-    other = "Day" if theme == "night" else "Night"
-    toggle = ""
-    if payload.get("visitor_theme"):
-        toggle = '<button type=button class=theme id=theme aria-label="Switch to %s">%s<span>%s</span></button>' % (other, _SUN, other)
-    return """<!doctype html><html lang=en data-theme="%s"><head><meta charset=utf-8>
+    return """<!doctype html><html lang=en><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>%s</title>
 <style>
@@ -772,7 +1073,7 @@ def widget_document(payload, theme=None):
 @font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:500;font-display:swap;src:url("/static/fonts/plus-jakarta-sans-500.woff2") format("woff2")}
 @font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:600;font-display:swap;src:url("/static/fonts/plus-jakarta-sans-600.woff2") format("woff2")}
 :root{color-scheme:dark;--font-display:"Space Grotesk","Plus Jakarta Sans",system-ui,sans-serif;--font-sans:"Plus Jakarta Sans",system-ui,sans-serif;--color-bg:#090D0B;--color-surface:#0F1512;--color-surface-2:#131A16;--color-border:#1B221E;--color-control:#5c665f;--color-text:#F2F6F1;--color-text-secondary:#BEC9C1;--color-lime:#C4E65A;--color-on-selected:#090D0B;--color-chip:#131A16;--radius-card:20px;--radius-control:16px;--radius-chip:999px;--size-chip:36px}
-html[data-theme=day]{color-scheme:light;--color-bg:#F2F6F1;--color-surface:#FFFFFF;--color-surface-2:#E8EEE9;--color-border:#D9E0DB;--color-control:#5C665F;--color-text:#090D0B;--color-text-secondary:#3A4A40;--color-on-selected:#090D0B;--color-chip:#E8EEE9}
+@media (prefers-color-scheme: light){:root{color-scheme:light;--color-bg:#F2F6F1;--color-surface:#FFFFFF;--color-surface-2:#E8EEE9;--color-border:#D9E0DB;--color-control:#5C665F;--color-text:#090D0B;--color-text-secondary:#3A4A40;--color-on-selected:#090D0B;--color-chip:#E8EEE9}}
 *{box-sizing:border-box}html,body{margin:0;background:var(--color-bg);color:var(--color-text)}
 body{font:400 16px/1.5 var(--font-sans);padding:0 0 28px}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 20px 4px}
@@ -791,7 +1092,10 @@ button{font:inherit;color:inherit}
 .chips::-webkit-scrollbar{display:none}
 .chip{position:relative;display:inline-flex;align-items:center;justify-content:center;height:var(--size-chip);padding:0 14px;border-radius:var(--radius-chip);border:1px solid var(--color-control);background:transparent;color:var(--color-text);font-size:14px;font-weight:500;line-height:1;white-space:nowrap;flex:none;cursor:pointer}
 .chip.on{background:var(--color-lime);color:var(--color-on-selected);border-color:var(--color-lime)}
-main{padding:4px 20px 0}
+main{padding:4px 20px 0;width:100%%}
+#cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;width:100%%}
+#cards .card{margin:0}
+.signup{display:inline-flex;align-items:center;height:36px;margin-top:12px;padding:0 14px;border-radius:999px;background:var(--color-lime);color:#090D0B;font-weight:600;text-decoration:none}
 .card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-card);padding:18px;margin:0 0 12px}
 .offer .usual{margin:0 0 8px;color:var(--color-text-secondary)}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
@@ -816,7 +1120,7 @@ main{padding:4px 20px 0}
 #retry{height:40px;padding:0 14px;border-radius:12px;border:1px solid var(--color-control);background:var(--color-surface-2);cursor:pointer}
 :focus-visible{outline:2px solid var(--color-lime);outline-offset:2px}
 </style></head><body>
-<header><div class=brand><img src="/static/icons/icon-192.png?v=119" alt="" width="36" height="36"><div><p>Regulars</p><h1>%s</h1></div></div>%s</header>
+<header><div class=brand><img src="/static/icons/icon-192.png?v=119" alt="" width="36" height="36"><div><p>Regulars</p><h1>%s</h1></div></div></header>
 <div class=chipbar><div class=chips role=tablist aria-label="Categories">%s</div></div>
 <main>%s
 <div id=loading class=state role=status><span class=spin aria-hidden=true></span><p>Loading the schedule</p></div>
@@ -842,45 +1146,36 @@ main{padding:4px 20px 0}
   }
   function ready(){loading.hidden=true; error.hidden=true; root.setAttribute("data-ready","1"); show(document.querySelector(".chips button.on") ? document.querySelector(".chips button.on").getAttribute("data-chip") : "all");}
   chips.forEach(function(btn){btn.addEventListener("click",function(){show(btn.getAttribute("data-chip"));});});
-  var themeBtn=document.getElementById("theme");
-  if(themeBtn) themeBtn.addEventListener("click",function(){
-    var next=root.getAttribute("data-theme")==="night"?"day":"night";
-    root.setAttribute("data-theme", next);
-    var label=next==="night"?"Day":"Night";
-    themeBtn.setAttribute("aria-label","Switch to "+label);
-    themeBtn.querySelector("span").textContent=label;
-    report();
-  });
   document.getElementById("retry").addEventListener("click", function(){
     loading.hidden=false; error.hidden=true; empty.hidden=true;
     fetch("/api/public/feed",{credentials:"same-origin"}).then(function(r){if(!r.ok) throw new Error("bad"); return r.json();}).then(function(){ready();}).catch(function(){loading.hidden=true; error.hidden=false; report();});
   });
   if(cards.children.length) ready();
   else { loading.hidden=true; empty.hidden=false; root.setAttribute("data-ready","1"); report(); }
+  var scheme=window.matchMedia("(prefers-color-scheme: light)");
+  function applyScheme(){root.setAttribute("data-scheme", scheme.matches ? "light" : "dark"); report();}
+  applyScheme();
+  if(scheme.addEventListener) scheme.addEventListener("change", applyScheme);
   window.addEventListener("resize", report);
 })();
 </script></body></html>""" % (
-        e(theme), e(org), e(org), toggle, chip_buttons(), "".join(offer_bits), cards(),
+        e(org), e(org), chip_buttons(), "".join(offer_bits), cards(),
     )
 
 
 WIDGET_ADMIN = """<style>
 .daypick{display:flex;flex-wrap:wrap;gap:8px 12px;margin:0 0 12px}
-.daypick label{display:flex;align-items:center;gap:6px;margin:0;min-height:40px;color:var(--t1);font-size:15px}
+.pill{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--color-control);background:transparent;color:var(--t1);font:500 14px/1 var(--font-sans);cursor:pointer}
+.pill.on{background:var(--color-lime);border-color:var(--color-lime);color:#090D0B}
 </style>
 {{ admin_page('Website widget', 'Visitors see this only after you publish it. The embed keeps working when you change these settings.') }}
 <form method=post>
 {{ csrf_field() }}
 <label class=switchrow>Publish on the website<span class=switch><input type=checkbox name=widget_on value=1 {% if w.enabled %}checked{% endif %}><span></span></span></label>
-<div class=seclabel>Default appearance</div>
-<div class=daypick role=radiogroup aria-label="Theme">
-<label><input type=radio name=theme value=night {% if w.theme != 'day' %}checked{% endif %}> Night</label>
-<label><input type=radio name=theme value=day {% if w.theme == 'day' %}checked{% endif %}> Day</label>
-</div>
-<label class=switchrow>Visitors can switch Night and Day<span class=switch><input type=checkbox name=visitor_theme value=1 {% if w.visitor_theme %}checked{% endif %}><span></span></span></label>
+<p class="t3 sm">The public widget follows the visitor's light or dark appearance. There is no separate theme switch.</p>
 <div class=seclabel>Chips</div>
-<div class=daypick role=group aria-label="Chips">
-{% for slug, label in chip_choices %}<label><input type=checkbox name="chip_{{ slug }}" value=1 {% if slug in w.chips %}checked{% endif %}> {{ label }}</label>{% endfor %}
+<div class="daypick pillset" role=group aria-label="Chips">
+{% for slug, label in chip_choices %}<button type=button class="pill{% if slug in w.chips %} on{% endif %}" data-name="chip_{{ slug }}">{{ label }}</button><input type=hidden name="chip_{{ slug }}" value="{{ '1' if slug in w.chips else '0' }}">{% endfor %}
 </div>
 <label>Opens on<select name=default_chip>{% for slug, label in chip_choices %}<option value="{{ slug }}" {% if w.default_chip == slug %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
 <label class=switchrow>Show the regular schedule<span class=switch><input type=checkbox name=include_schedule value=1 {% if w.include_schedule %}checked{% endif %}><span></span></span></label>
@@ -907,6 +1202,13 @@ WIDGET_ADMIN = """<style>
 <p><a href="/widget?preview=1">Open the preview</a></p>
 <script>
 (function(){
+  document.querySelectorAll(".pillset .pill").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      btn.classList.toggle("on");
+      var input=btn.parentNode.querySelector('input[name="'+btn.getAttribute("data-name")+'"]');
+      if(input) input.value=btn.classList.contains("on")?"1":"0";
+    });
+  });
   var frame=document.getElementById("widgetPreview");
   document.getElementById("prevMobile").onclick=function(){frame.style.width="min(100%,390px)";};
   document.getElementById("prevDesk").onclick=function(){frame.style.width="min(100%,1280px)";};
@@ -921,4 +1223,62 @@ WIDGET_ADMIN = """<style>
   });
 })();
 </script>
+"""
+
+
+REGISTER_PAGE = """
+{{ csrf_field() }}
+<h1>Register</h1>
+<p class=nxtitle>{{ title }}</p>
+<p class="t3 sm">{{ when }}{% if place %} · {{ place }}{% endif %}</p>
+<ol class="t3 sm">
+<li>Sign in or create an account</li>
+<li>Check the free-trial offer and USA Water Polo coverage</li>
+<li>Confirm only after every requirement is met</li>
+</ol>
+{% if state == 'signin' %}
+<h2>Sign in</h2>
+<p>Sign in or create an account to register for this session. Joining the club is not required.</p>
+<p><a class="btn btn-primary" href="/login">Sign in</a></p>
+<p><a class="btn btn-secondary" href="/join">Create an account</a></p>
+{% elif state == 'claim' %}
+<h2>USA Water Polo trial</h2>
+<p>{{ reason }}</p>
+<p class="t3 sm">Enter the trial details you have. Grunions verifies them. A claim is not verified coverage, and this does not start the trial by itself.</p>
+<form method=post>
+{{ csrf_field() }}
+<input type=hidden name=action value=claim>
+<input type=hidden name=event value="{{ event }}">
+<label>USA Water Polo number<input name=usawp_number inputmode=numeric autocomplete=off></label>
+<label>Trial starts<input type=date name=claim_start value="{{ today }}"></label>
+<label>Valid through<input type=date name=claim_until></label>
+<button class="btn btn-primary" type=submit>Submit for verification</button>
+</form>
+<p><a href="{{ trial_url }}" target=_blank rel=noopener>Learn about USA Water Polo trial membership</a></p>
+{% elif state == 'pending' %}
+<h2>Pending USAWP verification</h2>
+<p>{{ reason }}</p>
+<p class="t3 sm">Registration stays closed until the trial membership is verified. Nothing is charged.</p>
+<p><a href="{{ trial_url }}" target=_blank rel=noopener>Learn about USA Water Polo trial membership</a></p>
+{% elif state == 'eligible' %}
+<h2>Eligible trial applied</h2>
+<p>{{ reason }}</p>
+{% if start or end %}<p>Coverage {{ start }}{% if end %} through {{ end }}{% endif %}.</p>{% endif %}
+{% if balance and balance.total %}<p>{{ balance.remaining }} of {{ balance.total }} free practices left. {{ balance.used }} attended, {{ balance.held }} reserved.</p>{% endif %}
+<form method=post>
+{{ csrf_field() }}
+<input type=hidden name=action value=confirm>
+<input type=hidden name=event value="{{ event }}">
+<button class="btn btn-primary" type=submit>Confirm registration</button>
+</form>
+<p class="t3 sm">Confirming uses the free trial for this session. It does not charge a card or start a subscription.</p>
+{% elif state == 'confirmed' %}
+<h2>You're registered</h2>
+<p>Eligible trial applied. Nothing was charged.</p>
+{% if start or end %}<p>Coverage {{ start }}{% if end %} through {{ end }}{% endif %}.</p>{% endif %}
+{% else %}
+<h2>{{ label or 'Not eligible' }}</h2>
+<p>{{ reason }}</p>
+<p class="t3 sm">The usual subscription, pass, or drop-in price applies after the trial. Nothing is charged from this page, and you are not enrolled automatically.</p>
+{% endif %}
 """

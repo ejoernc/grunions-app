@@ -76,8 +76,9 @@ def test_settings_are_admin_only_and_create_no_practices():
     assert "Fridays: 7:00 PM–8:30 PM · Westminster High School" in body
     assert "Drop-in $15" in body
     assert "Member" not in body.split("<h2>On the website</h2>", 1)[1]
-    assert "Your first two practices are on us." in body
+    assert "Get 2 Free Practices" in body
     assert "2 free practices" in body
+    assert "Try Water Polo Free" not in body.split("<h2>On the website</h2>", 1)[1]
     assert counts() == (before, series)
     with A.app.app_context():
         stored = publicfeed.load(A.db())
@@ -144,12 +145,12 @@ def test_widget_is_off_until_an_admin_publishes_it():
     page = admin.get("/manage/widget")
     html = page.get_data(as_text=True)
     assert page.status_code == 200
-    assert "Website widget" in html and "Night" in html and "Day" in html
+    assert "Website widget" in html and "Visitors can switch" not in html
     assert ">All<" in html and ">Schedule<" in html and ">Competitions<" in html and ">Camps<" in html and ">Trips<" in html and ">Community<" in html
     assert 'src="/widget?preview=1"' in html and "https://grunions.regulars.team/widget" in html and "<iframe" in html
     preview = admin.get("/widget?preview=1")
-    assert preview.status_code == 200 and 'data-theme="night"' in preview.get_data(as_text=True)
-    assert 'data-theme="day"' in admin.get("/widget?preview=1&theme=day").get_data(as_text=True)
+    assert preview.status_code == 200 and "prefers-color-scheme" in preview.get_data(as_text=True) and "id=theme" not in preview.get_data(as_text=True)
+    assert "id=theme" not in admin.get("/widget?preview=1&theme=day").get_data(as_text=True)
     day = (A.today_pt() + __import__("datetime").timedelta(days=3)).isoformat()
     with A.app.app_context():
         d = A.db()
@@ -184,9 +185,14 @@ def test_widget_is_off_until_an_admin_publishes_it():
     assert "Bring a dark cap" in body and "Harbor Cup" in body and '"count":null' in body
     frame = member.get("/widget").get_data(as_text=True)
     assert "All" in frame and "Schedule" in frame and "Competitions" in frame and "Camps" in frame and "Trips" in frame and "Community" in frame
-    assert "Space Grotesk" in frame and "datetile" in frame and "class=callout" in frame and frame.count("Your first two practices are on us.") == 1
+    assert "Space Grotesk" in frame and "datetile" in frame and "class=callout" in frame and "id=theme" not in frame and "prefers-color-scheme" in frame
+    assert frame.count("Try Water Polo Free for 2 Weeks") == 1 and "Get 2 Free Practices" not in frame
+    assert "A valid USA Water Polo trial membership is required" in frame
+    assert "https://usawp.sport80.com/public/widget/1" in frame
+    assert 'href="/register?event=p-' in frame and "Harbor Cup" in frame and frame.count('target=_top>Sign up</a>') == 1
     assert "Loading the schedule" in frame and "Nothing coming up" in frame and "Couldn't load the schedule" in frame
-    assert "Drop-in $15" in frame and "Mia" not in frame and "secret drill" not in frame
+    assert "Drop-in $15" in frame and "grid-template-columns:repeat(auto-fill,minmax(320px,1fr))" in frame
+    assert "Mia" not in frame and "secret drill" not in frame
     admin.post("/manage/widget", data={
         "csrf": csrf(admin, "/manage/widget"),
         "widget_on": "1", "theme": "day", "visitor_theme": "1",
@@ -200,3 +206,106 @@ def test_widget_is_off_until_an_admin_publishes_it():
     assert counted["theme"] == "day" and counted["default_chip"] == "schedule"
     with A.app.app_context():
         assert A.db().execute("SELECT COUNT(*) FROM practices").fetchone()[0] == before + 1
+
+
+def test_registration_checks_eligibility_and_does_not_charge_or_email():
+    sent = []
+    real = A.send_email
+    A.send_email = lambda *args, **kwargs: sent.append(args)
+    try:
+        admin, guest = client(), client()
+        join(admin, "Nia", "Admin", "nia.reg@example.com")
+        with A.app.app_context():
+            d = A.db()
+            d.execute("UPDATE members SET is_admin=1 WHERE email='nia.reg@example.com'")
+            before = [tuple(row) for row in d.execute("SELECT id, usawp_status, usawp_valid_until, trial_acknowledged_at FROM members")]
+            day = (A.today_pt() + __import__("datetime").timedelta(days=4)).isoformat()
+            later = (A.today_pt() + __import__("datetime").timedelta(days=20)).isoformat()
+            pid = d.execute("""INSERT INTO practices(date,start,end,location,activity_type,sport)
+                VALUES(?,?,?,?,?,?)""", (day, "19:00", "20:30", "Westminster HS", "practice", "Water Polo")).lastrowid
+            sid = d.execute("""INSERT INTO practices(date,start,end,location,activity_type,sport)
+                VALUES(?,?,?,?,?,?)""", (day, "18:00", "19:00", "Side pool", "scrimmage", "Water Polo")).lastrowid
+            d.commit()
+        admin.post("/manage/pricing", data={
+            "csrf": csrf(admin, "/manage/pricing"),
+            "program_name": "Water Polo", "timezone": "America/Los_Angeles", "schedule_public": "1",
+            "trial_on": "1", "trial_mode": "duration", "trial_duration": "14", "trial_first": "1",
+            "trial_activity": "practice", "trial_external": "usawp_trial",
+        })
+        event = "p-%d" % pid
+        with A.app.app_context():
+            snapshot = A.db().execute("SELECT usawp_status, trial_acknowledged_at, usawp_valid_until FROM members WHERE email='nia.reg@example.com'").fetchone()
+        opened = guest.get("/register?event=%s" % event)
+        page = opened.get_data(as_text=True)
+        assert opened.status_code == 200 and "<h2>Sign in</h2>" in page and "Create an account" in page
+        with A.app.app_context():
+            again = A.db().execute("SELECT usawp_status, trial_acknowledged_at, usawp_valid_until FROM members WHERE email='nia.reg@example.com'").fetchone()
+            assert tuple(again) == tuple(snapshot)
+        created = guest.post("/join", data=dict(csrf=csrf(guest, "/join"), first="Rio", last="Visitor", email="rio.reg@example.com", phone="555-0199"))
+        assert created.status_code == 302 and created.headers["Location"].endswith("/register?event=%s" % event)
+        claim = guest.get("/register?event=%s" % event).get_data(as_text=True)
+        assert "<h2>USA Water Polo trial</h2>" in claim and "Submit for verification" in claim
+        guest.post("/register?event=%s" % event, data={
+            "csrf": csrf(guest, "/register?event=%s" % event),
+            "action": "claim", "event": event, "usawp_number": "445566",
+            "claim_start": A.today_pt().isoformat(), "claim_until": later,
+        })
+        pending = guest.get("/register?event=%s" % event).get_data(as_text=True)
+        assert "<h2>Pending USAWP verification</h2>" in pending
+        with A.app.app_context():
+            row = A.db().execute("SELECT usawp_status, usawp_valid_until, usawp_number, trial_acknowledged_at, trial_claim_until FROM members WHERE email='rio.reg@example.com'").fetchone()
+            assert (row["usawp_status"] or "unknown") in ("unknown", "") and not row["usawp_valid_until"]
+            assert row["usawp_number"] == "445566" and row["trial_acknowledged_at"] == A.today_pt().isoformat()
+            assert row["trial_claim_until"] == later
+            assert A.db().execute("SELECT COUNT(*) FROM rsvps WHERE member_id=(SELECT id FROM members WHERE email='rio.reg@example.com')").fetchone()[0] == 0
+        blocked = guest.post("/register?event=%s" % event, data={
+            "csrf": csrf(guest, "/register?event=%s" % event), "action": "confirm", "event": event,
+        })
+        assert blocked.status_code == 302
+        with A.app.app_context():
+            assert A.db().execute("SELECT COUNT(*) FROM rsvps WHERE member_id=(SELECT id FROM members WHERE email='rio.reg@example.com')").fetchone()[0] == 0
+            A.db().execute("""UPDATE members SET usawp_status='verified', membership_type='Trial', usawp_valid_until=?
+                WHERE email='rio.reg@example.com'""", (later,))
+            A.db().commit()
+        eligible = guest.get("/register?event=%s" % event).get_data(as_text=True)
+        assert "<h2>Eligible trial applied</h2>" in eligible and "Coverage" in eligible and A.today_pt().isoformat() in eligible and "Confirm registration" in eligible
+        guest.post("/register?event=%s" % event, data={
+            "csrf": csrf(guest, "/register?event=%s" % event), "action": "confirm", "event": event,
+        })
+        done = guest.get("/register?event=%s&done=1" % event).get_data(as_text=True)
+        assert "<h2>You're registered</h2>" in done and "Nothing was charged" in done
+        with A.app.app_context():
+            rio = A.db().execute("SELECT id FROM members WHERE email='rio.reg@example.com'").fetchone()[0]
+            assert A.db().execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, rio)).fetchone()["going"] == 1
+            assert A.db().execute("SELECT COUNT(*) FROM trial_holds WHERE member_id=?", (rio,)).fetchone()[0] == 0
+            others = [tuple(row) for row in A.db().execute("SELECT id, usawp_status, usawp_valid_until, trial_acknowledged_at FROM members WHERE id!=?", (rio,))]
+            assert others == [row for row in before if row[0] != rio]
+        scrimmage = guest.get("/register?event=p-%d" % sid).get_data(as_text=True)
+        assert "not covered" in scrimmage and "Confirm registration" not in scrimmage
+        admin.post("/manage/pricing", data={
+            "csrf": csrf(admin, "/manage/pricing"),
+            "program_name": "Water Polo", "timezone": "America/Los_Angeles",
+            "trial_on": "1", "trial_mode": "sessions", "trial_sessions": "2", "trial_first": "1",
+            "trial_activity": "practice", "trial_external": "usawp_trial",
+        })
+        second = (A.today_pt() + __import__("datetime").timedelta(days=5)).isoformat()
+        with A.app.app_context():
+            d = A.db()
+            extra = d.execute("""INSERT INTO practices(date,start,end,location,activity_type,sport)
+                VALUES(?,?,?,?,?,?)""", (second, "19:00", "20:30", "Marina HS", "practice", "Water Polo")).lastrowid
+            d.commit()
+        guest.post("/register?event=p-%d" % extra, data={
+            "csrf": csrf(guest, "/register?event=p-%d" % extra), "action": "confirm", "event": "p-%d" % extra,
+        })
+        with A.app.app_context():
+            hold = A.db().execute("SELECT state FROM trial_holds WHERE member_id=? AND practice_id=?", (rio, extra)).fetchone()
+            assert hold["state"] == "held"
+        guest.post("/practices", data={"csrf": csrf(guest, "/practices"), "action": "notgoing", "pid": extra})
+        with A.app.app_context():
+            assert A.db().execute("SELECT COUNT(*) FROM trial_holds WHERE member_id=? AND practice_id=?", (rio, extra)).fetchone()[0] == 0
+        assert sent == []
+        assert publicfeed.banner({"enabled": True, "mode": "sessions", "session_count": 2, "activities": ["practice"], "external": "none"})["title"] == "Get 2 Free Practices"
+        duration = publicfeed.banner({"enabled": True, "mode": "duration", "duration_days": 14, "activities": ["practice"], "external": "usawp_trial"})
+        assert duration["title"] == "Try Water Polo Free for 2 Weeks" and "free practices" not in duration["body"].lower()
+    finally:
+        A.send_email = real

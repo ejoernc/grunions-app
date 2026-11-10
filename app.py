@@ -238,7 +238,7 @@ def migrate_members(d):
                  ("usawp_verified_at", "TEXT"), ("sport80_contact_id", "TEXT"), ("preferred_first", "TEXT"),
                  ("trial_acknowledged_at", "TEXT"), ("notify_prefs", "TEXT"),
                  ("email_reminders", "INTEGER DEFAULT 1"), ("membership_type", "TEXT"), ("joined", "INTEGER DEFAULT 0"),
-                 ("require_background", "INTEGER DEFAULT 0"), ("photo", "TEXT")):
+                 ("require_background", "INTEGER DEFAULT 0"), ("photo", "TEXT"), ("trial_claim_until", "TEXT")):
         if c not in cols: d.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
     # /join always stores a phone. Existing registrations keep Google sign-in; a blank phone is not one.
     cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
@@ -990,6 +990,13 @@ def admin_notices():
 app.jinja_env.globals.update(REACTIONS=REACTIONS, csrf_token=csrf_token, csrf_field=csrf_field, admin_notices=admin_notices, me=me, foundation_css=ui.FOUNDATION)
 def start_session(mid):
     session.clear(); session.permanent = True; session["mid"] = mid; csrf_token()
+def auth_destination(mid):
+    """Keep a registration the visitor already chose. Every other sign-in still opens Home."""
+    nxt = session.get("next") or ""
+    if not (nxt.startswith("/register?event=") and "://" not in nxt and "\n" not in nxt and len(nxt) < 180):
+        nxt = ""
+    start_session(mid)
+    return nxt or "/home"
 
 _MACRO_AT = ui.BASE.find("{% macro")
 _BODY_AT = ui.BASE.find("<body")
@@ -1036,9 +1043,10 @@ def join():
             return send_link(email)
         cur = d.execute("INSERT INTO members(first,last,email,phone,is_admin,preferred_first,joined) VALUES(?,?,?,?,?,?,1)",
                         (f["first"], f["last"], email, f["phone"], int(email in ADMIN_EMAILS), pref))
-        d.commit(); sync_practice_sheets(d); start_session(cur.lastrowid)
+        d.commit(); sync_practice_sheets(d)
+        dest = auth_destination(cur.lastrowid)
         flash(f"Welcome to the Grunions, {pref or f['first']}! Find a coach on deck to get checked in.")
-        return redirect("/home")
+        return redirect(dest)
     return page(T["join"])
 
 def smtp_ready(): return all(SMTP.values())
@@ -1125,7 +1133,7 @@ def auth(tok):
     if not r or r["used"] or r["expires"] < dt.datetime.utcnow().isoformat():
         flash("That login link is invalid or expired. Request a new one."); return redirect("/login")
     d.execute("UPDATE login_tokens SET used=1 WHERE token_hash=?", (h,)); d.commit()
-    start_session(r["member_id"]); return redirect("/home")
+    return redirect(auth_destination(r["member_id"]))
 # ---------- Sign in with Google (OpenID Connect) ----------
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID"); GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 oauth = None
@@ -1163,7 +1171,7 @@ def auth_google_callback():
     d = db(); m = d.execute("SELECT * FROM members WHERE lower(email)=?", (email,)).fetchone()
     # Google never creates an account. /join sets joined. An existing admin can still sign in.
     if m and (m["role"] or "") != "system" and (m["joined"] or m["is_admin"]):
-        start_session(m["id"]); return redirect("/home")
+        return redirect(auth_destination(m["id"]))
     session.clear()
     flash(Markup("We couldn't find a Grunions registration for ") + escape(email) + Markup(
         '. Sign up first at /join using this email, or sign in with the email you registered with.'
@@ -3214,7 +3222,11 @@ def handle_practice_post(d):
             else:
                 delete_practice_row(d, pid)
             pid = None
-    if pid and a in ("going", "notgoing", "clear"): mark_practice_seen(d, me()["id"], pid)
+    if pid and a in ("going", "notgoing", "clear"):
+        mark_practice_seen(d, me()["id"], pid)
+        publicfeed.sync_trial_hold(d, me()["id"], pid, today_pt())
+    if pid and a in ("cancel", "skip"):
+        publicfeed.release_practice_holds(d, pid)
     d.commit()
     if a in ("going", "notgoing", "clear", "edit", "add", "cancel", "restore", "assign", "duplicate", "delete", "skip", "unskip"): sync_practice_sheets(d)
     if a == "cancel" and pid:
@@ -4074,6 +4086,97 @@ def _widget_can_be_framed(resp):
         resp.headers["Content-Security-Policy"] = "frame-ancestors *"
         resp.headers.pop("X-Frame-Options", None)
     return resp
+def _register_practice(d, raw):
+    raw = (raw or "").strip()
+    if not raw.startswith("p-") or not raw[2:].isdigit():
+        return None
+    return d.execute("SELECT * FROM practices WHERE id=?", (int(raw[2:]),)).fetchone()
+def _register_facts(d, member):
+    if not member:
+        return None
+    pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending' LIMIT 1", (member["id"],)).fetchone()
+    return publicfeed.member_facts(member, bool(pending))
+@app.route("/register", methods=["GET", "POST"])
+def register_for_event():
+    """Visitor registration for one session. Nothing is charged, emailed, or started on view."""
+    d = db()
+    raw = (request.values.get("event") or "").strip()
+    practice = _register_practice(d, raw)
+    if not practice:
+        abort(404)
+    if request.method == "GET":
+        session["next"] = "/register?event=%s" % raw
+    who = me()
+    trial = publicfeed.normalize_trial(publicfeed.load(d).get("trial"))
+    today = today_pt()
+    facts = _register_facts(d, who)
+    found = publicfeed.eligibility(trial, facts, today, practice["date"])
+    balance = publicfeed.session_balance(d, who["id"], trial) if who else None
+    going = None
+    if who:
+        going = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (practice["id"], who["id"])).fetchone()
+    if request.method == "POST":
+        if not who:
+            return redirect("/login")
+        action = (request.form.get("action") or "").strip()
+        before = d.execute("SELECT usawp_status, usawp_valid_until, usawp_number, trial_acknowledged_at, membership_type FROM members WHERE id=?", (who["id"],)).fetchone()
+        if action == "claim" and found["status"] == "not_started":
+            try:
+                start = publicfeed._date(request.form.get("claim_start") or today.isoformat(), "the trial start") or today.isoformat()
+                until = publicfeed._date(request.form.get("claim_until"), "the trial end")
+            except ValueError as exc:
+                flash(str(exc)); return redirect("/register?event=%s" % raw)
+            number = (request.form.get("usawp_number") or "").strip()
+            if number and not re.fullmatch(r"[0-9]{4,10}", number):
+                flash("Membership number must be 4-10 digits."); return redirect("/register?event=%s" % raw)
+            d.execute("""UPDATE members SET trial_acknowledged_at=? WHERE id=?
+                AND (trial_acknowledged_at IS NULL OR trial_acknowledged_at='')
+                AND COALESCE(usawp_status,'')!='verified'""", (start, who["id"]))
+            if until:
+                d.execute("UPDATE members SET trial_claim_until=? WHERE id=?", (until, who["id"]))
+            if number and (before["usawp_status"] or "") != "verified":
+                d.execute("UPDATE members SET usawp_number=? WHERE id=?", (number, who["id"]))
+                create_verify_request(d, who["id"], update_pending=True)
+            d.commit()
+            return redirect("/register?event=%s" % raw)
+        if action == "confirm":
+            fresh = d.execute("SELECT * FROM members WHERE id=?", (who["id"],)).fetchone()
+            found = publicfeed.eligibility(trial, _register_facts(d, fresh), today, practice["date"])
+            balance = publicfeed.session_balance(d, who["id"], trial)
+            covered = found["status"] == "active" and publicfeed.activity_ok(trial, practice["activity_type"] or "practice") and not practice["cancelled"]
+            if trial.get("mode") == "sessions" and balance["remaining"] <= 0 and not (going and going["going"]):
+                covered = False
+            if not covered:
+                flash("Registration stays closed until the free-trial requirements are met.")
+                return redirect("/register?event=%s" % raw)
+            d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
+                ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1, at=CURRENT_TIMESTAMP""", (practice["id"], who["id"]))
+            publicfeed.sync_trial_hold(d, who["id"], practice["id"], today)
+            d.commit()
+            return redirect("/register?event=%s&done=1" % raw)
+        return redirect("/register?event=%s" % raw)
+    state = "signin"
+    if who and request.args.get("done") == "1" and going and going["going"]:
+        state = "confirmed"
+    elif who and going and going["going"] and found["status"] == "active":
+        state = "confirmed"
+    elif not who:
+        state = "signin"
+    elif practice["cancelled"] or not publicfeed.activity_ok(trial, practice["activity_type"] or "practice"):
+        state = "blocked"
+        found = {"status": "ineligible", "label": "Not eligible", "reason": "This session is not covered by the free-trial offer.", "start": "", "end": ""}
+    elif found["status"] == "not_started":
+        state = "claim"
+    elif found["status"] == "pending":
+        state = "pending"
+    elif found["status"] == "active" and (trial.get("mode") != "sessions" or balance["remaining"] > 0 or (going and going["going"])):
+        state = "eligible"
+    else:
+        state = "blocked"
+    when = "%s · %s" % (fmt_d(practice["date"]), fmt_span(practice["start"], practice["end"]))
+    return page(publicfeed.REGISTER_PAGE, tab="", title=practice_title(practice), when=when, place=practice["location"] or "",
+        state=state, reason=found.get("reason") or "", label=found.get("label") or "", start=found.get("start") or "",
+        end=found.get("end") or "", balance=balance, event=raw, today=today.isoformat(), trial_url=TRIAL_JOIN_URL)
 @app.route("/manage/widget", methods=["GET", "POST"])
 @admin_required
 def manage_widget():
@@ -5065,10 +5168,12 @@ def admin():
         if detail is None:
             if request.form.get("action") == "undo":
                 d.execute("DELETE FROM checkins WHERE member_id=? AND practice_date=?", (mid, date))
+                publicfeed.sync_holds_on_date(d, mid, date, today_pt())
                 if who: flash("Undid check-in for %s." % display_first(who), "toast")
             else:
                 d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (mid, date, location_for(date)))
                 mark_checked_in_going(d, mid, date, (request.form.get("ev") or "").strip())
+                publicfeed.sync_holds_on_date(d, mid, date, today_pt())
                 if who: flash("Checked in %s." % display_first(who), "toast")
         d.commit()
         if request.form.get("action") in ("verify", "req", "background", "preferred", "role", "recheck", "edit", "undo") or not request.form.get("action"): sync_practice_sheets(d)
