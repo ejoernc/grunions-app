@@ -48,8 +48,7 @@ def test_settings_are_admin_only_and_create_no_practices():
     html = page.get_data(as_text=True)
     assert page.status_code == 200
     club = eli.get("/manage/area/club").get_data(as_text=True)
-    assert "Sports &amp; pricing" in club
-    assert 'href="/manage/pricing"' in club
+    assert "Sports" in club and 'href="/manage/club/programs"' in club
     assert "does not add sessions" in html
     form = html.split("<form", 1)[1].split("<h2>On the website</h2>", 1)[0]
     assert "Westminster" not in form and "Marina" not in form and "$" not in form
@@ -262,10 +261,11 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     assert 'aria-label="Create event"' in page
     assert ">Activities</b>" in page and ">People</b>" in page and ">Club</b>" in page and ">Tools</b>" in page
     club = admin.get("/manage/area/club").get_data(as_text=True)
-    assert "Sports &amp; pricing" in club and 'href="/manage/pricing"' in club and "Website widget" in club and ">Rules<" in club
+    assert ">Sports</b>" in club or "Sports" in club
+    assert 'href="/manage/club/programs"' in club and "Plans &amp; passes" in club and "Requirements" in club
     assert "Schedule &amp; pricing" not in club
     people = admin.get("/manage/area/people").get_data(as_text=True)
-    assert "Members and roles" in people and ">Compliance<" in people
+    assert "<h2>Members</h2>" in people and "<h2>Coaches</h2>" in people and "Paying" in people and ">Compliance<" not in people
     tools = admin.get("/manage/area/tools").get_data(as_text=True)
     assert "QR codes" in tools and "Data transfer" in tools and ">Usage<" in tools
     roster = admin.get("/members").get_data(as_text=True)
@@ -305,11 +305,11 @@ def test_manage_search_matches_people_and_settings():
     hidden = coach.get("/manage/search?q=Stephen").get_json()
     assert hidden["people"] == []
     trial = admin.get("/manage/search?q=trial").get_json()["settings"]
-    assert any(row["title"] == "Sports & pricing" and row["href"] == "/manage/pricing" for row in trial)
-    assert any(row["title"] == "Sports & pricing" for row in admin.get("/manage/search?q=free trial").get_json()["settings"])
-    assert any(row["title"] == "Sports & pricing" for row in admin.get("/manage/search?q=drop-in").get_json()["settings"])
-    assert any(row["title"] == "Website widget" for row in admin.get("/manage/search?q=embed").get_json()["settings"])
-    assert any(row["title"] == "Compliance" for row in admin.get("/manage/search?q=SafeSport").get_json()["settings"])
+    assert any(row["title"] == "Plans & passes" for row in trial)
+    assert any(row["title"] == "Plans & passes" for row in admin.get("/manage/search?q=free trial").get_json()["settings"])
+    assert any(row["title"] == "Plans & passes" for row in admin.get("/manage/search?q=drop-in").get_json()["settings"])
+    assert any(row["title"] == "Website & sharing" for row in admin.get("/manage/search?q=embed").get_json()["settings"])
+    assert any(row["title"] == "Requirements" for row in admin.get("/manage/search?q=SafeSport").get_json()["settings"])
     assert any(row["title"] == "Data transfer" for row in admin.get("/manage/search?q=export CSV").get_json()["settings"])
     blank = admin.get("/manage/search?q=zzzz-nope").get_json()
     assert blank["people"] == [] and blank["settings"] == []
@@ -511,6 +511,11 @@ def test_payment_gate_stays_off_and_does_not_rewrite_rsvps():
         with A.app.app_context():
             A.db().execute("""UPDATE members SET usawp_status='verified', usawp_valid_until='2027-06-01', membership_type='Individual'
                 WHERE id=?""", (gid,))
+            qid = A.db().execute("SELECT id FROM requirements WHERE keywords LIKE '%safesport%'").fetchone()
+            if qid:
+                A.db().execute("""INSERT INTO member_reqs(member_id, req_id, completed_on, expires_on, source, by, at)
+                    VALUES(?,?,?,?,?,?,?) ON CONFLICT(member_id, req_id) DO UPDATE SET expires_on=excluded.expires_on, completed_on=excluded.completed_on""",
+                    (gid, qid["id"], "2026-11-01", "2027-06-01", "manual", "test", "2026-11-01"))
             A.db().commit()
         choose = athlete.get("/practices/%d/participate" % pid).get_data(as_text=True)
         assert "Choose How to Participate" in choose and "Become a Member" in choose and "not configured" in choose

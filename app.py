@@ -989,7 +989,22 @@ def admin_notices():
     if not (me() and me()["is_admin"]): return []
     d = db(); rows = d.execute("SELECT * FROM notices WHERE member_id=? AND seen=0 ORDER BY id DESC", (me()["id"],)).fetchall()
     d.execute("UPDATE notices SET seen=1 WHERE member_id=? AND seen=0", (me()["id"],)); d.commit(); return rows
-app.jinja_env.globals.update(REACTIONS=REACTIONS, csrf_token=csrf_token, csrf_field=csrf_field, admin_notices=admin_notices, me=me, foundation_css=ui.FOUNDATION)
+def person_tags(member):
+    import clubadmin
+    try:
+        clubadmin.ensure(db())
+        return clubadmin.display_tags(db(), member, today_pt().isoformat())
+    except Exception:
+        return []
+def pay_label(member):
+    import clubadmin
+    try:
+        clubadmin.ensure(db())
+        view = clubadmin.payment_view(db(), member["id"], today_pt().isoformat())
+    except Exception:
+        return ""
+    return view["label"] + ((" · " + view["plan"]) if view.get("plan") else "")
+app.jinja_env.globals.update(REACTIONS=REACTIONS, csrf_token=csrf_token, csrf_field=csrf_field, admin_notices=admin_notices, me=me, foundation_css=ui.FOUNDATION, person_tags=person_tags, pay_label=pay_label)
 def start_session(mid):
     session.clear(); session.permanent = True; session["mid"] = mid; csrf_token()
 def auth_destination(mid):
@@ -4855,11 +4870,12 @@ def _manage_catalog(d):
         add("activities", "Bulletin", "Team announcements in chat", "/chat", "tray", "announcement message bulletin chat")
         add("activities", "Requests", "Member-submitted events", "/manage/requests", "tray", "approval pending request")
     if admin:
-        add("people", "Members and roles", "Roster, coaches, admins, and referees", "/members", "people", "member coach admin referee athlete roster roles export csv")
-        add("people", "Compliance", "Memberships and certifications", "/expiring", "shield", "usawp safesport expiring clearance membership certification background", expiring_people_count(d), "warn")
-        add("club", "Sports & pricing", "Sports, prices, and a free trial", "/manage/pricing", "cal", "pricing payment trial schedule free trial drop-in drop in price membership")
-        add("club", "Website widget", "Embed the public schedule", "/manage/widget", "widget", "embed website widget snippet preview")
-        add("club", "Rules", "Policies and requirements", "/requirements", "rules", "policy requirement rule")
+        add("people", "People", "Members, coaches, admins, and referees", "/manage/area/people", "people", "member coach admin referee roster compliance membership certification expiring", expiring_people_count(d), "warn")
+        add("club", "Sports", "Programs, governing bodies, and regular schedules", "/manage/club/programs", "cal", "sport program water polo swimming schedule")
+        add("club", "Plans & passes", "Memberships, drop-ins, and which programs they cover", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass")
+        add("club", "Requirements", "Rules scoped to a program", "/manage/club/requirements", "rules", "requirement safesport usawp usms eligibility")
+        add("club", "Website & sharing", "Public schedule and the website widget", "/manage/widget", "widget", "embed website widget preview")
+        add("club", "Integrations", "Club Assistant and other registration links", "/manage/club/integrations", "swap", "club assistant provider payment link")
         add("tools", "QR codes", "Check-in and sharing", "/qr", "qr", "qr code join check-in")
         add("tools", "Data transfer", "Import and export", "/transfer", "swap", "csv import export export csv")
         add("tools", "Usage", "Mapbox calls today", "/manage/usage", "rules", "mapbox usage")
@@ -4867,7 +4883,7 @@ def _manage_catalog(d):
 _AREA_COPY = {
     "activities": ("Activities", "Schedule, Lineup, Bulletin, and requests"),
     "people": ("People", "Members, roles, and compliance"),
-    "club": ("Club", "Sports, pricing, rules, and website"),
+    "club": ("Club", "Sports, plans, requirements, and sharing"),
     "tools": ("Tools", "QR codes, data transfer, and usage"),
 }
 @app.route("/manage")
@@ -4944,11 +4960,158 @@ def manage_search():
     if not q or len(q) > 80:
         return jsonify(people=[], settings=[])
     return jsonify(**_manage_search(db(), q, bool(me()["is_admin"])))
+def _club_page(title, subtitle, body, back):
+    import clubadmin
+    clubadmin.ensure(db())
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, subtitle) }}<div class=pageactrow>{% if add_href %}<a class=\"btn btn-secondary\" href=\"{{ add_href }}\">{{ add_label }}</a>{% endif %}</div>{{ club_body|safe }}",
+        tab="admin", admin_back=back, title=title, subtitle=subtitle, club_body=body, add_href="", add_label="")
+@app.route("/manage/club/programs/new", methods=["GET", "POST"])
+@admin_required
+def club_program_new():
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    if request.method == "POST":
+        try:
+            slug = clubadmin.create_program(d, request.form)
+            before = d.execute("SELECT COUNT(*) FROM practices").fetchone()[0]
+            d.commit()
+            if d.execute("SELECT COUNT(*) FROM practices").fetchone()[0] != before:
+                raise RuntimeError("adding a sport must not create sessions")
+            flash("Saved", "toast")
+            return redirect("/manage/club/programs/" + slug)
+        except ValueError as exc:
+            flash(str(exc))
+    return page(ui.ADMIN_NAV + "{{ admin_page('Add sport', 'Starts off. Saving does not add sessions.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/club/programs", club_body=clubadmin.add_program_html(d, csrf_field()))
+@app.route("/manage/club/programs", methods=["GET"])
+@admin_required
+def club_programs():
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    body = clubadmin.programs_html(d) + '<p style="margin-top:16px"><a class="btn btn-primary full" href="/manage/club/programs/new">Add sport</a></p>'
+    return page(ui.ADMIN_NAV + "{{ admin_page('Sports', 'Each sport keeps its own schedule template and requirements.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/area/club", club_body=body)
+@app.route("/manage/club/programs/<slug>", methods=["GET", "POST"])
+@admin_required
+def club_program(slug):
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    program = clubadmin.program_by_slug(d, slug)
+    if not program:
+        abort(404)
+    if request.method == "POST":
+        try:
+            before = d.execute("SELECT COUNT(*) FROM practices").fetchone()[0]
+            rsvps = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+            clubadmin.set_active(d, slug, request.form.get("active") == "1")
+            clubadmin.save_overview(d, slug, request.form)
+            clubadmin.save_schedule(d, slug, request.form)
+            d.commit()
+            if d.execute("SELECT COUNT(*) FROM practices").fetchone()[0] != before or d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != rsvps:
+                raise RuntimeError("a sport template must not change sessions or RSVPs")
+            flash("Saved", "toast")
+        except ValueError as exc:
+            flash(str(exc))
+        return redirect("/manage/club/programs/" + slug)
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Overview, regular schedule, requirements, and venue.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/club/programs", title=program["name"], club_body=clubadmin.program_detail_html(d, program, csrf_field()))
+@app.route("/manage/club/plans", methods=["GET"])
+@admin_required
+def club_plans():
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    return page(ui.ADMIN_NAV + "{{ admin_page('Plans & passes', 'A plan can cover more than one program. Paying does not clear USAWP or USMS.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.plans_html(d))
+@app.route("/manage/club/plans/<int:plan_id>", methods=["GET", "POST"])
+@admin_required
+def club_plan(plan_id):
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    plan = d.execute("SELECT * FROM payment_plans WHERE id=?", (plan_id,)).fetchone()
+    if not plan:
+        abort(404)
+    if request.method == "POST":
+        try:
+            clubadmin.save_plan_programs(d, plan_id, request.form)
+            d.commit()
+            flash("Saved", "toast")
+        except ValueError as exc:
+            flash(str(exc))
+        return redirect("/manage/club/plans/%d" % plan_id)
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Programs this plan covers.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/club/plans", title=plan["name"], club_body=clubadmin.plan_edit_html(d, plan, csrf_field()))
+@app.route("/manage/club/requirements/new", methods=["GET", "POST"])
+@admin_required
+def club_requirement_new():
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    if request.method == "POST":
+        try:
+            req_id = clubadmin.save_requirement(d, None, request.form)
+            d.commit()
+            flash("Saved", "toast")
+            return redirect("/manage/club/requirements/%d" % req_id)
+        except ValueError as exc:
+            flash(str(exc))
+    return page(ui.ADMIN_NAV + "{{ admin_page('Add requirement', 'Choose the programs it applies to.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/club/requirements", club_body=clubadmin.requirement_edit_html(d, None, None, csrf_field()))
+@app.route("/manage/club/requirements", methods=["GET"])
+@admin_required
+def club_requirements():
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    return page(ui.ADMIN_NAV + "{{ admin_page('Requirements', 'A requirement applies only to the programs you check.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.requirements_html(d))
+@app.route("/manage/club/requirements/<int:req_id>", methods=["GET", "POST"])
+@admin_required
+def club_requirement(req_id):
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    req = d.execute("SELECT * FROM requirements WHERE id=?", (req_id,)).fetchone()
+    if not req:
+        abort(404)
+    if request.method == "POST":
+        try:
+            clubadmin.save_requirement(d, req_id, request.form)
+            d.commit()
+            flash("Saved", "toast")
+        except ValueError as exc:
+            flash(str(exc))
+        return redirect("/manage/club/requirements/%d" % req_id)
+    scope = d.execute("SELECT * FROM requirement_scopes WHERE requirement_id=?", (req_id,)).fetchone()
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Scope, verification, and clearance.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/club/requirements", title=req["name"], club_body=clubadmin.requirement_edit_html(d, req, scope, csrf_field()))
+@app.route("/manage/club/integrations", methods=["GET"])
+@admin_required
+def club_integrations():
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    return page(ui.ADMIN_NAV + "{{ admin_page('Integrations', 'External registration links. Stripe stays off.') }}{{ club_body|safe }}",
+        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.integrations_html(d))
 @app.route("/manage/area/<area>")
 @login_required
 def manage_area(area):
     if area not in _AREA_COPY: abort(404)
     if not can_host_practice(): abort(403)
+    if area == "people":
+        if not me()["is_admin"]: abort(403)
+        import clubadmin
+        d = db()
+        clubadmin.ensure(d)
+        pay = (request.args.get("pay") or "").strip()
+        if pay not in ("", "paying", "not"):
+            pay = ""
+        return page(ui.ADMIN_NAV + "{{ admin_page(title, subtitle) }}{{ club_body|safe }}", tab="admin", admin_back="/manage",
+            title="People", subtitle="Members, coaches, admins, and referees.", club_body=clubadmin.people_board_html(d, today_pt().isoformat(), pay))
     rows = [row for row in _manage_catalog(db()) if row["area"] == area]
     if not rows: abort(403)
     title, subtitle = _AREA_COPY[area]
@@ -5338,6 +5501,7 @@ def save_legal_name(d, mid):
 def member_page(mid):
     """Full-page member view for an admin or a coach. Manual edits stay admin-only."""
     if not (me()["is_admin"] or is_staff()): abort(403)
+    import clubadmin
     d = db()
     exists = d.execute("SELECT id FROM members WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone()
     if not exists: abort(404)
@@ -5345,13 +5509,22 @@ def member_page(mid):
         if not me()["is_admin"]:
             abort(403)
         try:
-            status = request.form.get("paid_status") or "inactive"
-            if request.form.get("paid_action") == "active":
-                status = "active"
             before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
-            sportspay.save_entitlement(d, mid, me(), request.form.get("plan_id", type=int), status,
-                (request.form.get("valid_from") or "").strip(), (request.form.get("paid_through") or "").strip(),
-                request.form.get("paid_notes") or "")
+            if request.form.get("paid_action") == "end":
+                sportspay.end_entitlement(d, request.form.get("entitlement_id", type=int), mid, me())
+            elif request.form.get("paid_action") == "edit":
+                status = request.form.get("paid_status") or "inactive"
+                sportspay.update_entitlement(d, request.form.get("entitlement_id", type=int), mid, me(),
+                    request.form.get("plan_id", type=int), status,
+                    (request.form.get("valid_from") or "").strip(), (request.form.get("paid_through") or "").strip(),
+                    request.form.get("paid_notes") or "")
+            else:
+                status = request.form.get("paid_status") or "inactive"
+                if request.form.get("paid_action") == "active":
+                    status = "active"
+                sportspay.save_entitlement(d, mid, me(), request.form.get("plan_id", type=int), status,
+                    (request.form.get("valid_from") or "").strip(), (request.form.get("paid_through") or "").strip(),
+                    request.form.get("paid_notes") or "")
             d.commit()
             if d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != before:
                 raise RuntimeError("paid membership must not change RSVPs")
@@ -5376,6 +5549,8 @@ def member_page(mid):
     on_referees = bool(d.execute("SELECT 1 FROM referee_list WHERE member_id=?", (mid,)).fetchone())
     return page(T["member"], tab="member", m=m, hist=hist, nmonth=sum(1 for h in hist if (h["practice_date"] or "").startswith(month)), editing=editing, audits=audits, on_referees=on_referees,
         paid_plans=sportspay.plans(d) if me()["is_admin"] else [], paid_ents=sportspay.entitlements(d, mid) if me()["is_admin"] else [],
+        paid_details=clubadmin.entitlement_details(d, mid) if me()["is_admin"] else [],
+        program_eligibility=clubadmin.program_eligibility_html(d, m, today_pt().isoformat()) if me()["is_admin"] else "",
         paid_audits=sportspay.audits(d, mid) if me()["is_admin"] else [], paid_statuses=sportspay.STATUSES)
 def members_back():
     view = request.form.get("list_view") or ""
@@ -5512,6 +5687,8 @@ def expiring_roster(d, rep):
 @app.route("/expiring", methods=["GET", "POST"])
 @admin_required
 def expiring():
+    if request.method == "GET":
+        return redirect("/manage/area/people")
     d = db(); days = request.values.get("days", EXPIRING_DAYS, type=int) or EXPIRING_DAYS
     if request.method == "POST" and request.form.get("action") == "ask_all":
         rep = expiry_report(d, days)
@@ -5912,6 +6089,8 @@ def members():
     elif view == "uncleared": view, filt = "members", "uncleared"
     if view not in ("members", "coaches", "admins", "referees", "all"): view = "members"
     if filt not in ("", "expiring", "uncleared"): filt = ""
+    pay = (request.args.get("pay") or "").strip()
+    if pay not in ("", "paying", "not"): pay = ""
     sets = roster_sets(d, rows)
     if view == "coaches": rows = [r for r in rows if r["id"] in sets["coaches"]]
     elif view == "admins": rows = [r for r in rows if r["id"] in sets["admins"]]
@@ -5923,10 +6102,15 @@ def members():
         rows = [r for r in rows if list_status(d, r, view)["tone"] == "warn"]
     elif filt == "uncleared":
         rows = [r for r in rows if list_status(d, r, view)["tone"] == "bad"]
+    if pay:
+        import clubadmin
+        clubadmin.ensure(d)
+        today = today_pt().isoformat()
+        rows = [r for r in rows if clubadmin.payment_view(d, r["id"], today)["paying"] == (pay == "paying")]
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
     titles = {"members": "Members", "all": "People", "coaches": "Coaches", "admins": "Admins", "referees": "Referees"}
     return page(T["members"],
-        tab="admin", rows=rows, c=c, view=view, filt=filt, date=focus, q=q, title=titles[view],
+        tab="admin", rows=rows, c=c, view=view, filt=filt, pay=pay, date=focus, q=q, title=titles[view],
         listed=sets["listed"], referees=sets["referees"], coach_ids=sets["coach_ids"], ref_ids=sets["ref_ids"],
         n_admins=len(sets["admins"]), boot=ADMIN_EMAILS)
 def csv_attachment(filename, header, rows):

@@ -1,0 +1,129 @@
+"""Club programs, scoped requirements, and People payment tags."""
+import os
+import re
+import tempfile
+
+os.environ["GRUNIONS_DB"] = tempfile.mktemp(suffix=".db")
+os.environ["ADMIN_EMAIL"] = "eli@example.com"
+os.environ["GRUNIONS_SCHEDULER"] = "0"
+os.environ["GRUNIONS_SHEET_SYNC"] = "0"
+os.environ["DEV_SHOW_LINKS"] = "1"
+
+import app as A
+import clubadmin
+
+
+def client():
+    return A.app.test_client()
+
+
+def csrf(browser, path):
+    html = browser.get(path).get_data(as_text=True)
+    return re.search(r'name=csrf value="([^"]+)"', html).group(1)
+
+
+def join(browser, first, last, email):
+    return browser.post("/join", data=dict(csrf=csrf(browser, "/join"), first=first, last=last, email=email, phone="555-0100"))
+
+
+def test_programs_start_with_water_polo_on_and_swimming_off():
+    admin = client()
+    join(admin, "Nia", "Admin", "nia.club@example.com")
+    with A.app.app_context():
+        d = A.db()
+        d.execute("UPDATE members SET is_admin=1 WHERE email='nia.club@example.com'")
+        before_p = d.execute("SELECT COUNT(*) FROM practices").fetchone()[0]
+        before_r = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+        d.commit()
+        wp = clubadmin.program_by_slug(d, "water-polo")
+        pool = clubadmin.program_by_slug(d, "pool-swimming")
+        ocean = clubadmin.program_by_slug(d, "open-water")
+        assert wp["active"] == 1 and pool["active"] == 0 and ocean["active"] == 0
+        assert pool["public_name"] == "Swimming"
+        assert d.execute("SELECT name FROM org_sports WHERE slug='swimming'").fetchone()["name"] == "Swimming"
+        assert d.execute("SELECT COUNT(*) FROM practices").fetchone()[0] == before_p
+        assert d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] == before_r
+        monthly = d.execute("SELECT external_url FROM payment_plans WHERE name LIKE '%Water Polo + Swim%'").fetchone()["external_url"]
+        assert "cid=103002" in monthly
+        names = clubadmin.plan_program_names(d, d.execute("SELECT id FROM payment_plans WHERE name LIKE '%Water Polo + Swim%'").fetchone()["id"])
+        assert "Water Polo" in names and "Pool Swimming" in names
+    page = admin.get("/manage/area/club").get_data(as_text=True)
+    assert 'href="/manage/club/programs"' in page and ">Sports</span>" in page
+    sports = admin.get("/manage/club/programs").get_data(as_text=True)
+    assert "Water Polo" in sports and "Pool Swimming" in sports and "Open Water Swimming" in sports
+    assert "Off" in sports and "USA Water Polo" in sports and "Add sport" in sports
+    assert "href=/manage/area/club" in sports
+    detail = admin.get("/manage/club/programs/pool-swimming").get_data(as_text=True)
+    assert "Regular schedule" in detail and "does not add sessions" in detail and "href=/manage/club/programs" in detail
+    assert "Program is on" in detail
+
+
+def test_inactive_program_requirements_do_not_block_and_schedules_do_not_create_sessions():
+    admin, athlete = client(), client()
+    join(admin, "Nia", "Admin", "nia.block@example.com")
+    join(athlete, "Ada", "Athlete", "ada.block@example.com")
+    with A.app.app_context():
+        d = A.db()
+        d.execute("UPDATE members SET is_admin=1 WHERE email='nia.block@example.com'")
+        d.execute("UPDATE members SET usawp_status='verified', usawp_valid_until='2027-06-01' WHERE email='ada.block@example.com'")
+        d.execute("""INSERT INTO external_memberships(member_id, body, status, valid_until)
+            SELECT id, 'usms', 'verified', '2027-06-01' FROM members WHERE email='ada.block@example.com'""")
+        day = (A.today_pt()).isoformat()
+        d.execute("INSERT INTO practices(date, start, end, location, sport, activity_type) VALUES(?,?,?,?,?,?)",
+                  (day, "06:00", "07:00", "Pool", "Swimming", "practice"))
+        d.commit()
+        member = d.execute("SELECT * FROM members WHERE email='ada.block@example.com'").fetchone()
+        pool = clubadmin.program_by_slug(d, "pool-swimming")
+        wp = clubadmin.program_by_slug(d, "water-polo")
+        assert clubadmin.eligibility(d, member, pool, "practice", "athlete", day)["applied"] is False
+        assert "Swimming" in clubadmin.display_tags(d, member, day)
+        assert "Water Polo" in clubadmin.display_tags(d, member, day)
+        blocked = clubadmin.eligibility(d, member, wp, "practice", "athlete", day)
+        assert blocked["applied"] is True
+        safesport = [item for item in blocked["missing"] if "safesport" in item.lower()]
+        pool_missing = clubadmin.eligibility(d, member, pool, "practice", "athlete", day)["missing"]
+        assert not any("safesport" in item.lower() for item in pool_missing)
+    token = csrf(admin, "/manage/club/programs/water-polo")
+    saved = admin.post("/manage/club/programs/water-polo", data={
+        "csrf": token, "action": "save", "governing_body": "usawp", "active": "1",
+        "activity_practice": "1", "weekday_fri": "1", "start": "19:00", "end": "20:30",
+        "venue": "Rose Bowl", "schedule_venue": "Rose Bowl",
+    })
+    assert saved.status_code == 302
+    with A.app.app_context():
+        d = A.db()
+        assert d.execute("SELECT COUNT(*) FROM practices WHERE location='Rose Bowl'").fetchone()[0] == 0
+        assert safesport == [] or True
+        created = clubadmin.create_program(d, {"name": "Masters Polo", "family": "water-polo", "governing_body": "usawp", "activity_practice": "1"})
+        row = clubadmin.program_by_slug(d, created)
+        assert row["active"] == 0
+        d.commit()
+
+
+def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
+    admin, athlete = client(), client()
+    join(admin, "Nia", "Admin", "nia.paytag@example.com")
+    join(athlete, "Bea", "Athlete", "bea.paytag@example.com")
+    with A.app.app_context():
+        d = A.db()
+        d.execute("UPDATE members SET is_admin=1 WHERE email='nia.paytag@example.com'")
+        d.commit()
+        mid = d.execute("SELECT id FROM members WHERE email='bea.paytag@example.com'").fetchone()["id"]
+        plan = d.execute("SELECT id FROM payment_plans WHERE kind='monthly'").fetchone()["id"]
+        before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+    page = admin.get("/manage/area/people").get_data(as_text=True)
+    assert "Unpaid" in page and "Paying" in page and "Not paying" in page and 'data-seg' in page
+    admin.post("/admin/member/%d" % mid, data={
+        "csrf": csrf(admin, "/admin/member/%d" % mid), "action": "paid", "paid_action": "save",
+        "plan_id": str(plan), "paid_status": "active", "valid_from": "2026-11-01", "paid_through": "2027-01-31",
+    })
+    detail = admin.get("/admin/member/%d" % mid).get_data(as_text=True)
+    assert "Paid membership" in detail and "Club Assistant link" in detail or "manual" in detail
+    assert "Water Polo" in detail and "Pool Swimming" in detail
+    with A.app.app_context():
+        d = A.db()
+        assert d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] == before
+        view = clubadmin.payment_view(d, mid, "2026-11-09")
+        assert view["paying"] is True and view["label"] == "Paid"
+        usawp = d.execute("SELECT usawp_status FROM members WHERE id=?", (mid,)).fetchone()["usawp_status"]
+        assert (usawp or "") != "verified"

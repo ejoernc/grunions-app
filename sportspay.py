@@ -63,6 +63,8 @@ def ensure_schema(d):
         at TEXT NOT NULL)""")
     _backfill_sports(d)
     _seed(d)
+    import clubadmin
+    clubadmin.ensure(d)
 
 
 def _backfill_sports(d):
@@ -207,6 +209,32 @@ def save_entitlement(d, member_id, actor, plan_id, status, valid_from, paid_thro
     return ent
 
 
+def update_entitlement(d, ent_id, member_id, actor, plan_id, status, valid_from, paid_through, notes):
+    """Edit one manual paid record. Does not touch RSVPs."""
+    row = d.execute("SELECT id FROM access_entitlements WHERE id=? AND member_id=?", (ent_id, member_id)).fetchone()
+    if not row:
+        raise ValueError("Choose a paid record.")
+    if status not in STATUSES:
+        raise ValueError("Choose a status.")
+    plan = d.execute("SELECT * FROM payment_plans WHERE id=?", (plan_id,)).fetchone() if plan_id else None
+    if plan and plan_id:
+        provider = d.execute("SELECT kind FROM payment_providers WHERE id=?", (plan["provider_id"],)).fetchone() if plan["provider_id"] else None
+        if provider and provider["kind"] == "stripe":
+            raise ValueError("Stripe is not available.")
+    d.execute("""UPDATE access_entitlements SET plan_id=?, status=?, valid_from=?, paid_through=?, notes=? WHERE id=?""", (
+        plan_id or None, status, valid_from or "", paid_through or "", (notes or "")[:500], ent_id))
+    audit(d, member_id, actor, "paid membership", "Updated %s · %s · through %s" % (plan["name"] if plan else "No plan", status, paid_through or "—"))
+
+
+def end_entitlement(d, ent_id, member_id, actor):
+    """End a paid record. Does not touch RSVPs or clearance."""
+    row = d.execute("SELECT id FROM access_entitlements WHERE id=? AND member_id=?", (ent_id, member_id)).fetchone()
+    if not row:
+        raise ValueError("Choose a paid record.")
+    d.execute("UPDATE access_entitlements SET status='inactive' WHERE id=?", (ent_id,))
+    audit(d, member_id, actor, "paid membership", "Ended paid record %s" % ent_id)
+
+
 def entitlements(d, member_id):
     return d.execute("""SELECT e.*, p.name AS plan_name, p.kind AS plan_kind
         FROM access_entitlements e LEFT JOIN payment_plans p ON p.id=e.plan_id
@@ -287,6 +315,14 @@ def decide(d, member, practice, today):
     slug = sport["slug"] if sport else "water-polo"
     body = sport["governing_body"] if sport else "usawp"
     gov = _gov_ok(d, member, body, today)
+    import clubadmin
+    program = clubadmin.program_for_label(d, sport_name)
+    if program is not None and not program["active"]:
+        gov = True
+    elif program is not None and program["active"]:
+        cleared = clubadmin.eligibility(d, member, program, activity, "athlete", today)
+        if cleared["applied"] and cleared["status"] != "Cleared":
+            return dict({"plans": [], "body": body, "sport": sport_name, "activity": activity, "slug": slug}, allow=False, scenario="C")
     active, expired = _entitlement_state(d, member["id"], slug, activity, today)
     trial = publicfeed.normalize_trial((publicfeed.load(d).get("trial") or {}))
     trial_hit = None
