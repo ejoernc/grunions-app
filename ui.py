@@ -4011,6 +4011,22 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 {% for a in audits %}<p class="t3 sm viewonly" style="margin:8px 0 0">{{ a.actor }} changed {{ a.old_name }} → {{ a.new_name }} · {{ fmt_when(a.at) }}</p>{% endfor %}
 </form>
 {% if me().is_admin %}
+<div class=seclabel id=paid>Paid membership</div>
+<p class="t3 sm">Separate from the roster and from USA Water Polo. This does not change an RSVP and does not charge a card.</p>
+{% for ent in paid_ents %}<p>{{ ent.plan_name or 'No plan' }} · {{ ent.status }} · through {{ ent.paid_through or '—' }}</p>{% else %}<p class="t3 sm">No paid membership yet.</p>{% endfor %}
+<form method=post action="/admin/member/{{ m.id }}#paid">
+{{ csrf_field() }}
+<input type=hidden name=action value=paid>
+<label>Plan<select name=plan_id>{% for plan in paid_plans if plan.active %}<option value="{{ plan.id }}">{{ plan.name }}</option>{% endfor %}</select></label>
+<label>Status<select name=paid_status>{% for name in paid_statuses %}<option value="{{ name }}">{{ name }}</option>{% endfor %}</select></label>
+<label>Valid from<input type=date name=valid_from></label>
+<label>Paid through<input type=date name=paid_through></label>
+<label>Notes<textarea class=planfield name=paid_notes rows=3></textarea></label>
+<button class="btn btn-primary" name=paid_action value=save>Save</button>
+<button class="btn btn-secondary" name=paid_action value=active>Mark active</button>
+</form>
+<div class=seclabel>Paid membership audit</div>
+{% for row in paid_audits %}<p class="t3 sm">{{ row.at[:16] }} · {{ row.actor }} · {{ row.detail }}</p>{% else %}<p class="t3 sm">No paid-membership changes yet.</p>{% endfor %}
 <div class=seclabel>Actions</div>
 {% if not verify_webhook_configured() %}<div class=note>Set VERIFY_WEBHOOK_URL so Grunions can look members up on Sport:80. Results come back through /api/verify-requests/&lt;id&gt;/result.</div>{% endif %}
 {% if m.vr_status == 'pending' %}<p class="t2 sm viewonly" style="margin:0 0 10px">Check requested · looking up on Sport:80</p>{% endif %}

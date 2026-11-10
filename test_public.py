@@ -374,3 +374,65 @@ def test_registration_checks_eligibility_and_does_not_charge_or_email():
         assert duration["title"] == "Try Water Polo Free for 2 Weeks" and "free practices" not in duration["body"].lower()
     finally:
         A.send_email = real
+
+
+def test_paid_membership_is_separate_and_does_not_touch_rsvps():
+    import sportspay
+    admin, member = client(), client()
+    join(admin, "Pat", "Admin", "pat.pay@example.com")
+    join(member, "Ada", "Athlete", "ada.pay@example.com")
+    with A.app.app_context():
+        d = A.db()
+        d.execute("UPDATE members SET is_admin=1 WHERE email='pat.pay@example.com'")
+        d.execute("UPDATE practices SET title='Morning swimming', note='USMS set' WHERE location='Side pool'")
+        d.commit()
+        sportspay.ensure_schema(d)
+        assert sportspay.require_rsvp(d) is False
+        names = [row["name"] for row in sportspay.sports(d)]
+        assert names[:2] == ["Water Polo", "Swimming"]
+        stripe = d.execute("SELECT active FROM payment_providers WHERE kind='stripe'").fetchone()
+        assert stripe["active"] == 0
+        monthly = d.execute("SELECT id FROM payment_plans WHERE name LIKE 'Grunions Water Polo%'").fetchone()
+        assert [row["amount_cents"] for row in sportspay.prices(d, monthly["id"])] == [4500, 5000]
+        assert sportspay.price_on(sportspay.prices(d, monthly["id"]), "2026-11-09") is None
+        assert sportspay.price_on(sportspay.prices(d, monthly["id"]), "2026-12-15")["amount_cents"] == 4500
+        assert sportspay.price_on(sportspay.prices(d, monthly["id"]), "2027-02-01")["amount_cents"] == 5000
+        swim = d.execute("SELECT sport FROM practices WHERE location='Side pool'").fetchone()
+        if swim:
+            assert swim["sport"] == "Swimming"
+        ada = d.execute("SELECT id FROM members WHERE email='ada.pay@example.com'").fetchone()["id"]
+        d.execute("INSERT INTO rsvps(practice_id, member_id, going) VALUES(1, ?, 1)", (ada,))
+        d.commit()
+        before = d.execute("SELECT going FROM rsvps WHERE member_id=?", (ada,)).fetchone()["going"]
+        usawp = d.execute("SELECT usawp_status FROM members WHERE id=?", (ada,)).fetchone()["usawp_status"]
+    assert member.get("/manage/pricing/sports").status_code == 403
+    page = admin.get("/manage/pricing/sports").get_data(as_text=True)
+    assert "Water Polo" in page and "USA Water Polo" in page and "Coming later" not in page
+    providers = admin.get("/manage/pricing/providers").get_data(as_text=True)
+    assert "Coming later" in providers and "Require payment access to RSVP" in providers
+    plans = admin.get("/manage/pricing/plans").get_data(as_text=True)
+    assert "Grunions Water Polo + Swim Membership" in plans and "$45" in plans and "$50" in plans
+    assert SWIM_OK(plans)
+    person = admin.get("/admin/member/%d" % ada).get_data(as_text=True)
+    assert "Paid membership" in person and "does not change an RSVP" in person
+    admin.post("/admin/member/%d" % ada, data={
+        "csrf": csrf(admin, "/admin/member/%d" % ada),
+        "action": "paid", "paid_action": "active", "plan_id": str(monthly["id"]),
+        "paid_status": "inactive", "valid_from": "2026-12-01", "paid_through": "2027-01-31", "paid_notes": "Check received",
+    })
+    with A.app.app_context():
+        d = A.db()
+        ent = d.execute("SELECT status, paid_through FROM access_entitlements WHERE member_id=?", (ada,)).fetchone()
+        assert ent["status"] == "active" and ent["paid_through"] == "2027-01-31"
+        assert d.execute("SELECT going FROM rsvps WHERE member_id=?", (ada,)).fetchone()["going"] == before
+        assert (d.execute("SELECT usawp_status FROM members WHERE id=?", (ada,)).fetchone()["usawp_status"] or "") == (usawp or "")
+        assert d.execute("SELECT COUNT(*) FROM access_audits WHERE member_id=?", (ada,)).fetchone()[0] == 1
+        stripe_id = d.execute("SELECT id FROM payment_providers WHERE kind='stripe'").fetchone()["id"]
+    turned = admin.post("/manage/pricing/providers", data={"csrf": csrf(admin, "/manage/pricing/providers"), "provider_id": str(stripe_id), "active": "1", "action": "save"}, follow_redirects=True)
+    assert "Stripe is not available" in turned.get_data(as_text=True)
+    with A.app.app_context():
+        assert A.db().execute("SELECT active FROM payment_providers WHERE kind='stripe'").fetchone()["active"] == 0
+
+
+def SWIM_OK(plans):
+    return "Swimming drop-in" in plans and "cid=92340" in plans and "cid=103002" in plans

@@ -850,7 +850,8 @@ SETTINGS_PAGE = """<style>
 .slotblock{margin:0 0 8px}
 .offerline{margin:0}
 </style>
-{{ admin_page('Schedule & pricing', 'The regular schedule is when you usually practice. Saving it does not add sessions. Create those in Schedule.') }}
+{{ admin_page('Sports & pricing', 'The regular schedule is when you usually practice. Saving it does not add sessions. Create those in Schedule.') }}
+{{ pay_nav|safe }}
 <form method=post>
 {{ csrf_field() }}
 <h2>Regular schedule</h2>

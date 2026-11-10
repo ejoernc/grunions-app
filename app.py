@@ -9,6 +9,7 @@ from markupsafe import Markup, escape
 import lineupfeed
 import mailhtml
 import publicfeed
+import sportspay
 import routing
 import sports
 import ui
@@ -170,6 +171,7 @@ def db():
         migrate_lineup(g.db)
         migrate_series(g.db)
         publicfeed.ensure_schema(g.db)
+        sportspay.ensure_schema(g.db)
         backfill_checkin_going(g.db)
         drop_bot_verify_messages(g.db)
         seed_chat_reads(g.db)
@@ -4050,7 +4052,97 @@ def manage_pricing():
     pricing = settings["pricing"]
     return page(ui.ADMIN_NAV + publicfeed.SETTINGS_PAGE, tab="admin", s=settings, slots=publicfeed.form_slots(settings),
         day_names=publicfeed.DAY_SHORT, offer=publicfeed.public_view(settings),
-        pass_row=publicfeed._first(pricing.get("passes")), fee_row=publicfeed._first(pricing.get("fees")))
+        pass_row=publicfeed._first(pricing.get("passes")), fee_row=publicfeed._first(pricing.get("fees")),
+        pay_nav=sportspay.nav("schedule"))
+def _pay_page(body, active):
+    return page(ui.ADMIN_NAV + "{{ admin_page('Sports & pricing', 'Sports, plans, and paid memberships. The free-trial offer stays on Schedule.') }}" + sportspay.nav(active) + body, tab="admin")
+@app.route("/manage/pricing/sports", methods=["GET", "POST"])
+@admin_required
+def manage_pay_sports():
+    d = db()
+    if request.method == "POST":
+        action = request.form.get("action") or ""
+        name = " ".join((request.form.get("name") or "").split())[:40]
+        body = request.form.get("governing_body") or "none"
+        if body not in dict(sportspay.BODIES):
+            body = "none"
+        acts = [item for item in request.form.getlist("activity") if item in dict(sportspay.ACTIVITIES)] or ["practice"]
+        if action == "add" and name:
+            slug = "-".join(name.lower().split())[:40] or "sport"
+            d.execute("""INSERT INTO org_sports(slug, name, governing_body, activities, active)
+                VALUES(?,?,?,?,1)""", (slug, name, body, ",".join(acts)))
+            d.commit()
+            flash("Saved", "toast")
+        elif action in ("save", "archive"):
+            sid = request.form.get("sport_id", type=int)
+            if action == "archive":
+                d.execute("UPDATE org_sports SET archived=1, active=0, is_default=0 WHERE id=?", (sid,))
+            else:
+                if request.form.get("is_default") == "1":
+                    d.execute("UPDATE org_sports SET is_default=0")
+                d.execute("""UPDATE org_sports SET name=?, governing_body=?, activities=?, active=?, is_default=?
+                    WHERE id=?""", (name, body, ",".join(acts), 1 if request.form.get("active") == "1" else 0,
+                                    1 if request.form.get("is_default") == "1" else 0, sid))
+            d.commit()
+            flash("Saved", "toast")
+        return redirect("/manage/pricing/sports")
+    return _pay_page(sportspay.sports_page(sportspay.sports(d, include_archived=False)), "sports")
+@app.route("/manage/pricing/plans", methods=["GET", "POST"])
+@admin_required
+def manage_pay_plans():
+    d = db()
+    if request.method == "POST":
+        pid = request.form.get("plan_id", type=int)
+        plan = d.execute("SELECT * FROM payment_plans WHERE id=?", (pid,)).fetchone()
+        if plan:
+            kind = request.form.get("kind") if request.form.get("kind") in dict(sportspay.PLAN_KINDS) else plan["kind"]
+            provider = request.form.get("provider_id", type=int)
+            prov = d.execute("SELECT kind FROM payment_providers WHERE id=?", (provider,)).fetchone() if provider else None
+            if prov and prov["kind"] == "stripe":
+                flash("Stripe is not available.")
+            else:
+                d.execute("""UPDATE payment_plans SET name=?, kind=?, provider_id=?, external_url=?, sports=?, activities=?, active=?
+                    WHERE id=?""", (
+                        " ".join((request.form.get("name") or plan["name"]).split())[:80], kind, provider,
+                        (request.form.get("external_url") or "").strip()[:300],
+                        (request.form.get("sports") or "").strip()[:120],
+                        (request.form.get("activities") or "").strip()[:80],
+                        1 if request.form.get("active") == "1" else 0, pid))
+                raw = (request.form.get("amount") or "").strip().replace("$", "")
+                effective = (request.form.get("effective_on") or "").strip()
+                if raw and effective:
+                    cents = int(round(float(raw) * 100))
+                    d.execute("INSERT INTO payment_prices(plan_id, amount_cents, effective_on) VALUES(?,?,?)", (pid, cents, effective))
+                d.commit()
+                flash("Saved", "toast")
+        return redirect("/manage/pricing/plans")
+    plan_rows = sportspay.plans(d)
+    price_rows = d.execute("SELECT * FROM payment_prices ORDER BY effective_on").fetchall()
+    return _pay_page(sportspay.plans_page(plan_rows, price_rows, sportspay.providers(d)), "plans")
+@app.route("/manage/pricing/providers", methods=["GET", "POST"])
+@admin_required
+def manage_pay_providers():
+    d = db()
+    if request.method == "POST":
+        if request.form.get("gate") == "1" or request.form.get("action") == "gate":
+            sportspay.set_require_rsvp(d, request.form.get("require_rsvp") == "1")
+            d.commit()
+            flash("Saved", "toast")
+        else:
+            pid = request.form.get("provider_id", type=int)
+            row = d.execute("SELECT * FROM payment_providers WHERE id=?", (pid,)).fetchone()
+            if row and row["kind"] == "stripe":
+                flash("Stripe is not available.")
+            elif row:
+                d.execute("UPDATE payment_providers SET active=? WHERE id=?", (1 if request.form.get("active") == "1" else 0, pid))
+                d.commit()
+                flash("Saved", "toast")
+        return redirect("/manage/pricing/providers")
+    return _pay_page(sportspay.providers_page(sportspay.providers(d), sportspay.require_rsvp(d)), "providers")
+@app.route("/manage/pricing/membership")
+@admin_required
+def manage_pay_membership():
+    return _pay_page(sportspay.membership_page(sportspay.membership_rows(db())), "membership")
 def _widget_payload(d, event_limit=None):
     return publicfeed.build_feed(d, publicfeed.load(d), practice_title, wall_pt(), org_name(), event_limit=event_limit)
 @app.route("/api/public/feed")
@@ -5149,6 +5241,24 @@ def member_page(mid):
     d = db()
     exists = d.execute("SELECT id FROM members WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone()
     if not exists: abort(404)
+    if request.method == "POST" and request.form.get("action") == "paid":
+        if not me()["is_admin"]:
+            abort(403)
+        try:
+            status = request.form.get("paid_status") or "inactive"
+            if request.form.get("paid_action") == "active":
+                status = "active"
+            before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+            sportspay.save_entitlement(d, mid, me(), request.form.get("plan_id", type=int), status,
+                (request.form.get("valid_from") or "").strip(), (request.form.get("paid_through") or "").strip(),
+                request.form.get("paid_notes") or "")
+            d.commit()
+            if d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != before:
+                raise RuntimeError("paid membership must not change RSVPs")
+            flash("Saved", "toast")
+        except ValueError as exc:
+            flash(str(exc))
+        return redirect(url_for("member_page", mid=mid) + "#paid")
     if request.method == "POST":
         detail = handle_member_detail(d, mid)
         if detail == "ok":
@@ -5164,7 +5274,9 @@ def member_page(mid):
     editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
     audits = d.execute("SELECT actor, old_name, new_name, at FROM name_audits WHERE member_id=? ORDER BY id DESC LIMIT 8", (mid,)).fetchall()
     on_referees = bool(d.execute("SELECT 1 FROM referee_list WHERE member_id=?", (mid,)).fetchone())
-    return page(T["member"], tab="member", m=m, hist=hist, nmonth=sum(1 for h in hist if (h["practice_date"] or "").startswith(month)), editing=editing, audits=audits, on_referees=on_referees)
+    return page(T["member"], tab="member", m=m, hist=hist, nmonth=sum(1 for h in hist if (h["practice_date"] or "").startswith(month)), editing=editing, audits=audits, on_referees=on_referees,
+        paid_plans=sportspay.plans(d) if me()["is_admin"] else [], paid_ents=sportspay.entitlements(d, mid) if me()["is_admin"] else [],
+        paid_audits=sportspay.audits(d, mid) if me()["is_admin"] else [], paid_statuses=sportspay.STATUSES)
 def members_back():
     view = request.form.get("list_view") or ""
     if request.form.get("list_coach") == "eligible": view = view or "coaches"
