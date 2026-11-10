@@ -148,6 +148,40 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
     editor = admin.get("/manage/club/plans/%d" % plan).get_data(as_text=True)
     assert "Summary" in editor and "cid=103002" in editor and "Water Polo" in editor and "Does not" not in editor
     assert "A pass grants access only" in editor and "name=kind" in editor and "Renews indefinitely" in editor
+    assert "Specific events" not in editor and "Active dates" in editor and "Starts right away" in editor and "Runs indefinitely" in editor
+    assert "No end date" in editor and "Lineup categories" in editor
+    bad = admin.post("/manage/club/plans/%d" % plan, data={
+        "csrf": csrf(admin, "/manage/club/plans/%d" % plan),
+        "name": "Monthly Membership", "kind": "monthly", "program": str(plan and 1),
+        "active_from": "2027-06-01", "active_until": "2027-01-01", "pay": "external",
+        "external_url": "https://www.clubassistant.com/club/clinics/reserve.cfm?c=2180&cid=103002",
+        "active": "1", "activity_practice": "1",
+    }, follow_redirects=True)
+    assert "end date cannot be before" in bad.get_data(as_text=True)
+    with A.app.app_context():
+        d = A.db()
+        wp = d.execute("SELECT id FROM programs WHERE slug='water-polo'").fetchone()["id"]
+        d.execute("UPDATE payment_plans SET event_ids='p-9' WHERE id=?", (plan,))
+        d.commit()
+    saved = admin.post("/manage/club/plans/%d" % plan, data={
+        "csrf": csrf(admin, "/manage/club/plans/%d" % plan),
+        "name": "Monthly Membership", "kind": "monthly", "program": str(wp),
+        "active_from": "2027-01-01", "active_until": "2027-06-30", "pay": "external",
+        "external_url": "https://www.clubassistant.com/club/clinics/reserve.cfm?c=2180&cid=103002",
+        "active": "1", "activity_practice": "1", "frequency": "month", "renewal": "indefinite",
+    })
+    assert saved.status_code == 302
+    listed = admin.get("/manage/club/plans").get_data(as_text=True)
+    assert "Jan 1, 2027 to Jun 30, 2027" in listed
+    with A.app.app_context():
+        d = A.db()
+        row = d.execute("SELECT event_ids, active_from, active_until FROM payment_plans WHERE id=?", (plan,)).fetchone()
+        assert row["event_ids"] == "p-9" and row["active_from"] == "2027-01-01" and row["active_until"] == "2027-06-30"
+        assert clubadmin.pass_covers_date(row, "2027-03-01") is True
+        assert clubadmin.pass_covers_date(row, "2026-12-01") is False
+        assert clubadmin.pass_covers_date(row, "2027-07-01") is False
+        d.execute("UPDATE payment_plans SET active_from='', active_until='', event_ids='' WHERE id=?", (plan,))
+        d.commit()
     assert "<h2>Members</h2>" not in page and "<h1>Members</h1>" not in page
     admin.post("/admin/member/%d" % mid, data={
         "csrf": csrf(admin, "/admin/member/%d" % mid), "action": "paid", "paid_action": "save",

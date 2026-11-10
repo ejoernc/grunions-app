@@ -715,6 +715,8 @@ PASS_COLUMNS = (
     ("uses_per_event", "INTEGER NOT NULL DEFAULT 0"),
     ("lineup_categories", "TEXT NOT NULL DEFAULT ''"),
     ("event_ids", "TEXT NOT NULL DEFAULT ''"),
+    ("active_from", "TEXT NOT NULL DEFAULT ''"),
+    ("active_until", "TEXT NOT NULL DEFAULT ''"),
     ("archived", "INTEGER NOT NULL DEFAULT 0"),
     ("terms", "TEXT NOT NULL DEFAULT ''"),
     ("offer_code", "TEXT NOT NULL DEFAULT ''"),
@@ -746,6 +748,19 @@ def _ensure_pass_columns(d):
 def _provider_id(d, kind):
     row = d.execute("SELECT id FROM payment_providers WHERE kind=? ORDER BY id LIMIT 1", (kind,)).fetchone()
     return row["id"] if row else None
+
+
+def _pass_date(raw, label):
+    text = (raw or "").strip()
+    if not text:
+        return ""
+    if not __import__("re").fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        raise ValueError("Use a date for %s." % label)
+    try:
+        dt.date.fromisoformat(text)
+    except ValueError as exc:
+        raise ValueError("Use a date for %s." % label) from exc
+    return text
 
 
 def _dollars(raw):
@@ -793,6 +808,42 @@ def _period(plan):
         count = plan["length_sessions"] if plan and "length_sessions" in plan.keys() else 0
         return "for %d sessions" % count if count else "/ pack"
     return ""
+
+
+def _pretty_date(iso):
+    day = dt.date.fromisoformat(str(iso)[:10])
+    return "%s %d, %d" % (day.strftime("%b"), day.day, day.year)
+
+
+def window_phrase(plan):
+    """How long the pass covers events. Empty dates mean right away and indefinitely."""
+    keys = plan.keys() if plan is not None and hasattr(plan, "keys") else []
+    start = str(plan["active_from"] or "")[:10] if plan is not None and "active_from" in keys else ""
+    end = str(plan["active_until"] or "")[:10] if plan is not None and "active_until" in keys else ""
+    if start and end:
+        return "%s to %s" % (_pretty_date(start), _pretty_date(end))
+    if start:
+        return "%s · No end date" % _pretty_date(start)
+    if end:
+        return "No start date to %s" % _pretty_date(end)
+    return "No end date"
+
+
+def pass_covers_date(plan, day):
+    """True when an event date falls in the pass window. Blank dates do not limit it."""
+    if not plan:
+        return False
+    keys = plan.keys() if hasattr(plan, "keys") else []
+    start = str(plan["active_from"] or "")[:10] if "active_from" in keys else ""
+    end = str(plan["active_until"] or "")[:10] if "active_until" in keys else ""
+    day = str(day or "")[:10]
+    if not day:
+        return True
+    if start and day < start:
+        return False
+    if end and day > end:
+        return False
+    return True
 
 
 def pass_summary(plan, program_names, cents, starts):
@@ -999,21 +1050,25 @@ def save_pass(d, plan_id, form):
     else:
         offer = ""
     active = 1 if form.get("active") == "1" else 0
+    active_from = _pass_date(form.get("active_from"), "the start date")
+    active_until = _pass_date(form.get("active_until"), "the end date")
+    if active_from and active_until and active_until < active_from:
+        raise ValueError("The end date cannot be before the start date.")
     fields = (name, kind, provider, url, ",".join(activities), (form.get("description") or "")[:500],
               "USD", renewal, renewal_count, frequency if kind == "monthly" else "",
               length_mode, length_days, length_sessions, audience, 1 if form.get("one_per_person") else 0, uses,
-              ",".join(cats), ",".join(form.getlist("event")), (form.get("terms") or "")[:2000], offer, active)
+              ",".join(cats), active_from, active_until, (form.get("terms") or "")[:2000], offer, active)
     if plan_id:
         row = d.execute("SELECT id FROM payment_plans WHERE id=?", (plan_id,)).fetchone()
         if not row:
             raise ValueError("Choose a pass.")
         d.execute("""UPDATE payment_plans SET name=?, kind=?, provider_id=?, external_url=?, activities=?, description=?, currency=?,
             renewal=?, renewal_count=?, frequency=?, length_mode=?, length_days=?, length_sessions=?, audience=?, one_per_person=?,
-            uses_per_event=?, lineup_categories=?, event_ids=?, terms=?, offer_code=?, active=?, archived=0 WHERE id=?""", fields + (plan_id,))
+            uses_per_event=?, lineup_categories=?, active_from=?, active_until=?, terms=?, offer_code=?, active=?, archived=0 WHERE id=?""", fields + (plan_id,))
     else:
         plan_id = d.execute("""INSERT INTO payment_plans(name, kind, provider_id, external_url, activities, description, currency,
             renewal, renewal_count, frequency, length_mode, length_days, length_sessions, audience, one_per_person,
-            uses_per_event, lineup_categories, event_ids, terms, offer_code, active, archived, sports, notes)
+            uses_per_event, lineup_categories, active_from, active_until, terms, offer_code, active, archived, sports, notes)
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'','')""", fields).lastrowid
     cents = _dollars(form.get("price"))
     if cents is not None:
@@ -1049,7 +1104,7 @@ def plans_html(d):
         if starts and cents is not None and plan["kind"] not in ("trial", "free"):
             price += " from " + starts
         state = "On" if plan["active"] else "Off"
-        desc = "%s · %s · %s · %s" % (KIND_WORD.get(plan["kind"], plan["kind"]), price.strip(), ", ".join(names), state)
+        desc = "%s · %s · %s · %s · %s" % (KIND_WORD.get(plan["kind"], plan["kind"]), price.strip(), ", ".join(names), window_phrase(plan), state)
         bits.append(_row("/manage/club/plans/%d" % plan["id"], plan["name"], desc))
     bits.append('</div><p style="margin-top:16px"><a class="btn btn-primary full" href="/manage/club/plans/new">Create pass</a></p>')
     return "".join(bits)
@@ -1080,19 +1135,6 @@ def plan_edit_html(d, plan, csrf):
             "" if program["active"] else " (off)"))
     acts = set(_csv(plan["activities"] if plan and "activities" in plan.keys() else "practice"))
     cats = set(_csv(plan["lineup_categories"] if plan and "lineup_categories" in plan.keys() else ""))
-    events_on = set(_csv(plan["event_ids"] if plan and "event_ids" in plan.keys() else ""))
-    event_boxes = []
-    try:
-        for row in d.execute("""SELECT id, date, title, location, activity_type FROM practices
-                WHERE cancelled=0 AND date>=? ORDER BY date, start LIMIT 24""", (today,)):
-            key = "p-%d" % row["id"]
-            label = "%s · %s" % (row["date"], row["title"] or row["location"] or "Practice")
-            event_boxes.append((key, label))
-        for row in d.execute("""SELECT id, date, title, event_type FROM lineup_events
-                WHERE status='published' AND date>=? ORDER BY date LIMIT 24""", (today,)):
-            event_boxes.append(("e-%d" % row["id"], "%s · %s" % (row["date"], row["title"] or row["event_type"] or "Event")))
-    except Exception:
-        event_boxes = []
     people = []
     try:
         people = d.execute("""SELECT id, first, preferred_first, last FROM members
@@ -1110,7 +1152,11 @@ def plan_edit_html(d, plan, csrf):
         pay = "external"
     price_lines = "".join("<p class=t3>%s from %s</p>" % (_money(row["amount_cents"]), escape(row["effective_on"])) for row in prices)
     names = plan_program_names(d, pid) if pid else []
-    summary = pass_summary(plan if plan else {"kind": "monthly", "frequency": "month", "activities": "practice", "length_sessions": 0}, names, cents, starts)
+    blank_plan = {"kind": "monthly", "frequency": "month", "activities": "practice", "length_sessions": 0}
+    core = pass_summary(plan if plan else blank_plan, names, cents, starts)
+    summary = "%s · %s" % (core, window_phrase(plan if plan else None))
+    active_from = str(plan["active_from"] or "")[:10] if plan and "active_from" in plan.keys() else ""
+    active_until = str(plan["active_until"] or "")[:10] if plan and "active_until" in plan.keys() else ""
     freq = plan["frequency"] if plan and "frequency" in plan.keys() and plan["frequency"] else "month"
     renewal = plan["renewal"] if plan and "renewal" in plan.keys() and plan["renewal"] else "indefinite"
     length_mode = plan["length_mode"] if plan and "length_mode" in plan.keys() else ""
@@ -1139,14 +1185,18 @@ def plan_edit_html(d, plan, csrf):
 <label>Days<input name=length_days id=passDays inputmode=numeric value="%s"></label>
 <label>Sessions<input name=length_sessions id=passSessions inputmode=numeric value="%s"></label>
 </div>
+<h2>Active dates</h2>
+<p class="t3 sm">These dates decide which events the pass covers. They are separate from renewal and from a person's paid start and end.</p>
+<label class="datefield%s">Start date<input type=date name=active_from value="%s"><span class=dateph>Starts right away</span></label>
+<button type=button class=textlink data-cleardate=active_from>Clear start date</button>
+<label class="datefield%s">End date<input type=date name=active_until value="%s"><span class=dateph>Runs indefinitely</span></label>
+<button type=button class=textlink data-cleardate=active_until>Clear end date</button>
 <h2>Applies to</h2>
-<p class="t3 sm">Check the sports and the sessions this pass covers. Leave events unchecked to cover every matching session.</p>
+<p class="t3 sm">Check the sports, activities, and Lineup categories this pass covers.</p>
 %s
 <p>Schedule activities</p>
 %s
 <p>Lineup categories</p>
-%s
-<p>Specific events</p>
 %s
 <h2>Who can get it</h2>
 <label>Audience<select name=audience id=passAudience>%s</select></label>
@@ -1182,11 +1232,35 @@ def plan_edit_html(d, plan, csrf):
     var price=(form.querySelector('[name=price]').value||'').trim().replace(/^\\$/, "");
     var sports=selected("program");
     var acts=selected("activity_practice").concat(selected("activity_scrimmage"), selected("activity_game"));
-    if(!price && summary.getAttribute("data-base")){ summary.textContent=summary.getAttribute("data-base"); return; }
-    var money = k==="trial"||k==="free" ? "Free" : (price ? "$"+price : "Price not set");
-    var period = k==="monthly" ? " / "+freq.value : (k==="drop_in" ? " / session" : (k==="pass" ? " pack" : ""));
-    summary.textContent = money+period+" · "+(sports.join(", ")||"No sport yet")+(acts.length?" "+acts.join(", ").toLowerCase():"");
+    var months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    function pretty(iso){ if(!iso) return ""; var p=iso.split("-"); return months[(+p[1]||1)-1]+" "+(+p[2])+", "+p[0]; }
+    function windowLabel(){
+      var s=(form.querySelector('[name=active_from]')||{}).value||"";
+      var e=(form.querySelector('[name=active_until]')||{}).value||"";
+      if(s && e) return pretty(s)+" to "+pretty(e);
+      if(s) return pretty(s)+" · No end date";
+      if(e) return "No start date to "+pretty(e);
+      return "No end date";
+    }
+    var body;
+    if(!price && summary.getAttribute("data-base")) body=summary.getAttribute("data-base");
+    else {
+      var money = k==="trial"||k==="free" ? "Free" : (price ? "$"+price : "Price not set");
+      var period = k==="monthly" ? " / "+freq.value : (k==="drop_in" ? " / session" : (k==="pass" ? " pack" : ""));
+      body = money+period+" · "+(sports.join(", ")||"No sport yet")+(acts.length?" "+acts.join(", ").toLowerCase():"");
+    }
+    summary.textContent = body+" · "+windowLabel();
   }
+  form.querySelectorAll("[data-cleardate]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var input=form.querySelector('[name="'+btn.getAttribute("data-cleardate")+'"]');
+      if(!input) return;
+      input.value="";
+      var lab=input.closest(".datefield");
+      if(lab) lab.classList.add("empty");
+      input.dispatchEvent(new Event("change",{bubbles:true}));
+    });
+  });
   form.addEventListener("input", paint); form.addEventListener("change", paint); paint();
 })();
 </script>""" % (
@@ -1199,10 +1273,11 @@ def plan_edit_html(d, plan, csrf):
         sel((("", "Not set"), ("duration", "A length of time"), ("sessions", "A number of sessions")), length_mode),
         escape(str(plan["length_days"] if plan and "length_days" in plan.keys() else (14 if kind == "trial" else 0))),
         escape(str(plan["length_sessions"] if plan and "length_sessions" in plan.keys() else (1 if kind == "drop_in" else 0))),
+        "" if active_from else " empty", escape(active_from),
+        "" if active_until else " empty", escape(active_until),
         "".join(program_boxes),
         "".join('<label class=checkline><input type=checkbox name="activity_%s" value=1%s> %s</label>' % (value, " checked" if value in acts else "", label) for value, label in ACTIVITIES),
         "".join('<label class=checkline><input type=checkbox name="lineup_%s" value=1%s> %s</label>' % (value, " checked" if value in cats else "", label) for value, label in LINEUP_CATS),
-        "".join('<label class=checkline><input type=checkbox name=event value="%s"%s> %s</label>' % (escape(value), " checked" if value in events_on else "", escape(label)) for value, label in event_boxes) or "<p class=t3>No upcoming events.</p>",
         sel((("everyone", "Everyone"), ("new", "New members only"), ("specific", "Specific people")), audience),
         "".join('<label class=checkline><input type=checkbox name=person value="%s"%s> %s</label>' % (value, " checked" if int(value) in people_on else "", escape(label)) for value, label in person_boxes) or "<p class=t3>No people yet.</p>",
         " checked" if plan and "one_per_person" in plan.keys() and plan["one_per_person"] else "",
@@ -1212,7 +1287,7 @@ def plan_edit_html(d, plan, csrf):
         " checked" if offer == "usawp_trial" or (kind == "trial" and offer != "none") else "",
         escape(plan["terms"] if plan and "terms" in plan.keys() else ""),
         " checked" if plan and plan["active"] else "",
-        escape(summary), escape(summary))
+        escape(core), escape(summary))
 
 
 def requirement_edit_html(d, req, scope, csrf, preset_ids=None, sport=""):

@@ -289,13 +289,16 @@ def _covers(plan, sport_slug, activity):
     return sports_ok and (not acts or activity in acts)
 
 
-def _entitlement_state(d, member_id, sport_slug, activity, today):
+def _entitlement_state(d, member_id, sport_slug, activity, today, event_day=""):
+    import clubadmin
     active = expired = None
-    rows = d.execute("""SELECT e.*, p.sports, p.activities, p.kind, p.name AS plan_name
+    rows = d.execute("""SELECT e.*, p.sports, p.activities, p.kind, p.name AS plan_name, p.active_from, p.active_until
         FROM access_entitlements e JOIN payment_plans p ON p.id=e.plan_id
         WHERE e.member_id=? ORDER BY e.id DESC""", (member_id,)).fetchall()
     for row in rows:
         if not _covers(row, sport_slug, activity):
+            continue
+        if not clubadmin.pass_covers_date(row, event_day or today):
             continue
         through = str(row["paid_through"] or "")[:10]
         start = str(row["valid_from"] or "")[:10]
@@ -327,7 +330,7 @@ def decide(d, member, practice, today):
         cleared = clubadmin.eligibility(d, member, program, activity, "athlete", today)
         if cleared["applied"] and cleared["status"] != "Cleared":
             return dict({"plans": [], "body": body, "sport": sport_name, "activity": activity, "slug": slug}, allow=False, scenario="C")
-    active, expired = _entitlement_state(d, member["id"], slug, activity, today)
+    active, expired = _entitlement_state(d, member["id"], slug, activity, today, practice["date"])
     shaped = clubadmin.trial_dict(d)
     trial = publicfeed.normalize_trial(shaped if shaped is not None else (publicfeed.load(d).get("trial") or {}))
     trial_hit = None
@@ -339,10 +342,9 @@ def decide(d, member, practice, today):
             return False
         if not _covers(plan, slug, activity):
             return False
-        keys = plan.keys()
-        chosen = _csv(plan["event_ids"]) if "event_ids" in keys else []
-        if chosen and ("p-%d" % practice["id"]) not in chosen:
+        if not clubadmin.pass_covers_date(plan, practice["date"]):
             return False
+        keys = plan.keys()
         if "audience" in keys and plan["audience"] == "specific":
             if not d.execute("SELECT 1 FROM plan_people WHERE plan_id=? AND member_id=?", (plan["id"], member["id"])).fetchone():
                 return False
