@@ -1647,7 +1647,7 @@ document.addEventListener('click',function(e){
  var a=e.target.closest&&e.target.closest('a[href]');
  if(!a||!a.closest('[data-seg]')) return;
  var abs; try{abs=new URL(a.href,location.href);}catch(err){return;}
- if(abs.origin!==location.origin||abs.pathname!==location.pathname) return;
+ if(abs.origin!==location.origin) return;
  e.preventDefault();
  e.stopPropagation();
  var next=abs.pathname+abs.search+abs.hash;
@@ -1657,6 +1657,27 @@ document.addEventListener('click',function(e){
  }
  grunionsSaveScroll();
  grunionsGo(abs.href,false,true);
+},true);
+document.addEventListener('submit',function(e){
+ if(e.defaultPrevented) return;
+ var form=e.target;
+ if(!form||(form.getAttribute('method')||'get').toLowerCase()!=='get') return;
+ if(form.target&&form.target!=='_self') return;
+ var abs; try{abs=new URL(form.getAttribute('action')||location.pathname,location.href);}catch(err){return;}
+ if(abs.origin!==location.origin||abs.pathname!==location.pathname) return;
+ var params=new URLSearchParams();
+ [].slice.call(form.elements||[]).forEach(function(el){
+  if(!el.name||el.disabled||el.type==='submit'||el.type==='button'||el.type==='image') return;
+  if((el.type==='checkbox'||el.type==='radio')&&!el.checked) return;
+  params.append(el.name, el.value);
+ });
+ var next=abs.pathname+(params.toString()?'?'+params.toString():'')+(abs.hash||'');
+ e.preventDefault();
+ if(abs.pathname==='/profile'||!document.querySelector('nav.tabs')){
+  try{sessionStorage.setItem('grunionsTabReplace','1')}catch(err){}
+  location.replace(next); return;
+ }
+ grunionsGo(next,false,true);
 },true);
 if(window.grunionsDropzones) grunionsDropzones();
 function grunionsEditor(){
@@ -5260,7 +5281,7 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Schedule') }}
 {%- set qbit -%}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{%- endset -%}
 {%- set fbit -%}{% if filt != 'going' %}&amp;filt={{ filt }}{% endif %}{%- endset -%}
 <div class=checkbar>
-<div class=calpick id=calPick data-date="{{date}}" data-today="{{ today }}" data-q="{{q}}" data-filt="{{ '' if filt=='going' else filt }}" data-dates='{{ days|tojson }}' data-events='{{ catalog|tojson }}'>
+<div class=calpick id=calPick data-seg data-date="{{date}}" data-today="{{ today }}" data-q="{{q}}" data-filt="{{ '' if filt=='going' else filt }}" data-dates='{{ days|tojson }}' data-events='{{ catalog|tojson }}'>
 {% if prev_href %}<a class=calnav href="{{ prev_href }}" aria-label="Previous event">""" + _CHEV_L + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Previous event">""" + _CHEV_L + """</span>{% endif %}
 {% if ev_n > 1 %}<button type=button class=evcount id=evCount aria-haspopup=dialog aria-controls=evPick>{{ ev_i }}/{{ ev_n }}</button>{% elif ev_n == 1 %}<span class=evcount>{{ ev_i }}/{{ ev_n }}</span>{% endif %}
 <button type=button class=calbtn id=calOpen aria-haspopup=dialog aria-expanded=false aria-controls=calPop>""" + _CAL_I + """<span>{{ fmt_d(date).replace(' ', ', ', 1) }}</span></button>
@@ -5279,14 +5300,14 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Schedule') }}
 </div>
 <div id=calEventView hidden>
 <button type=button class=calback id=calBack aria-label="Back to the month">""" + _CHEV_L + """<span id=calEventLabel>Events</span></button>
-<div class=list id=calEventList></div>
+<div class=list id=calEventList data-seg></div>
 </div>
 <div class=matactions>
 <button type=button class=mattext id=calCancel>Cancel</button>
 <button type=button class=mattext id=calOk>OK</button>
 </div>
 </div></dialog>
-<dialog class=modal id=evPick><div class=sheet><h2 style="margin:0 0 12px">Events</h2><div class=list id=evPickList>{% for ev in events %}<a class=li href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ ev.title }}</span><span class="t3 sm">{{ ev.when }}</span></span></a>{% endfor %}</div><button type=button class="btn btn-secondary full" onclick="this.closest('dialog').close()">Cancel</button></div></dialog>
+<dialog class=modal id=evPick><div class=sheet><h2 style="margin:0 0 12px">Events</h2><div class=list id=evPickList data-seg>{% for ev in events %}<a class=li href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ ev.title }}</span><span class="t3 sm">{{ ev.when }}</span></span></a>{% endfor %}</div><button type=button class="btn btn-secondary full" onclick="this.closest('dialog').close()">Cancel</button></div></dialog>
 </div>
 {% if sel %}<a class="card evcard{% if ev_pinned %} on{% endif %}" id="ev-{{ sel.key }}" href="{{ sel.detail }}">
 <div class=nxtitle>{{ sel.title }}</div>
@@ -5385,7 +5406,7 @@ if(okBtn) okBtn.onclick=function(){
  var list=catalog[iso]||[];
  if(list.length>1){ showEvents(iso, list); return; }
  if(iso===selected){ pop.close(); return; }
- location.href=href(iso);
+ if(window.grunionsGo) grunionsGo(href(iso),false,true); else location.replace(href(iso));
 };
 openBtn.onclick=function(){
  pending=selected; showMonth(); setHead(pending);
@@ -5435,7 +5456,7 @@ T["transfer"] = ADMIN_NAV + """{{ admin_page('Transfer', 'Bring in a Sport:80 ex
 
 T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pageact" href=/members.csv>Export CSV</a>{% endcall %}
 <div class=peoplebar>
-<div class="rolechips chiprow" role=group aria-label="Role">
+<div class="rolechips chiprow" data-seg role=group aria-label="Role">
 <a class="chip{{ ' on' if view=='all' }}" href="/members?view=all">All</a>
 <a class="chip{{ ' on' if view=='members' }}" href="/members">Members</a>
 <a class="chip{{ ' on' if view=='coaches' }}" href="/members?view=coaches">Coaches</a>

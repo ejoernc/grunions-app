@@ -258,8 +258,8 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     assert member.get("/manage").status_code == 403
     page = admin.get("/manage").get_data(as_text=True)
     assert "id=growthCard" in page and "Search settings, people, tools..." in page
-    assert ">Practice</a>" in page and "/events/new?lane=schedule&amp;type=practice" in page
-    assert ">Event</a>" in page and "/events/new?lane=lineup" in page and ">Bulletin</a>" in page and 'href="/chat"' in page
+    assert ">Practice</a>" not in page and ">Bulletin</a>" not in page and "class=qactions" not in page
+    assert 'aria-label="Create event"' in page
     assert ">Activities</b>" in page and ">People</b>" in page and ">Club</b>" in page and ">Tools</b>" in page
     club = admin.get("/manage/area/club").get_data(as_text=True)
     assert "Sports &amp; pricing" in club and 'href="/manage/pricing"' in club and "Website widget" in club and ">Rules<" in club
@@ -269,7 +269,11 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     tools = admin.get("/manage/area/tools").get_data(as_text=True)
     assert "QR codes" in tools and "Data transfer" in tools and ">Usage<" in tools
     roster = admin.get("/members").get_data(as_text=True)
-    assert 'aria-label="Role"' in roster and ">All</a>" in roster and ">Members</a>" in roster and ">Coaches</a>" in roster
+    assert 'data-seg role=group aria-label="Role"' in roster and ">All</a>" in roster and ">Members</a>" in roster and ">Coaches</a>" in roster
+    coaches = admin.get("/members?view=coaches").get_data(as_text=True)
+    admins = admin.get("/members?view=admins").get_data(as_text=True)
+    assert "<h1>Coaches</h1>" in coaches and 'href="/members?view=coaches"' in coaches
+    assert "<h1>Admins</h1>" in admins and 'href="/members?view=admins"' in admins
     assert "<h1>Members</h1>" in roster
 
 
@@ -500,9 +504,10 @@ def test_payment_gate_stays_off_and_does_not_rewrite_rsvps():
             A.db().commit()
 
 
-def test_schedule_chips_appear_only_for_more_than_one_sport():
+def test_home_hides_sport_chips_and_keeps_card_status():
     member = client()
     join(member, "Sky", "Athlete", "sky.sport@example.com")
     home = member.get("/home").get_data(as_text=True)
-    assert 'aria-label="Sport"' in home and ">Water Polo</button>" in home and ">Swimming</button>" in home
+    assert "id=sportFilters" not in home and 'aria-label="Sport"' not in home
     assert "Eligible to register" in home or "Going" in home
+    assert "Water Polo" in home

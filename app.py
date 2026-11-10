@@ -3031,8 +3031,12 @@ def hide_coaching_plan(p):
     data = dict(p)
     data["coaching_plan"] = ""
     return data
+SHOW_MANAGE_QUICK = False  # Practice / Event / Bulletin tiles on Manage. The header + button still creates events.
+SHOW_HOME_SPORT_CHIPS = False  # Home and Schedule share this row. Set True to show All / sport chips again.
 def sport_filter_names():
-    """Sport chips only when the org runs more than one active sport."""
+    """Sport chips only when the org runs more than one active sport and the Home row is enabled."""
+    if not SHOW_HOME_SPORT_CHIPS:
+        return []
     try:
         rows = [row["name"] for row in sportspay.sports(db()) if row["active"] and not row["archived"]]
     except Exception:
@@ -4888,7 +4892,7 @@ def manage_home():
             name = ("%s %s" % (display_first(person), person["last"] or "")).strip()
             index.append({"t": name, "d": "People", "h": "/members?q=" + urllib.parse.quote(name), "k": "person member"})
     quick = []
-    if can_host_practice():
+    if SHOW_MANAGE_QUICK and can_host_practice():
         quick = [
             {"title": "Practice", "href": "/events/new?lane=schedule&type=practice"},
             {"title": "Event", "href": "/events/new?lane=lineup"},

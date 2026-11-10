@@ -382,7 +382,7 @@ def nav(active):
     items = (("schedule", "Schedule", "/manage/pricing"), ("sports", "Sports", "/manage/pricing/sports"),
              ("plans", "Pricing", "/manage/pricing/plans"), ("providers", "Providers", "/manage/pricing/providers"),
              ("membership", "Membership", "/manage/pricing/membership"))
-    bits = ['<div class="rolechips chiprow" role=group aria-label="Sports and pricing">']
+    bits = ['<div class="rolechips chiprow" data-seg role=group aria-label="Sports and pricing">']
     for key, label, href in items:
         bits.append('<a class="chip%s" href="%s">%s</a>' % (" on" if key == active else "", href, label))
     bits.append("</div>")
