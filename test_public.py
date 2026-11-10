@@ -276,7 +276,7 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     assert "<h1>Admins</h1>" in admins and 'href="/members?view=admins"' in admins
     assert "<h1>Members</h1>" in roster
     assert 'id=manageClear' in page and "/manage/search?q=" in page and "No matches for" in page
-    assert "min-height:64px;padding:12px 12px 12px 10px" in page
+    assert "min-height:72px;padding:16px 12px 16px 10px" in page
     assert "id=manageIndex" not in page
 
 

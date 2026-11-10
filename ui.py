@@ -309,7 +309,7 @@ button.mqclear{position:absolute;right:4px;top:50%;transform:translateY(-50%);wi
 .mgroups{display:flex;flex-direction:column;gap:var(--space-3)}
 .mgroup h2{margin:0 0 var(--space-2);padding:0 4px;font-size:13px;font-weight:650;letter-spacing:.01em;color:var(--t3)}
 .mlist{background:var(--color-raised);border-radius:16px;overflow:hidden}
-.mrow{display:flex;align-items:center;gap:12px;min-height:64px;padding:12px 12px 12px 10px;color:inherit;text-decoration:none;border-top:1px solid var(--line)}
+.mrow{display:flex;align-items:center;gap:12px;min-height:72px;padding:16px 12px 16px 10px;color:inherit;text-decoration:none;border-top:1px solid var(--line)}
 .mrow:first-child{border-top:0}
 .mico{width:32px;height:32px;border-radius:8px;background:var(--color-surface-2);color:var(--color-text);display:flex;align-items:center;justify-content:center;flex:none}
 .mico svg{width:20px;height:20px;display:block}
