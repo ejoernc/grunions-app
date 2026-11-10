@@ -47,8 +47,9 @@ def test_settings_are_admin_only_and_create_no_practices():
     page = eli.get("/manage/pricing")
     html = page.get_data(as_text=True)
     assert page.status_code == 200
-    assert "Schedule &amp; pricing" in eli.get("/manage").get_data(as_text=True)
-    assert 'href="/manage/pricing"' in eli.get("/manage").get_data(as_text=True)
+    club = eli.get("/manage/area/club").get_data(as_text=True)
+    assert "Sports &amp; pricing" in club
+    assert 'href="/manage/pricing"' in club
     assert "does not add sessions" in html
     form = html.split("<form", 1)[1].split("<h2>On the website</h2>", 1)[0]
     assert "Westminster" not in form and "Marina" not in form and "$" not in form
@@ -245,6 +246,31 @@ def test_widget_is_off_until_an_admin_publishes_it():
     assert "class=callout" not in quiet_public and "class=callout" not in quiet_preview
     assert "Fridays" in quiet_public and "Fridays" in quiet_preview
     assert quiet_preview.count("<article") == 2 and quiet_public.count("<article") > 2
+
+
+def test_manage_home_groups_destinations_and_keeps_the_chart():
+    admin, member = client(), client()
+    join(admin, "Nia", "Admin", "nia.manage@example.com")
+    join(member, "Sam", "Athlete", "sam.manage@example.com")
+    with A.app.app_context():
+        A.db().execute("UPDATE members SET is_admin=1 WHERE email='nia.manage@example.com'")
+        A.db().commit()
+    assert member.get("/manage").status_code == 403
+    page = admin.get("/manage").get_data(as_text=True)
+    assert "id=growthCard" in page and "Search settings, people, tools..." in page
+    assert ">Practice</a>" in page and "/events/new?lane=schedule&amp;type=practice" in page
+    assert ">Event</a>" in page and "/events/new?lane=lineup" in page and ">Bulletin</a>" in page and 'href="/chat"' in page
+    assert ">Activities</b>" in page and ">People</b>" in page and ">Club</b>" in page and ">Tools</b>" in page
+    club = admin.get("/manage/area/club").get_data(as_text=True)
+    assert "Sports &amp; pricing" in club and 'href="/manage/pricing"' in club and "Website widget" in club and ">Rules<" in club
+    assert "Schedule &amp; pricing" not in club
+    people = admin.get("/manage/area/people").get_data(as_text=True)
+    assert "Members and roles" in people and ">Compliance<" in people
+    tools = admin.get("/manage/area/tools").get_data(as_text=True)
+    assert "QR codes" in tools and "Data transfer" in tools and ">Usage<" in tools
+    roster = admin.get("/members").get_data(as_text=True)
+    assert 'aria-label="Role"' in roster and ">All</a>" in roster and ">Members</a>" in roster and ">Coaches</a>" in roster
+    assert "<h1>Members</h1>" in roster
 
 
 def test_registration_checks_eligibility_and_does_not_charge_or_email():

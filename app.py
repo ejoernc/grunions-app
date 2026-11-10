@@ -4396,7 +4396,7 @@ def manage_home_groups(d):
         people.append(_manage_row("Admins", "Club administrators", "/members?view=admins", "seal", len(sets["admins"])))
         people.append(_manage_row("Referees", "Referee list and referee eligible", "/members?view=referees", "flag", len(sets["refs"])))
         people.append(_manage_row("Compliance", "Memberships & certifications", "/expiring", "shield", expiring_people_count(d), "warn"))
-        club.append(_manage_row("Schedule & pricing", "Regular times, prices, and a free trial", "/manage/pricing", "cal"))
+        club.append(_manage_row("Sports & pricing", "Sports, prices, and a free trial", "/manage/pricing", "cal"))
         club.append(_manage_row("Website widget", "Embed the public schedule", "/manage/widget", "widget"))
         club.append(_manage_row("Usage", "Mapbox calls today", "/manage/usage", "rules"))
         club.append(_manage_row("Data transfer", "Import & export", "/transfer", "swap"))
@@ -4690,15 +4690,80 @@ def signup_days(d):
         vday = _stamp_day(r["usawp_verified_at"], utc=False)
         if vday: verified.append(vday)
     return joined, verified
+def _manage_catalog(d):
+    """Destinations the signed-in person may open. Counts stay off when they are zero."""
+    host, staff, admin = can_host_practice(), is_staff(), bool(me()["is_admin"])
+    rows = []
+    def add(area, title, desc, href, icon, keywords, count=0, tone="info"):
+        rows.append({"area": area, "title": title, "desc": desc, "href": href, "icon": icon,
+                     "keywords": keywords, "count": count or 0, "tone": tone})
+    if staff or admin:
+        add("activities", "Schedule", "Practices, scrimmages, and games", "/admin" if staff else "/manage/schedule", "cal", "practice scrimmage game")
+    if host:
+        add("activities", "Lineup", "Events, tournaments, camps, and socials", "/manage/lineup", "people", "event tournament camp trip")
+        add("activities", "Bulletin", "Team announcements in chat", "/chat", "tray", "announcement message bulletin")
+        add("activities", "Requests", "Member-submitted events", "/manage/requests", "tray", "approval pending", approval_count(), "info")
+    if admin:
+        add("people", "Members and roles", "Roster, coaches, admins, and referees", "/members", "people", "member coach admin referee athlete")
+        add("people", "Compliance", "Memberships and certifications", "/expiring", "shield", "usawp safesport expiring clearance", expiring_people_count(d), "warn")
+        add("club", "Sports & pricing", "Sports, prices, and a free trial", "/manage/pricing", "cal", "pricing payment trial schedule")
+        add("club", "Website widget", "Embed the public schedule", "/manage/widget", "widget", "embed website")
+        add("club", "Rules", "Policies and requirements", "/requirements", "rules", "policy requirement")
+        add("tools", "QR codes", "Check-in and sharing", "/qr", "qr", "qr code join")
+        add("tools", "Data transfer", "Import and export", "/transfer", "swap", "csv import export")
+        add("tools", "Usage", "Mapbox calls today", "/manage/usage", "rules", "mapbox usage")
+    return rows
+_AREA_COPY = {
+    "activities": ("Activities", "Schedule, Lineup, Bulletin, and requests"),
+    "people": ("People", "Members, roles, and compliance"),
+    "club": ("Club", "Sports, pricing, rules, and website"),
+    "tools": ("Tools", "QR codes, data transfer, and usage"),
+}
 @app.route("/manage")
 @login_required
 def manage_home():
     if not can_host_practice(): abort(403)
     d = db()
+    catalog = _manage_catalog(d)
+    areas = []
+    for key in ("activities", "people", "club", "tools"):
+        kids = [row for row in catalog if row["area"] == key]
+        if not kids: continue
+        title, desc = _AREA_COPY[key]
+        count = sum(row["count"] for row in kids)
+        tone = "warn" if any(row["tone"] == "warn" and row["count"] for row in kids) else "info"
+        icon = kids[0]["icon"]
+        areas.append({"key": key, "title": title, "desc": desc, "href": "/manage/area/%s" % key, "icon": _micon(_MANAGE_ICONS[icon]),
+                      "count": count, "tone": tone})
+    index = [{"t": row["title"], "d": row["desc"], "h": row["href"], "k": row["keywords"]} for row in catalog]
+    if me()["is_admin"]:
+        for person in d.execute("SELECT first, preferred_first, last FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first"):
+            name = ("%s %s" % (display_first(person), person["last"] or "")).strip()
+            index.append({"t": name, "d": "People", "h": "/members?q=" + urllib.parse.quote(name), "k": "person member"})
+    quick = []
+    if can_host_practice():
+        quick = [
+            {"title": "Practice", "href": "/events/new?lane=schedule&type=practice"},
+            {"title": "Event", "href": "/events/new?lane=lineup"},
+            {"title": "Bulletin", "href": "/chat"},
+        ]
     growth = ""
     if me()["is_admin"]:
         growth = chart_card(growth_chart(*signup_days(d)), attendance_chart(recent_checkins(d)))
-    return page(T["manage"], tab="manage", groups=manage_home_groups(d), growth=growth)
+    chev = Markup('<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>')
+    return page(T["manage"], tab="manage", areas=areas, quick=quick, index=index, growth=growth, chev=chev)
+@app.route("/manage/area/<area>")
+@login_required
+def manage_area(area):
+    if area not in _AREA_COPY: abort(404)
+    if not can_host_practice(): abort(403)
+    rows = [row for row in _manage_catalog(db()) if row["area"] == area]
+    if not rows: abort(403)
+    title, subtitle = _AREA_COPY[area]
+    packed = []
+    for row in rows:
+        packed.append(_manage_row(row["title"], row["desc"], row["href"], row["icon"], row["count"], row["tone"]))
+    return page(T["manage_area"], tab="admin", title=title, subtitle=subtitle, rows=packed)
 @app.route("/manage/schedule")
 @login_required
 def manage_schedule():
@@ -5633,7 +5698,7 @@ def members():
     if request.args.get("referee") == "eligible": view = "referees"
     if view == "expiring": view, filt = "members", "expiring"
     elif view == "uncleared": view, filt = "members", "uncleared"
-    if view not in ("members", "coaches", "admins", "referees"): view = "members"
+    if view not in ("members", "coaches", "admins", "referees", "all"): view = "members"
     if filt not in ("", "expiring", "uncleared"): filt = ""
     sets = roster_sets(d, rows)
     if view == "coaches": rows = [r for r in rows if r["id"] in sets["coaches"]]
@@ -5647,7 +5712,7 @@ def members():
     elif filt == "uncleared":
         rows = [r for r in rows if list_status(d, r, view)["tone"] == "bad"]
     c = {s: sum(1 for r in rows if r["usawp_status"] == s) for s in ("verified", "pending", "expired", "unknown")}
-    titles = {"members": "Members", "coaches": "Coaches", "admins": "Admins", "referees": "Referees"}
+    titles = {"members": "Members", "all": "People", "coaches": "Coaches", "admins": "Admins", "referees": "Referees"}
     return page(T["members"],
         tab="admin", rows=rows, c=c, view=view, filt=filt, date=focus, q=q, title=titles[view],
         listed=sets["listed"], referees=sets["referees"], coach_ids=sets["coach_ids"], ref_ids=sets["ref_ids"],

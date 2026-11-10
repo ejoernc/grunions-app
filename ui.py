@@ -289,7 +289,21 @@ button.dropempty{position:absolute;inset:0;width:100%;height:100%;min-height:0;p
 .menu a{display:flex;align-items:center;width:100%;height:40px;padding:0 12px;box-sizing:border-box;color:var(--t1);font-weight:500;font-size:15px;text-decoration:none;border-radius:8px}
 .card .menu,.pagehead .menu{left:auto;right:0;min-width:220px}
 .pagehead{display:flex;flex-direction:column;align-items:stretch;gap:var(--space-2);margin:0 0 var(--space-4)}
-.mgroups{display:flex;flex-direction:column;gap:var(--space-4)}
+.managehome{display:flex;flex-direction:column;gap:12px;padding-bottom:24px}
+.mq{margin:0}
+.mq input{margin-top:8px}
+.qactions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.qact{display:flex;flex-direction:column;justify-content:flex-end;min-height:72px;padding:12px;border-radius:16px;background:var(--color-raised);color:inherit;text-decoration:none;font-size:13px;font-weight:650}
+.mseclabel{margin:4px 0 0;font-size:13px;font-weight:650;color:var(--t3)}
+.orggrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.orggrid[hidden],.qactions[hidden],#manageHits[hidden]{display:none}
+.orgcard{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-height:124px;padding:14px;border-radius:16px;background:var(--color-raised);color:inherit;text-decoration:none}
+.orgcard b{font-size:15px;line-height:1.3}
+.orgcard .mdesc{color:var(--t3);font-size:13px;font-weight:450;line-height:1.35}
+.orgcard .mchev{margin-top:auto;align-self:flex-end}
+.rolechips{display:flex;gap:8px;overflow-x:auto;margin:0 0 8px;scrollbar-width:none}
+.rolechips .chip{flex:none}
+.mgroups{display:flex;flex-direction:column;gap:var(--space-3)}
 .mgroup h2{margin:0 0 var(--space-2);padding:0 4px;font-size:13px;font-weight:650;letter-spacing:.01em;color:var(--t3)}
 .mlist{background:var(--color-raised);border-radius:16px;overflow:hidden}
 .mrow{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 12px 8px 10px;color:inherit;text-decoration:none;border-top:1px solid var(--line)}
@@ -4456,9 +4470,36 @@ T["usage"] = ADMIN_NAV + """{{ admin_page('Usage', 'Mapbox calls today for drivi
 <div class=card><h2 style="margin:0 0 8px">Today</h2>
 <p class="t2 sm" style="margin:0">{{ calls }} of {{ cap }}</p></div>"""
 T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
-<div class=mgroups>
-{% for g in groups %}<section class=mgroup><h2>{{ g.label }}</h2><div class=mlist>{% for row in g.rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone) }}{% endfor %}</div></section>{% endfor %}
-</div>"""
+<div class=managehome id=manageHome>
+<label class=mq>Search<input id=manageSearch placeholder="Search settings, people, tools..." autocomplete=off></label>
+{% if quick %}<div class=qactions>{% for act in quick %}<a class=qact href="{{ act.href }}">{{ act.title }}</a>{% endfor %}</div>{% endif %}
+<h2 class=mseclabel>Manage your organization</h2>
+<div class=orggrid id=manageAreas>{% for area in areas %}<a class=orgcard href="{{ area.href }}"><span class=mico aria-hidden=true>{{ area.icon|safe }}</span><b>{{ area.title }}{% if area.count %} <span class="mbadge {{ area.tone }}">{{ area.count if area.count < 100 else '99+' }}</span>{% endif %}</b><span class=mdesc>{{ area.desc }}</span><span class=mchev aria-hidden=true>{{ chev|safe }}</span></a>{% endfor %}</div>
+<div id=manageHits class=mlist hidden></div>
+</div>
+<script type="application/json" id=manageIndex>{{ index|tojson }}</script>
+<script>
+(function(){
+  var input=document.getElementById("manageSearch"), hits=document.getElementById("manageHits"), home=document.getElementById("manageAreas");
+  var label=home&&home.previousElementSibling, actions=document.querySelector(".qactions");
+  var rows=[]; try{ rows=JSON.parse(document.getElementById("manageIndex").textContent)||[]; }catch(e){}
+  function draw(){
+    var q=(input.value||"").trim().toLowerCase();
+    var on=!!q;
+    if(home) home.hidden=on;
+    if(label) label.hidden=on;
+    if(actions) actions.hidden=on;
+    hits.hidden=!on;
+    if(!on){ hits.innerHTML=""; return; }
+    function esc(s){ return String(s||"").replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+    var found=rows.filter(function(row){ return (row.t+" "+row.d+" "+(row.k||"")).toLowerCase().indexOf(q)>=0; }).slice(0,12);
+    hits.innerHTML=found.map(function(row){ return '<a class=mrow href="'+esc(row.h)+'"><span class=grow><span class=mtitle>'+esc(row.t)+'</span><span class=mdesc>'+esc(row.d)+'</span></span></a>'; }).join("") || '<p class=emptyfind>Nothing matches.</p>';
+  }
+  input.addEventListener("input", draw);
+})();
+</script>"""
+T["manage_area"] = ADMIN_NAV + """{{ admin_page(title, subtitle) }}
+<div class=mlist>{% for row in rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone) }}{% endfor %}</div>"""
 T["manage_schedule"] = ADMIN_NAV + """{{ admin_page('Schedule', 'Practices, scrimmages, and games.') }}
 {% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
 T["manage_lineup"] = ADMIN_NAV + """{{ admin_page('Lineup', 'Events, tournaments, camps, and socials.') }}
@@ -5363,6 +5404,13 @@ T["transfer"] = ADMIN_NAV + """{{ admin_page('Transfer', 'Bring in a Sport:80 ex
 
 T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pageact" href=/members.csv>Export CSV</a>{% endcall %}
 <div class=peoplebar>
+<div class="rolechips chiprow" role=group aria-label="Role">
+<a class="chip{{ ' on' if view=='all' }}" href="/members?view=all">All</a>
+<a class="chip{{ ' on' if view=='members' }}" href="/members">Members</a>
+<a class="chip{{ ' on' if view=='coaches' }}" href="/members?view=coaches">Coaches</a>
+<a class="chip{{ ' on' if view=='admins' }}" href="/members?view=admins">Admins</a>
+<a class="chip{{ ' on' if view=='referees' }}" href="/members?view=referees">Referees</a>
+</div>
 <form method=get action=/members><input name=q value="{{q}}" placeholder="Search people..." autocomplete=off>{% if view != 'members' %}<input type=hidden name=view value="{{view}}">{% endif %}{% if filt %}<input type=hidden name=filt value="{{ filt }}">{% endif %}</form>
 <div class="fchips chiprow" data-seg>
 <a href="/members{% if view != 'members' %}?view={{ view }}{% endif %}{% if q %}{{ '&amp;' if view != 'members' else '?' }}q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if not filt }}">All</a>
