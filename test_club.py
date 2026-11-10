@@ -200,3 +200,74 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
         assert view["paying"] is True and view["label"] == "Paid"
         usawp = d.execute("SELECT usawp_status FROM members WHERE id=?", (mid,)).fetchone()["usawp_status"]
         assert (usawp or "") != "verified"
+
+
+def test_regular_schedule_stores_each_day_with_its_own_times():
+    admin = client()
+    join(admin, "Nia", "Admin", "nia.days@example.com")
+    with A.app.app_context():
+        d = A.db()
+        d.execute("UPDATE members SET is_admin=1 WHERE email='nia.days@example.com'")
+        d.commit()
+        before = d.execute("SELECT COUNT(*) FROM practices").fetchone()[0]
+        rsvps = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+        open_water = clubadmin.program_by_slug(d, "open-water")
+        d.execute("DELETE FROM program_schedule_days WHERE program_id=?", (open_water["id"],))
+        row = d.execute("SELECT id FROM program_schedules WHERE program_id=?", (open_water["id"],)).fetchone()
+        if row:
+            d.execute("UPDATE program_schedules SET weekdays=?, start=?, end=? WHERE id=?", ("1,6", "09:00", "11:00", row["id"]))
+        else:
+            d.execute("""INSERT INTO program_schedules(program_id, description, weekdays, start, end, timezone, venue, notes)
+                VALUES(?,?,?,?,?,?,?,?)""", (open_water["id"], "", "1,6", "09:00", "11:00", "America/Los_Angeles", "", ""))
+        d.execute("DELETE FROM club_meta WHERE key='schedule_days_v1'")
+        d.commit()
+        clubadmin.ensure(d)
+        copied = [(item["weekday"], item["start"], item["end"]) for item in clubadmin.schedule_days(d, open_water["id"])]
+        assert copied == [("tue", "09:00", "11:00"), ("sun", "09:00", "11:00")]
+        assert clubadmin.schedule_phrase(clubadmin.schedule_days(d, open_water["id"])) == "Tue & Sun 9 to 11 AM"
+    page = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
+    assert "Add day" in page and "weekday_" not in page and "Schedule venue" not in page
+    assert "name=description" in page and "/manage/club/programs/water-polo/schedule/new" in page
+    editor = admin.get("/manage/club/programs/water-polo/schedule/new").get_data(as_text=True)
+    assert "name=weekday" in editor and 'type=time name=start' in editor and ">Remove</button>" not in editor
+    bad = admin.post("/manage/club/programs/water-polo/schedule/new", data={
+        "csrf": csrf(admin, "/manage/club/programs/water-polo/schedule/new"),
+        "weekday": "sun", "start": "11:00", "end": "09:00",
+    })
+    assert bad.status_code == 200 and "The end time has to be after the start time." in bad.get_data(as_text=True)
+    for weekday, start, end in (("tue", "19:00", "21:00"), ("thu", "19:00", "21:00"), ("sun", "09:00", "11:00"), ("sun", "16:00", "18:00")):
+        saved = admin.post("/manage/club/programs/water-polo/schedule/new", data={
+            "csrf": csrf(admin, "/manage/club/programs/water-polo/schedule/new"),
+            "weekday": weekday, "start": start, "end": end,
+        })
+        assert saved.status_code == 302
+    detail = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
+    assert "Tue · 7:00 to 9:00 PM" in detail and "Thu · 7:00 to 9:00 PM" in detail
+    assert "Sun · 9:00 to 11:00 AM" in detail and "Sun · 4:00 to 6:00 PM" in detail
+    assert "Tue &amp; Thu 7 to 9 PM · Sun 9 to 11 AM · Sun 4 to 6 PM" in detail
+    assert detail.index("Tue · 7:00") < detail.index("Sun · 9:00") < detail.index("Sun · 4:00")
+    sports = admin.get("/manage/club/programs").get_data(as_text=True)
+    assert "Tue &amp; Thu 7 to 9 PM · Sun 9 to 11 AM · Sun 4 to 6 PM" in sports
+    with A.app.app_context():
+        d = A.db()
+        second = [row["id"] for row in clubadmin.schedule_days(d, clubadmin.program_by_slug(d, "water-polo")["id"]) if row["weekday"] == "sun"][-1]
+    edited = admin.get("/manage/club/programs/water-polo/schedule/%d" % second).get_data(as_text=True)
+    assert ">Remove</button>" in edited and "Sunday" in edited
+    gone = admin.post("/manage/club/programs/water-polo/schedule/%d" % second, data={
+        "csrf": csrf(admin, "/manage/club/programs/water-polo/schedule/%d" % second),
+        "action": "remove",
+    })
+    assert gone.status_code == 302
+    after = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
+    assert "Sun · 4:00 to 6:00 PM" not in after and "Tue &amp; Thu 7 to 9 PM · Sun 9 to 11 AM" in after
+    admin.post("/manage/club/programs/water-polo", data={
+        "csrf": csrf(admin, "/manage/club/programs/water-polo"),
+        "action": "save", "governing_body": "usawp", "active": "1", "activity_practice": "1",
+        "description": "Evenings and a morning", "weekday_fri": "1", "start": "19:00", "end": "20:30",
+    })
+    kept = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
+    assert "Evenings and a morning" in kept and "Tue · 7:00 to 9:00 PM" in kept and "Fri ·" not in kept
+    with A.app.app_context():
+        d = A.db()
+        assert d.execute("SELECT COUNT(*) FROM practices").fetchone()[0] == before
+        assert d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] == rsvps

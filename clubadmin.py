@@ -61,6 +61,7 @@ def ensure(d):
     _ensure_pass_columns(d)
     _seed_passes(d)
     _seed_org_structure(d)
+    _ensure_schedule_days(d)
 
 
 def _meta(d, key):
@@ -258,27 +259,159 @@ def save_overview(d, slug, form):
         d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (program["id"], mid))
 
 
+def _hm(value):
+    text = (value or "").strip()
+    if len(text) >= 5 and text[2] == ":":
+        text = text[:5]
+    if len(text) != 5 or not (text[:2].isdigit() and text[3:].isdigit()):
+        return ""
+    hour, minute = int(text[:2]), int(text[3:])
+    if hour > 23 or minute > 59:
+        return ""
+    return "%02d:%02d" % (hour, minute)
+
+
+def _clock_bits(value):
+    hour, minute = int(value[:2]), int(value[3:])
+    meridiem = "AM" if hour < 12 else "PM"
+    return hour % 12 or 12, minute, meridiem
+
+
+def slot_span(start, end, keep_minutes=True):
+    """7:00 to 9:00 PM on a row. 7 to 9 PM in a summary, keeping minutes that are not :00."""
+    sh, sm, sa = _clock_bits(start)
+    eh, em, ea = _clock_bits(end)
+
+    def piece(hour, minute):
+        if keep_minutes or minute:
+            return "%d:%02d" % (hour, minute)
+        return "%d" % hour
+
+    left, right = piece(sh, sm), piece(eh, em)
+    if sa != ea:
+        return "%s %s to %s %s" % (left, sa, right, ea)
+    return "%s to %s %s" % (left, right, ea)
+
+
+def _day_label(code):
+    return dict(WEEKDAYS).get(code, code)
+
+
+def _join_days(labels):
+    if len(labels) <= 1:
+        return labels[0] if labels else ""
+    if len(labels) == 2:
+        return "%s & %s" % (labels[0], labels[1])
+    return "%s & %s" % (", ".join(labels[:-1]), labels[-1])
+
+
+def schedule_days(d, program_id):
+    order = {code: index for index, (code, _label) in enumerate(WEEKDAYS)}
+    rows = d.execute("SELECT * FROM program_schedule_days WHERE program_id=?", (program_id,)).fetchall()
+    return sorted(rows, key=lambda row: (order.get(row["weekday"], 9), row["start"] or "", row["id"]))
+
+
+def schedule_phrase(rows):
+    """Tue & Thu 7 to 9 PM · Sun 9 to 11 AM. Days that share a time stay together."""
+    order = {code: index for index, (code, _label) in enumerate(WEEKDAYS)}
+
+    def ident(row):
+        try:
+            return row["id"] or 0
+        except Exception:
+            return 0
+
+    groups = []
+    for row in sorted(rows, key=lambda row: (order.get(row["weekday"], 9), row["start"] or "", ident(row))):
+        label = _day_label(row["weekday"])
+        if groups and groups[-1][0] == row["start"] and groups[-1][1] == row["end"] and label not in groups[-1][2]:
+            groups[-1][2].append(label)
+        else:
+            groups.append([row["start"], row["end"], [label]])
+    return " · ".join("%s %s" % (_join_days(labels), slot_span(start, end, False)) for start, end, labels in groups)
+
+
+def slot_line(row):
+    return "%s · %s" % (_day_label(row["weekday"]), slot_span(row["start"], row["end"], True))
+
+
 def save_schedule(d, slug, form):
-    """Store the template only. Does not insert practices."""
+    """Store the description only. Day slots are saved on their own and this does not insert practices."""
     program = program_by_slug(d, slug)
     if not program:
         raise ValueError("Choose a program.")
-    days = [code for code, _label in WEEKDAYS if form.get("weekday_%s" % code)]
-    start = (form.get("start") or "").strip()
-    end = (form.get("end") or "").strip()
-    if days and (not start or not end):
-        raise ValueError("Add a start and end time.")
-    if start and end and start >= end:
-        raise ValueError("End time must be after the start time.")
-    row = d.execute("SELECT id FROM program_schedules WHERE program_id=? ORDER BY id LIMIT 1", (program["id"],)).fetchone()
-    fields = ((form.get("description") or "")[:200], ",".join(days), start, end, "America/Los_Angeles",
-              (form.get("schedule_venue") or form.get("venue") or "")[:200], (form.get("schedule_notes") or "")[:500], program["id"])
-    if row:
-        d.execute("""UPDATE program_schedules SET description=?, weekdays=?, start=?, end=?, timezone=?, venue=?, notes=?
-            WHERE id=?""", fields[:-1] + (row["id"],))
+    row = d.execute("SELECT * FROM program_schedules WHERE program_id=? ORDER BY id LIMIT 1", (program["id"],)).fetchone()
+    description = (form.get("description") or "")[:200]
+    if row and "schedule_notes" not in form:
+        notes = row["notes"] or ""
     else:
-        d.execute("""INSERT INTO program_schedules(description, weekdays, start, end, timezone, venue, notes, program_id)
-            VALUES(?,?,?,?,?,?,?,?)""", fields)
+        notes = (form.get("schedule_notes") or "")[:500]
+    if "schedule_venue" in form:
+        venue = (form.get("schedule_venue") or "")[:200]
+    elif row:
+        venue = row["venue"] or ""
+    else:
+        venue = ""
+    if row:
+        d.execute("UPDATE program_schedules SET description=?, venue=?, notes=? WHERE id=?", (description, venue, notes, row["id"]))
+    else:
+        d.execute("""INSERT INTO program_schedules(program_id, description, weekdays, start, end, timezone, venue, notes)
+            VALUES(?,?,?,?,?,?,?,?)""", (program["id"], description, "", "", "", "America/Los_Angeles", venue, notes))
+
+
+def save_schedule_day(d, program, day_id, form):
+    """One weekday and its own times. The same weekday can be saved more than once. Does not insert practices."""
+    code = (form.get("weekday") or "").strip().lower()
+    if code not in dict(WEEKDAYS):
+        raise ValueError("Choose a day.")
+    start, end = _hm(form.get("start")), _hm(form.get("end"))
+    if not start or not end:
+        raise ValueError("Add a start and end time.")
+    if start >= end:
+        raise ValueError("The end time has to be after the start time.")
+    if day_id:
+        row = d.execute("SELECT id FROM program_schedule_days WHERE id=? AND program_id=?", (day_id, program["id"])).fetchone()
+        if not row:
+            raise ValueError("That day is no longer on this schedule.")
+        d.execute("UPDATE program_schedule_days SET weekday=?, start=?, end=? WHERE id=?", (code, start, end, day_id))
+        return day_id
+    return d.execute("INSERT INTO program_schedule_days(program_id, weekday, start, end) VALUES(?,?,?,?)",
+                     (program["id"], code, start, end)).lastrowid
+
+
+def remove_schedule_day(d, program, day_id):
+    d.execute("DELETE FROM program_schedule_days WHERE id=? AND program_id=?", (day_id, program["id"]))
+
+
+def _ensure_schedule_days(d):
+    d.execute("""CREATE TABLE IF NOT EXISTS program_schedule_days(
+        id INTEGER PRIMARY KEY, program_id INTEGER NOT NULL,
+        weekday TEXT NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL)""")
+    if _meta(d, "schedule_days_v1") == "1":
+        return
+    order = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+    known = dict(WEEKDAYS)
+    for sched in d.execute("SELECT * FROM program_schedules").fetchall():
+        start, end = _hm(sched["start"]), _hm(sched["end"])
+        if not start or not end or start >= end:
+            continue
+        if d.execute("SELECT 1 FROM program_schedule_days WHERE program_id=?", (sched["program_id"],)).fetchone():
+            continue
+        seen = []
+        for part in _csv(sched["weekdays"]):
+            key = part.strip().lower()
+            if key in known:
+                code = key
+            elif key.isdigit() and 0 <= int(key) <= 6:
+                code = order[int(key)]
+            else:
+                continue
+            if code in seen:
+                continue
+            seen.append(code)
+            d.execute("INSERT INTO program_schedule_days(program_id, weekday, start, end) VALUES(?,?,?,?)",
+                      (sched["program_id"], code, start, end))
+    _set_meta(d, "schedule_days_v1", "1")
 
 
 def schedule_for(d, program_id):
@@ -762,23 +895,30 @@ def programs_html(d):
         body = {"usawp": "USA Water Polo", "usms": "US Masters Swimming", "none": "No governing body"}.get(program["governing_body"], program["governing_body"])
         count = requirement_count(d, program["id"])
         noun = "requirement" if count == 1 else "requirements"
-        bits.append(_row("/manage/club/programs/%s" % program["slug"], program["name"], "%s · %s · %d %s" % (body, state, count, noun)))
+        desc = "%s · %s · %d %s" % (body, state, count, noun)
+        phrase = schedule_phrase(schedule_days(d, program["id"]))
+        if phrase:
+            desc = "%s · %s" % (desc, phrase)
+        bits.append(_row("/manage/club/programs/%s" % program["slug"], program["name"], desc))
     bits.append("</div>")
     return "".join(bits)
 
 
 def program_detail_html(d, program, csrf):
-    sched = schedule_for(d, program["id"]) or {}
-    days = set(_csv(sched["weekdays"] if sched else ""))
+    sched = schedule_for(d, program["id"])
+    slots = schedule_days(d, program["id"])
+    phrase = schedule_phrase(slots)
     acts = set(_csv(program["activities"]))
     coaches = d.execute("""SELECT id, first, preferred_first, last, role, is_admin FROM members
         WHERE COALESCE(role,'')!='system' AND (role='coach' OR is_admin=1 OR id IN (SELECT member_id FROM coaching_list))
         ORDER BY last, first""").fetchall()
     assigned = {row["member_id"] for row in d.execute("SELECT member_id FROM program_coaches WHERE program_id=?", (program["id"],)).fetchall()}
-    day_bits = []
-    for code, label in WEEKDAYS:
-        day_bits.append('<label class=checkline><input type=checkbox name="weekday_%s" value=1%s> %s</label>' % (
-            code, " checked" if code in days else "", label))
+    slot_bits = []
+    for row in slots:
+        slot_bits.append('<a class=mrow href="/manage/club/programs/%s/schedule/%d"><span class=grow><span class=mtitle>%s</span></span><span class=mchev>%s</span></a>' % (
+            escape(program["slug"]), row["id"], escape(slot_line(row)), CHEV))
+    if not slot_bits:
+        slot_bits.append('<p class="t3 sm" style="padding:12px 16px">No days yet.</p>')
     coach_bits = []
     for person in coaches:
         name = ("%s %s" % (person["preferred_first"] or person["first"], person["last"] or "")).strip()
@@ -790,6 +930,7 @@ def program_detail_html(d, program, csrf):
 <input type=hidden name=action value=save>
 <h2>Overview</h2>
 <p class="t3 sm">%s</p>
+%s
 <label class=checkline><input type=checkbox name=active value=1%s> Program is on</label>
 <p class="t3 sm">While this is off, its requirements are not applied and it stays out of registration, Schedule filters, Lineup filters, and the widget.</p>
 <label>Governing body<select name=governing_body>
@@ -806,25 +947,25 @@ def program_detail_html(d, program, csrf):
 <h2>Regular schedule</h2>
 <p class="t3 sm">This is the usual pattern. Saving it does not add sessions. Real sessions stay on Schedule.</p>
 <label>Description<input name=description value="%s"></label>
-<p>Weekdays</p>%s
-<div class=row><label>Start<input type=time name=start value="%s"></label><label>End<input type=time name=end value="%s"></label></div>
-<label>Schedule venue<input name=schedule_venue value="%s"></label>
 <label>Schedule notes<textarea class=planfield name=schedule_notes rows=2>%s</textarea></label>
+<div class=mlist>%s</div>
+<p style="margin-top:16px"><a class="btn btn-secondary full" href="/manage/club/programs/%s/schedule/new">Add day</a></p>
 <h2>Coaches</h2>
 %s
 <button class="btn btn-primary full" type=submit>Save</button>
 </form>
 %s""" % (
-        csrf, escape(program["family_name"]), " checked" if program["active"] else "",
+        csrf, escape(program["family_name"]),
+        ('<p class="t3 sm">%s</p>' % escape(phrase)) if phrase else "",
+        " checked" if program["active"] else "",
         " selected" if program["governing_body"] == "usawp" else "",
         " selected" if program["governing_body"] == "usms" else "",
         " selected" if program["governing_body"] == "none" else "",
         " checked" if "practice" in acts else "", " checked" if "scrimmage" in acts else "", " checked" if "game" in acts else "",
         escape(program["venue"] or ""), escape(program["notes"] or ""),
-        escape((sched or {}).get("description") or "" if False else (sched["description"] if sched else "")),
-        "".join(day_bits),
-        escape(sched["start"] if sched else ""), escape(sched["end"] if sched else ""),
-        escape(sched["venue"] if sched else ""), escape(sched["notes"] if sched else ""),
+        escape(sched["description"] if sched else ""),
+        escape(sched["notes"] if sched else ""),
+        "".join(slot_bits), escape(program["slug"]),
         "".join(coach_bits) or "<p class=t3>No coaches to assign yet.</p>",
         program_requirements_html(d, program) + divisions_html(d, program) + sport_leadership_html(d, program))
 
@@ -933,6 +1074,30 @@ def leadership_edit_html(d, role, csrf, program=None):
 %s
 <button class="btn btn-primary full" type=submit>Save</button>
 </form>""" % (csrf, escape(role["name"] if role else ""), options, escape(note), "".join(boxes) or "<p class=t3>No people yet.</p>")
+
+
+def schedule_day_edit_html(program, row, csrf, attempt=None):
+    chosen = ""
+    start = end = ""
+    if attempt is not None:
+        chosen = (attempt.get("weekday") or "").strip().lower()
+        start = attempt.get("start") or ""
+        end = attempt.get("end") or ""
+    elif row:
+        chosen = row["weekday"]
+        start, end = row["start"], row["end"]
+    options = []
+    for code, label in WEEKDAYS:
+        full = {"mon": "Monday", "tue": "Tuesday", "wed": "Wednesday", "thu": "Thursday", "fri": "Friday", "sat": "Saturday", "sun": "Sunday"}[code]
+        options.append('<option value="%s"%s>%s</option>' % (code, " selected" if code == chosen else "", full))
+    remove = ""
+    if row:
+        remove = """<form method=post style="margin-top:12px">%s<input type=hidden name=action value=remove><button class="btn btn-danger full" type=submit>Remove</button></form>""" % csrf
+    return """<form method=post class=clubform style="padding-bottom:48px">%s
+<label>Day<select name=weekday>%s</select></label>
+<div class=row><label>Start<input type=time name=start required value="%s"></label><label>End<input type=time name=end required value="%s"></label></div>
+<button class="btn btn-primary full" type=submit>Save</button>
+</form>%s""" % (csrf, "".join(options), escape(start), escape(end), remove)
 
 
 def division_edit_html(d, program, row, csrf):

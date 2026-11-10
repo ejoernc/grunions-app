@@ -5122,6 +5122,48 @@ def _leadership_form(role_id, slug):
     title = role["name"] if role else "Add role"
     return page(ui.ADMIN_NAV + "{{ admin_page(title, 'A role is a title plus a permission. It does not change an RSVP.') }}{{ club_body|safe }}",
         tab="admin", admin_back=back, title=title, club_body=clubadmin.leadership_edit_html(d, role, csrf_field(), program))
+@app.route("/manage/club/programs/<slug>/schedule/new", methods=["GET", "POST"])
+@admin_required
+def sport_schedule_day_new(slug):
+    return _schedule_day_form(slug, None)
+@app.route("/manage/club/programs/<slug>/schedule/<int:day_id>", methods=["GET", "POST"])
+@admin_required
+def sport_schedule_day_edit(slug, day_id):
+    return _schedule_day_form(slug, day_id)
+def _schedule_day_form(slug, day_id):
+    import clubadmin
+    d = db()
+    clubadmin.ensure(d)
+    program = clubadmin.program_by_slug(d, slug)
+    if not program:
+        abort(404)
+    row = None
+    if day_id:
+        row = d.execute("SELECT * FROM program_schedule_days WHERE id=? AND program_id=?", (day_id, program["id"])).fetchone()
+        if not row:
+            abort(404)
+    back = "/manage/club/programs/" + program["slug"]
+    attempt = None
+    if request.method == "POST":
+        action = request.form.get("action") or "save"
+        try:
+            before = d.execute("SELECT COUNT(*) FROM practices").fetchone()[0]
+            rsvps = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+            if action == "remove" and row:
+                clubadmin.remove_schedule_day(d, program, row["id"])
+            else:
+                clubadmin.save_schedule_day(d, program, row["id"] if row else None, request.form)
+            d.commit()
+            if d.execute("SELECT COUNT(*) FROM practices").fetchone()[0] != before or d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != rsvps:
+                raise RuntimeError("a schedule day must not change sessions or RSVPs")
+            flash("Saved", "toast")
+            return redirect(back)
+        except ValueError as exc:
+            flash(str(exc))
+            attempt = request.form
+    title = "Edit day" if row else "Add day"
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'One weekday and its times. Saving does not add a session.') }}{{ club_body|safe }}",
+        tab="admin", admin_back=back, title=title, club_body=clubadmin.schedule_day_edit_html(program, row, csrf_field(), attempt))
 @app.route("/manage/club/programs/<slug>/divisions/new", methods=["GET", "POST"])
 @admin_required
 def sport_division_new(slug):
