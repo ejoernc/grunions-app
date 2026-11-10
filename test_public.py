@@ -186,10 +186,10 @@ def test_widget_is_off_until_an_admin_publishes_it():
     frame = member.get("/widget").get_data(as_text=True)
     assert "All" in frame and "Schedule" in frame and "Competitions" in frame and "Camps" in frame and "Trips" in frame and "Community" in frame
     assert "Space Grotesk" in frame and "datetile" in frame and "class=callout" in frame and "id=theme" not in frame and "prefers-color-scheme" in frame
-    assert frame.count("Try Water Polo Free for 2 Weeks") == 1 and "Get 2 Free Practices" not in frame
+    assert frame.count("<h2>Try Water Polo Free for 2 Weeks</h2>") == 1 and "Get 2 Free Practices" not in frame
     assert "A valid USA Water Polo trial membership is required" in frame
     assert "https://usawp.sport80.com/public/widget/1" in frame
-    assert 'href="/register?event=p-' in frame and "Harbor Cup" in frame and frame.count('target=_top>Sign up</a>') == 1
+    assert '"/register?event=p-' in frame and "Harbor Cup" in frame and 'id=sheetSignup' in frame and "Sign up" in frame
     assert "Loading the schedule" in frame and "Nothing coming up" in frame and "Couldn't load the schedule" in frame
     assert "Drop-in $15" in frame and "grid-template-columns:repeat(auto-fill,minmax(320px,1fr))" in frame
     assert "Mia" not in frame and "secret drill" not in frame
@@ -208,7 +208,9 @@ def test_widget_is_off_until_an_admin_publishes_it():
         assert A.db().execute("SELECT COUNT(*) FROM practices").fetchone()[0] == before + 1
     admin_page = admin.get("/manage/widget").get_data(as_text=True)
     assert "Events in preview" in admin_page and "live widget shows every upcoming event" in admin_page
-    assert "scrolling=no" in admin_page and "pointer-events:none" in admin_page and "https://grunions.regulars.team/widget" in admin_page
+    assert "scrolling=no" in admin_page and "id=prevMobile" not in admin_page and "id=prevDesk" not in admin_page
+    assert "embedrow" in admin_page and "https://grunions.regulars.team/widget" in admin_page
+    assert "height:1px" in admin_page and "width:100%" in admin_page
     with A.app.app_context():
         d = A.db()
         for offset, place in enumerate(("Pool A", "Pool B", "Pool C", "Pool D"), start=7):
@@ -228,7 +230,21 @@ def test_widget_is_off_until_an_admin_publishes_it():
     public_feed = member.get("/api/public/feed").get_json()
     assert public_frame.count("<article") > 4 and public_frame.count("<article") == len(public_feed["events"])
     assert "Extra session" in public_frame and preview_frame.count("Extra session") == 0
-    assert preview_frame.count("<article") == 2 and "html.preview" in preview_frame and 'class="preview"' in preview_frame
+    assert preview_frame.count("<article") == 2 and "id=sheet" in preview_frame and "Back" in preview_frame
+    assert public_frame.count("<h2>Try Water Polo Free for 2 Weeks</h2>") == preview_frame.count("<h2>Try Water Polo Free for 2 Weeks</h2>") == 1
+    assert "Fridays" in public_frame and "Fridays" in preview_frame
+    admin.post("/manage/widget", data={
+        "csrf": csrf(admin, "/manage/widget"),
+        "widget_on": "1",
+        "chip_all": "1", "chip_schedule": "1", "chip_competitions": "1",
+        "default_chip": "all", "include_schedule": "1", "show_pricing": "1",
+        "hide_past": "1", "limit": "2",
+    })
+    quiet_public = member.get("/widget").get_data(as_text=True)
+    quiet_preview = admin.get("/widget?preview=1").get_data(as_text=True)
+    assert "class=callout" not in quiet_public and "class=callout" not in quiet_preview
+    assert "Fridays" in quiet_public and "Fridays" in quiet_preview
+    assert quiet_preview.count("<article") == 2 and quiet_public.count("<article") > 2
 
 
 def test_registration_checks_eligibility_and_does_not_charge_or_email():

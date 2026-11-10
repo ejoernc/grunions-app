@@ -719,7 +719,7 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
     offer = public_view(data)
     hide_past = widget.get("hide_past", True)
     show_price = bool(widget.get("show_pricing"))
-    show_trial = bool(widget.get("show_trial")) and offer.get("trial")
+    show_trial = bool(widget.get("show_trial")) and bool((offer.get("trial") or {}).get("banner"))
     show_counts = bool(widget.get("show_counts"))
     drop_in = ""
     if show_price:
@@ -742,10 +742,15 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
         for row in rows:
             if hide_past and _ended(row["date"], row["end"] or row["start"], now):
                 continue
+            kind = (row["activity_type"] or "practice").strip().lower()
+            covered = (not row["cancelled"]) and activity_ok(data.get("trial") or {}, kind) and bool((data.get("trial") or {}).get("enabled"))
             item = {
                 "id": "p-%d" % row["id"],
                 "chip": "schedule",
                 "category": "Schedule",
+                "sport": row["sport"] or "Water Polo",
+                "activity": {"practice": "Practice", "scrimmage": "Scrimmage", "game": "Game", "hybrid": "Hybrid"}.get(kind, "Practice"),
+                "date": _short_day(row["date"]),
                 "title": practice_title(row),
                 "tile": _tile(row["date"]),
                 "time": _span({"start": row["start"], "end": row["end"]}),
@@ -755,7 +760,8 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
                 "cancelled": bool(row["cancelled"]),
                 "reason": _words(row["cancel_reason"], 180) if row["cancelled"] else "",
                 "price": price_line("Drop-in", drop_in) if drop_in else "",
-                "signup": (not row["cancelled"]) and activity_ok(data.get("trial") or {}, row["activity_type"] or "practice") and bool((data.get("trial") or {}).get("enabled")),
+                "signup": covered,
+                "trial_line": ((offer.get("trial") or {}).get("banner") or {}).get("title") or "" if covered and show_trial else "",
                 "count": counts.get(row["id"]) if show_counts else None,
                 "sort": _stamp(row["date"], row["start"]),
             }
@@ -774,7 +780,11 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
                 "id": "e-%d" % row["id"],
                 "chip": chip,
                 "category": _CHIP_LABEL.get(chip, "Community"),
+                "sport": "",
+                "activity": row["event_type"] or _CHIP_LABEL.get(chip, "Event"),
+                "date": _short_day(row["date"]),
                 "title": _words(row["title"], 120),
+                "trial_line": "",
                 "tile": _tile(row["date"]),
                 "time": _span({"start": row["start_time"], "end": row["end_time"]}),
                 "when": "%s · %s" % (_short_day(row["date"]), _span({"start": row["start_time"], "end": row["end_time"]})),
@@ -1010,6 +1020,27 @@ def widget_document(payload, theme=None, preview=False):
             parts.append('<button type=button class="chip%s" role=tab aria-pressed="%s" data-chip="%s">%s</button>' % (on, pressed, e(slug), e(label)))
         return "".join(parts)
 
+    def public_event(item):
+        href = "/register?event=%s" % item["id"] if item.get("signup") else ""
+        return {
+            "id": item.get("id") or "",
+            "title": item.get("title") or "Event",
+            "category": item.get("category") or "Event",
+            "sport": item.get("sport") or "",
+            "activity": item.get("activity") or "",
+            "date": item.get("date") or "",
+            "time": item.get("time") or "",
+            "place": item.get("place") or "",
+            "detail": item.get("detail") or "",
+            "price": item.get("price") or "",
+            "count": item.get("count"),
+            "capacity": item.get("capacity"),
+            "cancelled": bool(item.get("cancelled")),
+            "reason": item.get("reason") or "",
+            "signup": href,
+            "trial": item.get("trial_line") or "",
+        }
+
     def cards():
         rows = []
         for item in payload.get("events") or []:
@@ -1018,7 +1049,9 @@ def widget_document(payload, theme=None, preview=False):
             title = e(item.get("title") or "Event")
             if item.get("cancelled"):
                 title = "<s>%s</s>" % title
-            bits = ['<article class="card tripcard" data-chip="%s"%s>' % (e(item.get("chip") or "community"), hidden)]
+            signup = "/register?event=%s" % e(item["id"]) if item.get("signup") else ""
+            bits = ['<article class="card tripcard" role=button tabindex=0 data-id="%s" data-chip="%s" data-signup="%s"%s>' % (
+                e(item.get("id") or ""), e(item.get("chip") or "community"), signup, hidden)]
             bits.append('<div class=nxmain><div class=datetile><span class=wd>%s</span><span class=dn>%s</span><span class=mo>%s</span></div>' % (e(tile.get("wd") or ""), e(tile.get("dn") or ""), e(tile.get("mo") or "")))
             bits.append('<div class="grow schedrows"><h2 class=nxtitle>%s</h2>' % title)
             if item.get("time"):
@@ -1026,6 +1059,8 @@ def widget_document(payload, theme=None, preview=False):
             if item.get("place"):
                 bits.append('<div class=nxrow>%s<span>%s</span></div>' % (_PIN, e(item["place"])))
             bits.append('<div class=tags><span class=chip-info>%s</span>' % e(item.get("category") or "Event"))
+            if item.get("sport"):
+                bits.append('<span class=chip-info>%s</span>' % e(item["sport"]))
             if item.get("price"):
                 bits.append('<span class="chip-info cost">%s</span>' % e(item["price"]))
             if item.get("count") is not None:
@@ -1037,11 +1072,11 @@ def widget_document(payload, theme=None, preview=False):
                 bits.append('<p class=reason>Cancelled%s</p>' % ((" · " + e(item["reason"])) if item.get("reason") else ""))
             if item.get("detail"):
                 bits.append('<p class=detail>%s</p>' % e(item["detail"]))
-            if item.get("signup"):
-                bits.append('<a class=signup href="/register?event=%s" target=_top>Sign up</a>' % e(item["id"]))
             bits.append("</article>")
             rows.append("".join(bits))
         return "".join(rows)
+
+    event_blob = json.dumps([public_event(item) for item in (payload.get("events") or [])], ensure_ascii=True).replace("<", "\\u003c")
 
     banner_info = ((payload.get("trial") or {}).get("banner")) or {}
     offer_bits = []
@@ -1077,7 +1112,7 @@ def widget_document(payload, theme=None, preview=False):
 @media (prefers-color-scheme: light){:root{color-scheme:light;--color-bg:#F2F6F1;--color-surface:#FFFFFF;--color-surface-2:#E8EEE9;--color-border:#D9E0DB;--color-control:#5C665F;--color-text:#090D0B;--color-text-secondary:#3A4A40;--color-on-selected:#090D0B;--color-chip:#E8EEE9}}
 *{box-sizing:border-box}html,body{margin:0;background:var(--color-bg);color:var(--color-text)}
 html.preview,html.preview body{overflow:hidden}
-body{font:400 16px/1.5 var(--font-sans);padding:0 0 28px}
+body{font:400 16px/1.5 var(--font-sans);padding:0 0 16px}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 20px 4px}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
 .brand img{width:36px;height:36px;border-radius:10px;flex:none}
@@ -1097,24 +1132,30 @@ button{font:inherit;color:inherit}
 main{padding:4px 20px 0;width:100%%}
 #cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;width:100%%}
 #cards .card{margin:0}
-.signup{display:inline-flex;align-items:center;height:36px;margin-top:12px;padding:0 14px;border-radius:999px;background:var(--color-lime);color:#090D0B;font-weight:600;text-decoration:none}
-.card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-card);padding:18px;margin:0 0 12px}
+.signup{display:inline-flex;align-items:center;height:36px;margin-top:16px;padding:0 14px;border-radius:999px;background:var(--color-lime);color:#090D0B;font-weight:600;text-decoration:none}
+.card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-card);padding:16px;margin:0 0 12px;text-align:left;font:inherit;color:inherit}
+article.card{cursor:pointer;display:block;width:100%%}
 .offer .usual{margin:0 0 8px;color:var(--color-text-secondary)}
-.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .chip-info{display:inline-flex;align-items:center;height:28px;padding:0 8px;border-radius:var(--radius-chip);border:1px solid var(--color-border);background:var(--color-chip);color:var(--color-text);font-size:12px;font-weight:500;line-height:1}
 .chip-info.cost{background:color-mix(in srgb,var(--color-lime) 22%%,var(--color-surface));border-color:color-mix(in srgb,var(--color-lime) 55%%,var(--color-border))}
 .callout{margin:12px 0 0;padding:12px 14px;border-radius:16px;background:color-mix(in srgb,var(--color-lime) 18%%,transparent);border:1px solid color-mix(in srgb,var(--color-lime) 50%%,transparent);font-weight:500}
 .nxmain{display:flex;align-items:center;gap:12px}
-.datetile{width:64px;height:64px;border-radius:var(--radius-control);background:var(--color-surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
-.datetile .wd,.datetile .mo{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--color-text-secondary);line-height:1}
-.datetile .dn{font-size:24px;font-weight:600;line-height:1.1;margin-top:2px}
+.datetile{width:56px;height:56px;border-radius:var(--radius-control);background:var(--color-surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
+.datetile .wd,.datetile .mo{font-size:10px;font-weight:700;letter-spacing:.6px;color:var(--color-text-secondary);line-height:1}
+.datetile .dn{font-size:18px;font-weight:600;line-height:1.1;margin-top:2px}
 .grow{min-width:0;flex:1}
-.nxtitle{margin:0 0 4px;font-size:20px;line-height:28px;font-weight:600}
-.nxrow{display:flex;align-items:flex-start;gap:8px;color:var(--color-text-secondary);font-size:15px;line-height:1.35}
+.nxtitle{margin:0 0 2px;font-size:16px;line-height:24px;font-weight:600}
+.nxrow{display:flex;align-items:flex-start;gap:8px;margin-top:2px;color:var(--color-text-secondary);font-size:14px;line-height:1.35}
 .nxglyph{flex:none;margin-top:2px}
 .detail,.reason{margin:12px 0 0;color:var(--color-text-secondary)}
 .state{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:8px 4px 20px;color:var(--color-text-secondary)}
-.state[hidden],article[hidden]{display:none}
+.state[hidden],article[hidden],#browse[hidden],#sheet[hidden]{display:none}
+#sheet{padding:8px 20px 20px}
+#sheetBack{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--color-control);background:var(--color-surface-2);color:inherit;cursor:pointer}
+#sheet h2{margin:16px 0 8px;font-size:22px;line-height:28px}
+#sheet p{margin:8px 0}
+#sheet a.place{color:inherit}
 .state h2{margin:0;font-family:var(--font-display);font-size:20px;color:var(--color-text)}
 .state p{margin:0}
 .spin{width:22px;height:22px;border:2px solid var(--color-border);border-top-color:var(--color-lime);border-radius:50%%;animation:spin .7s linear infinite}
@@ -1122,6 +1163,7 @@ main{padding:4px 20px 0;width:100%%}
 #retry{height:40px;padding:0 14px;border-radius:12px;border:1px solid var(--color-control);background:var(--color-surface-2);cursor:pointer}
 :focus-visible{outline:2px solid var(--color-lime);outline-offset:2px}
 </style></head><body>
+<div id=browse>
 <header><div class=brand><img src="/static/icons/icon-192.png?v=119" alt="" width="36" height="36"><div><p>Regulars</p><h1>%s</h1></div></div></header>
 <div class=chipbar><div class=chips role=tablist aria-label="Categories">%s</div></div>
 <main>%s
@@ -1130,17 +1172,64 @@ main{padding:4px 20px 0;width:100%%}
 <div id=error class=state hidden><h2>Couldn't load the schedule</h2><p>Check the connection and try again.</p><button type=button id=retry>Try again</button></div>
 <div id=cards>%s</div>
 </main>
+</div>
+<div id=sheet hidden>
+<button type=button id=sheetBack>Back</button>
+<h2 id=sheetTitle></h2>
+<div class=tags id=sheetChips></div>
+<p id=sheetDate></p>
+<p id=sheetTime></p>
+<p id=sheetPlace></p>
+<p id=sheetDetail></p>
+<p id=sheetCount></p>
+<p id=sheetPrice></p>
+<p id=sheetTrial></p>
+<p id=sheetReason></p>
+<a id=sheetSignup class=signup target=_top>Sign up</a>
+</div>
+<script type="application/json" id=eventData>%s</script>
 <script>
 (function(){
   var root=document.documentElement, cards=document.getElementById("cards"), chips=[].slice.call(document.querySelectorAll(".chips button"));
   var loading=document.getElementById("loading"), empty=document.getElementById("empty"), error=document.getElementById("error");
+  var browse=document.getElementById("browse"), sheet=document.getElementById("sheet"), back=document.getElementById("sheetBack");
+  var events={}; try{ JSON.parse(document.getElementById("eventData").textContent).forEach(function(ev){ events[ev.id]=ev; }); }catch(err){}
+  var opener=null;
   function report(){var h=Math.ceil(document.documentElement.scrollHeight);try{parent.postMessage({type:"regulars-widget",height:h},"*");}catch(e){}}
+  function text(id, value){ var el=document.getElementById(id); el.hidden=!value; el.textContent=value||""; }
+  function chip(label){ var s=document.createElement("span"); s.className="chip-info"; s.textContent=label; return s; }
+  function openDetail(id, from){
+    var ev=events[id]; if(!ev) return;
+    opener=from||null;
+    document.getElementById("sheetTitle").textContent=ev.title||"Event";
+    var box=document.getElementById("sheetChips"); box.textContent="";
+    if(ev.sport) box.appendChild(chip(ev.sport));
+    if(ev.activity) box.appendChild(chip(ev.activity));
+    if(ev.category) box.appendChild(chip(ev.category));
+    text("sheetDate", ev.date);
+    text("sheetTime", ev.time);
+    var place=document.getElementById("sheetPlace"); place.textContent="";
+    if(ev.place){
+      var link=document.createElement("a"); link.className="place"; link.target="_blank"; link.rel="noopener";
+      link.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(ev.place);
+      link.textContent=ev.place; place.appendChild(link); place.hidden=false;
+    } else place.hidden=true;
+    text("sheetDetail", ev.detail);
+    text("sheetCount", ev.count==null?"":(ev.count+" going"));
+    text("sheetPrice", ev.price||"");
+    text("sheetTrial", ev.trial||"");
+    text("sheetReason", ev.cancelled?(ev.reason?("Cancelled · "+ev.reason):"Cancelled"):"");
+    var go=document.getElementById("sheetSignup");
+    if(ev.signup){ go.href=ev.signup; go.hidden=false; } else { go.hidden=true; go.removeAttribute("href"); }
+    browse.hidden=true; sheet.hidden=false; back.focus(); report();
+  }
+  function closeDetail(){ sheet.hidden=true; browse.hidden=false; if(opener) opener.focus(); report(); }
   function show(name){
     var n=0;
     chips.forEach(function(btn){var on=btn.getAttribute("data-chip")===name;btn.setAttribute("aria-pressed",on?"true":"false");btn.classList.toggle("on",on);});
     [].slice.call(cards.children).forEach(function(card){
-      var chip=card.getAttribute("data-chip");
-      var hide=name!=="all"&&chip!==name;
+      var chipName=card.getAttribute("data-chip");
+      var hide=name!=="all"&&chipName!==name;
       card.hidden=hide; if(!hide) n++;
     });
     empty.hidden=n>0;
@@ -1148,6 +1237,14 @@ main{padding:4px 20px 0;width:100%%}
   }
   function ready(){loading.hidden=true; error.hidden=true; root.setAttribute("data-ready","1"); show(document.querySelector(".chips button.on") ? document.querySelector(".chips button.on").getAttribute("data-chip") : "all");}
   chips.forEach(function(btn){btn.addEventListener("click",function(){show(btn.getAttribute("data-chip"));});});
+  cards.addEventListener("click", function(ev){ var card=ev.target.closest("article.card"); if(card) openDetail(card.getAttribute("data-id"), card); });
+  cards.addEventListener("keydown", function(ev){
+    if(ev.key!=="Enter" && ev.key!==" ") return;
+    var card=ev.target.closest("article.card"); if(!card) return;
+    ev.preventDefault(); openDetail(card.getAttribute("data-id"), card);
+  });
+  back.addEventListener("click", closeDetail);
+  document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !sheet.hidden) closeDetail(); });
   document.getElementById("retry").addEventListener("click", function(){
     loading.hidden=false; error.hidden=true; empty.hidden=true;
     fetch("/api/public/feed",{credentials:"same-origin"}).then(function(r){if(!r.ok) throw new Error("bad"); return r.json();}).then(function(){ready();}).catch(function(){loading.hidden=true; error.hidden=false; report();});
@@ -1161,7 +1258,7 @@ main{padding:4px 20px 0;width:100%%}
   window.addEventListener("resize", report);
 })();
 </script></body></html>""" % (
-        "preview" if preview else "", e(org), e(org), chip_buttons(), "".join(offer_bits), cards(),
+        "preview" if preview else "", e(org), e(org), chip_buttons(), "".join(offer_bits), cards(), event_blob,
     )
 
 
@@ -1169,8 +1266,11 @@ WIDGET_ADMIN = """<style>
 .daypick{display:flex;flex-wrap:wrap;gap:8px 12px;margin:0 0 12px}
 .pill{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--color-control);background:transparent;color:var(--t1);font:500 14px/1 var(--font-sans);cursor:pointer}
 .pill.on{background:var(--color-lime);border-color:var(--color-lime);color:#090D0B}
-#widgetPreview.desk{width:1280px;max-width:none;position:relative;left:50%;transform:translateX(-50%)}
-#prevMobile.on,#prevDesk.on{background:var(--color-lime);color:#090D0B;border-color:var(--color-lime)}
+#widgetPreview{width:100%;max-width:100%;height:1px;margin-top:12px;border:1px solid var(--line);border-radius:16px;overflow:hidden;display:block;background:#0A0D0A}
+#embedCode{display:block;width:100%;box-sizing:border-box;margin:12px 0 0;padding:16px;line-height:1.5}
+.embedrow{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:16px}
+.embedrow .btn{margin:0}
+#copied{margin:12px 0 0}
 </style>
 {{ admin_page('Website widget', 'Visitors see this only after you publish it. The embed keeps working when you change these settings.') }}
 <form method=post>
@@ -1193,18 +1293,16 @@ WIDGET_ADMIN = """<style>
 <button class="btn btn-primary full" type=submit>Save</button>
 </form>
 <h2>Preview</h2>
-<p class="t3 sm">This preview uses your admin login and draws only the events in preview. It does not scroll. The live widget shows every upcoming event, and the public embed stays empty until you publish.</p>
-<div class=daypick>
-<button type=button class="btn btn-secondary" id=prevMobile>390</button>
-<button type=button class="btn btn-secondary" id=prevDesk>1280</button>
-</div>
-<iframe id=widgetPreview title="Widget preview" src="/widget?preview=1" scrolling=no style="width:390px;max-width:100%;height:320px;border:1px solid var(--line);border-radius:16px;background:#0A0D0A;overflow:hidden;pointer-events:none;display:block"></iframe>
+<p class="t3 sm">Same schedule as the live widget, limited to the event count above. It is the full width of this page and does not scroll inside the frame. The public embed stays empty until you publish.</p>
+<iframe id=widgetPreview title="Widget preview" src="/widget?preview=1" scrolling=no></iframe>
 <h2>Embed code</h2>
 <p class="t3 sm">Paste this once. Later changes show up without a new snippet.</p>
 <textarea id=embedCode class=planfield rows=8 readonly>{{ embed }}</textarea>
+<div class=embedrow>
 <button type=button class="btn btn-secondary" id=copyEmbed>Copy embed code</button>
+<a class="btn btn-secondary" href="/widget?preview=1">Open the preview</a>
+</div>
 <p class="t3 sm" id=copied hidden>Copied.</p>
-<p><a href="/widget?preview=1">Open the preview</a></p>
 <script>
 (function(){
   document.querySelectorAll(".pillset .pill").forEach(function(btn){
@@ -1215,17 +1313,6 @@ WIDGET_ADMIN = """<style>
     });
   });
   var frame=document.getElementById("widgetPreview");
-  var mobile=document.getElementById("prevMobile"), desk=document.getElementById("prevDesk");
-  function previewWidth(px){
-    frame.style.width=px+"px";
-    frame.style.maxWidth=px===390?"100%":"none";
-    frame.classList.toggle("desk", px===1280);
-    mobile.classList.toggle("on", px===390);
-    desk.classList.toggle("on", px===1280);
-  }
-  mobile.onclick=function(){previewWidth(390);};
-  desk.onclick=function(){previewWidth(1280);};
-  previewWidth(390);
   document.getElementById("copyEmbed").onclick=function(){
     var text=document.getElementById("embedCode").value;
     if(navigator.clipboard) navigator.clipboard.writeText(text);
@@ -1233,7 +1320,7 @@ WIDGET_ADMIN = """<style>
   };
   window.addEventListener("message", function(e){
     if(!frame||e.source!==frame.contentWindow||!e.data||e.data.type!=="regulars-widget") return;
-    if(e.data.height) frame.style.height=Math.max(320, e.data.height)+"px";
+    if(e.data.height) frame.style.height=e.data.height+"px";
   });
 })();
 </script>
