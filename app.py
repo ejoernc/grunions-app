@@ -4849,19 +4849,19 @@ def _manage_catalog(d):
         rows.append({"area": area, "title": title, "desc": desc, "href": href, "icon": icon,
                      "keywords": keywords, "count": count or 0, "tone": tone})
     if staff or admin:
-        add("activities", "Schedule", "Practices, scrimmages, and games", "/admin" if staff else "/manage/schedule", "cal", "practice scrimmage game")
+        add("activities", "Schedule", "Practices, scrimmages, and games", "/admin" if staff else "/manage/schedule", "cal", "practice scrimmage game schedule")
     if host:
-        add("activities", "Lineup", "Events, tournaments, camps, and socials", "/manage/lineup", "people", "event tournament camp trip")
-        add("activities", "Bulletin", "Team announcements in chat", "/chat", "tray", "announcement message bulletin")
-        add("activities", "Requests", "Member-submitted events", "/manage/requests", "tray", "approval pending", approval_count(), "info")
+        add("activities", "Lineup", "Events, tournaments, camps, and socials", "/manage/lineup", "people", "event tournament camp trip lineup")
+        add("activities", "Bulletin", "Team announcements in chat", "/chat", "tray", "announcement message bulletin chat")
+        add("activities", "Requests", "Member-submitted events", "/manage/requests", "tray", "approval pending request")
     if admin:
-        add("people", "Members and roles", "Roster, coaches, admins, and referees", "/members", "people", "member coach admin referee athlete")
-        add("people", "Compliance", "Memberships and certifications", "/expiring", "shield", "usawp safesport expiring clearance", expiring_people_count(d), "warn")
-        add("club", "Sports & pricing", "Sports, prices, and a free trial", "/manage/pricing", "cal", "pricing payment trial schedule")
-        add("club", "Website widget", "Embed the public schedule", "/manage/widget", "widget", "embed website")
-        add("club", "Rules", "Policies and requirements", "/requirements", "rules", "policy requirement")
-        add("tools", "QR codes", "Check-in and sharing", "/qr", "qr", "qr code join")
-        add("tools", "Data transfer", "Import and export", "/transfer", "swap", "csv import export")
+        add("people", "Members and roles", "Roster, coaches, admins, and referees", "/members", "people", "member coach admin referee athlete roster roles export csv")
+        add("people", "Compliance", "Memberships and certifications", "/expiring", "shield", "usawp safesport expiring clearance membership certification background", expiring_people_count(d), "warn")
+        add("club", "Sports & pricing", "Sports, prices, and a free trial", "/manage/pricing", "cal", "pricing payment trial schedule free trial drop-in drop in price membership")
+        add("club", "Website widget", "Embed the public schedule", "/manage/widget", "widget", "embed website widget snippet preview")
+        add("club", "Rules", "Policies and requirements", "/requirements", "rules", "policy requirement rule")
+        add("tools", "QR codes", "Check-in and sharing", "/qr", "qr", "qr code join check-in")
+        add("tools", "Data transfer", "Import and export", "/transfer", "swap", "csv import export export csv")
         add("tools", "Usage", "Mapbox calls today", "/manage/usage", "rules", "mapbox usage")
     return rows
 _AREA_COPY = {
@@ -4886,11 +4886,6 @@ def manage_home():
         icon = kids[0]["icon"]
         areas.append({"key": key, "title": title, "desc": desc, "href": "/manage/area/%s" % key, "icon": _micon(_MANAGE_ICONS[icon]),
                       "count": count, "tone": tone})
-    index = [{"t": row["title"], "d": row["desc"], "h": row["href"], "k": row["keywords"]} for row in catalog]
-    if me()["is_admin"]:
-        for person in d.execute("SELECT first, preferred_first, last FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first"):
-            name = ("%s %s" % (display_first(person), person["last"] or "")).strip()
-            index.append({"t": name, "d": "People", "h": "/members?q=" + urllib.parse.quote(name), "k": "person member"})
     quick = []
     if SHOW_MANAGE_QUICK and can_host_practice():
         quick = [
@@ -4902,7 +4897,53 @@ def manage_home():
     if me()["is_admin"]:
         growth = chart_card(growth_chart(*signup_days(d)), attendance_chart(recent_checkins(d)))
     chev = Markup('<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>')
-    return page(T["manage"], tab="manage", areas=areas, quick=quick, index=index, growth=growth, chev=chev)
+    return page(T["manage"], tab="manage", areas=areas, quick=quick, growth=growth, chev=chev)
+def _search_words(q):
+    needle = " ".join((q or "").split()).casefold()
+    return needle, needle.split()
+def _search_hit(hay, needle, words):
+    hay = (hay or "").casefold()
+    return bool(needle) and (needle in hay or all(word in hay for word in words))
+def _manage_search(d, q, admin):
+    """Settings for anyone who can open Manage. People only for an admin, from this org's roster."""
+    needle, words = _search_words(q)
+    settings = []
+    if needle:
+        for row in _manage_catalog(d):
+            hay = " ".join([row["title"], row["desc"], row["keywords"]])
+            if _search_hit(hay, needle, words):
+                settings.append({"title": row["title"], "desc": row["desc"], "href": row["href"]})
+    people = []
+    if needle and admin:
+        refs = {row[0] for row in d.execute("SELECT member_id FROM referee_list")}
+        for person in d.execute("""SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first, id"""):
+            name = ("%s %s" % (display_first(person), person["last"] or "")).strip()
+            hay = " ".join(part for part in (person["first"], person["preferred_first"], person["last"], person["email"], name) if part)
+            if not _search_hit(hay, needle, words): continue
+            roles = []
+            if person["is_admin"]: roles.append("Admin")
+            if (person["role"] or "") == "coach": roles.append("Coach")
+            if person["id"] in refs: roles.append("Referee")
+            try:
+                status = list_status(d, person, "members")["word"]
+            except Exception:
+                status = ""
+            people.append({
+                "name": name, "role": " · ".join(roles) or "Member", "status": status,
+                "initials": initials(person),
+                "photo": ("/avatar/%d?v=%s" % (person["id"], person["photo"])) if person["photo"] else "",
+                "href": "/admin/member/%d" % person["id"],
+            })
+            if len(people) >= 24: break
+    return {"people": people, "settings": settings}
+@app.route("/manage/search")
+@login_required
+def manage_search():
+    if not can_host_practice(): abort(403)
+    q = " ".join((request.args.get("q") or "").split())
+    if not q or len(q) > 80:
+        return jsonify(people=[], settings=[])
+    return jsonify(**_manage_search(db(), q, bool(me()["is_admin"])))
 @app.route("/manage/area/<area>")
 @login_required
 def manage_area(area):

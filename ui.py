@@ -291,7 +291,10 @@ button.dropempty{position:absolute;inset:0;width:100%;height:100%;min-height:0;p
 .pagehead{display:flex;flex-direction:column;align-items:stretch;gap:var(--space-2);margin:0 0 var(--space-4)}
 .managehome{display:flex;flex-direction:column;gap:12px;padding-bottom:24px}
 .mq{margin:0}
-.mq input{margin-top:8px}
+.mqfield{position:relative;display:block;margin-top:8px}
+.mqfield input{width:100%;margin:0;padding-right:44px}
+.mqfield input[type=search]::-webkit-search-decoration,.mqfield input[type=search]::-webkit-search-cancel-button,.mqfield input[type=search]::-webkit-search-results-button{display:none}
+button.mqclear{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;min-height:36px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--t2);font-size:22px;font-weight:400;line-height:1}
 .qactions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .qact{display:flex;flex-direction:column;justify-content:flex-end;min-height:72px;padding:12px;border-radius:16px;background:var(--color-raised);color:inherit;text-decoration:none;font-size:13px;font-weight:650}
 .mseclabel{margin:4px 0 0;font-size:13px;font-weight:650;color:var(--t3)}
@@ -1636,8 +1639,8 @@ function grunionsCaptureArea(){
 }
 function grunionsLeave(fallback){
  var dest='';
- try{ dest=sessionStorage.getItem('grunionsAreaFrom')||''; }catch(e){}
- var path=dest.split('?')[0];
+ try{ dest=sessionStorage.getItem('grunionsOpenedFrom')||sessionStorage.getItem('grunionsAreaFrom')||''; }catch(e){}
+ var path=dest.split('?')[0].split('#')[0];
  if(path && path!==location.pathname){ location.href=dest; return; }
  location.href=fallback||'/home';
 }
@@ -4523,31 +4526,127 @@ T["usage"] = ADMIN_NAV + """{{ admin_page('Usage', 'Mapbox calls today for drivi
 <p class="t2 sm" style="margin:0">{{ calls }} of {{ cap }}</p></div>"""
 T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
 <div class=managehome id=manageHome>
-<label class=mq>Search<input id=manageSearch placeholder="Search settings, people, tools..." autocomplete=off></label>
+<label class=mq>Search<span class=mqfield><input id=manageSearch type=search enterkeyhint=search placeholder="Search settings, people, tools..." autocomplete=off autocapitalize=off><button type=button class=mqclear id=manageClear hidden aria-label="Clear search">×</button></span></label>
+<div id=manageHits class=mgroups hidden aria-live=polite></div>
 {% if quick %}<div class=qactions>{% for act in quick %}<a class=qact href="{{ act.href }}">{{ act.title }}</a>{% endfor %}</div>{% endif %}
 <h2 class=mseclabel>Manage your organization</h2>
 <div class=orggrid id=manageAreas>{% for area in areas %}<a class=orgcard href="{{ area.href }}"><span class=mico aria-hidden=true>{{ area.icon|safe }}</span><b>{{ area.title }}{% if area.count %} <span class="mbadge {{ area.tone }}">{{ area.count if area.count < 100 else '99+' }}</span>{% endif %}</b><span class=mdesc>{{ area.desc }}</span><span class=mchev aria-hidden=true>{{ chev|safe }}</span></a>{% endfor %}</div>
-<div id=manageHits class=mlist hidden></div>
 </div>
-<script type="application/json" id=manageIndex>{{ index|tojson }}</script>
 <script>
 (function(){
-  var input=document.getElementById("manageSearch"), hits=document.getElementById("manageHits"), home=document.getElementById("manageAreas");
-  var label=home&&home.previousElementSibling, actions=document.querySelector(".qactions");
-  var rows=[]; try{ rows=JSON.parse(document.getElementById("manageIndex").textContent)||[]; }catch(e){}
-  function draw(){
-    var q=(input.value||"").trim().toLowerCase();
-    var on=!!q;
+  var input=document.getElementById("manageSearch");
+  var hits=document.getElementById("manageHits");
+  var home=document.getElementById("manageAreas");
+  var clearBtn=document.getElementById("manageClear");
+  if(!input||!hits) return;
+  var label=home&&home.previousElementSibling;
+  var actions=document.querySelector(".qactions");
+  var seq=0, timer=0;
+  function show(on){
     if(home) home.hidden=on;
-    if(label) label.hidden=on;
+    if(label&&label!==hits) label.hidden=on;
     if(actions) actions.hidden=on;
     hits.hidden=!on;
-    if(!on){ hits.innerHTML=""; return; }
-    function esc(s){ return String(s||"").replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
-    var found=rows.filter(function(row){ return (row.t+" "+row.d+" "+(row.k||"")).toLowerCase().indexOf(q)>=0; }).slice(0,12);
-    hits.innerHTML=found.map(function(row){ return '<a class=mrow href="'+esc(row.h)+'"><span class=grow><span class=mtitle>'+esc(row.t)+'</span><span class=mdesc>'+esc(row.d)+'</span></span></a>'; }).join("") || '<p class=emptyfind>Nothing matches.</p>';
+    if(clearBtn) clearBtn.hidden=!on;
   }
-  input.addEventListener("input", draw);
+  function note(text){
+    hits.textContent="";
+    var p=document.createElement("p");
+    p.className="emptyfind";
+    p.textContent=text;
+    hits.appendChild(p);
+  }
+  function personRow(row){
+    var a=document.createElement("a");
+    a.className="mrow";
+    a.href=row.href;
+    var av=document.createElement("span");
+    av.className="avatar ciav";
+    if(row.photo){
+      var img=document.createElement("img");
+      img.src=row.photo; img.alt=""; img.width=40; img.height=40;
+      av.appendChild(img);
+    } else av.textContent=row.initials||"";
+    var grow=document.createElement("span");
+    grow.className="grow";
+    var title=document.createElement("span");
+    title.className="mtitle";
+    title.textContent=row.name||"";
+    var desc=document.createElement("span");
+    desc.className="mdesc";
+    desc.textContent=(row.role||"Member")+(row.status?" \\u00b7 "+row.status:"");
+    grow.appendChild(title); grow.appendChild(desc);
+    a.appendChild(av); a.appendChild(grow);
+    return a;
+  }
+  function settingRow(row){
+    var a=document.createElement("a");
+    a.className="mrow";
+    a.href=row.href;
+    var grow=document.createElement("span");
+    grow.className="grow";
+    var title=document.createElement("span");
+    title.className="mtitle";
+    title.textContent=row.title||"";
+    var desc=document.createElement("span");
+    desc.className="mdesc";
+    desc.textContent=row.desc||"";
+    grow.appendChild(title); grow.appendChild(desc);
+    a.appendChild(grow);
+    return a;
+  }
+  function group(title, rows, make){
+    if(!rows||!rows.length) return;
+    var sec=document.createElement("section");
+    sec.className="mgroup";
+    var h=document.createElement("h2");
+    h.textContent=title;
+    var list=document.createElement("div");
+    list.className="mlist";
+    rows.forEach(function(row){ list.appendChild(make(row)); });
+    sec.appendChild(h); sec.appendChild(list);
+    hits.appendChild(sec);
+  }
+  function paint(q, data){
+    hits.textContent="";
+    var people=(data&&data.people)||[];
+    var settings=(data&&data.settings)||[];
+    if(!people.length&&!settings.length){ note("No matches for \\u201c"+q+"\\u201d"); return; }
+    group("People", people, personRow);
+    group("Settings & tools", settings, settingRow);
+  }
+  function run(){
+    var q=(input.value||"").replace(/\\s+/g," ").trim();
+    show(!!q);
+    if(!q){ hits.textContent=""; return; }
+    var mine=++seq;
+    fetch("/manage/search?q="+encodeURIComponent(q),{credentials:"same-origin",headers:{Accept:"application/json"}})
+      .then(function(r){ if(!r.ok) throw new Error("search"); return r.json(); })
+      .then(function(data){ if(mine!==seq) return; paint(q, data); })
+      .catch(function(){ if(mine!==seq) return; note("Search didn\\u2019t load. Try again."); });
+  }
+  input.addEventListener("input", function(){
+    if(timer) clearTimeout(timer);
+    if(!(input.value||"").trim()){ run(); return; }
+    show(true);
+    timer=setTimeout(run, 160);
+  });
+  input.addEventListener("keydown", function(e){
+    if(e.key!=="Enter") return;
+    e.preventDefault();
+    if(timer) clearTimeout(timer);
+    run();
+  });
+  input.addEventListener("search", function(){
+    if(timer) clearTimeout(timer);
+    run();
+  });
+  if(clearBtn) clearBtn.addEventListener("click", function(){
+    input.value="";
+    if(timer) clearTimeout(timer);
+    run();
+    input.focus();
+  });
 })();
 </script>"""
 T["manage_area"] = ADMIN_NAV + """{{ admin_page(title, subtitle) }}

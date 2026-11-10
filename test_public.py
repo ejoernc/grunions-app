@@ -275,6 +275,44 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     assert "<h1>Coaches</h1>" in coaches and 'href="/members?view=coaches"' in coaches
     assert "<h1>Admins</h1>" in admins and 'href="/members?view=admins"' in admins
     assert "<h1>Members</h1>" in roster
+    assert 'id=manageClear' in page and "/manage/search?q=" in page and "No matches for" in page
+    assert "id=manageIndex" not in page
+
+
+def test_manage_search_matches_people_and_settings():
+    admin, coach, member, stephen = client(), client(), client(), client()
+    join(admin, "Nia", "Admin", "nia.search@example.com")
+    join(coach, "Sam", "Coach", "sam.search@example.com")
+    join(member, "Pat", "Athlete", "pat.search@example.com")
+    join(stephen, "Stephen", "Morris", "stephen.morris@example.com")
+    with A.app.app_context():
+        d = A.db()
+        d.execute("UPDATE members SET is_admin=1 WHERE email='nia.search@example.com'")
+        d.execute("UPDATE members SET role='coach', is_admin=0 WHERE email='sam.search@example.com'")
+        d.execute("UPDATE members SET preferred_first='Steve', is_admin=1 WHERE email='stephen.morris@example.com'")
+        d.commit()
+        sid = d.execute("SELECT id FROM members WHERE email='stephen.morris@example.com'").fetchone()[0]
+    assert member.get("/manage/search?q=Stephen").status_code == 403
+    people = admin.get("/manage/search?q=Stephen").get_json()
+    assert people["people"] and people["people"][0]["name"] == "Steve Morris"
+    assert people["people"][0]["href"] == "/admin/member/%d" % sid
+    assert "Admin" in people["people"][0]["role"] and people["people"][0]["initials"] == "SM"
+    assert people["people"][0]["status"]
+    assert admin.get("/manage/search?q=stephen.morris@").get_json()["people"]
+    assert admin.get("/manage/search?q=STEVE").get_json()["people"]
+    hidden = coach.get("/manage/search?q=Stephen").get_json()
+    assert hidden["people"] == []
+    trial = admin.get("/manage/search?q=trial").get_json()["settings"]
+    assert any(row["title"] == "Sports & pricing" and row["href"] == "/manage/pricing" for row in trial)
+    assert any(row["title"] == "Sports & pricing" for row in admin.get("/manage/search?q=free trial").get_json()["settings"])
+    assert any(row["title"] == "Sports & pricing" for row in admin.get("/manage/search?q=drop-in").get_json()["settings"])
+    assert any(row["title"] == "Website widget" for row in admin.get("/manage/search?q=embed").get_json()["settings"])
+    assert any(row["title"] == "Compliance" for row in admin.get("/manage/search?q=SafeSport").get_json()["settings"])
+    assert any(row["title"] == "Data transfer" for row in admin.get("/manage/search?q=export CSV").get_json()["settings"])
+    blank = admin.get("/manage/search?q=zzzz-nope").get_json()
+    assert blank["people"] == [] and blank["settings"] == []
+    lineup = coach.get("/manage/search?q=lineup").get_json()
+    assert lineup["people"] == [] and any(row["title"] == "Lineup" for row in lineup["settings"])
 
 
 def test_registration_checks_eligibility_and_does_not_charge_or_email():
