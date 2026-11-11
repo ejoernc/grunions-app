@@ -331,7 +331,8 @@ def test_practice_reminders_stay_off_and_use_the_branded_mail():
     by = {row[0]: row for row in sent}
     assert len(sent) == 4
     assert set(by) == {"bea.remind@example.com", "ada.remind@example.com", "nia.remind@example.com", "cam.remind@example.com"}
-    assert by["bea.remind@example.com"][1] == "Practice today at 7:00 PM, Marina High School"
+    assert by["bea.remind@example.com"][1] == "Water Polo practice today at 7:00 PM, Marina High School"
+    assert ">SPORT<" in by["bea.remind@example.com"][3] or "SPORT" in by["bea.remind@example.com"][3]
     assert "Sign up for practice" in by["bea.remind@example.com"][3]
     assert "Sent by" in by["bea.remind@example.com"][3] and "/practices/%d" % pid in by["bea.remind@example.com"][3]
     assert by["cam.remind@example.com"][1] == by["bea.remind@example.com"][1]
@@ -355,6 +356,41 @@ def test_practice_reminders_stay_off_and_use_the_branded_mail():
     finally:
         A.send_email, A.smtp_ready = real_send, real_ready
     assert "bea.remind@example.com" not in {row[0] for row in sent}
+
+
+def test_a_new_going_rsvp_confirms_once_and_does_not_rewrite_the_rsvp():
+    member = client()
+    join(member, "Bea", "Signup", "bea.signup@example.com")
+    with A.app.app_context():
+        d = A.db()
+        day = (A.today_pt() + __import__("datetime").timedelta(days=2)).isoformat()
+        pid = d.execute("INSERT INTO practices(date, start, end, location, address, sport, activity_type, cancelled) VALUES(?,?,?,?,?,?,?,0)",
+                        (day, "19:00", "20:30", "Marina High School", "15871 Springdale St, Huntington Beach, CA 92649", "Water Polo", "practice")).lastrowid
+        d.commit()
+    sent = []
+    real_send, real_ready = A.send_email, A.smtp_ready
+    A.send_email = lambda *a, **k: sent.append((a, k))
+    A.smtp_ready = lambda: True
+    try:
+        token = csrf(member, "/practices/%d" % pid)
+        first = member.post("/practices/%d" % pid, data={"csrf": token, "pid": pid, "action": "going"})
+        assert first.status_code == 302
+        again = member.post("/practices/%d" % pid, data={"csrf": csrf(member, "/practices/%d" % pid), "pid": pid, "action": "going"})
+        assert again.status_code == 302
+        member.post("/practices/%d" % pid, data={"csrf": csrf(member, "/practices/%d" % pid), "pid": pid, "action": "notgoing"})
+        member.post("/practices/%d" % pid, data={"csrf": csrf(member, "/practices/%d" % pid), "pid": pid, "action": "going"})
+    finally:
+        A.send_email, A.smtp_ready = real_send, real_ready
+    assert len(sent) == 1
+    assert sent[0][0][0] == "bea.signup@example.com"
+    assert sent[0][0][1].startswith("You're signed up: Water Polo practice,")
+    html = sent[0][1]["html"]
+    assert "Sign up for practice" not in html and "View practice" in html
+    assert "SPORT" in html and "BEGIN:VCALENDAR" in sent[0][1]["ics"]
+    assert "calendar.google.com" in html
+    with A.app.app_context():
+        d = A.db()
+        assert d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=(SELECT id FROM members WHERE email='bea.signup@example.com')", (pid,)).fetchone()["going"] == 1
 
 
 def test_permissions_lists_admins_and_does_not_raise_access_on_its_own():

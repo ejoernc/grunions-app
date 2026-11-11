@@ -1022,7 +1022,7 @@ def safe_return_path(raw):
         return ""
     if raw.startswith("/register?event="):
         return raw
-    if re.fullmatch(r"/practices/\d+", raw):
+    if re.fullmatch(r"/practices/\d+(/event\.ics)?", raw):
         return raw
     return ""
 def auth_destination(mid):
@@ -1094,7 +1094,7 @@ def _smtp_ehlo_name():
     raw = (PUBLIC_URL or "").split("://", 1)[-1].split("/")[0].split(":")[0].strip().lower()
     if raw and "." in raw and all(c.isalnum() or c in ".-" for c in raw): return raw
     return "localhost"
-def send_email(to, subject, text, html=None):
+def send_email(to, subject, text, html=None, ics=None):
     """Send via SMTP. Port 465 is implicit TLS. Every other port must upgrade with STARTTLS.
     The certificate check stays on. The connection is closed even when a later step fails."""
     import smtplib, ssl
@@ -1102,6 +1102,8 @@ def send_email(to, subject, text, html=None):
     msg = EmailMessage()
     msg["From"] = SMTP["MAIL_FROM"]; msg["To"] = to; msg["Subject"] = subject; msg.set_content(text)
     if html and mailhtml.html_emails_enabled(): msg.add_alternative(html, subtype="html")
+    if ics:
+        msg.add_attachment(ics.encode("utf-8"), maintype="text", subtype="calendar", filename="practice.ics")
     host = (SMTP["SMTP_HOST"] or "").strip()
     port = int(SMTP["SMTP_PORT"])
     ctx = ssl.create_default_context()
@@ -3138,8 +3140,19 @@ def handle_practice_post(d):
             if not choice["allow"]:
                 session["pay_practice"] = pid
                 return redirect("/practices/%d/participate" % pid)
+        was_going = False
+        if a == "going":
+            prev = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, me()["id"])).fetchone()
+            was_going = bool(prev and prev["going"] == 1)
         if a == "clear": d.execute("DELETE FROM rsvps WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
         else: d.execute("INSERT INTO rsvps(practice_id,member_id,going) VALUES(?,?,?) ON CONFLICT DO UPDATE SET going=excluded.going, at=CURRENT_TIMESTAMP", (pid, me()["id"], int(a == "going")))
+        if a == "going" and not was_going:
+            practice = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+            if practice:
+                try:
+                    send_practice_signup(d, practice, d.execute("SELECT * FROM members WHERE id=?", (me()["id"],)).fetchone())
+                except Exception:
+                    app.logger.exception("signup confirmation failed")
     elif a in ("social_join", "social_leave") and pid:
         if a == "social_leave": d.execute("DELETE FROM social_joins WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
         else: d.execute("INSERT OR IGNORE INTO social_joins(practice_id, member_id) VALUES(?,?)", (pid, me()["id"]))
@@ -3469,6 +3482,17 @@ def practices():
     d = db()
     if request.method == "POST": return handle_practice_post(d)
     return combined_view("practices")
+@app.route("/practices/<int:pid>/event.ics")
+@login_required
+def practice_ics(pid):
+    d = db()
+    practice = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+    if not practice:
+        abort(404)
+    ics = practice_calendar(practice)[0]
+    resp = Response(ics, mimetype="text/calendar; charset=utf-8")
+    resp.headers["Content-Disposition"] = "attachment; filename=practice.ics"
+    return resp
 @app.route("/practices/<int:pid>", methods=["GET", "POST"])
 @login_required
 def practice_page(pid):
@@ -4367,9 +4391,15 @@ def register_for_event():
             if not covered:
                 flash("Registration stays closed until the free-trial requirements are met.")
                 return redirect("/register?event=%s" % raw)
+            already = bool(going and going["going"])
             d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
                 ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1, at=CURRENT_TIMESTAMP""", (practice["id"], who["id"]))
             publicfeed.sync_trial_hold(d, who["id"], practice["id"], today)
+            if not already:
+                try:
+                    send_practice_signup(d, practice, fresh)
+                except Exception:
+                    app.logger.exception("signup confirmation failed")
             d.commit()
             return redirect("/register?event=%s&done=1" % raw)
         return redirect("/register?event=%s" % raw)
@@ -7335,9 +7365,15 @@ def practice_clock_place(p):
     clock = fmt_clock((p["start"] or "19:00")[:5])
     place = " ".join(str(p["location"] or "").split()) or "the pool"
     return clock, place
+def practice_sport_name(p):
+    try:
+        name = " ".join(str(p["sport"] or "").split()) if p and "sport" in p.keys() else ""
+    except (TypeError, AttributeError, KeyError, IndexError):
+        name = ""
+    return name or "Water Polo"
 def reminder_subject(p):
     clock, place = practice_clock_place(p)
-    return "Practice today at %s, %s" % (clock, place)
+    return "%s practice today at %s, %s" % (practice_sport_name(p), clock, place)
 def reminder_message(practice, member):
     """One message for the whole team. The button opens this session."""
     clock, place = practice_clock_place(practice)
@@ -7346,11 +7382,95 @@ def reminder_message(practice, member):
     unsub = app_base().rstrip("/") + "/practice-reminders/off/" + practice_reminder_token(member["id"])
     when = fmt_span(practice["start"] or "19:00", practice["end"] or "20:30")
     subject = reminder_subject(practice)
-    sentence = "Practice today at %s, %s." % (clock, place)
+    sentence = subject + "."
     button = "Sign up for practice"
-    text = "Hi %s,\n\n%s\n\n%s\n%s\n\nTurn off practice reminder emails: %s\n" % (first, subject, button, url, unsub)
-    html = mailhtml.practice_reminder_html(app_base(), first, subject, sentence, when, place, url, button, unsub, org_name())
+    sport = practice_sport_name(practice)
+    text = "Hi %s,\n\n%s\n\n%s\n%s\n\nTurn off practice reminder emails: %s\n" % (first, sentence, button, url, unsub)
+    html = mailhtml.practice_reminder_html(app_base(), first, subject, sentence, sport, when, place, url, button, unsub, org_name())
     return subject, text, html, "/practices/%d" % practice["id"]
+def _practice_span(practice):
+    start = dt.datetime.fromisoformat(practice["date"] + "T" + (practice["start"] or "19:00")[:5]).replace(tzinfo=PT)
+    end = dt.datetime.fromisoformat(practice["date"] + "T" + (practice["end"] or "20:30")[:5]).replace(tzinfo=PT)
+    return start, end
+def _ics_text(value):
+    return str(value or "").replace("\\", "\\\\").replace("\n", "\\n").replace(",", "\\,").replace(";", "\\;")
+def practice_calendar(practice):
+    """Title, Pacific start and end, venue address, and the event page, as an .ics file and a Google link."""
+    start, end = _practice_span(practice)
+    sport = practice_sport_name(practice)
+    title = "%s practice" % sport
+    try:
+        custom = " ".join(str(practice["title"] or "").split()) if "title" in practice.keys() else ""
+    except (TypeError, AttributeError, KeyError, IndexError):
+        custom = ""
+    if custom:
+        title = custom
+    address = ""
+    try:
+        address = " ".join(str(practice["address"] or "").split()) if "address" in practice.keys() else ""
+    except (TypeError, AttributeError, KeyError, IndexError):
+        address = ""
+    place = address or practice_clock_place(practice)[1]
+    url = app_base().rstrip("/") + "/practices/%d" % practice["id"]
+    def utc(value):
+        return value.astimezone(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ics = "\r\n".join([
+        "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Regulars//Grunions//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+        "BEGIN:VEVENT", "UID:practice-%d@grunions.regulars.team" % practice["id"],
+        "DTSTAMP:%s" % dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
+        "DTSTART:%s" % utc(start), "DTEND:%s" % utc(end),
+        "SUMMARY:%s" % _ics_text(title), "LOCATION:%s" % _ics_text(place),
+        "DESCRIPTION:%s" % _ics_text(url), "URL:%s" % url,
+        "END:VEVENT", "END:VCALENDAR", "",
+    ])
+    google = "https://calendar.google.com/calendar/render?" + urllib.parse.urlencode({
+        "action": "TEMPLATE", "text": title, "dates": "%s/%s" % (utc(start), utc(end)),
+        "details": url, "location": place,
+    })
+    return ics, google, title, place, url
+def send_practice_signup(d, practice, member):
+    """Confirm a new Going RSVP once. Toggling off and on within 10 minutes does not send again."""
+    if not member:
+        return
+    d.execute("""CREATE TABLE IF NOT EXISTS practice_signup_mail(
+        practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, sent_at TEXT NOT NULL,
+        PRIMARY KEY(practice_id, member_id))""")
+    row = d.execute("SELECT sent_at FROM practice_signup_mail WHERE practice_id=? AND member_id=?", (practice["id"], member["id"])).fetchone()
+    if row and row["sent_at"]:
+        try:
+            sent = dt.datetime.fromisoformat(row["sent_at"])
+            if dt.datetime.now() - sent < dt.timedelta(minutes=10):
+                return
+        except ValueError:
+            pass
+    choice = practice_reminder_choice(member)
+    if choice == "off":
+        return
+    sport = practice_sport_name(practice)
+    clock, place = practice_clock_place(practice)
+    day = fmt_d(practice["date"])
+    headline = "You're signed up: %s practice, %s at %s, %s" % (sport, day, clock, place)
+    sentence = headline + "."
+    ics, google, _title, _where, url = practice_calendar(practice)
+    ics_url = url + "/event.ics"
+    when = fmt_span(practice["start"] or "19:00", practice["end"] or "20:30")
+    html = mailhtml.practice_signup_html(app_base(), display_first(member), headline, sentence, sport, when, place, url, google, ics_url, org_name())
+    text = "Hi %s,\n\n%s\n\nView practice\n%s\n\nAdd to Google Calendar\n%s\n\nDownload calendar file\n%s\n" % (
+        display_first(member), sentence, url, google, ics_url)
+    delivered = False
+    if choice in ("email", "both") and member["email"] and smtp_ready():
+        try:
+            send_email(member["email"], headline, text, html=html, ics=ics)
+            delivered = True
+        except Exception as exc:
+            app.logger.error("signup confirmation to %s failed: %s", member["email"], exc)
+    if choice in ("inapp", "both") and wants_push(member, "practice_reminder"):
+        if push_member(d, member, "practice_reminder", "You're signed up", headline, "/practices/%d" % practice["id"]):
+            delivered = True
+    if delivered or choice == "inapp":
+        d.execute("""INSERT INTO practice_signup_mail(practice_id, member_id, sent_at) VALUES(?,?,?)
+            ON CONFLICT(practice_id, member_id) DO UPDATE SET sent_at=excluded.sent_at""",
+                  (practice["id"], member["id"], dt.datetime.now().isoformat(timespec="seconds")))
 def reminder_team(d):
     """The active roster. Going, no reply, and declines all receive the same reminder. RSVP rows are not written."""
     return d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first, id").fetchall()

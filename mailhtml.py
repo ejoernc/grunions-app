@@ -22,7 +22,7 @@ def _e(value):
 def _a(value):
     return html.escape(str(value if value is not None else ""), quote=True)
 
-def render_email(eyebrow, headline, paragraphs, logo_url, cta=None, rows=None, note=None, fallback=None, org=ORG_NAME, footer_link=None):
+def render_email(eyebrow, headline, paragraphs, logo_url, cta=None, rows=None, note=None, fallback=None, org=ORG_NAME, footer_link=None, extra_links=None):
     """Table layout, inline styles, light background. Dynamic text is escaped."""
     paras = "".join(
         '<p style="margin:0 0 14px;font-family:%s;font-size:16px;line-height:24px;color:%s;">%s</p>' % (FONT, INK, _e(p))
@@ -67,6 +67,11 @@ def render_email(eyebrow, headline, paragraphs, logo_url, cta=None, rows=None, n
             '<p style="margin:14px 0 0;font-family:%s;font-size:13px;line-height:18px;">'
             '<a href="%s" style="color:%s;text-decoration:underline;">%s</a></p>'
             % (FONT, _a(url), MUTED, _e(label)))
+    for label, url in (extra_links or []):
+        block += (
+            '<p style="margin:8px 0 0;font-family:%s;font-size:14px;line-height:21px;">'
+            '<a href="%s" style="color:%s;text-decoration:underline;">%s</a></p>'
+            % (FONT, _a(url), EYEBROW, _e(label)))
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -111,16 +116,30 @@ def practice_cancelled_html(base, first, when, place, reason, url, org=ORG_NAME)
     return render_email("SCHEDULE CHANGE", "Practice cancelled", paras, logo_url(base),
                         cta=("View the schedule", url), rows=rows, org=org)
 
-def practice_reminder_html(base, first, headline, sentence, when, place, url, button, unsub, org=ORG_NAME):
-    """Same branded layout as the other transactional mail. The button opens the session."""
-    rows = [("WHEN", when)]
+def practice_rows(sport, when, place):
+    rows = [("SPORT", sport), ("WHEN", when)]
     if place:
         rows.append(("WHERE", place))
+    return rows
+
+
+def practice_reminder_html(base, first, headline, sentence, sport, when, place, url, button, unsub, org=ORG_NAME):
+    """Same branded layout as the other transactional mail. The button opens the session."""
     return render_email(
         "PRACTICE", headline,
         ["Hi %s," % first, sentence],
-        logo_url(base), cta=(button, url), rows=rows, fallback=url,
+        logo_url(base), cta=(button, url), rows=practice_rows(sport, when, place), fallback=url,
         footer_link=("Turn off practice reminder emails", unsub), org=org)
+
+
+def practice_signup_html(base, first, headline, sentence, sport, when, place, url, google, ics_url, org=ORG_NAME):
+    """Sign-up confirmation in the same layout, with calendar links and a view button."""
+    return render_email(
+        "YOU'RE SIGNED UP", headline,
+        ["Hi %s," % first, sentence],
+        logo_url(base), cta=("View practice", url), rows=practice_rows(sport, when, place), fallback=url,
+        extra_links=(("Add to Google Calendar", google), ("Download calendar file (Apple or Outlook)", ics_url)),
+        org=org)
 
 
 def expiry_eyebrow(kind):
