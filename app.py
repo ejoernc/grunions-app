@@ -989,7 +989,7 @@ def csrf_token():
     return session["csrf"]
 @app.before_request
 def _csrf():
-    if request.method in ("POST", "DELETE") and not request.path.startswith("/api/verify-requests/"):  # bot API uses bearer auth, no cookies
+    if request.method in ("POST", "DELETE") and not request.path.startswith(("/api/verify-requests/", "/api/practice-reminder/")):  # keyed APIs, no cookies
         t = request.form.get("csrf") or request.headers.get("X-CSRF")
         if not t or t != session.get("csrf"): abort(400, "Bad CSRF token, reload the page.")
 def csrf_field(): return Markup('<input type=hidden name=csrf value="%s">' % csrf_token())
