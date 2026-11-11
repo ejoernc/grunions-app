@@ -738,6 +738,7 @@ pushsub(eli, "https://push.example/eli"); pushsub(john, "https://push.example/jo
 pushes = []; emails = []
 A.send_push = lambda sub, payload: pushes.append((sub["member_id"], payload))
 A.smtp_ready = lambda: True
+_real_send_email = A.send_email
 A.send_email = lambda to, subj, text, html=None: emails.append((to, subj, text))
 D.execute("UPDATE members SET role='coach', is_admin=0 WHERE email='john@example.com'"); D.commit()
 jane.post("/notifications", data={"csrf": csrf(jane, "/notifications"), "email_reminders": "1", "push": keep + ["team_chat"]})
@@ -1645,7 +1646,7 @@ A.SMTP = {"SMTP_HOST": "127.0.0.1", "SMTP_PORT": "587", "SMTP_USER": "u", "SMTP_
 _smtp.SMTP = _Rec
 os.environ.pop("HTML_EMAILS_ENABLED", None)
 try:
-    A.send_email("person@example.com", "Hello", "plain text", html="<p>html</p>")
+    _real_send_email("person@example.com", "Hello", "plain text", html="<p>html</p>")
 finally:
     _smtp.SMTP = _real_smtp
     A.SMTP = _saved_smtp
@@ -2889,3 +2890,39 @@ try:
     ok(_ng.get_json().get("show") is False and _lines_ng == _lines_before and "data-drive=" not in _home_ng and "data-drive=" not in _home_sj and 'data-drive-going=""' in _home_open and "Show my drive time" in _home_open and _go.get_json().get("show") is True and _go2.get_json().get("show") is True and 'data-drive-going="1"' in _home_go, "not going hides the commute, no reply only offers the prompt, and going allows it even if the social reply changes")
 finally:
     A.now_pt = _real_now
+
+# A team admin who is not assigned, and is not a coach, can still manage every practice.
+_ada = client(); join(_ada, "Ada", "Schedule", "ada.schedule@example.com")
+_sam = client(); join(_sam, "Sam", "Onlycoach", "sam.onlycoach@example.com")
+_mem = client(); join(_mem, "Mia", "Member", "mia.member@example.com")
+D.execute("UPDATE members SET is_admin=1, role='athlete' WHERE email='ada.schedule@example.com'")
+D.execute("UPDATE members SET is_admin=0, role='coach' WHERE email='sam.onlycoach@example.com'")
+D.commit()
+_ada_id = D.execute("SELECT id FROM members WHERE email='ada.schedule@example.com'").fetchone()[0]
+_sam_id = D.execute("SELECT id FROM members WHERE email='sam.onlycoach@example.com'").fetchone()[0]
+_future = (A.today_pt() + dt.timedelta(days=40)).isoformat()
+_old = (A.today_pt() - dt.timedelta(days=4)).isoformat()
+_apid = D.execute("INSERT INTO practices(date,start,end,location,note) VALUES(?,?,?,?,?)", (_future, "19:00", "20:30", "Admin Open Pool", "original")).lastrowid
+D.execute("INSERT INTO practice_coaches(practice_id, member_id, is_lead, focus, plan_note) VALUES(?,?,1,'','')", (_apid, _sam_id))
+_opid = D.execute("INSERT INTO practices(date,start,end,location,note) VALUES(?,?,?,?,?)", (_old, "19:00", "20:30", "Admin Ended Pool", "")).lastrowid
+D.commit()
+_hub = _ada.get("/manage").get_data(as_text=True)
+_list = _ada.get("/manage/schedule")
+_list_html = _list.get_data(as_text=True)
+_checkin = _ada.get("/admin?date=" + _future).get_data(as_text=True)
+_view = _ada.get("/practices/%d" % _apid).get_data(as_text=True)
+_edit = _ada.get("/practices/%d?edit=1" % _apid).get_data(as_text=True)
+_posted = _ada.post("/practices/%d" % _apid, data=dict(csrf=csrf(_ada, "/practices/%d?edit=1" % _apid), pid=_apid, action="edit", back="page", date=_future, start="18:15", end="19:45", location="Admin Open Pool", note="Ada edited this"))
+_saved = D.execute("SELECT start, note FROM practices WHERE id=?", (_apid,)).fetchone()
+D.execute("UPDATE members SET role='coach' WHERE email='ada.schedule@example.com'"); D.commit()
+_coach_admin = _ada.get("/manage/schedule")
+_still = _ada.get("/practices/%d?edit=1" % _apid).get_data(as_text=True)
+_on_day = _ada.get("/admin?date=" + _future).get_data(as_text=True)
+_cancelled = _ada.post("/practices/%d" % _apid, data=dict(csrf=csrf(_ada, "/practices/%d" % _apid), pid=_apid, action="cancel", reason="Club decision", back="page"), follow_redirects=True).get_data(as_text=True)
+_flag = D.execute("SELECT cancelled, cancel_reason FROM practices WHERE id=?", (_apid,)).fetchone()
+_past_c = _ada.post("/practices/%d" % _opid, data=dict(csrf=csrf(_ada, "/practices/%d" % _opid), pid=_opid, action="cancel", reason="too late", back="page"), follow_redirects=True).get_data(as_text=True)
+_past_d = _ada.post("/practices/%d" % _opid, data=dict(csrf=csrf(_ada, "/practices/%d" % _opid), pid=_opid, action="delete"), follow_redirects=True).get_data(as_text=True)
+ok("Schedule" in _hub and 'href="/manage/schedule"' in _hub and _list.status_code == 200 and "Admin Open Pool" in _list_html and "Admin Open Pool" in _checkin and ">Edit</a>" in _view and "Assign coaches" in _view and "name=date" in _edit and ">Cancel event</button>" in _edit and ">Delete event</button>" in _edit and _posted.status_code == 302 and _saved == ("18:15", "Ada edited this") and not D.execute("SELECT 1 FROM practice_coaches WHERE practice_id=? AND member_id=?", (_apid, _ada_id)).fetchone() and _coach_admin.status_code == 302 and _coach_admin.headers.get("Location") == "/admin" and "Admin Open Pool" in _on_day and "name=date" in _still and ">Cancel event</button>" in _still and _flag == (1, "Club decision") and "Cancelled" in _cancelled and _mem.get("/manage/schedule").status_code == 403 and _mem.post("/practices/%d" % _apid, data=dict(csrf=csrf(_mem, "/home"), pid=_apid, action="cancel", reason="no")).status_code == 403 and _sam.post("/practices/%d" % _apid, data=dict(csrf=csrf(_sam, "/practices/%d" % _apid), pid=_apid, action="cancel", reason="no")).status_code == 403 and D.execute("SELECT cancelled FROM practices WHERE id=?", (_opid,)).fetchone()[0] == 0 and D.execute("SELECT 1 FROM practices WHERE id=?", (_opid,)).fetchone() and "already ended" in _past_c and "already ended" in _past_d, "an admin who is not the creator or the assigned coach can open Manage Schedule and edit or cancel the practice")
+D.execute("DELETE FROM practice_coaches WHERE practice_id=?", (_apid,))
+D.execute("DELETE FROM practices WHERE id IN (?,?)", (_apid, _opid))
+D.commit()
