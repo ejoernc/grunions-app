@@ -427,3 +427,62 @@ def test_permissions_lists_admins_and_does_not_raise_access_on_its_own():
     with A.app.app_context():
         d = A.db()
         assert d.execute("SELECT is_admin FROM members WHERE id=?", (nia,)).fetchone()["is_admin"] == 1
+
+
+def test_chat_accepts_heic_and_names_live_photo_and_proraw():
+    import io
+    import os
+    from PIL import Image
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+    member = client()
+    join(member, "Jon", "Photo", "jon.photo@example.com")
+    page = member.get("/chat").get_data(as_text=True)
+    accept = page.split('id=file', 1)[1].split('>', 1)[0]
+    assert 'accept="image/*' in accept
+    assert "image/heic" in accept and "image/heif" in accept
+    assert "image/heic-sequence" in accept and ".heic" in accept and ".heif" in accept
+    assert "That photo isn't supported. Use a JPG, PNG, GIF, WEBP, or HEIC photo." in page
+    assert "Live Photo videos aren't supported" in page and "ProRAW isn't supported" in page
+    token = re.search(r'const CSRF="([^"]+)"', page).group(1)
+    def post(blob, name):
+        blob.seek(0)
+        return member.post("/api/messages", data={"image": (blob, name)}, headers={"X-CSRF": token}, content_type="multipart/form-data")
+    before = None
+    with A.app.app_context():
+        before = [row[0] for row in A.db().execute("SELECT image FROM messages WHERE image IS NOT NULL").fetchall()]
+    heif = io.BytesIO()
+    shot = Image.new("RGB", (20, 40), (12, 34, 56))
+    exif = shot.getexif()
+    exif[274] = 6
+    shot.save(heif, "HEIF", exif=exif.tobytes())
+    saved = post(heif, "iphone.heic")
+    assert saved.status_code == 200
+    heif2 = io.BytesIO()
+    Image.new("RGB", (16, 16), (1, 2, 3)).save(heif2, "HEIF")
+    assert post(heif2, "iphone.heif").status_code == 200
+    for fmt, name, size in (("JPEG", "pool.jpg", (30, 20)), ("PNG", "pool.png", (30, 20)), ("GIF", "pool.gif", (30, 20)), ("WEBP", "pool.webp", (30, 20))):
+        buf = io.BytesIO()
+        Image.new("RGB", size, (4, 5, 6)).save(buf, fmt)
+        assert post(buf, name).status_code == 200
+    live = post(io.BytesIO(b"\x00\x00\x00\x14ftypqt  \x00\x00\x00\x00"), "live.mov")
+    raw = post(io.BytesIO(b"II*\x00" + b"\x00" * 16 + b"DNG "), "shot.dng")
+    junk = post(io.BytesIO(b"not a photo"), "notes.txt")
+    assert live.status_code == 400 and "Live Photo" in live.get_json()["error"] and "JPG, PNG, GIF, WEBP, or HEIC" in live.get_json()["error"]
+    assert raw.status_code == 400 and "ProRAW" in raw.get_json()["error"]
+    assert junk.status_code == 400 and "isn't supported" in junk.get_json()["error"]
+    sequence = post(io.BytesIO(b"\x00\x00\x00\x18ftyphevc" + b"\x00" * 8), "burst.heic")
+    assert sequence.status_code == 400 and "isn't supported" in sequence.get_json()["error"]
+    with A.app.app_context():
+        rows = A.db().execute("SELECT id, image FROM messages WHERE image IS NOT NULL ORDER BY id").fetchall()
+    new = [row for row in rows if row["image"] not in before]
+    assert any(row["image"].endswith(".jpg") for row in new)
+    heic_row = next(row for row in new if row["image"].endswith(".jpg"))
+    full = member.get("/media/%d/full" % heic_row["id"])
+    opened = Image.open(io.BytesIO(full.data))
+    assert opened.format == "JPEG" and opened.size == (40, 20) and not dict(opened.getexif())
+    for row in new:
+        for suffix in (row["image"], row["image"].rsplit(".", 1)[0] + "_t.webp"):
+            path = os.path.join(A.UPLOADS, suffix)
+            if os.path.isfile(path):
+                os.remove(path)

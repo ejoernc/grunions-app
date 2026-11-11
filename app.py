@@ -1524,24 +1524,88 @@ def messages_json(rows, seen):
     else:
         resp.headers["X-Chat-Seen"] = "null"
     return resp
-def save_image(f):
-    """Validate + re-encode an upload. Returns stored base name. Strips metadata, fixes rotation, resizes (max 1600px, thumb 480px)."""
-    from PIL import Image, ImageOps
+PHOTO_TYPES = "JPG, PNG, GIF, WEBP, or HEIC"
+def photo_reject(kind=""):
+    """A clear reason for a chat photo the app will not keep. Live Photos and ProRAW are named."""
+    if kind == "video":
+        return "Live Photo videos aren't supported. Send the still photo. Use a %s photo." % PHOTO_TYPES
+    if kind == "proraw":
+        return "ProRAW isn't supported. Export it as a JPEG or HEIC still. Use a %s photo." % PHOTO_TYPES
+    return "That photo isn't supported. Use a %s photo." % PHOTO_TYPES
+def _photo_container(data):
+    """Brand of a container Pillow may not open. HEIC sequences count as HEIF stills."""
+    if len(data) >= 12 and data[4:8] == b"ftyp":
+        brand = data[8:min(len(data), 64)]
+        if any(tok in brand for tok in (b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1", b"heim", b"heis", b"hevm", b"hevs")):
+            return "heif"
+        if b"qt  " in brand or b"mp4" in brand or b"isom" in brand:
+            return "video"
+    if data[:4] in (b"II*\x00", b"MM\x00*") and b"DNG" in data[:1024]:
+        return "proraw"
+    return ""
+def _heif_opener():
     try:
-        import pillow_heif; pillow_heif.register_heif_opener()
-    except ImportError: pass
+        import pillow_heif
+        pillow_heif.register_heif_opener()
+        return pillow_heif
+    except ImportError:
+        return None
+def _open_heif_still(data):
+    """Primary still from a HEIC/HEIF file, including a sequence. Later frames are not kept."""
+    heif = _heif_opener()
+    if heif is None:
+        raise ValueError(photo_reject())
+    try:
+        opened = heif.open_heif(io.BytesIO(data))
+        frame = opened[0] if len(opened) else opened
+        return frame.to_pillow()
+    except Exception:
+        raise ValueError(photo_reject())
+def save_image(f):
+    """Validate + re-encode an upload. Returns stored base name. Strips metadata, fixes rotation, resizes (max 1600px, thumb 480px).
+    HEIC and HEIF become JPEG so every browser can show them. Other stills stay WebP. Animated GIFs stay GIFs."""
+    from PIL import Image, ImageOps
+    _heif_opener()
     data = f.read(MAX_UPLOAD + 1)
     if len(data) > MAX_UPLOAD: raise ValueError("Image is larger than 8 MB.")
+    filename = (getattr(f, "filename", "") or "").lower()
+    container = _photo_container(data)
+    im = None
+    fmt = ""
     try:
         im = Image.open(io.BytesIO(data)); fmt = (im.format or "").upper(); im.load()
-    except Exception: raise ValueError("That file isn't a supported image.")
-    if fmt not in ("JPEG", "PNG", "GIF", "WEBP", "HEIF", "HEIC"): raise ValueError("Use JPG, PNG, GIF, WEBP or HEIC.")
+    except Exception:
+        im = None
+    if im is None and (container == "heif" or filename.endswith((".heic", ".heif"))):
+        im = _open_heif_still(data); fmt = "HEIF"
+    if im is None:
+        if container == "video" or filename.endswith((".mov", ".mp4")):
+            raise ValueError(photo_reject("video"))
+        if container == "proraw" or filename.endswith(".dng"):
+            raise ValueError(photo_reject("proraw"))
+        raise ValueError(photo_reject())
+    heif = fmt in ("HEIF", "HEIC") or container == "heif" or filename.endswith((".heic", ".heif"))
+    if not heif and fmt not in ("JPEG", "PNG", "GIF", "WEBP"):
+        if fmt in ("TIFF", "DNG") or container == "proraw":
+            raise ValueError(photo_reject("proraw"))
+        raise ValueError(photo_reject())
     os.makedirs(UPLOADS, exist_ok=True); name = secrets.token_hex(12)
-    if fmt == "GIF" and getattr(im, "is_animated", False) and len(data) <= MAX_UPLOAD:
+    if fmt == "GIF" and getattr(im, "is_animated", False) and len(data) <= MAX_UPLOAD and not heif:
         open(os.path.join(UPLOADS, name + ".gif"), "wb").write(data); ext = "gif"   # keep animation
     else:
-        im = ImageOps.exif_transpose(im); im = im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") and fmt in ("PNG", "WEBP", "GIF") else "RGB")
-        im.thumbnail((1600, 1600)); im.save(os.path.join(UPLOADS, name + ".webp"), "WEBP", quality=85); ext = "webp"
+        im = ImageOps.exif_transpose(im) or im
+        if heif:
+            try:
+                im = im.convert("RGB")
+            except Exception:
+                raise ValueError(photo_reject())
+            im.thumbnail((1600, 1600))
+            # JPEG without an EXIF block drops orientation tags and GPS.
+            im.save(os.path.join(UPLOADS, name + ".jpg"), "JPEG", quality=85, optimize=True)
+            ext = "jpg"
+        else:
+            im = im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") and fmt in ("PNG", "WEBP", "GIF") else "RGB")
+            im.thumbnail((1600, 1600)); im.save(os.path.join(UPLOADS, name + ".webp"), "WEBP", quality=85); ext = "webp"
     th = Image.open(os.path.join(UPLOADS, f"{name}.{ext}")); th = th.convert("RGBA" if th.mode in ("RGBA", "P") else "RGB"); th.thumbnail((480, 480))
     th.save(os.path.join(UPLOADS, name + "_t.webp"), "WEBP", quality=80)
     return f"{name}.{ext}"

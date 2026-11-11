@@ -1464,7 +1464,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {%- set is_file = mode == 'file' -%}
 {%- set label = 'Upload a file' if is_file else 'Upload an image' -%}
 {%- set hint_text = hint or ('CSV' if is_file else 'PNG or JPG') -%}
-{%- set acc = accept or ('.csv,.xlsx' if is_file else 'image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic') -%}
+{%- set acc = accept or ('.csv,.xlsx' if is_file else 'image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif') -%}
 <div class="dropzone{% if src %} has{% endif %}" data-dropzone data-mode="{{ 'file' if is_file else 'image' }}"><input class=pick type=file name={{ name }} accept="{{ acc }}" aria-label="{{ label }}">{% if clear_name %}<input type=hidden name={{ clear_name }} value="" data-clear>{% endif %}<button type=button class=dropempty {% if src %}hidden{% endif %}>{% if is_file %}<svg class=dropico viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM160,51.31,188.69,80H160ZM200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Z"/></svg>{% else %}<svg class=dropico viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM96,100a12,12,0,1,1,12-12A12,12,0,0,1,96,100Z"/></svg>{% endif %}<span class=droplink>{{ label }}</span><span class=drophint>{{ hint_text }}</span></button><div class=dropfill {% if not src %}hidden{% endif %}><img alt="" data-preview {% if src %}src="{{ src }}"{% endif %}><div class=filemeta><span class=dropname data-name></span><span class=dropsize data-size></span></div><div class=dropacts><button type=button data-replace>Replace</button><button type=button data-remove>Remove</button></div></div></div>
 {%- endmacro %}
 {% macro social_icon() %}<span class=nxicon aria-hidden=true><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M237.66,45.66A8,8,0,0,0,232,32H24a8,8,0,0,0-5.66,13.66L120,147.31V208H88a8,8,0,0,0,0,16h80a8,8,0,0,0,0-16H136V147.31ZM43.31,48H212.69l-16,16H59.31ZM128,132.69,75.31,80H180.69Z"/></svg></span>{% endmacro %}
@@ -3810,7 +3810,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <h2 style="margin:0 0 12px">Profile photo</h2>
 <div id=photoDrop>
 <div class=dropzone id=photoZone>
-<input class=pick type=file name=photo id=photoFile accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic">
+<input class=pick type=file name=photo id=photoFile accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif">
 <button type=button class=dropempty id=photoPick><span class=droplink>Drop a photo here</span><span class=drophint>or Select photo</span></button>
 </div>
 <button type=button class="btn btn-danger full" id=photoRemove {% if not m.photo %}hidden{% endif %}>Remove photo</button>
@@ -4129,7 +4129,7 @@ T["notifications"] = """
 
 T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template><div class=chat id=chat><div class=chatin><button type=button id=earlier class=earlier hidden>Load earlier messages</button></div></div><div class=chatpad></div>
 <div class="composer noprint"><div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=preview id=prev hidden><img id=prevImg alt=""><span id=prevName></span><button type=button class="quiet compact" id=prevX>Remove</button></div>
-<form id=f><input type=file id=file accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic" hidden>
+<form id=f><input type=file id=file accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif" hidden>
 <button type=button class="iconbtn" id=attach title="Attach image" aria-label="Attach image"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z"/></svg></button>
 <textarea id=body rows=1 maxlength=2000 placeholder="Message {{'coaches' if ch=='coaches' else 'the team'}}"></textarea>
 <button class="iconbtn send" type=submit aria-label=Send><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M230.14,25.86a20,20,0,0,0-19.57-5.11l-.22.07L18.44,79a20,20,0,0,0-3.06,37.25L99,157l40.71,83.65a19.81,19.81,0,0,0,18,11.38c.57,0,1.15,0,1.73-.07A19.82,19.82,0,0,0,177,237.56L235.18,45.65a1.42,1.42,0,0,0,.07-.22A20,20,0,0,0,230.14,25.86ZM156.91,221.07l-34.37-70.64,46-45.95a12,12,0,0,0-17-17l-46,46L34.93,99.09,210,46Z"/></svg></button></form></div>
@@ -4393,7 +4393,22 @@ function startReply(id){const m=msgs[id];if(!m||m.deleted)return;editId=null;edi
 function startEdit(id){const m=msgs[id];if(!m||m.deleted||!m.mine)return;replyTo=null;quoteBar.hidden=true;editId=id;const field=document.getElementById('body');field.value=m.body||'';grow();document.getElementById('editHint').textContent=(m.body||'Photo').slice(0,80);editBar.hidden=false;field.focus()}
 async function reactWith(id,emoji){pollGen++;await fetch('/api/messages/'+id+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:emoji})});closeSheet();poll()}
 async function showWho(pill){const r=await fetch('/api/messages/'+pill.dataset.m+'/reactors?emoji='+encodeURIComponent(pill.dataset.e));const j=await r.json().catch(()=>({}));document.getElementById('whoTitle').textContent=pill.dataset.e||'';document.getElementById('whoList').innerHTML=(j.people||[]).map(personRow).join('')||'<p class="t3 sm">No one</p>';grunionsOpenSheet(document.getElementById('whoSheet'))}
-function toast(msg){const el=document.createElement('div');el.className='toast noprint';el.setAttribute('role','status');el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2000)}
+function toast(msg, ms){const el=document.createElement('div');el.className='toast noprint';el.setAttribute('role','status');el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),ms||2000)}
+function photoKind(f){
+ var name=(f.name||'').toLowerCase(), type=(f.type||'').toLowerCase();
+ var ext=name.indexOf('.')>=0?name.split('.').pop():'';
+ if(type.indexOf('video/')===0||ext==='mov'||ext==='mp4') return 'video';
+ if(type.indexOf('dng')>=0||type.indexOf('proraw')>=0||ext==='dng') return 'proraw';
+ var okType={'image/jpeg':1,'image/jpg':1,'image/png':1,'image/gif':1,'image/webp':1,'image/heic':1,'image/heif':1,'image/heic-sequence':1,'image/heif-sequence':1};
+ var okExt={jpg:1,jpeg:1,png:1,gif:1,webp:1,heic:1,heif:1};
+ if(okType[type]||(type.indexOf('image/')===0&&okExt[ext])||(!type&&okExt[ext])) return '';
+ return 'other';
+}
+function photoError(kind){
+ if(kind==='video') return "Live Photo videos aren't supported. Send the still photo. Use a JPG, PNG, GIF, WEBP, or HEIC photo.";
+ if(kind==='proraw') return "ProRAW isn't supported. Export it as a JPEG or HEIC still. Use a JPG, PNG, GIF, WEBP, or HEIC photo.";
+ return "That photo isn't supported. Use a JPG, PNG, GIF, WEBP, or HEIC photo.";
+}
 document.getElementById('actReply').onclick=()=>{const id=actId;closeSheet();startReply(id)};
 document.getElementById('actCopy').onclick=async()=>{const m=msgs[actId];if(!m||!m.body)return;try{await navigator.clipboard.writeText(m.body)}catch(err){const t=document.createElement('textarea');t.value=m.body;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()}closeSheet();toast('Copied')};
 document.getElementById('actSave').onclick=async()=>{const m=msgs[actId];if(!m||!m.image)return;var url=m.image.full;closeSheet();await savePhoto(url)};
@@ -4446,7 +4461,8 @@ box.addEventListener('load',function(e){if(e.target&&e.target.tagName==='IMG'&&s
 function syncComposer(){var c=document.querySelector('.composer');if(!c)return;var h=c.offsetHeight+'px';if(document.documentElement.style.getPropertyValue('--composer-h')===h)return;document.documentElement.style.setProperty('--composer-h',h);if(stick)pinBottom()}
 function grow(){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,136)+'px';syncComposer()}ta.addEventListener('input',grow);grow();if(window.ResizeObserver){var comp=document.querySelector('.composer');if(comp)new ResizeObserver(syncComposer).observe(comp)}
 document.getElementById('attach').onclick=()=>file.click();
-file.onchange=()=>{const f=file.files[0];if(!f)return;if(f.size>8*1024*1024){alert('Image is larger than 8 MB.');file.value='';return}
+file.onchange=()=>{const f=file.files[0];if(!f)return;if(f.size>8*1024*1024){toast('Image is larger than 8 MB.',4500);file.value='';return}
+ var kind=photoKind(f);if(kind){toast(photoError(kind),4500);file.value='';return}
  prev.hidden=false;document.getElementById('prevName').textContent=f.name;document.getElementById('prevImg').src=URL.createObjectURL(f)};
 document.getElementById('prevX').onclick=()=>{file.value='';prev.hidden=true};
 document.getElementById('quoteX').onclick=()=>{replyTo=null;quoteBar.hidden=true};
@@ -4460,7 +4476,7 @@ document.getElementById('f').onsubmit=async e=>{e.preventDefault();if(sending)re
  try{let r;if(f){const fd=new FormData();fd.append('body',text);fd.append('image',f);if(replyTo)fd.append('reply_to',replyTo);
   r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'X-CSRF':CSRF},body:fd})}
  else r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:text,reply_to:replyTo})});
- if(!r.ok){const j=await r.json().catch(()=>({}));alert(j.error||'Could not send.');return}
+ if(!r.ok){const j=await r.json().catch(()=>({}));toast(j.error||'Could not send.',4500);return}
  const epoch=window.grunionsNavEpoch|0;clearCompose();stick=true;await poll();if((window.grunionsNavEpoch|0)!==epoch)return;if(stick)pinBottom()}finally{sending=false}};
 ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();document.getElementById('f').requestSubmit()}});
 poll();setInterval(poll,3000);setInterval(sweepDeleted,15000);
