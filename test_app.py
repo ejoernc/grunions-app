@@ -776,10 +776,12 @@ jane.post("/practices", data=dict(csrf=csrf(jane, "/practices"), pid=rpid, actio
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), pid=rpid, action="notgoing"))
 nd = A.open_db()
 try:
+    D.execute("INSERT INTO club_meta(key, value) VALUES('practice_reminders','1') ON CONFLICT(key) DO UPDATE SET value='1'")
+    D.commit()
     A.run_practice_reminders(nd, start - dt.timedelta(hours=2)); A.run_practice_reminders(nd, start - dt.timedelta(hours=2))
 finally:
     nd.close()
-ok(sum(1 for p in pushes if p[0] == janie and p[1]["title"] == "Practice reminder" and p[1]["url"] == "/practices/%s" % rpid and "about 2 hours" in p[1]["body"]) == 1 and not any(p[0] == D.execute("SELECT id FROM members WHERE email='eli@example.com'").fetchone()[0] and "Reminder Pool" in p[1]["body"] for p in pushes), "a practice reminder goes once to members who RSVP'd going, about 3 hours before")
+ok(sum(1 for p in pushes if p[0] == janie and p[1]["title"] == "Practice today" and p[1]["url"] == "/practices/%s" % rpid and "Reminder Pool" in p[1]["body"]) == 1, "a practice reminder goes once to the team about 3 hours before, when reminders are on")
 pushes.clear(); emails.clear()
 soon = (A.today_pt() + dt.timedelta(days=7)).isoformat()
 tomorrow = (A.today_pt() + dt.timedelta(days=1)).isoformat()
@@ -1010,7 +1012,7 @@ try:
         A.run_practice_reminders(nd); A.run_practice_reminders(nd)
     finally:
         nd.close()
-    ok(sum(1 for p in pushes if p[0] == janie and p[1]["title"] == "Practice reminder" and "Pacific Pool" in p[1]["body"] and "about 2 hours" in p[1]["body"]) == 1, "a 7pm Pacific practice reminds about two hours before, not on the UTC clock")
+    ok(sum(1 for p in pushes if p[0] == janie and p[1]["title"] == "Practice today" and "Pacific Pool" in p[1]["body"]) == 1, "a 7pm Pacific practice reminds the team about two hours before, not on the UTC clock")
     D.execute("UPDATE members SET usawp_status='verified', usawp_valid_until='2026-10-23' WHERE email='john@example.com'"); D.commit()
     A.now_pt = lambda: dt.datetime(2026, 10, 24, 0, 30, tzinfo=dt.timezone.utc)
     eli.get("/members")

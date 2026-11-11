@@ -5273,6 +5273,38 @@ def club_reminders():
         return redirect("/manage/club/reminders")
     return page(ui.ADMIN_NAV + "{{ admin_page('Practice reminders', 'Off until you turn them on. RSVPs stay as they are.') }}{{ club_body|safe }}",
         tab="admin", admin_back="/manage/area/club", club_body=clubadmin.reminders_html(d, csrf_field()))
+def next_practice_today(d, now=None):
+    """The next practice today that has not started. Cancelled and month-only sessions are skipped."""
+    now = wall_pt(now)
+    today = now.date().isoformat()
+    rows = d.execute("""SELECT * FROM practices WHERE date=? AND COALESCE(cancelled,0)=0
+        AND COALESCE(date_precision,'exact')!='month' ORDER BY start, id""", (today,)).fetchall()
+    for practice in rows:
+        try:
+            start = dt.datetime.fromisoformat(practice["date"] + "T" + (practice["start"] or "19:00")[:5])
+        except ValueError:
+            continue
+        if start > now:
+            return practice
+    return None
+@app.route("/api/practice-reminder/tonight", methods=["POST"])
+def api_practice_reminder_tonight():
+    """Send the one team reminder for today's next practice. The automatic switch stays off."""
+    key = request.args.get("key") or ""
+    cron = CRON_KEY or ""
+    once = os.environ.get("REMINDER_ONCE") or ""
+    allowed = (cron and secrets.compare_digest(key, cron)) or (once and secrets.compare_digest(key, once))
+    if not allowed:
+        abort(403)
+    d = db()
+    practice = next_practice_today(d)
+    if not practice:
+        return jsonify(sent=False, reason="no upcoming practice today")
+    result = _deliver_practice_reminder(d, practice)
+    return jsonify(sent=result.get("skipped") == "", practice={
+        "id": practice["id"], "date": practice["date"], "start": practice["start"], "end": practice["end"],
+        "location": practice["location"], "sport": practice["sport"] if "sport" in practice.keys() else "",
+    }, result=result)
 @app.route("/manage/club/reminders/send/<int:pid>", methods=["POST"])
 @admin_required
 def club_reminder_send(pid):
@@ -7301,44 +7333,27 @@ def practice_clock_place(p):
     clock = fmt_clock((p["start"] or "19:00")[:5])
     place = " ".join(str(p["location"] or "").split()) or "the pool"
     return clock, place
-def going_reminder_subject(p):
+def reminder_subject(p):
     clock, place = practice_clock_place(p)
     return "Practice today at %s, %s" % (clock, place)
-def nudge_reminder_subject(p):
-    return "Practice today, sign up"
-def reminder_message(practice, member, kind):
-    """Plain text plus the branded HTML. The button opens this session."""
+def reminder_message(practice, member):
+    """One message for the whole team. The button opens this session."""
     clock, place = practice_clock_place(practice)
     first = display_first(member)
     url = app_base().rstrip("/") + "/practices/%d" % practice["id"]
     unsub = app_base().rstrip("/") + "/practice-reminders/off/" + practice_reminder_token(member["id"])
     when = fmt_span(practice["start"] or "19:00", practice["end"] or "20:30")
-    if kind == "going":
-        subject = going_reminder_subject(practice)
-        button = "View practice"
-        headline = subject
-        sentence = "You're going."
-    else:
-        subject = nudge_reminder_subject(practice)
-        button = "Sign up for practice"
-        headline = "Practice today, sign up"
-        sentence = "You haven't signed up yet."
-    text = "Hi %s,\n\n%s\n\n%s\n\n%s\n%s\n\nTurn off practice reminder emails: %s\n" % (first, headline, sentence, button, url, unsub)
-    html = mailhtml.practice_reminder_html(app_base(), first, headline, sentence, when, place, url, button, unsub, org_name())
+    subject = reminder_subject(practice)
+    sentence = "Practice today at %s, %s." % (clock, place)
+    button = "Sign up for practice"
+    text = "Hi %s,\n\n%s\n\n%s\n%s\n\nTurn off practice reminder emails: %s\n" % (first, subject, button, url, unsub)
+    html = mailhtml.practice_reminder_html(app_base(), first, subject, sentence, when, place, url, button, unsub, org_name())
     return subject, text, html, "/practices/%d" % practice["id"]
-def reminder_audiences(d, practice):
-    """Going RSVPs, and participants with no RSVP yet. A decline is left alone. RSVP rows are not written."""
-    flagged = {row["member_id"]: row["going"] for row in d.execute("SELECT member_id, going FROM rsvps WHERE practice_id=?", (practice["id"],))}
-    going, nudge = [], []
-    for member in d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first, id"):
-        flag = flagged.get(member["id"])
-        if flag == 1:
-            going.append(member)
-        elif flag is None:
-            nudge.append(member)
-    return going, nudge
+def reminder_team(d):
+    """The active roster. Going, no reply, and declines all receive the same reminder. RSVP rows are not written."""
+    return d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first, id").fetchall()
 def _deliver_practice_reminder(d, practice):
-    """Send one session's reminder. A sent flag and per-person claims stop a second send."""
+    """Send one session's reminder to the whole team. A sent flag stops a second send."""
     _reminder_sent_table(d)
     if practice["cancelled"]:
         return {"skipped": "cancelled"}
@@ -7346,37 +7361,43 @@ def _deliver_practice_reminder(d, practice):
         return {"skipped": "month"}
     if d.execute("SELECT 1 FROM practice_reminder_sent WHERE practice_id=?", (practice["id"],)).fetchone():
         return {"skipped": "already"}
-    going, nudge = reminder_audiences(d, practice)
-    pending = False
-    for kind, people in (("going", going), ("nudge", nudge)):
-        for member in people:
-            choice = practice_reminder_choice(member)
-            if choice == "off":
-                continue
-            subject, text, html, path = reminder_message(practice, member, kind)
-            if choice in ("email", "both") and member["email"]:
-                key = "email:practice_%s:%s" % (kind, practice["id"])
-                if claim_notice(d, member["id"], key):
-                    if not smtp_ready():
-                        release_notice(d, member["id"], key)
-                        pending = True
-                    else:
-                        try:
-                            send_email(member["email"], subject, text, html=html)
-                        except Exception as exc:
-                            app.logger.error("practice reminder email to %s failed: %s", member["email"], exc)
-                            release_notice(d, member["id"], key)
-                            pending = True
-            if choice in ("inapp", "both") and wants_push(member, "practice_reminder"):
-                key = "push:practice_reminder:%s" % practice["id"] if kind == "going" else "push:practice_nudge:%s" % practice["id"]
-                title = "Practice today" if kind == "going" else "Practice today, sign up"
-                if claim_notice(d, member["id"], key) and not push_member(d, member, "practice_reminder", title, subject, path):
+    before = d.execute("SELECT going, member_id FROM rsvps WHERE practice_id=? ORDER BY member_id", (practice["id"],)).fetchall()
+    email_sent = inapp_sent = skipped_off = 0
+    email_failed = []
+    for member in reminder_team(d):
+        choice = practice_reminder_choice(member)
+        if choice == "off":
+            skipped_off += 1
+            continue
+        subject, text, html, path = reminder_message(practice, member)
+        if choice in ("email", "both") and member["email"]:
+            key = "email:practice_team:%s" % practice["id"]
+            if claim_notice(d, member["id"], key):
+                if not smtp_ready():
                     release_notice(d, member["id"], key)
-    if not pending:
-        d.execute("INSERT OR IGNORE INTO practice_reminder_sent(practice_id, sent_at) VALUES(?,?)",
-                  (practice["id"], dt.datetime.now().isoformat(timespec="seconds")))
-        d.commit()
-    return {"skipped": "", "going": len(going), "nudge": len(nudge)}
+                    email_failed.append(member["email"])
+                else:
+                    try:
+                        send_email(member["email"], subject, text, html=html)
+                        email_sent += 1
+                    except Exception as exc:
+                        app.logger.error("practice reminder email to %s failed: %s", member["email"], exc)
+                        release_notice(d, member["id"], key)
+                        email_failed.append(member["email"])
+        if choice in ("inapp", "both") and wants_push(member, "practice_reminder"):
+            key = "push:practice_reminder:%s" % practice["id"]
+            if claim_notice(d, member["id"], key):
+                if push_member(d, member, "practice_reminder", "Practice today", subject, path):
+                    inapp_sent += 1
+                else:
+                    release_notice(d, member["id"], key)
+    d.execute("INSERT OR IGNORE INTO practice_reminder_sent(practice_id, sent_at) VALUES(?,?)",
+              (practice["id"], dt.datetime.now().isoformat(timespec="seconds")))
+    d.commit()
+    after = d.execute("SELECT going, member_id FROM rsvps WHERE practice_id=? ORDER BY member_id", (practice["id"],)).fetchall()
+    if [(row["member_id"], row["going"]) for row in before] != [(row["member_id"], row["going"]) for row in after]:
+        raise RuntimeError("a practice reminder must not change RSVPs")
+    return {"skipped": "", "email": email_sent, "inapp": inapp_sent, "off": skipped_off, "email_failed": email_failed}
 def _practices_due(d, now, hours):
     lo = (now.date() - dt.timedelta(days=1)).isoformat()
     hi = (now.date() + dt.timedelta(days=1)).isoformat()
@@ -7400,30 +7421,10 @@ def run_practice_reminders(d, now=None):
         settings = clubadmin.reminder_settings(d)
     except Exception:
         settings = {"enabled": False, "hours": 3}
-    if settings["enabled"]:
-        for practice in _practices_due(d, now, settings["hours"]):
-            _deliver_practice_reminder(d, practice)
+    if not settings["enabled"]:
         return
-    lo = (now.date() - dt.timedelta(days=1)).isoformat(); hi = (now.date() + dt.timedelta(days=1)).isoformat()
-    for p in d.execute("SELECT * FROM practices WHERE cancelled=0 AND date>=? AND date<=?", (lo, hi)):
-        try: start = dt.datetime.fromisoformat(p["date"] + "T" + (p["start"] or "19:00"))
-        except ValueError: continue
-        delta = start - now
-        if not (dt.timedelta(0) < delta <= dt.timedelta(hours=3)): continue
-        rounded = int(round(delta.total_seconds() / 3600))
-        if rounded <= 0: soon = "in less than an hour"
-        elif rounded == 1: soon = "in about 1 hour"
-        else: soon = "in about %d hours" % rounded
-        body = "%s, %s at %s is %s." % (fmt_d(p["date"]), fmt_t(p["start"]), p["location"] or "practice", soon)
-        url = "/practices/%s" % p["id"]
-        going = d.execute("""SELECT m.* FROM rsvps r JOIN members m ON m.id=r.member_id
-            WHERE r.practice_id=? AND r.going=1 AND COALESCE(m.role,'')!='system'""", (p["id"],))
-        for m in going:
-            if practice_reminder_choice(m) not in ("inapp", "both"): continue
-            if not wants_push(m, "practice_reminder"): continue
-            key = "push:practice_reminder:%s" % p["id"]
-            if claim_notice(d, m["id"], key) and not push_member(d, m, "practice_reminder", "Practice reminder", body, url):
-                release_notice(d, m["id"], key)
+    for practice in _practices_due(d, now, settings["hours"]):
+        _deliver_practice_reminder(d, practice)
 def run_notify_jobs():
     d = open_db()
     try:

@@ -329,15 +329,12 @@ def test_practice_reminders_stay_off_and_use_the_branded_mail():
     finally:
         A.send_email, A.smtp_ready = real_send, real_ready
     by = {row[0]: row for row in sent}
-    assert len(sent) == 3
-    assert set(by) == {"bea.remind@example.com", "ada.remind@example.com", "nia.remind@example.com"}
+    assert len(sent) == 4
+    assert set(by) == {"bea.remind@example.com", "ada.remind@example.com", "nia.remind@example.com", "cam.remind@example.com"}
     assert by["bea.remind@example.com"][1] == "Practice today at 7:00 PM, Marina High School"
-    assert "View practice" in by["bea.remind@example.com"][3] and "Sign up for practice" not in by["bea.remind@example.com"][3]
+    assert "Sign up for practice" in by["bea.remind@example.com"][3]
     assert "Sent by" in by["bea.remind@example.com"][3] and "/practices/%d" % pid in by["bea.remind@example.com"][3]
-    assert by["ada.remind@example.com"][1] == "Practice today, sign up"
-    assert by["nia.remind@example.com"][1] == "Practice today, sign up"
-    assert "Sign up for practice" in by["ada.remind@example.com"][3] and "Turn off practice reminder emails" in by["ada.remind@example.com"][3]
-    assert "cam.remind@example.com" not in by
+    assert by["cam.remind@example.com"][1] == by["bea.remind@example.com"][1]
     with A.app.app_context():
         d = A.db()
         assert d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] == before
@@ -358,7 +355,6 @@ def test_practice_reminders_stay_off_and_use_the_branded_mail():
     finally:
         A.send_email, A.smtp_ready = real_send, real_ready
     assert "bea.remind@example.com" not in {row[0] for row in sent}
-    assert all("cam.remind@example.com" != row[0] for row in sent)
 
 
 def test_permissions_lists_admins_and_does_not_raise_access_on_its_own():
