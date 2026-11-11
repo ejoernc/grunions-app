@@ -5301,10 +5301,12 @@ def api_practice_reminder_tonight():
     if not practice:
         return jsonify(sent=False, reason="no upcoming practice today")
     result = _deliver_practice_reminder(d, practice)
+    email_n = d.execute("SELECT COUNT(*) FROM sent_notices WHERE kind=?", ("email:practice_team:%s" % practice["id"],)).fetchone()[0]
+    push_n = d.execute("SELECT COUNT(*) FROM sent_notices WHERE kind=?", ("push:practice_reminder:%s" % practice["id"],)).fetchone()[0]
     return jsonify(sent=result.get("skipped") == "", practice={
         "id": practice["id"], "date": practice["date"], "start": practice["start"], "end": practice["end"],
         "location": practice["location"], "sport": practice["sport"] if "sport" in practice.keys() else "",
-    }, result=result)
+    }, result=result, recorded={"email": email_n, "inapp": push_n})
 @app.route("/manage/club/reminders/send/<int:pid>", methods=["POST"])
 @admin_required
 def club_reminder_send(pid):
