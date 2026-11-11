@@ -281,6 +281,86 @@ def test_regular_schedule_stores_each_day_with_its_own_times():
         assert d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] == rsvps
 
 
+def test_practice_reminders_stay_off_and_use_the_branded_mail():
+    admin, going, quiet, declined = client(), client(), client(), client()
+    join(admin, "Nia", "Admin", "nia.remind@example.com")
+    join(going, "Bea", "Going", "bea.remind@example.com")
+    join(quiet, "Ada", "Quiet", "ada.remind@example.com")
+    join(declined, "Cam", "Out", "cam.remind@example.com")
+    with A.app.app_context():
+        d = A.db()
+        d.execute("UPDATE members SET is_admin=1 WHERE email='nia.remind@example.com'")
+        d.commit()
+        assert clubadmin.reminder_settings(d)["enabled"] is False
+        day = (A.today_pt() + __import__("datetime").timedelta(days=1)).isoformat()
+        pid = d.execute("INSERT INTO practices(date, start, end, location, sport, activity_type, cancelled) VALUES(?,?,?,?,?,?,0)",
+                        (day, "19:00", "20:30", "Marina High School", "Water Polo", "practice")).lastrowid
+        ids = {row["email"]: row["id"] for row in d.execute("SELECT id, email FROM members")}
+        d.execute("INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)", (pid, ids["bea.remind@example.com"]))
+        d.execute("INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,0)", (pid, ids["cam.remind@example.com"]))
+        before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+        d.commit()
+    page = admin.get("/manage/club/reminders").get_data(as_text=True)
+    assert "Send practice reminders" in page and "Hours before" in page and "checked" not in page.split("Send practice reminders")[0][-80:]
+    settings = admin.get("/notifications").get_data(as_text=True)
+    assert "Practice reminders" in settings and 'value=both' in settings and "checked" in settings
+    sent = []
+    real_send, real_ready = A.send_email, A.smtp_ready
+    A.send_email = lambda to, subj, text, html=None: sent.append((to, subj, text, html))
+    A.smtp_ready = lambda: True
+    start = __import__("datetime").datetime.fromisoformat(day + "T19:00")
+    try:
+        nd = A.open_db()
+        try:
+            A.run_practice_reminders(nd, start - __import__("datetime").timedelta(hours=2))
+        finally:
+            nd.close()
+        assert sent == []
+        with A.app.app_context():
+            d = A.db()
+            clubadmin.save_reminder_settings(d, {"enabled": "1", "hours": "3"})
+            d.commit()
+        nd = A.open_db()
+        try:
+            A.run_practice_reminders(nd, start - __import__("datetime").timedelta(hours=2))
+            A.run_practice_reminders(nd, start - __import__("datetime").timedelta(hours=2))
+        finally:
+            nd.close()
+    finally:
+        A.send_email, A.smtp_ready = real_send, real_ready
+    by = {row[0]: row for row in sent}
+    assert len(sent) == 3
+    assert set(by) == {"bea.remind@example.com", "ada.remind@example.com", "nia.remind@example.com"}
+    assert by["bea.remind@example.com"][1] == "Practice today at 7:00 PM, Marina High School"
+    assert "View practice" in by["bea.remind@example.com"][3] and "Sign up for practice" not in by["bea.remind@example.com"][3]
+    assert "Sent by" in by["bea.remind@example.com"][3] and "/practices/%d" % pid in by["bea.remind@example.com"][3]
+    assert by["ada.remind@example.com"][1] == "Practice today, sign up"
+    assert by["nia.remind@example.com"][1] == "Practice today, sign up"
+    assert "Sign up for practice" in by["ada.remind@example.com"][3] and "Turn off practice reminder emails" in by["ada.remind@example.com"][3]
+    assert "cam.remind@example.com" not in by
+    with A.app.app_context():
+        d = A.db()
+        assert d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] == before
+        d.execute("UPDATE members SET practice_reminder='off' WHERE email='bea.remind@example.com'")
+        d.execute("DELETE FROM practice_reminder_sent WHERE practice_id=?", (pid,))
+        d.execute("DELETE FROM sent_notices WHERE kind LIKE 'email:practice_%'")
+        d.commit()
+    sent.clear()
+    A.send_email = lambda to, subj, text, html=None: sent.append((to, subj, text, html))
+    A.smtp_ready = lambda: True
+    try:
+        nd = A.open_db()
+        try:
+            A.run_practice_reminders(nd, start - __import__("datetime").timedelta(minutes=1))
+            A.run_practice_reminders(nd, start + __import__("datetime").timedelta(minutes=1))
+        finally:
+            nd.close()
+    finally:
+        A.send_email, A.smtp_ready = real_send, real_ready
+    assert "bea.remind@example.com" not in {row[0] for row in sent}
+    assert all("cam.remind@example.com" != row[0] for row in sent)
+
+
 def test_permissions_lists_admins_and_does_not_raise_access_on_its_own():
     admin, athlete = client(), client()
     join(admin, "Nia", "Admin", "nia.perm@example.com")

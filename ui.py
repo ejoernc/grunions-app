@@ -4115,6 +4115,14 @@ T["notifications"] = """
 <div class=list>{% for key, label in types %}
 <label class=li><input type=checkbox name=push value="{{key}}" {% if prefs.get(key, True) %}checked{% endif %}>{{label}}</label>
 {% endfor %}</div>
+<fieldset style="border:0;margin:16px 0 0;padding:0">
+<legend class=seclabel>Practice reminders</legend>
+<label class=checkline><input type=radio name=practice_reminder value=both {% if practice_reminder == 'both' %}checked{% endif %}> Both</label>
+<label class=checkline><input type=radio name=practice_reminder value=email {% if practice_reminder == 'email' %}checked{% endif %}> Email</label>
+<label class=checkline><input type=radio name=practice_reminder value=inapp {% if practice_reminder == 'inapp' %}checked{% endif %}> In-app</label>
+<label class=checkline><input type=radio name=practice_reminder value=off {% if practice_reminder == 'off' %}checked{% endif %}> Off</label>
+</fieldset>
+<p class="t3 sm">In-app uses the same notification you allow above. Emails include a link to turn practice reminder emails off.</p>
 <label style="margin-top:16px"><input type=checkbox name=email_reminders value=1 {% if email_on %}checked{% endif %}>Email reminders for membership, SafeSport, and the 2-week trial</label>
 <p class="t3 sm">These emails go out 7 days before, 1 day before, and on the day it expires. Practice cancellation emails always send.</p>
 <button class="btn btn-primary full">Save</button></form>"""

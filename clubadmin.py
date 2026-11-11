@@ -66,6 +66,41 @@ def ensure(d):
     _rename_pool_swimming(d)
 
 
+def reminder_settings(d):
+    """Club switch for automatic practice reminders. Off until an admin turns it on."""
+    raw = _meta(d, "practice_reminders_hours") or "3"
+    try:
+        hours = int(raw)
+    except ValueError:
+        hours = 3
+    if hours < 1:
+        hours = 1
+    if hours > 24:
+        hours = 24
+    return {"enabled": _meta(d, "practice_reminders") == "1", "hours": hours}
+
+
+def save_reminder_settings(d, form):
+    try:
+        hours = int((form.get("hours") or "3").strip())
+    except ValueError:
+        raise ValueError("Use a whole number of hours.")
+    if hours < 1 or hours > 24:
+        raise ValueError("Use 1 to 24 hours.")
+    _set_meta(d, "practice_reminders", "1" if form.get("enabled") else "0")
+    _set_meta(d, "practice_reminders_hours", str(hours))
+
+
+def reminders_html(d, csrf):
+    settings = reminder_settings(d)
+    return """<form method=post class=clubform style="padding-bottom:120px">%s
+<label class=checkline><input type=checkbox name=enabled value=1%s> Send practice reminders</label>
+<label>Hours before<input name=hours type=number min=1 max=24 value="%d"></label>
+<p class="t3 sm">Off until you turn this on. Nothing goes out automatically while it is off. A reminder is sent once for each session and skips cancelled or started sessions. RSVPs are not changed.</p>
+<button class="btn btn-primary full" type=submit>Save</button>
+</form>""" % (csrf, " checked" if settings["enabled"] else "", settings["hours"])
+
+
 def _meta(d, key):
     row = d.execute("SELECT value FROM club_meta WHERE key=?", (key,)).fetchone()
     return row["value"] if row else ""
