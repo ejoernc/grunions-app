@@ -111,6 +111,7 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     me_tabs = me.split('class="nav3', 1)[1].split("</nav>", 1)[0]
     me_menu = me.split('id="crestMenu"', 1)[1].split("</dialog>", 1)[0]
     assert me_tabs.find(">Calendar<") < me_tabs.find(">Chat<") < me_tabs.find(">Profile<")
+    assert "Upcoming" in me and "Past" in me and ("class=calrow" in me or "Nothing on this calendar." in me)
     assert 'data-tab="calendar" class=on' in me_tabs
     assert ">Schedule<" not in me_tabs and ">Lineup<" not in me_tabs and "Settings" not in me_tabs
     assert "Calendar · chat · profile" in me_menu

@@ -182,6 +182,24 @@ body.schedopen .homedock{min-height:0;justify-content:flex-start}
 body.homefull .homealerts,body.homefull .homedock .card,body.homefull .schedlist .card{position:relative;z-index:4;pointer-events:auto}
 body.homefull .schedlist{position:relative;z-index:2}
 .schedsame{display:none}
+.schedrow{display:flex;gap:12px;align-items:flex-start;margin:0 0 12px}
+.dayrail{width:52px;flex:none;padding-top:10px}
+.dayrail span{display:block;color:var(--r2-smoke);font:700 11px/1 var(--r2-font-sans);letter-spacing:.04em}
+.dayrail b{display:block;margin-top:4px;color:var(--r2-paper);font:700 28px/1 var(--r2-font-display)}
+.schedrow>.card{flex:1;min-width:0;margin:0}
+.calwhen,.calkinds{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.calwhen a,.calkinds a{display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);font:700 12px/1 var(--r2-font-sans);text-decoration:none}
+.calwhen a.on,.calkinds a.on{background:var(--r2-paper);color:var(--r2-fixed-ink)}
+.calday{margin:16px 0 6px;color:var(--r2-smoke);font:700 11px/1 var(--r2-font-sans);letter-spacing:.08em}
+.calrow{display:flex;align-items:center;gap:12px;min-height:58px;margin:0 0 8px;padding:12px 16px;border-radius:20px;background:var(--r2-carbon);color:inherit;text-decoration:none}
+.calrow b{display:block;font:700 15px/1.2 var(--r2-font-sans);color:var(--r2-paper)}
+.calrow small{display:block;margin-top:2px;color:var(--r2-smoke);font:600 12px/1.2 var(--r2-font-sans)}
+.calrow .go{margin-left:auto;color:var(--r2-smoke);font:700 16px/1 var(--r2-font-sans)}
+a.practlink{display:flex;align-items:center;gap:12px;min-height:64px;margin:14px 0;padding:10px 14px 10px 10px;border-radius:26px;background:var(--r2-graphite);color:inherit;text-decoration:none}
+a.practlink .mark{width:48px;height:48px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--r2-sun);color:var(--r2-fixed-ink);font:700 18px/1 var(--r2-font-display);flex:none}
+a.practlink b{display:block;font:700 15px/1.2 var(--r2-font-sans);color:var(--r2-paper)}
+a.practlink small{display:block;margin-top:2px;color:var(--r2-smoke);font:600 12px/1.3 var(--r2-font-sans)}
+.heldsocial{display:none !important}
 header.homehead .titlestack{position:relative;flex:1;min-width:0;height:44px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0}
 header.homehead .titlecross{display:grid}
 header.homehead .titlecross>h1{grid-area:1/1;margin:0}
@@ -4332,7 +4350,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 </div>
 {% if sport_filter_names() %}<div class="rolechips chiprow" id=sportFilters role=group aria-label="Sport">{% for name in [""] + sport_filter_names() %}<button type=button class="chip{{ ' on' if not name }}" data-sport="{{ name }}">{{ name or 'All' }}</button>{% endfor %}</div>{% endif %}
 <div class=schedlist id=schedule>
-{% for x in data %}{% set p = x.p %}<div class="card tap{% if nextp and p.id == nextp.id %} schedsame{% endif %}{% if p.cancelled %} cancelled{% endif %}" id=p{{p.id}} data-pid={{p.id}} data-sport="{{ p.sport or 'Water Polo' }}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
+{% for x in data %}{% set p = x.p %}{% set tile = practice_tile(p) %}<div class="schedrow{% if nextp and p.id == nextp.id %} schedsame{% endif %}"><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class="card tap{% if nextp and p.id == nextp.id %} schedsame{% endif %}{% if p.cancelled %} cancelled{% endif %}" id=p{{p.id}} data-pid={{p.id}} data-sport="{{ p.sport or 'Water Polo' }}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">
 <div class=nxcardhead><div class="nxtitle cardtitle">{{ practice_title(p) }}</div><span class="chip-info sportstat">{{ p.sport or 'Water Polo' }} · {{ sport_card_status(p, x.mine) }}</span></div>
 {% set tile = practice_tile(p) %}
@@ -4346,7 +4364,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {% if not p.cancelled %}<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{p.id}}>{{ rsvp_base('p' ~ p.id) }}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>
-{% endif %}</div>{% endfor %}
+{% endif %}</div></div>{% endfor %}
 </div>
 <script>
 (function(){
@@ -6326,20 +6344,20 @@ T["practice"] = """{% set p = x.p %}
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class=pills style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>{{ rsvp_base('p' ~ p.id) }}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>{% endif %}
-<a class="chatrow practlink" href="/chat?c=practice:{{ p.id }}{% if x.mine != 1 %}&amp;peek=1{% endif %}"><span class="mark sun">P</span><span class=grow><b>{% if x.mine == 1 %}Practice chats{% else %}Peek at the practice chat{% endif %}</b><small>{% if x.mine == 1 %}Opens this session{% else %}Follow until it ends{% endif %}</small></span></a>
+<a class="practlink" href="/chat?c=practice:{{ p.id }}{% if x.mine != 1 %}&amp;peek=1{% endif %}"><span class="mark sun">P</span><span class=grow><b>{% if x.mine == 1 %}Open the practice chat{% else %}Peek at the practice chat{% endif %}</b><small>{% if x.mine == 1 %}This session{% else %}Follow until it ends{% endif %}</small></span></a>
 <div class=seclabel>Details</div>
 <div class=list><div class=li><div class=grow>
 {% if p.note %}<div class="prow" style="padding:0"><span class=k>Notes</span><span class=v>{{ p.note }}</span></div>{% endif %}
 {% if p.coach_note %}<div class="prow" style="padding:0"><span class=k>Coach note</span><span class=v>{{ p.coach_note }} · {{ p.coach_note_by }}{% if p.coach_note_at %} · {{ fmt_stamp(p.coach_note_at) }}{% endif %}</span></div>{% endif %}
 {% if not p.note and not p.coach_note %}<span class=t3>No notes yet.</span>{% endif %}
 </div>{% if can_host_practice() %}<button type=button class="btn btn-secondary" data-open="notes{{ p.id }}">{{ 'Edit' if p.note else 'Add' }}</button>{% endif %}</div></div>
-<div class=seclabel>After-practice social</div>
+<div class=heldsocial hidden><div class=seclabel>After-practice social</div>
 <div class=list><div class=li>{% if social_line(p) %}{{ social_icon() }}{% endif %}<div class=grow>
 {% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
 <div class="t3 sm">{{ x.social_n }} joining</div>
 {% if p.social_note %}<div class="t2 sm" style="white-space:pre-wrap">{{ p.social_note }}</div>{% endif %}
 {% else %}<span class=t3>None yet.</span>{% endif %}
-</div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div>
+</div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div></div>
 <div class=seclabel>Coaches</div>
 <div class=list>
 {% if plan_editing %}<form id=practiceForm method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=plan_fields value=1>

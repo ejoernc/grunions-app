@@ -1207,20 +1207,77 @@ def inbox():
 @app.route("/calendar")
 @login_required
 def calendar():
-    """Me's first tab. Upcoming practices, not the team Schedule chrome."""
+    """Me Calendar. 09.03 / 09.04 are still titled Schedule in the file; the tab stays Calendar."""
     d = db()
-    rows = d.execute("""SELECT id, date, start, location, title, sport FROM practices
-        WHERE COALESCE(cancelled,0)=0 AND COALESCE(skipped,0)=0 AND date>=? ORDER BY date, start LIMIT 12""",
-        (today_pt().isoformat(),)).fetchall()
-    bits = []
-    for r in rows:
-        title = (r["title"] or r["sport"] or "Practice").strip()
-        when = _session_eyebrow(r["date"], r["start"])
-        bits.append('<a class="chatrow" href="/practices/%d"><span class="mark sun">%s</span><span class=grow><b>%s</b><small>%s · %s</small></span></a>'
-                    % (r["id"], escape(when[:1]), escape(title), escape(when), escape(r["location"] or "")))
-    body = '<div class=chatlist>%s</div>' % (
-        "".join(bits) or '<p class="t3">Nothing upcoming.</p>')
-    return page(body, tab="calendar")
+    m = me()
+    today = today_pt().isoformat()
+    show = request.args.get("when") or "upcoming"
+    if show not in ("upcoming", "past", "availability"):
+        show = "upcoming"
+    kind = request.args.get("kind") or "all"
+    if kind not in ("all", "practices", "lineup", "scrimmages", "games"):
+        kind = "all"
+    items = []
+    if show != "availability" and kind in ("all", "practices"):
+        op, order = (">=", "") if show == "upcoming" else ("<", " DESC")
+        rows = d.execute("""SELECT p.id, p.date, p.start, p.title, p.sport,
+            (SELECT r.going FROM rsvps r WHERE r.practice_id=p.id AND r.member_id=?) AS going
+            FROM practices p WHERE COALESCE(p.cancelled,0)=0 AND COALESCE(p.skipped,0)=0 AND p.date%s?
+            ORDER BY p.date%s, p.start""" % (op, order), (m["id"], today)).fetchall()
+        for row in rows:
+            if row["going"] == 1:
+                state = "going"
+            elif row["going"] == 0:
+                state = "not going"
+            else:
+                state = "open"
+            clock = fmt_t(row["start"]).replace("am", " AM").replace("pm", " PM") if row["start"] else "Practice"
+            title = (row["title"] or row["sport"] or "Practice").strip()
+            items.append((row["date"], "/practices/%d" % row["id"], "%s · %s" % (clock, title), "Grunions · %s" % state))
+    if show != "availability" and kind in ("all", "lineup"):
+        op, order = (">=", "") if show == "upcoming" else ("<", " DESC")
+        try:
+            events = d.execute("""SELECT e.id, e.date, e.title,
+                (SELECT r.state FROM lineup_rsvps r WHERE r.event_id=e.id AND r.member_id=?) AS state
+                FROM lineup_events e WHERE COALESCE(e.status,'published')='published' AND e.date%s?
+                ORDER BY e.date%s""" % (op, order), (m["id"], today)).fetchall()
+        except sqlite3.OperationalError:
+            events = []
+        for event in events:
+            state = event["state"] or "open"
+            if state == "going":
+                state = "registered"
+            items.append((event["date"], "/lineup/%d" % event["id"], event["title"] or "Lineup", "Lineup · %s" % state))
+    items.sort(key=lambda item: item[0] or "", reverse=(show == "past"))
+    def chip(name, value, current, param):
+        on = " on" if current == value else ""
+        query = "when=%s&kind=%s" % ((value if param == "when" else show), (value if param == "kind" else kind))
+        return '<a class="%s" href="/calendar?%s">%s</a>' % (on.strip() or "", query, escape(name))
+    when_bar = '<div class=calwhen>%s%s%s</div>' % (
+        chip("Upcoming", "upcoming", show, "when"), chip("Past", "past", show, "when"), chip("Availability", "availability", show, "when"))
+    kind_bar = '<div class=calkinds>%s%s%s%s%s</div>' % (
+        chip("All", "all", kind, "kind"), chip("Practices", "practices", kind, "kind"),
+        chip("Scrimmages", "scrimmages", kind, "kind"), chip("Games", "games", kind, "kind"),
+        chip("Lineup", "lineup", kind, "kind"))
+    if show == "availability":
+        rows_html = '<p class="t3">Availability is not a list on this preview.</p>'
+    elif kind in ("scrimmages", "games"):
+        rows_html = '<p class="t3">Nothing in this view.</p>'
+    else:
+        bits, last = [], None
+        for day, href, title, sub in items:
+            try:
+                parsed = dt.date.fromisoformat(str(day)[:10])
+                label = "%s %d" % (parsed.strftime("%a").upper(), parsed.day)
+            except ValueError:
+                label = str(day)
+            if label != last:
+                bits.append('<p class=calday>%s</p>' % escape(label))
+                last = label
+            bits.append('<a class=calrow href="%s"><span class=grow><b>%s</b><small>%s</small></span><span class=go aria-hidden=true>→</span></a>'
+                        % (escape(href), escape(title), escape(sub)))
+        rows_html = "".join(bits) or '<p class="t3">Nothing on this calendar.</p>'
+    return page(when_bar + kind_bar + rows_html, tab="calendar")
 @app.route("/find")
 @login_required
 def find_team():
