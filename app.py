@@ -1276,8 +1276,8 @@ def calendar():
             if label != last:
                 bits.append('<p class=calday>%s</p>' % escape(label))
                 last = label
-            bits.append('<a class=calrow href="%s"><span class=grow><b>%s</b><small>%s</small></span><span class=go aria-hidden=true>→</span></a>'
-                        % (escape(href), escape(title), escape(sub)))
+            bits.append('<a class="calrow r2-event-row" data-r2="event-row" href="%s"><span class="r2-avatar av" style="background:#FFC61A;color:#0B0B0C">%s</span><span class=grow><b>%s</b><small>%s</small></span><span class=go aria-hidden=true>›</span></a>'
+                        % (escape(href), escape(label[:1]), escape(title), escape(sub)))
         rows_html = "".join(bits) or '<p class="t3">Nothing on this calendar.</p>'
     return page(when_bar + kind_bar + rows_html, tab="calendar")
 @app.route("/find")

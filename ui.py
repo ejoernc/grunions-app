@@ -276,7 +276,7 @@ a.homecard em{font:700 28px/1 var(--r2-font-display);font-style:normal}
 .calwhen a,.calkinds a{display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);font:700 12px/1 var(--r2-font-sans);text-decoration:none}
 .calwhen a.on,.calkinds a.on{background:var(--r2-paper);color:var(--r2-fixed-ink)}
 .calday{margin:16px 0 6px;color:var(--r2-smoke);font:700 11px/1 var(--r2-font-sans);letter-spacing:.08em}
-.calrow{display:flex;align-items:center;gap:12px;min-height:58px;margin:0 0 8px;padding:12px 16px;border-radius:20px;background:var(--r2-carbon);color:inherit;text-decoration:none}
+.calrow{display:flex;align-items:center;gap:14px;min-height:76px;margin:0 0 8px;padding:12px 16px;border-radius:28px;background:#17181A;color:inherit;text-decoration:none}
 .calrow b{display:block;font:700 15px/1.2 var(--r2-font-sans);color:var(--r2-paper)}
 .calrow small{display:block;margin-top:2px;color:var(--r2-smoke);font:600 12px/1.2 var(--r2-font-sans)}
 .calrow .go{margin-left:auto;color:var(--r2-smoke);font:700 16px/1 var(--r2-font-sans)}
@@ -499,7 +499,7 @@ main:has(.lineupfilt) .seclabel{color:var(--r2-smoke);font:700 28px/.95 var(--r2
 .tripcard[data-kind=Clinic]{background:var(--r2-sky);color:var(--r2-fixed-ink)}
 .tripcard[data-kind]:not(.cancelled) .nxtitle,.tripcard[data-kind]:not(.cancelled) .nxrow,.tripcard[data-kind]:not(.cancelled) .cardsub,.tripcard[data-kind]:not(.cancelled) .datetile{color:var(--r2-fixed-ink)}
 .tripcard.cancelled{background:var(--r2-carbon);color:var(--r2-smoke)}
-body.profilepage .profilehero{align-items:flex-start;padding:4px 0 8px}
+body.profilepage .profilehero{align-items:flex-start;padding:4px 0 8px}body.profilepage .profilename::after{content:"."}body.profilepage .seclabel{font:700 28px/.95 var(--r2-font-display);letter-spacing:-.03em;color:#F6F4EF}body.profilepage .numcard{margin-bottom:28px}body.profilepage main{padding-bottom:calc(var(--nav-clear) + 48px + env(safe-area-inset-bottom))}
 body.profilepage .avatar.hero{background:var(--r2-sun);color:var(--r2-fixed-ink);border:0;font:700 40px/.95 var(--r2-font-display);letter-spacing:-.04em}
 body.profilepage .profilename{margin:14px 0 8px;text-align:left;font:700 clamp(48px,14vw,64px)/.86 var(--r2-font-display);letter-spacing:-.05em}
 body.profilepage .profilename::after{content:"."}
@@ -1276,7 +1276,7 @@ a.evcard{display:block;color:inherit;text-decoration:none;background:var(--color
 button.dock,a.dock{background:var(--accent);color:var(--color-on-primary)}
 a.quietcheck,button.quietcheck{background:var(--surface2);color:var(--color-text);border:0;border-radius:var(--radius-button)}
 .emptyfind{color:var(--t2);margin:8px 0 16px}
-details.lineuppast{margin-top:8px}details.lineuppast>summary{display:flex;align-items:center;gap:8px;list-style:none;min-height:48px;padding:12px 0 8px;font:700 15px/1.2 var(--r2-font-sans);color:var(--r2-paper);cursor:pointer}details.lineuppast>summary::-webkit-details-marker{display:none}details.lineuppast>summary .t3{margin-left:auto}
+details.lineuppast{margin:20px 0 8px}details.lineuppast>summary{display:flex;align-items:center;gap:8px;list-style:none;min-height:48px;padding:12px 0 8px;font:700 22px/1 var(--r2-font-display);letter-spacing:-.03em;color:var(--r2-paper);cursor:pointer}details.lineuppast>summary::-webkit-details-marker,details.lineuppast>summary::marker{content:none;display:none}details.lineuppast>summary .pastn{color:#8B8F93;font:700 15px/1 var(--r2-font-sans)}details.lineuppast>summary::after{content:"›";margin-left:auto;color:#8B8F93;font:700 18px/1 var(--r2-font-sans)}
 .repeatblock .repeatopts{display:none}.repeatblock:has(input[name=repeat]:checked) .repeatopts{display:block}
 .tripcard{padding:0;overflow:hidden}.tripcard .evbody{padding:0 18px 18px}.tripcard .nxcardhead{display:flex;flex-direction:column;align-items:stretch;gap:2px;min-width:0}.tripcard .cardsub{margin:0;color:var(--color-text-secondary);min-width:0;max-width:100%}.lineupchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.lineupchips .chip-info{margin:0}
 div.card.tap.tripcard{padding:18px;overflow:visible}div.card.tap.tripcard .nxcardhead{margin:0 0 10px}
@@ -4823,7 +4823,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 {% else %}
 {% if prof_upcoming or prof_past %}
 {% for g in prof_upcoming %}<div class=seclabel>{{ g.label }}</div>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}
-{% if prof_past %}<details class=lineuppast><summary>Past <span class=t3>{{ prof_past_n }}</span></summary>{% for g in prof_past %}<div class=seclabel>{{ g.label }}</div>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}</details>{% endif %}
+{% if prof_past %}<details class=lineuppast><summary>Past <span class=pastn>{{ prof_past_n }}</span></summary>{% for g in prof_past %}<div class=seclabel>{{ g.label }}</div>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}</details>{% endif %}
 {% else %}<p class=emptyfind>Nothing yet.</p>{% endif %}
 {% endif %}
 <dialog id=selfMenu class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
@@ -5824,7 +5824,7 @@ T["lineup"] = """{% macro lineup_months(groups) %}{% for g in groups %}<div clas
 {% if featured %}<div class=seclabel>Pinned</div>{% for e in featured %}{{ lineup_card(e) }}{% endfor %}{% endif %}
 {% if empty_public %}<p class=emptyfind>Nothing on the Lineup yet.</p>{% endif %}
 {{ lineup_months(upcoming) }}
-{% if past %}<details class=lineuppast><summary>Past <span class=t3>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}"""
+{% if past %}<details class=lineuppast><summary>Past <span class=pastn>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}"""
 T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
 <div class=profilehero>
 <div class="profilename{% if e.status == 'canceled' %} cancelled{% endif %}">{{ e.title }}</div>
