@@ -501,6 +501,41 @@ nav.tabs a:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px
 nav.tabs a .badge{position:absolute;top:0;right:0;margin:0}.datetile{position:relative}.datetile .pdate{position:absolute;top:0;right:0}.datetile .pdate .badge{position:absolute;top:-4px;right:-4px;margin:0}
 /* Phosphor icons. Nav uses Regular, and Fill on the selected circle. */
 nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:block}
+body.editor nav.nav3,body.profile-edit nav.nav3{display:none}
+nav.nav3{position:fixed;z-index:9;left:var(--r2-space-4);right:var(--r2-space-4);bottom:calc(12px + env(safe-area-inset-bottom));height:72px;display:flex;align-items:center;gap:var(--r2-space-2);padding:8px;border-radius:28px;background:var(--r2-carbon);border:1px solid var(--r2-graphite);box-sizing:border-box}
+.nav3-crest{width:56px;height:56px;flex:none;border:0;border-radius:18px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 18px/1 var(--r2-font-display);letter-spacing:-.04em}
+.nav3-tabs{display:flex;flex:1;align-items:center;justify-content:space-around;min-width:0}
+.nav3-tabs a{color:var(--r2-smoke);text-decoration:none;font:var(--r2-label);padding:8px}
+.nav3-tabs a.on{color:var(--r2-paper)}
+dialog.crestmenu{position:fixed;margin:0;border:1px solid var(--r2-graphite);border-radius:var(--r2-radius-xl);background:var(--r2-carbon);color:var(--r2-paper);width:min(358px,calc(100vw - 32px));max-height:min(640px,calc(100dvh - 120px));padding:8px 0 12px;overflow:auto}
+dialog.crestmenu::backdrop{background:rgba(0,0,0,.62)}
+.crestlabel{margin:12px 16px 6px;color:var(--r2-smoke);font:var(--r2-caps);letter-spacing:.08em;text-transform:uppercase}
+.crestrow{display:flex;align-items:center;gap:12px;margin:0 8px;padding:8px;border-radius:14px;color:inherit;text-decoration:none}
+.crestrow b{display:block;font:var(--r2-body-l)}
+.crestrow small{display:block;color:var(--r2-smoke);font:var(--r2-body)}
+.crestmark{width:40px;height:40px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;background:var(--r2-graphite);color:var(--r2-lime);font:700 14px/1 var(--r2-font-display);flex:none}
+.crestmark.team{background:var(--r2-lime);color:var(--r2-fixed-ink)}
+.rolechip{margin-left:auto;height:24px;padding:0 10px;border-radius:var(--r2-radius-pill);background:var(--r2-graphite);color:var(--r2-paper);font:var(--r2-label);display:inline-flex;align-items:center}
+.crestrow.action{justify-content:center;font:var(--r2-label);color:var(--r2-paper)}
+.r2caps{margin:0 0 8px;color:var(--r2-smoke);font:var(--r2-caps);letter-spacing:.08em;text-transform:uppercase}
+@media (max-width:767px){dialog.crestmenu{left:16px;right:auto;top:auto;bottom:100px}}
+@media (min-width:768px){
+ body:has(nav.nav3){padding-left:var(--r2-rail);--nav-clear:16px;--nav-offset-bottom:0px}
+ nav.nav3{top:0;bottom:0;left:0;right:auto;width:var(--r2-rail);height:auto;flex-direction:column;align-items:center;border-radius:0;border-width:0 1px 0 0;padding:16px 8px}
+ .nav3-tabs{flex-direction:column;justify-content:flex-start;gap:4px}
+ .nav3-tabs a{font-size:11px}
+ body:has(nav.nav3) .composer,body:has(nav.nav3).homefull .homemap{left:var(--r2-rail)}
+ dialog.crestmenu{top:72px;left:16px;bottom:auto}
+}
+@media (min-width:1280px){
+ body:has(nav.nav3){padding-left:var(--r2-sidebar)}
+ nav.nav3{width:var(--r2-sidebar);align-items:stretch;padding:16px 12px}
+ .nav3-crest{width:100%;height:56px}
+ .nav3-tabs{align-items:stretch}
+ .nav3-tabs a{text-align:left;padding:10px 12px;border-radius:12px;font:var(--r2-label)}
+ .nav3-tabs a.on{background:var(--r2-graphite);color:var(--r2-paper)}
+ body:has(nav.nav3) .composer,body:has(nav.nav3).homefull .homemap{left:var(--r2-sidebar)}
+}
 button.earlier{width:100%;height:auto;min-height:0;margin:0;padding:8px 0 4px;background:none;color:var(--t3);font-size:13px;font-weight:650}.chatin{display:flex;flex-direction:column;justify-content:flex-end;min-height:100%;width:100%;min-width:0}.chat{display:block;flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;overflow-anchor:auto;overscroll-behavior:contain;scrollbar-width:none}.chat.scrolling{scrollbar-width:thin;scrollbar-color:rgba(242,246,241,.45) transparent}.chat::-webkit-scrollbar{width:0;height:0}.chat.scrolling::-webkit-scrollbar{width:8px;height:8px}.chat.scrolling::-webkit-scrollbar-thumb{background:rgba(242,246,241,.4);border-radius:8px}.m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}.m.g-mid,.m.g-last{margin-top:2px}.chat>.m:first-child{margin-top:auto}.m .who{font-size:13px;color:var(--t3);margin:0 0 3px}.m .txt{background:var(--color-bubble);border-radius:var(--radius-card);padding:10px 14px;display:inline-block;max-width:85%;white-space:pre-wrap;word-wrap:break-word;color:var(--color-text)}.m .txt a.msglink{color:var(--accent);text-decoration:none}
 .m.g-first:not(.mine) .txt,.m.g-first:not(.mine) .img img{border-bottom-left-radius:5px}.m.g-mid:not(.mine) .txt,.m.g-mid:not(.mine) .img img{border-top-left-radius:5px;border-bottom-left-radius:5px}.m.g-last:not(.mine) .txt,.m.g-last:not(.mine) .img img{border-top-left-radius:5px}
 .m.g-first.mine .txt,.m.g-first.mine .img img{border-bottom-right-radius:5px}.m.g-mid.mine .txt,.m.g-mid.mine .img img{border-top-right-radius:5px;border-bottom-right-radius:5px}.m.g-last.mine .txt,.m.g-last.mine .img img{border-top-right-radius:5px}
@@ -1616,13 +1651,19 @@ def _nav_icon(key):
 
 _HOME_ON = "tab=='home' or tab=='practices' or tab=='practice' or tab=='series_edit'"
 _LINEUP_ON = "tab=='lineup' or tab=='lineup_edit' or tab=='lineup_event'"
-TABS = ("""</main>{% if me() and tab != 'profile' and tab != 'member' and tab != 'event_new' and tab != 'lineup_edit' and tab != 'series_edit' and not (tab=='practice' and editing) %}<nav class="tabs noprint" data-total="{{ badges().total }}">"""
- + _nav_anchor("home", "/home", "Home", _HOME_ON, "schedule")
- + _nav_anchor("lineup", "/lineup", "Lineup", _LINEUP_ON)
- + _nav_anchor("chat", "/chat", "Chat", "tab=='chat'", "chat")
- + "{% if can_host_practice() %}" + _nav_anchor("manage", "/manage", "Manage", "tab=='admin' or tab=='manage'")
- + """{% endif %}
-</nav>{% endif %}
+TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and tab != 'event_new' and tab != 'lineup_edit' and tab != 'series_edit' and not (tab=='practice' and editing) %}<nav class="nav3 noprint" data-place="{{ nav.place }}" aria-label="Places">
+<button type="button" class="nav3-crest" aria-expanded="false" aria-controls="crestMenu" aria-label="Open places">{{ nav.crest }}</button>
+<div class="nav3-tabs">{% for label, href, on in nav.tabs %}<a href="{{ href }}" {% if on %}class=on aria-current=page{% endif %}>{{ label }}</a>{% endfor %}</div>
+</nav>
+<dialog id="crestMenu" class="crestmenu">
+<p class="crestlabel">Go to</p>
+<a class="crestrow" href="/discover"><span class="crestmark">//</span><span><b>Everything</b><small>Discover · Map · Inbox</small></span></a>
+<a class="crestrow" href="/profile"><span class="crestmark">{{ initials(me()) }}</span><span><b>{{ nav.name }}</b><small>Settings · Calendar · Lineup</small></span></a>
+<p class="crestlabel">Your teams</p>
+<a class="crestrow" href="/practices"><span class="crestmark team">G</span><span><b>Grunions</b><small>Water polo</small></span><span class="rolechip">{{ nav.role }}</span></a>
+<a class="crestrow action" href="/find">+ Find or join</a>
+<a class="crestrow action" href="/logout">Log out</a>
+</dialog>{% endif %}
 <script>
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=118');
 function grunionsClearTransition(){try{var t=document.activeViewTransition; if(t&&t.skipTransition) t.skipTransition();}catch(e){}}
@@ -1651,6 +1692,17 @@ function grunionsLeave(fallback){
  location.href=fallback||'/home';
 }
 grunionsCaptureArea();
+(function(){
+ var crest=document.querySelector('.nav3-crest'), menu=document.getElementById('crestMenu');
+ if(!crest||!menu) return;
+ function shut(){ if(menu.open) menu.close(); crest.setAttribute('aria-expanded','false'); }
+ crest.addEventListener('click', function(){
+  if(menu.open) shut();
+  else { menu.showModal(); crest.setAttribute('aria-expanded','true'); }
+ });
+ menu.addEventListener('click', function(e){ if(e.target===menu) shut(); });
+ menu.addEventListener('close', function(){ crest.setAttribute('aria-expanded','false'); });
+})();
 document.addEventListener('click',function(e){
  if(e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey) return;
  var a=e.target.closest&&e.target.closest('a[href]');
@@ -1660,7 +1712,7 @@ document.addEventListener('click',function(e){
  e.preventDefault();
  e.stopPropagation();
  var next=abs.pathname+abs.search+abs.hash;
- if(abs.pathname==='/profile'||!document.querySelector('nav.tabs')){
+ if(abs.pathname==='/profile'||!document.querySelector('nav.nav3, nav.tabs')){
   try{sessionStorage.setItem('grunionsTabReplace','1')}catch(err){}
   location.replace(next); return;
  }
@@ -1682,7 +1734,7 @@ document.addEventListener('submit',function(e){
  });
  var next=abs.pathname+(params.toString()?'?'+params.toString():'')+(abs.hash||'');
  e.preventDefault();
- if(abs.pathname==='/profile'||!document.querySelector('nav.tabs')){
+ if(abs.pathname==='/profile'||!document.querySelector('nav.nav3, nav.tabs')){
   try{sessionStorage.setItem('grunionsTabReplace','1')}catch(err){}
   location.replace(next); return;
  }

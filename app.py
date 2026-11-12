@@ -375,7 +375,51 @@ def fmt_phone(raw):
     if digits: return "(%s) %s-%s" % (digits[:3], digits[3:6], digits[6:])
     text = " ".join(str(raw or "").split())
     return text or "—"
-app.jinja_env.globals.update(display_first=display_first, initials=initials, fmt_phone=fmt_phone)
+def nav_context():
+    """Where the crest is, and which tabs belong there. Grunions is the only live team."""
+    m = me()
+    if not m:
+        return {"show": False}
+    path = request.path or "/"
+    forced = (request.args.get("place") or "").strip()
+    if forced in ("everything", "me", "team"):
+        place = forced
+    elif path in ("/discover", "/inbox", "/find", "/home"):
+        place = "everything"
+    elif path.startswith("/profile") or path.startswith("/notifications"):
+        place = "me"
+    else:
+        place = "team"
+    if m["is_admin"]:
+        role = "Admin"
+    elif (m["role"] or "") == "coach":
+        role = "Coach"
+    else:
+        role = "Member"
+    def here(prefix):
+        return path == prefix or path.startswith(prefix + "/")
+    if place == "everything":
+        tabs = [("Discover", "/discover", path == "/discover"), ("Map", "/home", path == "/home"), ("Inbox", "/inbox", path == "/inbox")]
+        crest = "//"
+    elif place == "me":
+        tabs = [
+            ("Settings", "/profile", path.startswith("/profile") or path.startswith("/notifications")),
+            ("Calendar", "/practices?place=me", here("/practices") and forced == "me"),
+            ("Lineup", "/lineup?place=me", here("/lineup") and forced == "me"),
+        ]
+        crest = initials(m)
+    else:
+        tabs = [
+            ("Schedule", "/practices", here("/practices") and forced != "me"),
+            ("Lineup", "/lineup", here("/lineup") and forced != "me"),
+            ("Chat", "/chat", here("/chat")),
+        ]
+        if can_host_practice():
+            tabs.append(("Manage", "/manage", path.startswith("/manage") or path.startswith("/admin") or path.startswith("/members") or path.startswith("/expiring")))
+        crest = "G"
+    return {"show": True, "place": place, "tabs": tabs, "crest": crest,
+            "name": ("%s %s" % (display_first(m), m["last"] or "")).strip(), "role": role, "team": "Grunions"}
+app.jinja_env.globals.update(display_first=display_first, initials=initials, fmt_phone=fmt_phone, nav_context=nav_context)
 # applies_to: all | athlete | coach. keywords: normalized substrings to find this item's columns in a Sport:80 export.
 DEFAULT_REQS = [("SafeSport training", "all", "safesport", 1), ("Background screening", "coach", "background", 1)]
 def drop_club_waiver(d):
@@ -1026,10 +1070,10 @@ def safe_return_path(raw):
         return raw
     return ""
 def auth_destination(mid):
-    """Keep a registration or practice the visitor already opened. Every other sign-in still opens Home."""
+    """Keep a registration or practice the visitor already opened. Every other sign-in opens the team Schedule."""
     nxt = safe_return_path(session.get("next") or "")
     start_session(mid)
-    return nxt or "/home"
+    return nxt or "/practices"
 
 _MACRO_AT = ui.BASE.find("{% macro")
 _BODY_AT = ui.BASE.find("<body")
@@ -1062,7 +1106,29 @@ def webmanifest():
     resp.headers["Cache-Control"] = "no-cache"
     return resp
 @app.route("/")
-def index(): return redirect("/home" if me() else "/join")
+def index(): return redirect("/practices" if me() else "/join")
+@app.route("/discover")
+@login_required
+def discover():
+    """Everything starts here. One live team, not a directory of clubs."""
+    return page("""<p class="r2caps">Everything</p><h1>Discover.</h1>
+<p>Grunions is your team. Other clubs are not listed here.</p>
+<p><a class="btn btn-primary" href="/practices">Open the Grunions schedule</a></p>""", tab="discover")
+@app.route("/inbox")
+@login_required
+def inbox():
+    """A thin door to the team chat. The inbox itself is a later slice."""
+    return page("""<p class="r2caps">Everything</p><h1>Inbox.</h1>
+<p>Team messages stay in Grunions chat.</p>
+<p><a class="btn btn-primary" href="/chat">Open chat</a></p>""", tab="inbox")
+@app.route("/find")
+@login_required
+def find_team():
+    """Find or join stays quiet while Grunions is the only team."""
+    return page("""<p class="r2caps">Everything</p><h1>Find or join.</h1>
+<p>You're on Grunions. This club stays at grunions.regulars.team.</p>
+<p class="t3">Another team can have its own regulars.team address later. None are attached here.</p>
+<p><a class="btn btn-primary" href="/practices">Back to Schedule</a></p>""", tab="discover")
 
 @app.route("/join", methods=["GET", "POST"])
 def join():

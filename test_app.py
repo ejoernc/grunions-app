@@ -1610,17 +1610,15 @@ ok(len(expired_mail) == 1 and "expired on" in expired_mail[0][2] and not any(e[0
 D.execute("UPDATE member_reqs SET expires_on=? WHERE member_id=? AND req_id=?", (far_bg, casey_mid, bg_req)); D.commit()
 
 def nav_skeleton(html):
-    nav = re.search(r'<nav class="tabs noprint".*?</nav>', html, re.S).group(0)
-    nav = re.sub(r' class="on"', "", nav)
+    nav = re.search(r'<nav class="nav3 noprint".*?</nav>', html, re.S).group(0)
+    nav = re.sub(r' class=on', "", nav)
     nav = re.sub(r' aria-current=page', "", nav)
-    nav = re.sub(r' class=""', "", nav)
-    nav = re.sub(r'\sdata-total="[^"]*"', "", nav)
-    return re.sub(r"<span class=badge>[^<]*</span>", "", nav)
-eli_pages = [eli.get(p).get_data(as_text=True) for p in ("/home", "/practices", "/chat", "/admin", "/members")]
-jane_pages = [jane.get(p).get_data(as_text=True) for p in ("/home", "/practices", "/chat")]
+    return nav
+eli_team = [eli.get(p).get_data(as_text=True) for p in ("/practices", "/chat", "/admin", "/members")]
+jane_team = [jane.get(p).get_data(as_text=True) for p in ("/practices", "/chat")]
 login_html = client().get("/login").get_data(as_text=True)
-ok(len({nav_skeleton(h) for h in eli_pages}) == 1 and "href=/manage" in nav_skeleton(eli_pages[0]) and 'aria-label="Manage"' in nav_skeleton(eli_pages[0]), "staff bottom nav markup matches on home, schedule, chat, and admin")
-ok(len({nav_skeleton(h) for h in jane_pages}) == 1 and "href=/manage" not in nav_skeleton(jane_pages[0]) and "href=/admin" not in nav_skeleton(jane_pages[0]) and "href=/home" in nav_skeleton(jane_pages[0]), "member bottom nav markup matches and has no Manage tab")
+ok(len({nav_skeleton(h) for h in eli_team}) == 1 and "href=/manage" in nav_skeleton(eli_team[0]) and nav_skeleton(eli_team[0]).find(">Schedule<") < nav_skeleton(eli_team[0]).find(">Manage<"), "staff team tabs match and Schedule comes before Manage")
+ok(len({nav_skeleton(h) for h in jane_team}) == 1 and "href=/manage" not in nav_skeleton(jane_team[0]) and ">Schedule<" in nav_skeleton(jane_team[0]) and ">Discover<" in jane.get("/home").get_data(as_text=True), "members get Schedule, Lineup, and Chat, and the map uses Everything tabs")
 ok("color-scheme:dark" in eli_pages[0][:600] and "content=dark" in eli_pages[0][:600] and "#090D0B" in eli_pages[0][:600] and '<body style="background:#090D0B' in eli_pages[0] and "color-scheme:dark" in login_html[:600] and "#090D0B" in login_html[:600], "dark background is in the first bytes, including the login page")
 _join_html = client().get("/join").get_data(as_text=True)
 _lock = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "regulars-lockup.svg"), encoding="utf-8").read()

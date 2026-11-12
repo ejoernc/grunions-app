@@ -179,6 +179,56 @@
   --nav-gap: 8px;
   --nav-circle: 52px;
   --nav-clear: calc(var(--nav-circle) + 2 * var(--nav-pad) + 2px + var(--nav-offset-bottom));
+
+  /* Regulars 2.0 tokens. The live screens keep the variables above. Nav 3.0 uses these. */
+  --r2-font-display: "Space Grotesk", "Plus Jakarta Sans", system-ui, sans-serif;
+  --r2-font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --r2-ink: #0B0B0C;
+  --r2-paper: #F6F4EF;
+  --r2-carbon: #17181A;
+  --r2-graphite: #24262A;
+  --r2-smoke: #8B8F93;
+  --r2-lime: #C8FF3C;
+  --r2-sun: #FFC61A;
+  --r2-sky: #7CC8F4;
+  --r2-tangerine: #FF5A1F;
+  --r2-lavender: #A89CFF;
+  --r2-sage: #BCD0B9;
+  --r2-stone: #DDD5C7;
+  --r2-blush: #FFB4A6;
+  --r2-aqua: #2EE6C8;
+  --r2-cobalt: #4F7BFF;
+  --r2-bubblegum: #FF5FB8;
+  --r2-grape: #9B6BFF;
+  --r2-cherry: #FF3D57;
+  --r2-mango: #FF9F1C;
+  --r2-tide: #162630;
+  --r2-accent-text: #C8FF3C;
+  --r2-fixed-ink: #0B0B0C;
+  --r2-fixed-paper: #F6F4EF;
+  --r2-display-xl: 700 120px/0.86 var(--r2-font-display);
+  --r2-display-l: 700 64px/0.9 var(--r2-font-display);
+  --r2-display-m: 700 40px/0.95 var(--r2-font-display);
+  --r2-title: 700 28px/1 var(--r2-font-display);
+  --r2-body-l: 600 17px/1.45 var(--r2-font-sans);
+  --r2-body: 500 15px/1.45 var(--r2-font-sans);
+  --r2-label: 700 13px/1.2 var(--r2-font-sans);
+  --r2-caps: 700 11px/1.2 var(--r2-font-sans);
+  --r2-space-1: 4px;
+  --r2-space-2: 8px;
+  --r2-space-3: 12px;
+  --r2-space-4: 16px;
+  --r2-space-5: 20px;
+  --r2-space-6: 24px;
+  --r2-space-8: 32px;
+  --r2-space-10: 40px;
+  --r2-radius-sm: 8px;
+  --r2-radius-md: 12px;
+  --r2-radius-lg: 16px;
+  --r2-radius-xl: 20px;
+  --r2-radius-pill: 999px;
+  --r2-rail: 96px;
+  --r2-sidebar: 248px;
 }
 
 [data-theme="light"] {
@@ -233,4 +283,11 @@
   --color-nav-icon-on: #090D0B;
   background: var(--color-bg);
   color: var(--color-text);
+  --r2-ink: #F3F1EB;
+  --r2-paper: #0B0B0C;
+  --r2-carbon: #FFFFFF;
+  --r2-graphite: #E6E2D9;
+  --r2-smoke: #6A6E73;
+  --r2-tide: #CFE4EE;
+  --r2-accent-text: #4A6A00;
 }

@@ -26,6 +26,32 @@ def join(browser, first, last, email):
     return browser.post("/join", data=dict(csrf=csrf(browser, "/join"), first=first, last=last, email=email, phone="555-0100"))
 
 
+def test_nav_3_lands_on_schedule_and_lists_only_grunions():
+    member = client()
+    join(member, "Ada", "Nav", "ada.nav@example.com")
+    assert member.get("/").headers["Location"].endswith("/practices")
+    schedule = member.get("/practices").get_data(as_text=True)
+    assert 'class="nav3' in schedule and 'data-place="team"' in schedule
+    tabs = schedule.split('class="nav3', 1)[1].split("</nav>", 1)[0]
+    assert ">Schedule<" in tabs and ">Lineup<" in tabs and ">Chat<" in tabs and ">Manage<" not in tabs
+    assert tabs.find(">Schedule<") < tabs.find(">Lineup<")
+    assert "--r2-ink" in schedule and "#C8FF3C" in schedule and "#4A6A00" in schedule
+    menu = schedule.split('id="crestMenu"', 1)[1].split("</dialog>", 1)[0]
+    assert ">Everything<" in menu and ">Grunions<" in menu and "Find or join" in menu and ">Log out<" in menu
+    assert ">Member<" in menu and "Surf City" not in menu and "Harbor Seals" not in menu
+    discover = member.get("/discover").get_data(as_text=True)
+    assert "Discover." in discover and "Grunions is your team" in discover and "Surf City" not in discover
+    assert 'data-place="everything"' in discover and ">Map<" in discover
+    with A.app.app_context():
+        d = A.db()
+        d.execute("UPDATE members SET is_admin=1 WHERE email='ada.nav@example.com'")
+        d.commit()
+        assert d.execute("SELECT is_admin FROM members WHERE email='ada.nav@example.com'").fetchone()["is_admin"] == 1
+    admin_tabs = member.get("/practices").get_data(as_text=True).split('class="nav3', 1)[1].split("</nav>", 1)[0]
+    assert ">Manage<" in admin_tabs and admin_tabs.find(">Schedule<") < admin_tabs.find(">Manage<")
+    assert 'href="/practices"' in member.get("/practices").get_data(as_text=True).split("Your teams", 1)[1].split("</dialog>", 1)[0]
+
+
 def test_programs_start_with_water_polo_on_and_swimming_off():
     admin = client()
     join(admin, "Nia", "Admin", "nia.club@example.com")
