@@ -899,7 +899,8 @@ ja, jo = jane.get("/api/unread").get_json(), john.get("/api/unread").get_json()
 cht = john.get("/chat?view=list").get_data(as_text=True)
 member_list = jane.get("/chat?view=list").get_data(as_text=True)
 board = cht.split("Message the board", 1)[-1][:220]
-ok(jo["coaches"] == jb["coaches"] + 1 and ja["coaches"] == 0 and ja["total"] == jane_now["total"] and "Message the board" in cht and "class=unread" in board and "Message the board" not in member_list, "coaches unread stays on the board row and off member totals")
+sheet = cht.split("id=newChat", 1)[1].split("</dialog>", 1)[0]
+ok(jo["coaches"] == jb["coaches"] + 1 and ja["coaches"] == 0 and ja["total"] == jane_now["total"] and "Message the board" in cht and "class=unread" in board and "Board room" in sheet and "New channel" in sheet and "New channel" not in member_list and "Board room" not in member_list, "coaches unread stays on the board row and off member totals")
 ok(john.get("/chat?c=coaches").status_code == 200 and john.get("/api/unread").get_json()["coaches"] == 0, "opening coaches chat clears it")
 def _audience(channel):
     rows = D.execute("SELECT id, role, is_admin FROM members WHERE COALESCE(role,'')!='system'").fetchall()

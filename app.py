@@ -733,6 +733,14 @@ def is_active_coach(m=None):
 def is_staff(m=None):
     """Check-in and coaches chat. Only active coaches."""
     return is_active_coach(m)
+def is_board(m=None):
+    """The board room. Active coaches and admins. There is no separate board role."""
+    m = m or me()
+    return bool(m and (m["is_admin"] or (m["role"] or "") == "coach"))
+def can_make_channel(m=None):
+    """Official channels. Coach or admin only. Admin lite has no manage-chats grant yet."""
+    m = m or me()
+    return bool(m and (m["is_admin"] or (m["role"] or "") == "coach"))
 def can_host_practice(m=None):
     """Admins, active coaches, and Admin lite can set a social and a coach message."""
     m = m or me()
@@ -1572,7 +1580,7 @@ def can_read(ch):
     if not ch or not me():
         return False
     if ch == "coaches":
-        return is_staff()
+        return is_board()
     if ch in ("team",) or ch.startswith(("ch:", "ask:", "grp:")):
         return True
     if ch.startswith("practice:"):
@@ -2194,20 +2202,74 @@ def _joined_people(d, mid):
         WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1 AND id!=?
         ORDER BY first, last""", (mid,)).fetchall()
 def _chat_title(mode):
-    plus = "both" if mode == "team" and can_host_practice() else "message"
     return ('<div class=chathead><h1 class=chatdisplay>Chat.</h1>'
-            '<button type=button class=chatplus data-plus="%s" aria-label="New">+</button></div>') % plus
-def _people_sheet(d, m):
-    rows = []
-    for person in _joined_people(d, m["id"]):
+            '<button type=button class=chatplus data-scope="%s" aria-label="New chat">+</button></div>') % mode
+def _person_tone(n):
+    return ("sun", "sky", "bubble", "grape", "mango", "aqua")[n % 6]
+def _pick_people(d, m):
+    recent = []
+    for channel, _n, _latest in _dm_unread(d, m["id"])[1][:4]:
+        parts = channel.split(":")
+        if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit():
+            other = int(parts[2]) if int(parts[1]) == m["id"] else int(parts[1])
+            recent.append(other)
+    people = []
+    sport = "Water polo"
+    for i, person in enumerate(_joined_people(d, m["id"])):
         name = ("%s %s" % (display_first(person), person["last"] or "")).strip()
-        rows.append('<label><input type=checkbox name=with value="%d">%s</label>' % (person["id"], escape(name)))
-    body = "".join(rows) or '<p class="t3">No one else is on the team yet.</p>'
-    return ('<dialog id=peopleSheet class=botsheet><div class=sheet><div class=grab aria-hidden=true></div>'
-            '<form method=post action=/chat/dm>%s<h2 style="margin:0 0 4px">New message</h2>'
-            '<p class="t3">Goes to your personal Chat.</p><div class=peoplepick>%s</div>'
-            '<button class="btn btn-primary full">Message</button></form>'
-            '<button type=button class=sheetcancel data-sheet-close>Cancel</button></div></dialog>') % (csrf_field(), body)
+        kind = "Coach" if (person["role"] or "") == "coach" else "Player"
+        people.append({
+            "id": person["id"], "name": name,
+            "initials": ("".join(part[:1] for part in name.split()[:2]) or "?").upper(),
+            "line": "%s · %s" % (kind, sport), "tone": _person_tone(i),
+            "recent": person["id"] in recent,
+            "href": "/chat?c=%s&place=me" % dm_channel(m["id"], person["id"]),
+        })
+    roster = len(people)
+    return ('<dialog id=pickPeople class="botsheet pickpeople"><div class=sheet><div class=grab aria-hidden=true></div>'
+            '<div class=pickhead><button type=button data-sheet-close>Cancel</button><h2 id=pickTitle>Message someone</h2>'
+            '<button type=button id=pickNext disabled>Next · 0</button></div>'
+            '<div id=pickChips class=pickchips></div>'
+            '<label class=picksearch><input id=pickSearch placeholder="Search your teams" autocomplete=off></label>'
+            '<div id=pickName hidden><label>Group name, optional<input id=groupName maxlength=40 placeholder="Carpool, captains…"></label>'
+            '<button type=button class="btn btn-primary full" id=pickCreate>Create</button></div>'
+            '<div id=pickBody><p id=pickRecentLabel class=r2caps hidden>Recent</p><div id=pickRecent></div>'
+            '<p class=r2caps id=pickTeam>Grunions · %d</p><div id=pickList></div>'
+            '<p id=pickEmpty class=t3 hidden>No one on your teams by that name</p>'
+            '<p id=pickFoot class=t3></p></div>'
+            '<script type="application/json" id=pickData>%s</script>%s</div></dialog>'
+            ) % (roster, json.dumps(people).replace("<", "\\u003c"), csrf_field())
+def _new_chat_sheet(d, m, team):
+    """06.30 member, 06.31 coach/admin. Me and Everything keep only the personal section."""
+    personal = (
+        '<p class="r2caps">Personal · goes to your Me › Chat</p><div class=newcard>'
+        '<button type=button class=newrow data-pick=direct><span class="mark lime" aria-hidden=true>'
+        '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5V13a2.5 2.5 0 0 1-2.5 2.5H9l-3.2 2.4A.8.8 0 0 1 4.5 17V6.5Z"/></svg></span>'
+        '<span class=grow><b>Message someone</b><small>1:1 with anyone on your teams</small></span><span class=chatgo>›</span></button>'
+        '<button type=button class=newrow data-pick=group><span class="mark sky" aria-hidden=true>'
+        '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M9 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm6 0a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 15 11ZM9 12.5c-2.8 0-5 1.4-5 3.2V17h7.2a4.7 4.7 0 0 1-.2-1.4A4.4 4.4 0 0 1 14 11.6 6.6 6.6 0 0 0 9 12.5Zm6 .5a3.6 3.6 0 0 0-1.6.4 3.2 3.2 0 0 1 1.6 2.7V17H20v-.8c0-1.8-2.2-3.2-5-3.2Z"/></svg></span>'
+        '<span class=grow><b>New group</b><small>Pick people · not an official team chat</small></span><span class=chatgo>›</span></button>'
+        '</div>')
+    club = ""
+    if team:
+        rows = ('<a class=newrow href="/chat?c=ask:coaches"><span class="mark sun" aria-hidden=true>'
+                '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M8 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm8 0a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16 11ZM8 12.5C5.2 12.5 3 14 3 15.8V17h8v-1.2c0-.7.3-1.4.8-2A7 7 0 0 0 8 12.5Zm8 .5a3.4 3.4 0 0 0-1.4.3 3.4 3.4 0 0 1 1.4 2.8V17h5v-.8c0-1.7-2.2-3.2-5-3.2Z"/></svg></span>'
+                '<span class=grow><b>Message the coaches</b><small>Coaches chat · all coaches on the team</small></span><span class=chatgo>›</span></a>')
+        if is_board():
+            rows += ('<a class=newrow href="/chat?c=coaches"><span class="mark grape" aria-hidden=true>'
+                     '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3.5 13.6 8H18l-3.6 2.6 1.4 4.4L12 12.4 8.2 15l1.4-4.4L6 8h4.4Z"/></svg></span>'
+                     '<span class=grow><b>Board room</b><small>Board only</small></span><span class=mini>Board</span><span class=chatgo>›</span></a>')
+        else:
+            rows += ('<a class=newrow href="/chat?c=ask:board"><span class="mark grape" aria-hidden=true>'
+                     '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3.5 13.6 8H18l-3.6 2.6 1.4 4.4L12 12.4 8.2 15l1.4-4.4L6 8h4.4Z"/></svg></span>'
+                     '<span class=grow><b>Message the board</b><small>Private · only the board sees it</small></span><span class=chatgo>›</span></a>')
+        if can_make_channel():
+            rows += ('<button type=button class=newrow data-open-channel><span class="mark mango" aria-hidden=true>+</span>'
+                     '<span class=grow><b>New channel</b><small>Official · sport, role or everyone</small></span>'
+                     '<span class=mini>Coach · admin</span><span class=chatgo>›</span></button>')
+        club = '<p class="r2caps">Grunions</p><div class=newcard>%s</div>' % rows
+    return ('<dialog id=newChat class="botsheet newchat"><div class=sheet><div class=grab aria-hidden=true></div>'
+            '<h2 class=newtitle>New chat</h2>%s%s</div></dialog>') % (personal, club)
 def _channel_sheet(d):
     try:
         sports = d.execute("SELECT slug, public_name, name FROM programs WHERE COALESCE(active,0)=1 ORDER BY name").fetchall()
@@ -2229,10 +2291,7 @@ def _channel_sheet(d):
             WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1 ORDER BY first"""):
         name = ("%s %s" % (display_first(person), person["last"] or "")).strip()
         people.append('<label><input type=checkbox name=person value="%d">%s</label>' % (person["id"], escape(name)))
-    return ('<dialog id=plusSheet class=botsheet><div class=sheet><div class=grab aria-hidden=true></div><div class=plusacts>'
-            '<button type=button data-open-people>New message</button><button type=button data-open-channel>New channel</button>'
-            '<button type=button class=sheetcancel data-sheet-close>Cancel</button></div></div></dialog>'
-            '<dialog id=channelSheet class=botsheet><div class=sheet><div class=grab aria-hidden=true></div>'
+    return ('<dialog id=channelSheet class=botsheet><div class=sheet><div class=grab aria-hidden=true></div>'
             '<form method=post action=/chat/channels>%s<p class="r2caps">Manage · chat</p><h2 style="margin:0">New channel</h2>'
             '<p class="t3">Official team chat · only coaches &amp; admins create these</p>'
             '<p class="r2caps">Name</p><label class=hashfield># <input name=title value="open-water" required maxlength=40 autocomplete=off></label>'
@@ -2259,17 +2318,87 @@ def _channel_sheet(d):
             '</form></div></dialog>') % (csrf_field(), escape((sports[0]["slug"] if sports else "water-polo")), "".join(chips), "".join(people), roster, coaches, roster)
 _CHAT_PLUS_JS = """<script>
 (function(){
- function openSheet(id){var el=document.getElementById(id); if(!el) return; if(window.grunionsOpenSheet) grunionsOpenSheet(el); else el.showModal();}
+ var people=[];
+ try{ people=JSON.parse((document.getElementById('pickData')||{}).textContent||'[]'); }catch(err){ people=[]; }
+ var mode='direct', picked={};
+ function openSheet(id, anchor){var el=document.getElementById(id); if(!el) return; if(window.grunionsOpenSheet) grunionsOpenSheet(el); else el.showModal(); placePopover(el, anchor);}
  function shut(el){if(!el) return; if(window.grunionsCloseSheet) grunionsCloseSheet(el); else el.close();}
+ function placePopover(el, anchor){
+  if(!el || window.innerWidth<768 || !anchor){ if(el){ el.style.left=''; el.style.top=''; } return; }
+  var r=anchor.getBoundingClientRect(), w=340, sheet=el.querySelector('.sheet'), h=sheet?sheet.offsetHeight:420;
+  var left=Math.min(Math.max(16, r.right-w), window.innerWidth-w-16);
+  var top=r.bottom+8;
+  if(top+Math.min(h, window.innerHeight*0.9)>window.innerHeight-16) top=Math.max(16, r.top-Math.min(h, window.innerHeight*0.9)-8);
+  el.style.left=left+'px'; el.style.top=top+'px';
+ }
+ function paintPick(){
+  var q=(document.getElementById('pickSearch').value||'').trim().toLowerCase();
+  var list=people.filter(function(p){ return !q || p.name.toLowerCase().indexOf(q)>=0; });
+  var recent=list.filter(function(p){ return p.recent; });
+  document.getElementById('pickRecentLabel').hidden=mode!=='direct' || !recent.length;
+  document.getElementById('pickRecent').innerHTML=mode==='direct'?recent.map(row).join(''):'';
+  document.getElementById('pickList').innerHTML=list.map(row).join('');
+  document.getElementById('pickEmpty').hidden=!!list.length;
+  document.getElementById('pickTeam').hidden=!list.length;
+  var n=Object.keys(picked).length, next=document.getElementById('pickNext');
+  next.hidden=mode!=='group'; next.disabled=n<1; next.textContent='Next · '+n;
+  var chips=document.getElementById('pickChips');
+  chips.hidden=mode!=='group' || !n;
+  chips.innerHTML=people.filter(function(p){ return picked[p.id]; }).map(function(p){
+   return '<button type=button class=pickchip data-drop="'+p.id+'"><span class="mark '+p.tone+'">'+p.initials+'</span>'+p.name+' ×</button>';
+  }).join('');
+ }
+ function row(p){
+  var box=mode==='group'?'<span class="pickbox'+(picked[p.id]?' on':'')+'" aria-hidden=true></span>':'';
+  return '<button type=button class=newrow data-person="'+p.id+'"><span class="mark '+p.tone+'">'+p.initials+'</span><span class=grow><b>'+p.name+'</b><small>'+p.line+'</small></span>'+box+'</button>';
+ }
+ function showPick(kind, anchor){
+  mode=kind; picked={};
+  document.getElementById('pickTitle').textContent=kind==='group'?'New group':'Message someone';
+  document.getElementById('pickFoot').textContent=kind==='group'?'Group chats you make live in Me › Chat. Anyone in the group can add people or leave.':'Opens a 1:1 in Me › Chat. You can message anyone on a team you\\'re on.';
+  document.getElementById('pickSearch').value='';
+  document.getElementById('pickName').hidden=true;
+  document.getElementById('pickBody').hidden=false;
+  paintPick();
+  shut(document.getElementById('newChat'));
+  openSheet('pickPeople', anchor);
+ }
  document.addEventListener('click', function(e){
   var plus=e.target.closest&&e.target.closest('.chatplus');
-  if(plus){ e.preventDefault(); openSheet(plus.getAttribute('data-plus')==='both'?'plusSheet':'peopleSheet'); return; }
-  var openP=e.target.closest&&e.target.closest('[data-open-people]');
-  if(openP){ shut(document.getElementById('plusSheet')); openSheet('peopleSheet'); return; }
+  if(plus){ e.preventDefault(); openSheet('newChat', plus); return; }
+  var pick=e.target.closest&&e.target.closest('[data-pick]');
+  if(pick){ showPick(pick.getAttribute('data-pick'), document.querySelector('.chatplus')); return; }
   var openC=e.target.closest&&e.target.closest('[data-open-channel]');
-  if(openC){ shut(document.getElementById('plusSheet')); openSheet('channelSheet'); return; }
+  if(openC){ shut(document.getElementById('newChat')); openSheet('channelSheet', document.querySelector('.chatplus')); return; }
   var bye=e.target.closest&&e.target.closest('[data-sheet-close]');
   if(bye){ shut(bye.closest('dialog')); return; }
+  var person=e.target.closest&&e.target.closest('[data-person]');
+  if(person && document.getElementById('pickPeople') && document.getElementById('pickPeople').open){
+   var id=+person.getAttribute('data-person'), hit=null;
+   people.forEach(function(p){ if(p.id===id) hit=p; });
+   if(!hit) return;
+   if(mode==='direct'){ location.href=hit.href; return; }
+   if(picked[id]) delete picked[id]; else picked[id]=1;
+   paintPick();
+   return;
+  }
+  var drop=e.target.closest&&e.target.closest('[data-drop]');
+  if(drop){ delete picked[+drop.getAttribute('data-drop')]; paintPick(); return; }
+  if(e.target && e.target.id==='pickNext'){
+   document.getElementById('pickBody').hidden=true;
+   document.getElementById('pickName').hidden=false;
+   document.getElementById('pickNext').hidden=true;
+   return;
+  }
+  if(e.target && e.target.id==='pickCreate'){
+   var fd=new FormData();
+   var token=document.querySelector('#pickPeople input[name=csrf]');
+   if(token) fd.append('csrf', token.value);
+   fd.append('name', (document.getElementById('groupName').value||'').trim());
+   Object.keys(picked).forEach(function(id){ fd.append('with', id); });
+   fetch('/chat/dm', {method:'POST', body:fd, credentials:'same-origin'}).then(function(r){ location.href=r.url; });
+   return;
+  }
   var aud=e.target.closest&&e.target.closest('[data-aud]');
   if(aud){
    aud.parentNode.querySelectorAll('button').forEach(function(b){ b.classList.remove('on'); });
@@ -2300,13 +2429,15 @@ _CHAT_PLUS_JS = """<script>
  }
  var name=document.querySelector('#channelSheet input[name=title]');
  if(name) name.addEventListener('input', paintCreate);
- var people=document.getElementById('channelSheet');
- if(people) people.addEventListener('change', paintCreate);
+ var channelForm=document.getElementById('channelSheet');
+ if(channelForm) channelForm.addEventListener('change', paintCreate);
+ var search=document.getElementById('pickSearch');
+ if(search) search.addEventListener('input', paintPick);
 })();
 </script>"""
 def chat_sheets(d, m, mode):
-    html = _people_sheet(d, m)
-    if mode == "team" and can_host_practice():
+    html = _new_chat_sheet(d, m, mode == "team") + _pick_people(d, m)
+    if mode == "team" and can_make_channel():
         html += _channel_sheet(d)
     return html + _CHAT_PLUS_JS
 def personal_chat_html(d, m):
@@ -2328,18 +2459,20 @@ def personal_chat_html(d, m):
         preview, when = channel_preview(d, channel)
         directs.append((latest or 0, _chat_row("/chat?c=%s&place=%s" % (escape(channel), place), escape(name[:1].upper()), escape(name), preview or "Direct", when, n, "sky", chat_muted(d, mid, channel))))
     seen = set()
+    titles = {}
     for row in d.execute("SELECT DISTINCT channel FROM messages WHERE channel LIKE 'grp:%'"):
         seen.add(row["channel"])
     try:
         for row in d.execute("SELECT slug, title FROM chat_channels WHERE kind='group'"):
             seen.add("grp:" + row["slug"])
+            titles["grp:" + row["slug"]] = row["title"]
     except sqlite3.OperationalError:
         pass
     for channel in seen:
         n = chat_unread_n(d, mid, channel)
         preview, when = channel_preview(d, channel)
         latest = d.execute("SELECT MAX(id) FROM messages WHERE channel=?", (channel,)).fetchone()[0] or 0
-        title = channel.split(":", 1)[1].replace("-", " ").title()
+        title = titles.get(channel) or channel.split(":", 1)[1].replace("-", " ").title()
         directs.append((latest, _chat_row("/chat?c=%s&place=%s" % (escape(channel), place), escape(title[:1].upper()), escape(title), preview or "Group", when, n, "bubble", chat_muted(d, mid, channel))))
     directs.sort(key=lambda item: item[0], reverse=True)
     direct_html = "".join(html for _latest, html in directs) or '<p class="t3">No direct messages yet.</p>'
@@ -2590,15 +2723,16 @@ def chat_dm_start():
             abort(404)
         return redirect("/chat?c=%s&place=me" % dm_channel(me_id, chosen[0]))
     slug = re.sub(r"[^a-z0-9-]", "", ("g%d-" % me_id) + "-".join(str(i) for i in chosen))[:40]
+    title = (request.form.get("name") or "").strip()[:40] or "Group"
     d.execute("""INSERT OR IGNORE INTO chat_channels(slug, title, kind, created_by, created_at)
-        VALUES(?,?,'group',?,?)""", (slug, "Group", me_id, utc_stamp()))
+        VALUES(?,?,'group',?,?)""", (slug, title, me_id, utc_stamp()))
     d.commit()
     return redirect("/chat?c=grp:%s&place=me" % slug)
 @app.route("/chat/channels", methods=["GET", "POST"])
 @login_required
 def chat_channels():
     """Coaches and admins add an official channel. Members do not get this page."""
-    if not can_host_practice(): abort(403)
+    if not can_make_channel(): abort(403)
     d = db()
     if request.method == "POST":
         title = (request.form.get("title") or "").strip().lstrip("#")[:40]
@@ -2627,6 +2761,12 @@ def chat_channels():
 <ul>%s</ul>
 <form method=post>%s<label>Name<input name=title required placeholder="water-polo"></label>
 <button class="btn btn-primary">Create channel</button></form>""" % (listed, csrf_field()), tab="chat")
+def _own_board(rows, ch):
+    """A member's note to the board stays private. The board still sees every note."""
+    if ch != "ask:board" or is_board():
+        return rows
+    mid = me()["id"]
+    return [r for r in rows if r["member_id"] == mid]
 @app.route("/api/messages", methods=["GET", "POST"])
 @login_required
 def api_messages():
@@ -2658,7 +2798,7 @@ def api_messages():
           rm.body AS reply_body, rm.deleted AS reply_deleted, rm.image AS reply_image,
           rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM + """
           WHERE m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT 80""", (ch, deleted_cutoff())).fetchall()
-        return messages_json(with_seen(d, ch, list(reversed(rows)), info), info)
+        return messages_json(with_seen(d, ch, _own_board(list(reversed(rows)), ch), info), info)
     raw_limit = request.args.get("limit", type=int)
     limit = 200 if raw_limit is None else max(1, min(raw_limit, 200))
     before = request.args.get("before", type=int)
@@ -2674,7 +2814,7 @@ def api_messages():
         rows = d.execute(msg_sql + """
           WHERE m.id>? AND m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT ?""",
                          (after, ch, deleted_cutoff(), limit)).fetchall()
-    return messages_json(with_seen(d, ch, list(reversed(rows)), info), info)
+    return messages_json(with_seen(d, ch, _own_board(list(reversed(rows)), ch), info), info)
 
 @app.route("/api/drive", methods=["POST"])
 @login_required

@@ -143,19 +143,32 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
         html = member.get("/chat?view=list").get_data(as_text=True)
         inbox = member.get("/inbox").get_data(as_text=True)
         mine = member.get("/inbox?place=me").get_data(as_text=True)
+        with A.app.app_context():
+            A.db().execute("UPDATE members SET role='coach' WHERE email='nia.chat@example.com'")
+            A.db().commit()
+        coach = member.get("/chat?view=list").get_data(as_text=True)
     finally:
         os.environ.pop("IS_PULL_REQUEST", None)
         clear_preview_rows()
     assert "Personal messages" in html and "everyone" in html and "No practice chat right now" in html and "Message the coaches" in html
-    assert 'class=chatplus' in html and 'data-plus="message"' in html and "<h1>Team</h1>" not in html and "New channel" not in html
+    assert 'class=chatplus' in html and 'data-scope="team"' in html and "<h1>Team</h1>" not in html
+    assert "New chat" in html and "Message someone" in html and "New group" in html and "Message the board" in html
+    assert "New channel" not in html and "Board room" not in html and "New message" not in html
     assert "Preview Tuesday practice" not in html and "Preview Friday practice" not in html and "Preview recent practice" not in html
-    assert "Message the board" not in html and "Create channel" not in html
+    ask = html.split("Ask the club", 1)[1].split("<dialog", 1)[0]
+    assert "Message the board" not in ask and "Create channel" not in html
     picker = member.get("/chat?view=practices").get_data(as_text=True)
     assert "Practice chats." in picker and "Up next" in picker and "Earlier" in picker and "Search all practice chats" in picker
+    with A.app.app_context():
+        A.db().execute("UPDATE members SET role='athlete' WHERE email='nia.chat@example.com'")
+        A.db().commit()
     assert member.get("/chat/channels").status_code == 403
     assert "Your teams" in inbox and ">Grunions<" in inbox and "Direct" in inbox
     assert 'data-place="everything"' in inbox
     assert 'data-place="me"' in mine and ">Calendar<" in mine and ">Profile<" in mine
+    assert "Message someone" in mine and "New group" in mine and "Message the coaches" not in mine and "New channel" not in mine
+    sheet = coach.split("id=newChat", 1)[1].split("</dialog>", 1)[0]
+    assert "Board room" in sheet and "New channel" in sheet and "Message the board" not in sheet
 
 
 def test_practice_chat_is_read_only_after_seven_days():

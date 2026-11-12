@@ -574,6 +574,35 @@ main:has(.chathead){padding:16px 16px calc(var(--nav-clear) + 48px + env(safe-ar
 .practcard .practtime{font:700 64px/.86 var(--r2-font-display);letter-spacing:-.05em}
 .practcard .practmeta b{display:block;font:700 13px/1.2 var(--r2-font-sans)}
 .practcard .practmeta small{display:block;font:600 12px/1.3 var(--r2-font-sans)}
+dialog.newchat::backdrop,dialog.pickpeople::backdrop{background:rgba(11,11,12,.6)}
+dialog.newchat .sheet,dialog.pickpeople .sheet{max-height:90dvh}
+.newtitle{margin:0 0 12px;font:700 28px/1 var(--r2-font-display);letter-spacing:-.03em}
+.newcard{display:flex;flex-direction:column;gap:2px;margin:0 0 16px;padding:6px;border-radius:26px;background:var(--r2-graphite)}
+.newrow{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;padding:8px 10px;border:0;border-radius:22px;background:transparent;color:var(--r2-paper);text-align:left;text-decoration:none;font:inherit;cursor:pointer}
+.newrow b{display:block;font:700 15px/1.2 var(--r2-font-sans)}
+.newrow small{display:block;margin-top:2px;color:var(--r2-smoke);font:600 12px/1.3 var(--r2-font-sans)}
+.newrow .mark{width:44px;height:44px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;flex:none;font:700 14px/1 var(--r2-font-display);color:var(--r2-fixed-ink)}
+.newrow .mark svg{width:22px;height:22px;display:block}
+.newrow .mark.lime{background:var(--r2-lime)}
+.newrow .mark.sky{background:var(--r2-sky)}
+.newrow .mark.sun{background:var(--r2-sun)}
+.newrow .mark.grape{background:var(--r2-grape)}
+.newrow .mark.mango{background:var(--r2-mango)}
+.newrow .mark.bubble{background:var(--r2-bubblegum)}
+.newrow .mark.aqua{background:var(--r2-aqua)}
+.mini{margin-left:8px;padding:5px 8px;border:1px solid var(--r2-smoke);border-radius:999px;color:var(--r2-smoke);font:700 10px/1 var(--r2-font-sans);letter-spacing:.04em;text-transform:uppercase}
+.pickhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 12px}
+.pickhead h2{margin:0;font:700 17px/1 var(--r2-font-sans)}
+.pickhead button{border:0;background:transparent;color:var(--r2-paper);font:700 15px/1 var(--r2-font-sans)}
+#pickNext{height:36px;padding:0 14px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink)}
+#pickNext:disabled{opacity:.45}
+.picksearch{display:block;margin:0 0 12px}
+.picksearch input{width:100%;border:0;border-radius:16px;background:var(--r2-carbon);color:var(--r2-paper);padding:14px 16px;font:600 15px/1.2 var(--r2-font-sans)}
+.pickchips{display:flex;gap:8px;overflow:auto;margin:0 0 12px}
+.pickchip{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;background:var(--r2-carbon);color:var(--r2-paper);padding:4px 10px 4px 4px;font:700 13px/1 var(--r2-font-sans)}
+.pickchip .mark{width:28px;height:28px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font:700 11px/1 var(--r2-font-display);color:var(--r2-fixed-ink)}
+.pickbox{width:22px;height:22px;border:2px solid var(--r2-smoke);border-radius:6px;flex:none}
+.pickbox.on{background:var(--r2-lime);border-color:var(--r2-lime);box-shadow:inset 0 0 0 3px var(--r2-graphite)}
 .plusacts{display:flex;flex-direction:column;gap:8px}
 .plusacts button,.sheetcancel{width:100%;min-height:52px;border:0;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);font:700 15px/1 var(--r2-font-sans)}
 .sheetcancel{margin-top:8px;background:transparent;color:var(--r2-smoke)}
@@ -601,6 +630,9 @@ main:has(.chathead){padding:16px 16px calc(var(--nav-clear) + 48px + env(safe-ar
 .chatlist a.upnext b,.chatlist a.upnext small{color:var(--r2-fixed-ink)}
 .chatlist .mark.graphite{background:var(--r2-graphite);color:var(--r2-paper)}
 @media (min-width:768px){
+ dialog.newchat,dialog.pickpeople{position:fixed;width:340px;height:auto;max-height:90dvh;inset:auto;margin:0}
+ dialog.newchat .sheet,dialog.pickpeople .sheet{border-radius:24px;border:1px solid var(--r2-graphite);max-height:min(90dvh,640px)}
+ dialog.newchat .grab,dialog.pickpeople .grab{display:none}
  body:has(nav.nav3){padding-left:var(--r2-rail);--nav-clear:16px;--nav-offset-bottom:0px}
  nav.nav3{top:0;bottom:0;left:0;right:auto;width:var(--r2-rail);height:auto;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;padding:24px 0;border-radius:0;touch-action:auto}
  .nav3-crest,.nav3-crest-face{width:60px;height:60px}
@@ -708,6 +740,11 @@ dialog.botsheet .sheet{background:var(--color-sheet);border:1px solid var(--colo
 .grab{display:block;width:100%;height:28px;margin:0 0 8px;padding:0;position:sticky;top:0;z-index:1;background:var(--color-sheet);touch-action:none;cursor:grab}
 .grab::after{content:"";position:absolute;left:50%;top:12px;width:36px;height:5px;margin-left:-18px;border-radius:3px;background:var(--color-sheet-handle)}
 @media (prefers-reduced-motion:reduce){dialog.botsheet::backdrop,dialog.botsheet .sheet{transition:none}}
+@media (min-width:768px){
+ dialog.botsheet.newchat,dialog.botsheet.pickpeople{width:340px;height:auto;max-height:90dvh;inset:auto;margin:0}
+ dialog.botsheet.newchat .sheet,dialog.botsheet.pickpeople .sheet{border-radius:24px;border:1px solid var(--r2-graphite);border-bottom:1px solid var(--r2-graphite);max-height:min(90dvh,640px)}
+ dialog.botsheet.newchat .grab,dialog.botsheet.pickpeople .grab{display:none}
+}
 .emogrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:0 0 14px}
 .emogrid button{width:100%;aspect-ratio:1;height:auto;padding:0;border-radius:50%;background:var(--color-sheet-row);font-size:22px}
 .emopick{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;max-height:28vh;overflow:auto;margin:0 0 12px}
