@@ -55,7 +55,8 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     assert ">Schedule<" in tabs and ">Lineup<" in tabs and ">Chat<" in tabs and ">Manage<" not in tabs
     assert 'data-tab="calendar" class=on' in tabs
     assert '.nav3-slide.manage{background:var(--r2-tangerine)}' in schedule
-    assert "--r2-nav-translucent: rgba(23, 24, 26, 0.82)" in schedule and "backdrop-filter:blur(24px)" in schedule
+    assert "--r2-nav-translucent: rgba(23, 24, 26, 0.82)" in schedule and "backdrop-filter:blur(24px)" in schedule and "rgba(255, 255, 255, 0.82)" in schedule
+    assert "M12 6.5V7.5M12 9.5V10.5M12 12.5V13.5" in schedule and 'data-tab="ticket"' in schedule
     assert "min-width:768px" in schedule and "background:var(--r2-carbon);-webkit-backdrop-filter:none" in schedule
     assert 'touch-action:pan-y' in schedule and 'nav3Follow' in schedule
     assert "border-radius:var(--r2-radius-pill)" in schedule

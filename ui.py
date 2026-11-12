@@ -567,7 +567,7 @@ nav.tabs a .badge{position:absolute;top:0;right:0;margin:0}.datetile{position:re
 nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:block}
 body.editor nav.nav3,body.profile-edit nav.nav3{display:none}
 body:has(nav.nav3){--nav-clear:104px}
-nav.nav3{position:fixed;z-index:9;left:var(--r2-space-4);right:var(--r2-space-4);bottom:calc(20px + env(safe-area-inset-bottom));height:72px;display:flex;align-items:center;gap:var(--r2-space-1);padding:var(--r2-space-2);border:0;border-radius:var(--r2-radius-pill);background:var(--r2-nav-translucent);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-sizing:border-box;touch-action:pan-y}
+nav.nav3{position:fixed;z-index:9;left:var(--r2-space-4);right:var(--r2-space-4);bottom:calc(20px + env(safe-area-inset-bottom));height:72px;display:flex;align-items:center;gap:var(--r2-space-1);padding:var(--r2-space-2);border:0;border-radius:var(--r2-radius-pill);background:var(--r2-nav-translucent);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-sizing:border-box;overflow:hidden;touch-action:pan-y}
 @media (min-width:476px) and (max-width:767px){
  nav.nav3{bottom:calc(28px + env(safe-area-inset-bottom))}
  body:has(nav.nav3){--nav-clear:120px}
@@ -597,7 +597,8 @@ nav.nav3[data-place="me"]:has(.nav3-photo) .nav3-initials{display:none}
 .nav3-tabs a{position:relative;z-index:1;width:50px;height:56px;flex:0 1 50px;min-width:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-smoke);text-decoration:none;font:700 9px/normal var(--r2-font-sans);box-sizing:border-box;transition:color 280ms ease,font-size 280ms cubic-bezier(0.22,1,0.36,1)}
 .nav3-tabs a.on{flex:1 0 auto;width:auto;min-width:max-content;flex-direction:row;gap:6px;padding:0 14px;background:transparent;color:var(--r2-fixed-ink);font:var(--r2-label);line-height:normal}
 .nav3-glyph,.nav3-label{transition:transform 280ms cubic-bezier(0.22,1,0.36,1)}
-.nav3-glyph{width:20px;height:20px;display:block;flex:none}
+.nav3-glyph{width:20px;height:20px;display:block;flex:none;color:var(--r2-smoke)}
+.nav3-tabs a.on .nav3-glyph{color:var(--r2-fixed-ink)}
 .nav3-tabs a:focus-visible,.nav3-crest:focus-visible,.crestrow:focus-visible,.crestgo:focus-visible,.crestout:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
 dialog.crestmenu{position:fixed;margin:0;inset:auto auto calc(92px + env(safe-area-inset-bottom)) 16px;border:0;border-radius:36px;background:var(--r2-carbon);color:var(--r2-paper);width:min(358px,calc(100vw - 32px));max-height:min(626px,calc(100dvh - 112px - env(safe-area-inset-bottom)));padding:20px 16px;overflow:auto;box-sizing:border-box;display:none;flex-direction:column;gap:10px}
 dialog.crestmenu[open]{display:flex}
@@ -715,7 +716,7 @@ button.switchrow{width:100%;border:0;background:transparent;text-align:left;curs
  dialog.newchat .sheet,dialog.pickpeople .sheet{border-radius:24px;border:1px solid var(--r2-graphite);max-height:min(90dvh,640px)}
  dialog.newchat .grab,dialog.pickpeople .grab{display:none}
  body:has(nav.nav3){padding-left:var(--r2-rail);--nav-clear:16px;--nav-offset-bottom:0px}
- nav.nav3{top:0;bottom:0;left:0;right:auto;width:var(--r2-rail);height:auto;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;padding:24px 0;border-radius:0;background:var(--r2-carbon);-webkit-backdrop-filter:none;backdrop-filter:none;touch-action:auto}
+ nav.nav3{top:0;bottom:0;left:0;right:auto;width:var(--r2-rail);height:auto;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;padding:24px 0;border-radius:0;overflow:visible;background:var(--r2-carbon);-webkit-backdrop-filter:none;backdrop-filter:none;touch-action:auto}
  .nav3-crest,.nav3-crest-face{width:60px;height:60px}
  .nav3-crest-face{font-size:22px;letter-spacing:-0.66px}
  .nav3-more{display:none}
@@ -736,7 +737,9 @@ button.switchrow{width:100%;border:0;background:transparent;text-align:left;curs
  nav.nav3[data-place="everything"] .nav3-crest-face{background:var(--r2-lime);border:0}
  nav.nav3[data-place="everything"] .nav3-logo.lg{display:none}
  nav.nav3[data-place="everything"] .nav3-logo.sm.ink{display:block;width:26px;height:10px}
- .nav3-menu-label,.nav3-rule,.nav3-more,.nav3-glyph{display:none}
+ .nav3-menu-label,.nav3-rule,.nav3-more{display:none}
+ .nav3-glyph{display:block}
+ .nav3-dot{display:none}
  .nav3-switch-copy{display:flex;flex:1;flex-direction:column;min-width:0;text-align:left}
  .nav3-switch-copy b{font:700 13px/normal var(--r2-font-sans);color:var(--r2-paper)}
  .nav3-switch-copy small{font:600 10px/normal var(--r2-font-sans);color:var(--r2-smoke)}
@@ -1978,6 +1981,7 @@ _NAV3_GLYPHS = {
     "pin": ("M10 17.5C10 17.5 15.5 12.3 15.5 8.5C15.5 7.04131 14.9205 5.64236 13.8891 4.61091C12.8576 3.57946 11.4587 3 10 3C8.54131 3 7.14236 3.57946 6.11091 4.61091C5.07946 5.64236 4.5 7.04131 4.5 8.5C4.5 12.3 10 17.5 10 17.5Z", "M11.75 8.5C11.75 9.4665 10.9665 10.25 10 10.25C9.0335 10.25 8.25 9.4665 8.25 8.5C8.25 7.5335 9.0335 6.75 10 6.75C10.9665 6.75 11.75 7.5335 11.75 8.5Z"),
     "chat": ("M4 4.5H16C16.3978 4.5 16.7794 4.65804 17.0607 4.93934C17.342 5.22064 17.5 5.60218 17.5 6V13C17.5 13.3978 17.342 13.7794 17.0607 14.0607C16.7794 14.342 16.3978 14.5 16 14.5H9L5.5 17V14.5H4C3.60218 14.5 3.22064 14.342 2.93934 14.0607C2.65804 13.7794 2.5 13.3978 2.5 13V6C2.5 5.60218 2.65804 5.22064 2.93934 4.93934C3.22064 4.65804 3.60218 4.5 4 4.5Z",),
     "settings": ("M12.4 10C12.4 11.3255 11.3255 12.4 10 12.4C8.67452 12.4 7.6 11.3255 7.6 10C7.6 8.67452 8.67452 7.6 10 7.6C11.3255 7.6 12.4 8.67452 12.4 10Z", "M10 3.5V5.7M10 14.3V16.5M3.5 10H5.7M14.3 10H16.5M5.4 5.4L7 7M13 13L14.6 14.6M14.6 5.4L13 7M7 13L5.4 14.6"),
+    "ticket": ("M4 5C2.9 5 2 5.9 2 7V8.5C2.8 8.5 3.5 9.2 3.5 10C3.5 10.8 2.8 11.5 2 11.5V13C2 14.1 2.9 15 4 15H16C17.1 15 18 14.1 18 13V11.5C17.2 11.5 16.5 10.8 16.5 10C16.5 9.2 17.2 8.5 18 8.5V7C18 5.9 17.1 5 16 5H4Z", "M12 6.5V7.5M12 9.5V10.5M12 12.5V13.5"),
 }
 _NAV3_GLYPHS["manage"] = _NAV3_GLYPHS["settings"]
 _NAV3_GLYPHS["profile"] = _NAV3_GLYPHS["settings"]

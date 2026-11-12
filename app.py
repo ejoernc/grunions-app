@@ -432,7 +432,7 @@ def nav_context():
     else:
         tabs = [
             ("calendar", "Schedule", "/practices", here("/practices") and forced != "me"),
-            ("pin", "Lineup", "/lineup", here("/lineup") and forced != "me"),
+            ("ticket", "Lineup", "/lineup", here("/lineup") and forced != "me"),
             ("chat", "Chat", "/chat?view=list", here("/chat") and forced not in ("me", "everything")),
         ]
         if can_open_manage():
