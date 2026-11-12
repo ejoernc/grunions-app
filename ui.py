@@ -261,6 +261,15 @@ a.rowbtn,button.rowbtn{width:100%;height:auto;min-height:60px;padding:14px 18px;
 .stattile{min-width:120px;background:var(--surface);border-radius:14px;padding:12px 16px;text-align:center}
 .stattile b{display:block;font-size:22px;font-weight:650;line-height:1.2}
 .stattile span{color:var(--t2);font-size:12px}
+body.practicepage:not(.editor) header.profilebar h1{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+body.practicepage header.profilebar{background:transparent}
+body.practicepage header.profilebar .profileback,body.practicepage header.profilebar a.profileback{width:44px;height:44px;min-width:44px;padding:0;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper)}
+body.practicepage .stattile{background:var(--r2-carbon);border-radius:22px;color:var(--r2-paper)}
+body.practicepage .stattile b{font:700 28px/1 var(--r2-font-display);color:var(--r2-paper)}
+body.practicepage .stattile span{color:var(--r2-smoke);font:600 12px/1.2 var(--r2-font-sans)}
+body.adminpage .evcard{border:0;border-radius:28px;background:var(--r2-carbon);color:var(--r2-paper);padding:18px 20px}
+body.adminpage .playersearch input{height:48px;border:0;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper)}
+body.adminpage h2{font-family:var(--r2-font-display);letter-spacing:-.03em}
 .seclabel{margin:var(--space-8) var(--space-1) var(--space-2);color:var(--t3);font-size:var(--type-b4-size);font-weight:var(--type-b4-weight)}
 .sechead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:22px 4px 8px}
 .sechead .seclabel{margin:0}
