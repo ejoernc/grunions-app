@@ -47,7 +47,7 @@ html.booted #boot{display:none}
 [hidden]{display:none!important}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--color-bg);color:var(--t1);font:var(--type-body-1-size)/var(--type-body-1-leading) var(--font-sans);overflow-wrap:break-word}
-a{color:var(--t1)}main{max-width:640px;margin:0 auto;padding:20px 20px calc(var(--nav-clear) + 16px + env(safe-area-inset-bottom))}
+a{color:var(--t1)}main{max-width:640px;margin:0 auto;padding:20px 20px calc(var(--nav-clear) + 32px + env(safe-area-inset-bottom))}
 header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;max-width:640px;margin:0 auto}
 .brand{font-family:var(--font-display);font-weight:700;letter-spacing:-.02em;color:var(--t1);text-decoration:none}a.brand img{display:block;width:40px;height:40px;border-radius:10px}
 img.loginlock{display:block;width:min(66%,calc(420px * 0.66));max-width:66%;height:auto;margin:8px 0 28px calc(-79 / 1338 * min(66%, 420px * 0.66));background:transparent}
@@ -178,6 +178,7 @@ body.homefull header.homehead.solid{background:var(--color-bg)}
 body.homefull main{position:relative;z-index:1;padding:0 16px calc(var(--nav-clear) + 16px + env(safe-area-inset-bottom));pointer-events:none}
 body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:0;height:auto;margin:0;z-index:0;border-radius:0;pointer-events:none;touch-action:auto;background:#090D0B}
 body.homefull .homedock{position:relative;left:auto;right:auto;bottom:auto;z-index:2;max-height:none;overflow:visible;pointer-events:none;margin:0;padding:0 0 12px;min-height:calc(100dvh - var(--homehead, 76px) - var(--homealerts, 0px) - var(--nav-clear) - env(safe-area-inset-bottom) - var(--peek, 24px));display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
+body.schedopen .homedock{min-height:0;justify-content:flex-start}
 body.homefull .homealerts,body.homefull .homedock .card,body.homefull .schedlist .card{position:relative;z-index:4;pointer-events:auto}
 body.homefull .schedlist{position:relative;z-index:2}
 .schedsame{display:none}
@@ -198,7 +199,7 @@ body.homefull .homemap.mapready.mapin{transition:opacity .3s ease}
 body.schedopen .homemap,body.schedopen .homemap.mapready,body.schedopen .homemap.mapready.mapin{opacity:0;transition:none}
 #schedule{scroll-margin-top:calc(var(--homehead, 88px) + 8px)}
 @media (prefers-reduced-motion:reduce){body.homefull .homemap,body.homefull .homemap.mapready.mapin{transition:none}}
-body.profilepage main{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
+body.profilepage main{padding-bottom:calc(var(--nav-clear) + 32px + env(safe-area-inset-bottom))}
 header.profilebar{position:sticky;top:0;left:0;right:0;z-index:5;width:100%;max-width:none;background:var(--color-bg);display:grid;grid-template-columns:88px 1fr 88px;grid-template-rows:44px;align-items:center;padding:env(safe-area-inset-top) 6px 0;box-sizing:border-box;min-height:44px;border:0;box-shadow:none;outline:none;view-transition-name:none}
 header.profilebar h1{margin:0;text-align:center;font-size:var(--type-t4-size);font-weight:var(--type-t4-weight);line-height:44px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header.profilebar .left,header.profilebar .right{display:flex;align-items:center;height:44px;min-width:0}
@@ -388,6 +389,7 @@ header.profilebar #profileEdit{display:none !important}
  dialog.profmenu.popover .grab{display:none}
 }
 body.profilepage header.profilebar .profileback{width:44px;height:44px;min-width:44px;padding:0;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper)}
+body.profilepage:not(.profile-edit) #profileBack{display:none}
 body.profilepage .seclabel{margin:22px 0 8px;color:var(--r2-paper);font:700 28px/.95 var(--r2-font-display);letter-spacing:-.03em;text-transform:none}
 body.profilepage .list,body.adminpage .list,body.adminpage .mlist{background:transparent;display:flex;flex-direction:column;gap:8px;overflow:visible}
 body.profilepage .list>.li,body.profilepage .list>a.li,body.adminpage .list>.li,body.adminpage .list>a.li,body.adminpage .mrow{background:var(--r2-carbon);color:var(--r2-paper);border:0;border-radius:28px}
@@ -456,7 +458,7 @@ button.selfield{width:100%;min-height:44px;background:transparent;color:inherit;
 .coachrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 0;border-top:1px solid var(--line)}
 .coachrow .avatar{width:36px;height:36px;min-width:36px;max-width:36px;min-height:36px;max-height:36px;flex:0 0 36px;font-size:13px}
 body.editor nav.tabs,body.profile-edit nav.tabs{display:none}
-body.editor main,body.profile-edit main{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
+body.editor main,body.profile-edit main{padding-bottom:calc(var(--nav-clear) + 32px + env(safe-area-inset-bottom))}
 .planrow{flex-wrap:wrap;align-items:center}.planline{flex:1;min-width:0;display:flex;align-items:center;justify-content:flex-start;gap:8px;flex-wrap:wrap;text-align:left}.planlabel{font-weight:500;color:var(--color-text);text-align:left}.plantext{flex:1 0 100%;white-space:pre-wrap;margin-top:4px;text-align:left}
 textarea.planfield{height:auto;min-height:var(--field-plan-min);line-height:var(--type-b1-line);resize:vertical;field-sizing:content}
 .li.prow{padding-left:16px;padding-right:16px;gap:8px}
@@ -602,13 +604,16 @@ nav.tabs a .badge{position:absolute;top:0;right:0;margin:0}.datetile{position:re
 nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:block}
 body.editor nav.nav3,body.profile-edit nav.nav3{display:none}
 body:has(nav.nav3){--nav-clear:104px}
-nav.nav3{position:fixed;z-index:9;left:var(--r2-space-4);right:var(--r2-space-4);bottom:calc(20px + env(safe-area-inset-bottom));height:72px;display:flex;align-items:center;gap:6px;padding:8px;border:0;border-radius:var(--r2-radius-pill);background:var(--r2-nav-translucent);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-sizing:border-box;overflow:hidden;touch-action:pan-y}
+nav.nav3{position:fixed;z-index:9;left:var(--r2-space-4);right:var(--r2-space-4);bottom:calc(20px + env(safe-area-inset-bottom));height:72px;display:flex;align-items:center;gap:6px;padding:8px;border:0;border-radius:var(--r2-radius-pill);background:transparent;box-sizing:border-box;overflow:visible;touch-action:pan-y}
+nav.nav3::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--r2-nav-translucent);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);z-index:0;pointer-events:none}
+.nav3-crest,.nav3-tabs{z-index:1}
 @media (min-width:476px) and (max-width:767px){
  nav.nav3{bottom:calc(28px + env(safe-area-inset-bottom))}
  body:has(nav.nav3){--nav-clear:120px}
 }
-@media (prefers-reduced-transparency:reduce){
- nav.nav3{background:var(--r2-carbon);-webkit-backdrop-filter:none;backdrop-filter:none}
+@media (max-width:767px){
+ nav.nav3{background:transparent}
+ nav.nav3::before{background:var(--r2-nav-translucent);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px)}
 }
 .nav3-crest{position:relative;width:56px;height:56px;flex:none;display:flex;align-items:center;justify-content:center;gap:10px;padding:0;border:0;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-fixed-ink);cursor:pointer}
 .nav3-crest-face{width:56px;height:56px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:var(--r2-radius-pill);background:var(--r2-sun);color:var(--r2-fixed-ink);font:700 20px/1 var(--r2-font-display);box-sizing:border-box}
@@ -630,7 +635,7 @@ nav.nav3[data-place="me"]:has(.nav3-photo) .nav3-initials{display:none}
 .nav3-slide{position:absolute;z-index:0;left:0;top:0;height:56px;border-radius:var(--r2-radius-pill);background:var(--r2-lime);pointer-events:none;transition:left 280ms cubic-bezier(0.22,1,0.36,1),top 280ms cubic-bezier(0.22,1,0.36,1),width 280ms cubic-bezier(0.22,1,0.36,1),height 280ms cubic-bezier(0.22,1,0.36,1),background-color 280ms ease,border-radius 280ms ease}
 .nav3-slide.manage{background:var(--r2-tangerine)}
 .nav3-tabs a{position:relative;z-index:1;width:68px;height:56px;flex:0 0 68px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-smoke);text-decoration:none;font:700 11px/normal var(--r2-font-sans);box-sizing:border-box;transition:color 280ms ease,font-size 280ms cubic-bezier(0.22,1,0.36,1)}
-.nav3-tabs a.on{width:132px;flex:0 0 132px;flex-direction:row;justify-content:center;gap:6px;padding:0 14px;background:transparent;color:var(--r2-fixed-ink);font:700 16px/normal var(--r2-font-sans);overflow:hidden}
+.nav3-tabs a.on{width:132px;flex:0 0 132px;flex-direction:row;flex-wrap:nowrap;justify-content:center;align-items:center;gap:6px;padding:0 5px;background:transparent;color:var(--r2-fixed-ink);font:700 13px/16px var(--r2-font-sans);overflow:visible}
 nav.nav3:has(.nav3-tabs>a:nth-child(5)){gap:4px}
 nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs{gap:4px}
 nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a{width:58px;flex-basis:58px}
@@ -753,10 +758,11 @@ button.switchrow{width:100%;border:0;background:transparent;text-align:left;curs
 .postchoices button.on{background:var(--r2-lime);color:var(--r2-fixed-ink)}
 .peoplepick{display:flex;flex-direction:column;gap:4px;max-height:46vh;overflow:auto}
 .peoplepick label{display:flex;align-items:center;gap:12px;min-height:52px;color:var(--r2-paper);font:700 15px/1.2 var(--r2-font-sans)}
-.nav3-meta{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:0;max-width:100%}
+.nav3-meta{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:none;min-width:max-content;max-width:none;white-space:nowrap}
+.nav3-label{white-space:nowrap;flex:none}
 .nav3-badge{position:absolute;top:2px;right:2px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 10px/1 var(--r2-font-sans);text-align:center}
 .nav3-tabs a.on .nav3-badge{position:static;top:auto;right:auto;flex:none;min-width:20px;height:20px;padding:0 5px;background:var(--r2-fixed-ink);color:var(--r2-lime);font-size:12.5px}
-.nav3-tabs a.on .nav3-label{min-width:0}
+.nav3-tabs a.on .nav3-label{min-width:max-content;white-space:nowrap;flex:none}
 .chatlock{margin:12px 0;padding:12px 14px;border-radius:16px;background:var(--r2-carbon);color:var(--r2-smoke);font:600 13px/1.4 var(--r2-font-sans)}
 .pchatbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}
 .pchatbar a,.askcoach{color:var(--r2-paper);font:700 15px/1.2 var(--r2-font-sans);text-decoration:none}
@@ -788,6 +794,7 @@ button.switchrow{width:100%;border:0;background:transparent;text-align:left;curs
  nav.nav3:has(.nav3-tabs>a:nth-child(5)){gap:6px}
  nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs{gap:6px}
  .nav3-slide{border-radius:22px}
+ nav.nav3::before{content:none}
  .nav3-tabs a,.nav3-tabs a.on,nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a,nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a.on{width:76px;flex-basis:auto;min-width:0;height:auto;flex:none;flex-direction:column;gap:4px;padding:10px 0;border-radius:22px;background:transparent;color:var(--r2-smoke);font:700 11px/normal var(--r2-font-sans)}
  .nav3-tabs a.on{padding:10px 6px;background:transparent;color:var(--r2-fixed-ink)}
  body:has(nav.nav3) .composer,body:has(nav.nav3).homefull .homemap{left:var(--r2-rail)}
@@ -834,8 +841,8 @@ button.earlier{width:100%;height:auto;min-height:0;margin:0;padding:8px 0 4px;ba
 .m .editbox textarea{min-height:72px;height:auto;margin:0}
 .composer{position:fixed;left:0;right:0;bottom:calc(var(--nav-clear) + env(safe-area-inset-bottom));background:transparent;padding:0 16px 8px;border:0;z-index:10}
 .chatpad{flex:none;height:calc(var(--composer-h, 76px) + var(--nav-clear) + env(safe-area-inset-bottom) + 12px)}
-.composer form{max-width:640px;margin:0 auto;display:flex;align-items:center;gap:10px;min-height:60px;padding:6px 6px 6px 8px;border-radius:999px;background:var(--r2-graphite);box-sizing:border-box}
-.composer textarea{flex:1;align-self:center;margin:0;height:44px;min-height:44px;max-height:120px;border:0;background:transparent;color:var(--r2-paper);resize:none;font:600 15px/22px var(--r2-font-sans);padding:11px 4px;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;box-sizing:border-box}
+.composer form{max-width:640px;margin:0 auto;display:flex;align-items:center;gap:10px;min-height:60px;padding:6px 6px 6px 20px;border-radius:999px;background:var(--r2-graphite);box-sizing:border-box}
+.composer textarea{flex:1;align-self:center;margin:0;height:44px;min-height:44px;max-height:120px;border:0;background:transparent;color:var(--r2-paper);resize:none;font:600 15px/22px var(--r2-font-sans);padding:11px 0;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;box-sizing:border-box}
 .composer textarea::placeholder{color:var(--r2-smoke);font:600 15px/22px var(--r2-font-sans)}
 .threadbar{display:flex;align-items:center;gap:8px;min-height:48px;margin:0 0 8px}
 .threadbar button{border:0;background:transparent;padding:0;color:var(--r2-paper);font:700 17px/1.2 var(--r2-font-sans);cursor:pointer}
@@ -1072,7 +1079,7 @@ a.evcard{display:block;color:inherit;text-decoration:none;background:var(--color
 button.dock,a.dock{background:var(--accent);color:var(--color-on-primary)}
 a.quietcheck,button.quietcheck{background:var(--surface2);color:var(--color-text);border:0;border-radius:var(--radius-button)}
 .emptyfind{color:var(--t2);margin:8px 0 16px}
-details.lineuppast{margin-top:8px}details.lineuppast>summary{min-height:44px;padding:8px 0;font-size:17px;font-weight:600;justify-content:flex-start}
+details.lineuppast{margin-top:8px}details.lineuppast>summary{display:flex;align-items:center;gap:8px;list-style:none;min-height:48px;padding:12px 0 8px;font:700 15px/1.2 var(--r2-font-sans);color:var(--r2-paper);cursor:pointer}details.lineuppast>summary::-webkit-details-marker{display:none}details.lineuppast>summary .t3{margin-left:auto}
 .repeatblock .repeatopts{display:none}.repeatblock:has(input[name=repeat]:checked) .repeatopts{display:block}
 .tripcard{padding:0;overflow:hidden}.tripcard .evbody{padding:0 18px 18px}.tripcard .nxcardhead{display:flex;flex-direction:column;align-items:stretch;gap:2px;min-width:0}.tripcard .cardsub{margin:0;color:var(--color-text-secondary);min-width:0;max-width:100%}.lineupchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.lineupchips .chip-info{margin:0}
 div.card.tap.tripcard{padding:18px;overflow:visible}div.card.tap.tripcard .nxcardhead{margin:0 0 10px}
@@ -2003,7 +2010,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() and tab == 'chat' %}{% elif me() %}{% call app_header(tab == 'home' or tab == 'practices', ('schedule' if tab == 'practices' else 'home') if (tab == 'home' or tab == 'practices') else '', tab == 'lineup' or (can_host_practice() and tab in ('home', 'practices', 'admin', 'manage'))) %}{% if tab == 'practices' %}<div class=displayhead><h1>Schedule</h1></div>{% elif tab == 'home' %}<div class=displayhead><div class=displayeye>{{ hi_membership() }}</div><h1>Hi, {{ display_first(me()) }}</h1></div>{% elif tab == 'discover' %}<h1>Discover.</h1>{% elif tab == 'calendar' %}<h1>Calendar.</h1>{% elif tab == 'manage' %}<div class=displayhead><p class=displayeye>{% if me().board_member %}Grunions · Board{% elif me().is_admin %}Grunions · Admin{% else %}Grunions · Coach{% endif %}</p><h1>Manage</h1></div>{% elif tab == 'admin' %}<a class=hubback href={{ admin_back|default('/manage') }} aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% elif tab == 'lineup' %}<div class=displayhead><h1>Lineup</h1></div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}{% endcall %}{% else %}<header><a class=brand href=/ aria-label=Regulars><img src="/static/icons/icon-192.png?v=119" alt=""></a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() and tab == 'chat' %}{% elif me() %}{% call app_header(tab == 'home' or tab == 'practices', ('schedule' if tab == 'practices' else 'home') if (tab == 'home' or tab == 'practices') else '', tab == 'lineup' or (can_host_practice() and tab in ('home', 'practices', 'admin', 'manage'))) %}{% if tab == 'practices' %}<div class=displayhead><h1>Schedule</h1></div>{% elif tab == 'home' %}<div class=displayhead><div class=displayeye>{{ hi_membership() }}</div><h1>Hi, {{ display_first(me()) }}</h1></div>{% elif tab == 'discover' %}<h1>Discover.</h1>{% elif tab == 'calendar' %}<div class=displayhead><h1>Calendar</h1></div>{% elif tab == 'manage' %}<div class=displayhead><p class=displayeye>{% if me().board_member %}Grunions · Board{% elif me().is_admin %}Grunions · Admin{% else %}Grunions · Coach{% endif %}</p><h1>Manage</h1></div>{% elif tab == 'admin' %}<a class=hubback href={{ admin_back|default('/manage') }} aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% elif tab == 'lineup' %}<div class=displayhead><h1>Lineup</h1></div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}{% endcall %}{% else %}<header><a class=brand href=/ aria-label=Regulars><img src="/static/icons/icon-192.png?v=119" alt=""></a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -4363,6 +4370,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
  function measure(){
   var card=document.querySelector('#schedule .card:not(.schedsame)');
   var dock=document.querySelector('.homedock');
+  if(head.getAttribute('data-entry')==='schedule'){ if(dock) dock.style.minHeight='0'; return; }
   var headH=head.offsetHeight||76;
   document.documentElement.style.setProperty('--homehead', headH+'px');
   var alertsEl=document.querySelector('.homealerts');
@@ -4411,7 +4419,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
  function land(){
   var hash=location.hash;
   var held=typeof window.grunionsRestoreY==='number' && window.grunionsRestoreY>0;
-  if(!held && head.getAttribute('data-entry')==='schedule' && (!hash || hash==='#schedule')) window.scrollTo(0, range());
+  if(!held && head.getAttribute('data-entry')==='schedule' && location.pathname!=='/practices' && (!hash || hash==='#schedule')) window.scrollTo(0, range());
   if(location.pathname==='/home') document.body.classList.remove('schedopen');
   paint();
  }

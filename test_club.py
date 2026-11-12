@@ -80,6 +80,8 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     assert 'data-tab="calendar" class=on' in tabs
     assert '.nav3-slide.manage{background:var(--r2-tangerine)}' in schedule
     assert "--r2-nav-translucent: rgba(23, 24, 26, 0.82)" in schedule and "backdrop-filter:blur(24px)" in schedule and "rgba(255, 255, 255, 0.82)" in schedule
+    assert 'nav.nav3::before{content:"";position:absolute;inset:0' in schedule and ".nav3-label{white-space:nowrap" in schedule
+    assert "padding-bottom:calc(var(--nav-clear) + 32px" in schedule
     assert "M12 6.5V7.5M12 9.5V10.5M12 12.5V13.5" in schedule and 'data-tab="ticket"' in schedule
     assert "width:132px;flex:0 0 132px" in schedule and "width:96px;flex-basis:96px" in schedule and "width:68px" in schedule
     assert "min-width:768px" in schedule and "background:var(--r2-carbon);-webkit-backdrop-filter:none" in schedule
@@ -243,7 +245,7 @@ def test_coaches_thread_mutes_from_the_name_not_a_week_chip():
     assert 'class=cheadback' in page and 'cheadmark lime' in page and "<a class=brand" not in page.split("<main>", 1)[0]
     assert "daydiv" in page
     form = page.split(".composer form{", 1)[1].split("}", 1)[0]
-    assert "align-items:center" in form and "min-height:60px" in form and "padding:6px 6px 6px 8px" in form
+    assert "align-items:center" in form and "min-height:60px" in form and "padding:6px 6px 6px 20px" in form
     token = csrf(member, "/chat?c=team")
     assert member.post("/chat/mute", data=dict(csrf=token, c="team", mute="week")).status_code == 400
     muted = member.post("/chat/mute", data=dict(csrf=token, c="team", mute="1h"), follow_redirects=True)
