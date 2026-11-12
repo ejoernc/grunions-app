@@ -1138,8 +1138,7 @@ def index(): return redirect("/practices" if me() else "/join")
 @login_required
 def discover():
     """Everything starts here. One live team, not a directory of clubs."""
-    return page("""<p class="r2caps">Everything</p><h1>Discover.</h1>
-<p>Grunions is your team. Other clubs are not listed here.</p>
+    return page("""<p>Grunions is your team. Other clubs are not listed here.</p>
 <p><a class="btn btn-primary" href="/practices">Open the Grunions schedule</a></p>""", tab="discover")
 @app.route("/inbox")
 @login_required
@@ -1157,9 +1156,10 @@ def calendar():
     bits = []
     for r in rows:
         title = (r["title"] or r["sport"] or "Practice").strip()
-        bits.append('<a class="chatrow" href="/practices/%d"><span class="mark">%s</span><span><b>%s</b><small>%s · %s</small></span></a>'
-                    % (r["id"], escape(title[:1]), escape(title), escape(r["date"]), escape(r["location"] or "")))
-    body = '<p class="r2caps">Me</p><h1>Calendar.</h1><div class=chatlist>%s</div>' % (
+        when = _session_eyebrow(r["date"], r["start"])
+        bits.append('<a class="chatrow" href="/practices/%d"><span class="mark sun">%s</span><span class=grow><b>%s</b><small>%s · %s</small></span></a>'
+                    % (r["id"], escape(when[:1]), escape(title), escape(when), escape(r["location"] or "")))
+    body = '<div class=chatlist>%s</div>' % (
         "".join(bits) or '<p class="t3">Nothing upcoming.</p>')
     return page(body, tab="calendar")
 @app.route("/find")

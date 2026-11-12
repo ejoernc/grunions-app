@@ -266,7 +266,7 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     page = admin.get("/manage").get_data(as_text=True)
     assert "id=growthCard" in page and "Search settings, people, tools..." in page
     assert ">Practice</a>" not in page and ">Bulletin</a>" not in page and "class=qactions" not in page
-    assert 'aria-label="Create event"' in page
+    assert 'aria-label="Create event"' not in page and "class=headplus" not in page and 'aria-label="Profile"' not in page.split("<main>", 1)[0]
     assert ">Activities</b>" in page and ">People</b>" in page and ">Club</b>" in page and ">Tools</b>" in page
     club = admin.get("/manage/area/club").get_data(as_text=True)
     assert ">Sports</b>" in club or "Sports" in club
