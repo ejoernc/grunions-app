@@ -622,7 +622,7 @@ nav.tabs a .badge{position:absolute;top:0;right:0;margin:0}.datetile{position:re
 nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:block}
 body.editor nav.nav3,body.profile-edit nav.nav3{display:none}
 body:has(nav.nav3){--nav-clear:104px}
-nav.nav3{position:fixed;z-index:9;left:var(--r2-space-4);right:var(--r2-space-4);bottom:calc(20px + env(safe-area-inset-bottom));height:72px;display:flex;align-items:center;gap:6px;padding:8px;border:0;border-radius:var(--r2-radius-pill);background:transparent;box-sizing:border-box;overflow:visible;touch-action:pan-y}
+nav.nav3{position:fixed;z-index:9;left:var(--r2-space-4);right:var(--r2-space-4);bottom:calc(20px + env(safe-area-inset-bottom));height:72px;display:flex;align-items:center;gap:6px;padding:8px 14px;border:0;border-radius:var(--r2-radius-pill);background:transparent;box-sizing:border-box;overflow:visible;touch-action:pan-y}
 nav.nav3::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--r2-nav-translucent);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);z-index:0;pointer-events:none}
 .nav3-crest,.nav3-tabs{z-index:1}
 @media (min-width:476px) and (max-width:767px){
@@ -649,15 +649,15 @@ nav.nav3[data-place="me"]:has(.nav3-photo) .nav3-initials{display:none}
 .crestmark.who img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
 .nav3-more{position:absolute;left:38px;top:38px;width:20px;height:20px;border-radius:var(--r2-radius-pill);background:var(--r2-ink);color:var(--r2-paper);font:700 11px/20px var(--r2-font-sans);display:flex;align-items:center;justify-content:center}
 .nav3-switch-copy,.nav3-chevron,.nav3-menu-label,.nav3-rule,.nav3-dot{display:none}
-.nav3-tabs{position:relative;display:flex;flex:1;align-items:center;gap:6px;min-width:0;height:56px}
+.nav3-tabs{position:relative;display:flex;flex:1;align-items:center;justify-content:space-evenly;gap:6px;min-width:0;height:56px}
 .nav3-slide{position:absolute;z-index:0;left:0;top:0;height:56px;border-radius:var(--r2-radius-pill);background:var(--r2-lime);pointer-events:none;transition:left 280ms cubic-bezier(0.22,1,0.36,1),top 280ms cubic-bezier(0.22,1,0.36,1),width 280ms cubic-bezier(0.22,1,0.36,1),height 280ms cubic-bezier(0.22,1,0.36,1),background-color 280ms ease,border-radius 280ms ease}
 .nav3-slide.manage{background:var(--r2-tangerine)}
-.nav3-tabs a{position:relative;z-index:1;width:max-content;height:56px;flex:0 0 max-content;min-width:max-content;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 6px;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-smoke);text-decoration:none;font:700 11px/normal var(--r2-font-sans);box-sizing:border-box;overflow:visible;transition:color 280ms ease,font-size 280ms cubic-bezier(0.22,1,0.36,1)}
-.nav3-tabs a.on{flex:1 1 0%;width:auto;min-width:0;max-width:100%;flex-direction:row;flex-wrap:nowrap;justify-content:center;align-items:center;gap:6px;padding:0 10px;background:transparent;color:var(--r2-fixed-ink);font:700 16px/normal var(--r2-font-sans);overflow:hidden}
-nav.nav3:has(.nav3-tabs>a:nth-child(5)){gap:4px}
-nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs{gap:4px}
-nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a{flex:0 0 max-content;width:max-content;min-width:max-content;padding:0 6px;overflow:visible}
-nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a.on{flex:1 1 0%;width:auto;min-width:0;max-width:100%;padding:0 10px;overflow:hidden}
+.nav3-tabs a{position:relative;z-index:1;width:max-content;height:56px;flex:0 0 auto;min-width:max-content;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 6px;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-smoke);text-decoration:none;font:700 11px/normal var(--r2-font-sans);box-sizing:border-box;overflow:visible;transition:color 280ms ease,font-size 280ms cubic-bezier(0.22,1,0.36,1)}
+.nav3-tabs a.on{flex:0 0 auto;width:max-content;min-width:max-content;max-width:none;flex-direction:row;flex-wrap:nowrap;justify-content:center;align-items:center;gap:6px;padding:0 14px;background:transparent;color:var(--r2-fixed-ink);font:700 16px/normal var(--r2-font-sans);overflow:visible}
+nav.nav3:has(.nav3-tabs>a:nth-child(5)){gap:6px}
+nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs{gap:6px}
+nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a{flex:0 0 auto;width:max-content;min-width:max-content;padding:0 6px}
+nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a.on{flex:0 0 auto;width:max-content;min-width:max-content;padding:0 14px}
 .nav3-glyph,.nav3-label{transition:transform 280ms cubic-bezier(0.22,1,0.36,1)}
 .nav3-glyph{width:20px;height:20px;display:block;flex:none;color:var(--r2-smoke)}
 .nav3-tabs a.on .nav3-glyph{color:var(--r2-fixed-ink)}
@@ -808,7 +808,7 @@ button.switchrow{width:100%;border:0;background:transparent;text-align:left;curs
  .nav3-more{display:none}
  .nav3-menu-label{display:block;margin:0;color:var(--r2-smoke);font:700 9px/normal var(--r2-font-sans)}
  .nav3-rule{display:block;width:40px;height:2px;background:var(--r2-graphite)}
- .nav3-tabs{flex:none;flex-direction:column;width:76px;height:auto;gap:10px}
+ .nav3-tabs{flex:none;flex-direction:column;justify-content:flex-start;width:76px;height:auto;gap:10px}
  nav.nav3:has(.nav3-tabs>a:nth-child(5)){gap:6px}
  nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs{gap:6px}
  .nav3-slide{border-radius:22px}
