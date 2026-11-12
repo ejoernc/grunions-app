@@ -183,6 +183,7 @@ body.homefull .homealerts,body.homefull .homedock .card,body.homefull .schedlist
 body.homefull .schedlist{position:relative;z-index:2}
 .schedsame{display:none}
 .schedfeed{display:flex;flex-direction:column;gap:24px}
+body.homefull .schedfeed{position:relative;z-index:2;pointer-events:auto}
 .segpill{display:flex;gap:4px;height:52px;padding:4px;border-radius:999px;background:#24262A;box-sizing:border-box}
 .segpill a{flex:1;display:flex;align-items:center;justify-content:center;border-radius:999px;color:#F6F4EF;text-decoration:none;font:700 15px/1 var(--r2-font-sans)}
 .segpill a.on{background:#F6F4EF;color:#0B0B0C}
@@ -195,7 +196,7 @@ body.homefull .schedlist{position:relative;z-index:2}
 .daygroup .dayrail b{margin-top:2px;font:700 40px/.95 var(--r2-font-display);letter-spacing:-.05em;color:#F6F4EF}
 .daycards{flex:1;min-width:0;display:flex;flex-direction:column}
 .daycards>*+*{margin-top:-10px}
-.evcard2,.evrow2,.evcancel{display:block;box-sizing:border-box;text-decoration:none;position:relative}
+.evcard2,.evrow2,.evcancel{display:block;box-sizing:border-box;text-decoration:none;position:relative;cursor:pointer}
 .evcard2{border-radius:40px;background:#FFC61A;color:#0B0B0C;padding:24px}
 .evrow2{display:flex;justify-content:space-between;gap:8px;border-radius:32px;background:#FFC61A;color:#0B0B0C;padding:20px 20px 20px 24px}
 .evcancel{border-radius:32px;background:#17181A;color:#F6F4EF;padding:20px 22px}
