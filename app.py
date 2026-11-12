@@ -6197,7 +6197,7 @@ def combined_view(entry):
     sched_when = (request.args.get("when") or "upcoming") if sched_list else ""
     if sched_when not in ("", "upcoming", "past", "all"):
         sched_when = "upcoming"
-    sched_rows = schedule_rows(d, sched_when or "upcoming") if sched_list else []
+    sched_rows = schedule_rows(d, sched_when or "upcoming") if (sched_list or sched_home) else []
     home_rows = schedule_home_rows(d) if sched_home else []
     today = today_pt()
     week_end = (today + dt.timedelta(days=(6 - today.weekday()))).isoformat()

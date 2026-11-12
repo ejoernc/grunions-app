@@ -187,12 +187,28 @@ body.homefull .schedfeed{position:relative;z-index:2;pointer-events:auto}
 body.schedhome{overflow:hidden;height:100dvh;--drawer-h:52dvh}
 body.schedhome header.homehead{height:0;min-height:0;padding:0;overflow:hidden;background:transparent}
 body.schedhome main{overflow:hidden;height:100dvh;max-height:100dvh;padding-bottom:0}
-body.schedhome .weekhi{position:fixed;z-index:2;top:16px;left:16px;right:72px;pointer-events:none;color:#F6F4EF}
-body.schedhome .weekeye{display:block;font:600 12px/1 var(--r2-font-sans);letter-spacing:.04em;color:#F6F4EF}
-body.schedhome .weekhi h1{margin:4px 0 0;font:700 40px/1.05 var(--r2-font-display);letter-spacing:-.04em;white-space:nowrap}
-body.schedhome .weekhi .maplegend{position:static;display:flex;gap:10px;margin-top:10px;width:auto}
+body.schedhome .weekhi{--titlefade:0;position:fixed;z-index:4;top:calc(16px + var(--titlefade) * 12px);left:16px;right:72px;pointer-events:none;color:#F6F4EF}
+body.schedhome .weekeye{display:block;font:600 12px/1 var(--r2-font-sans);letter-spacing:.04em;color:#F6F4EF;opacity:calc(1 - var(--titlefade));max-height:calc((1 - var(--titlefade)) * 20px);overflow:hidden}
+body.schedhome .weekhi .titlecross{display:grid;align-items:end}
+body.schedhome .weekhi .titlecross>h1{grid-area:1/1;margin:4px 0 0}
+body.schedhome .weekhi h1{font:700 40px/1.05 var(--r2-font-display);letter-spacing:-.04em;white-space:nowrap}
+body.schedhome .weekhi .hititle{opacity:calc(1 - var(--titlefade));transform:scale(calc(1 - var(--titlefade) * .32));transform-origin:left center}
+body.schedhome .weekhi h1.schedtitle{opacity:var(--titlefade);font:700 28px/1.05 var(--r2-font-display);letter-spacing:-.03em;transform:none}
+body.schedhome .weekhi .maplegend{position:static;display:flex;gap:10px;margin-top:calc((1 - var(--titlefade)) * 10px);width:auto;opacity:calc(1 - var(--titlefade));max-height:calc((1 - var(--titlefade)) * 24px);overflow:hidden}
 .weekdrawer{position:fixed;z-index:3;left:0;right:0;bottom:0;height:var(--drawer-h);pointer-events:auto;display:flex;flex-direction:column;gap:8px;margin:0;padding:8px 16px 0;overflow:hidden;color:#F6F4EF;background:#17181A;border-radius:32px 32px 0 0}
-.weekdrawer.peek .weekbody>*:not(.r2-drive){display:none}
+.weekdrawer.peek .weekthis>*:not(.r2-drive){display:none}
+.weekthis{display:flex;flex-direction:column;gap:12px;min-height:0}
+.weeklist{display:none}
+.weekdrawer.full{border-radius:0}
+.weekdrawer.full .weekhead,.weekdrawer.full .weekthis{display:none}
+.weekdrawer.full .weeklist{display:flex}
+.weekdrawer.full .weekbody{padding-top:28px}
+@media (max-width:767px){
+ body.schedhome .weekdrawer:not(.full){touch-action:none}
+ body.schedhome .weekdrawer:not(.full) .weekbody{overflow:hidden}
+ body.schedhome .weekdrawer.full .weekbody{touch-action:pan-y}
+}
+body.schedhome.sheetdrag{user-select:none}
 .weekbody{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:calc(var(--nav-clear) + 12px);-webkit-overflow-scrolling:touch}
 .weekhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .weekhead h2{margin:0;font:700 28px/1 var(--r2-font-display);letter-spacing:-.03em}
@@ -223,7 +239,7 @@ body.schedhome .weekhi .maplegend{position:static;display:flex;gap:10px;margin-t
 .yougo.datechip{background:#0B0B0C;color:#F6F4EF}
 .mapcontrols{position:fixed;z-index:2;right:16px;bottom:calc(var(--drawer-h) + 16px);display:flex;flex-direction:column;gap:8px;pointer-events:auto}
 .mapcontrols button{width:44px;height:44px;border:0;border-radius:999px;background:#24262A;color:#F6F4EF;font:700 22px/1 var(--r2-font-sans);box-shadow:none}
-body.schedhome:has(.weekdrawer.full) .mapcontrols{display:none}
+body.schedhome:has(.weekdrawer.full) .mapcontrols,body.schedhome.mapcovered .mapcontrols{display:none}
 .ridechips{display:flex;gap:8px;margin:8px 0 12px}
 .ridechips button{border:0;border-radius:999px;padding:8px 12px;background:#24262A;color:#F6F4EF;font:700 13px/1 var(--r2-font-sans)}
 .ridechips button.on{background:#C8FF3C;color:#0B0B0C}
@@ -232,8 +248,13 @@ body.schedhome:has(.weekdrawer.full) .mapcontrols{display:none}
 .rideback{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}
 @media (min-width:768px){
  body.schedhome .weekdrawer{top:16px;right:16px;bottom:16px;left:auto;width:420px;height:auto;border-radius:28px}
- body.schedhome .weekdrawer.peek .weekbody>*:not(.r2-drive){display:block}
- body.schedhome .weekdrawer.peek .weekbody>*{display:flex}
+ body.schedhome .weekdrawer.peek .weekthis>*:not(.r2-drive){display:block}
+ body.schedhome .weekdrawer.peek .weekthis>*{display:flex}
+ body.schedhome .weekdrawer.full{top:16px;border-radius:28px}
+ body.schedhome .weekdrawer.full .weekhead,body.schedhome .weekdrawer.full .weekthis{display:flex}
+ body.schedhome .weekdrawer.full .weeklist{display:none}
+ body.schedhome .weekdrawer.full .weekbody{padding-top:0}
+ body.schedhome.mapcovered .mapcontrols{display:flex}
  body.schedhome .mapcontrols{top:24px;bottom:auto;right:452px;display:flex}
 }
 @media (min-width:1280px){
@@ -4588,15 +4609,38 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% if tab != 'practices' %}<div class=homealerts>{{ push_card() }}
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
 {% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}</div>{% endif %}
+{% macro schedule_feed(when, rows, note) %}
+<div class=segpill role=tablist aria-label="Schedule">
+<a class="{{ 'on' if when == 'upcoming' else '' }}" href="/practices?view=list&when=upcoming">Upcoming</a>
+<a class="{{ 'on' if when == 'past' else '' }}" href="/practices?view=list&when=past">Past</a>
+<a class="{{ 'on' if when == 'all' else '' }}" href="/practices?view=list&when=all">All</a>
+</div>
+{% if note %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(note)|upper }}</b><p>{{ note.body }}</p></div>{% endif %}
+{% set ns = namespace(day='', open=false, featured=true) %}
+{% for x in rows %}{% set p = x.p %}{% set tile = practice_tile(p) %}{% set key = tile.wd ~ tile.dn %}
+{% if key != ns.day %}{% if ns.open %}</div></div>{% endif %}{% set ns.day = key %}{% set ns.open = true %}
+<div class=daygroup><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class=daycards>
+{% endif %}
+{% if p.cancelled %}
+{{ r2_event_row('/practices/' ~ p.id, 'cancelled', tile.wd ~ ' · ' ~ month_abbr(p.date) ~ ' ' ~ tile.dn ~ ' · ' ~ (p.sport or 'Water Polo')|upper, practice_title(p), p.cancel_reason, 0) }}
+{% elif ns.featured and when != 'past' %}{% set ns.featured = false %}{% set clk = fmt_clock(p.start).split(' ') %}
+{{ r2_event_card('/practices/' ~ p.id, (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1], practice_duration(p.start, p.end), short_place(p.location), x.going, '', x.mine == 1) }}
+{% else %}
+{{ r2_event_row('/practices/' ~ p.id, 'stack', weekday_name(p.date), practice_title(p), fmt_clock(p.start) ~ ' · ' ~ short_place(p.location), x.going|length, (p.sport or 'Water Polo')|upper) }}
+{% endif %}
+{% endfor %}{% if ns.open %}</div></div>{% endif %}
+{% if not rows %}<p class="t3">Nothing coming up.</p>{% endif %}
+{% endmacro %}
 {% if sched_home %}
-<div class=weekhi><span class=weekeye>{% if not_cleared %}NOT CLEARED{% elif me().usawp_number %}USAWP #{{ me().usawp_number }}{% endif %}</span><h1>Hi, {{ display_first(me()) }}.</h1>{{ r2_legend('') }}</div>
+<div class=weekhi><span class=weekeye>{% if not_cleared %}NOT CLEARED{% elif me().usawp_number %}USAWP #{{ me().usawp_number }}{% endif %}</span><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}.</h1><h1 class=schedtitle aria-hidden=true>Upcoming</h1></div>{{ r2_legend('') }}</div>
 {% if pin_label %}<b class=mappinchip>{{ pin_label }}</b>{% endif %}
 <div class=mapcontrols><button type=button data-zoom=1 aria-label="Zoom in">+</button><button type=button data-zoom=-1 aria-label="Zoom out">−</button></div>
 {% if not pins %}{{ r2_map_unavailable() }}{% endif %}
 <div class="weekdrawer half" id=schedSheet>
 <button type=button class=sheetgrab id=sheetGrab aria-label="Drag the week"></button>
 <div class=weekhead><h2>This week{% if week_n %} <span>({{ '%02d'|format(week_n) }})</span>{% endif %}</h2><a href="/practices?view=list">See all ›</a></div>
-<div class=weekbody>
+<div class=weekbody id=weekBody>
+<div class=weekthis>
 {% if not_cleared %}<div class=clearbanner><b>NOT CLEARED YET</b><strong>Add your USAWP number to go to practice.</strong><p>Takes 2 minutes. Coaches can see you once it’s verified.</p><a href=/profile>Add USAWP number</a></div>{% endif %}
 {% if show_drive %}{{ r2_drive_card(drive_saved or '18 min', drive_detail, drive_chip, drive_placeholder) }}{% endif %}
 {% if show_rides %}<div class=ridebtns><button type=button id=needRide>{{ ride_label }}</button><button type=button id=offerRide>Offer a ride</button></div>{% endif %}
@@ -4610,6 +4654,8 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% endfor %}
 <a class=fullsched href="/practices?view=list">View full schedule ›</a>
 <p class=fullhint>Upcoming · Past · All</p>
+</div>
+<div class="schedfeed weeklist" id=schedFull>{{ schedule_feed('upcoming', sched_rows, ann) }}</div>
 </div>
 </div>
 <dialog id=rideAsk class="botsheet"><div class=sheet>
@@ -4635,17 +4681,122 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <script>
 (function(){
  var sheet=document.getElementById('schedSheet'); if(!sheet) return;
- var modes=['peek','half','full'], i=1, y=0;
- function setMode(n){ i=n; sheet.classList.remove('peek','half','full'); sheet.classList.add(modes[i]); var h=modes[i]==='peek'?'196px':(modes[i]==='full'?'calc(100dvh - 72px)':'52dvh'); document.body.style.setProperty('--drawer-h', h); }
- var grab=document.getElementById('sheetGrab');
- grab.addEventListener('pointerdown', function(e){ y=e.clientY; });
- grab.addEventListener('pointerup', function(e){
-  if(window.innerWidth>=768) return;
-  var dy=e.clientY-y;
-  if(dy<-28) setMode(Math.min(2,i+1));
-  else if(dy>28) setMode(Math.max(0,i-1));
- });
- grab.addEventListener('click', function(){ if(window.innerWidth<768 && Math.abs(0)<1) setMode(i===0?1:i); });
+ if(window.grunionsSchedAbort) window.grunionsSchedAbort.abort();
+ var ac=new AbortController(); window.grunionsSchedAbort=ac;
+ function live(){ return document.body.classList.contains('schedhome') && document.getElementById('schedSheet')===sheet; }
+ var scroller=document.getElementById('weekBody');
+ var h=0, anim=0, drag=null, wheelT=0, wasFull=false;
+ function wide(){ return window.innerWidth>=768; }
+ function metrics(){
+  var vh=window.innerHeight||document.documentElement.clientHeight||1;
+  return {peek:196, half:Math.round(vh*0.52), full:vh, vh:vh};
+ }
+ function apply(next){
+  var m=metrics();
+  if(next<m.peek) next=m.peek;
+  if(next>m.full) next=m.full;
+  h=next;
+  var atFull=h>=m.full-1;
+  sheet.classList.toggle('full', atFull);
+  sheet.classList.toggle('peek', !atFull && h<=m.peek+1);
+  sheet.classList.toggle('half', !atFull && Math.abs(h-m.half)<1.5);
+  document.body.style.setProperty('--drawer-h', Math.round(h)+'px');
+  var morph=(h-m.half)/((m.full-m.half)||1);
+  if(morph<0) morph=0; if(morph>1) morph=1;
+  var hi=document.querySelector('.weekhi');
+  if(hi){
+   hi.style.setProperty('--titlefade', morph.toFixed(3));
+   var big=hi.querySelector('.hititle'), small=hi.querySelector('.schedtitle');
+   if(big) big.setAttribute('aria-hidden', morph>=0.5?'true':'false');
+   if(small) small.setAttribute('aria-hidden', morph>=0.5?'false':'true');
+  }
+  document.body.classList.toggle('mapcovered', !wide() && (m.vh-h)<120);
+  if(scroller && atFull!==wasFull) scroller.scrollTop=0;
+  wasFull=atFull;
+ }
+ function animateTo(target){
+  if(anim) cancelAnimationFrame(anim);
+  var reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var from=h, t0=performance.now(), dur=reduced?0:280;
+  function frame(now){
+   var p=dur?Math.min(1,(now-t0)/dur):1, e=1-Math.pow(1-p,3);
+   apply(from+(target-from)*e);
+   if(p<1) anim=requestAnimationFrame(frame); else anim=0;
+  }
+  anim=requestAnimationFrame(frame);
+ }
+ function settle(vy){
+  var m=metrics(), midUp=(m.half+m.full)/2, midDown=(m.peek+m.half)/2, target=m.half;
+  if(vy<-0.6 && h>midDown) target=m.full;
+  else if(vy>0.6 && h<midDown) target=m.peek;
+  else if(h>=midUp) target=m.full;
+  else if(h<=midDown) target=m.peek;
+  animateTo(target);
+ }
+ function resetWide(){
+  if(anim) cancelAnimationFrame(anim);
+  anim=0; drag=null; wasFull=false;
+  sheet.classList.remove('peek','full'); sheet.classList.add('half');
+  document.body.style.removeProperty('--drawer-h');
+  document.body.classList.remove('mapcovered','sheetdrag');
+  var hi=document.querySelector('.weekhi'); if(hi) hi.style.setProperty('--titlefade','0');
+ }
+ function blocked(el){
+  if(!el||!el.closest) return true;
+  if(el.closest('nav,dialog,.mapcontrols')) return true;
+  if(el.closest('#sheetGrab')) return false;
+  if(el.closest('button,input,textarea,select')) return true;
+  return false;
+ }
+ document.addEventListener('pointerdown', function(e){
+  if(!live()||wide()||e.button||blocked(e.target)) return;
+  if(anim){ cancelAnimationFrame(anim); anim=0; }
+  var inSheet=!!e.target.closest('#schedSheet'), full=sheet.classList.contains('full');
+  if(full && inSheet && !e.target.closest('#sheetGrab') && scroller && scroller.scrollTop>2) return;
+  drag={y:e.clientY,h:h,id:e.pointerId,moved:false,pull:full&&inSheet&&!e.target.closest('#sheetGrab'),lastY:e.clientY,lastT:performance.now(),vy:0};
+ }, {signal:ac.signal});
+ document.addEventListener('pointermove', function(e){
+  if(!drag||e.pointerId!==drag.id) return;
+  if(!live()){ drag=null; return; }
+  var dy=e.clientY-drag.y, now=performance.now();
+  drag.vy=(e.clientY-drag.lastY)/((now-drag.lastT)||16);
+  drag.lastY=e.clientY; drag.lastT=now;
+  if(!drag.moved){
+   if(Math.abs(dy)<8) return;
+   if(drag.pull && dy<0){ drag=null; return; }
+   drag.moved=true; document.body.classList.add('sheetdrag');
+  }
+  apply(drag.h-dy);
+  if(e.cancelable) e.preventDefault();
+ }, {passive:false, signal:ac.signal});
+ function endDrag(e){
+  if(!drag||(e&&e.pointerId!==drag.id)) return;
+  var moved=drag.moved, vy=drag.vy||0;
+  drag=null; document.body.classList.remove('sheetdrag');
+  if(!moved) return;
+  var stop=function(ev){ ev.preventDefault(); ev.stopPropagation(); document.removeEventListener('click', stop, true); };
+  document.addEventListener('click', stop, true);
+  setTimeout(function(){ document.removeEventListener('click', stop, true); }, 400);
+  settle(vy);
+ }
+ document.addEventListener('pointerup', endDrag, {signal:ac.signal});
+ document.addEventListener('pointercancel', endDrag, {signal:ac.signal});
+ document.addEventListener('wheel', function(e){
+  if(!live()||wide()||(e.target.closest&&e.target.closest('dialog'))) return;
+  var full=sheet.classList.contains('full');
+  if(full && scroller && (e.deltaY>0 || scroller.scrollTop>2)){
+   scroller.scrollTop+=e.deltaY;
+   if(e.cancelable) e.preventDefault();
+   return;
+  }
+  if(e.cancelable) e.preventDefault();
+  if(anim){ cancelAnimationFrame(anim); anim=0; }
+  apply(h+e.deltaY);
+  clearTimeout(wheelT);
+  wheelT=setTimeout(function(){ settle(0); }, 160);
+ }, {passive:false, signal:ac.signal});
+ window.addEventListener('resize', function(){ if(!live()) return; if(wide()) resetWide(); else apply(h||metrics().half); }, {signal:ac.signal});
+ if(wide()) resetWide(); else apply(metrics().half);
  var ask=document.getElementById('rideAsk'), offer=document.getElementById('rideOffer');
  var need=document.getElementById('needRide'); if(need) need.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(ask); else ask.showModal(); };
  var off=document.getElementById('offerRide'); if(off) off.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(offer); else offer.showModal(); };
@@ -4660,28 +4811,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 })();
 </script>
 {% elif tab == 'practices' %}
-<div class=schedfeed id=schedule>
-<div class=segpill role=tablist aria-label="Schedule">
-<a class="{{ 'on' if sched_when == 'upcoming' else '' }}" href="/practices?view=list&when=upcoming">Upcoming</a>
-<a class="{{ 'on' if sched_when == 'past' else '' }}" href="/practices?view=list&when=past">Past</a>
-<a class="{{ 'on' if sched_when == 'all' else '' }}" href="/practices?view=list&when=all">All</a>
-</div>
-{% if ann %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(ann)|upper }}</b><p>{{ ann.body }}</p></div>{% endif %}
-{% set ns = namespace(day='', open=false, featured=true) %}
-{% for x in sched_rows %}{% set p = x.p %}{% set tile = practice_tile(p) %}{% set key = tile.wd ~ tile.dn %}
-{% if key != ns.day %}{% if ns.open %}</div></div>{% endif %}{% set ns.day = key %}{% set ns.open = true %}
-<div class=daygroup><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class=daycards>
-{% endif %}
-{% if p.cancelled %}
-{{ r2_event_row('/practices/' ~ p.id, 'cancelled', tile.wd ~ ' · ' ~ month_abbr(p.date) ~ ' ' ~ tile.dn ~ ' · ' ~ (p.sport or 'Water Polo')|upper, practice_title(p), p.cancel_reason, 0) }}
-{% elif ns.featured and sched_when != 'past' %}{% set ns.featured = false %}{% set clk = fmt_clock(p.start).split(' ') %}
-{{ r2_event_card('/practices/' ~ p.id, (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1], practice_duration(p.start, p.end), short_place(p.location), x.going, '', x.mine == 1) }}
-{% else %}
-{{ r2_event_row('/practices/' ~ p.id, 'stack', weekday_name(p.date), practice_title(p), fmt_clock(p.start) ~ ' · ' ~ short_place(p.location), x.going|length, (p.sport or 'Water Polo')|upper) }}
-{% endif %}
-{% endfor %}{% if ns.open %}</div></div>{% endif %}
-{% if not sched_rows %}<p class="t3">Nothing coming up.</p>{% endif %}
-</div>
+<div class=schedfeed id=schedule>{{ schedule_feed(sched_when, sched_rows, ann) }}</div>
 {% else %}
 <div class=homedock>
 {% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set num = (m.usawp_number or '')|trim %}
