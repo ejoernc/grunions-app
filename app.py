@@ -41,13 +41,14 @@ try:
 except ValueError:
     MAPBOX_DAILY_CAP = 2000
 MAX_UPLOAD = 8 * 1024 * 1024
+CHAT_PHOTO_MAX = 20 * 1024 * 1024
 REACTIONS = ["👍", "👎", "❤️", "😂", "🎉", "😮", "🔥", "👀", "🙏", "🥲", "💯"]
 app = Flask(__name__)
 logging.warning(
     "MAPBOX_TOKEN set=%s length=%d pk_prefix=%s",
     bool(MAPBOX_TOKEN), len(MAPBOX_TOKEN), MAPBOX_TOKEN.startswith("pk."),
 )
-app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD + 64 * 1024
+app.config["MAX_CONTENT_LENGTH"] = CHAT_PHOTO_MAX + 64 * 1024
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
                   SESSION_COOKIE_SECURE=os.environ.get("SECURE_COOKIES", "1" if (PUBLIC_URL or "").startswith("https://") else "0") == "1",
@@ -1589,6 +1590,9 @@ def migrate_chat_extras(d):
     d.execute("""CREATE TABLE IF NOT EXISTS chat_follows(
         practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL,
         PRIMARY KEY(practice_id, member_id))""")
+    cols = [r[1] for r in d.execute("PRAGMA table_info(chat_channels)")]
+    if cols and "rules" not in cols:
+        d.execute("ALTER TABLE chat_channels ADD COLUMN rules TEXT")
 def practice_chat_locked(d, ch):
     """A practice chat stays readable, and stops taking new messages 7 days after the practice."""
     if not (ch or "").startswith("practice:"):
@@ -1682,12 +1686,15 @@ def seed_preview_club(d):
     say("priya.nand@preview.regulars.invalid", "team", "Preview: I can bring an extra cap.")
     last = say("lena.ortiz@preview.regulars.invalid", "team", "Preview: see you at Preview Pool.")
     react(last, "noah.kim@preview.regulars.invalid", "👍")
-    d.execute("""INSERT OR IGNORE INTO chat_channels(slug, title, kind, created_by, created_at)
-        VALUES('water-polo','water-polo','official',?,?)""", (ids["mira.solano@preview.regulars.invalid"], utc_stamp()))
+    for slug in ("water-polo", "womens-open", "social"):
+        d.execute("""INSERT OR IGNORE INTO chat_channels(slug, title, kind, created_by, created_at)
+            VALUES(?,?,'official',?,?)""", (slug, slug, ids["mira.solano@preview.regulars.invalid"], utc_stamp()))
     d.execute("INSERT OR IGNORE INTO practice_coaches(practice_id, member_id, is_lead) VALUES(?,?,1)",
               (pid, ids["mira.solano@preview.regulars.invalid"]))
     say("mira.solano@preview.regulars.invalid", "ch:water-polo", "Preview: lanes 3 and 4 tonight.")
     say("theo.march@preview.regulars.invalid", "ch:water-polo", "Preview: I'll take lane 3.")
+    say("lena.ortiz@preview.regulars.invalid", "ch:womens-open", "Preview: who's in for Coastal Cup?")
+    say("jonah.peck@preview.regulars.invalid", "ch:social", "Preview: happy hour Friday.")
     say("adele.voss@preview.regulars.invalid", "ask:coaches", "Preview: can I switch to drop-in next month?")
     say("mira.solano@preview.regulars.invalid", "coaches", "Preview: Adele asked about drop-in. I said yes.")
     say("jonah.peck@preview.regulars.invalid", "grp:carpool", "Preview: I can take two on Thursday.")
@@ -1711,10 +1718,21 @@ def seed_preview_club(d):
         if not eli["is_admin"]:
             d.execute("UPDATE members SET is_admin=1 WHERE id=?", (eli["id"],))
             promoted = True
+        d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
+            ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (pid, eli["id"]))
         channel = dm_channel(eli["id"], ids["adele.voss@preview.regulars.invalid"])
         if not d.execute("SELECT 1 FROM messages WHERE channel=? AND body LIKE 'Preview: Eli,%'", (channel,)).fetchone():
             d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)",
                       (ids["adele.voss@preview.regulars.invalid"], "Preview: Eli, this direct chat is sample data on the preview.", channel))
+        def hold_unread(channel_name):
+            mx = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE channel=? AND COALESCE(deleted,0)=0", (channel_name,)).fetchone()[0]
+            if not mx:
+                return
+            d.execute("""INSERT INTO chat_reads(member_id, channel, last_read) VALUES(?,?,?)
+                ON CONFLICT(member_id, channel) DO UPDATE SET last_read=excluded.last_read""",
+                      (eli["id"], channel_name, max(0, mx - 1)))
+        for channel_name in ("team", "ch:water-polo", "ch:womens-open", "practice:%d" % pid, channel):
+            hold_unread(channel_name)
     d.commit()
     return {"ran": True, "promoted": promoted, "people": len(PREVIEW_PEOPLE)}
 def member_brief(m):
@@ -1824,13 +1842,15 @@ def _open_heif_still(data):
         return frame.to_pillow()
     except Exception:
         raise ValueError(photo_reject())
-def save_image(f):
+def save_image(f, limit=None):
     """Validate + re-encode an upload. Returns stored base name. Strips metadata, fixes rotation, resizes (max 1600px, thumb 480px).
     HEIC and HEIF become JPEG so every browser can show them. Other stills stay WebP. Animated GIFs stay GIFs."""
     from PIL import Image, ImageOps
     _heif_opener()
-    data = f.read(MAX_UPLOAD + 1)
-    if len(data) > MAX_UPLOAD: raise ValueError("Image is larger than 8 MB.")
+    cap = limit or MAX_UPLOAD
+    data = f.read(cap + 1)
+    if len(data) > cap:
+        raise ValueError("Photos only, up to 20 MB." if cap > MAX_UPLOAD else "Image is larger than 8 MB.")
     filename = (getattr(f, "filename", "") or "").lower()
     container = _photo_container(data)
     im = None
@@ -1853,7 +1873,7 @@ def save_image(f):
             raise ValueError(photo_reject("proraw"))
         raise ValueError(photo_reject())
     os.makedirs(UPLOADS, exist_ok=True); name = secrets.token_hex(12)
-    if fmt == "GIF" and getattr(im, "is_animated", False) and len(data) <= MAX_UPLOAD and not heif:
+    if fmt == "GIF" and getattr(im, "is_animated", False) and len(data) <= cap and not heif:
         open(os.path.join(UPLOADS, name + ".gif"), "wb").write(data); ext = "gif"   # keep animation
     else:
         im = ImageOps.exif_transpose(im) or im
@@ -2058,25 +2078,43 @@ def channel_preview(d, channel):
     line = ("%s: %s" % (who, text)).strip(": ") if who else text
     return line[:90], chat_clock(row["at"])
 def _unread_bits(d, mid):
-    """Short line for the Grunions row: where the unread messages are."""
-    parts = []
+    """Short line for the Grunions row: name the chats that still have unread messages."""
+    bits = []
+    total = 0
     n_team = chat_unread_n(d, mid, "team")
     if n_team:
-        parts.append("#everyone")
-    practice_n = 0
-    for row in d.execute("SELECT DISTINCT channel FROM messages WHERE channel LIKE 'practice:%'"):
-        practice_n += chat_unread_n(d, mid, row["channel"])
-    if practice_n:
-        parts.append("practice chat")
-    total = n_team + practice_n
+        bits.append("#everyone")
+        total += n_team
+    for row in d.execute("""SELECT DISTINCT m.channel, p.date FROM messages m
+            LEFT JOIN practices p ON p.id=CAST(substr(m.channel, 10) AS INTEGER)
+            WHERE m.channel LIKE 'practice:%'"""):
+        n = chat_unread_n(d, mid, row["channel"])
+        if not n:
+            continue
+        total += n
+        label = "practice chat"
+        if row["date"]:
+            try:
+                label = "%s practice chat" % dt.date.fromisoformat(str(row["date"])[:10]).strftime("%a")
+            except ValueError:
+                pass
+        bits.append(label)
     for row in d.execute("SELECT DISTINCT channel FROM messages WHERE channel LIKE 'ch:%'"):
         n = chat_unread_n(d, mid, row["channel"])
+        if not n:
+            continue
         total += n
-        if n:
-            parts.append("#" + row["channel"].split(":", 1)[1])
+        bits.append("#" + row["channel"].split(":", 1)[1])
     if not total:
         return 0, "You're caught up"
-    return total, "%d unread in %s" % (total, " and ".join(parts[:3]))
+    shown = bits[:3]
+    if len(shown) == 1:
+        where = shown[0]
+    elif len(shown) == 2:
+        where = "%s and %s" % (shown[0], shown[1])
+    else:
+        where = "%s, %s, and %s" % tuple(shown)
+    return total, "%d unread in %s" % (total, where)
 def chat_muted(d, mid, channel):
     row = d.execute("SELECT until FROM chat_mutes WHERE member_id=? AND channel=?", (mid, channel)).fetchone()
     if not row:
@@ -2117,19 +2155,160 @@ def _other_dm_name(d, channel, mid):
     if not person:
         return "Someone"
     return ("%s %s" % (display_first(person), person["last"] or "")).strip()
-def _chat_side(when, n):
-    badge = '<span class=unread>%d</span>' % n if n else ""
+_BELL_OFF = ('<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M4 4.7 18.3 19l1.2-1.2L5.2 3.5 4 4.7Zm7 15.3a2 2 0 0 0 2-2H9a2 2 0 0 0 2 2Zm7.2-4.2-1.4-1.4A6.8 6.8 0 0 1 18 12V9.5A6 6 0 0 0 8.6 5.1L7.2 3.7A8 8 0 0 1 20 9.5V12c0 1.2.4 2.3 1.2 3.2v.6Z"/></svg>')
+_ENVELOPE = ('<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5v-11Zm1.6.3 7.4 5.2 7.4-5.2a1 1 0 0 0-.9-.3h-13a1 1 0 0 0-.9.3ZM19.5 8.2l-6.7 4.7a1.4 1.4 0 0 1-1.6 0L4.5 8.2V17.5c0 .3.2.5.5.5h13c.3 0 .5-.2.5-.5V8.2Z"/></svg>')
+def _chat_side(when, n, muted=False):
+    if muted:
+        badge = '<span class=chatmute aria-label="Muted">%s</span>' % _BELL_OFF
+    else:
+        badge = '<span class=unread>%d</span>' % n if n else ""
     clock = '<span class=chattime>%s</span>' % escape(when) if when else ""
     return '<span class=chatside>%s%s</span>' % (clock, badge)
-def _chat_row(href, mark, title, sub, when="", n=0, tone="sun"):
+def _chat_row(href, mark, title, sub, when="", n=0, tone="sun", muted=False):
     return ('<a class=chatrow href="%s"><span class="mark %s">%s</span><span class=grow><b>%s</b><small>%s</small></span>%s</a>'
-            % (href, tone, mark, title, escape(sub or ""), _chat_side(when, n)))
+            % (href, tone, mark, title, escape(sub or ""), _chat_side(when, n, muted)))
 def _clock_face(hhmm):
     try:
         hour, minute = [int(x) for x in str(hhmm or "0:00").split(":")[:2]]
     except ValueError:
         return hhmm or ""
     return "%d:%02d" % (hour % 12 or 12, minute)
+_CHANNEL_TONE = {"water-polo": "sun", "womens-open": "bubble", "social": "mango"}
+def _channel_tone(slug):
+    return _CHANNEL_TONE.get((slug or "").lower(), "sun")
+def _session_eyebrow(iso, start):
+    """Tonight, Today, or the weekday. Never a raw ISO date."""
+    try:
+        day = dt.date.fromisoformat(str(iso)[:10])
+    except ValueError:
+        return "Practice"
+    if day == today_pt():
+        try:
+            hour = int(str(start or "19:00").split(":", 1)[0])
+        except ValueError:
+            hour = 19
+        return "Tonight" if hour >= 17 else "Today"
+    return day.strftime("%a")
+def _joined_people(d, mid):
+    return d.execute("""SELECT id, first, last, preferred_first, role FROM members
+        WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1 AND id!=?
+        ORDER BY first, last""", (mid,)).fetchall()
+def _chat_title(mode):
+    plus = "both" if mode == "team" and can_host_practice() else "message"
+    return ('<div class=chathead><h1 class=chatdisplay>Chat.</h1>'
+            '<button type=button class=chatplus data-plus="%s" aria-label="New">+</button></div>') % plus
+def _people_sheet(d, m):
+    rows = []
+    for person in _joined_people(d, m["id"]):
+        name = ("%s %s" % (display_first(person), person["last"] or "")).strip()
+        rows.append('<label><input type=checkbox name=with value="%d">%s</label>' % (person["id"], escape(name)))
+    body = "".join(rows) or '<p class="t3">No one else is on the team yet.</p>'
+    return ('<dialog id=peopleSheet class=botsheet><div class=sheet><div class=grab aria-hidden=true></div>'
+            '<form method=post action=/chat/dm>%s<h2 style="margin:0 0 4px">New message</h2>'
+            '<p class="t3">Goes to your personal Chat.</p><div class=peoplepick>%s</div>'
+            '<button class="btn btn-primary full">Message</button></form>'
+            '<button type=button class=sheetcancel data-sheet-close>Cancel</button></div></dialog>') % (csrf_field(), body)
+def _channel_sheet(d):
+    try:
+        sports = d.execute("SELECT slug, public_name, name FROM programs WHERE COALESCE(active,0)=1 ORDER BY name").fetchall()
+    except sqlite3.OperationalError:
+        sports = []
+    if not sports:
+        sports = [{"slug": "water-polo", "public_name": "Water polo", "name": "Water polo"},
+                  {"slug": "open-water", "public_name": "Open water", "name": "Open water"},
+                  {"slug": "swimming", "public_name": "Swimming", "name": "Swimming"}]
+    chips = []
+    for i, sport in enumerate(sports):
+        label = sport["public_name"] or sport["name"]
+        chips.append('<button type=button data-sport="%s"%s>%s</button>' % (
+            escape(sport["slug"]), " class=on" if i == 0 else "", escape(label)))
+    roster = d.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1").fetchone()[0]
+    coaches = d.execute("SELECT COUNT(*) FROM members WHERE role='coach' AND COALESCE(joined,0)=1").fetchone()[0]
+    people = []
+    for person in d.execute("""SELECT id, first, last, preferred_first FROM members
+            WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1 ORDER BY first"""):
+        name = ("%s %s" % (display_first(person), person["last"] or "")).strip()
+        people.append('<label><input type=checkbox name=person value="%d">%s</label>' % (person["id"], escape(name)))
+    return ('<dialog id=plusSheet class=botsheet><div class=sheet><div class=grab aria-hidden=true></div><div class=plusacts>'
+            '<button type=button data-open-people>New message</button><button type=button data-open-channel>New channel</button>'
+            '<button type=button class=sheetcancel data-sheet-close>Cancel</button></div></div></dialog>'
+            '<dialog id=channelSheet class=botsheet><div class=sheet><div class=grab aria-hidden=true></div>'
+            '<form method=post action=/chat/channels>%s<p class="r2caps">Manage · chat</p><h2 style="margin:0">New channel</h2>'
+            '<p class="t3">Official team chat · only coaches &amp; admins create these</p>'
+            '<p class="r2caps">Name</p><label class=hashfield># <input name=title value="open-water" required maxlength=40 autocomplete=off></label>'
+            '<p class="r2caps">Who\'s in</p><div class=audchips>'
+            '<button type=button data-aud=everyone>Everyone on the team</button>'
+            '<button type=button data-aud=sport class=on>By sport</button>'
+            '<button type=button data-aud=role>By role</button>'
+            '<button type=button data-aud=people>Pick people</button></div>'
+            '<input type=hidden name=audience value=sport><input type=hidden name=sport value="%s">'
+            '<div class=audchips data-panel=sport>%s</div>'
+            '<div class="audchips" data-panel=role hidden><button type=button data-role=coach class=on>Coach</button>'
+            '<button type=button data-role=athlete>Athlete</button></div><input type=hidden name=role value=coach>'
+            '<div class=peoplepick data-panel=people hidden>%s</div>'
+            '<label class=switchrow><span>Auto-add active people<small>Anyone who went to a session in this sport in the last 60 days, or lists it in their profile.</small></span>'
+            '<input type=checkbox name=auto_add value=1 checked><span class=onword>On</span></label>'
+            '<label class=switchrow><span>Auto-remove when inactive<small>After 90 days with no sessions in this sport, they can rejoin.</small></span>'
+            '<input type=checkbox name=auto_remove value=1 checked><span class=onword>On</span></label>'
+            '<label class=switchrow><span>Members can leave<small>Off means a required channel. They can only mute it, like #everyone.</small></span>'
+            '<input type=checkbox name=can_leave value=1 checked><span class=onword>On</span></label>'
+            '<div class=switchrow><span>Who can post<small>Everyone in it, or coaches and admins only.</small></span><span class=onword>Everyone</span></div>'
+            '<input type=hidden name=who_posts value=everyone>'
+            '<p class="t3">Practice chats are automatic: everyone going to a session is in its chat. You don\'t set those up here.</p>'
+            '<button class="btn btn-primary full" id=createChannel data-roster="%d" data-coaches="%d">Create #open-water · %d people</button>'
+            '</form></div></dialog>') % (csrf_field(), escape((sports[0]["slug"] if sports else "water-polo")), "".join(chips), "".join(people), roster, coaches, roster)
+_CHAT_PLUS_JS = """<script>
+(function(){
+ function openSheet(id){var el=document.getElementById(id); if(!el) return; if(window.grunionsOpenSheet) grunionsOpenSheet(el); else el.showModal();}
+ function shut(el){if(!el) return; if(window.grunionsCloseSheet) grunionsCloseSheet(el); else el.close();}
+ document.addEventListener('click', function(e){
+  var plus=e.target.closest&&e.target.closest('.chatplus');
+  if(plus){ e.preventDefault(); openSheet(plus.getAttribute('data-plus')==='both'?'plusSheet':'peopleSheet'); return; }
+  var openP=e.target.closest&&e.target.closest('[data-open-people]');
+  if(openP){ shut(document.getElementById('plusSheet')); openSheet('peopleSheet'); return; }
+  var openC=e.target.closest&&e.target.closest('[data-open-channel]');
+  if(openC){ shut(document.getElementById('plusSheet')); openSheet('channelSheet'); return; }
+  var bye=e.target.closest&&e.target.closest('[data-sheet-close]');
+  if(bye){ shut(bye.closest('dialog')); return; }
+  var aud=e.target.closest&&e.target.closest('[data-aud]');
+  if(aud){
+   aud.parentNode.querySelectorAll('button').forEach(function(b){ b.classList.remove('on'); });
+   aud.classList.add('on');
+   var form=aud.closest('form'), hidden=form.querySelector('input[name=audience]');
+   if(hidden) hidden.value=aud.getAttribute('data-aud');
+   form.querySelectorAll('[data-panel]').forEach(function(p){ p.hidden=p.getAttribute('data-panel')!==aud.getAttribute('data-aud'); });
+   paintCreate();
+   return;
+  }
+  var sport=e.target.closest&&e.target.closest('[data-sport]');
+  if(sport){
+   sport.parentNode.querySelectorAll('button').forEach(function(b){ b.classList.remove('on'); });
+   sport.classList.add('on');
+   var box=sport.closest('form').querySelector('input[name=sport]');
+   if(box) box.value=sport.getAttribute('data-sport');
+   paintCreate();
+  }
+ });
+ function paintCreate(){
+  var btn=document.getElementById('createChannel'); if(!btn) return;
+  var form=btn.closest('form'), name=(form.querySelector('input[name=title]').value||'channel').trim().replace(/^#+/, '')||'channel';
+  var aud=form.querySelector('input[name=audience]').value;
+  var n=+btn.getAttribute('data-roster')||0;
+  if(aud==='role' && (form.querySelector('input[name=role]')||{}).value==='coach') n=+btn.getAttribute('data-coaches')||0;
+  if(aud==='people') n=form.querySelectorAll('input[name=person]:checked').length;
+  btn.textContent='Create #'+name+' · '+n+' people';
+ }
+ var name=document.querySelector('#channelSheet input[name=title]');
+ if(name) name.addEventListener('input', paintCreate);
+ var people=document.getElementById('channelSheet');
+ if(people) people.addEventListener('change', paintCreate);
+})();
+</script>"""
+def chat_sheets(d, m, mode):
+    html = _people_sheet(d, m)
+    if mode == "team" and can_host_practice():
+        html += _channel_sheet(d)
+    return html + _CHAT_PLUS_JS
 def personal_chat_html(d, m):
     """YOUR TEAMS, then DIRECT. Grunions is the only live team."""
     mid = m["id"]
@@ -2143,23 +2322,30 @@ def personal_chat_html(d, m):
         n = chat_unread_n(d, mid, "coaches")
         preview, when = channel_preview(d, "coaches")
         latest = d.execute("SELECT MAX(id) FROM messages WHERE channel='coaches'").fetchone()[0] or 0
-        directs.append((latest, _chat_row("/chat?c=coaches&place=%s" % place, "B", "Grunions board", preview or "Private to board members", when, n, "grape")))
+        directs.append((latest, _chat_row("/chat?c=coaches&place=%s" % place, "B", "Grunions board", preview or "Private to board members", when, n, "grape", chat_muted(d, mid, "coaches"))))
     for channel, n, latest in _dm_unread(d, mid)[1]:
         name = _other_dm_name(d, channel, mid)
         preview, when = channel_preview(d, channel)
-        directs.append((latest or 0, _chat_row("/chat?c=%s&place=%s" % (escape(channel), place), escape(name[:1]), escape(name), preview or "Direct", when, n, "sky")))
+        directs.append((latest or 0, _chat_row("/chat?c=%s&place=%s" % (escape(channel), place), escape(name[:1].upper()), escape(name), preview or "Direct", when, n, "sky", chat_muted(d, mid, channel))))
+    seen = set()
     for row in d.execute("SELECT DISTINCT channel FROM messages WHERE channel LIKE 'grp:%'"):
-        channel = row["channel"]
+        seen.add(row["channel"])
+    try:
+        for row in d.execute("SELECT slug, title FROM chat_channels WHERE kind='group'"):
+            seen.add("grp:" + row["slug"])
+    except sqlite3.OperationalError:
+        pass
+    for channel in seen:
         n = chat_unread_n(d, mid, channel)
         preview, when = channel_preview(d, channel)
         latest = d.execute("SELECT MAX(id) FROM messages WHERE channel=?", (channel,)).fetchone()[0] or 0
         title = channel.split(":", 1)[1].replace("-", " ").title()
-        directs.append((latest, _chat_row("/chat?c=%s&place=%s" % (escape(channel), place), escape(title[:1]), escape(title), preview or "Group", when, n, "bubble")))
+        directs.append((latest, _chat_row("/chat?c=%s&place=%s" % (escape(channel), place), escape(title[:1].upper()), escape(title), preview or "Group", when, n, "bubble", chat_muted(d, mid, channel))))
     directs.sort(key=lambda item: item[0], reverse=True)
     direct_html = "".join(html for _latest, html in directs) or '<p class="t3">No direct messages yet.</p>'
-    return ('<div class=chathead><h1 class=chatdisplay>Chat.</h1></div>'
-            '<p class="r2caps">Your teams · unread</p><div class=chatlist>%s</div>'
-            '<p class="r2caps">Direct</p><div class=chatlist>%s</div>') % (teams, direct_html)
+    return (_chat_title("direct")
+            + '<p class="r2caps">Your teams · unread</p><div class=chatlist>%s</div>'
+            + '<p class="r2caps">Direct</p><div class=chatlist>%s</div>%s') % (teams, direct_html, chat_sheets(d, m, "direct"))
 def _chip_date(iso):
     day = dt.date.fromisoformat(str(iso)[:10])
     return "%s %d" % (day.strftime("%a %b"), day.day)
@@ -2178,9 +2364,17 @@ def team_chat_html(d, m):
     """Direct chats, the practice you're going to, channels, and ask-the-club. Members do not create channels."""
     mid = m["id"]
     dm_n, dm_rows = _dm_unread(d, mid)
-    names = [_other_dm_name(d, channel, mid).split(" ")[0] for channel, _n, _latest in dm_rows[:2]]
+    names = []
+    for channel, _n, _latest in dm_rows:
+        if _n:
+            names.append(_other_dm_name(d, channel, mid).split(" ")[0])
+        if len(names) == 2:
+            break
     sub = ("%d unread" % dm_n + ((" · " + ", ".join(names)) if names else "") + " · opens your personal chat") if dm_n else "Opens your personal chat"
-    personal = _chat_row("/inbox?place=me", escape((display_first(m) or "Y")[:1]), "Personal messages", sub, "", dm_n, "sky")
+    personal = ('<a class=chatrow href="/inbox?place=me"><span class="mark sky">%s</span>'
+                '<span class=grow><b>Personal messages</b><small>%s</small></span>'
+                '<span class=chatside><span class=chatgo aria-hidden=true>→</span>%s</span></a>'
+                % (_ENVELOPE, escape(sub), '<span class=unread>%d</span>' % dm_n if dm_n else ""))
     nxt = d.execute("""SELECT p.id, p.date, p.start, p.title, p.sport, p.location FROM practices p
         JOIN rsvps r ON r.practice_id=p.id AND r.member_id=? AND r.going=1
         WHERE COALESCE(p.cancelled,0)=0 AND COALESCE(p.skipped,0)=0 AND p.date>=?
@@ -2195,7 +2389,7 @@ def team_chat_html(d, m):
         where = (nxt["location"] or "").strip()
         meta = "%s · %s" % (sport, where) if where else sport
         detail = "%d going" % going + ((" · " + preview) if preview else "")
-        when_label = "Tonight" if nxt["date"] == today_pt().isoformat() else nxt["date"]
+        when_label = _session_eyebrow(nxt["date"], nxt["start"])
         practice = ('<a class=practcard href="/chat?c=%s"><span class=practtop><b>Practice chat · %s</b>%s</span>'
                     '<span class=practbody><span class=practtime>%s</span><span class=practmeta><b>%s</b><small>%s</small></span></span></a>'
                     % (ch, escape(when_label), '<span class=unread>%d new</span>' % n if n else "",
@@ -2222,29 +2416,30 @@ def team_chat_html(d, m):
     everyone_n = chat_unread_n(d, mid, "team")
     preview, when = channel_preview(d, "team")
     roster = d.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1").fetchone()[0]
-    channels = [_chat_row("/chat?c=team", "#", "everyone <span class=count>%d</span>" % roster, preview or "The whole team", when, everyone_n, "lime")]
+    channels = [_chat_row("/chat?c=team", "#", "everyone <span class=count>%d</span>" % roster, preview or "The whole team", when, everyone_n, "lime", chat_muted(d, mid, "team"))]
     shown = set()
     for row in d.execute("SELECT slug, title FROM chat_channels WHERE kind='official' ORDER BY title"):
         ch = "ch:" + row["slug"]
         shown.add(ch)
         preview, when = channel_preview(d, ch)
-        channels.append(_chat_row("/chat?c=%s" % escape(ch), "#", escape(row["title"] or row["slug"]), preview or "Team channel", when, chat_unread_n(d, mid, ch), "sun"))
+        label = escape(row["title"] or row["slug"])
+        channels.append(_chat_row("/chat?c=%s" % escape(ch), "#", "%s <span class=count>%d</span>" % (label, roster), preview or "Team channel", when, chat_unread_n(d, mid, ch), _channel_tone(row["slug"]), chat_muted(d, mid, ch)))
     for row in d.execute("SELECT DISTINCT channel FROM messages WHERE channel LIKE 'ch:%' ORDER BY channel"):
         ch = row["channel"]
         if ch in shown:
             continue
         slug = ch.split(":", 1)[1]
         preview, when = channel_preview(d, ch)
-        channels.append(_chat_row("/chat?c=%s" % escape(ch), "#", escape(slug), preview or "Team channel", when, chat_unread_n(d, mid, ch), "sun"))
-    ask = [_chat_row("/chat?c=ask:coaches", "C", "Message the coaches", "The coaching staff", "", chat_unread_n(d, mid, "ask:coaches"), "sky")]
+        channels.append(_chat_row("/chat?c=%s" % escape(ch), "#", "%s <span class=count>%d</span>" % (escape(slug), roster), preview or "Team channel", when, chat_unread_n(d, mid, ch), _channel_tone(slug), chat_muted(d, mid, ch)))
+    coach_n = d.execute("SELECT COUNT(*) FROM members WHERE role='coach' AND COALESCE(joined,0)=1").fetchone()[0] or 1
+    ask = [_chat_row("/chat?c=ask:coaches", "C", "Message the coaches", "%d coaches · usually reply in 1h" % coach_n, "", chat_unread_n(d, mid, "ask:coaches"), "sky", chat_muted(d, mid, "ask:coaches"))]
     if is_staff():
         preview, when = channel_preview(d, "coaches")
-        ask.insert(0, _chat_row("/chat?c=coaches", "B", "Message the board", preview or "Private to board members", when, chat_unread_n(d, mid, "coaches"), "grape"))
-    return ('<div class=chathead><h1 class=chatdisplay>Chat.</h1></div><div class=chatlist>%s%s%s</div>'
+        ask.insert(0, _chat_row("/chat?c=coaches", '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7 10V8a5 5 0 0 1 10 0v2h1.2A1.8 1.8 0 0 1 20 11.8v7.4A1.8 1.8 0 0 1 18.2 21H5.8A1.8 1.8 0 0 1 4 19.2v-7.4A1.8 1.8 0 0 1 5.8 10H7Zm2 0h6V8a3 3 0 0 0-6 0v2Z"/></svg>', "Message the board", preview or "Private to board members", when, chat_unread_n(d, mid, "coaches"), "grape", chat_muted(d, mid, "coaches")))
+    return (_chat_title("team") + '<div class=chatlist>%s</div>%s'
             '<p class="r2caps">Grunions · team</p><div class=chatlist>%s</div>'
             '<p class="r2caps">Ask the club</p><div class=chatlist>%s</div>%s') % (
-                personal, practice, "", "".join(channels), "".join(ask),
-                '<p class="t3"><a href="/chat/channels">New channel</a></p>' if can_host_practice() else "")
+                personal, practice, "".join(channels), "".join(ask), chat_sheets(d, m, "team"))
 def _practice_sessions(d, mid):
     """Upcoming sessions this person is Going to, then earlier ones they went to or opened."""
     today = today_pt().isoformat()
@@ -2309,7 +2504,7 @@ def practice_switcher(d, m, current):
     if row["cancelled"]:
         note += '<p class=chatlock>Cancelled.</p>'
     if locked:
-        note += '<p class=chatlock>Read-only · this practice ended %s.</p>' % escape(_chip_date(row["date"]))
+        note += '<p class=chatlock>read-only · this practice ended %s.</p>' % escape(_chip_date(row["date"]))
     back = ""
     if locked and upcoming and upcoming[0]["id"] != pid:
         back = '<p><a href="/chat?c=practice:%d">Back to tonight</a></p>' % upcoming[0]["id"]
@@ -2336,7 +2531,19 @@ def chat():
     tools = ('<form method=post action=/chat/mute class=chattools>%s<input type=hidden name=c value="%s">'
              '<button class="btn btn-secondary" name=mute value="%s">%s</button></form>'
              % (csrf_field(), escape(ch), "off" if muted else "week", "Unmute" if muted else "Mute for a week"))
-    return page(head + tools + T["chat"], tab="chat", ch=ch, chat_label=label, chat_locked=practice_chat_locked(d, ch), chat_seed=chat_page_messages(d, ch, 50))
+    if ch == "team":
+        prompt = "Message the team"
+    elif ch == "coaches":
+        prompt = "Message the board"
+    elif ch.startswith("practice:"):
+        prompt = "Message tonight's practice"
+    elif ch.startswith("ask:"):
+        prompt = "Message the coaches"
+    elif ch.startswith("ch:"):
+        prompt = "Message #%s" % ch.split(":", 1)[1]
+    else:
+        prompt = "Message"
+    return page(head + tools + T["chat"], tab="chat", ch=ch, chat_label=label, chat_placeholder=prompt, chat_locked=practice_chat_locked(d, ch), chat_seed=chat_page_messages(d, ch, 50))
 @app.route("/chat/follow", methods=["POST"])
 @login_required
 def chat_follow_leave():
@@ -2361,6 +2568,32 @@ def chat_mute():
             ON CONFLICT(member_id, channel) DO UPDATE SET until=excluded.until""", (me()["id"], ch, until))
     d.commit()
     return redirect(request.referrer or ("/chat?c=%s" % ch))
+@app.route("/chat/dm", methods=["POST"])
+@login_required
+def chat_dm_start():
+    """Start a 1:1 or a small group. It opens in personal Chat, not the team inbox."""
+    chosen = []
+    for raw in request.form.getlist("with"):
+        try:
+            chosen.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+    me_id = me()["id"]
+    chosen = sorted({i for i in chosen if i and i != me_id})
+    if not chosen:
+        flash("Pick someone.")
+        return redirect("/inbox?place=me")
+    d = db()
+    if len(chosen) == 1:
+        other = d.execute("SELECT id FROM members WHERE id=? AND COALESCE(role,'')!='system'", (chosen[0],)).fetchone()
+        if not other:
+            abort(404)
+        return redirect("/chat?c=%s&place=me" % dm_channel(me_id, chosen[0]))
+    slug = re.sub(r"[^a-z0-9-]", "", ("g%d-" % me_id) + "-".join(str(i) for i in chosen))[:40]
+    d.execute("""INSERT OR IGNORE INTO chat_channels(slug, title, kind, created_by, created_at)
+        VALUES(?,?,'group',?,?)""", (slug, "Group", me_id, utc_stamp()))
+    d.commit()
+    return redirect("/chat?c=grp:%s&place=me" % slug)
 @app.route("/chat/channels", methods=["GET", "POST"])
 @login_required
 def chat_channels():
@@ -2368,13 +2601,23 @@ def chat_channels():
     if not can_host_practice(): abort(403)
     d = db()
     if request.method == "POST":
-        title = (request.form.get("title") or "").strip()[:40]
+        title = (request.form.get("title") or "").strip().lstrip("#")[:40]
         slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:40]
         if not title or not slug:
             flash("Name the channel.")
-            return redirect("/chat/channels")
-        d.execute("""INSERT OR IGNORE INTO chat_channels(slug, title, kind, created_by, created_at)
-            VALUES(?,?, 'official', ?, ?)""", (slug, title, me()["id"], utc_stamp()))
+            return redirect("/chat?view=list")
+        rules = json.dumps({
+            "audience": request.form.get("audience") or "everyone",
+            "sport": request.form.get("sport") or "",
+            "role": request.form.get("role") or "",
+            "people": request.form.getlist("person"),
+            "auto_add": request.form.get("auto_add") == "1",
+            "auto_remove": request.form.get("auto_remove") == "1",
+            "can_leave": request.form.get("can_leave") == "1",
+            "who_posts": request.form.get("who_posts") or "everyone",
+        })
+        d.execute("""INSERT OR IGNORE INTO chat_channels(slug, title, kind, created_by, created_at, rules)
+            VALUES(?,?, 'official', ?, ?, ?)""", (slug, title, me()["id"], utc_stamp(), rules))
         d.commit()
         return redirect("/chat?c=ch:%s" % slug)
     rows = d.execute("SELECT title, slug FROM chat_channels WHERE kind='official' ORDER BY title").fetchall()
@@ -2395,7 +2638,7 @@ def api_messages():
         image = None
         if request.files.get("image"):
             j = request.form
-            try: image = save_image(request.files["image"])
+            try: image = save_image(request.files["image"], CHAT_PHOTO_MAX)
             except ValueError as e: return jsonify(error=str(e)), 400
         else: j = request.get_json(silent=True) or {}
         body = (j.get("body") or "").strip()[:2000]

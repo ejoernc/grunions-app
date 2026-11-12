@@ -546,29 +546,47 @@ dialog.crestmenu::backdrop{background:rgba(11,11,12,.45)}
 .crestgo,.crestout{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;padding:14px;border-radius:var(--r2-radius-pill);border:2px solid var(--r2-graphite);background:transparent;color:var(--r2-paper);font:700 14px/normal var(--r2-font-sans);text-decoration:none}
 .crestout{border-color:var(--r2-tangerine);color:var(--r2-tangerine)}
 .r2caps{margin:0 0 8px;color:var(--r2-smoke);font:var(--r2-caps);letter-spacing:.08em;text-transform:uppercase}
-.chathead{display:flex;align-items:flex-end;justify-content:space-between;margin:8px 0 4px}
-.chatdisplay{margin:0;font:var(--r2-display-l);letter-spacing:-.05em;color:var(--r2-paper)}
-.chatlist{display:flex;flex-direction:column;gap:4px;margin:0 0 18px}
-.chatlist a.chatrow{display:flex;gap:12px;align-items:center;padding:10px 14px 10px 10px;border-radius:26px;background:transparent;color:inherit;text-decoration:none}
+main:has(.chathead){padding:16px 16px calc(var(--nav-clear) + 48px + env(safe-area-inset-bottom))}
+.chathead{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:76px;margin:0 0 16px}
+.chatdisplay{margin:0;font:700 88px/.86 var(--r2-font-display);letter-spacing:-.05em;color:var(--r2-paper)}
+.chatplus{width:52px;height:52px;flex:none;border:0;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 24px/1 var(--r2-font-display);letter-spacing:-.03em;cursor:pointer}
+.chatlist{display:flex;flex-direction:column;gap:2px;margin:0 0 18px}
+.chatlist a.chatrow{display:flex;gap:12px;align-items:center;min-height:64px;padding:10px 14px 10px 10px;border-radius:26px;background:transparent;color:inherit;text-decoration:none}
 .chatlist a.chatrow .grow{flex:1;min-width:0}
 .chatlist a.chatrow b{display:flex;gap:6px;align-items:center;font:700 15px/1.2 var(--r2-font-sans);color:var(--r2-paper)}
 .chatlist a.chatrow small{display:block;margin-top:2px;color:var(--r2-smoke);font:600 12px/1.3 var(--r2-font-sans)}
-.chatlist .mark{width:44px;height:44px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--r2-sun);color:var(--r2-fixed-ink);font:700 15px/1 var(--r2-font-display);letter-spacing:-.03em;flex:none}
+.chatlist .mark{width:44px;height:44px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--r2-sun);color:var(--r2-fixed-ink);font:700 18px/1 var(--r2-font-display);letter-spacing:-.03em;flex:none}
+.chatlist .mark svg{width:22px;height:22px;display:block}
 .chatlist .mark.lime{background:var(--r2-lime)}
 .chatlist .mark.sky{background:var(--r2-sky)}
 .chatlist .mark.grape{background:var(--r2-grape)}
 .chatlist .mark.bubble{background:var(--r2-bubblegum)}
-.chatlist .count{height:22px;padding:0 8px;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);font:700 11px/22px var(--r2-font-sans)}
+.chatlist .mark.mango{background:var(--r2-mango)}
+.chatlist .count{padding:5px 10px;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);font:700 11px/1 var(--r2-font-sans)}
 .chatlist .chatside{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
-.chatlist .chattime{color:var(--r2-smoke);font:600 11px/1.2 var(--r2-font-sans)}
-.chatlist .unread{min-width:18px;height:18px;padding:0 6px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 11px/18px var(--r2-font-sans);text-align:center}
-.practcard{display:block;margin:8px 0;padding:16px 18px 18px 20px;border-radius:34px;background:var(--r2-sun);color:var(--r2-fixed-ink);text-decoration:none}
+.chatlist .chattime,.chatgo{color:var(--r2-smoke);font:600 11px/1.2 var(--r2-font-sans)}
+.chatgo{font:700 16px/1 var(--r2-font-sans)}
+.chatlist .unread{min-width:18px;padding:2px 7px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 11px/16px var(--r2-font-sans);text-align:center}
+.practcard{display:block;margin:8px 0 16px;padding:16px 18px 18px 20px;border-radius:34px;background:var(--r2-sun);color:var(--r2-fixed-ink);text-decoration:none}
 .practcard .practtop{display:flex;justify-content:space-between;align-items:center;gap:8px;font:700 10px/1.2 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase}
-.practcard .unread{background:var(--r2-fixed-ink);color:var(--r2-sun)}
+.practcard .unread{padding:3px 8px;background:var(--r2-fixed-ink);color:var(--r2-sun);font:700 11px/1.2 var(--r2-font-sans)}
 .practcard .practbody{display:flex;align-items:flex-end;gap:10px;margin-top:8px}
-.practcard .practtime{font:var(--r2-display-l);letter-spacing:-.05em}
+.practcard .practtime{font:700 64px/.86 var(--r2-font-display);letter-spacing:-.05em}
 .practcard .practmeta b{display:block;font:700 13px/1.2 var(--r2-font-sans)}
 .practcard .practmeta small{display:block;font:600 12px/1.3 var(--r2-font-sans)}
+.plusacts{display:flex;flex-direction:column;gap:8px}
+.plusacts button,.sheetcancel{width:100%;min-height:52px;border:0;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);font:700 15px/1 var(--r2-font-sans)}
+.sheetcancel{margin-top:8px;background:transparent;color:var(--r2-smoke)}
+.hashfield{display:flex;align-items:center;gap:4px;min-height:52px;padding:0 16px;border-radius:16px;background:var(--r2-graphite);color:var(--r2-smoke);font:600 16px/1 var(--r2-font-sans)}
+.hashfield input{flex:1;border:0;background:transparent;color:var(--r2-paper);font:inherit;padding:0}
+.audchips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.audchips button{border:0;border-radius:999px;padding:10px 14px;background:var(--r2-graphite);color:var(--r2-paper);font:700 13px/1 var(--r2-font-sans)}
+.audchips button.on{background:var(--r2-lime);color:var(--r2-fixed-ink)}
+.switchrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-top:1px solid var(--r2-graphite);font:700 15px/1.3 var(--r2-font-sans);color:var(--r2-paper)}
+.switchrow small{display:block;margin-top:4px;color:var(--r2-smoke);font:600 12px/1.35 var(--r2-font-sans)}
+.switchrow .onword{color:var(--r2-lime);font:700 14px/1 var(--r2-font-sans)}
+.peoplepick{display:flex;flex-direction:column;gap:4px;max-height:46vh;overflow:auto}
+.peoplepick label{display:flex;align-items:center;gap:12px;min-height:52px;color:var(--r2-paper);font:700 15px/1.2 var(--r2-font-sans)}
 .nav3-meta{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:0;max-width:100%}
 .nav3-badge{position:absolute;top:2px;right:2px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 10px/1 var(--r2-font-sans);text-align:center}
 .nav3-tabs a.on .nav3-badge{position:static;top:auto;right:auto;flex:none;min-width:20px;height:20px;padding:0 5px;background:var(--r2-fixed-ink);color:var(--r2-lime);font-size:12.5px}
@@ -633,14 +651,33 @@ button.earlier{width:100%;height:auto;min-height:0;margin:0;padding:8px 0 4px;ba
 .m.mine .more{left:0;right:auto}
 @media (hover:hover) and (pointer:fine){.m:hover .more{display:inline-flex}}
 .m .editbox textarea{min-height:72px;height:auto;margin:0}
-.composer{position:fixed;left:0;right:0;bottom:calc(var(--nav-clear) + env(safe-area-inset-bottom));background:var(--bg);padding:10px var(--space-5);border-top:1px solid var(--line);z-index:10}
-.chatpad{flex:none;height:calc(var(--composer-h, 69px) + var(--nav-clear) + env(safe-area-inset-bottom) + 12px)}
-.composer form{max-width:600px;margin:auto;display:flex;gap:8px;align-items:flex-end}
-.composer textarea{margin:0;height:48px;min-height:48px;max-height:136px;resize:none;line-height:22px;padding:12px 14px;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
-.composer textarea::-webkit-scrollbar{display:none}.iconbtn{width:48px;padding:0;flex:none;color:var(--t2)}.iconbtn svg{width:24px;height:24px;display:block}
-.iconbtn.send{color:var(--accent)}
-.preview{max-width:600px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;color:var(--t2);font-size:14px}.preview img{height:48px;border-radius:8px}
-.m .img{display:block;margin:0;width:min(70vw,280px,calc(var(--iw, 4) * 1px),calc(280px * var(--iw, 4) / var(--ih, 3)));aspect-ratio:var(--iw, 4) / var(--ih, 3);max-height:280px}.m .txt+.img{margin-top:4px}.m.mine .img{margin-left:auto}.m .img img{width:100%;height:100%;max-width:none;max-height:none;object-fit:cover;border-radius:12px;display:block;background:var(--surface)}
+.composer{position:fixed;left:0;right:0;bottom:calc(var(--nav-clear) + env(safe-area-inset-bottom));background:transparent;padding:0 16px 8px;border:0;z-index:10}
+.chatpad{flex:none;height:calc(var(--composer-h, 76px) + var(--nav-clear) + env(safe-area-inset-bottom) + 12px)}
+.composer form{max-width:640px;margin:0 auto;display:flex;align-items:flex-end;gap:10px;min-height:60px;padding:6px 6px 6px 8px;border-radius:999px;background:var(--r2-graphite)}
+.composer textarea{flex:1;margin:0;height:44px;min-height:44px;max-height:120px;border:0;background:transparent;color:var(--r2-paper);resize:none;font:600 15px/22px var(--r2-font-sans);padding:11px 4px;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
+.composer textarea::placeholder{color:var(--r2-smoke);font:600 15px/22px var(--r2-font-sans)}
+.composer textarea::-webkit-scrollbar{display:none}.iconbtn{width:44px;height:44px;padding:0;flex:none;border:0;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 28px/44px var(--r2-font-display)}.iconbtn svg{width:24px;height:24px;display:block}
+.iconbtn.send.ready{font-size:22px}
+.thumbs{display:flex;gap:8px;max-width:640px;margin:0 auto 8px;overflow:auto}
+.thumbs figure{position:relative;margin:0;flex:none}
+.thumbs img{width:64px;height:64px;object-fit:cover;border-radius:12px;display:block}
+.thumbs button{position:absolute;top:-4px;right:-4px;width:22px;height:22px;border:0;border-radius:999px;background:var(--r2-ink);color:var(--r2-paper);font:700 12px/22px var(--r2-font-sans)}
+.attachtiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0 16px}
+.attachtiles button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:148px;border:0;border-radius:24px;background:var(--r2-graphite);color:var(--r2-paper);font:700 14px/1.2 var(--r2-font-sans)}
+.attachtiles i{width:64px;height:64px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);display:flex;align-items:center;justify-content:center;font:700 28px/1 var(--r2-font-display);font-style:normal}
+.attachwide{display:none}
+.dropveil{position:fixed;left:16px;right:16px;top:72px;bottom:calc(var(--nav-clear) + 96px);border:2px solid var(--r2-lime);border-radius:24px;display:flex;align-items:center;justify-content:center;background:rgba(11,11,12,.72);color:var(--r2-lime);font:700 18px/1.3 var(--r2-font-sans);text-align:center;z-index:12;pointer-events:none}
+.chat{position:relative}
+.msgfoot{display:flex;align-items:center;gap:8px;margin-top:4px}
+.msgtime{color:var(--r2-smoke);font:600 11px/1.2 var(--r2-font-sans)}
+@media (min-width:768px){
+ dialog.attachsheet{inset:auto 24px calc(var(--nav-clear) + 88px) auto;width:min(360px,calc(100vw - 48px));margin:0}
+ dialog.attachsheet .sheet{border-radius:28px;border-bottom:1px solid var(--color-sheet-border)}
+ dialog.attachsheet .grab,.attachphone{display:none}
+ .attachwide{display:block}
+ .attachwide .droptarget{min-height:120px;margin:8px 0;border:1px dashed var(--r2-smoke);border-radius:20px;display:flex;align-items:center;justify-content:center;color:var(--r2-smoke);font:600 14px/1.3 var(--r2-font-sans)}
+}
+.m .img{display:block;margin:0;width:min(66%,260px);aspect-ratio:3/4;max-height:none}.m .txt+.img{margin-top:4px}.m.mine .img{margin-left:auto}.m .img img{width:100%;height:100%;max-width:none;max-height:none;object-fit:cover;border-radius:20px;display:block;background:var(--surface)}
 .m .bubble{display:inline-block;max-width:min(85%,280px);background:var(--color-bubble);border-radius:var(--radius-card);overflow:hidden}.m.mine .bubble{background:var(--color-bubble-mine)}.m .bubble .txt{background:transparent;display:block;max-width:min(70vw,280px);border-radius:0}.m .bubble .img,.m .bubble .txt+.img{margin:0}.m .bubble .img img{border-radius:0}
 .mstack{display:inline-flex;flex-direction:column;align-items:stretch;align-self:flex-start;width:max-content;max-width:85%;min-width:0}
 .m.mine .mstack{align-self:flex-end}
@@ -1693,7 +1730,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() %}{% call app_header(tab == 'home' or tab == 'practices', ('schedule' if tab == 'practices' else 'home') if (tab == 'home' or tab == 'practices') else '', tab == 'lineup' or (can_host_practice() and tab in ('home', 'practices', 'chat', 'admin', 'manage'))) %}{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'chat' and is_staff() %}<div class="seg headtabs chiprow" data-seg role=tablist><a href=/chat class="chip{{' chip-active on' if ch=='team'}}" data-badge=team>Team{{ bubble(badges().team) }}</a><a href="/chat?c=coaches" class="chip{{' chip-active on' if ch=='coaches'}}" data-badge=coaches>Coaches{{ bubble(badges().coaches) }}</a></div>{% elif tab == 'chat' %}<h1>Team</h1>{% elif tab == 'manage' %}<h1>Manage</h1>{% elif tab == 'admin' %}<a class=hubback href={{ admin_back|default('/manage') }} aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}{% endcall %}{% else %}<header><a class=brand href=/ aria-label=Regulars><img src="/static/icons/icon-192.png?v=119" alt=""></a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() and tab != 'chat' %}{% call app_header(tab == 'home' or tab == 'practices', ('schedule' if tab == 'practices' else 'home') if (tab == 'home' or tab == 'practices') else '', tab == 'lineup' or (can_host_practice() and tab in ('home', 'practices', 'admin', 'manage'))) %}{% if tab == 'home' or tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'manage' %}<h1>Manage</h1>{% elif tab == 'admin' %}<a class=hubback href={{ admin_back|default('/manage') }} aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% elif tab == 'lineup' %}<h1>Lineup</h1>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}{% endcall %}{% else %}<header><a class=brand href=/ aria-label=Regulars><img src="/static/icons/icon-192.png?v=119" alt=""></a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -2536,7 +2573,8 @@ function grunionsApply(html,url,pop,replace){
    [].slice.call(nextHead.attributes).forEach(function(a){ curHead.setAttribute(a.name, a.value); });
    curHead.innerHTML=nextHead.innerHTML;
   }
- } else if(nextHead&&!curHead) document.body.insertBefore(nextHead, document.querySelector('main'));
+ } else if(nextHead&&!curHead) document.body.insertBefore(document.importNode(nextHead, true), document.querySelector('main'));
+ else if(!nextHead&&curHead) curHead.remove();
  document.title=doc.title||document.title;
  if(!pop){ if(replace) history.replaceState({grunions:1},'',url); else history.pushState({grunions:1},'',url); }
  var backY=grunionsTakeBack(url);
@@ -4433,11 +4471,30 @@ T["notifications"] = """
 <button class="btn btn-primary full">Save</button></form>"""
 
 T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template><div class=chat id=chat><div class=chatin><button type=button id=earlier class=earlier hidden>Load earlier messages</button></div></div><div class=chatpad></div>
-{% if chat_locked %}<p class=chatlock>This practice chat is read-only. It closed 7 days after the practice.</p>{% endif %}<div class="composer noprint"><div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=preview id=prev hidden><img id=prevImg alt=""><span id=prevName></span><button type=button class="quiet compact" id=prevX>Remove</button></div>
-<form id=f><input type=file id=file accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif" multiple hidden>
+{% if chat_locked %}<p class=chatlock>read-only · this practice ended.</p>{% endif %}<div class="composer noprint"><div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=thumbs id=prev hidden></div>
+<form id=f><input type=file id=file accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif,.gif,.png,.jpg,.jpeg,.webp" multiple hidden>
+<textarea id=body rows=1 maxlength=2000 placeholder="{{ chat_placeholder or 'Message' }}" {% if chat_locked %}disabled{% endif %}></textarea>
 <button type=button class="iconbtn send" id=attach aria-label="Add photo">+</button>
-<textarea id=body rows=1 maxlength=2000 placeholder="Message {{ chat_label or ('coaches' if ch=='coaches' else 'the team') }}" {% if chat_locked %}disabled{% endif %}></textarea>
 </form></div>
+<dialog id=attachSheet class="botsheet attachsheet"><div class=sheet>
+<div class=grab aria-hidden=true></div>
+<div class=attachphone>
+<h2 style="margin:0">Add an image</h2>
+<p class="t3">Up to 10 · JPG, PNG, HEIC</p>
+<div class=attachtiles>
+<button type=button id=takePhoto><i aria-hidden=true>⌁</i>Take photo</button>
+<button type=button id=choosePhotos><i aria-hidden=true>▣</i>Choose photos</button>
+</div>
+<button type=button class=sheetcancel id=attachCancel>Cancel</button>
+</div>
+<div class=attachwide>
+<h2 style="margin:0 0 8px">Add an image</h2>
+<div class=droptarget id=attachDrop>Drop images here</div>
+<button type=button class="btn btn-primary full" id=chooseComputer>Choose from computer</button>
+<p class="t3">Up to 10 · JPG, PNG, HEIC, GIF · 20 MB each. You can also paste (⌘V) or drag straight into the chat.</p>
+</div>
+</div></dialog>
+<div id=dropveil class=dropveil hidden>Drop to add</div>
 <dialog id=actSheet class=botsheet><div class=sheet>
 <div class=grab aria-hidden=true></div>
 <div class=emogrid id=actEmoji>{% for e in REACTIONS %}<button type=button data-e="{{e}}">{{e}}</button>{% endfor %}<button type=button data-more=1 aria-label="More emoji">+</button></div>
@@ -4540,15 +4597,14 @@ function bodyHtml(m){
   if(!(iw>0&&ih>0)){iw=4;ih=3}
   img=`<a class=img style="--iw:${iw};--ih:${ih}" href="${m.image.full}" data-full="${m.image.full}"><img src="${m.image.thumb}" alt="Photo from ${esc(m.who)}" width="${iw}" height="${ih}"></a>`;
  }
- if(text&&img) return h+`<div class=bubble>${img}${text}</div>`;
- return h+text+img||'<div class=txt></div>'}
+ return h+img+text||'<div class=txt></div>'}
 function fill(d,m){
  var kept=d.querySelector&&d.querySelector('#seenLine');
  if(kept&&kept.parentNode) kept.parentNode.removeChild(kept);
  d.className='m'+(m.mine?' mine':'')+(m.ann&&!m.deleted?' ann':'');
  d.dataset.g='';
  var html=(m.deleted?'':`<button type=button class=more data-act=${m.id} aria-label="Message actions"><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></button>`)+
-  '<div class=mstack>'+bodyHtml(m)+`<div class=msgfoot><div class=rx>${rxHtml(m.id,m.rx)}</div></div></div>`;
+  '<div class=mstack>'+bodyHtml(m)+`<div class=msgfoot><span class=msgtime>${t(m.at)}</span><div class=rx>${rxHtml(m.id,m.rx)}</div></div></div>`;
  d.innerHTML=html;
  var rxEl=d.querySelector('.rx'); if(rxEl) rxEl.dataset.h=rxHtml(m.id,m.rx);
  var foot=d.querySelector('.msgfoot'), home=foot||d;
@@ -4561,7 +4617,7 @@ function sameGroup(prev,cur){
  var delta=new Date(cur.at)-new Date(prev.at);
  return delta>=0&&delta<=5*60*1000}
 function placeWho(el,m,at){
- var text=((m.ann&&!m.deleted)?'Announcement · ':'')+m.who+' · '+t(at);
+ var text=((m.ann&&!m.deleted)?'Announcement · ':'')+m.who;
  var who=el.querySelector('.who');
  if(!who){
   who=document.createElement('div'); who.className='who';
@@ -4693,7 +4749,7 @@ async function savePhoto(url){
   var link=document.createElement('a'); link.href=url; link.download=name; link.rel='noopener';
   document.body.appendChild(link); link.click(); link.remove();
  }}
-function clearCompose(){const field=document.getElementById('body');field.value='';document.getElementById('file').value='';document.getElementById('prev').hidden=true;replyTo=null;editId=null;quoteBar.hidden=true;editBar.hidden=true;grow()}
+function clearCompose(){const field=document.getElementById('body');field.value='';document.getElementById('file').value='';document.getElementById('prev').hidden=true;document.getElementById('prev').innerHTML='';replyTo=null;editId=null;quoteBar.hidden=true;editBar.hidden=true;grow()}
 function startReply(id){const m=msgs[id];if(!m||m.deleted)return;editId=null;editBar.hidden=true;replyTo=id;document.getElementById('quoteWho').textContent=m.who;document.getElementById('quoteTxt').textContent=(m.body||'Photo').slice(0,140);quoteBar.hidden=false;document.getElementById('body').focus()}
 function startEdit(id){const m=msgs[id];if(!m||m.deleted||!m.mine)return;replyTo=null;quoteBar.hidden=true;editId=id;const field=document.getElementById('body');field.value=m.body||'';grow();document.getElementById('editHint').textContent=(m.body||'Photo').slice(0,80);editBar.hidden=false;field.focus()}
 async function reactWith(id,emoji){pollGen++;await fetch('/api/messages/'+id+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:emoji})});closeSheet();poll()}
@@ -4764,15 +4820,37 @@ if(window.visualViewport){var vvTick;visualViewport.addEventListener('resize',fu
 var earlierBtn=document.getElementById('earlier');if(earlierBtn){earlierBtn.addEventListener('mousedown',function(e){e.preventDefault()});earlierBtn.onclick=function(){loadEarlier()}}
 box.addEventListener('load',function(e){if(e.target&&e.target.tagName==='IMG'&&stick)pinBottom()},true);
 function syncComposer(){var c=document.querySelector('.composer');if(!c)return;var h=c.offsetHeight+'px';if(document.documentElement.style.getPropertyValue('--composer-h')===h)return;document.documentElement.style.setProperty('--composer-h',h);if(stick)pinBottom()}
-function composeReady(){return !ta.disabled && (!!ta.value.trim() || (file.files && file.files.length));}
-function paintCompose(){var act=document.getElementById('attach');if(!act)return;if(ta.disabled){act.disabled=true;act.textContent='↑';act.setAttribute('aria-label','Read only');return}act.disabled=false;if(composeReady()){act.textContent='↑';act.setAttribute('aria-label','Send')}else{act.textContent='+';act.setAttribute('aria-label','Add photo')}}
+function filesNow(){return [].slice.call(file.files||[])}
+function composeReady(){return !ta.disabled && (!!ta.value.trim() || filesNow().length);}
+function paintCompose(){var act=document.getElementById('attach');if(!act)return;if(ta.disabled){act.disabled=true;act.textContent='↑';act.classList.add('ready');act.setAttribute('aria-label','Read only');return}act.disabled=false;if(composeReady()){act.textContent='↑';act.classList.add('ready');act.setAttribute('aria-label','Send')}else{act.textContent='+';act.classList.remove('ready');act.setAttribute('aria-label','Add photo')}}
+function paintThumbs(){
+ var files=filesNow();
+ prev.hidden=!files.length;
+ prev.innerHTML=files.map(function(f,i){return '<figure><img alt="" data-i="'+i+'"><button type=button data-x="'+i+'" aria-label="Remove photo">×</button></figure>'}).join('');
+ [].slice.call(prev.querySelectorAll('img')).forEach(function(img,i){img.src=URL.createObjectURL(files[i])});
+ paintCompose();
+}
+function setFiles(list){var dt=new DataTransfer();list.forEach(function(f){dt.items.add(f)});file.files=dt.files;paintThumbs()}
+function takePhotos(list){
+ var next=filesNow().concat(list);
+ if(next.length>10){toast('Photos only, up to 20 MB.',4500);return}
+ for(var i=0;i<list.length;i++){if(list[i].size>20*1024*1024){toast('Photos only, up to 20 MB.',4500);return}var kind=photoKind(list[i]);if(kind){toast(photoError(kind),4500);return}}
+ setFiles(next.slice(0,10));
+}
 function grow(){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,136)+'px';syncComposer();paintCompose()}ta.addEventListener('input',grow);grow();if(window.ResizeObserver){var comp=document.querySelector('.composer');if(comp)new ResizeObserver(syncComposer).observe(comp)}
-document.getElementById('attach').onclick=function(){if(composeReady()) document.getElementById('f').requestSubmit(); else file.click();};
-file.onchange=()=>{const files=[].slice.call(file.files||[]);if(!files.length)return;if(files.length>10){toast('Photos only, up to 10 at a time.',4500);file.value='';return}
- const f=files[0];if(f.size>20*1024*1024){toast('Photos only, up to 20 MB.',4500);file.value='';return}
- var kind=photoKind(f);if(kind){toast(photoError(kind),4500);file.value='';return}
- prev.hidden=false;document.getElementById('prevName').textContent=files.length>1?files.length+' photos':f.name;document.getElementById('prevImg').src=URL.createObjectURL(f);paintCompose()};
-document.getElementById('prevX').onclick=()=>{file.value='';prev.hidden=true;paintCompose()};
+function openAttach(){var sheet=document.getElementById('attachSheet');if(window.grunionsOpenSheet)grunionsOpenSheet(sheet);else sheet.showModal()}
+function shutAttach(){var sheet=document.getElementById('attachSheet');if(window.grunionsCloseSheet)grunionsCloseSheet(sheet);else sheet.close()}
+document.getElementById('attach').onclick=function(){if(composeReady()) document.getElementById('f').requestSubmit(); else openAttach();};
+document.getElementById('attachCancel').onclick=shutAttach;
+document.getElementById('takePhoto').onclick=function(){file.setAttribute('capture','environment');shutAttach();file.click()};
+document.getElementById('choosePhotos').onclick=function(){file.removeAttribute('capture');shutAttach();file.click()};
+document.getElementById('chooseComputer').onclick=function(){file.removeAttribute('capture');shutAttach();file.click()};
+file.onchange=()=>{var picked=[].slice.call(file.files||[]);file.value='';if(picked.length)takePhotos(picked)};
+prev.addEventListener('click',function(e){var b=e.target.closest('button[data-x]');if(!b)return;var list=filesNow();list.splice(+b.getAttribute('data-x'),1);setFiles(list)});
+box.addEventListener('dragover',function(e){if(!e.dataTransfer||![].slice.call(e.dataTransfer.types||[]).includes('Files'))return;e.preventDefault();var veil=document.getElementById('dropveil');if(veil){veil.hidden=false;veil.textContent='Drop to add · '+((e.dataTransfer.items&&e.dataTransfer.items.length)||'')+' images'}});
+box.addEventListener('dragleave',function(e){if(e.target===box){var veil=document.getElementById('dropveil');if(veil)veil.hidden=true}});
+box.addEventListener('drop',function(e){e.preventDefault();var veil=document.getElementById('dropveil');if(veil)veil.hidden=true;var list=[].slice.call((e.dataTransfer&&e.dataTransfer.files)||[]);if(list.length)takePhotos(list)});
+ta.addEventListener('paste',function(e){var list=[].slice.call((e.clipboardData&&e.clipboardData.files)||[]);if(list.length){e.preventDefault();takePhotos(list)}});
 document.getElementById('quoteX').onclick=()=>{replyTo=null;quoteBar.hidden=true};
 document.getElementById('editX').onclick=()=>{editId=null;editBar.hidden=true;ta.value='';grow()};
 let sending=false;
@@ -4780,11 +4858,13 @@ document.getElementById('f').onsubmit=async e=>{e.preventDefault();if(sending)re
  if(editId){const m=msgs[editId];if(!text.trim()&&!(m&&m.image))return;sending=true;
   try{const r=await fetch('/api/messages/'+editId,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:text})});
   const j=await r.json().catch(()=>({}));if(!r.ok){alert(j.error||'Could not save.');return}clearCompose();if(j.message)upsert(j.message,true)}finally{sending=false}return}
- if(!text.trim()&&!f)return;sending=true;
- try{let r;if(f){const fd=new FormData();fd.append('body',text);fd.append('image',f);if(replyTo)fd.append('reply_to',replyTo);
-  r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'X-CSRF':CSRF},body:fd})}
+ var batch=filesNow();
+ if(!text.trim()&&!batch.length)return;sending=true;
+ try{let r;if(batch.length){for(var i=0;i<batch.length;i++){const fd=new FormData();fd.append('body',i?'':text);fd.append('image',batch[i]);if(replyTo)fd.append('reply_to',replyTo);
+  r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'X-CSRF':CSRF},body:fd});
+  if(!r.ok){const j=await r.json().catch(()=>({}));toast(j.error||'Could not send.',4500);return}}}
  else r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:text,reply_to:replyTo})});
- if(!r.ok){const j=await r.json().catch(()=>({}));toast(j.error||'Could not send.',4500);return}
+ if(r&&!r.ok){const j=await r.json().catch(()=>({}));toast(j.error||'Could not send.',4500);return}
  const epoch=window.grunionsNavEpoch|0;clearCompose();stick=true;await poll();if((window.grunionsNavEpoch|0)!==epoch)return;if(stick)pinBottom()}finally{sending=false}};
 ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();document.getElementById('f').requestSubmit()}});
 poll();setInterval(poll,3000);setInterval(sweepDeleted,15000);

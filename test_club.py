@@ -147,6 +147,7 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
         os.environ.pop("IS_PULL_REQUEST", None)
         clear_preview_rows()
     assert "Personal messages" in html and "everyone" in html and "No practice chat right now" in html and "Message the coaches" in html
+    assert 'class=chatplus' in html and 'data-plus="message"' in html and "<h1>Team</h1>" not in html and "New channel" not in html
     assert "Preview Tuesday practice" not in html and "Preview Friday practice" not in html and "Preview recent practice" not in html
     assert "Message the board" not in html and "Create channel" not in html
     picker = member.get("/chat?view=practices").get_data(as_text=True)

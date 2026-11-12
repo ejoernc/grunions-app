@@ -464,7 +464,7 @@ full = jane.get(m["image"]["full"]); th = jane.get(m["image"]["thumb"])
 ok(full.status_code == 200 and max(Image.open(io.BytesIO(full.data)).size) == 1600 and max(Image.open(io.BytesIO(th.data)).size) == 480, "auto-resize full 1600 / thumb 480")
 ok(A.app.test_client().get(m["image"]["full"]).status_code == 302, "images need login")
 ok(jane.post("/api/messages", data={"image": (io.BytesIO(b"not an image at all"), "x.png")}, headers={"X-CSRF": tj3}, content_type="multipart/form-data").status_code == 400, "reject non-image")
-ok(jane.post("/api/messages", data={"image": (io.BytesIO(b"0" * (9 * 1024 * 1024)), "big.jpg")}, headers={"X-CSRF": tj3}, content_type="multipart/form-data").status_code == 413, "reject >8MB")
+ok(jane.post("/api/messages", data={"image": (io.BytesIO(b"0" * (21 * 1024 * 1024)), "big.jpg")}, headers={"X-CSRF": tj3}, content_type="multipart/form-data").status_code == 413, "reject >20MB")
 b = io.BytesIO(); Image.new("RGB", (40, 40)).save(b, "BMP"); b.seek(0)
 ok(jane.post("/api/messages", data={"image": (b, "x.bmp")}, headers={"X-CSRF": tj3}, content_type="multipart/form-data").status_code == 400, "reject unsupported type (BMP)")
 try:
@@ -479,7 +479,7 @@ ok('href="/practices/' in pg and " going</span>" in pg and 'class="nxtitle cardt
 ch = jane.get("/chat").get_data(as_text=True)
 ca = eli.get("/chat").get_data(as_text=True)
 cc = eli.get("/chat?c=coaches").get_data(as_text=True)
-ok("rows=1" in ch and "scrollbar-width:none" in ch and "shiftKey" in ch and 'id=attach' in ch and 'id=ann' not in ca and '>Announce<' not in ca and 'id=ann' not in cc and '>Announce<' not in cc and 'aria-label=Send' in ch and 'aria-label=Send' in ca and 'aria-label=Send' in cc and 'class="iconbtn send"' in ch and 'class="iconbtn send"' in cc and "aspect-ratio:var(--iw, 4) / var(--ih, 3)" in ch and "box.scrollTop=box.scrollHeight" in ch and "function nearBottom" in ch and ".chat>.m:first-child{margin-top:auto}" in ch and "if(follow&&stick)pinBottom" in ch and "padding:8px var(--space-5) 0" in ch and "min-width:0" in ch and "box.classList.add('scrolling')" in ch and "scrollbar-width:none" in ch, "composer: icon send on team and coaches, no announce checkbox, and chat opens pinned to the bottom")
+ok("rows=1" in ch and "scrollbar-width:none" in ch and "shiftKey" in ch and 'id=attach' in ch and 'id=ann' not in ca and '>Announce<' not in ca and 'id=ann' not in cc and '>Announce<' not in cc and "aria-label','Send" in ch and "aria-label','Send" in ca and "aria-label','Send" in cc and 'class="iconbtn send"' in ch and 'class="iconbtn send"' in cc and "aspect-ratio:3/4" in ch and "box.scrollTop=box.scrollHeight" in ch and "function nearBottom" in ch and ".chat>.m:first-child{margin-top:auto}" in ch and "if(follow&&stick)pinBottom" in ch and "padding:8px var(--space-5) 0" in ch and "min-width:0" in ch and "box.classList.add('scrolling')" in ch and "scrollbar-width:none" in ch, "composer: icon send on team and coaches, no announce checkbox, and chat opens pinned to the bottom")
 _jid = D.execute("SELECT id FROM members WHERE email='jane@example.com'").fetchone()[0]
 for _i in range(60):
     D.execute("INSERT INTO messages(member_id,body,channel) VALUES(?,?,?)", (_jid, "page-window-%02d" % _i, "team"))
@@ -896,8 +896,10 @@ ok(jane.get("/api/unread").get_json()["team"] == 0 and D.execute("SELECT last_re
 jb, jane_now = john.get("/api/unread").get_json(), jane.get("/api/unread").get_json()
 eli.post("/api/messages?c=coaches", json={"body": "Badge coaches"}, headers={"X-CSRF": csrf(eli, "/chat?c=coaches")})
 ja, jo = jane.get("/api/unread").get_json(), john.get("/api/unread").get_json()
-cht = john.get("/chat").get_data(as_text=True)
-ok(jo["coaches"] == jb["coaches"] + 1 and ja["coaches"] == 0 and ja["total"] == jane_now["total"] and re.search(r'data-badge=coaches[^>]*>Coaches<span class=badge>\d+</span>', cht) and not re.search(r'data-badge=team[^>]*>Team<span class=badge>', cht), "coaches unread stays on the Coaches tab and off member totals")
+cht = john.get("/chat?view=list").get_data(as_text=True)
+member_list = jane.get("/chat?view=list").get_data(as_text=True)
+board = cht.split("Message the board", 1)[-1][:220]
+ok(jo["coaches"] == jb["coaches"] + 1 and ja["coaches"] == 0 and ja["total"] == jane_now["total"] and "Message the board" in cht and "class=unread" in board and "Message the board" not in member_list, "coaches unread stays on the board row and off member totals")
 ok(john.get("/chat?c=coaches").status_code == 200 and john.get("/api/unread").get_json()["coaches"] == 0, "opening coaches chat clears it")
 def _audience(channel):
     rows = D.execute("SELECT id, role, is_admin FROM members WHERE COALESCE(role,'')!='system'").fetchall()
@@ -1069,7 +1071,7 @@ ok("Choose a start and end date." in eli.get("/export/practices.csv?start=nope&e
 
 # chat edit, delete, reactions
 chui = jane.get("/chat").get_data(as_text=True)
-ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=118" in chui and "mapbox-gl.js" not in chui and "grunionsMountMap" not in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".msgfoot{display:flex;align-items:center" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
+ok("contextmenu" in chui and "Message deleted" in chui and "(edited)" in chui and "Delete this message?" in chui and "Message actions" in chui and "😮" in chui and "🎉" in chui and "🙏" in chui and "👎" in chui and "👀" in chui and "🥲" in chui and "💯" in chui and "class=grab" in chui and "class=botsheet" in chui and ">Reply</button>" in chui and ">Copy</button>" in chui and "navigator.vibrate" in chui and "pointerdown" in chui and "(hover:hover) and (pointer:fine)" in chui and "translateY(110%)" in chui and ".25s ease-out" in chui and "grunionsOpenSheet" in chui and "z-index:30" in chui and "inset:auto 0 0 0" in chui and "<h1>Team</h1>" not in chui.split("<main>",1)[0] and "<h1>Hi," not in chui.split("<main>",1)[0] and "Log out" not in chui.split("<main>",1)[0] and "/sw.js?v=118" in chui and "mapbox-gl.js" not in chui and "grunionsMountMap" not in chui and "function linkify" in chui and "noopener noreferrer" in chui and "geo:0,0?q=" in chui and "a.msglink{color:var(--accent);text-decoration:none" in chui and "writeText(m.body)" in chui and ".msgfoot{display:flex;align-items:center" in chui and ".m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}" in chui and "5*60*1000" in chui and "new Date(prev.at)" in chui and "sameGroup(prev" in chui and "prev=msgs[+rows[j].id.slice(3)]" in chui and "new Date(first.at)" not in chui and "g-mid" in chui and ".m.g-mid,.m.g-last{margin-top:2px}" in chui and "id='seenLine'" in chui and "el!==line" in chui and "document.querySelectorAll('.seenline').forEach(el=>el.remove())" not in chui, "chat page has the press-and-hold action sheet")
 import subprocess
 _seen_src = chui[chui.find("function seenKey"):chui.find("function openSeen")]
 _seen_proc = subprocess.run(["node", "-e", r'''
@@ -1613,11 +1615,14 @@ def nav_skeleton(html):
     nav = re.search(r'<nav class="nav3 noprint".*?</nav>', html, re.S).group(0)
     nav = re.sub(r' class=on', "", nav)
     nav = re.sub(r' aria-current=page', "", nav)
+    nav = re.sub(r'<span class=nav3-badge>\d+</span>', '', nav)
     return nav
 eli_team = [eli.get(p).get_data(as_text=True) for p in ("/practices", "/chat", "/admin", "/members")]
+eli_pages = eli_team
 jane_team = [jane.get(p).get_data(as_text=True) for p in ("/practices", "/chat")]
 login_html = client().get("/login").get_data(as_text=True)
-ok(len({nav_skeleton(h) for h in eli_team}) == 1 and "href=/manage" in nav_skeleton(eli_team[0]) and nav_skeleton(eli_team[0]).find(">Schedule<") < nav_skeleton(eli_team[0]).find(">Manage<"), "staff team tabs match and Schedule comes before Manage")
+_navs = [nav_skeleton(h) for h in eli_team]
+ok(len(set(_navs)) == 1 and 'href="/manage"' in _navs[0] and _navs[0].find(">Schedule<") < _navs[0].find(">Manage<"), "staff team tabs match and Schedule comes before Manage")
 ok(len({nav_skeleton(h) for h in jane_team}) == 1 and "href=/manage" not in nav_skeleton(jane_team[0]) and ">Schedule<" in nav_skeleton(jane_team[0]) and ">Discover<" in jane.get("/home").get_data(as_text=True), "members get Schedule, Lineup, and Chat, and the map uses Everything tabs")
 ok("color-scheme:dark" in eli_pages[0][:600] and "content=dark" in eli_pages[0][:600] and "#090D0B" in eli_pages[0][:600] and '<body style="background:#090D0B' in eli_pages[0] and "color-scheme:dark" in login_html[:600] and "#090D0B" in login_html[:600], "dark background is in the first bytes, including the login page")
 _join_html = client().get("/join").get_data(as_text=True)
