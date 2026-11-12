@@ -82,6 +82,31 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     assert 'href="/practices"' in member.get("/practices").get_data(as_text=True).split("YOUR TEAMS", 1)[1].split("</dialog>", 1)[0]
 
 
+def test_selected_chat_badge_sits_beside_the_label():
+    member = client()
+    join(member, "Ada", "Badge", "ada.badge@example.com")
+    with A.app.app_context():
+        d = A.db()
+        mid = d.execute("SELECT id FROM members WHERE email='ada.badge@example.com'").fetchone()["id"]
+        other = d.execute("INSERT INTO members(first,last,email,joined) VALUES('Bo','Badge','bo.badge@example.com',1)").lastrowid
+        mx = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE channel='team'").fetchone()[0]
+        d.execute("""INSERT INTO chat_reads(member_id, channel, last_read) VALUES(?,?,?)
+            ON CONFLICT(member_id, channel) DO UPDATE SET last_read=excluded.last_read""", (mid, "team", mx))
+        d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)", (other, "lane 3", "team"))
+        d.commit()
+        expect = A.chat_tab_unread(d, mid, False)
+    page = member.get("/chat?view=list").get_data(as_text=True)
+    tabs = page.split('class="nav3', 1)[1].split("</nav>", 1)[0]
+    assert 'data-tab="chat" class=on' in tabs
+    assert '<span class="nav3-meta"><span class="nav3-label">Chat</span><span class=nav3-badge>%d</span></span>' % expect in tabs
+    assert ".nav3-badge{position:absolute;top:2px;right:2px;" in page
+    assert ".nav3-tabs a.on .nav3-badge{position:static;top:auto;right:auto;flex:none;min-width:20px;height:20px;padding:0 5px;background:var(--r2-fixed-ink);color:var(--r2-lime);font-size:12.5px}" in page
+    away = member.get("/practices").get_data(as_text=True)
+    away_tabs = away.split('class="nav3', 1)[1].split("</nav>", 1)[0]
+    assert 'data-tab="chat" class=on' not in away_tabs
+    assert '<span class="nav3-label">Chat</span><span class=nav3-badge>%d</span>' % expect in away_tabs
+
+
 def test_preview_seed_stays_off_the_live_database_and_is_idempotent():
     with A.app.app_context():
         d = A.db()

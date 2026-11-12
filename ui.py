@@ -519,8 +519,8 @@ nav.nav3[data-place="me"] .nav3-initials,nav.nav3[data-place="team"] .nav3-initi
 .nav3-tabs{position:relative;display:flex;flex:1;align-items:center;gap:var(--r2-space-1);min-width:0;height:56px}
 .nav3-slide{position:absolute;z-index:0;left:0;top:0;height:56px;border-radius:var(--r2-radius-pill);background:var(--r2-lime);pointer-events:none;transition:left 280ms cubic-bezier(0.22,1,0.36,1),top 280ms cubic-bezier(0.22,1,0.36,1),width 280ms cubic-bezier(0.22,1,0.36,1),height 280ms cubic-bezier(0.22,1,0.36,1),background-color 280ms ease,border-radius 280ms ease}
 .nav3-slide.manage{background:var(--r2-tangerine)}
-.nav3-tabs a{position:relative;z-index:1;width:50px;height:56px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-smoke);text-decoration:none;font:700 9px/normal var(--r2-font-sans);box-sizing:border-box;transition:color 280ms ease,font-size 280ms cubic-bezier(0.22,1,0.36,1)}
-.nav3-tabs a.on{flex:1;width:auto;min-width:0;flex-direction:row;gap:6px;padding:0 14px;background:transparent;color:var(--r2-fixed-ink);font:var(--r2-label);line-height:normal}
+.nav3-tabs a{position:relative;z-index:1;width:50px;height:56px;flex:0 1 50px;min-width:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-smoke);text-decoration:none;font:700 9px/normal var(--r2-font-sans);box-sizing:border-box;transition:color 280ms ease,font-size 280ms cubic-bezier(0.22,1,0.36,1)}
+.nav3-tabs a.on{flex:1 0 auto;width:auto;min-width:max-content;flex-direction:row;gap:6px;padding:0 14px;background:transparent;color:var(--r2-fixed-ink);font:var(--r2-label);line-height:normal}
 .nav3-glyph,.nav3-label{transition:transform 280ms cubic-bezier(0.22,1,0.36,1)}
 .nav3-glyph{width:20px;height:20px;display:block;flex:none}
 .nav3-tabs a:focus-visible,.nav3-crest:focus-visible,.crestrow:focus-visible,.crestgo:focus-visible,.crestout:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
@@ -569,8 +569,10 @@ dialog.crestmenu::backdrop{background:rgba(11,11,12,.45)}
 .practcard .practtime{font:var(--r2-display-l);letter-spacing:-.05em}
 .practcard .practmeta b{display:block;font:700 13px/1.2 var(--r2-font-sans)}
 .practcard .practmeta small{display:block;font:600 12px/1.3 var(--r2-font-sans)}
-.nav3-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 10px/16px var(--r2-font-sans);text-align:center}
-.nav3-tabs a.on .nav3-badge{background:var(--r2-fixed-ink);color:var(--r2-lime)}
+.nav3-meta{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:0;max-width:100%}
+.nav3-badge{position:absolute;top:2px;right:2px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 10px/1 var(--r2-font-sans);text-align:center}
+.nav3-tabs a.on .nav3-badge{position:static;top:auto;right:auto;flex:none;min-width:20px;height:20px;padding:0 5px;background:var(--r2-fixed-ink);color:var(--r2-lime);font-size:12.5px}
+.nav3-tabs a.on .nav3-label{min-width:0}
 .chatlock{margin:12px 0;padding:12px 14px;border-radius:16px;background:var(--r2-carbon);color:var(--r2-smoke);font:600 13px/1.4 var(--r2-font-sans)}
 .pchatbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}
 .pchatbar a{color:var(--r2-paper);font:700 15px/1.2 var(--r2-font-sans);text-decoration:none}
@@ -590,8 +592,8 @@ dialog.crestmenu::backdrop{background:rgba(11,11,12,.45)}
  .nav3-rule{display:block;width:40px;height:2px;background:var(--r2-graphite)}
  .nav3-tabs{flex:none;flex-direction:column;width:76px;height:auto;gap:10px}
  .nav3-slide{border-radius:22px}
- .nav3-tabs a,.nav3-tabs a.on{width:76px;height:auto;flex:none;flex-direction:column;gap:4px;padding:10px 0;border-radius:22px;background:transparent;color:var(--r2-smoke);font:700 11px/normal var(--r2-font-sans)}
- .nav3-tabs a.on{background:transparent;color:var(--r2-fixed-ink)}
+ .nav3-tabs a,.nav3-tabs a.on{width:76px;min-width:0;height:auto;flex:none;flex-direction:column;gap:4px;padding:10px 0;border-radius:22px;background:transparent;color:var(--r2-smoke);font:700 11px/normal var(--r2-font-sans)}
+ .nav3-tabs a.on{padding:10px 6px;background:transparent;color:var(--r2-fixed-ink)}
  body:has(nav.nav3) .composer,body:has(nav.nav3).homefull .homemap{left:var(--r2-rail)}
  dialog.crestmenu{top:24px;left:108px;bottom:auto;width:340px}
 }
@@ -612,7 +614,7 @@ dialog.crestmenu::backdrop{background:rgba(11,11,12,.45)}
  .nav3-crest[aria-expanded="true"] .nav3-chevron::before{content:"▲"}
  .nav3-tabs{width:100%;align-items:stretch;margin-top:22px;gap:4px}
  .nav3-slide{border-radius:var(--r2-radius-pill)}
- .nav3-tabs a,.nav3-tabs a.on{width:100%;height:auto;flex-direction:row;justify-content:flex-start;gap:10px;padding:10px 14px;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-paper);font:700 14px/normal var(--r2-font-sans)}
+ .nav3-tabs a,.nav3-tabs a.on{width:100%;min-width:0;height:auto;flex-direction:row;justify-content:flex-start;gap:10px;padding:10px 14px;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-paper);font:700 14px/normal var(--r2-font-sans)}
  .nav3-dot{display:block;width:14px;height:14px;box-sizing:border-box;border:2px solid var(--r2-smoke);border-radius:var(--r2-radius-pill);flex:none}
  .nav3-tabs a.on{background:transparent;color:var(--r2-fixed-ink)}
  .nav3-tabs a.on .nav3-dot{border-color:var(--r2-fixed-ink)}
@@ -1758,7 +1760,7 @@ TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and tab != 'event_
 <button type="button" class="nav3-crest" aria-expanded="false" aria-controls="crestMenu" aria-label="Open places"><span class="nav3-crest-face"><img class="nav3-logo lg lime" src="/static/nav/mark-lime.svg" width="32" height="13" alt=""><img class="nav3-logo lg ink" src="/static/nav/mark-ink.svg" width="32" height="13" alt=""><img class="nav3-logo sm ink" src="/static/nav/mark-ink.svg" width="26" height="10" alt=""><span class="nav3-initials">{{ nav.crest }}</span></span><span class="nav3-more" aria-hidden="true">⋯</span><span class="nav3-switch-copy"><b>{{ nav.switch_title }}</b><small>{{ nav.switch_sub }}</small></span><span class="nav3-chevron" aria-hidden="true"></span></button>
 <p class="nav3-menu-label">Menu</p>
 <span class="nav3-rule"></span>
-<div class="nav3-tabs"><span class="nav3-slide" aria-hidden="true"></span>{% for key, label, href, on in nav.tabs %}<a href="{{ href }}" data-tab="{{ key }}" {% if on %}class=on aria-current=page {% endif %}>{{ nav_icon(key)|safe }}<span class="nav3-dot"></span><span class="nav3-label">{{ label }}</span>{% if label == 'Chat' and nav.chat_unread %}<span class=nav3-badge>{{ nav.chat_unread }}</span>{% endif %}</a>{% endfor %}</div>
+<div class="nav3-tabs"><span class="nav3-slide" aria-hidden="true"></span>{% for key, label, href, on in nav.tabs %}<a href="{{ href }}" data-tab="{{ key }}" {% if on %}class=on aria-current=page {% endif %}>{{ nav_icon(key)|safe }}<span class="nav3-dot"></span><span class="nav3-meta"><span class="nav3-label">{{ label }}</span>{% if label == 'Chat' and nav.chat_unread %}<span class=nav3-badge>{{ nav.chat_unread }}</span>{% endif %}</span></a>{% endfor %}</div>
 </nav>
 <dialog id="crestMenu" class="crestmenu" tabindex="-1">
 <p class="crestlabel">GO TO</p>
