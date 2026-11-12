@@ -399,27 +399,36 @@ def nav_context():
     def here(prefix):
         return path == prefix or path.startswith(prefix + "/")
     if place == "everything":
-        tabs = [("Discover", "/discover", path == "/discover"), ("Map", "/home", path == "/home"), ("Inbox", "/inbox", path == "/inbox")]
-        crest = "//"
-    elif place == "me":
         tabs = [
-            ("Settings", "/profile", path.startswith("/profile") or path.startswith("/notifications")),
-            ("Calendar", "/practices?place=me", here("/practices") and forced == "me"),
-            ("Lineup", "/lineup?place=me", here("/lineup") and forced == "me"),
+            ("search", "Discover", "/discover", path == "/discover"),
+            ("pin", "Map", "/home", path == "/home"),
+            ("chat", "Inbox", "/inbox", path == "/inbox"),
+        ]
+        crest = ""
+        switch = ("Everything", "All your teams")
+    elif place == "me":
+        # Nav 3.0 component order: Schedule, Settings, Lineup. Schedule is the default.
+        tabs = [
+            ("calendar", "Schedule", "/practices?place=me", here("/practices") and forced == "me"),
+            ("settings", "Settings", "/profile", path.startswith("/profile") or path.startswith("/notifications")),
+            ("pin", "Lineup", "/lineup?place=me", here("/lineup") and forced == "me"),
         ]
         crest = initials(m)
+        switch = (("%s %s" % (display_first(m), m["last"] or "")).strip(), "Settings · calendar · lineup")
     else:
         tabs = [
-            ("Schedule", "/practices", here("/practices") and forced != "me"),
-            ("Lineup", "/lineup", here("/lineup") and forced != "me"),
-            ("Chat", "/chat", here("/chat")),
+            ("calendar", "Schedule", "/practices", here("/practices") and forced != "me"),
+            ("pin", "Lineup", "/lineup", here("/lineup") and forced != "me"),
+            ("chat", "Chat", "/chat", here("/chat")),
         ]
         if can_host_practice():
-            tabs.append(("Manage", "/manage", path.startswith("/manage") or path.startswith("/admin") or path.startswith("/members") or path.startswith("/expiring")))
+            tabs.append(("manage", "Manage", "/manage", path.startswith("/manage") or path.startswith("/admin") or path.startswith("/members") or path.startswith("/expiring")))
         crest = "G"
+        switch = ("Grunions", role)
     return {"show": True, "place": place, "tabs": tabs, "crest": crest,
-            "name": ("%s %s" % (display_first(m), m["last"] or "")).strip(), "role": role, "team": "Grunions"}
-app.jinja_env.globals.update(display_first=display_first, initials=initials, fmt_phone=fmt_phone, nav_context=nav_context)
+            "name": ("%s %s" % (display_first(m), m["last"] or "")).strip(), "role": role,
+            "team": "Grunions", "switch_title": switch[0], "switch_sub": switch[1]}
+app.jinja_env.globals.update(display_first=display_first, initials=initials, fmt_phone=fmt_phone, nav_context=nav_context, nav_icon=ui.nav_icon)
 # applies_to: all | athlete | coach. keywords: normalized substrings to find this item's columns in a Sport:80 export.
 DEFAULT_REQS = [("SafeSport training", "all", "safesport", 1), ("Background screening", "coach", "background", 1)]
 def drop_club_waiver(d):

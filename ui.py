@@ -502,39 +502,86 @@ nav.tabs a .badge{position:absolute;top:0;right:0;margin:0}.datetile{position:re
 /* Phosphor icons. Nav uses Regular, and Fill on the selected circle. */
 nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:block}
 body.editor nav.nav3,body.profile-edit nav.nav3{display:none}
-nav.nav3{position:fixed;z-index:9;left:var(--r2-space-4);right:var(--r2-space-4);bottom:calc(12px + env(safe-area-inset-bottom));height:72px;display:flex;align-items:center;gap:var(--r2-space-2);padding:8px;border-radius:28px;background:var(--r2-carbon);border:1px solid var(--r2-graphite);box-sizing:border-box}
-.nav3-crest{width:56px;height:56px;flex:none;border:0;border-radius:18px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 18px/1 var(--r2-font-display);letter-spacing:-.04em}
-.nav3-tabs{display:flex;flex:1;align-items:center;justify-content:space-around;min-width:0}
-.nav3-tabs a{color:var(--r2-smoke);text-decoration:none;font:var(--r2-label);padding:8px}
-.nav3-tabs a.on{color:var(--r2-paper)}
-dialog.crestmenu{position:fixed;margin:0;border:1px solid var(--r2-graphite);border-radius:var(--r2-radius-xl);background:var(--r2-carbon);color:var(--r2-paper);width:min(358px,calc(100vw - 32px));max-height:min(640px,calc(100dvh - 120px));padding:8px 0 12px;overflow:auto}
-dialog.crestmenu::backdrop{background:rgba(0,0,0,.62)}
-.crestlabel{margin:12px 16px 6px;color:var(--r2-smoke);font:var(--r2-caps);letter-spacing:.08em;text-transform:uppercase}
-.crestrow{display:flex;align-items:center;gap:12px;margin:0 8px;padding:8px;border-radius:14px;color:inherit;text-decoration:none}
-.crestrow b{display:block;font:var(--r2-body-l)}
-.crestrow small{display:block;color:var(--r2-smoke);font:var(--r2-body)}
-.crestmark{width:40px;height:40px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;background:var(--r2-graphite);color:var(--r2-lime);font:700 14px/1 var(--r2-font-display);flex:none}
-.crestmark.team{background:var(--r2-lime);color:var(--r2-fixed-ink)}
-.rolechip{margin-left:auto;height:24px;padding:0 10px;border-radius:var(--r2-radius-pill);background:var(--r2-graphite);color:var(--r2-paper);font:var(--r2-label);display:inline-flex;align-items:center}
-.crestrow.action{justify-content:center;font:var(--r2-label);color:var(--r2-paper)}
+body:has(nav.nav3){--nav-clear:104px}
+nav.nav3{position:fixed;z-index:9;left:var(--r2-space-4);right:var(--r2-space-4);bottom:calc(var(--r2-space-5) + env(safe-area-inset-bottom));height:72px;display:flex;align-items:center;gap:var(--r2-space-1);padding:var(--r2-space-2);border:0;border-radius:var(--r2-radius-pill);background:var(--r2-carbon);box-sizing:border-box}
+.nav3-crest{position:relative;width:56px;height:56px;flex:none;display:flex;align-items:center;justify-content:center;gap:10px;padding:0;border:0;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-fixed-ink);cursor:pointer}
+.nav3-crest-face{width:56px;height:56px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:var(--r2-radius-pill);background:var(--r2-sun);color:var(--r2-fixed-ink);font:700 20px/1 var(--r2-font-display);box-sizing:border-box}
+nav.nav3[data-place="me"] .nav3-crest-face{background:var(--r2-paper);color:var(--r2-ink)}
+nav.nav3[data-place="everything"] .nav3-crest-face{background:var(--r2-ink);color:var(--r2-lime);border:1px solid var(--r2-smoke)}
+.nav3-logo{display:none}
+nav.nav3[data-place="everything"] .nav3-logo.lg.lime{display:block;width:32px;height:12.525px}
+[data-theme="light"] nav.nav3[data-place="everything"] .nav3-logo.lg.lime{display:none}
+[data-theme="light"] nav.nav3[data-place="everything"] .nav3-logo.lg.ink{display:block;width:32px;height:12.525px}
+.nav3-initials{display:none}
+nav.nav3[data-place="me"] .nav3-initials,nav.nav3[data-place="team"] .nav3-initials{display:block}
+.nav3-more{position:absolute;left:38px;top:38px;width:20px;height:20px;border-radius:var(--r2-radius-pill);background:var(--r2-ink);color:var(--r2-paper);font:700 11px/20px var(--r2-font-sans);display:flex;align-items:center;justify-content:center}
+.nav3-switch-copy,.nav3-chevron,.nav3-menu-label,.nav3-rule,.nav3-dot{display:none}
+.nav3-tabs{display:flex;flex:1;align-items:center;gap:var(--r2-space-1);min-width:0;height:56px}
+.nav3-tabs a{width:50px;height:56px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:var(--r2-radius-pill);color:var(--r2-smoke);text-decoration:none;font:700 9px/normal var(--r2-font-sans);box-sizing:border-box}
+.nav3-tabs a.on{flex:1;width:auto;min-width:0;flex-direction:row;gap:6px;padding:0 14px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:var(--r2-label);line-height:normal}
+.nav3-tabs a.on[data-tab="manage"]{background:var(--r2-tangerine)}
+.nav3-glyph{width:20px;height:20px;display:block;flex:none}
+.nav3-tabs a:focus-visible,.nav3-crest:focus-visible,.crestrow:focus-visible,.crestgo:focus-visible,.crestout:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
+dialog.crestmenu{position:fixed;margin:0;inset:auto auto calc(92px + env(safe-area-inset-bottom)) 16px;border:0;border-radius:36px;background:var(--r2-carbon);color:var(--r2-paper);width:min(358px,calc(100vw - 32px));max-height:min(626px,calc(100dvh - 112px - env(safe-area-inset-bottom)));padding:20px 16px;overflow:auto;box-sizing:border-box;display:none;flex-direction:column;gap:10px}
+dialog.crestmenu[open]{display:flex}
+dialog.crestmenu:focus{outline:none}
+dialog.crestmenu::backdrop{background:rgba(11,11,12,.45)}
+.crestlabel{margin:0;color:var(--r2-smoke);font:700 10px/normal var(--r2-font-sans);letter-spacing:0.8px}
+.crestline{display:block;height:1px;background:var(--r2-graphite);width:100%}
+.crestrow{display:flex;align-items:center;gap:var(--r2-space-3);padding:8px 14px 8px 10px;border-radius:28px;color:inherit;text-decoration:none;box-sizing:border-box}
+.crestrow.here{background:var(--r2-graphite)}
+.crestrow b{display:block;font:700 15px/normal var(--r2-font-sans);color:var(--r2-paper)}
+.crestrow small{display:block;margin-top:1px;color:var(--r2-smoke);font:600 11px/normal var(--r2-font-sans)}
+.crestmark{width:40px;height:40px;border-radius:var(--r2-radius-pill);display:inline-flex;align-items:center;justify-content:center;flex:none;font:700 14px/1 var(--r2-font-display);letter-spacing:-0.42px;color:var(--r2-fixed-ink)}
+.crestmark.brand{background:var(--r2-lime)}
+.crestmark.who{background:var(--r2-paper);color:var(--r2-ink)}
+.crestmark.team{background:var(--r2-sun)}
+.crestmark img{width:26px;height:10px;display:block}
+.rolechip{margin-left:auto;padding:5px 10px;border-radius:var(--r2-radius-pill);font:700 11px/normal var(--r2-font-sans);display:inline-flex;align-items:center;flex:none}
+.role-member{background:var(--r2-graphite);color:var(--r2-paper)}
+.role-coach{background:var(--r2-sky);color:var(--r2-fixed-ink)}
+.role-admin{background:var(--r2-tangerine);color:var(--r2-fixed-ink)}
+.crestgo,.crestout{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;padding:14px;border-radius:var(--r2-radius-pill);border:2px solid var(--r2-graphite);background:transparent;color:var(--r2-paper);font:700 14px/normal var(--r2-font-sans);text-decoration:none}
+.crestout{border-color:var(--r2-tangerine);color:var(--r2-tangerine)}
 .r2caps{margin:0 0 8px;color:var(--r2-smoke);font:var(--r2-caps);letter-spacing:.08em;text-transform:uppercase}
-@media (max-width:767px){dialog.crestmenu{left:16px;right:auto;top:auto;bottom:100px}}
-@media (min-width:768px){
+@media (min-width:1112px){
  body:has(nav.nav3){padding-left:var(--r2-rail);--nav-clear:16px;--nav-offset-bottom:0px}
- nav.nav3{top:0;bottom:0;left:0;right:auto;width:var(--r2-rail);height:auto;flex-direction:column;align-items:center;border-radius:0;border-width:0 1px 0 0;padding:16px 8px}
- .nav3-tabs{flex-direction:column;justify-content:flex-start;gap:4px}
- .nav3-tabs a{font-size:11px}
+ nav.nav3{top:0;bottom:0;left:0;right:auto;width:var(--r2-rail);height:auto;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;padding:24px 0;border-radius:0}
+ .nav3-crest,.nav3-crest-face{width:60px;height:60px}
+ .nav3-crest-face{font-size:22px;letter-spacing:-0.66px}
+ .nav3-more{display:none}
+ .nav3-menu-label{display:block;margin:0;color:var(--r2-smoke);font:700 9px/normal var(--r2-font-sans)}
+ .nav3-rule{display:block;width:40px;height:2px;background:var(--r2-graphite)}
+ .nav3-tabs{flex:none;flex-direction:column;width:76px;height:auto;gap:10px}
+ .nav3-tabs a,.nav3-tabs a.on{width:76px;height:auto;flex:none;flex-direction:column;gap:4px;padding:10px 0;border-radius:22px;background:transparent;color:var(--r2-smoke);font:700 11px/normal var(--r2-font-sans)}
+ .nav3-tabs a.on{background:var(--r2-lime);color:var(--r2-fixed-ink)}
+ .nav3-tabs a.on[data-tab="manage"]{background:var(--r2-tangerine)}
  body:has(nav.nav3) .composer,body:has(nav.nav3).homefull .homemap{left:var(--r2-rail)}
- dialog.crestmenu{top:72px;left:16px;bottom:auto}
+ dialog.crestmenu{top:24px;left:108px;bottom:auto;width:340px}
 }
 @media (min-width:1280px){
- body:has(nav.nav3){padding-left:var(--r2-sidebar)}
- nav.nav3{width:var(--r2-sidebar);align-items:stretch;padding:16px 12px}
- .nav3-crest{width:100%;height:56px}
- .nav3-tabs{align-items:stretch}
- .nav3-tabs a{text-align:left;padding:10px 12px;border-radius:12px;font:var(--r2-label)}
- .nav3-tabs a.on{background:var(--r2-graphite);color:var(--r2-paper)}
- body:has(nav.nav3) .composer,body:has(nav.nav3).homefull .homemap{left:var(--r2-sidebar)}
+ body:has(nav.nav3){padding-left:260px}
+ nav.nav3{width:260px;align-items:stretch;gap:4px;padding:24px 16px}
+ .nav3-crest{width:100%;height:auto;justify-content:flex-start;padding:8px 14px 8px 8px;background:var(--r2-graphite)}
+ .nav3-crest-face{width:40px;height:40px;font-size:14px;letter-spacing:-0.42px}
+ nav.nav3[data-place="everything"] .nav3-crest-face{background:var(--r2-lime);border:0}
+ nav.nav3[data-place="everything"] .nav3-logo.lg{display:none}
+ nav.nav3[data-place="everything"] .nav3-logo.sm.ink{display:block;width:26px;height:10px}
+ .nav3-menu-label,.nav3-rule,.nav3-more,.nav3-glyph{display:none}
+ .nav3-switch-copy{display:flex;flex:1;flex-direction:column;min-width:0;text-align:left}
+ .nav3-switch-copy b{font:700 13px/normal var(--r2-font-sans);color:var(--r2-paper)}
+ .nav3-switch-copy small{font:600 10px/normal var(--r2-font-sans);color:var(--r2-smoke)}
+ .nav3-chevron{display:block;font:700 10px/normal var(--r2-font-sans);color:var(--r2-smoke)}
+ .nav3-chevron::before{content:"▼"}
+ .nav3-crest[aria-expanded="true"] .nav3-chevron::before{content:"▲"}
+ .nav3-tabs{width:100%;align-items:stretch;margin-top:22px;gap:4px}
+ .nav3-tabs a,.nav3-tabs a.on{width:100%;height:auto;flex-direction:row;justify-content:flex-start;gap:10px;padding:10px 14px;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-paper);font:700 14px/normal var(--r2-font-sans)}
+ .nav3-dot{display:block;width:14px;height:14px;box-sizing:border-box;border:2px solid var(--r2-smoke);border-radius:var(--r2-radius-pill);flex:none}
+ .nav3-tabs a.on{background:var(--r2-lime);color:var(--r2-fixed-ink)}
+ .nav3-tabs a.on .nav3-dot{border-color:var(--r2-fixed-ink)}
+ .nav3-tabs a.on[data-tab="manage"]{background:var(--r2-tangerine)}
+ body:has(nav.nav3) .composer,body:has(nav.nav3).homefull .homemap{left:260px}
+ dialog.crestmenu{top:84px;left:16px;width:340px}
 }
 button.earlier{width:100%;height:auto;min-height:0;margin:0;padding:8px 0 4px;background:none;color:var(--t3);font-size:13px;font-weight:650}.chatin{display:flex;flex-direction:column;justify-content:flex-end;min-height:100%;width:100%;min-width:0}.chat{display:block;flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;overflow-anchor:auto;overscroll-behavior:contain;scrollbar-width:none}.chat.scrolling{scrollbar-width:thin;scrollbar-color:rgba(242,246,241,.45) transparent}.chat::-webkit-scrollbar{width:0;height:0}.chat.scrolling::-webkit-scrollbar{width:8px;height:8px}.chat.scrolling::-webkit-scrollbar-thumb{background:rgba(242,246,241,.4);border-radius:8px}.m{position:relative;-webkit-touch-callout:none;margin-top:14px;display:flex;flex-direction:column;align-items:flex-start}.m.g-mid,.m.g-last{margin-top:2px}.chat>.m:first-child{margin-top:auto}.m .who{font-size:13px;color:var(--t3);margin:0 0 3px}.m .txt{background:var(--color-bubble);border-radius:var(--radius-card);padding:10px 14px;display:inline-block;max-width:85%;white-space:pre-wrap;word-wrap:break-word;color:var(--color-text)}.m .txt a.msglink{color:var(--accent);text-decoration:none}
 .m.g-first:not(.mine) .txt,.m.g-first:not(.mine) .img img{border-bottom-left-radius:5px}.m.g-mid:not(.mine) .txt,.m.g-mid:not(.mine) .img img{border-top-left-radius:5px;border-bottom-left-radius:5px}.m.g-last:not(.mine) .txt,.m.g-last:not(.mine) .img img{border-top-left-radius:5px}
@@ -1649,20 +1696,39 @@ _NAV_FILL = {
 def _nav_icon(key):
     return '<span class=ico-reg>%s</span><span class=ico-fill>%s</span>' % (ICONS[key], _NAV_FILL[key])
 
+def _glyph(paths):
+    return '<svg class="nav3-glyph" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">' + "".join(
+        '<path d="%s" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>' % d for d in paths) + "</svg>"
+
+_NAV3_GLYPHS = {
+    "search": ("M14.25 9C14.25 11.8995 11.8995 14.25 9 14.25C6.10051 14.25 3.75 11.8995 3.75 9C3.75 6.10051 6.10051 3.75 9 3.75C11.8995 3.75 14.25 6.10051 14.25 9Z", "M13.2 13.2L16.5 16.5"),
+    "calendar": ("M5.5 5H14.5C15.6046 5 16.5 5.89543 16.5 7V15C16.5 16.1046 15.6046 17 14.5 17H5.5C4.39543 17 3.5 16.1046 3.5 15V7C3.5 5.89543 4.39543 5 5.5 5Z", "M3.5 8.5H16.5M7 3.5V6.5M13 3.5V6.5"),
+    "pin": ("M10 17.5C10 17.5 15.5 12.3 15.5 8.5C15.5 7.04131 14.9205 5.64236 13.8891 4.61091C12.8576 3.57946 11.4587 3 10 3C8.54131 3 7.14236 3.57946 6.11091 4.61091C5.07946 5.64236 4.5 7.04131 4.5 8.5C4.5 12.3 10 17.5 10 17.5Z", "M11.75 8.5C11.75 9.4665 10.9665 10.25 10 10.25C9.0335 10.25 8.25 9.4665 8.25 8.5C8.25 7.5335 9.0335 6.75 10 6.75C10.9665 6.75 11.75 7.5335 11.75 8.5Z"),
+    "chat": ("M4 4.5H16C16.3978 4.5 16.7794 4.65804 17.0607 4.93934C17.342 5.22064 17.5 5.60218 17.5 6V13C17.5 13.3978 17.342 13.7794 17.0607 14.0607C16.7794 14.342 16.3978 14.5 16 14.5H9L5.5 17V14.5H4C3.60218 14.5 3.22064 14.342 2.93934 14.0607C2.65804 13.7794 2.5 13.3978 2.5 13V6C2.5 5.60218 2.65804 5.22064 2.93934 4.93934C3.22064 4.65804 3.60218 4.5 4 4.5Z",),
+    "settings": ("M12.4 10C12.4 11.3255 11.3255 12.4 10 12.4C8.67452 12.4 7.6 11.3255 7.6 10C7.6 8.67452 8.67452 7.6 10 7.6C11.3255 7.6 12.4 8.67452 12.4 10Z", "M10 3.5V5.7M10 14.3V16.5M3.5 10H5.7M14.3 10H16.5M5.4 5.4L7 7M13 13L14.6 14.6M14.6 5.4L13 7M7 13L5.4 14.6"),
+}
+_NAV3_GLYPHS["manage"] = _NAV3_GLYPHS["settings"]
+
+def nav_icon(key):
+    return _glyph(_NAV3_GLYPHS.get(key) or _NAV3_GLYPHS["pin"])
+
 _HOME_ON = "tab=='home' or tab=='practices' or tab=='practice' or tab=='series_edit'"
 _LINEUP_ON = "tab=='lineup' or tab=='lineup_edit' or tab=='lineup_event'"
 TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and tab != 'event_new' and tab != 'lineup_edit' and tab != 'series_edit' and not (tab=='practice' and editing) %}<nav class="nav3 noprint" data-place="{{ nav.place }}" aria-label="Places">
-<button type="button" class="nav3-crest" aria-expanded="false" aria-controls="crestMenu" aria-label="Open places">{{ nav.crest }}</button>
-<div class="nav3-tabs">{% for label, href, on in nav.tabs %}<a href="{{ href }}" {% if on %}class=on aria-current=page{% endif %}>{{ label }}</a>{% endfor %}</div>
+<button type="button" class="nav3-crest" aria-expanded="false" aria-controls="crestMenu" aria-label="Open places"><span class="nav3-crest-face"><img class="nav3-logo lg lime" src="/static/nav/mark-lime.svg" width="32" height="13" alt=""><img class="nav3-logo lg ink" src="/static/nav/mark-ink.svg" width="32" height="13" alt=""><img class="nav3-logo sm ink" src="/static/nav/mark-ink.svg" width="26" height="10" alt=""><span class="nav3-initials">{{ nav.crest }}</span></span><span class="nav3-more" aria-hidden="true">⋯</span><span class="nav3-switch-copy"><b>{{ nav.switch_title }}</b><small>{{ nav.switch_sub }}</small></span><span class="nav3-chevron" aria-hidden="true"></span></button>
+<p class="nav3-menu-label">Menu</p>
+<span class="nav3-rule"></span>
+<div class="nav3-tabs">{% for key, label, href, on in nav.tabs %}<a href="{{ href }}" data-tab="{{ key }}" {% if on %}class=on aria-current=page {% endif %}>{{ nav_icon(key)|safe }}<span class="nav3-dot"></span><span class="nav3-label">{{ label }}</span></a>{% endfor %}</div>
 </nav>
-<dialog id="crestMenu" class="crestmenu">
-<p class="crestlabel">Go to</p>
-<a class="crestrow" href="/discover"><span class="crestmark">//</span><span><b>Everything</b><small>Discover · Map · Inbox</small></span></a>
-<a class="crestrow" href="/profile"><span class="crestmark">{{ initials(me()) }}</span><span><b>{{ nav.name }}</b><small>Settings · Calendar · Lineup</small></span></a>
-<p class="crestlabel">Your teams</p>
-<a class="crestrow" href="/practices"><span class="crestmark team">G</span><span><b>Grunions</b><small>Water polo</small></span><span class="rolechip">{{ nav.role }}</span></a>
-<a class="crestrow action" href="/find">+ Find or join</a>
-<a class="crestrow action" href="/logout">Log out</a>
+<dialog id="crestMenu" class="crestmenu" tabindex="-1">
+<p class="crestlabel">GO TO</p>
+<a class="crestrow{% if nav.place == 'everything' %} here{% endif %}" href="/discover"><span class="crestmark brand"><img src="/static/nav/mark-ink.svg" width="26" height="10" alt=""></span><span><b>Everything</b><small>Discover · map · inbox</small></span></a>
+<a class="crestrow{% if nav.place == 'me' %} here{% endif %}" href="/practices?place=me"><span class="crestmark who">{{ initials(me()) }}</span><span><b>{{ nav.name }}</b><small>Settings · calendar · lineup</small></span></a>
+<span class="crestline"></span>
+<p class="crestlabel">YOUR TEAMS</p>
+<a class="crestrow{% if nav.place == 'team' %} here{% endif %}" href="/practices"><span class="crestmark team">G</span><span><b>Grunions</b><small>Default · opens here</small></span><span class="rolechip role-{{ nav.role|lower }}">{{ nav.role }}</span></a>
+<a class="crestgo" href="/find">+ Find or join a team</a>
+<a class="crestout" href="/logout">Log out</a>
 </dialog>{% endif %}
 <script>
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=118');
@@ -1698,7 +1764,7 @@ grunionsCaptureArea();
  function shut(){ if(menu.open) menu.close(); crest.setAttribute('aria-expanded','false'); }
  crest.addEventListener('click', function(){
   if(menu.open) shut();
-  else { menu.showModal(); crest.setAttribute('aria-expanded','true'); }
+  else { menu.showModal(); menu.focus(); crest.setAttribute('aria-expanded','true'); }
  });
  menu.addEventListener('click', function(e){ if(e.target===menu) shut(); });
  menu.addEventListener('close', function(){ crest.setAttribute('aria-expanded','false'); });

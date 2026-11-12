@@ -34,6 +34,9 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     assert 'class="nav3' in schedule and 'data-place="team"' in schedule
     tabs = schedule.split('class="nav3', 1)[1].split("</nav>", 1)[0]
     assert ">Schedule<" in tabs and ">Lineup<" in tabs and ">Chat<" in tabs and ">Manage<" not in tabs
+    assert 'data-tab="calendar" class=on' in tabs
+    assert 'a.on[data-tab="manage"]{background:var(--r2-tangerine)}' in schedule
+    assert "border-radius:var(--r2-radius-pill)" in schedule
     assert tabs.find(">Schedule<") < tabs.find(">Lineup<")
     assert "--r2-ink" in schedule and "#C8FF3C" in schedule and "#4A6A00" in schedule
     menu = schedule.split('id="crestMenu"', 1)[1].split("</dialog>", 1)[0]
@@ -42,6 +45,10 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     discover = member.get("/discover").get_data(as_text=True)
     assert "Discover." in discover and "Grunions is your team" in discover and "Surf City" not in discover
     assert 'data-place="everything"' in discover and ">Map<" in discover
+    me = member.get("/profile").get_data(as_text=True)
+    me_tabs = me.split('class="nav3', 1)[1].split("</nav>", 1)[0]
+    assert me_tabs.find(">Schedule<") < me_tabs.find(">Settings<") < me_tabs.find(">Lineup<")
+    assert 'data-tab="settings" class=on' in me_tabs
     with A.app.app_context():
         d = A.db()
         d.execute("UPDATE members SET is_admin=1 WHERE email='ada.nav@example.com'")
@@ -49,7 +56,7 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
         assert d.execute("SELECT is_admin FROM members WHERE email='ada.nav@example.com'").fetchone()["is_admin"] == 1
     admin_tabs = member.get("/practices").get_data(as_text=True).split('class="nav3', 1)[1].split("</nav>", 1)[0]
     assert ">Manage<" in admin_tabs and admin_tabs.find(">Schedule<") < admin_tabs.find(">Manage<")
-    assert 'href="/practices"' in member.get("/practices").get_data(as_text=True).split("Your teams", 1)[1].split("</dialog>", 1)[0]
+    assert 'href="/practices"' in member.get("/practices").get_data(as_text=True).split("YOUR TEAMS", 1)[1].split("</dialog>", 1)[0]
 
 
 def test_programs_start_with_water_polo_on_and_swimming_off():
