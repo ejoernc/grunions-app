@@ -176,6 +176,7 @@ body.homefull .homemap .mpin.you{pointer-events:none;cursor:default}
 body.homefull header.homehead{position:sticky;top:0;z-index:8;background:transparent}
 body.homefull header.homehead.solid{background:var(--color-bg)}
 body.homefull main{position:relative;z-index:1;padding:0 16px calc(var(--nav-clear) + 16px + env(safe-area-inset-bottom));pointer-events:none}
+body.schedopen main{padding-bottom:calc(var(--nav-clear) + 80px + env(safe-area-inset-bottom))}
 body.homefull .homemap{position:fixed;top:0;left:0;right:0;bottom:0;height:auto;margin:0;z-index:0;border-radius:0;pointer-events:none;touch-action:auto;background:#090D0B}
 body.homefull .homedock{position:relative;left:auto;right:auto;bottom:auto;z-index:2;max-height:none;overflow:visible;pointer-events:none;margin:0;padding:0 0 12px;min-height:calc(100dvh - var(--homehead, 76px) - var(--homealerts, 0px) - var(--nav-clear) - env(safe-area-inset-bottom) - var(--peek, 24px));display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
 body.schedopen .homedock{min-height:0;justify-content:flex-start}
@@ -208,7 +209,7 @@ body.schedhome:has(.weekdrawer.full) .homemap{opacity:0}
  body.schedhome .weekdrawer.full .weekbody{touch-action:pan-y}
 }
 body.schedhome.sheetdrag{user-select:none}
-.weekbody{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:calc(var(--nav-clear) + 12px);-webkit-overflow-scrolling:touch}
+.weekbody{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:calc(var(--nav-clear) + 72px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
 .weekhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .weekhead h2{margin:0;font:700 28px/1 var(--r2-font-display);letter-spacing:-.03em}
 .weekhead h2 span{color:#8B8F93;font:700 16px/1 var(--r2-font-sans)}
@@ -2174,12 +2175,12 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro detail_hiddens(r) %}{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}{% endmacro %}
 {% macro cred_side(iso) %}{% if iso %}<span class=cred><span class="dot {{ date_dot(iso) }}" aria-hidden=true></span>{{ fmt_long(iso) }}</span>{% else %}<span class=t3>Not on file</span>{% endif %}{% endmacro %}
 {% macro date_field(label, name, value) %}<label class="datefield{% if not value %} empty{% endif %}">{{ label }}<input type=date name={{ name }} value="{{ value or '' }}" placeholder="Not on file"><span class=dateph>Not on file</span></label>{% endmacro %}
-{% macro r2_event_card(href, sport, title, clock, meridiem, duration, venue, people, extra, you=false, tone='') -%}
-<a class="r2-event-card evcard2 {{ tone }}" data-r2="event-card" href="{{ href }}"><div class=evmeta><span>{{ sport }}</span>{% if you %}<span class=yougo>✓ You’re going</span>{% elif extra %}<span class=yougo datechip>{{ extra }}</span>{% endif %}</div><div class=evname>{{ title }}</div><div class=evtime><b>{{ clock }}</b><span><i>{{ meridiem }}</i><i>{{ duration }}</i></span></div><div class=evfoot><span class=evfootmain><span class=evwho>{% for person in people[:3] %}<i>{{ initials(person) }}</i>{% endfor %}{% if people %}<em>{{ people|length }} going</em>{% endif %}</span><span class=evvenue>{{ venue }}</span></span><span class=evchev aria-hidden=true>›</span></div></a>
+{% macro r2_event_card(href, sport, title, clock, meridiem, duration, venue, people, extra, you=false, tone='', went=false) -%}
+<a class="r2-event-card evcard2 {{ tone }}" data-r2="event-card" href="{{ href }}"><div class=evmeta><span>{{ sport }}</span>{% if you %}<span class=yougo>✓ You’re going</span>{% elif extra %}<span class=yougo datechip>{{ extra }}</span>{% endif %}</div><div class=evname>{{ title }}</div><div class=evtime><b>{{ clock }}</b><span><i>{{ meridiem }}</i><i>{{ duration }}</i></span></div><div class=evfoot><span class=evfootmain><span class=evwho>{% for person in people[:3] %}<i>{{ initials(person) }}</i>{% endfor %}{% if people %}<em>{{ people|length }} {{ 'went' if went else 'going' }}</em>{% endif %}</span><span class=evvenue>{{ venue }}</span></span><span class=evchev aria-hidden=true>›</span></div></a>
 {%- endmacro %}
-{% macro r2_event_row(href, variant, kicker, title, meta, count, kind='') -%}
+{% macro r2_event_row(href, variant, kicker, title, meta, count, kind='', went=false) -%}
 {% if variant == 'cancelled' %}<a class="r2-event-row evcancel" data-r2="event-row" data-variant="cancelled" href="{{ href }}"><div class=evmeta><span>{{ kicker }}</span><span class=cancelpill>Cancelled</span></div><div class=evcantitle>{{ title }}</div>{% if meta %}<p>{{ meta }}</p>{% endif %}</a>
-{% elif variant == 'stack' %}<a class="r2-event-row evrow2" data-r2="event-row" href="{{ href }}"><div><span class=evcap>{{ kind or 'WATER POLO' }}</span><b>{{ kicker }}<br>{{ title }}</b><small>{{ meta }}</small></div><div class=evcount><b>{{ count }}</b><span>GOING</span><i aria-hidden=true>›</i></div></a>
+{% elif variant == 'stack' %}<a class="r2-event-row evrow2" data-r2="event-row" href="{{ href }}"><div><span class=evcap>{{ kind or 'WATER POLO' }}</span><b>{{ kicker }}<br>{{ title }}</b><small>{{ meta }}</small></div><div class=evcount><b>{{ count }}</b><span>{{ 'WENT' if went else 'GOING' }}</span><i aria-hidden=true>›</i></div></a>
 {% else %}<a class="r2-event-row homecard {{ kind }}{% if variant == 'off' %} cancelled{% endif %}" data-r2="event-row" data-kind="{{ kind }}" href="{{ href }}"><b>{{ kicker }}</b><span><i>{{ kind|upper }}</i>{{ title }}<small>{{ meta }}</small></span><em>{{ count }}</em></a>{% endif %}
 {%- endmacro %}
 {% macro r2_social_card(card, variant='home') -%}
@@ -4630,12 +4631,13 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% if key != ns.day %}{% if ns.open %}</div></div>{% endif %}{% set ns.day = key %}{% set ns.open = true %}
 <div class=daygroup><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class=daycards>
 {% endif %}
+{% set ended = practice_ended(p) or when == 'past' %}
 {% if p.cancelled %}
 {{ r2_event_row('/practices/' ~ p.id, 'cancelled', tile.wd ~ ' · ' ~ month_abbr(p.date) ~ ' ' ~ tile.dn ~ ' · ' ~ (p.sport or 'Water Polo')|upper, practice_title(p), p.cancel_reason, 0) }}
 {% elif ns.featured and when != 'past' %}{% set ns.featured = false %}{% set clk = fmt_clock(p.start).split(' ') %}
-{{ r2_event_card('/practices/' ~ p.id, (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1], practice_duration(p.start, p.end), short_place(p.location), x.going, '', x.mine == 1) }}
+{{ r2_event_card('/practices/' ~ p.id, (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1], practice_duration(p.start, p.end), short_place(p.location), x.going, '', x.mine == 1, '', ended) }}
 {% else %}
-{{ r2_event_row('/practices/' ~ p.id, 'stack', weekday_name(p.date), practice_title(p), fmt_clock(p.start) ~ ' · ' ~ short_place(p.location), x.going|length, (p.sport or 'Water Polo')|upper) }}
+{{ r2_event_row('/practices/' ~ p.id, 'stack', weekday_name(p.date), practice_title(p), fmt_clock(p.start) ~ ' · ' ~ short_place(p.location), x.going|length, (p.sport or 'Water Polo')|upper, ended) }}
 {% endif %}
 {% endfor %}{% if ns.open %}</div></div>{% endif %}
 {% if not rows %}<p class="t3">Nothing coming up.</p>{% endif %}
@@ -4658,7 +4660,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% for s in week_sessions %}
 {% for card in s.before %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
 {% if s.cancelled %}{{ r2_event_row('/practices/' ~ s.p.id, 'cancelled', (s.p.sport or 'Water Polo')|upper, practice_title(s.p), s.p.cancel_reason or 'Cancelled', s.going|length) }}
-{% else %}{% set clk = fmt_clock(s.p.start).split(' ') %}{{ r2_event_card('/practices/' ~ s.p.id, (s.p.sport or 'Water Polo')|upper, practice_title(s.p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(s.p.start, s.p.end), short_place(s.p.location), s.going, '' if s.mine == 1 else ('Today · ' ~ month_abbr(s.p.date) ~ ' ' ~ day_num(s.p.date)), s.mine == 1, 'sky' if s.kind == 'scrimmage' else '') }}{% endif %}
+{% else %}{% set clk = fmt_clock(s.p.start).split(' ') %}{{ r2_event_card('/practices/' ~ s.p.id, (s.p.sport or 'Water Polo')|upper, practice_title(s.p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(s.p.start, s.p.end), short_place(s.p.location), s.going, '' if s.mine == 1 else ('Today · ' ~ month_abbr(s.p.date) ~ ' ' ~ day_num(s.p.date)), s.mine == 1, 'sky' if s.kind == 'scrimmage' else '', practice_ended(s.p)) }}{% endif %}
 {% for card in s.after %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
 {% endfor %}
 <a class=fullsched href="/practices?view=list">View full schedule ›</a>
@@ -4693,7 +4695,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
  var ac=new AbortController(); window.grunionsSchedAbort=ac;
  function live(){ return document.body.classList.contains('schedhome') && document.getElementById('schedSheet')===sheet; }
  var scroller=document.getElementById('weekBody');
- var h=0, anim=0, drag=null, wheelT=0, wasFull=false;
+ var h=0, anim=0, drag=null, wheelT=0, wheelFull=false, wasFull=false;
  function wide(){ return window.innerWidth>=768; }
  function metrics(){
   var vh=window.innerHeight||document.documentElement.clientHeight||1;
@@ -4733,9 +4735,10 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   }
   anim=requestAnimationFrame(frame);
  }
- function settle(vy){
+ function settle(vy, fromFull){
   var m=metrics(), midUp=(m.half+m.full)/2, midDown=(m.peek+m.half)/2, target=m.half;
-  if(vy<-0.6 && h>midDown) target=m.full;
+  if(fromFull && h<m.full-8) target=h<=midDown?m.peek:m.half;
+  else if(vy<-0.6 && h>midDown) target=m.full;
   else if(vy>0.6 && h<midDown) target=m.peek;
   else if(h>=midUp) target=m.full;
   else if(h<=midDown) target=m.peek;
@@ -4757,11 +4760,11 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   return false;
  }
  document.addEventListener('pointerdown', function(e){
-  if(!live()||wide()||e.button||blocked(e.target)) return;
+  if(!live()||wide()||e.button||e.pointerType==='touch'||blocked(e.target)) return;
   if(anim){ cancelAnimationFrame(anim); anim=0; }
   var inSheet=!!e.target.closest('#schedSheet'), full=sheet.classList.contains('full');
   if(full && inSheet && !e.target.closest('#sheetGrab') && scroller && scroller.scrollTop>2) return;
-  drag={y:e.clientY,h:h,id:e.pointerId,moved:false,pull:full&&inSheet&&!e.target.closest('#sheetGrab'),lastY:e.clientY,lastT:performance.now(),vy:0};
+  drag={y:e.clientY,h:h,id:e.pointerId,moved:false,fromFull:full,pull:full&&inSheet&&!e.target.closest('#sheetGrab'),lastY:e.clientY,lastT:performance.now(),vy:0};
  }, {signal:ac.signal});
  document.addEventListener('pointermove', function(e){
   if(!drag||e.pointerId!==drag.id) return;
@@ -4779,29 +4782,64 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
  }, {passive:false, signal:ac.signal});
  function endDrag(e){
   if(!drag||(e&&e.pointerId!==drag.id)) return;
-  var moved=drag.moved, vy=drag.vy||0;
+  var moved=drag.moved, vy=drag.vy||0, fromFull=!!drag.fromFull;
   drag=null; document.body.classList.remove('sheetdrag');
   if(!moved) return;
   var stop=function(ev){ ev.preventDefault(); ev.stopPropagation(); document.removeEventListener('click', stop, true); };
   document.addEventListener('click', stop, true);
   setTimeout(function(){ document.removeEventListener('click', stop, true); }, 400);
-  settle(vy);
+  settle(vy, fromFull);
  }
+ var touch=null;
+ document.addEventListener('touchstart', function(e){
+  if(!live()||wide()||e.touches.length!==1) return;
+  var t=e.target;
+  if(t.closest&&(t.closest('nav,dialog,.mapcontrols')||(t.closest('button,input,textarea,select')&&!t.closest('#sheetGrab')))) return;
+  if(anim){ cancelAnimationFrame(anim); anim=0; }
+  touch={y:e.touches[0].clientY,t:performance.now(),vy:0,moved:false,fromFull:sheet.classList.contains('full')};
+ }, {passive:true, signal:ac.signal});
+ document.addEventListener('touchmove', function(e){
+  if(!touch||!live()||wide()) return;
+  var y=e.touches[0].clientY, now=performance.now(), dy=y-touch.y;
+  touch.vy=dy/((now-touch.t)||16); touch.y=y; touch.t=now;
+  if(!touch.moved && Math.abs(dy)<8) return;
+  var full=sheet.classList.contains('full');
+  var more=scroller && scroller.scrollTop+scroller.clientHeight<scroller.scrollHeight-2;
+  var above=scroller && scroller.scrollTop>2;
+  if(full && dy<0 && more) return;
+  if(full && dy>0 && above) return;
+  if(e.cancelable) e.preventDefault();
+  touch.moved=true;
+  apply(h-dy);
+ }, {passive:false, signal:ac.signal});
+ document.addEventListener('touchend', function(){
+  if(!touch) return;
+  var moved=touch.moved, vy=touch.vy||0, fromFull=touch.fromFull;
+  touch=null;
+  if(moved) settle(vy, fromFull);
+ }, {signal:ac.signal});
  document.addEventListener('pointerup', endDrag, {signal:ac.signal});
  document.addEventListener('pointercancel', endDrag, {signal:ac.signal});
  document.addEventListener('wheel', function(e){
   if(!live()||wide()||(e.target.closest&&e.target.closest('dialog'))) return;
   var full=sheet.classList.contains('full');
-  if(full && scroller && (e.deltaY>0 || scroller.scrollTop>2)){
+  var atTop=!scroller || scroller.scrollTop<=2;
+  if(full && scroller && e.deltaY>0){
+   scroller.scrollTop+=e.deltaY;
+   if(e.cancelable) e.preventDefault();
+   return;
+  }
+  if(full && scroller && e.deltaY<0 && !atTop){
    scroller.scrollTop+=e.deltaY;
    if(e.cancelable) e.preventDefault();
    return;
   }
   if(e.cancelable) e.preventDefault();
   if(anim){ cancelAnimationFrame(anim); anim=0; }
+  if(!wheelT) wheelFull=full;
   apply(h+e.deltaY);
   clearTimeout(wheelT);
-  wheelT=setTimeout(function(){ settle(0); }, 160);
+  wheelT=setTimeout(function(){ var started=wheelFull; wheelT=0; settle(0, started); }, 160);
  }, {passive:false, signal:ac.signal});
  window.addEventListener('resize', function(){ if(!live()) return; if(wide()) resetWide(); else apply(h||metrics().half); }, {signal:ac.signal});
  if(wide()) resetWide(); else apply(metrics().half);

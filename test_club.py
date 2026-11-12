@@ -294,6 +294,14 @@ def test_schedule_is_not_the_old_home_and_profile_sheets_open():
     sched_head = schedule.split("<main>", 1)[0]
     assert ">Calendar</h1>" in sched_head and ">Schedule</h1>" not in sched_head and 'class="nav3-label">Schedule</span>' in schedule
     assert "id=schedule" in schedule and "view=list&when=past" in schedule
+    with A.app.app_context():
+        d = A.db()
+        ago = (A.today_pt() - __import__("datetime").timedelta(days=4)).isoformat()
+        d.execute("INSERT INTO practices(date, start, end, location, sport, title) VALUES(?,?,?,?,?,?)",
+                  (ago, "19:00", "20:30", "Went Pool", "Water Polo", "Went practice"))
+        d.commit()
+    past = member.get("/practices?view=list&when=past").get_data(as_text=True)
+    assert ">WENT<" in past and "Went practice" in past
     assert "font:700 104px/.8" in schedule and "font:700 56px/.85" in schedule and ".evrow2 .evcount{position:absolute" in schedule
     assert "body.homefull .schedfeed{position:relative;z-index:2;pointer-events:auto}" in schedule
     for href in re.findall(r'class="[^"]*(?:evcard2|evrow2|evcancel)[^"]*" href="([^"]+)"', schedule):
