@@ -182,6 +182,46 @@ body.schedopen .homedock{min-height:0;justify-content:flex-start}
 body.homefull .homealerts,body.homefull .homedock .card,body.homefull .schedlist .card{position:relative;z-index:4;pointer-events:auto}
 body.homefull .schedlist{position:relative;z-index:2}
 .schedsame{display:none}
+.schedfeed{display:flex;flex-direction:column;gap:24px}
+.segpill{display:flex;gap:4px;height:52px;padding:4px;border-radius:999px;background:#24262A;box-sizing:border-box}
+.segpill a{flex:1;display:flex;align-items:center;justify-content:center;border-radius:999px;color:#F6F4EF;text-decoration:none;font:700 15px/1 var(--r2-font-sans)}
+.segpill a.on{background:#F6F4EF;color:#0B0B0C}
+.anncard{border-radius:32px;background:#A89CFF;color:#0B0B0C;padding:20px 22px 22px}
+.anncard b{display:block;font:700 10px/1.2 var(--r2-font-sans);letter-spacing:.08em}
+.anncard p{margin:10px 0 0;font:700 15px/.95 var(--r2-font-display);letter-spacing:-.03em}
+.daygroup{display:flex;gap:12px;align-items:flex-start}
+.daygroup .dayrail{width:52px;padding-top:0}
+.daygroup .dayrail span{font:700 10px/1 var(--r2-font-sans);letter-spacing:.08em;color:#8B8F93}
+.daygroup .dayrail b{margin-top:2px;font:700 40px/.95 var(--r2-font-display);letter-spacing:-.05em;color:#F6F4EF}
+.daycards{flex:1;min-width:0;display:flex;flex-direction:column}
+.daycards>*+*{margin-top:-10px}
+.evcard2,.evrow2,.evcancel{display:block;box-sizing:border-box;text-decoration:none;position:relative}
+.evcard2{border-radius:40px;background:#FFC61A;color:#0B0B0C;padding:24px}
+.evrow2{display:flex;justify-content:space-between;gap:8px;border-radius:32px;background:#FFC61A;color:#0B0B0C;padding:20px 20px 20px 24px}
+.evcancel{border-radius:32px;background:#17181A;color:#F6F4EF;padding:20px 22px}
+.evmeta{display:flex;justify-content:space-between;align-items:center;gap:8px;font:700 11px/1 var(--r2-font-sans);letter-spacing:.08em}
+.yougo{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#0B0B0C;color:#C8FF3C;font:700 12px/1 var(--r2-font-sans);letter-spacing:0}
+.evname{margin-top:12px;font:700 30px/1 var(--r2-font-display);letter-spacing:-.03em}
+.evtime{display:flex;align-items:flex-end;gap:8px;margin-top:8px}
+.evtime b{font:700 72px/.8 var(--r2-font-display);letter-spacing:-.07em}
+.evtime span{display:flex;flex-direction:column;gap:2px;padding-bottom:10px;font:700 12px/1 var(--r2-font-sans);letter-spacing:.04em}
+.evtime i{font-style:normal}
+.evtime i:first-child{font:700 18px/1 var(--r2-font-display)}
+.evfoot{display:flex;align-items:center;gap:10px;margin-top:16px}
+.evwho{display:flex;align-items:center;gap:4px;font:700 14px/1 var(--r2-font-sans)}
+.evwho i{width:28px;height:28px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:#0B0B0C;color:#FFC61A;font:700 10px/1 var(--r2-font-sans);font-style:normal}
+.evvenue{color:#0B0B0C;font:600 13px/1.2 var(--r2-font-sans)}
+.evchev{margin-left:auto;width:36px;height:36px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:#0B0B0C;color:#FFC61A;font:700 18px/1 var(--r2-font-sans)}
+.evrow2 .evcap{display:block;font:700 10px/1 var(--r2-font-sans);letter-spacing:.08em}
+.evrow2 b{display:block;margin-top:6px;font:700 40px/.95 var(--r2-font-display);letter-spacing:-.03em}
+.evrow2 small{display:block;margin-top:8px;font:600 12px/1.2 var(--r2-font-sans)}
+.evcount{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.evcount b{font:700 36px/1 var(--r2-font-display)}
+.evcount span{font:700 10px/1 var(--r2-font-sans);letter-spacing:.08em}
+.evcount i{font-style:normal;font:700 16px/1 var(--r2-font-sans)}
+.cancelpill{padding:4px 8px;border-radius:999px;background:#FF5A1F;color:#0B0B0C;letter-spacing:0;font:700 11px/1 var(--r2-font-sans)}
+.evcantitle{margin-top:10px;color:#8B8F93;font:700 36px/1 var(--r2-font-display);letter-spacing:-.03em}
+.evcancel p{margin:8px 0 0;color:#F6F4EF;font:600 14px/1.3 var(--r2-font-sans)}
 .schedrow{display:flex;gap:12px;align-items:flex-start;margin:0 0 12px}
 .dayrail{width:52px;flex:none;padding-top:10px}
 .dayrail span{display:block;color:var(--r2-smoke);font:700 11px/1 var(--r2-font-sans);letter-spacing:.04em}
@@ -4309,6 +4349,30 @@ T["home"] = """{% if tab=='home' and pins %}
 {% if tab != 'practices' %}<div class=homealerts>{{ push_card() }}
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
 {% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}</div>{% endif %}
+{% if tab == 'practices' %}
+<div class=schedfeed id=schedule>
+<div class=segpill role=tablist aria-label="Schedule">
+<a class="{{ 'on' if sched_when == 'upcoming' else '' }}" href="/practices?when=upcoming">Upcoming</a>
+<a class="{{ 'on' if sched_when == 'past' else '' }}" href="/practices?when=past">Past</a>
+<a class="{{ 'on' if sched_when == 'all' else '' }}" href="/practices?when=all">All</a>
+</div>
+{% if ann %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(ann)|upper }}</b><p>{{ ann.body }}</p></div>{% endif %}
+{% set ns = namespace(day='', open=false, featured=true) %}
+{% for x in sched_rows %}{% set p = x.p %}{% set tile = practice_tile(p) %}{% set key = tile.wd ~ tile.dn %}
+{% if key != ns.day %}{% if ns.open %}</div></div>{% endif %}{% set ns.day = key %}{% set ns.open = true %}
+<div class=daygroup><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class=daycards>
+{% endif %}
+{% if p.cancelled %}
+<a class=evcancel href="/practices/{{ p.id }}"><div class=evmeta><span>{{ tile.wd }} · {{ month_abbr(p.date) }} {{ tile.dn }} · {{ (p.sport or 'Water Polo')|upper }}</span><span class=cancelpill>Cancelled</span></div><div class=evcantitle>{{ practice_title(p) }}</div>{% if p.cancel_reason %}<p>{{ p.cancel_reason }}</p>{% endif %}</a>
+{% elif ns.featured and sched_when != 'past' %}{% set ns.featured = false %}{% set clk = fmt_clock(p.start).split(' ') %}
+<a class=evcard2 href="/practices/{{ p.id }}"><div class=evmeta><span>{{ (p.sport or 'Water Polo')|upper }}</span>{% if x.mine == 1 %}<span class=yougo>✓ You’re going</span>{% endif %}</div><div class=evname>{{ practice_title(p) }}</div><div class=evtime><b>{{ clk[0] }}</b><span><i>{{ clk[1] }}</i><i>{{ practice_duration(p.start, p.end) }}</i></span></div><div class=evfoot><span class=evwho>{% for person in x.going[:3] %}<i>{{ initials(person) }}</i>{% endfor %}{% if x.going|length %}<em>{% if x.going|length > 3 %}+{{ x.going|length - 3 }} {% endif %}going</em>{% endif %}</span><span class=evvenue>{{ short_place(p.location) }}</span><span class=evchev aria-hidden=true>›</span></div></a>
+{% else %}
+<a class=evrow2 href="/practices/{{ p.id }}"><div><span class=evcap>{{ (p.sport or 'Water Polo')|upper }}</span><b>{{ weekday_name(p.date) }}<br>{{ practice_title(p) }}</b><small>{{ fmt_clock(p.start) }} · {{ short_place(p.location) }}</small></div><div class=evcount><b>{{ x.going|length }}</b><span>GOING</span><i aria-hidden=true>›</i></div></a>
+{% endif %}
+{% endfor %}{% if ns.open %}</div></div>{% endif %}
+{% if not sched_rows %}<p class="t3">Nothing coming up.</p>{% endif %}
+</div>
+{% else %}
 <div class=homedock>
 {% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set num = (m.usawp_number or '')|trim %}
 {% set ns = namespace(tone='ok') %}
@@ -4378,6 +4442,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>
 {% endif %}</div></div>{% endfor %}
 </div>
+{% endif %}
 <script>
 (function(){
  var bar=document.getElementById("sportFilters"); if(!bar) return;

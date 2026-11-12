@@ -5906,6 +5906,34 @@ def apply_practice_copy_extras(d, ids):
     if src and src["image"]:
         for one in ids:
             d.execute("UPDATE practices SET image=? WHERE id=?", (src["image"], one))
+def practice_duration(start, end):
+    """1H 30M from two clock times."""
+    try:
+        sh, sm = [int(part) for part in str(start).split(":")[:2]]
+        eh, em = [int(part) for part in str(end).split(":")[:2]]
+    except (TypeError, ValueError):
+        return ""
+    mins = (eh * 60 + em) - (sh * 60 + sm)
+    if mins <= 0:
+        mins += 24 * 60
+    hours, minutes = divmod(mins, 60)
+    if minutes:
+        return "%dH %dM" % (hours, minutes)
+    return "%dH" % hours
+def weekday_name(s):
+    return dt.date.fromisoformat(str(s)[:10]).strftime("%A")
+def schedule_rows(d, when):
+    """Upcoming, past, or both, for the 04.06 schedule list."""
+    today = today_pt().isoformat()
+    if when == "past":
+        ps = d.execute("SELECT * FROM practices WHERE date < ? ORDER BY date DESC, start DESC LIMIT 30", (today,)).fetchall()
+    elif when == "all":
+        ps = d.execute("SELECT * FROM practices ORDER BY date DESC, start DESC LIMIT 40").fetchall()
+    else:
+        ps = list(d.execute("SELECT * FROM practices WHERE " + upcoming_where() + " ORDER BY date, start LIMIT 24", upcoming_bounds()).fetchall())
+        ps.sort(key=lambda p: (effective_sort_date(p), p["start"] or "", p["id"]))
+    return [practice_bundle(d, p) for p in ps]
+app.jinja_env.globals.update(weekday_name=weekday_name, practice_duration=practice_duration)
 def practice_bundle(d, p):
     """RSVP lists, check-ins, and assigned coaches for one practice page or card."""
     rv = d.execute("SELECT r.going, m.first, m.last, m.preferred_first, m.id, COALESCE(m.photo,'') AS photo FROM rsvps r JOIN members m ON m.id=r.member_id WHERE practice_id=?", (p["id"],)).fetchall()
@@ -5993,7 +6021,12 @@ def combined_view(entry):
             drive_age = int(saved_age.total_seconds())
     social_after = next_kind == "practice" and bool(nextp) and social_after_window(nextp)
     social_mins = int(nextp["social_drive_min"]) if nextp and "social_drive_min" in nextp.keys() and nextp["social_drive_min"] else None
+    sched_when = (request.args.get("when") or "upcoming") if entry == "practices" else ""
+    if sched_when not in ("", "upcoming", "past", "all"):
+        sched_when = "upcoming"
+    sched_rows = schedule_rows(d, sched_when or "upcoming") if entry == "practices" else []
     return page(T["home"], tab="practices" if entry == "practices" else "home",
+        sched_when=sched_when or "upcoming", sched_rows=sched_rows,
         m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices,
         nextp=nextp, next_kind=next_kind, nextev=nextev, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined,
         vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, route=route, drive_on=drive_on, drive_until=drive_until, drive_saved=drive_saved, drive_age=drive_age, drive_chip=drive_chip, drive_going=drive_going,
