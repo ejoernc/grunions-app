@@ -1136,12 +1136,21 @@ var recent=burstWhen("2026-11-02T20:32:00-08:00", null, "2026-11-04T12:00:00-08:
 var today=burstWhen("2026-11-04T08:32:00-08:00", null, "2026-11-04T12:00:00-08:00");
 var gap=burstWhen("2026-11-04T08:32:00-08:00", "2026-11-04T07:00:00-08:00", "2026-11-04T12:00:00-08:00");
 var exact=chatWhen("2026-11-04T08:32:00-08:00");
-console.log(JSON.stringify({old:old, recent:recent, today:today, gap:gap, exact:exact}));
+function roll(step, count){
+ var base=Date.parse("2026-11-04T08:00:00-08:00"), prev=null, dividers=0, i;
+ for(i=0;i<count;i++){
+  var iso=new Date(base+i*step*60000).toISOString();
+  if(burstWhen(iso, prev, "2026-11-04T20:00:00-08:00")) dividers++;
+  prev=iso;
+ }
+ return dividers;
+}
+console.log(JSON.stringify({old:old, recent:recent, today:today, gap:gap, exact:exact, roll29:roll(29,11), roll31:roll(31,4)}));
 '''], capture_output=True, text=True)
 _when = {}
 try: _when = json.loads(_when_proc.stdout or "{}")
 except ValueError: _when = {}
-ok(_when_proc.returncode == 0 and _when.get("old") == "FRI · 8:32 PM" and _when.get("recent") == "MON · 8:32 PM" and _when.get("today") == "THIS MORNING · 8:32 AM" and _when.get("gap") == "8:32 AM" and _when.get("exact") == "8:32 AM" and ".txt.deleted{font-style:italic;font-size:12px;font-weight:500;line-height:1.3;color:var(--t3)" in chui and ".msgfoot{display:flex;align-items:center" in chui and ".mstack{display:inline-flex" in chui and "width:0;min-width:100%" in chui and ".seenline{" in chui and ".daydiv{" in chui, "chat bursts use a centered divider, and a tap time is just the clock")
+ok(_when_proc.returncode == 0 and _when.get("old") == "FRI · 8:32 PM" and _when.get("recent") == "MON · 8:32 PM" and _when.get("today") == "THIS MORNING · 8:32 AM" and _when.get("gap") == "8:32 AM" and _when.get("exact") == "8:32 AM" and _when.get("roll29") == 1 and _when.get("roll31") == 4 and ".txt.deleted{font-style:italic;font-size:12px;font-weight:500;line-height:1.3;color:var(--t3)" in chui and ".msgfoot{display:flex;align-items:center" in chui and ".mstack{display:inline-flex" in chui and "width:0;min-width:100%" in chui and ".seenline{" in chui and ".daydiv{" in chui, "a 30-minute gap is measured from the previous message, so a burst can run for hours")
 _grp_src = chui[chui.find("function sameGroup"):chui.find("function placeWho")]
 _grp_proc = subprocess.run(["node", "-e", _grp_src + r'''
 function chain(times, uids){
@@ -1155,17 +1164,20 @@ function chain(times, uids){
 }
 var t0=Date.parse("2020-06-01T12:00:00Z");
 function mins(m){return new Date(t0+m*60000).toISOString()}
+var hours=[0]; for(var h=1;h<=10;h++) hours.push(h*29);
 console.log(JSON.stringify({
  long:chain([mins(0),mins(4),mins(8),mins(12)],[1,1,1,1]),
  exact:chain([mins(0),mins(5)],[1,1]),
  gap:chain([mins(0),mins(4),mins(40)],[1,1,1]),
- other:chain([mins(0),mins(4),mins(5)],[1,1,2])
+ other:chain([mins(0),mins(4),mins(5)],[1,1,2]),
+ hours:chain(hours.map(mins), hours.map(function(){return 1})),
+ late:chain([mins(0),mins(29),mins(60)],[1,1,1])
 }));
 '''], capture_output=True, text=True)
 _grp_out = {}
 try: _grp_out = json.loads(_grp_proc.stdout or "{}")
 except ValueError: _grp_out = {}
-ok(_grp_proc.returncode == 0 and _grp_out.get("long") == 4 and _grp_out.get("exact") == 2 and _grp_out.get("gap") == 2 and _grp_out.get("other") == 2, "a rolling thirty-minute gap keeps a chain together until someone else speaks or the gap is longer")
+ok(_grp_proc.returncode == 0 and _grp_out.get("long") == 4 and _grp_out.get("exact") == 2 and _grp_out.get("gap") == 2 and _grp_out.get("other") == 2 and _grp_out.get("hours") == 11 and _grp_out.get("late") == 2, "names stay grouped across a multi-hour chain when each reply is within 30 minutes of the previous one")
 _link_src = chui[chui.find("function safeHttp"):chui.find("function bodyHtml")]
 _link_proc = subprocess.run(["node", "-e", r'''
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

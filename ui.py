@@ -4616,6 +4616,7 @@ function chatWhen(iso, now){
   var p=parts(iso), n=parts(now||Date.now()), time=clock(p);
   if(prevIso){
    var prev=parts(prevIso);
+   // Rolling gap from the previous message. A reply 29 minutes later stays in the burst and the window starts over. A chain can run for hours.
    if(index(prev)===index(p)) return (new Date(iso)-new Date(prevIso))>=30*60*1000 ? time : '';
   }
   var days=index(n)-index(p);
@@ -4712,6 +4713,7 @@ function sameGroup(prev,cur){
  if(!prev||!cur||prev.uid!==cur.uid) return false;
  if(!!(prev.ann&&!prev.deleted)!==!!(cur.ann&&!cur.deleted)) return false;
  var delta=new Date(cur.at)-new Date(prev.at);
+ // 30 minutes from this message, not from the first message of the burst.
  return delta>=0&&delta<30*60*1000}
 function placeWho(el,m,at){
  var text=((m.ann&&!m.deleted)?'Announcement · ':'')+m.who;
@@ -4743,6 +4745,7 @@ function groupMessages(){
   i=j+1}
  placeDividers()}
 function placeDividers(){
+ // prev is the message just before this one. The 30 minutes restarts there, so the burst is not capped at 30 minutes from its first message.
  var rows=[].slice.call(box.querySelectorAll('.m')), prev=null;
  rows.forEach(function(el){
   var m=msgs[+el.id.slice(3)];
