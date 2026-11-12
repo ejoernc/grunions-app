@@ -428,9 +428,14 @@ def nav_context():
             tabs.append(("manage", "Manage", "/manage", path.startswith("/manage") or path.startswith("/admin") or path.startswith("/members") or path.startswith("/expiring")))
         crest = "G"
         switch = ("Grunions", role)
+    staff = bool(m["is_admin"] or (m["role"] or "") == "coach")
+    try:
+        unread = chat_tab_unread(db(), m["id"], staff)
+    except Exception:
+        unread = 0
     return {"show": True, "place": place, "tabs": tabs, "crest": crest,
             "name": ("%s %s" % (display_first(m), m["last"] or "")).strip(), "role": role,
-            "team": "Grunions", "switch_title": switch[0], "switch_sub": switch[1]}
+            "team": "Grunions", "switch_title": switch[0], "switch_sub": switch[1], "chat_unread": unread}
 app.jinja_env.globals.update(display_first=display_first, initials=initials, fmt_phone=fmt_phone, nav_context=nav_context, nav_icon=ui.nav_icon)
 # applies_to: all | athlete | coach. keywords: normalized substrings to find this item's columns in a Sport:80 export.
 DEFAULT_REQS = [("SafeSport training", "all", "safesport", 1), ("Background screening", "coach", "background", 1)]
@@ -1542,8 +1547,9 @@ def reply_target(d, ch, raw):
     src = d.execute("SELECT id, channel, deleted FROM messages WHERE id=?", (rid,)).fetchone()
     if not src or src["deleted"] or (src["channel"] or "team") != ch: return None
     return src["id"]
+_CHANNEL_SLUG = re.compile(r"^[a-z0-9-]{1,40}$")
 def parse_channel(ch):
-    """team, coaches, practice:<id>, or dm:<lo>:<hi>. Anything else is not a channel."""
+    """team, coaches, practice:<id>, dm:<lo>:<hi>, ch:<slug>, ask:<slug>, or grp:<slug>."""
     ch = (ch or "").strip()
     if ch in ("team", "coaches"):
         return ch
@@ -1555,19 +1561,34 @@ def parse_channel(ch):
         parts = ch.split(":")
         if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit() and int(parts[1]) < int(parts[2]):
             return ch
+    for prefix in ("ch:", "ask:", "grp:"):
+        if ch.startswith(prefix) and _CHANNEL_SLUG.match(ch[len(prefix):]):
+            return ch
     return ""
 def can_read(ch):
     ch = parse_channel(ch)
     if not ch or not me():
         return False
-    if ch == "team":
-        return True
     if ch == "coaches":
         return is_staff()
+    if ch in ("team",) or ch.startswith(("ch:", "ask:", "grp:")):
+        return True
     if ch.startswith("practice:"):
         return db().execute("SELECT 1 FROM practices WHERE id=?", (int(ch.split(":", 1)[1]),)).fetchone() is not None
     lo, hi = [int(x) for x in ch.split(":")[1:]]
     return me()["id"] in (lo, hi)
+def practice_chat_locked(d, ch):
+    """A practice chat stays readable, and stops taking new messages 7 days after the practice."""
+    if not (ch or "").startswith("practice:"):
+        return False
+    row = d.execute("SELECT date FROM practices WHERE id=?", (int(ch.split(":", 1)[1]),)).fetchone()
+    if not row or not row["date"]:
+        return False
+    try:
+        day = dt.date.fromisoformat(str(row["date"])[:10])
+    except ValueError:
+        return False
+    return day < today_pt() - dt.timedelta(days=7)
 def dm_channel(a, b):
     lo, hi = sorted((int(a), int(b)))
     return "dm:%d:%d" % (lo, hi)
@@ -1578,6 +1599,8 @@ PREVIEW_PEOPLE = (
     ("Priya", "Nand", "priya.nand@preview.regulars.invalid", "athlete", 0),
     ("Theo", "March", "theo.march@preview.regulars.invalid", "athlete", 0),
     ("Lena", "Ortiz", "lena.ortiz@preview.regulars.invalid", "athlete", 0),
+    ("Noah", "Kim", "noah.kim@preview.regulars.invalid", "athlete", 0),
+    ("Sasha", "Reed", "sasha.reed@preview.regulars.invalid", "athlete", 0),
 )
 ELI_PREVIEW_EMAIL = "ejoernc@gmail.com"
 def seed_preview_club(d):
@@ -1614,18 +1637,58 @@ def seed_preview_club(d):
     if not lineup:
         d.execute("""INSERT INTO lineup_events(kind, title, date, city, venue, start, description)
             VALUES('Team trip','Preview harbor weekend',?,'Long Beach','Preview Pool','09:00','Preview only.')""", (when,))
-    def say(email, channel, body):
-        if d.execute("SELECT 1 FROM messages WHERE channel=? AND body=?", (channel, body)).fetchone():
-            return
-        d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)", (ids[email], body, channel))
+    def say(email, channel, body, at=None):
+        row = d.execute("SELECT id FROM messages WHERE channel=? AND body=?", (channel, body)).fetchone()
+        if row:
+            return row["id"]
+        cur = d.execute("INSERT INTO messages(member_id, body, channel, at) VALUES(?,?,?,?)",
+                        (ids[email], body, channel, at or utc_stamp()))
+        return cur.lastrowid
+    def react(message_id, email, emoji):
+        if message_id:
+            d.execute("INSERT OR IGNORE INTO reactions(message_id, member_id, emoji) VALUES(?,?,?)", (message_id, ids[email], emoji))
+    def past_practice(days_ago, location, title, going_emails):
+        when = (day - dt.timedelta(days=days_ago)).isoformat()
+        row = d.execute("SELECT id FROM practices WHERE location=?", (location,)).fetchone()
+        if row:
+            ppid = row["id"]
+        else:
+            ppid = d.execute("""INSERT INTO practices(date,start,end,location,address,note,sport,title)
+                VALUES(?,?,?,?,?,?,?,?)""", (when, "19:00", "20:30", location, "1 Preview Way",
+                "Preview only. Not a real Grunions practice.", "Water Polo", title)).lastrowid
+        for email in ids:
+            d.execute("INSERT OR IGNORE INTO rsvps(practice_id, member_id, going) VALUES(?,?,?)",
+                      (ppid, ids[email], 1 if email in going_emails else 0))
+        return ppid, when + "T19:40:00+00:00"
+    north, north_at = past_practice(16, "Preview lane north", "Preview Tuesday practice",
+                                    {"mira.solano@preview.regulars.invalid", "jonah.peck@preview.regulars.invalid", "adele.voss@preview.regulars.invalid"})
+    south, south_at = past_practice(10, "Preview lane south", "Preview Friday practice",
+                                    {"theo.march@preview.regulars.invalid", "lena.ortiz@preview.regulars.invalid", "noah.kim@preview.regulars.invalid"})
+    west, west_at = past_practice(3, "Preview lane west", "Preview recent practice",
+                                  {"sasha.reed@preview.regulars.invalid", "mira.solano@preview.regulars.invalid", "priya.nand@preview.regulars.invalid"})
     say("jonah.peck@preview.regulars.invalid", "team", "Preview: caps at the pool tonight.")
     say("priya.nand@preview.regulars.invalid", "team", "Preview: I can bring an extra cap.")
-    say("lena.ortiz@preview.regulars.invalid", "team", "Preview: see you at Preview Pool.")
+    last = say("lena.ortiz@preview.regulars.invalid", "team", "Preview: see you at Preview Pool.")
+    react(last, "noah.kim@preview.regulars.invalid", "👍")
+    say("mira.solano@preview.regulars.invalid", "ch:water-polo", "Preview: lanes 3 and 4 tonight.")
+    say("theo.march@preview.regulars.invalid", "ch:water-polo", "Preview: I'll take lane 3.")
+    say("adele.voss@preview.regulars.invalid", "ask:coaches", "Preview: can I switch to drop-in next month?")
+    say("mira.solano@preview.regulars.invalid", "coaches", "Preview: Adele asked about drop-in. I said yes.")
+    say("jonah.peck@preview.regulars.invalid", "grp:carpool", "Preview: I can take two on Thursday.")
+    say("sasha.reed@preview.regulars.invalid", "grp:carpool", "Preview: I'll ride with Jonah.")
     pch = "practice:%d" % pid
     say("mira.solano@preview.regulars.invalid", pch, "Preview: warm up is in the shallow end.")
     say("theo.march@preview.regulars.invalid", pch, "Preview: I'll be there by 6:40.")
+    say("mira.solano@preview.regulars.invalid", "practice:%d" % north, "Preview: good set tonight.", north_at)
+    say("adele.voss@preview.regulars.invalid", "practice:%d" % north, "Preview: leaving now.", north_at)
+    say("theo.march@preview.regulars.invalid", "practice:%d" % south, "Preview: short practice, see you Friday.", south_at)
+    say("lena.ortiz@preview.regulars.invalid", "practice:%d" % west, "Preview: running ten minutes late.", west_at)
     say("mira.solano@preview.regulars.invalid", dm_channel(ids["mira.solano@preview.regulars.invalid"], ids["jonah.peck@preview.regulars.invalid"]),
         "Preview: can you open the gate?")
+    say("priya.nand@preview.regulars.invalid", dm_channel(ids["priya.nand@preview.regulars.invalid"], ids["adele.voss@preview.regulars.invalid"]),
+        "Preview: want a ride at 6:31?")
+    say("noah.kim@preview.regulars.invalid", dm_channel(ids["noah.kim@preview.regulars.invalid"], ids["sasha.reed@preview.regulars.invalid"]),
+        "Preview: thanks, see you at the pool.")
     promoted = False
     eli = d.execute("SELECT id, is_admin FROM members WHERE lower(email)=?", (ELI_PREVIEW_EMAIL,)).fetchone()
     if eli:
@@ -1948,6 +2011,36 @@ def chat_page_messages(d, ch, limit=50):
       WHERE m.id>? AND m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT ?""",
       (0, ch, deleted_cutoff(), limit)).fetchall()
     return with_seen(d, ch, list(reversed(rows)), info)
+def chat_clock(at):
+    """A short Pacific stamp for a chat row: 4:02p, or a weekday, or Mon 2."""
+    if not at:
+        return ""
+    try:
+        moment = dt.datetime.fromisoformat(str(at).replace("Z", "+00:00"))
+    except ValueError:
+        return ""
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=dt.timezone.utc)
+    local = moment.astimezone(PT)
+    day = today_pt()
+    if local.date() == day:
+        hour = local.hour % 12 or 12
+        return "%d:%02d%s" % (hour, local.minute, "a" if local.hour < 12 else "p")
+    if (day - local.date()).days < 7:
+        return local.strftime("%a")
+    return "%s %d" % (local.strftime("%b"), local.day)
+def channel_preview(d, channel):
+    row = d.execute("""SELECT m.body, m.at, p.first, p.preferred_first FROM messages m
+        LEFT JOIN members p ON p.id=m.member_id
+        WHERE m.channel=? AND COALESCE(m.deleted,0)=0 ORDER BY m.id DESC LIMIT 1""", (channel,)).fetchone()
+    if not row:
+        return "", ""
+    text = (row["body"] or "").strip()
+    if text.startswith("Preview: "):
+        text = text[9:]
+    who = display_first(row) if row["first"] else ""
+    line = ("%s: %s" % (who, text)).strip(": ") if who else text
+    return line[:90], chat_clock(row["at"])
 def _unread_bits(d, mid):
     """Short line for the Grunions row: where the unread messages are."""
     parts = []
@@ -1960,10 +2053,23 @@ def _unread_bits(d, mid):
     if practice_n:
         parts.append("practice chat")
     total = n_team + practice_n
+    for row in d.execute("SELECT DISTINCT channel FROM messages WHERE channel LIKE 'ch:%'"):
+        n = chat_unread_n(d, mid, row["channel"])
+        total += n
+        if n:
+            parts.append("#" + row["channel"].split(":", 1)[1])
     if not total:
         return 0, "You're caught up"
-    where = " and ".join(parts)
-    return total, "%d unread in %s" % (total, where)
+    return total, "%d unread in %s" % (total, " and ".join(parts[:3]))
+def chat_tab_unread(d, mid, staff):
+    """Unread across team, practice, channel, ask, group, and direct chats. Nothing is muted yet."""
+    total = chat_unread_n(d, mid, "team") + _dm_unread(d, mid)[0]
+    if staff:
+        total += chat_unread_n(d, mid, "coaches")
+    for row in d.execute("""SELECT DISTINCT channel FROM messages
+            WHERE channel LIKE 'practice:%' OR channel LIKE 'ch:%' OR channel LIKE 'ask:%' OR channel LIKE 'grp:%'"""):
+        total += chat_unread_n(d, mid, row["channel"])
+    return total
 def _dm_unread(d, mid):
     total = 0
     rows = []
@@ -1981,46 +2087,101 @@ def _other_dm_name(d, channel, mid):
     if not person:
         return "Someone"
     return ("%s %s" % (display_first(person), person["last"] or "")).strip()
+def _chat_side(when, n):
+    badge = '<span class=unread>%d</span>' % n if n else ""
+    clock = '<span class=chattime>%s</span>' % escape(when) if when else ""
+    return '<span class=chatside>%s%s</span>' % (clock, badge)
+def _chat_row(href, mark, title, sub, when="", n=0, tone="sun"):
+    return ('<a class=chatrow href="%s"><span class="mark %s">%s</span><span class=grow><b>%s</b><small>%s</small></span>%s</a>'
+            % (href, tone, mark, title, escape(sub or ""), _chat_side(when, n)))
+def _clock_face(hhmm):
+    try:
+        hour, minute = [int(x) for x in str(hhmm or "0:00").split(":")[:2]]
+    except ValueError:
+        return hhmm or ""
+    return "%d:%02d" % (hour % 12 or 12, minute)
 def personal_chat_html(d, m):
     """YOUR TEAMS, then DIRECT. Grunions is the only live team."""
     mid = m["id"]
     place = "me" if (request.args.get("place") or "") == "me" else "everything"
     total, blurb = _unread_bits(d, mid)
-    badge = '<span class=unread>%d</span>' % total if total else ""
-    teams = '<a class=chatrow href="/chat?view=list"><span class=mark>G</span><span><b>Grunions</b><small>%s</small></span>%s</a>' % (escape(blurb), badge)
+    _preview, when = channel_preview(d, "team")
+    roster = d.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1").fetchone()[0]
+    teams = _chat_row("/chat?view=list", "G", "Grunions <span class=count>%d</span>" % roster, blurb, when, total, "lime")
     directs = []
     if is_staff():
         n = chat_unread_n(d, mid, "coaches")
-        directs.append((10**12, '<a class=chatrow href="/chat?c=coaches&place=%s"><span class=mark>B</span><span><b>Board</b><small>Coaches</small></span>%s</a>'
-                        % (place, '<span class=unread>%d</span>' % n if n else "")))
+        preview, when = channel_preview(d, "coaches")
+        latest = d.execute("SELECT MAX(id) FROM messages WHERE channel='coaches'").fetchone()[0] or 0
+        directs.append((latest, _chat_row("/chat?c=coaches&place=%s" % place, "B", "Grunions board", preview or "Private to board members", when, n, "grape")))
     for channel, n, latest in _dm_unread(d, mid)[1]:
         name = _other_dm_name(d, channel, mid)
-        directs.append((latest or 0, '<a class=chatrow href="/chat?c=%s&place=%s"><span class=mark>%s</span><span><b>%s</b><small>Direct</small></span>%s</a>'
-                        % (escape(channel), place, escape(name[:1]), escape(name), '<span class=unread>%d</span>' % n if n else "")))
+        preview, when = channel_preview(d, channel)
+        directs.append((latest or 0, _chat_row("/chat?c=%s&place=%s" % (escape(channel), place), escape(name[:1]), escape(name), preview or "Direct", when, n, "sky")))
+    for row in d.execute("SELECT DISTINCT channel FROM messages WHERE channel LIKE 'grp:%'"):
+        channel = row["channel"]
+        n = chat_unread_n(d, mid, channel)
+        preview, when = channel_preview(d, channel)
+        latest = d.execute("SELECT MAX(id) FROM messages WHERE channel=?", (channel,)).fetchone()[0] or 0
+        title = channel.split(":", 1)[1].replace("-", " ").title()
+        directs.append((latest, _chat_row("/chat?c=%s&place=%s" % (escape(channel), place), escape(title[:1]), escape(title), preview or "Group", when, n, "bubble")))
     directs.sort(key=lambda item: item[0], reverse=True)
     direct_html = "".join(html for _latest, html in directs) or '<p class="t3">No direct messages yet.</p>'
-    return ('<p class="r2caps">Your teams</p><div class=chatlist>%s</div>'
+    return ('<div class=chathead><h1 class=chatdisplay>Chat.</h1></div>'
+            '<p class="r2caps">Your teams · unread</p><div class=chatlist>%s</div>'
             '<p class="r2caps">Direct</p><div class=chatlist>%s</div>') % (teams, direct_html)
 def team_chat_html(d, m):
-    """Personal messages, the next practice chat, and #everyone. Members do not create channels."""
+    """Direct chats, the practice you're going to, channels, and ask-the-club. Members do not create channels."""
     mid = m["id"]
-    dm_n, _rows = _dm_unread(d, mid)
-    personal = '<a class=chatrow href="/inbox?place=me"><span class=mark>✉</span><span><b>Personal messages</b><small>%s</small></span>%s</a>' % (
-        "Switch to Me · Chat", '<span class=unread>%d</span>' % dm_n if dm_n else "")
-    nxt = d.execute("""SELECT id, date, start, title, sport FROM practices
-        WHERE COALESCE(cancelled,0)=0 AND COALESCE(skipped,0)=0 AND date>=? ORDER BY date, start LIMIT 1""",
-        (today_pt().isoformat(),)).fetchone()
+    dm_n, dm_rows = _dm_unread(d, mid)
+    names = [_other_dm_name(d, channel, mid).split(" ")[0] for channel, _n, _latest in dm_rows[:2]]
+    sub = ("%d unread" % dm_n + ((" · " + ", ".join(names)) if names else "") + " · opens your personal chat") if dm_n else "Opens your personal chat"
+    personal = _chat_row("/inbox?place=me", escape((display_first(m) or "Y")[:1]), "Direct chats", sub, "", dm_n, "sky")
+    nxt = d.execute("""SELECT p.id, p.date, p.start, p.title, p.sport, p.location FROM practices p
+        JOIN rsvps r ON r.practice_id=p.id AND r.member_id=? AND r.going=1
+        WHERE COALESCE(p.cancelled,0)=0 AND COALESCE(p.skipped,0)=0 AND p.date>=?
+        ORDER BY p.date, p.start LIMIT 1""", (mid, today_pt().isoformat())).fetchone()
     practice = ""
     if nxt:
-        label = (nxt["title"] or "Practice").strip()
         ch = "practice:%d" % nxt["id"]
         n = chat_unread_n(d, mid, ch)
-        practice = '<a class=chatrow href="/chat?c=%s"><span class=mark>P</span><span><b>%s</b><small>%s · practice chat</small></span>%s</a>' % (
-            ch, escape(label), escape(nxt["date"]), '<span class=unread>%d</span>' % n if n else "")
+        preview, _when = channel_preview(d, ch)
+        going = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (nxt["id"],)).fetchone()[0]
+        sport = (nxt["sport"] or "Practice").strip()
+        where = (nxt["location"] or "").strip()
+        meta = "%s · %s" % (sport, where) if where else sport
+        detail = "%d going" % going + ((" · " + preview) if preview else "")
+        when_label = "Tonight" if nxt["date"] == today_pt().isoformat() else nxt["date"]
+        practice = ('<a class=practcard href="/chat?c=%s"><span class=practtop><b>Practice chat · %s</b>%s</span>'
+                    '<span class=practbody><span class=practtime>%s</span><span class=practmeta><b>%s</b><small>%s</small></span></span></a>'
+                    % (ch, escape(when_label), '<span class=unread>%d new</span>' % n if n else "",
+                       escape(_clock_face(nxt["start"])), escape(meta), escape(detail)))
+    earlier = []
+    for row in d.execute("""SELECT p.id, p.date, p.title FROM practices p
+            WHERE p.date<? AND EXISTS(SELECT 1 FROM messages m WHERE m.channel='practice:'||p.id)
+            ORDER BY p.date DESC LIMIT 6""", (today_pt().isoformat(),)):
+        ch = "practice:%d" % row["id"]
+        locked = practice_chat_locked(d, ch)
+        title = escape((row["title"] or "Practice").strip())
+        note = "Read only · 7 days after practice" if locked else "Practice chat"
+        earlier.append(_chat_row("/chat?c=%s" % ch, "P", title, "%s · %s" % (escape(row["date"]), note), "", chat_unread_n(d, mid, ch), "sun"))
     everyone_n = chat_unread_n(d, mid, "team")
-    everyone = '<a class=chatrow href="/chat?c=team"><span class=mark>#</span><span><b>#everyone</b><small>The whole team</small></span>%s</a>' % (
-        '<span class=unread>%d</span>' % everyone_n if everyone_n else "")
-    return '<p class="r2caps">Grunions</p><div class=chatlist>%s%s%s</div>' % (personal, practice, everyone)
+    preview, when = channel_preview(d, "team")
+    roster = d.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1").fetchone()[0]
+    channels = [_chat_row("/chat?c=team", "#", "everyone <span class=count>%d</span>" % roster, preview or "The whole team", when, everyone_n, "lime")]
+    for row in d.execute("SELECT DISTINCT channel FROM messages WHERE channel LIKE 'ch:%' ORDER BY channel"):
+        ch = row["channel"]
+        slug = ch.split(":", 1)[1]
+        preview, when = channel_preview(d, ch)
+        channels.append(_chat_row("/chat?c=%s" % escape(ch), "#", escape(slug), preview or "Team channel", when, chat_unread_n(d, mid, ch), "sun"))
+    ask = [_chat_row("/chat?c=ask:coaches", "C", "Message the coaches", "The coaching staff", "", chat_unread_n(d, mid, "ask:coaches"), "sky")]
+    if is_staff():
+        preview, when = channel_preview(d, "coaches")
+        ask.insert(0, _chat_row("/chat?c=coaches", "B", "Message the board", preview or "Private to board members", when, chat_unread_n(d, mid, "coaches"), "grape"))
+    return ('<div class=chathead><h1 class=chatdisplay>Chat.</h1></div><div class=chatlist>%s%s%s</div>'
+            '<p class="r2caps">Grunions · team</p><div class=chatlist>%s</div>'
+            '<p class="r2caps">Ask the club</p><div class=chatlist>%s</div>') % (
+                personal, practice, "".join(earlier), "".join(channels), "".join(ask))
 @app.route("/chat")
 @login_required
 def chat():
@@ -2031,13 +2192,15 @@ def chat():
     if not can_read(ch): abort(403)
     d = db()
     mark_chat_read(d, me()["id"], ch)
-    label = "#everyone" if ch == "team" else ("Board" if ch == "coaches" else "this chat")
-    return page(T["chat"], tab="chat", ch=ch, chat_label=label, chat_seed=chat_page_messages(d, ch, 50))
+    label = "#everyone" if ch == "team" else ("the board" if ch == "coaches" else "this chat")
+    return page(T["chat"], tab="chat", ch=ch, chat_label=label, chat_locked=practice_chat_locked(d, ch), chat_seed=chat_page_messages(d, ch, 50))
 @app.route("/api/messages", methods=["GET", "POST"])
 @login_required
 def api_messages():
     d = db(); ch = parse_channel(request.args.get("c", "team"))
     if not can_read(ch): abort(403)
+    if request.method == "POST" and practice_chat_locked(d, ch):
+        return jsonify(error="This practice chat is read-only. It closed 7 days after the practice."), 403
     if request.method == "POST":
         image = None
         if request.files.get("image"):

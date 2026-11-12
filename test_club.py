@@ -37,7 +37,7 @@ def clear_preview_rows():
             d.execute("DELETE FROM rsvps WHERE member_id IN (%s)" % marks, ids)
             d.execute("DELETE FROM lineup_rsvps WHERE member_id IN (%s)" % marks, ids)
             d.execute("DELETE FROM members WHERE id IN (%s)" % marks, ids)
-        d.execute("DELETE FROM practices WHERE location='Preview Pool'")
+        d.execute("DELETE FROM practices WHERE location='Preview Pool' OR location LIKE 'Preview lane %'")
         d.execute("DELETE FROM lineup_events WHERE title='Preview harbor weekend'")
         d.execute("DELETE FROM messages WHERE body LIKE 'Preview:%'")
         d.commit()
@@ -96,9 +96,10 @@ def test_preview_seed_stays_off_the_live_database_and_is_idempotent():
             d.commit()
             second = A.seed_preview_club(d)
             third = A.seed_preview_club(d)
-            assert first["ran"] is True and first["people"] == 6 and first["promoted"] is False
-            assert second["promoted"] is True and third["promoted"] is False and third["people"] == 6
-            assert d.execute("SELECT COUNT(*) FROM members WHERE email LIKE '%@preview.regulars.invalid'").fetchone()[0] == 6
+            assert first["ran"] is True and first["people"] == 8 and first["promoted"] is False
+            assert second["promoted"] is True and third["promoted"] is False and third["people"] == 8
+            assert d.execute("SELECT COUNT(*) FROM members WHERE email LIKE '%@preview.regulars.invalid'").fetchone()[0] == 8
+            assert d.execute("SELECT COUNT(*) FROM practices WHERE location LIKE 'Preview lane %'").fetchone()[0] >= 3
             assert d.execute("SELECT is_admin FROM members WHERE email='ejoernc@gmail.com'").fetchone()["is_admin"] == 1
             assert d.execute("SELECT COUNT(*) FROM members").fetchone()[0] >= kept + 6
             assert d.execute("SELECT 1 FROM practices WHERE location='Preview Pool'").fetchone()
@@ -120,11 +121,32 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     finally:
         os.environ.pop("IS_PULL_REQUEST", None)
         clear_preview_rows()
-    assert "Personal messages" in html and "#everyone" in html and "practice chat" in html
+    assert "Direct chats" in html and "everyone" in html and "Practice chat" in html and "Message the coaches" in html
     assert "Create channel" not in html
     assert "Your teams" in inbox and ">Grunions<" in inbox and "Direct" in inbox
     assert 'data-place="everything"' in inbox
     assert 'data-place="me"' in mine and ">Calendar<" in mine and ">Profile<" in mine
+
+
+def test_practice_chat_is_read_only_after_seven_days():
+    member = client()
+    join(member, "Bea", "Lock", "bea.lock@example.com")
+    old = (A.today_pt() - __import__("datetime").timedelta(days=10)).isoformat()
+    recent = (A.today_pt() - __import__("datetime").timedelta(days=2)).isoformat()
+    with A.app.app_context():
+        d = A.db()
+        old_id = d.execute("INSERT INTO practices(date, start, end, location, sport, title) VALUES(?,?,?,?,?,?)",
+                           (old, "19:00", "20:30", "Lock Pool", "Water Polo", "Old preview")).lastrowid
+        new_id = d.execute("INSERT INTO practices(date, start, end, location, sport, title) VALUES(?,?,?,?,?,?)",
+                           (recent, "19:00", "20:30", "Fresh Pool", "Water Polo", "Recent preview")).lastrowid
+        d.commit()
+    old_page = member.get("/chat?c=practice:%d" % old_id).get_data(as_text=True)
+    assert "read-only" in old_page and "disabled" in old_page.split("id=body", 1)[1].split(">", 1)[0]
+    token = re.search(r'const CSRF="([^"]+)"', member.get("/chat?c=practice:%d" % new_id).get_data(as_text=True)).group(1)
+    blocked = member.post("/api/messages?c=practice:%d" % old_id, json={"body": "too late"}, headers={"X-CSRF": token})
+    assert blocked.status_code == 403
+    allowed = member.post("/api/messages?c=practice:%d" % new_id, json={"body": "still open"}, headers={"X-CSRF": token})
+    assert allowed.status_code == 200
 
 
 def test_programs_start_with_water_polo_on_and_swimming_off():
