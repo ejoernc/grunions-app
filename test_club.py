@@ -233,6 +233,27 @@ def test_coaches_thread_mutes_from_the_name_not_a_week_chip():
     assert "Browse channels." in listing and "Left list" not in listing and 'class="newrow actdanger"' in listing and 'class="newrow danger"' not in listing.split("id=chatActions", 1)[1].split("</dialog>", 1)[0]
 
 
+def test_schedule_is_not_the_old_home_and_profile_sheets_open():
+    member = client()
+    join(member, "Nia", "Sched", "nia.sched@example.com")
+    other = client()
+    join(other, "Sam", "Rivera", "sam.sched@example.com")
+    admin = client()
+    join(admin, "Eli", "Admin", "eli.sched@example.com")
+    with A.app.app_context():
+        d = A.db()
+        d.execute("UPDATE members SET is_admin=1 WHERE email='eli.sched@example.com'")
+        sam = d.execute("SELECT id FROM members WHERE email='sam.sched@example.com'").fetchone()[0]
+        d.commit()
+    schedule = member.get("/practices").get_data(as_text=True)
+    head = schedule.split("<main>", 1)[0]
+    assert ">Schedule</h1>" in head and "Hi, Nia" not in head and "Enter your USAWP membership number" not in schedule and "Allow notifications" not in schedule and "id=schedule" in schedule
+    own = member.get("/profile").get_data(as_text=True)
+    assert "Edit profile" in own and "Type DELETE to confirm" in own and "id=deleteGo" in own and "Legal name" in own
+    staff = admin.get("/profile/%d" % sam).get_data(as_text=True)
+    assert "Merge duplicate." in staff and "Remove Sam from Grunions?" in staff and "Edit Sam's details" in staff and "Keep which details?" in staff and "Send request" in staff
+
+
 def test_profile_views_hide_contact_and_privacy_hides_the_roster():
     member = client()
     join(member, "Nia", "Member", "nia.view@example.com")

@@ -378,6 +378,8 @@ header.profilebar #profileEdit{display:none !important}
 .r2switch i:before{content:"";position:absolute;width:26px;height:26px;left:3px;top:3px;border-radius:50%;background:#fff;transition:transform .15s ease}
 .r2switch input:checked+i{background:var(--r2-lime)}
 .r2switch input:checked+i:before{transform:translateX(20px)}
+.btn-tangerine{background:#FF5A1F;color:#0B0B0C;border:0}
+.btn-tangerine:disabled{opacity:.45}
 .privacyform{max-width:400px}
 @media (min-width:768px){
  body.profilepage .privacyform{margin:24px auto}
@@ -1973,7 +1975,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() and tab == 'chat' %}{% elif me() %}{% call app_header(tab == 'home' or tab == 'practices', ('schedule' if tab == 'practices' else 'home') if (tab == 'home' or tab == 'practices') else '', tab == 'lineup' or (can_host_practice() and tab in ('home', 'practices', 'admin', 'manage'))) %}{% if tab == 'practices' %}<div class=titlestack><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}</h1><h1 class=schedtitle aria-hidden=true>Schedule</h1></div>{{ hi_membership() }}</div>{% elif tab == 'home' %}<div class=displayhead><div class=displayeye>{{ hi_membership() }}</div><h1>Hi, {{ display_first(me()) }}</h1></div>{% elif tab == 'discover' %}<h1>Discover.</h1>{% elif tab == 'calendar' %}<h1>Calendar.</h1>{% elif tab == 'manage' %}<div class=displayhead><p class=displayeye>{% if me().board_member %}Grunions · Board{% elif me().is_admin %}Grunions · Admin{% else %}Grunions · Coach{% endif %}</p><h1>Manage</h1></div>{% elif tab == 'admin' %}<a class=hubback href={{ admin_back|default('/manage') }} aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% elif tab == 'lineup' %}<div class=displayhead><h1>Lineup</h1></div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}{% endcall %}{% else %}<header><a class=brand href=/ aria-label=Regulars><img src="/static/icons/icon-192.png?v=119" alt=""></a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{{ SPORTS.ACTIVITY_NAME.get(x.p.activity_type or 'practice', 'Practice') }}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() and tab == 'chat' %}{% elif me() %}{% call app_header(tab == 'home' or tab == 'practices', ('schedule' if tab == 'practices' else 'home') if (tab == 'home' or tab == 'practices') else '', tab == 'lineup' or (can_host_practice() and tab in ('home', 'practices', 'admin', 'manage'))) %}{% if tab == 'practices' %}<div class=displayhead><h1>Schedule</h1></div>{% elif tab == 'home' %}<div class=displayhead><div class=displayeye>{{ hi_membership() }}</div><h1>Hi, {{ display_first(me()) }}</h1></div>{% elif tab == 'discover' %}<h1>Discover.</h1>{% elif tab == 'calendar' %}<h1>Calendar.</h1>{% elif tab == 'manage' %}<div class=displayhead><p class=displayeye>{% if me().board_member %}Grunions · Board{% elif me().is_admin %}Grunions · Admin{% else %}Grunions · Coach{% endif %}</p><h1>Manage</h1></div>{% elif tab == 'admin' %}<a class=hubback href={{ admin_back|default('/manage') }} aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% elif tab == 'lineup' %}<div class=displayhead><h1>Lineup</h1></div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}{% endcall %}{% else %}<header><a class=brand href=/ aria-label=Regulars><img src="/static/icons/icon-192.png?v=119" alt=""></a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}<div class=card id=pushCard hidden>
@@ -4239,9 +4241,9 @@ T["home"] = """{% if tab=='home' and pins %}
 })();
 </script>
 {% endif %}
-<div class=homealerts>{{ push_card() }}
+{% if tab != 'practices' %}<div class=homealerts>{{ push_card() }}
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
-{% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}</div>
+{% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}</div>{% endif %}
 <div class=homedock>
 {% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set num = (m.usawp_number or '')|trim %}
 {% set ns = namespace(tone='ok') %}
@@ -4249,7 +4251,7 @@ T["home"] = """{% if tab=='home' and pins %}
 {% elif not cl.ok %}{% set ns.tone = 'bad' %}
 {% elif dl is not none and dl <= EXPIRING_DAYS %}{% set ns.tone = 'warn' %}
 {% else %}{% for it in cl.checks %}{% if it.days_left is not none and it.days_left >= 0 and it.days_left <= EXPIRING_DAYS %}{% set ns.tone = 'warn' %}{% endif %}{% endfor %}{% endif %}
-{% if not num %}<div class="card numcard"><div class=nxtitle>Enter your USAWP membership number</div>
+{% if tab != 'practices' and not num %}<div class="card numcard"><div class=nxtitle>Enter your USAWP membership number</div>
 <form method=post action=/home style="margin-top:12px">{{csrf_field()}}
 <label>USAWP Membership #<input name=usawp_number inputmode=numeric value="" autocomplete=off></label>
 <button class="btn btn-primary full">Save</button>
@@ -4440,6 +4442,13 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 </div>
 </form>
 {% if ptab == 'general' %}
+{% if not (m.usawp_number or '')|trim %}
+<div class="card numcard"><div class=nxtitle>Enter your USAWP membership number</div>
+<form method=post action=/home style="margin-top:12px">{{ csrf_field() }}
+<label>USAWP Membership #<input name=usawp_number inputmode=numeric value="" autocomplete=off></label>
+<button class="btn btn-primary full">Save</button></form>
+<p class=t3><a href=/notifications>Notification settings</a></p>
+</div>{% endif %}
 <div class=seclabel>Cleared sports</div>
 <div class=sporthead><b>Grunions</b>{% if m.is_admin or m.board_member %}<span class=minichip>Admin</span>{% elif m.role == 'coach' %}<span class=minichip>Coach</span>{% endif %}</div>
 {% set mine_clear = clearance(m) %}
@@ -4475,8 +4484,33 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <button type=button class=newrow data-menu=edit><span class=grow><b>Edit profile</b><small>Name, email, phone</small></span><span class=chatgo>›</span></button>
 <a class=newrow href=/privacy><span class=grow><b>Privacy</b><small>Who sees your email and phone</small></span><span class=chatgo>›</span></a>
 </div>
-<form method=post action=/profile/delete class=newcard>{{ csrf_field() }}<button class="newrow actdanger"><span class=grow><b>Delete account</b><small>Leaves every club. Can't be undone.</small></span></button></form>
+<button type=button class="newrow actdanger" data-menu=delete><span class=grow><b>Delete account</b><small>Leaves every club. Can't be undone.</small></span></button>
 <p class=t3>Delete account lives here and in Settings › Account. It's yours alone — admins can only remove you from their club.</p>
+</div></dialog>
+<dialog id=editSheet class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
+<form method=post action=/profile>{{ csrf_field() }}<input type=hidden name=action value=identity>
+<h2 class=newtitle>Edit profile</h2>
+<label>Legal name<input name=first value="{{ m.first }}" required autocomplete=off></label>
+<label>Last name<input name=last value="{{ m.last }}" required autocomplete=off></label>
+<label>Preferred name<input name=preferred_first value="{{ m.preferred_first or '' }}" autocomplete=off></label>
+<label>Pronouns<input name=pronouns value="{{ m.pronouns or '' }}" placeholder="she/her" autocomplete=off></label>
+<label>Email<input name=email type=email value="{{ m.email }}" required autocomplete=email></label>
+<label>Phone<input name=phone type=tel inputmode=numeric value="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}" required autocomplete=tel></label>
+<p class=t3>Your legal name is only shown to club admins. Changing your email changes how you sign in.</p>
+<button class="btn btn-primary full">Save</button>
+</form></div></dialog>
+<dialog id=deleteSheet class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
+<form method=post action=/profile/delete>{{ csrf_field() }}
+<h2 class=newtitle>Delete your account?</h2>
+<p class=t3>This can't be undone.</p>
+<p><b>You'll leave</b><br>Grunions and every other club.</p>
+<p><b>Deleted</b><br>Profile, photo, compliance records, direct chats.</p>
+<p><b>Stays</b><br>Team chat messages show as “Former member”.</p>
+<label>Type DELETE to confirm<input id=deleteWord name=confirm autocomplete=off></label>
+<button class="btn btn-tangerine full" id=deleteGo disabled>Delete account</button>
+</form>
+<button type=button class="btn btn-secondary full" onclick="this.closest('dialog').close()">Cancel</button>
+<p class=t3>Want a break instead? Leave a single club from its page.</p>
 </div></dialog>
 <script>
 (function(){
@@ -4513,7 +4547,9 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
  var more=document.getElementById('profileMore'), selfMenu=document.getElementById('selfMenu');
  function placeMenu(el){ if(!el||window.innerWidth<768){ if(el){el.style.left='';el.style.top='';el.classList.remove('popover');} return; } el.classList.add('popover'); var w=el.classList.contains('privacy')?400:340; var r=more.getBoundingClientRect(); var left=Math.max(16, Math.min(window.innerWidth-16-w, r.right-w)); var top=r.bottom+8; el.style.left=left+'px'; el.style.top=top+'px'; el.style.margin='0'; }
  if(more&&selfMenu) more.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(selfMenu); else selfMenu.showModal(); requestAnimationFrame(function(){ placeMenu(selfMenu); }); };
- if(selfMenu) selfMenu.addEventListener('click', function(e){ var b=e.target.closest&&e.target.closest('[data-menu]'); if(!b) return; if(window.grunionsCloseSheet) grunionsCloseSheet(selfMenu); else selfMenu.close(); if(b.getAttribute('data-menu')==='photo') openPhoto(); else document.getElementById('profileEdit').click(); });
+ function openNamed(id){ var el=document.getElementById(id); if(!el) return; if(window.grunionsOpenSheet) grunionsOpenSheet(el); else el.showModal(); placeMenu(el); }
+ if(selfMenu) selfMenu.addEventListener('click', function(e){ var b=e.target.closest&&e.target.closest('[data-menu]'); if(!b) return; var kind=b.getAttribute('data-menu'); if(window.grunionsCloseSheet) grunionsCloseSheet(selfMenu); else selfMenu.close(); if(kind==='photo') openPhoto(); else if(kind==='edit') openNamed('editSheet'); else if(kind==='delete') openNamed('deleteSheet'); });
+ var delBox=document.getElementById('deleteWord'); if(delBox) delBox.addEventListener('input', function(){ var go=document.getElementById('deleteGo'); if(go) go.disabled=delBox.value!=='DELETE'; });
  if(/[?&]edit=1/.test(location.search)) enter();
  document.getElementById('profileCancel').onclick=leave;
  document.getElementById('profileBack').onclick=function(){ grunionsLeave('/home'); };
@@ -4714,8 +4750,9 @@ T["person"] = """<div class=profilehero>
 {% if staff %}
 <div class=newcard>
 <a class=newrow href="{{ message_href }}"><span class=grow><b>Message {{ display_first(m) }}</b><small>From you, not the board</small></span><span class=chatgo>›</span></a>
-<a class=newrow href="/admin/member/{{ m.id }}"><span class=grow><b>Edit details</b><small>Name, email, phone</small></span><span class=chatgo>›</span></a>
+<button type=button class=newrow data-open=editDetails><span class=grow><b>Edit details</b><small>Name, email, phone</small></span><span class=chatgo>›</span></button>
 <a class=newrow href="/admin/member/{{ m.id }}"><span class=grow><b>Update compliance</b><small>USAWP, SafeSport, background</small></span><span class=chatgo>›</span></a>
+<button type=button class=newrow data-open=mergeSheet><span class=grow><b>Merge duplicate…</b><small>Two accounts for the same person</small></span><span class=chatgo>›</span></button>
 </div>
 <form method=post action="/profile/{{ m.id }}/role" class=newcard>{{ csrf_field() }}
 <p class=t3>Change role · Member, coach or admin in Grunions</p>
@@ -4724,7 +4761,7 @@ T["person"] = """<div class=profilehero>
 <button class=newrow name=role value=admin><b>Admin</b></button>
 </form>
 <div class=newcard>
-<form method=post action="/profile/{{ m.id }}/remove">{{ csrf_field() }}<button class="newrow actdanger"><span class=grow><b>Remove from Grunions</b><small>{{ display_first(m) }}'s account and other clubs stay</small></span></button></form>
+<button type=button class="newrow actdanger" data-open=removeSheet><span class=grow><b>Remove from Grunions</b><small>{{ display_first(m) }}'s account and other clubs stay</small></span></button>
 </div>
 <p class=t3>Only Grunions admins see these. Nothing here changes {{ display_first(m) }}'s other clubs.</p>
 {% else %}
@@ -4736,16 +4773,91 @@ T["person"] = """<div class=profilehero>
 <p class=t3>Members don't see compliance, contact info or roles.</p>
 {% endif %}
 </div></dialog>
+{% if staff %}
+<dialog id=editDetails class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
+<form method=post action="/profile/{{ m.id }}/details">{{ csrf_field() }}
+<h2 class=newtitle>Edit {{ display_first(m) }}'s details</h2>
+<label>Legal name<input name=first value="{{ m.first }}" required></label>
+<label>Last name<input name=last value="{{ m.last }}" required></label>
+<label>Preferred name<input name=preferred_first value="{{ m.preferred_first or '' }}"></label>
+<label>Email<input name=email type=email value="{{ m.email }}" required></label>
+<label>Phone<input name=phone value="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}" required></label>
+<p class=t3>{{ display_first(m) }} gets an email about any change. USAWP and SafeSport numbers are {{ display_first(m) }}'s to edit — you can only mark their status. The preview does not send that email.</p>
+<button class="btn btn-primary full">Save</button>
+</form></div></dialog>
+<dialog id=removeSheet class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
+<form method=post action="/profile/{{ m.id }}/remove">{{ csrf_field() }}
+<h2 class=newtitle>Remove {{ display_first(m) }} from Grunions?</h2>
+<p>{{ display_first(m) }}'s account stays. Only Grunions access ends.</p>
+<p><b>Leaves</b><br>Grunions chats, schedule and lineup.</p>
+<p><b>Kept</b><br>Attendance history in your club records.</p>
+<p><b>Not affected</b><br>{{ display_first(m) }}'s other clubs and login.</p>
+<button class="btn btn-tangerine full">Remove from Grunions</button>
+</form>
+<button type=button class="btn btn-secondary full" onclick="this.closest('dialog').close()">Cancel</button>
+<p class=t3>{{ display_first(m) }} gets an email. You can add {{ display_first(m) }} back from Manage › People. The preview does not send that email.</p>
+</div></dialog>
+<dialog id=mergeSheet class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
+<form method=post action="/profile/{{ m.id }}/merge" id=mergeForm>{{ csrf_field() }}
+<input type=hidden name=other id=mergeOther>
+<input type=hidden name=step id=mergeStep value=merge>
+<h2 class=newtitle id=mergeTitle>Merge duplicate.</h2>
+<div id=mergeFind>
+<p class=t3>Which account is also {{ display_first(m) }} {{ m.last }}? We look for the same email, phone or name in Grunions.</p>
+<p class=r2caps>Likely matches</p>
+<div id=mergeMatches></div>
+<label>Search<input id=mergeSearch placeholder="Search name, email or phone" autocomplete=off></label>
+<button type=button class="btn btn-primary full" id=mergeContinue disabled>Continue</button>
+</div>
+<div id=mergeKeep hidden>
+<p class=t3>Keep which details? Pick one for each. Everything else is combined.</p>
+<div id=mergeFields></div>
+<p class=r2caps>Combined automatically</p>
+<p class=t3>Attendance counts add. Compliance keeps the newest valid record. Role in Grunions keeps the higher of the two. Chats and history move into one inbox.</p>
+<button type=button class="btn btn-primary full" id=mergeReview>Review merge</button>
+</div>
+<div id=mergeConfirm hidden>
+<p id=mergeConfirmCopy></p>
+<button class="btn btn-primary full" id=mergeGo>Merge accounts</button>
+</div>
+<div id=mergeAsk hidden>
+<p id=mergeAskCopy></p>
+<p class=t3>Not affected until they confirm. Until then, both accounts stay as they are.</p>
+<button class="btn btn-primary full" id=mergeAskGo>Send request</button>
+</div>
+<div id=mergeDone hidden>
+<h2 class=newtitle>Merged.</h2>
+<p id=mergeDoneCopy></p>
+</div>
+</form></div></dialog>
+<script type="application/json" id=mergeData>{{ people|tojson }}</script>
+{% endif %}
 <script>
 (function(){
  var more=document.getElementById('profileMore'), menu=document.getElementById('personMenu');
- if(!more||!menu) return;
- more.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(menu); else menu.showModal();
-  if(window.innerWidth<768){ menu.style.left=''; menu.style.top=''; menu.classList.remove('popover'); return; }
-  menu.classList.add('popover'); var w=340, r=more.getBoundingClientRect();
-  menu.style.left=Math.max(16, Math.min(window.innerWidth-16-w, r.right-w))+'px';
-  menu.style.top=(r.bottom+8)+'px'; menu.style.margin='0';
+ function place(el){ if(!el) return; if(window.innerWidth<768){ el.style.left=''; el.style.top=''; el.classList.remove('popover'); return; } el.classList.add('popover'); var w=340, r=more.getBoundingClientRect(); el.style.left=Math.max(16, Math.min(window.innerWidth-16-w, r.right-w))+'px'; el.style.top=(r.bottom+8)+'px'; el.style.margin='0'; }
+ function open(el){ if(!el) return; if(window.grunionsOpenSheet) grunionsOpenSheet(el); else el.showModal(); place(el); }
+ if(more&&menu) more.onclick=function(){ open(menu); };
+ if(menu) menu.addEventListener('click', function(e){ var b=e.target.closest&&e.target.closest('[data-open]'); if(!b) return; var el=document.getElementById(b.getAttribute('data-open')); if(window.grunionsCloseSheet) grunionsCloseSheet(menu); else menu.close(); open(el); });
+ var raw=document.getElementById('mergeData'); if(!raw) return;
+ var people=[]; try{ people=JSON.parse(raw.textContent||'[]'); }catch(err){ people=[]; }
+ var picked=null, kept=document.getElementById('m');
+ var first=({{ display_first(m)|tojson }}+' '+{{ m.last|tojson }}).trim();
+ function show(id){ ['mergeFind','mergeKeep','mergeConfirm','mergeAsk','mergeDone'].forEach(function(n){ var el=document.getElementById(n); if(el) el.hidden=n!==id; }); }
+ function paint(){
+  var q=(document.getElementById('mergeSearch').value||'').trim().toLowerCase();
+  var list=people.filter(function(p){ if(!q) return p.likely; return (p.name+' '+p.email+' '+p.phone).toLowerCase().indexOf(q)>=0; });
+  document.getElementById('mergeMatches').innerHTML=list.map(function(p){ return '<button type=button class="newrow'+(picked&&picked.id===p.id?' on':'')+'" data-pick="'+p.id+'"><span class=grow><b>'+p.name+'</b><small>'+(p.chips||'Search result')+'</small></span></button>'; }).join('')||'<p class=t3>No matches.</p>';
+  document.getElementById('mergeContinue').disabled=!picked;
+ }
+ document.getElementById('mergeSearch').addEventListener('input', function(){ picked=null; paint(); });
+ document.getElementById('mergeMatches').addEventListener('click', function(e){ var b=e.target.closest('[data-pick]'); if(!b) return; picked=people.filter(function(p){ return String(p.id)===b.getAttribute('data-pick'); })[0]; paint(); });
+ document.getElementById('mergeContinue').onclick=function(){ if(!picked) return; document.getElementById('mergeOther').value=picked.id; document.getElementById('mergeTitle').textContent='Keep which details?'; var rows=['name','email','phone','photo']; document.getElementById('mergeFields').innerHTML=rows.map(function(key){ var a=picked.fields[key], b=picked.keep[key]; return '<p><b>'+key+'</b><br><label><input type=radio name=keep_'+key+' value=other checked> '+a+'</label><br><label><input type=radio name=keep_'+key+' value=kept> '+b+'</label></p>'; }).join(''); show('mergeKeep'); };
+ document.getElementById('mergeReview').onclick=function(){
+  if(picked.other){ document.getElementById('mergeStep').value='ask'; document.getElementById('mergeTitle').textContent='Needs '+picked.name.split(' ')[0]; document.getElementById('mergeAskCopy').textContent=picked.name+' is also in '+picked.other+'. You can only merge accounts that are just in Grunions. We will ask them to confirm by signing in to both. Other club: not affected until they confirm.'; document.getElementById('mergeAskGo').textContent='Send request to '+picked.name.split(' ')[0]; show('mergeAsk'); return; }
+  document.getElementById('mergeStep').value='merge'; document.getElementById('mergeTitle').textContent='Merge into '+first+'?'; document.getElementById('mergeConfirmCopy').textContent=picked.name+"'s login stops working. "+first.split(' ')[0]+' gets an email that the accounts were merged. You can undo this for 30 days from Manage › People › History. The preview does not send that email.'; show('mergeConfirm');
  };
+ paint();
 })();
 </script>"""
 

@@ -247,7 +247,7 @@ def migrate_members(d):
                  ("board_member", "INTEGER DEFAULT 0"),
                  ("show_attendance", "INTEGER DEFAULT 1"), ("show_pronouns", "INTEGER DEFAULT 1"),
                  ("messages_outside", "INTEGER DEFAULT 0"), ("show_in_picker", "INTEGER DEFAULT 1"),
-                 ("share_exact_location", "INTEGER DEFAULT 1")):
+                 ("share_exact_location", "INTEGER DEFAULT 1"), ("pronouns", "TEXT"), ("other_clubs", "TEXT")):
         if c not in cols: d.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
     # /join always stores a phone. Existing registrations keep Google sign-in; a blank phone is not one.
     cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
@@ -1468,6 +1468,23 @@ def profile():
             d.rollback()
             if wants_json: return jsonify(error=str(e)), 400
             flash(str(e)); return redirect("/profile")
+    if request.method == "POST" and request.form.get("action") == "identity":
+        first = clean_legal(request.form.get("first"))
+        last = clean_legal(request.form.get("last"))
+        email = (request.form.get("email") or "").strip().lower()
+        phone = normalize_phone(request.form.get("phone"))
+        if not first or not last or not re.match(r"[^@\s]+@[^@\s]+\.[^@\s]+$", email) or not phone:
+            flash("Check the name, email, and phone.", "toast")
+            return redirect("/profile")
+        taken = d.execute("SELECT id FROM members WHERE email=? AND id!=?", (email, m["id"])).fetchone()
+        if taken:
+            flash("That email is already in use.", "toast")
+            return redirect("/profile")
+        d.execute("UPDATE members SET first=?, last=?, preferred_first=?, pronouns=?, email=?, phone=? WHERE id=?",
+                  (first, last, clean_preferred(request.form.get("preferred_first")), (request.form.get("pronouns") or "").strip()[:40], email, phone, m["id"]))
+        d.commit()
+        flash("Saved", "toast")
+        return redirect("/profile")
     if request.method == "POST" and request.form.get("action") == "save":
         phone = normalize_phone(request.form.get("phone"))
         if not phone:
@@ -1550,6 +1567,9 @@ def privacy():
 def delete_own_account():
     """Leaves this club. The row stays so history is not rewritten; the person is signed out."""
     d = db(); mid = me()["id"]
+    if (request.form.get("confirm") or "") != "DELETE":
+        flash("Type DELETE to confirm.", "toast")
+        return redirect("/profile")
     d.execute("UPDATE members SET joined=0 WHERE id=?", (mid,))
     d.commit()
     session.clear()
@@ -1583,7 +1603,7 @@ def person_profile(mid):
         safesport=(cred or {}).get("safesport") if cred else "",
         background=(cred or {}).get("background") if cred else "",
         message_href="/chat?c=%s&place=me" % dm_channel(me()["id"], mid),
-        dm=dm_channel(me()["id"], mid))
+        dm=dm_channel(me()["id"], mid), people=_merge_people(d, m) if staff else [])
 @app.route("/profile/<int:mid>/role", methods=["POST"])
 @login_required
 def person_role(mid):
@@ -1622,6 +1642,110 @@ def person_report(mid):
     d.commit()
     flash("Sent to the Grunions admins.", "toast")
     return redirect("/profile/%d" % mid)
+def _merge_people(d, person):
+    phone = normalize_phone(person["phone"] or "")
+    keep_name = ("%s %s" % (display_first(person), person["last"] or "")).strip()
+    out = []
+    for other in d.execute("SELECT * FROM members WHERE id!=? AND COALESCE(role,'')!='system'", (person["id"],)):
+        chips = []
+        other_phone = normalize_phone(other["phone"] or "")
+        if phone and other_phone and phone == other_phone:
+            chips.append("Same phone")
+        if (other["last"] or "").strip().lower() and (other["last"] or "").strip().lower() == (person["last"] or "").strip().lower():
+            chips.append("Similar name")
+        name = ("%s %s" % (display_first(other), other["last"] or "")).strip()
+        clubs = ""
+        try:
+            clubs = (other["other_clubs"] or "").strip()
+        except (KeyError, IndexError):
+            clubs = ""
+        out.append({
+            "id": other["id"], "name": name, "email": other["email"] or "", "phone": other["phone"] or "",
+            "likely": bool(chips), "chips": " · ".join(chips), "other": clubs,
+            "fields": {"name": name, "email": other["email"] or "—", "phone": other["phone"] or "—", "photo": "Their photo" if other["photo"] else "No photo"},
+            "keep": {"name": keep_name, "email": person["email"] or "—", "phone": person["phone"] or "—", "photo": "This photo" if person["photo"] else "No photo"},
+        })
+    return out
+def _ensure_merge_tables(d):
+    d.execute("""CREATE TABLE IF NOT EXISTS merge_requests(id INTEGER PRIMARY KEY, kept_id INTEGER, other_id INTEGER, at TEXT, status TEXT)""")
+    d.execute("""CREATE TABLE IF NOT EXISTS merge_undos(id INTEGER PRIMARY KEY, kept_id INTEGER, other_id INTEGER, snapshot TEXT, until TEXT, undone INTEGER DEFAULT 0)""")
+@app.route("/profile/<int:mid>/details", methods=["POST"])
+@login_required
+def person_details(mid):
+    if not is_club_admin() or mid == me()["id"]: abort(403)
+    d = db()
+    first = clean_legal(request.form.get("first"))
+    last = clean_legal(request.form.get("last"))
+    email = (request.form.get("email") or "").strip().lower()
+    phone = normalize_phone(request.form.get("phone"))
+    if not first or not last or not phone or not re.match(r"[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        flash("Check the name, email, and phone.", "toast")
+        return redirect("/profile/%d" % mid)
+    if d.execute("SELECT id FROM members WHERE email=? AND id!=?", (email, mid)).fetchone():
+        flash("That email is already in use.", "toast")
+        return redirect("/profile/%d" % mid)
+    d.execute("UPDATE members SET first=?, last=?, preferred_first=?, email=?, phone=? WHERE id=?",
+              (first, last, clean_preferred(request.form.get("preferred_first")), email, phone, mid))
+    d.commit()
+    flash("Saved. No email is sent from the preview.", "toast")
+    return redirect("/profile/%d" % mid)
+@app.route("/profile/<int:mid>/merge", methods=["POST"])
+@login_required
+def person_merge(mid):
+    """Preview merge. The other login is parked and can be restored for 30 days. No email is sent."""
+    if not is_club_admin(): abort(403)
+    d = db()
+    kept = d.execute("SELECT * FROM members WHERE id=?", (mid,)).fetchone()
+    other = d.execute("SELECT * FROM members WHERE id=?", (request.form.get("other", type=int),)).fetchone()
+    if not kept or not other or other["id"] == kept["id"]: abort(404)
+    _ensure_merge_tables(d)
+    clubs = ""
+    try:
+        clubs = (other["other_clubs"] or "").strip()
+    except (KeyError, IndexError):
+        clubs = ""
+    if request.form.get("step") == "ask" or clubs:
+        d.execute("INSERT INTO merge_requests(kept_id, other_id, at, status) VALUES(?,?,?, 'asked')", (kept["id"], other["id"], utc_stamp()))
+        d.commit()
+        flash("Request recorded. No email is sent from the preview.", "toast")
+        return redirect("/profile/%d" % mid)
+    use_other = request.form.get("keep_name") == "other"
+    snapshot = json.dumps({
+        "kept": {"first": kept["first"], "last": kept["last"], "preferred_first": kept["preferred_first"], "email": kept["email"], "phone": kept["phone"], "photo": kept["photo"]},
+        "other": {"email": other["email"], "joined": other["joined"], "first": other["first"], "last": other["last"]},
+    })
+    until = (today_pt() + dt.timedelta(days=30)).isoformat()
+    taken_email = other["email"]
+    d.execute("UPDATE members SET email=?, joined=0 WHERE id=?", ("merged-%d@preview.regulars.invalid" % other["id"], other["id"]))
+    if use_other:
+        d.execute("UPDATE members SET first=?, last=?, preferred_first=? WHERE id=?", (other["first"], other["last"], other["preferred_first"], kept["id"]))
+    if request.form.get("keep_email") == "other":
+        d.execute("UPDATE members SET email=? WHERE id=?", (taken_email, kept["id"]))
+    if request.form.get("keep_phone") == "other":
+        d.execute("UPDATE members SET phone=? WHERE id=?", (other["phone"], kept["id"]))
+    if request.form.get("keep_photo") == "other" and other["photo"]:
+        d.execute("UPDATE members SET photo=? WHERE id=?", (other["photo"], kept["id"]))
+    d.execute("INSERT INTO merge_undos(kept_id, other_id, snapshot, until) VALUES(?,?,?,?)", (kept["id"], other["id"], snapshot, until))
+    d.commit()
+    flash("Merged. Undo is available until %s. No email is sent from the preview." % until, "toast")
+    return redirect("/profile/%d" % mid)
+@app.route("/profile/merge/<int:uid>/undo", methods=["POST"])
+@login_required
+def person_merge_undo(uid):
+    if not is_club_admin(): abort(403)
+    d = db()
+    _ensure_merge_tables(d)
+    row = d.execute("SELECT * FROM merge_undos WHERE id=? AND undone=0", (uid,)).fetchone()
+    if not row or row["until"] < today_pt().isoformat(): abort(404)
+    snap = json.loads(row["snapshot"])
+    kept, other = snap["kept"], snap["other"]
+    d.execute("UPDATE members SET first=?, last=?, preferred_first=?, email=?, phone=?, photo=? WHERE id=?",
+              (kept["first"], kept["last"], kept["preferred_first"], kept["email"], kept["phone"], kept["photo"], row["kept_id"]))
+    d.execute("UPDATE members SET email=?, joined=? WHERE id=?", (other["email"], other["joined"], row["other_id"]))
+    d.execute("UPDATE merge_undos SET undone=1 WHERE id=?", (uid,))
+    d.commit()
+    flash("Merge undone.", "toast")
+    return redirect("/profile/%d" % row["kept_id"])
 
 # ---------- unread badges ----------
 def empty_unread():
