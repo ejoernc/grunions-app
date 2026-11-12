@@ -182,7 +182,8 @@ def test_coaches_thread_mutes_from_the_name_not_a_week_chip():
     page = member.get("/chat?c=team").get_data(as_text=True)
     assert "Mute for a week" not in page and "value=week" not in page
     assert ">1 hour<" in page and ">8 hours<" in page and ">Until tomorrow<" in page and ">Until I turn it back on<" in page
-    assert 'id=threadName' in page and "<a class=brand" not in page.split("<main>", 1)[0]
+    assert 'id=threadName' in page and 'id=threadMore' in page and "Grunions Aquatics" in page and "Grunion Aquatics" not in page
+    assert 'class=cheadback' in page and 'cheadmark lime' in page and "<a class=brand" not in page.split("<main>", 1)[0]
     assert "daydiv" in page
     form = page.split(".composer form{", 1)[1].split("}", 1)[0]
     assert "align-items:center" in form and "min-height:60px" in form and "padding:6px 6px 6px 8px" in form

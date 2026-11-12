@@ -709,6 +709,16 @@ button.earlier{width:100%;height:auto;min-height:0;margin:0;padding:8px 0 4px;ba
 .threadbar button{border:0;background:transparent;padding:0;color:var(--r2-paper);font:700 17px/1.2 var(--r2-font-sans);cursor:pointer}
 .threadmore{display:none;margin-left:auto;width:36px;height:36px;border-radius:999px;align-items:center;justify-content:center;font:700 20px/1 var(--r2-font-sans)}
 @media (min-width:768px){.threadmore{display:inline-flex}}
+.chead{display:flex;align-items:center;gap:10px;height:48px;margin:0 0 8px;padding:4px 0;box-sizing:border-box}
+.cheadback,.cheadmore{width:40px;height:40px;flex:none;border:0;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);display:inline-flex;align-items:center;justify-content:center;padding:0;text-decoration:none;cursor:pointer}
+.cheadmore{margin-left:0;font:700 13px/1 var(--r2-font-sans);letter-spacing:.12em}
+.cheadmark{width:40px;height:40px;flex:none;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 18px/1 var(--r2-font-display)}
+.cheadmark img{width:100%;height:100%;object-fit:cover;display:block}
+.cheadmark.sun{background:var(--r2-sun)}.cheadmark.mango{background:var(--r2-mango)}.cheadmark.bubble{background:var(--r2-bubblegum)}.cheadmark.grape{background:var(--r2-grape)}.cheadmark.sky{background:var(--r2-sky)}.cheadmark.lime{background:var(--r2-lime)}
+.cheadname{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:0;background:transparent;padding:0;text-align:left;cursor:pointer;color:inherit}
+.cheadname b{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 18px/1 var(--r2-font-display);color:var(--r2-paper)}
+.cheadname small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 12px/1.2 var(--r2-font-sans);color:var(--r2-smoke)}
+@media (min-width:768px){.cheadback{display:none}}
 .daydiv{align-self:center;text-align:center;margin:18px auto 6px;color:#8B8F93;font:700 10px/1.3 var(--r2-font-sans);letter-spacing:.08em}
 .exact{display:none;margin-top:3px;color:#8B8F93;font:700 11px/1.2 var(--r2-font-sans)}
 .m.showtime .exact{display:block}

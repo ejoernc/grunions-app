@@ -3102,14 +3102,65 @@ def _thread_title(d, m, ch):
     if ch.startswith("practice:"):
         return "Practice chat"
     return "Chat"
+def _joined_count(d):
+    return d.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1").fetchone()[0]
+def _thread_people(d, ch):
+    if ch == "board":
+        return d.execute("SELECT COUNT(*) FROM members WHERE COALESCE(board_member,0)=1").fetchone()[0]
+    if ch == "coaches":
+        return d.execute("SELECT COUNT(*) FROM members WHERE role='coach' AND COALESCE(joined,0)=1").fetchone()[0]
+    if ch.startswith("coach:"):
+        slug = ch.split(":", 1)[1]
+        return d.execute("""SELECT COUNT(*) FROM program_coaches c JOIN programs p ON p.id=c.program_id WHERE p.slug=?""", (slug,)).fetchone()[0]
+    return _joined_count(d)
+def _thread_subtitle(d, ch):
+    if ch.startswith("dm:"):
+        return "Direct"
+    if ch.startswith("grp:"):
+        return "Group · Grunions Aquatics"
+    n = _thread_people(d, ch)
+    return "%d %s · Grunions Aquatics" % (n, "person" if n == 1 else "people")
+def _thread_mark(d, m, ch):
+    """40×40 rounded-square mark. Channels use # on the inbox color. A 1:1 uses a photo or initials."""
+    if ch.startswith("dm:"):
+        parts = ch.split(":")
+        other = int(parts[2]) if int(parts[1]) == m["id"] else int(parts[1])
+        person = d.execute("SELECT first, last, preferred_first, photo FROM members WHERE id=?", (other,)).fetchone()
+        if person and person["photo"]:
+            return '<span class="cheadmark sky"><img src="/avatar/%d?v=%s" alt=""></span>' % (other, escape(str(person["photo"])))
+        name = _other_dm_name(d, ch, m["id"]) if person else "Someone"
+        letters = ("".join(part[:1] for part in name.split()[:2]) or "?").upper()
+        return '<span class="cheadmark sky">%s</span>' % escape(letters)
+    if ch.startswith("grp:"):
+        title = _thread_title(d, m, ch)
+        letters = ("".join(part[:1] for part in title.split()[:2]) or "G").upper()
+        return '<span class="cheadmark sky">%s</span>' % escape(letters)
+    tone = "lime"
+    if ch == "board":
+        tone = "grape"
+    elif ch == "coaches" or ch.startswith("coach:"):
+        tone = "sky"
+    elif ch.startswith("ch:"):
+        tone = {"water-polo": "sun", "social": "mango", "womens-open": "bubble"}.get(ch.split(":", 1)[1], "sun")
+    return '<span class="cheadmark %s">#</span>' % tone
+def _thread_back():
+    place = (request.args.get("place") or "").strip()
+    if place == "me":
+        return "/inbox?place=me"
+    if place == "everything":
+        return "/inbox"
+    return "/chat?view=list"
 def _thread_bar(d, m, ch):
-    """The name opens chat actions. Mute never sits in the transcript."""
+    """2.0 / Chat header. The title and the more button open chat actions."""
     title = _thread_title(d, m, ch)
     kind, required, manage, profile, permanent = _action_meta(ch)
-    return ('<div class=threadbar><button type=button id=threadName data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s" data-permanent="%s">%s</button>'
-            '<button type=button class=threadmore id=threadMore aria-label="Chat actions" data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s" data-permanent="%s">⋯</button></div>'
-            ) % (escape(ch), kind, required, manage, escape(title), escape(profile), permanent, escape(title),
-                 escape(ch), kind, required, manage, escape(title), escape(profile), permanent)
+    attrs = 'data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s" data-permanent="%s"' % (
+        escape(ch), kind, required, manage, escape(title), escape(profile), permanent)
+    chevron = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    return ('<div class=chead><a class=cheadback href="%s" aria-label="Back">%s</a>%s'
+            '<button type=button class=cheadname id=threadName %s><b>%s</b><small>%s</small></button>'
+            '<button type=button class=cheadmore id=threadMore aria-label="Chat actions" %s>•••</button></div>'
+            ) % (escape(_thread_back()), chevron, _thread_mark(d, m, ch), attrs, escape(title), escape(_thread_subtitle(d, ch)), attrs)
 def _actions_bundle():
     """One sheet for a long-press in the inbox or a tap on the thread title."""
     token = csrf_field()
