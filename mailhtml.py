@@ -4,14 +4,14 @@ import os
 
 ORG_NAME = "Grunions Water Polo"
 TAGLINE = "Built for the people who show up."
-LIME = "#C4E65A"
-INK = "#141614"
-MUTED = "#5C6560"
-PAGE = "#F3F4F0"
+LIME = "#C8FF3C"
+INK = "#17181A"
+MUTED = "#6A6E73"
+PAGE = "#F3F1EB"
 CARD = "#FFFFFF"
-WASH = "#F4F8E8"
-LINE = "#E4E7E0"
-EYEBROW = "#5E6B24"
+WASH = "#F3F1EB"
+LINE = "#E6E2D9"
+EYEBROW = "#4A6A00"
 FONT = "'Space Grotesk','Plus Jakarta Sans',Arial,Helvetica,sans-serif"
 
 def html_emails_enabled():
@@ -46,7 +46,7 @@ def render_email(eyebrow, headline, paragraphs, logo_url, cta=None, rows=None, n
         block += (
             '<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:6px 0 18px;">'
             '<tr><td bgcolor="%s" style="border-radius:12px;background:%s;">'
-            '<a href="%s" style="display:inline-block;padding:14px 22px;font-family:%s;font-size:16px;line-height:20px;font-weight:700;color:#ffffff;text-decoration:none;">%s</a>'
+            '<a href="%s" style="display:inline-block;padding:14px 22px;font-family:%s;font-size:16px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;">%s</a>'
             '</td></tr></table>' % (INK, INK, _a(url), FONT, _e(label)))
     if note:
         title, body = note
@@ -87,7 +87,7 @@ def render_email(eyebrow, headline, paragraphs, logo_url, cta=None, rows=None, n
         '<p style="margin:0 0 10px;font-family:%s;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.08em;color:%s;">%s</p>'
         '<h1 style="margin:0 0 16px;font-family:%s;font-size:32px;line-height:38px;font-weight:700;color:%s;">%s</h1>'
         '%s%s</td></tr>'
-        '<tr><td bgcolor="#F7F8F5" style="padding:18px 28px 20px;background:#F7F8F5;border-top:1px solid %s;border-radius:0 0 20px 20px;">'
+        '<tr><td bgcolor="#F3F1EB" style="padding:18px 28px 20px;background:#F3F1EB;border-top:1px solid %s;border-radius:0 0 20px 20px;">'
         '<p style="margin:0;font-family:%s;font-size:14px;line-height:21px;color:%s;">Sent by <strong>Regulars</strong> for %s.</p>'
         '</td></tr></table>'
         '<p style="margin:16px 0 0;font-family:%s;font-size:13px;line-height:18px;color:%s;">%s</p>'

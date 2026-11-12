@@ -11,6 +11,7 @@ import mailhtml
 import publicfeed
 import sportspay
 import flows2
+import components
 import routing
 import sports
 import ui
@@ -465,6 +466,7 @@ def nav_context():
             "everything_href": "/discover" if SHOW_DISCOVER else "/home",
             "everything_sub": "Discover · map · chat" if SHOW_DISCOVER else "Map · chat",
             "show_find": SHOW_FIND_TEAM}
+app.jinja_env.globals.update(components.jinja_globals())
 app.jinja_env.globals.update(display_first=display_first, initials=initials, fmt_phone=fmt_phone, nav_context=nav_context, nav_icon=ui.nav_icon)
 # applies_to: all | athlete | coach. keywords: normalized substrings to find this item's columns in a Sport:80 export.
 DEFAULT_REQS = [("SafeSport training", "all", "safesport", 1), ("Background screening", "coach", "background", 1)]
@@ -1193,7 +1195,7 @@ def page(body, tab="", **kw):
 def webmanifest():
     resp = Response(json.dumps({
         "name": "Regulars", "short_name": "Regulars", "start_url": "/", "scope": "/", "display": "standalone",
-        "background_color": "#0A0D0A", "theme_color": "#0A0D0A",
+        "background_color": "#0B0B0C", "theme_color": "#0B0B0C",
         "icons": [
             {"src": "/static/icons/icon-192.png?v=119", "sizes": "192x192", "type": "image/png", "purpose": "any"},
             {"src": "/static/icons/icon-512.png?v=119", "sizes": "512x512", "type": "image/png", "purpose": "any"},
@@ -1218,7 +1220,8 @@ def inbox():
 @app.route("/calendar")
 @login_required
 def calendar():
-    """Me Calendar. 09.03 / 09.04 are still titled Schedule in the file; the tab stays Calendar."""
+    """Me › Calendar (09.03 / 09.04): everything you're going to or went to, across teams, colored by type.
+    Built only from components (rg_head, rg_seg, rg_filters, rg_day, rg_event)."""
     d = db()
     m = me()
     today = today_pt().isoformat()
@@ -1229,66 +1232,66 @@ def calendar():
     if kind not in ("all", "practices", "lineup", "scrimmages", "games"):
         kind = "all"
     items = []
-    if show != "availability" and kind in ("all", "practices"):
-        op, order = (">=", "") if show == "upcoming" else ("<", " DESC")
-        rows = d.execute("""SELECT p.id, p.date, p.start, p.title, p.sport,
-            (SELECT r.going FROM rsvps r WHERE r.practice_id=p.id AND r.member_id=?) AS going
+    op, order = (">=", "") if show == "upcoming" else ("<", " DESC")
+    want = {"practices": "practice", "scrimmages": "scrimmage", "games": "game"}.get(kind)
+    if show != "availability" and kind != "lineup":
+        rows = d.execute("""SELECT p.id, p.date, p.start, p.title, p.sport, COALESCE(p.activity_type,'practice') AS kind,
+            (SELECT r.going FROM rsvps r WHERE r.practice_id=p.id AND r.member_id=?) AS going,
+            EXISTS(SELECT 1 FROM practice_coaches c WHERE c.practice_id=p.id AND c.member_id=?) AS coaching
             FROM practices p WHERE COALESCE(p.cancelled,0)=0 AND COALESCE(p.skipped,0)=0 AND p.date%s?
-            ORDER BY p.date%s, p.start""" % (op, order), (m["id"], today)).fetchall()
+            ORDER BY p.date%s, p.start""" % (op, order), (m["id"], m["id"], today)).fetchall()
         for row in rows:
-            if row["going"] == 1:
-                state = "going"
-            elif row["going"] == 0:
-                state = "not going"
-            else:
-                state = "open"
-            clock = fmt_t(row["start"]).replace("am", " AM").replace("pm", " PM") if row["start"] else "Practice"
-            title = (row["title"] or row["sport"] or "Practice").strip()
-            items.append((row["date"], "/practices/%d" % row["id"], "%s · %s" % (clock, title), "Grunions · %s" % state))
+            k = (row["kind"] or "practice").lower()
+            if want and k != want:
+                continue
+            if not (row["going"] == 1 or row["coaching"]):
+                continue
+            state = "you're coaching" if row["coaching"] else ("went" if show == "past" else "going")
+            clock = fmt_clock(row["start"]) if row["start"] else ""
+            title = (row["title"] or k.capitalize()).strip()
+            items.append((row["date"], row["start"] or "", "/practices/%d" % row["id"], ("%s · %s" % (clock, title)) if clock else title,
+                          "%s · %s" % (org_short(), state), components.event_tone("coaching" if row["coaching"] else k)))
     if show != "availability" and kind in ("all", "lineup"):
-        op, order = (">=", "") if show == "upcoming" else ("<", " DESC")
         try:
-            events = d.execute("""SELECT e.id, e.date, e.title,
+            events = d.execute("""SELECT e.id, e.date, e.title, e.event_type,
                 (SELECT r.state FROM lineup_rsvps r WHERE r.event_id=e.id AND r.member_id=?) AS state
                 FROM lineup_events e WHERE COALESCE(e.status,'published')='published' AND e.date%s?
                 ORDER BY e.date%s""" % (op, order), (m["id"], today)).fetchall()
         except sqlite3.OperationalError:
             events = []
         for event in events:
-            state = event["state"] or "open"
-            if state == "going":
-                state = "registered"
-            items.append((event["date"], "/lineup/%d" % event["id"], event["title"] or "Lineup", "Lineup · %s" % state))
-    items.sort(key=lambda item: item[0] or "", reverse=(show == "past"))
-    def chip(name, value, current, param):
-        on = " on" if current == value else ""
-        query = "when=%s&kind=%s" % ((value if param == "when" else show), (value if param == "kind" else kind))
-        return '<a class="%s" href="/calendar?%s">%s</a>' % (on.strip() or "", query, escape(name))
-    when_bar = '<div class=calwhen>%s%s%s</div>' % (
-        chip("Upcoming", "upcoming", show, "when"), chip("Past", "past", show, "when"), chip("Availability", "availability", show, "when"))
-    kind_bar = '<div class=calkinds>%s%s%s%s%s</div>' % (
-        chip("All", "all", kind, "kind"), chip("Practices", "practices", kind, "kind"),
-        chip("Scrimmages", "scrimmages", kind, "kind"), chip("Games", "games", kind, "kind"),
-        chip("Lineup", "lineup", kind, "kind"))
+            state = event["state"] or ""
+            if state not in ("going", "registered", "interested"):
+                continue
+            items.append((event["date"], "", "/lineup/%d" % event["id"], event["title"] or "Lineup",
+                          "Lineup · %s" % ("registered" if state == "going" else state), components.event_tone(event["event_type"] or "lineup")))
+    items.sort(key=lambda item: (item[0] or "", item[1]), reverse=(show == "past"))
+    when_items = [(v, l, "/calendar?when=%s&kind=%s" % (v, kind)) for v, l in (("upcoming", "Upcoming"), ("past", "Past"), ("availability", "Availability"))]
+    kind_items = [(v, l, "/calendar?when=%s&kind=%s" % (show, v)) for v, l in (("all", "All"), ("practices", "Practices"), ("scrimmages", "Scrimmages"), ("games", "Games"), ("lineup", "Lineup"))]
+    out = [components.seg(when_items, show)]
     if show == "availability":
-        rows_html = '<p class="t3">Availability is not a list on this preview.</p>'
-    elif kind in ("scrimmages", "games"):
-        rows_html = '<p class="t3">Nothing in this view.</p>'
+        picked = [x for x in (m["avail_days"] or "").split(",") if x]
+        out.append(components.info("YOUR USUAL WEEK", ", ".join(picked) if picked else "Not set yet"))
+        out.append(components.callout("Set the days you can usually play", "We mark practices that fit your week", "Edit →", "/setup/week", "lime"))
     else:
-        bits, last = [], None
-        for day, href, title, sub in items:
+        out.append(components.filters(kind_items, kind))
+        last = None
+        for day, _start, href, title, sub, tone in items:
             try:
                 parsed = dt.date.fromisoformat(str(day)[:10])
                 label = "%s %d" % (parsed.strftime("%a").upper(), parsed.day)
             except ValueError:
                 label = str(day)
             if label != last:
-                bits.append('<p class=calday>%s</p>' % escape(label))
-                last = label
-            bits.append('<a class="calrow r2-event-row" data-r2="event-row" href="%s"><span class="r2-avatar av" style="background:#FFC61A;color:#0B0B0C">%s</span><span class=grow><b>%s</b><small>%s</small></span><span class=go aria-hidden=true>›</span></a>'
-                        % (escape(href), escape(label[:1]), escape(title), escape(sub)))
-        rows_html = "".join(bits) or '<p class="t3">Nothing on this calendar.</p>'
-    return page(when_bar + kind_bar + rows_html, tab="calendar")
+                out.append(components.day(label)); last = label
+            out.append(components.event_line(href, title, sub, tone))
+        if not items:
+            out.append(components.empty("Nothing here yet." if show == "upcoming" else "Nothing yet.",
+                                        "Tap Going on a practice or Lineup event and it shows up here." if show == "upcoming" else "Practices and events you went to show up here.",
+                                        "Open the schedule" if show == "upcoming" else "", "/practices"))
+    return page('<div class=rg-screen>%s</div>' % "".join(str(x) for x in out), tab="calendar")
+def org_short():
+    return (org_name() or "Team").split()[0]
 @app.route("/find")
 @login_required
 def find_team():
@@ -1898,7 +1901,7 @@ def msg_dict(r):
         elif r["reply_image"]: text = "Photo"
         else: text = ""
         reply = {"id": r["reply_to"], "who": "%s %s." % (who, (r["rlast"] or "")[:1]), "body": text}
-    return {"id": r["id"], "uid": r["member_id"], "body": "" if deleted else (r["body"] or ""), "ann": bool(r["announcement"]), "at": (r["at"] or "") + "Z",
+    return {"id": r["id"], "uid": r["member_id"], "body": "" if deleted else (r["body"] or ""), "ann": bool(r["announcement"]), "at": _utc_iso(r["at"]),
             "who": f'{display_first(r)} {r["last"][:1]}.', "mine": mine, "admin": bool(r["is_admin"]),
             "edited": edited and not deleted, "deleted": deleted,
             "deleted_at": (r["deleted_at"] if deleted and "deleted_at" in r.keys() else None) or None,
@@ -2295,6 +2298,13 @@ def with_seen(d, channel, rows, info=None):
         if info and int(item["id"]) == int(info["id"]): item["seen"] = info
         out.append(item)
     return out
+def _utc_iso(raw):
+    """Message times go to the browser as one ISO form. Some rows already end in Z (preview seed); never add a second."""
+    raw = str(raw or "").strip()
+    if not raw:
+        return ""
+    raw = raw.replace(" ", "T").replace("+00:00", "Z")
+    return raw if raw.endswith("Z") else raw + "Z"
 def utc_stamp():
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 def deleted_cutoff():
@@ -2764,15 +2774,17 @@ def _action_attrs(channel, title):
     admin = 1 if (me() and is_club_admin()) else 0
     return ('data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s" data-permanent="%s" data-people="%d" data-muted="%d" data-mute="%s" data-pinned="%d" data-admin="%d"'
             % (escape(channel or ""), kind, required, manage, escape(_plain_chat_title(title)), escape(profile), permanent, people, muted, escape(mute_label), pinned, admin))
+_ROW_TONE = {"bubble": "bubblegum"}
 def _chat_row(href, mark, title, sub, when="", n=0, tone="sun", muted=False):
+    """Chat list row. Rendered by components.row(kind='chat') so every chat list matches 2.0 / List row."""
     channel = ""
     found = re.search(r"[?&]c=([^\"&]+)", href or "")
     if found:
         channel = found.group(1)
     kind, _required, _manage, _profile, _permanent = _action_meta(channel)
     attrs = (' ' + _action_attrs(channel, title)) if channel and kind else ""
-    return ('<a class=chatrow href="%s"%s><span class="mark %s">%s</span><span class=grow><b>%s</b><small>%s</small></span>%s</a>'
-            % (href, attrs, tone, mark, title, escape(sub or ""), _chat_side(when, n, muted)))
+    return str(components.row(Markup(title), sub or "", href, lead=Markup(mark), lead_tone=_ROW_TONE.get(tone, tone),
+                              kind="chat", trail=("Muted" if muted else when), badge=("" if muted or not n else n), extra=attrs, muted=muted))
 def _clock_face(hhmm):
     try:
         hour, minute = [int(x) for x in str(hhmm or "0:00").split(":")[:2]]
@@ -3241,15 +3253,9 @@ def _practice_sessions(d, mid):
         ORDER BY p.date DESC LIMIT 20""", (today, mid, mid)).fetchall()
     return upcoming, earlier
 def _history_row(href, mark, title, sub, meta="", unread=0, featured=False):
-    """06.27 / 06.39. One sun row, then quiet graphite circles."""
-    klass = "chatrow histrow upnext" if featured else "chatrow histrow"
-    tone = "sun" if featured else "graphite"
-    bits = ""
-    if meta or unread:
-        badge = '<span class=unread>%d</span>' % unread if unread else ""
-        bits = '<span class=chatside>%s%s</span>' % (('<span class=chattime>%s</span>' % escape(meta)) if meta else "", badge)
-    return ('<a class="%s" href="%s"><span class="mark %s">%s</span><span class=grow><b>%s</b><small>%s</small></span>%s</a>'
-            % (klass, href, tone, mark, escape(title), escape(sub or ""), bits))
+    """06.27 / 06.39. The next session is sun; the rest are graphite. Same list-row component as every chat row."""
+    return str(components.row(title, sub or "", href, lead=Markup(mark), lead_tone="sun" if featured else "graphite",
+                              kind="chat", trail=meta, badge=unread or ""))
 def _session_row(d, mid, row, featured=False, upcoming=False):
     ch = "practice:%d" % row["id"]
     preview, _when = channel_preview(d, ch)
@@ -3818,12 +3824,12 @@ def _actions_bundle():
         'form.dataset.lock=t.getAttribute("data-lock")||"";'
         'if(form.dataset.lock==="board"){form.audience.value="board";form.dataset.kept="1";}'
         'if(window.grunionsPaintRequest)grunionsPaintRequest();openBox(document.getElementById("requestSheet"), t);}});'
-        'var hold,held=false;document.addEventListener("pointerdown",function(e){var row=e.target.closest&&e.target.closest("a.chatrow[data-ch],a.practcard[data-ch]");if(!row)return;'
+        'var hold,held=false;document.addEventListener("pointerdown",function(e){var row=e.target.closest&&e.target.closest("a.chatrow[data-ch],a.rg-row[data-ch],a.practcard[data-ch]");if(!row)return;'
         'held=false;hold=setTimeout(function(){held=true;openActions(row);},480);});'
-        'document.addEventListener("click",function(e){if(!held)return;if(e.target.closest&&e.target.closest("a.chatrow[data-ch],a.practcard[data-ch]")){e.preventDefault();held=false;}},true);'
+        'document.addEventListener("click",function(e){if(!held)return;if(e.target.closest&&e.target.closest("a.chatrow[data-ch],a.rg-row[data-ch],a.practcard[data-ch]")){e.preventDefault();held=false;}},true);'
         'document.addEventListener("pointerup",function(){clearTimeout(hold);});'
         'document.addEventListener("pointermove",function(){clearTimeout(hold);});'
-        'document.addEventListener("contextmenu",function(e){var row=e.target.closest&&e.target.closest("a.chatrow[data-ch],a.practcard[data-ch]");if(!row)return;e.preventDefault();openActions(row);});'
+        'document.addEventListener("contextmenu",function(e){var row=e.target.closest&&e.target.closest("a.chatrow[data-ch],a.rg-row[data-ch],a.practcard[data-ch]");if(!row)return;e.preventDefault();openActions(row);});'
         '})();</script>'
     )
     return html + script
@@ -7923,7 +7929,7 @@ def _manage_week(d, admin):
         n = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (p["id"],)).fetchone()[0]
         kind = ((p["activity_type"] if "activity_type" in p.keys() else "") or "practice").lower()
         label = {"scrimmage": "Scrimmage", "game": "Game"}.get(kind, "Practice")
-        tone = "sky" if kind == "practice" else "ink"
+        tone = components.event_tone(kind, bool(p["cancelled"]) if "cancelled" in p.keys() else False)
         wd = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.date.fromisoformat(p["date"]).weekday()]
         place = ((p["location"] or "").split(",")[0] or "Pool")
         if admin:
@@ -7947,7 +7953,7 @@ def _manage_week(d, admin):
                     kind = (e["event_type"] if "event_type" in e.keys() and e["event_type"] else "") or (e["subtype"] if "subtype" in e.keys() else "") or "Event"
                     wd = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.date.fromisoformat(str(e["date"])[:10]).weekday()]
                     items.append({"title": "%s · %s" % (wd, e["title"]), "meta": "%s · %s" % (kind, place or "Lineup"),
-                                  "href": "/lineup/%d/edit" % e["id"], "action": "Edit", "tone": "ink",
+                                  "href": "/lineup/%d/edit" % e["id"], "action": "Edit", "tone": components.event_tone(e["event_type"] if "event_type" in e.keys() else "lineup"),
                                   "sort": (str(e["date"]), "", e["id"])})
                 except (TypeError, ValueError):
                     continue
@@ -9378,23 +9384,23 @@ def growth_chart(joined, verified, today=None):
         seen_x.append(x)
         text = "%s %d" % (day.strftime("%b"), day.day) if kind in ("day", "week") or day.year == today.year else "%s %s" % (day.strftime("%b"), str(day.year)[2:])
         anchor = "start" if x < 40 else ("end" if x > W - 40 else "middle")
-        labels.append('<text x="%s" y="124" text-anchor="%s" fill="#BEC9C1" font-size="12">%s</text>' % (x, anchor, escape(text)))
+        labels.append('<text x="%s" y="124" text-anchor="%s" fill="#8B8F93" font-size="12">%s</text>' % (x, anchor, escape(text)))
     parts = ['<svg viewBox="0 0 %d %d" role="img" aria-label="%s">' % (W, H, escape("Members. " + sub))]
     for frac in (0, 0.5, 1):
         y = round(B - (B - T) * frac, 1)
-        parts.append('<line x1="%d" y1="%s" x2="%d" y2="%s" stroke="#1B221E" stroke-width="1"/>' % (L, y, R, y))
+        parts.append('<line x1="%d" y1="%s" x2="%d" y2="%s" stroke="#17181A" stroke-width="1"/>' % (L, y, R, y))
     if any(v for _d, _n, v in points):
         if len(points) == 1:
             x, y = xy(points[0][0], points[0][2])
-            parts.append('<circle cx="%s" cy="%s" r="2.5" fill="#BEC9C1"/>' % (x, y))
+            parts.append('<circle cx="%s" cy="%s" r="2.5" fill="#8B8F93"/>' % (x, y))
         else:
-            parts.append('<polyline points="%s" fill="none" stroke="#BEC9C1" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>' % ver_pts)
+            parts.append('<polyline points="%s" fill="none" stroke="#8B8F93" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>' % ver_pts)
     if len(points) == 1:
         x, y = xy(points[0][0], points[0][1])
-        parts.append('<circle cx="%s" cy="%s" r="3.5" fill="#F2F6F1"/>' % (x, y))
+        parts.append('<circle cx="%s" cy="%s" r="3.5" fill="#F6F4EF"/>' % (x, y))
     else:
-        parts.append('<polyline points="%s" fill="none" stroke="#F2F6F1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' % total_pts)
-    parts.append('<line id=growthMark x1="0" y1="%d" x2="0" y2="%d" stroke="#F2F6F1" stroke-width="1" opacity="0" pointer-events="none"/>' % (T, B))
+        parts.append('<polyline points="%s" fill="none" stroke="#F6F4EF" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' % total_pts)
+    parts.append('<line id=growthMark x1="0" y1="%d" x2="0" y2="%d" stroke="#F6F4EF" stroke-width="1" opacity="0" pointer-events="none"/>' % (T, B))
     parts.extend(labels)
     parts.append("</svg>")
     payload = [{"x": xy(day, n)[0], "label": "%s %d" % (day.strftime("%b"), day.day), "total": n, "verified": v} for day, n, v in points]
@@ -9443,15 +9449,15 @@ def attendance_chart(rows):
     bars = []
     for frac in (0, 0.5, 1):
         y = round(B - (B - T) * frac, 1)
-        parts.append('<line x1="%d" y1="%s" x2="%d" y2="%s" stroke="#1B221E" stroke-width="1"/>' % (L, y, R, y))
+        parts.append('<line x1="%d" y1="%s" x2="%d" y2="%s" stroke="#17181A" stroke-width="1"/>' % (L, y, R, y))
     for i, (day, count) in enumerate(clean):
         h = max(2, round((B - T) * (count / vmax), 1)) if count else 2
         x = round(L + slot * i + (slot - bw) / 2, 1)
         y = round(B - h, 1)
-        parts.append('<rect x="%s" y="%s" width="%s" height="%s" rx="3" fill="#BEC9C1"/>' % (x, y, bw, h))
+        parts.append('<rect x="%s" y="%s" width="%s" height="%s" rx="3" fill="#8B8F93"/>' % (x, y, bw, h))
         label = "%d/%d" % (day.month, day.day) if n > 6 else "%s %d" % (day.strftime("%b"), day.day)
         size = 10 if n > 6 else 12
-        parts.append('<text x="%s" y="124" text-anchor="middle" fill="#BEC9C1" font-size="%d">%s</text>' % (round(x + bw / 2, 1), size, escape(label)))
+        parts.append('<text x="%s" y="124" text-anchor="middle" fill="#8B8F93" font-size="%d">%s</text>' % (round(x + bw / 2, 1), size, escape(label)))
         bars.append({"x": round(x + bw / 2, 1), "label": "%s %d" % (day.strftime("%b"), day.day), "count": count})
     parts.append("</svg>")
     return {"html": Markup("".join(parts)), "title": title, "sub": sub, "avg": avg, "n": n, "dates": [d for d, _c in clean], "bars": bars}
@@ -10876,6 +10882,8 @@ def setup_dismiss():
 def setup_card():
     m = me()
     if not m or ("setup_dismissed" in m.keys() and m["setup_dismissed"]): return None
+    # Only for people who joined through the 2.0 sign-up (10.29–10.33), in their first two weeks.
+    if not (m["birth_date"] or "") or not m["created"] or str(m["created"])[:10] < (today_pt() - dt.timedelta(days=14)).isoformat(): return None
     has_push = bool(db().execute("SELECT 1 FROM push_subscriptions WHERE member_id=? LIMIT 1", (m["id"],)).fetchone())
     steps = flows2.setup_steps(m, has_push)
     done = sum(1 for s in steps if s[1])

@@ -60,13 +60,13 @@ def test_preview_lists_follow_the_practice_and_request_pattern():
         clear_preview_rows()
     assert "Practice chats." in picker and "Your practice chats." not in picker
     assert "Cancelled — pool closed" in picker and "Harbor Invitational" in picker and "Photos from the weekend" in picker
-    assert 'class="chatrow histrow upnext"' in picker
+    assert 'class="rg-row rg-chat"' in picker and 'class="rg-lead tone-sun"' in picker  # next session = sun list row
     assert picker.find("Earlier") < picker.find("Search all practice chats")
     assert "Questions sent to the coaches or the board." in reqs
     assert "Open · " in reqs and "Pool key for Saturday" in reqs and "Does my trial end this week?" in reqs
     assert "Typo in my waiver name" in reqs and "Resolved by Mira" in reqs
     assert reqs.find("Resolved") < reqs.find("Search all requests")
-    assert 'class="chatrow histrow upnext"' in reqs
+    assert 'class="rg-lead tone-sun"' in reqs
 
 
 def test_nav_3_lands_on_schedule_and_lists_only_grunions():
@@ -113,7 +113,7 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     me_tabs = me.split('class="nav3', 1)[1].split("</nav>", 1)[0]
     me_menu = me.split('id="crestMenu"', 1)[1].split("</dialog>", 1)[0]
     assert me_tabs.find(">Calendar<") < me_tabs.find(">Chat<") < me_tabs.find(">Profile<")
-    assert "Upcoming" in me and "Past" in me and ("class=calrow" in me or "Nothing on this calendar." in me)
+    assert "Upcoming" in me and "Past" in me and ("class=\"rg-event tone-" in me or "class=rg-empty" in me)
     assert 'data-tab="calendar" class=on' in me_tabs
     assert ">Schedule<" not in me_tabs and ">Lineup<" not in me_tabs and "Settings" not in me_tabs
     assert "Calendar · chat · profile" in me_menu
@@ -268,7 +268,7 @@ def test_coaches_thread_mutes_from_the_name_not_a_week_chip():
         assert row["until"] == ""
     listing = member.get("/chat?view=list").get_data(as_text=True)
     everyone = listing.split('data-ch="team"', 1)[1].split("</a>", 1)[0]
-    assert "chatmute" in everyone and "unread" not in everyone and 'data-title="everyone"' in everyone
+    assert "Muted" in everyone and "rg-count" not in everyone and 'data-title="everyone"' in everyone
     assert "Browse channels." in listing and "Left list" not in listing and 'class="newrow actdanger"' in listing and 'class="newrow danger"' not in listing.split("id=chatActions", 1)[1].split("</dialog>", 1)[0]
 
 
@@ -288,12 +288,12 @@ def test_schedule_is_not_the_old_home_and_profile_sheets_open():
     head = home.split("<main>", 1)[0]
     assert ">Schedule</h1>" in head and "Hi, Nia" not in head and "Enter your USAWP membership number" not in home and "Allow notifications" not in home and "This week" in home and "View full schedule" in home and "id=schedSheet" in home
     assert ">Hi, Nia.</h1>" in home and "class=hititle" in home and ">Upcoming</h1>" in home and "id=schedFull" not in home and 'class="schedfeed weeklist"' not in home and home.index("mapcontrols") < home.index("id=schedSheet")
-    assert "body.schedopen header.homehead:has(.displayhead){background:var(--color-bg)" in home and "body.schedhome:has(.weekdrawer.full) .weekhi{" in home and "background:#17181A" in home
+    assert "body.schedopen header.homehead:has(.displayhead){background:var(--color-bg)" in home and "body.schedhome:has(.weekdrawer.full) .weekhi{" in home and "background:var(--carbon)" in home
     assert "data-r2=\"lineup-card\"" not in home and ".lcard .lctitle{margin:0;font:700 34px/.95" in home and "main:has(.lineupfilt){padding-bottom:calc(var(--nav-clear) + 80px" in home
     schedule = member.get("/practices?view=list").get_data(as_text=True)
     sched_head = schedule.split("<main>", 1)[0]
-    assert ">Calendar</h1>" in sched_head and ">Schedule</h1>" not in sched_head and 'class="nav3-label">Schedule</span>' in schedule
-    assert "id=schedule" in schedule and "view=list&when=past" in schedule
+    assert ">Schedule</h1>" in sched_head and ">Calendar</h1>" not in sched_head  # Figma Nav 3.0: Team = Schedule and 'class="nav3-label">Schedule</span>' in schedule
+    assert "id=schedule" in schedule and "view=list&amp;when=past" in schedule
     with A.app.app_context():
         d = A.db()
         ago = (A.today_pt() - __import__("datetime").timedelta(days=4)).isoformat()
@@ -527,7 +527,7 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
     page = admin.get("/manage/area/club").get_data(as_text=True)
     assert 'href="/manage/club/programs"' in page and ">Sports</span>" in page
     sports = admin.get("/manage/club/programs").get_data(as_text=True)
-    assert "Water Polo" in sports and "class=mtitle>Swimming" in sports and "Open Water Swimming" in sports and "Pool Swimming" not in sports
+    assert "Water Polo" in sports and "<b>Swimming</b>" in sports and "Open Water Swimming" in sports and "Pool Swimming" not in sports
     assert "Inactive" in sports and "USA Water Polo" in sports and "Add sport" in sports
     assert "href=/manage/area/club" in sports
     detail = admin.get("/manage/club/programs/pool-swimming").get_data(as_text=True)
@@ -1089,7 +1089,7 @@ def test_coach_wrap_up_counts_and_private_note():
     with A.app.app_context():
         A.db().execute("UPDATE members SET is_admin=1 WHERE email='wren.wrap@example.com'"); A.db().commit()
     page = boss.get("/practices/%d/wrap" % pid).get_data(as_text=True)
-    assert "Wrap up." in page and "NO-SHOW" in page
+    assert "Wrap up." in page and "No-show" in page
     boss.post("/practices/%d/wrap" % pid, data=dict(csrf=csrf(boss, "/practices/%d/wrap" % pid), action="close", admin_note="Lane 3 light out", recap="Good set tonight"))
     with A.app.app_context():
         d = A.db(); w = d.execute("SELECT * FROM practice_wraps WHERE practice_id=?", (pid,)).fetchone()

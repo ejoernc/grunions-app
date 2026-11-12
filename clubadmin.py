@@ -971,8 +971,8 @@ def _checks(selected, options, name):
 
 
 def _row(href, title, desc):
-    return '<a class=mrow href="%s"><span class=grow><span class=mtitle>%s</span><span class=mdesc>%s</span></span><span class=mchev>%s</span></a>' % (
-        escape(href), escape(title), escape(desc), CHEV)
+    import components
+    return str(components.row(title, desc, href))
 
 
 def requirement_count(d, program_id):

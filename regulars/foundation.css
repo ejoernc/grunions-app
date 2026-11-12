@@ -1,8 +1,8 @@
 /* Regulars foundation. Change fonts, colors, spacing, and radius here.
    The app paints dark. [data-theme=light] is the light theme.
-   Dark surfaces: Deep Forest #090D0B, Dark Clubhouse #0F1512, Raised #131A16.
-   Subtle Border #1B221E is decorative. Interactive edges use --color-control.
-   Lime #C4E65A is the brand, not success. Deep Cyan is cleared.
+   Dark surfaces: Ink #0B0B0C, Carbon #17181A, Graphite #24262A (Regulars 2.0).
+   Only Figma 01 Foundations colors exist here. Light mode swaps the five neutrals.
+   Lime = primary action / selected / cleared. Tangerine = admin, destructive, not cleared. Sun = expiring.
    Text on the dark surfaces and on the bright fills was checked at 7:1.
    Icons are Phosphor. Headings use Space Grotesk.
    Everything else uses Plus Jakarta Sans. */
@@ -19,34 +19,62 @@
   --font-display: "Space Grotesk", "Plus Jakarta Sans", system-ui, sans-serif;
   --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
 
-  --color-forest: #090D0B;
-  --color-clubhouse: #0F1512;
-  --color-raised: #131A16;
-  --color-chalk: #F2F6F1;
-  --color-lime: #C4E65A;
-  --color-cyan: #50C6CF;
-  --color-yellow: #E4C84D;
-  --color-coral: #F48782;
-  --color-orange: var(--color-coral);
-  --color-cloud: #ADB5B1;
+  /* Regulars 2.0 palette (Figma 01 Foundations). These are the only raw colors in the app.
+     Screens use the semantic names below or these; never a pasted hex. */
+  --ink: #0B0B0C;
+  --carbon: #17181A;
+  --graphite: #24262A;
+  --paper: #F6F4EF;
+  --smoke: #8B8F93;
+  --lime: #C8FF3C;
+  --tide: #162630;
+  --accent-text: #C8FF3C;
+  --fixed-ink: #0B0B0C;
+  --fixed-paper: #F6F4EF;
+  --team-sun: #FFC61A;
+  --team-sky: #7CC8F4;
+  --team-tangerine: #FF5A1F;
+  --team-lime: #C8FF3C;
+  --team-aqua: #2EE6C8;
+  --team-cobalt: #4F7BFF;
+  --team-bubblegum: #FF5FB8;
+  --team-grape: #9B6BFF;
+  --team-cherry: #FF3D57;
+  --team-mango: #FF9F1C;
+  --team-lavender: #A89CFF;
+  --team-sage: #BCD0B9;
+  --team-blush: #FFB4A6;
+  --team-stone: #DDD5C7;
 
-  --color-bg: #090D0B;
-  --color-surface: #0F1512;
-  --color-surface-2: #131A16;
-  --color-border: #1B221E;
+  /* Older names kept so existing rules keep working; they now point at the 2.0 palette. */
+  --color-forest: var(--ink);
+  --color-clubhouse: var(--carbon);
+  --color-raised: var(--graphite);
+  --color-chalk: var(--paper);
+  --color-lime: var(--lime);
+  --color-cyan: var(--team-aqua);
+  --color-yellow: var(--team-sun);
+  --color-coral: var(--team-cherry);
+  --color-orange: var(--team-tangerine);
+  --color-cloud: var(--smoke);
+
+  --color-bg: var(--ink);
+  --color-surface: var(--carbon);
+  --color-surface-2: var(--graphite);
+  --color-border: var(--graphite);
   --color-control: color-mix(in srgb, var(--color-border) 60%, var(--color-text-secondary) 40%);
-  --color-text: #F2F6F1;
-  --color-text-secondary: #BEC9C1;
-  --color-text-tertiary: #BEC9C1;
+  --color-text: var(--paper);
+  --color-text-secondary: var(--smoke);
+  --color-text-tertiary: var(--smoke);
   --color-primary: var(--color-lime);
   --color-on-primary: var(--color-forest);
   --color-icon: var(--color-text);
   --color-chip: var(--color-raised);
   --color-selected: var(--color-lime);
   --color-on-selected: var(--color-forest);
-  --color-status-cleared: var(--color-cyan);
+  --color-status-cleared: var(--lime);
   --color-status-attention: var(--color-yellow);
-  --color-status-not-cleared: var(--color-coral);
+  --color-status-not-cleared: var(--team-tangerine);
   --color-status-unknown: var(--color-cloud);
   --color-hover: color-mix(in srgb, var(--color-raised) 82%, var(--color-text));
   --color-pressed: color-mix(in srgb, var(--color-raised) 70%, var(--color-text));
@@ -54,9 +82,9 @@
   --color-focus: var(--color-lime);
   --color-event: var(--color-text-secondary);
   --color-map: var(--color-clubhouse);
-  --color-scrim: rgba(9, 13, 11, .72);
-  --color-backdrop: rgba(0, 0, 0, .62);
-  --color-lightbox: rgba(0, 0, 0, .92);
+  --color-scrim: rgba(11, 11, 12, .72);
+  --color-backdrop: rgba(11, 11, 12, .62);
+  --color-lightbox: rgba(11, 11, 12, .92);
   --color-sheet: var(--color-raised);
   --color-sheet-border: var(--color-border);
   --color-sheet-handle: var(--color-text-secondary);
@@ -78,12 +106,12 @@
   --color-nav-icon: var(--color-text);
   --color-nav-circle-on: var(--color-lime);
   --color-nav-icon-on: var(--color-forest);
-  --nav-glass-bg: rgba(9, 13, 11, 0.68);
+  --nav-glass-bg: rgba(23, 24, 26, 0.82);
   --nav-glass-blur: blur(20px) saturate(140%);
-  --nav-item-glass: rgba(242, 246, 241, 0.08);
-  --nav-glass-line: rgba(242, 246, 241, 0.08);
-  --nav-item-line: rgba(242, 246, 241, 0.06);
-  --nav-item-glass-hover: rgba(242, 246, 241, 0.12);
+  --nav-item-glass: rgba(246, 244, 239, 0.08);
+  --nav-glass-line: rgba(246, 244, 239, 0.08);
+  --nav-item-line: rgba(246, 244, 239, 0.06);
+  --nav-item-glass-hover: rgba(246, 244, 239, 0.12);
 
   --bg: var(--color-bg);
   --surface: var(--color-surface);
@@ -167,7 +195,7 @@
   --icon-nav: 24px;
   --icon-sm: 16px;
   --icon-md: 20px;
-  --shadow-overlay: 0 10px 28px rgba(0, 0, 0, .45);
+  --shadow-overlay: 0 10px 28px rgba(11, 11, 12, .45);
   --size-button: 48px;
   --field-plan-min: calc(3.5 * var(--type-b1-line) + 24px);
   --size-chip: 36px;
@@ -183,30 +211,30 @@
   /* Regulars 2.0 tokens. The live screens keep the variables above. Nav 3.0 uses these. */
   --r2-font-display: "Space Grotesk", "Plus Jakarta Sans", system-ui, sans-serif;
   --r2-font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
-  --r2-ink: #0B0B0C;
-  --r2-paper: #F6F4EF;
-  --r2-carbon: #17181A;
+  --r2-ink: var(--ink);
+  --r2-paper: var(--paper);
+  --r2-carbon: var(--carbon);
   --r2-nav-translucent: rgba(23, 24, 26, 0.82);
-  --r2-graphite: #24262A;
-  --r2-smoke: #8B8F93;
-  --r2-lime: #C8FF3C;
-  --r2-sun: #FFC61A;
-  --r2-sky: #7CC8F4;
-  --r2-tangerine: #FF5A1F;
-  --r2-lavender: #A89CFF;
-  --r2-sage: #BCD0B9;
-  --r2-stone: #DDD5C7;
-  --r2-blush: #FFB4A6;
-  --r2-aqua: #2EE6C8;
-  --r2-cobalt: #4F7BFF;
-  --r2-bubblegum: #FF5FB8;
-  --r2-grape: #9B6BFF;
-  --r2-cherry: #FF3D57;
-  --r2-mango: #FF9F1C;
-  --r2-tide: #162630;
-  --r2-accent-text: #C8FF3C;
-  --r2-fixed-ink: #0B0B0C;
-  --r2-fixed-paper: #F6F4EF;
+  --r2-graphite: var(--graphite);
+  --r2-smoke: var(--smoke);
+  --r2-lime: var(--lime);
+  --r2-sun: var(--team-sun);
+  --r2-sky: var(--team-sky);
+  --r2-tangerine: var(--team-tangerine);
+  --r2-lavender: var(--team-lavender);
+  --r2-sage: var(--team-sage);
+  --r2-stone: var(--team-stone);
+  --r2-blush: var(--team-blush);
+  --r2-aqua: var(--team-aqua);
+  --r2-cobalt: var(--team-cobalt);
+  --r2-bubblegum: var(--team-bubblegum);
+  --r2-grape: var(--team-grape);
+  --r2-cherry: var(--team-cherry);
+  --r2-mango: var(--team-mango);
+  --r2-tide: var(--tide);
+  --r2-accent-text: var(--accent-text);
+  --r2-fixed-ink: var(--fixed-ink);
+  --r2-fixed-paper: var(--fixed-paper);
   --r2-display-xl: 700 120px/0.86 var(--r2-font-display);
   --r2-display-l: 700 64px/0.9 var(--r2-font-display);
   --r2-display-m: 700 40px/0.95 var(--r2-font-display);
@@ -234,76 +262,32 @@
 
 [data-theme="light"] {
   color-scheme: light;
-  --bg: var(--color-bg);
-  --surface: var(--color-surface);
-  --surface2: var(--color-surface-2);
-  --line: var(--color-border);
-  --t1: var(--color-text);
-  --t2: var(--color-text-secondary);
-  --t3: var(--color-text-tertiary);
-  --accent: var(--color-primary);
-  --ok: var(--color-status-cleared);
-  --bad: var(--color-status-not-cleared);
-  --warn: var(--color-status-attention);
-  --color-bg: #F2F6F1;
-  --color-surface: #FFFFFF;
-  --color-surface-2: #E8EEE9;
-  --color-border: #D9E0DB;
-  --color-control: #5C665F;
-  --color-text: #090D0B;
-  --color-text-secondary: #3A4A40;
-  --color-text-tertiary: #3A4A40;
-  --color-icon: #090D0B;
-  --color-chip: #E8EEE9;
-  --color-on-primary: #090D0B;
-  --color-on-selected: #090D0B;
-  --color-status-cleared: #3F9AA0;
-  --color-status-attention: #9E8C38;
-  --color-status-not-cleared: #774643;
-  --color-status-unknown: #878E8B;
-  --color-hover: #E8EEE9;
-  --color-pressed: #D9E0DB;
-  --color-focus: #090D0B;
-  --color-event: #3A4A40;
-  --color-map: #E4EAE6;
-  --color-scrim: rgba(242, 246, 241, .78);
-  --color-sheet: #FFFFFF;
-  --color-sheet-border: #D9E0DB;
-  --color-sheet-handle: #3A4A40;
-  --color-sheet-row: #F2F6F1;
-  --color-sheet-line: #D9E0DB;
-  --color-badge-border: #D9E0DB;
-  --color-status-attention-border: #9E8C38;
-  --color-status-not-cleared-border: #774643;
-  --color-bubble: #E8EEE9;
-  --color-bubble-mine: #DDE5DF;
-  --color-nav: #FFFFFF;
-  --color-nav-border: #D9E0DB;
-  --color-nav-circle: #E8EEE9;
-  --color-nav-icon: #090D0B;
-  --color-nav-icon-on: #090D0B;
-  background: var(--color-bg);
-  color: var(--color-text);
-  --r2-ink: #F3F1EB;
-  --r2-paper: #0B0B0C;
-  --r2-carbon: #FFFFFF;
+  /* Figma 01 Foundations, light column. Only the neutrals change; team colors stay. */
+  --ink: #F3F1EB;
+  --carbon: #FFFFFF;
+  --graphite: #E6E2D9;
+  --smoke: #6A6E73;
+  --paper: #0B0B0C;
+  --tide: #CFE4EE;
+  --accent-text: #4A6A00;
+  --color-scrim: rgba(243, 241, 235, .78);
+  --nav-glass-bg: rgba(255, 255, 255, 0.82);
   --r2-nav-translucent: rgba(255, 255, 255, 0.82);
-  --r2-graphite: #E6E2D9;
-  --r2-smoke: #6A6E73;
-  --r2-tide: #CFE4EE;
-  --r2-accent-text: #4A6A00;
+  --nav-item-glass: rgba(11, 11, 12, 0.06);
+  --nav-glass-line: rgba(11, 11, 12, 0.08);
+  --nav-item-line: rgba(11, 11, 12, 0.06);
+  --nav-item-glass-hover: rgba(11, 11, 12, 0.1);
 }
 
 /* Regulars 2.0 flows (flows2.py) */
 .fxcard.fxgate{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;margin:12px 0}
 .fxgate .grow,.fxask .grow{display:grid;gap:2px}
 .fxgate small,.fxcard small{color:var(--color-text-secondary)}
-.fxcard.cyan small{color:inherit}
 .fxdark{background:var(--color-forest);color:var(--color-chalk)}
 .fxrides{display:grid;gap:12px;margin:12px 0}
 .fxcard{display:grid;gap:6px;padding:16px;border-radius:var(--radius-card);background:var(--color-surface-2);color:var(--color-text);border:0;text-align:left;font:inherit}
-.fxcard.cyan{background:var(--color-cyan);color:var(--color-forest)}
-.fxcard.cyan small{color:inherit;opacity:.8}
+.fxcard[class*=tone-]{background:var(--tone);color:var(--fixed-ink)}
+.fxcard[class*=tone-] small{color:inherit;opacity:.8}
 .fxcard.fxask{display:flex;align-items:center;gap:12px;cursor:pointer}
 .fxcard .r2-chip{flex:none}
 .fxcard .r2-chip.fxdark{background:var(--color-forest);color:var(--color-chalk);border:0}
@@ -336,3 +320,103 @@
 .fxstep.ok{color:var(--color-text-secondary)}
 .fxtick{width:18px;color:var(--color-cyan)}
 .holdchip{color:var(--color-status-not-cleared)}
+
+/* ===== Regulars 2.0 components (ui.py rg_* macros). One size scale, one palette. ===== */
+:root{--icon-sm:16px;--icon-md:20px;--icon-lg:24px;--row-radius:28px;--event-radius:24px;--callout-radius:24px;--card-radius:32px}
+.rg-ic{display:inline-grid;place-items:center;flex:none;width:var(--icon-md);height:var(--icon-md)}
+.rg-ic svg,.rg-ic img{width:100%;height:100%}
+.rg-ic-sm{width:var(--icon-sm);height:var(--icon-sm)}.rg-ic-lg{width:var(--icon-lg);height:var(--icon-lg)}
+.tone-sun{--tone:var(--team-sun)}.tone-sky{--tone:var(--team-sky)}.tone-tangerine{--tone:var(--team-tangerine)}.tone-lime{--tone:var(--lime)}
+.tone-aqua{--tone:var(--team-aqua)}.tone-cobalt{--tone:var(--team-cobalt)}.tone-bubblegum{--tone:var(--team-bubblegum)}.tone-grape{--tone:var(--team-grape)}
+.tone-cherry{--tone:var(--team-cherry)}.tone-mango{--tone:var(--team-mango)}.tone-lavender{--tone:var(--team-lavender)}.tone-sage{--tone:var(--team-sage)}
+.tone-blush{--tone:var(--team-blush)}.tone-stone{--tone:var(--team-stone)}.tone-graphite{--tone:var(--graphite)}.tone-carbon{--tone:var(--carbon)}
+.rg-head{display:grid;gap:14px;margin:0 0 14px}
+.rg-who{display:grid;gap:2px;padding-left:16px}.rg-who b{font:700 15px/1.2 var(--font-sans);color:var(--paper)}.rg-who small{font:600 11px/1.2 var(--font-sans);color:var(--smoke)}
+.rg-title{margin:0;font:700 64px/.9 var(--font-display);letter-spacing:-.05em;color:var(--paper)}
+.rg-seg{display:flex;width:max-content;max-width:100%;box-sizing:border-box;gap:0;margin:0 0 14px;padding:4px;border-radius:999px;background:var(--graphite)}
+.rg-filters{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.rg-seg a{display:inline-flex;align-items:center;min-height:32px;padding:0 16px;border-radius:999px;background:transparent;color:var(--smoke);font:700 13px/1 var(--font-sans);text-decoration:none}
+.rg-filters a{display:inline-flex;align-items:center;min-height:32px;padding:0 14px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 13px/1 var(--font-sans);text-decoration:none}
+.rg-seg a.on{background:var(--paper);color:var(--ink)}
+.rg-filters a.on{background:var(--lime);color:var(--fixed-ink)}
+.rg-day{margin:18px 0 10px;font:700 11px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--smoke);text-align:left}
+.rg-event,.rg-callout{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;margin:0 0 10px;padding:14px 16px;border:0;border-radius:var(--event-radius);background:var(--tone,var(--team-sun));color:var(--fixed-ink);text-decoration:none;text-align:left;font:inherit;cursor:pointer}
+.rg-txt{display:grid;gap:2px;flex:1;min-width:0}
+.rg-txt b{font:700 15px/1.25 var(--font-sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rg-txt small{font:600 12px/1.3 var(--font-sans);opacity:.78}
+.rg-event .rg-go,.rg-callout .rg-pill{flex:none;display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:28px;padding:0 12px;border-radius:999px;background:var(--fixed-ink);color:var(--fixed-paper);font:700 12px/1 var(--font-sans)}
+.rg-event .rg-badge{flex:none;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--fixed-ink);color:var(--lime);font:700 11px/22px var(--font-sans);text-align:center}
+.rg-callout.tone-graphite,.rg-callout.tone-carbon{color:var(--paper)}
+.rg-callout.tone-graphite .rg-pill,.rg-callout.tone-carbon .rg-pill{background:var(--paper);color:var(--ink)}
+.rg-row{display:flex;align-items:center;gap:14px;box-sizing:border-box;width:100%;margin:0 0 8px;padding:18px 16px 18px 20px;border-radius:var(--row-radius);background:var(--carbon);color:var(--paper);text-decoration:none}
+.rg-row.rg-person{padding:12px 16px 12px 12px}
+.rg-row .rg-txt b{font:700 16px/1.25 var(--font-sans)}
+.rg-row.rg-person .rg-txt b{font:700 18px/1.2 var(--font-display);letter-spacing:-.02em}
+.rg-row .rg-txt small{color:var(--smoke);opacity:1;font:600 13px/1.3 var(--font-sans)}
+.rg-lead{flex:none;display:grid;place-items:center;width:52px;height:52px;border-radius:999px;background:var(--tone,var(--graphite));color:var(--fixed-ink);font:700 18px/1 var(--font-display)}
+.rg-lead:not([class*=tone-]){color:var(--paper)}
+.rg-settings .rg-lead{width:32px;height:32px;font-size:14px}
+.rg-trail{flex:none;color:var(--smoke);font:600 14px/1 var(--font-sans)}
+.rg-chev{flex:none;color:var(--smoke);font:700 20px/1 var(--font-sans)}
+.rg-chip{flex:none;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px 0 10px;border-radius:999px;background:var(--lime);color:var(--fixed-ink);font:700 12px/1 var(--font-sans);white-space:nowrap}
+.rg-chip i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.rg-chip.st-paid{background:var(--team-sage)}.rg-chip.st-expiring{background:var(--team-sun)}.rg-chip.st-notcleared{background:var(--team-tangerine)}
+.rg-chip.st-cleared{background:var(--team-sky)}.rg-chip.st-interested{background:var(--team-lavender)}.rg-chip.st-sport{background:var(--team-stone)}
+.rg-chip.st-neutral{background:var(--graphite);color:var(--paper)}
+.rg-empty{display:grid;gap:16px;justify-items:start;padding:28px;border-radius:40px;background:var(--carbon)}
+.rg-big{font:700 160px/.8 var(--font-display);letter-spacing:-.08em;color:var(--graphite)}
+.rg-empty h2{margin:0;font:700 36px/.92 var(--font-display);letter-spacing:-.05em;color:var(--paper)}
+.rg-empty p{margin:0;color:var(--smoke);font:500 15px/1.4 var(--font-sans)}
+.rg-field{display:grid;gap:6px;margin:0 0 12px}
+.rg-field>span{font:700 11px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--smoke)}
+.rg-field>small{color:var(--smoke);font:500 13px/1.4 var(--font-sans)}
+.rg-page{display:grid;gap:12px;padding:56px 16px calc(var(--nav-clear) + 24px);max-width:560px;margin:0 auto}
+.rg-page>.rg-back{display:inline-flex;align-items:center;gap:6px;color:var(--smoke);text-decoration:none;font:700 14px/1 var(--font-sans)}
+.rg-sec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:24px 0 12px}
+.rg-sec h2{margin:0;font:700 28px/1 var(--font-display);letter-spacing:-.03em;color:var(--paper)}
+.rg-secact{color:var(--accent-text);font:700 14px/1 var(--font-sans);text-decoration:none}
+.rg-ecard{display:grid;gap:16px;box-sizing:border-box;width:100%;margin:0 0 12px;padding:24px;border-radius:40px;background:var(--tone);color:var(--fixed-ink);text-decoration:none}
+.rg-ectop{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px}
+.rg-ek{font:700 11px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase}
+.rg-ecstatus{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:999px;background:var(--fixed-ink);color:var(--lime);font:700 12px/1 var(--font-sans)}
+.rg-ectitle{font:700 30px/1 var(--font-display);letter-spacing:-.03em}
+.rg-ectime{display:flex;align-items:flex-end;gap:10px}
+.rg-ectime>b{font:700 104px/.8 var(--font-display);letter-spacing:-.07em}
+.rg-ectime>span{display:grid;gap:2px;padding-bottom:6px}.rg-ectime i{font:700 18px/1 var(--font-display);font-style:normal}.rg-ectime i+i{font:700 12px/1 var(--font-sans);letter-spacing:.04em}
+.rg-ecfoot{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.rg-ecleft{display:grid;gap:10px;min-width:0}.rg-ecleft small{font:600 13px/1.2 var(--font-sans)}
+.rg-ecwho{display:flex;align-items:center}
+.rg-ecwho i{display:grid;place-items:center;width:32px;height:32px;margin-right:-10px;border-radius:999px;background:var(--fixed-ink);color:var(--fixed-paper);font:700 11px/1 var(--font-display);font-style:normal;box-shadow:0 0 0 2px var(--tone)}
+.rg-ecwho em{padding-left:18px;font:700 14px/1 var(--font-sans);font-style:normal}
+.rg-ecgo{flex:none;display:grid;place-items:center;width:60px;height:60px;border-radius:999px;background:var(--fixed-ink);color:var(--lime);font:700 26px/1 var(--font-sans)}
+.rg-ecard.tone-graphite,.rg-ecard.tone-carbon{color:var(--paper)}
+.rg-erow{display:flex;justify-content:space-between;gap:12px;box-sizing:border-box;width:100%;margin:0 0 12px;padding:20px 20px 20px 24px;border-radius:32px;background:var(--tone);color:var(--fixed-ink);text-decoration:none}
+.rg-erow .rg-txt{gap:6px}.rg-ertop{display:flex;align-items:center;gap:8px}
+.rg-erow b.rg-ertitle{font:700 24px/.95 var(--font-display);letter-spacing:-.03em;white-space:normal}
+.rg-erow .rg-txt small{font:600 12px/1.3 var(--font-sans);opacity:1}
+.rg-ercount{display:grid;justify-items:end;align-content:space-between;flex:none}
+.rg-ercount i{font:700 22px/1 var(--font-sans);font-style:normal}.rg-ercount b{font:700 56px/.85 var(--font-display);letter-spacing:-.06em}.rg-ercount small{font:700 10px/1.2 var(--font-sans);letter-spacing:.08em}
+.rg-erow.tone-graphite{color:var(--paper)}
+.rg-side{display:grid;justify-items:end;gap:4px;flex:none}
+.rg-count{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--lime);color:var(--fixed-ink);font:700 11px/20px var(--font-sans);text-align:center;box-sizing:border-box}
+.rg-row.rg-chat{padding:12px 16px 12px 12px}
+.rg-row.rg-chat .rg-lead{width:48px;height:48px;font-size:16px}
+.rg-row.muted .rg-txt b{color:var(--smoke)}
+.rg-row .rg-trail{font:600 12px/1 var(--font-sans)}
+.rg-metric{display:grid;align-content:space-between;min-height:111px;padding:16px;border-radius:24px;background:var(--tone);color:var(--paper)}
+.rg-metric:not(.tone-carbon):not(.tone-graphite){color:var(--fixed-ink)}
+.rg-metric b{font:700 40px/.9 var(--font-display);letter-spacing:-.04em}
+.rg-metric span{font:700 10px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase}
+.rg-info{display:grid;gap:4px;padding:16px 20px;border-radius:24px;background:var(--carbon)}
+.rg-info span{font:700 10px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--smoke)}
+.rg-info b{font:600 15px/1.4 var(--font-sans);color:var(--paper)}
+.rg-check{display:grid;gap:4px;padding:16px 18px;border-radius:var(--row-radius);background:var(--carbon);margin:0 0 12px}
+.rg-checkhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.rg-checkhead b{font:700 20px/1 var(--font-display);color:var(--paper)}
+.rg-step{display:flex;align-items:center;gap:10px;min-height:36px;color:var(--paper);text-decoration:none}
+.rg-step b{flex:1;font:600 15px/1.2 var(--font-sans)}
+.rg-step.ok{pointer-events:none}.rg-step.ok b{color:var(--smoke)}
+.rg-tick{display:grid;place-items:center;width:20px;height:20px;border-radius:999px;border:1.5px solid var(--smoke);font:700 11px/1 var(--font-sans);box-sizing:border-box}
+.rg-step.ok .rg-tick{border:0;background:var(--lime);color:var(--fixed-ink)}
+.rg-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 12px}
+.rg-screen{padding:0 0 calc(var(--nav-clear) + 24px);max-width:720px;margin:0 auto;box-sizing:border-box}

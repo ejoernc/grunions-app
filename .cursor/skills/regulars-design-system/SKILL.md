@@ -5,6 +5,8 @@ description: Use when changing Grunions UI. Tokens, shared classes, light and da
 
 # Regulars
 
+**Start with `components.py`.** Screens are composed from its functions (Jinja `rg_*`). Colors are only the Figma 2.0 palette (`--ink --carbon --graphite --smoke --paper --lime --team-*`). The older names below (Deep Forest, Clubhouse, Muted Lime, Deep Cyan, Coral) are aliases that now point at the Figma colors; don't use them in new code.
+
 Flask, Jinja, and vanilla CSS. Do not add React, Tailwind, or shadcn code.
 
 The product paints dark. `[data-theme=light]` is the light theme for the preview. Colors are Deep Forest `#090D0B`, Dark Clubhouse `#0F1512`, Raised `#131A16`, Chalk text `#F2F6F1`, Muted Lime `#B2DE64`, Deep Cyan `#50C6CF`, Golden Yellow `#E4C84D`, Coral `#F48782`, and Cloud Gray `#ADB5B1`. Lime is the brand, not success. Cyan is cleared. Icons are Phosphor (Regular, Fill on the selected nav circle, Bold for emphasis) at 16, 20, or 24px. Headings use Space Grotesk. Everything else uses Plus Jakarta Sans.
