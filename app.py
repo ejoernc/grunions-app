@@ -243,7 +243,8 @@ def migrate_members(d):
                  ("usawp_verified_at", "TEXT"), ("sport80_contact_id", "TEXT"), ("preferred_first", "TEXT"),
                  ("trial_acknowledged_at", "TEXT"), ("notify_prefs", "TEXT"),
                  ("email_reminders", "INTEGER DEFAULT 1"), ("practice_reminder", "TEXT DEFAULT 'both'"), ("membership_type", "TEXT"), ("joined", "INTEGER DEFAULT 0"),
-                 ("require_background", "INTEGER DEFAULT 0"), ("photo", "TEXT"), ("trial_claim_until", "TEXT")):
+                 ("require_background", "INTEGER DEFAULT 0"), ("photo", "TEXT"), ("trial_claim_until", "TEXT"),
+                 ("board_member", "INTEGER DEFAULT 0")):
         if c not in cols: d.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
     # /join always stores a phone. Existing registrations keep Google sign-in; a blank phone is not one.
     cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
@@ -395,6 +396,8 @@ def nav_context():
         place = "team"
     if m["is_admin"]:
         role = "Admin"
+    elif is_board_member(m) and (m["role"] or "") != "coach":
+        role = "Board"
     elif (m["role"] or "") == "coach":
         role = "Coach"
     else:
@@ -426,7 +429,7 @@ def nav_context():
             ("pin", "Lineup", "/lineup", here("/lineup") and forced != "me"),
             ("chat", "Chat", "/chat?view=list", here("/chat") and forced not in ("me", "everything")),
         ]
-        if can_host_practice():
+        if can_open_manage():
             tabs.append(("manage", "Manage", "/manage", path.startswith("/manage") or path.startswith("/admin") or path.startswith("/members") or path.startswith("/expiring")))
         crest = "G"
         switch = ("Grunions", role)
@@ -733,10 +736,50 @@ def is_active_coach(m=None):
 def is_staff(m=None):
     """Check-in and coaches chat. Only active coaches."""
     return is_active_coach(m)
-def is_board(m=None):
-    """The board room. Active coaches and admins. There is no separate board role."""
+def is_board_member(m=None):
+    """Board member is its own role. The file's role enum still lists only member, coach, and admin."""
     m = m or me()
-    return bool(m and (m["is_admin"] or (m["role"] or "") == "coach"))
+    if not m:
+        return False
+    try:
+        return bool(m["board_member"])
+    except (KeyError, IndexError):
+        return False
+def is_board(m=None):
+    """The board chat. Board members and admins. A coach is not on the board unless this role is set."""
+    m = m or me()
+    return bool(m and (m["is_admin"] or is_board_member(m)))
+def can_open_manage(m=None):
+    """Manage for coaches, admins, admin lite, and board members. Board members do not become admins."""
+    return can_host_practice(m) or is_board_member(m)
+def club_sports(d):
+    """Sports the club has. Members pick one when they ask that sport's coaches."""
+    try:
+        import clubadmin
+        clubadmin.ensure(d)
+        rows = d.execute("SELECT slug, public_name, name FROM programs ORDER BY name").fetchall()
+    except Exception:
+        rows = []
+    sports = [{"slug": row["slug"], "name": row["public_name"] or row["name"]} for row in rows]
+    return sports or [{"slug": "water-polo", "name": "Water polo"}]
+def coach_sports(d, m):
+    """A coach sees the sports they coach. An admin sees every sport. Anyone else sees none."""
+    if not m:
+        return []
+    sports = club_sports(d)
+    if m["is_admin"]:
+        return sports
+    if (m["role"] or "") != "coach":
+        return []
+    try:
+        import clubadmin
+        slugs = clubadmin.coached_slugs(d, m["id"])
+    except Exception:
+        slugs = set()
+    return [sport for sport in sports if sport["slug"] in slugs]
+def _can_read_coach_chat(ch):
+    slug = ch.split(":", 1)[1]
+    return any(sport["slug"] == slug for sport in coach_sports(db(), me()))
 def can_make_channel(m=None):
     """Official channels. Coach or admin only. Admin lite has no manage-chats grant yet."""
     m = m or me()
@@ -1500,6 +1543,10 @@ def compute_unread(d, member):
     ensure_cancel_notices(d, mid)
     team = chat_unread_n(d, mid, "team")
     coaches = chat_unread_n(d, mid, "coaches") if staff else 0
+    if is_board(member):
+        coaches += chat_unread_n(d, mid, "board")
+    for sport in coach_sports(d, member):
+        coaches += chat_unread_n(d, mid, "coach:" + sport["slug"])
     rows = d.execute("""SELECT n.practice_id AS practice_id, COUNT(*) AS cnt FROM practice_notices n
         JOIN practices p ON p.id=n.practice_id
         WHERE n.member_id=? AND n.seen_at IS NULL AND """ + upcoming_where("p") + " GROUP BY n.practice_id", (mid, *upcoming_bounds())).fetchall()
@@ -1561,8 +1608,12 @@ _CHANNEL_SLUG = re.compile(r"^[a-z0-9-]{1,40}$")
 def parse_channel(ch):
     """team, coaches, practice:<id>, dm:<lo>:<hi>, ch:<slug>, ask:<slug>, grp:<slug>, or req:<id>."""
     ch = (ch or "").strip()
-    if ch in ("team", "coaches"):
+    if ch in ("team", "coaches", "board"):
         return ch
+    if ch.startswith("coach:"):
+        slug = ch.split(":", 1)[1]
+        if _CHANNEL_SLUG.match(slug):
+            return ch
     if ch.startswith("req:"):
         rid = ch.split(":", 1)[1]
         if rid.isdigit():
@@ -1584,7 +1635,11 @@ def can_read(ch):
     if not ch or not me():
         return False
     if ch == "coaches":
+        return is_staff() or bool(me()["is_admin"])
+    if ch == "board":
         return is_board()
+    if ch.startswith("coach:"):
+        return _can_read_coach_chat(ch)
     if ch in ("team",) or ch.startswith(("ch:", "ask:", "grp:")):
         return True
     if ch.startswith("req:"):
@@ -1629,7 +1684,10 @@ def migrate_chat_extras(d):
         updated_at TEXT NOT NULL,
         last_side TEXT,
         staff_replied INTEGER NOT NULL DEFAULT 0,
-        nudged_at TEXT)""")
+        nudged_at TEXT, sport TEXT)""")
+    req_cols = [r[1] for r in d.execute("PRAGMA table_info(club_requests)")]
+    if req_cols and "sport" not in req_cols:
+        d.execute("ALTER TABLE club_requests ADD COLUMN sport TEXT")
     cols = [r[1] for r in d.execute("PRAGMA table_info(chat_channels)")]
     if cols and "rules" not in cols:
         d.execute("ALTER TABLE chat_channels ADD COLUMN rules TEXT")
@@ -1742,6 +1800,20 @@ def seed_preview_club(d):
             (ids["adele.voss@preview.regulars.invalid"], "coaches", now, now)).lastrowid
         say("adele.voss@preview.regulars.invalid", "req:%d" % rid, "Preview: can I switch to drop-in next month?")
     say("mira.solano@preview.regulars.invalid", "coaches", "Preview: Adele asked about drop-in. I said yes.")
+    try:
+        import clubadmin
+        clubadmin.ensure(d)
+        for slug, emails in (("water-polo", ("mira.solano@preview.regulars.invalid",)), ("pool-swimming", ("mira.solano@preview.regulars.invalid",))):
+            program = d.execute("SELECT id FROM programs WHERE slug=?", (slug,)).fetchone()
+            if not program:
+                continue
+            for email in emails:
+                d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (program["id"], ids[email]))
+        d.execute("UPDATE members SET board_member=1, is_admin=0 WHERE email=?", ("priya.nand@preview.regulars.invalid",))
+    except Exception:
+        pass
+    say("mira.solano@preview.regulars.invalid", "coach:water-polo", "Preview: coaches meet at the shallow end.")
+    say("priya.nand@preview.regulars.invalid", "board", "Preview: board notes stay in this room.")
     say("jonah.peck@preview.regulars.invalid", "grp:carpool", "Preview: I can take two on Thursday.")
     say("sasha.reed@preview.regulars.invalid", "grp:carpool", "Preview: I'll ride with Jonah.")
     pch = "practice:%d" % pid
@@ -1761,8 +1833,13 @@ def seed_preview_club(d):
     eli = d.execute("SELECT id, is_admin FROM members WHERE lower(email)=?", (ELI_PREVIEW_EMAIL,)).fetchone()
     if eli:
         if not eli["is_admin"]:
-            d.execute("UPDATE members SET is_admin=1 WHERE id=?", (eli["id"],))
+            d.execute("UPDATE members SET is_admin=1, role='coach' WHERE id=?", (eli["id"],))
             promoted = True
+        else:
+            d.execute("UPDATE members SET role='coach' WHERE id=? AND COALESCE(role,'')!='coach'", (eli["id"],))
+        program = d.execute("SELECT id FROM programs WHERE slug='water-polo'").fetchone()
+        if program:
+            d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (program["id"], eli["id"]))
         d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
             ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (pid, eli["id"]))
         channel = dm_channel(eli["id"], ids["adele.voss@preview.regulars.invalid"])
@@ -2172,8 +2249,13 @@ def chat_tab_unread(d, mid, staff):
     channels = ["team"]
     if staff:
         channels.append("coaches")
+    person = d.execute("SELECT * FROM members WHERE id=?", (mid,)).fetchone()
+    if person and is_board(person):
+        channels.append("board")
+    if person:
+        channels.extend("coach:" + sport["slug"] for sport in coach_sports(d, person))
     channels.extend(row["channel"] for row in d.execute("""SELECT DISTINCT channel FROM messages
-            WHERE channel LIKE 'practice:%' OR channel LIKE 'ch:%' OR channel LIKE 'ask:%' OR channel LIKE 'grp:%' OR channel LIKE 'req:%'"""))
+            WHERE channel LIKE 'practice:%' OR channel LIKE 'ch:%' OR channel LIKE 'ask:%' OR channel LIKE 'grp:%' OR channel LIKE 'req:%' OR channel LIKE 'coach:%'"""))
     channels.extend(row[0] for row in _dm_unread(d, mid)[1])
     total = 0
     seen = set()
@@ -2212,11 +2294,13 @@ def _chat_side(when, n, muted=False):
 def _action_meta(channel):
     """What the chat-actions sheet should offer for this row."""
     if not channel:
-        return "", 0, 0, ""
+        return "", 0, 0, "", ""
     if channel == "team":
-        return "everyone", 1, 1 if can_make_channel() else 0, ""
-    if channel == "coaches":
-        return "channel", 1, 0, ""
+        return "everyone", 1, 1 if can_make_channel() else 0, "", "everyone"
+    if channel == "coaches" or channel.startswith("coach:"):
+        return "channel", 1, 0, "", "coaches"
+    if channel == "board":
+        return "channel", 1, 0, "", "board"
     if channel.startswith("dm:"):
         parts = channel.split(":")
         other = ""
@@ -2224,13 +2308,13 @@ def _action_meta(channel):
             lo, hi = int(parts[1]), int(parts[2])
             oid = hi if lo == me()["id"] else lo
             other = "/chat/person/%d" % oid
-        return "direct", 0, 0, other
+        return "direct", 0, 0, other, ""
     if channel.startswith("grp:"):
-        return "group", 0, 0, ""
+        return "group", 0, 0, "", ""
     if channel.startswith("req:"):
-        return "request", 0, 0, ""
+        return "request", 0, 0, "", ""
     if channel.startswith("practice:"):
-        return "practice", 0, 0, ""
+        return "practice", 0, 0, "", ""
     if channel.startswith("ch:"):
         required = 0
         try:
@@ -2241,19 +2325,19 @@ def _action_meta(channel):
                     required = 1
         except (sqlite3.OperationalError, TypeError, ValueError):
             pass
-        return "channel", required, 1 if can_make_channel() else 0, ""
-    return "", 0, 0, ""
+        return "channel", required, 1 if can_make_channel() else 0, "", ""
+    return "", 0, 0, "", ""
 def _chat_row(href, mark, title, sub, when="", n=0, tone="sun", muted=False):
     channel = ""
     found = re.search(r"[?&]c=([^\"&]+)", href or "")
     if found:
         channel = found.group(1)
-    kind, required, manage, profile = _action_meta(channel)
+    kind, required, manage, profile, permanent = _action_meta(channel)
     plain = re.sub(r"<[^>]+>", "", title or "")
     attrs = ""
     if channel and kind:
-        attrs = ' data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s"' % (
-            escape(channel), kind, required, manage, escape(plain), escape(profile))
+        attrs = ' data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s" data-permanent="%s"' % (
+            escape(channel), kind, required, manage, escape(plain), escape(profile), permanent)
     return ('<a class=chatrow href="%s"%s><span class="mark %s">%s</span><span class=grow><b>%s</b><small>%s</small></span>%s</a>'
             % (href, attrs, tone, mark, title, escape(sub or ""), _chat_side(when, n, muted)))
 def _clock_face(hhmm):
@@ -2333,13 +2417,17 @@ def _new_chat_sheet(d, m, team):
         '</div>')
     club = ""
     if team:
-        rows = ('<button type=button class=newrow data-open-request><span class="mark sun" aria-hidden=true>'
-                '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M8 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm8 0a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16 11ZM8 12.5C5.2 12.5 3 14 3 15.8V17h8v-1.2c0-.7.3-1.4.8-2A7 7 0 0 0 8 12.5Zm8 .5a3.4 3.4 0 0 0-1.4.3 3.4 3.4 0 0 1 1.4 2.8V17h5v-.8c0-1.7-2.2-3.2-5-3.2Z"/></svg></span>'
-                '<span class=grow><b>Ask the club</b><small>A request the coaches or the board can resolve</small></span><span class=chatgo>›</span></button>')
+        if is_active_coach() or (me() and me()["is_admin"]):
+            rows = ('<a class=newrow href="/chat?c=requests"><span class="mark sun" aria-hidden=true>R</span>'
+                    '<span class=grow><b>Requests</b><small>Open requests for your sports</small></span><span class=chatgo>›</span></a>')
+        else:
+            rows = ('<button type=button class=newrow data-open-request><span class="mark sun" aria-hidden=true>'
+                    '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M8 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm8 0a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16 11ZM8 12.5C5.2 12.5 3 14 3 15.8V17h8v-1.2c0-.7.3-1.4.8-2A7 7 0 0 0 8 12.5Zm8 .5a3.4 3.4 0 0 0-1.4.3 3.4 3.4 0 0 1 1.4 2.8V17h5v-.8c0-1.7-2.2-3.2-5-3.2Z"/></svg></span>'
+                    '<span class=grow><b>Ask the club</b><small>A request for one sport\'s coaches, or the board</small></span><span class=chatgo>›</span></button>')
         if is_board():
-            rows += ('<a class=newrow href="/chat?c=coaches"><span class="mark grape" aria-hidden=true>'
+            rows += ('<a class=newrow href="/chat?c=board"><span class="mark grape" aria-hidden=true>'
                      '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3.5 13.6 8H18l-3.6 2.6 1.4 4.4L12 12.4 8.2 15l1.4-4.4L6 8h4.4Z"/></svg></span>'
-                     '<span class=grow><b>Board room</b><small>Board only</small></span><span class=mini>Board</span><span class=chatgo>›</span></a>')
+                     '<span class=grow><b>Board room</b><small>Board only · it can\'t be deleted</small></span><span class=mini>Board</span><span class=chatgo>›</span></a>')
         if can_make_channel():
             rows += ('<button type=button class=newrow data-open-channel><span class="mark mango" aria-hidden=true>+</span>'
                      '<span class=grow><b>New channel</b><small>Official · sport, role or everyone</small></span>'
@@ -2542,7 +2630,7 @@ def chat_sheets(d, m, mode):
     if mode == "team" and can_make_channel():
         html += _channel_sheet(d)
     if mode == "team":
-        html += _request_dialog()
+        html += _request_dialog(d)
     return html + _actions_bundle() + _CHAT_PLUS_JS
 def personal_chat_html(d, m):
     """YOUR TEAMS, then DIRECT. Grunions is the only live team."""
@@ -2553,11 +2641,11 @@ def personal_chat_html(d, m):
     roster = d.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1").fetchone()[0]
     teams = _chat_row("/chat?view=list", "G", "Grunions <span class=count>%d</span>" % roster, blurb, when, total, "lime")
     directs = []
-    if is_staff():
-        n = chat_unread_n(d, mid, "coaches")
-        preview, when = channel_preview(d, "coaches")
-        latest = d.execute("SELECT MAX(id) FROM messages WHERE channel='coaches'").fetchone()[0] or 0
-        directs.append((latest, _chat_row("/chat?c=coaches&place=%s" % place, "B", "Grunions board", preview or "Private to board members", when, n, "grape", chat_muted(d, mid, "coaches"))))
+    if is_board():
+        n = chat_unread_n(d, mid, "board")
+        latest = d.execute("SELECT MAX(id) FROM messages WHERE channel='board'").fetchone()[0] or 0
+        preview, when = channel_preview(d, "board")
+        directs.append((latest, _chat_row("/chat?c=board&place=%s" % place, "B", "Board room", preview or "Private to board members", when, n, "grape", chat_muted(d, mid, "board"))))
     for channel, n, latest in _dm_unread(d, mid)[1]:
         if _hidden_row(d, mid, channel) or _dm_blocked(d, mid, channel):
             continue
@@ -2672,19 +2760,16 @@ def team_chat_html(d, m):
         slug = ch.split(":", 1)[1]
         preview, when = channel_preview(d, ch)
         channels.append(_chat_row("/chat?c=%s" % escape(ch), "#", "%s <span class=count>%d</span>" % (escape(slug), roster), preview or "Team channel", when, chat_unread_n(d, mid, ch), _channel_tone(slug), chat_muted(d, mid, ch)))
-    if is_board():
-        preview, when = channel_preview(d, "coaches")
-        channels.append(_chat_row("/chat?c=coaches", '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7 10V8a5 5 0 0 1 10 0v2h1.2A1.8 1.8 0 0 1 20 11.8v7.4A1.8 1.8 0 0 1 18.2 21H5.8A1.8 1.8 0 0 1 4 19.2v-7.4A1.8 1.8 0 0 1 5.8 10H7Zm2 0h6V8a3 3 0 0 0-6 0v2Z"/></svg>', "Board room", preview or "Private to board members", when, chat_unread_n(d, mid, "coaches"), "grape", chat_muted(d, mid, "coaches")))
     channels, left = _without_hidden(d, mid, channels)
     channels = _pins_first(d, mid, channels)
     _open_n, req_sub, req_badge = _requests_inbox_meta(d, m)
-    ask = [_chat_row("/chat?c=requests", "R", "Requests", req_sub, "", req_badge, "grape", False)]
+    ask_label, ask = _ask_rows(d, m, req_sub, req_badge)
     left_html = ('<p class="r2caps">Left</p><div class=chatlist>%s</div>' % "".join(
         html + _rejoin_form(ch) for html in left for ch in [_row_channel(html)])) if left else ""
     return (_chat_title("team") + '<div class=chatlist>%s</div>%s'
             '<p class="r2caps">Grunions · team</p><div class=chatlist>%s</div>'
-            '<p class="r2caps">Ask the club</p><div class=chatlist>%s</div>%s%s') % (
-                personal, practice, "".join(channels), "".join(ask), left_html, chat_sheets(d, m, "team"))
+            '<p class="r2caps">%s</p><div class=chatlist>%s</div>%s%s') % (
+                personal, practice, "".join(channels), ask_label, "".join(ask), left_html, chat_sheets(d, m, "team"))
 def _practice_sessions(d, mid):
     """Upcoming sessions this person is Going to, then earlier ones they went to or opened."""
     today = today_pt().isoformat()
@@ -2768,7 +2853,7 @@ def chat():
     raw = (request.args.get("c") or "team").strip()
     if raw == "requests":
         d = db()
-        return page(requests_list_html(d, me()) + _request_dialog() + _actions_bundle(), tab="chat")
+        return page(requests_list_html(d, me()) + _request_dialog(d) + _actions_bundle(), tab="chat")
     ch = parse_channel(raw)
     if not can_read(ch): abort(403)
     d = db()
@@ -2778,14 +2863,14 @@ def chat():
     mark_chat_read(d, me()["id"], ch)
     label = "#everyone" if ch == "team" else ("the board" if ch == "coaches" else "this chat")
     if ch.startswith("practice:"):
-        head = practice_switcher(d, me(), ch) + _request_dialog()
+        head = practice_switcher(d, me(), ch) + _request_dialog(d)
     elif ch.startswith("req:"):
         head = _request_thread_head(d, me(), ch)
     else:
         head = _thread_bar(d, me(), ch)
     extra = _actions_bundle()
     if ch.startswith("req:"):
-        extra = _request_resolve_bar(d, me(), ch) + _request_dialog() + extra
+        extra = _request_resolve_bar(d, me(), ch) + _request_dialog(d) + extra
     if ch == "team":
         prompt = "Message the team"
     elif ch == "coaches":
@@ -2880,9 +2965,20 @@ def _request_visible(row, m):
     if row["member_id"] == m["id"]:
         return True
     if row["audience"] == "coaches":
-        return bool(m["is_admin"] or (m["role"] or "") == "coach")
+        if m["is_admin"]:
+            return True
+        if (m["role"] or "") != "coach":
+            return False
+        sport = ""
+        try:
+            sport = row["sport"] or ""
+        except (KeyError, IndexError):
+            sport = ""
+        if not sport:
+            return True
+        return any(item["slug"] == sport for item in coach_sports(db(), m))
     if row["audience"] == "board":
-        return bool(m["is_admin"])
+        return is_board(m)
     return False
 def _staff_view(row, m):
     """Staff tools are for someone else looking at a request they can answer."""
@@ -2955,11 +3051,37 @@ def _requests_inbox_meta(d, m):
         unread += chat_unread_n(d, m["id"], "req:%d" % row["id"])
     sub = _request_status(open_rows[0], m) if open_rows else "No open requests — nice."
     return len(open_rows), sub, unread
+def _coach_chat_title(d, ch):
+    slug = ch.split(":", 1)[1]
+    name = slug.replace("-", " ").title()
+    for sport in club_sports(d):
+        if sport["slug"] == slug:
+            name = sport["name"]
+            break
+    return "%s coaches" % name
+def _ask_rows(d, m, req_sub, req_badge):
+    """Members get Requests. Coaches get each sport's coaches chat, never the member ask row."""
+    rows = []
+    sports = coach_sports(d, m)
+    for sport in sports:
+        ch = "coach:" + sport["slug"]
+        preview, when = channel_preview(d, ch)
+        rows.append(_chat_row("/chat?c=%s" % ch, "C", "%s coaches" % sport["name"], preview or "Coaches only · can't be deleted", when, chat_unread_n(d, m["id"], ch), "sky", chat_muted(d, m["id"], ch)))
+    if is_board(m):
+        preview, when = channel_preview(d, "board")
+        rows.append(_chat_row("/chat?c=board", "B", "Board room", preview or "Private to board members", when, chat_unread_n(d, m["id"], "board"), "grape", chat_muted(d, m["id"], "board")))
+    rows.append(_chat_row("/chat?c=requests", "R", "Requests", req_sub, "", req_badge, "sun", False))
+    label = "Coaches" if sports else "Ask the club"
+    return label, rows
 def _thread_title(d, m, ch):
     if ch == "team":
         return "#everyone"
-    if ch == "coaches":
+    if ch == "board":
         return "Board room"
+    if ch == "coaches":
+        return "Coaches"
+    if ch.startswith("coach:"):
+        return _coach_chat_title(d, ch)
     if ch.startswith("req:"):
         row = d.execute("SELECT * FROM club_requests WHERE id=?", (int(ch.split(":", 1)[1]),)).fetchone()
         if row:
@@ -2980,11 +3102,11 @@ def _thread_title(d, m, ch):
 def _thread_bar(d, m, ch):
     """The name opens chat actions. Mute never sits in the transcript."""
     title = _thread_title(d, m, ch)
-    kind, required, manage, profile = _action_meta(ch)
-    return ('<div class=threadbar><button type=button id=threadName data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s">%s</button>'
-            '<button type=button class=threadmore id=threadMore aria-label="Chat actions" data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s">⋯</button></div>'
-            ) % (escape(ch), kind, required, manage, escape(title), escape(profile), escape(title),
-                 escape(ch), kind, required, manage, escape(title), escape(profile))
+    kind, required, manage, profile, permanent = _action_meta(ch)
+    return ('<div class=threadbar><button type=button id=threadName data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s" data-permanent="%s">%s</button>'
+            '<button type=button class=threadmore id=threadMore aria-label="Chat actions" data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s" data-permanent="%s">⋯</button></div>'
+            ) % (escape(ch), kind, required, manage, escape(title), escape(profile), permanent, escape(title),
+                 escape(ch), kind, required, manage, escape(title), escape(profile), permanent)
 def _actions_bundle():
     """One sheet for a long-press in the inbox or a tap on the thread title."""
     token = csrf_field()
@@ -3026,7 +3148,7 @@ def _actions_bundle():
             'el.style.left=Math.max(16,Math.min(r.left,window.innerWidth-w-16))+"px";el.style.top=(r.bottom+8)+"px";}}'
             'function openActions(src){var box=document.getElementById("chatActions");if(!box||!src)return;'
             'var ch=src.getAttribute("data-ch")||"",kind=src.getAttribute("data-kind")||"",title=src.getAttribute("data-title")||"Chat";'
-            'var required=src.getAttribute("data-required")==="1",manage=src.getAttribute("data-manage")==="1",profile=src.getAttribute("data-profile")||"";'
+            'var required=src.getAttribute("data-required")==="1",manage=src.getAttribute("data-manage")==="1",profile=src.getAttribute("data-profile")||"",permanent=src.getAttribute("data-permanent")||"";'
             'box.querySelectorAll("input[name=c]").forEach(function(i){i.value=ch});'
             'document.getElementById("actTitle").textContent=title;'
             'document.getElementById("actMutes").hidden=true;document.getElementById("actMain").hidden=false;document.getElementById("actDeleteForm").hidden=true;'
@@ -3035,11 +3157,14 @@ def _actions_bundle():
             'show("actInfo",kind==="channel"||kind==="everyone");'
             'var info=document.getElementById("actInfo");if(info)info.href="/chat/info?c="+encodeURIComponent(ch);'
             'show("actProfile",kind==="direct"&&!!profile);var prof=document.getElementById("actProfile");if(prof)prof.href=profile||"#";'
-            'show("actLeave", (kind==="channel"||kind==="group")&&!required);'
-            'show("actLeaveNo", required||kind==="everyone");'
+            'var locked=!!permanent||required||kind==="everyone";'
+            'show("actLeave", (kind==="channel"||kind==="group")&&!locked);'
+            'show("actLeaveNo", locked&&kind!=="direct"&&kind!=="request"&&kind!=="practice");'
+            'var leaveNote=document.getElementById("actLeaveNo");if(leaveNote){leaveNote.textContent=permanent==="board"?"Board chat can\'t be left — you can only mute.":(permanent==="coaches"?"Coaches chat can\'t be left — you can only mute.":"Required channel — you can only mute.");}'
             'show("actBlock", kind==="direct");show("actDeleteChat", kind==="direct");'
             'show("actEdit", manage&&kind==="channel");var edit=document.getElementById("actEdit");if(edit)edit.href="/chat/channels?edit="+encodeURIComponent(ch.split(":").slice(1).join(":"));'
-            'show("actDelete", manage&&kind==="channel");show("actDeleteNo", kind==="everyone");'
+            'show("actDelete", manage&&kind==="channel"&&!permanent);show("actDeleteNo", kind==="everyone"||!!permanent);'
+            'var deleteNote=document.getElementById("actDeleteNo");if(deleteNote){deleteNote.textContent=permanent==="board"?"Board chat can\'t be deleted.":(permanent==="coaches"?"Coaches chat can\'t be deleted.":"#everyone can\'t be deleted — it\'s the whole team");}'
             'var pin=document.getElementById("actPin");if(pin)pin.value="on";'
             'openBox(box, src);}'
             'document.getElementById("actMuteOpen").onclick=function(){document.getElementById("actMain").hidden=true;document.getElementById("actMutes").hidden=false;};'
@@ -3118,8 +3243,8 @@ def chat_mark_read():
 def chat_leave():
     ch = parse_channel(request.form.get("c") or "")
     if not can_read(ch): abort(403)
-    kind, required, _manage, _profile = _action_meta(ch)
-    if kind == "everyone" or required or kind not in ("channel", "group"):
+    kind, required, _manage, _profile, permanent = _action_meta(ch)
+    if permanent or kind == "everyone" or required or kind not in ("channel", "group"):
         abort(400)
     d = db()
     latest = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE channel=?", (ch,)).fetchone()[0]
@@ -3204,13 +3329,15 @@ def chat_channel_delete():
     d.commit()
     flash("Deleted #%s." % slug)
     return redirect("/chat?view=list")
-def _request_dialog():
+def _request_dialog(d):
     topics = "".join('<option value="%s">%s</option>' % (key, escape(label)) for key, label in REQUEST_TOPICS)
+    sports = "".join('<option value="%s">%s</option>' % (escape(sport["slug"]), escape(sport["name"])) for sport in club_sports(d))
     return ('<dialog id=requestSheet class=botsheet><div class=sheet><div class=grab aria-hidden=true></div>'
             '<form method=post action=/chat/requests id=requestForm>%s'
             '<div class=pickhead><button type=button data-sheet-close>Cancel</button><h2>Ask the club.</h2>'
             '<button class="btn btn-primary" id=requestSend>Send</button></div>'
             '<p class="r2caps">To</p><select name=audience><option value=coaches>Coaches</option><option value=board>The board</option></select>'
+            '<label id=sportField>Which coaches<select name=sport>%s</select></label>'
             '<p class="r2caps">About</p><select name=topic>%s</select>'
             '<label>Subject<input name=subject maxlength=80 placeholder="Optional"></label>'
             '<label>Message<textarea name=message required maxlength=2000 placeholder="What do you need?"></textarea></label>'
@@ -3220,10 +3347,11 @@ def _request_dialog():
             '<script>window.grunionsPaintRequest=function(){var form=document.getElementById("requestForm");if(!form)return;'
             'var board={membership:1,waiver:1};if(board[form.topic.value]&&!form.dataset.kept)form.audience.value="board";'
             'var foot=document.getElementById("requestFoot");'
-            'foot.textContent=form.audience.value==="board"?"Only admins see a note to the board. There is no separate board role yet, so coaches do not see it.":"Only coaches see this. Replies show up in Chat › Requests, and you\'ll get a notification. It stays open until someone marks it resolved.";};'
+            'var sportField=document.getElementById("sportField");if(sportField)sportField.hidden=form.audience.value==="board";'
+            'foot.textContent=form.audience.value==="board"?"Only board members and admins see this. Replies show up in Chat › Requests.":"Only that sport\'s coaches see this. Replies show up in Chat › Requests, and you\'ll get a notification. It stays open until someone marks it resolved.";};'
             'var form=document.getElementById("requestForm");if(form){form.topic.addEventListener("change",function(){form.dataset.kept="";window.grunionsPaintRequest()});'
-            'form.audience.addEventListener("change",function(){form.dataset.kept="1";window.grunionsPaintRequest()});}</script>'
-            ) % (csrf_field(), topics)
+            'form.audience.addEventListener("change",function(){form.dataset.kept="1";window.grunionsPaintRequest()});window.grunionsPaintRequest();}</script>'
+            ) % (csrf_field(), sports, topics)
 def requests_list_html(d, m):
     rows = _requests_for(d, m)
     open_rows = [row for row in rows if row["status"] != "resolved"]
@@ -3245,7 +3373,7 @@ def requests_list_html(d, m):
 def _request_thread_head(d, m, ch):
     row = d.execute("SELECT * FROM club_requests WHERE id=?", (int(ch.split(":", 1)[1]),)).fetchone()
     title = _thread_title(d, m, ch)
-    kind, required, manage, profile = _action_meta(ch)
+    kind, required, manage, profile, _permanent = _action_meta(ch)
     return ('<div class="threadbar reqbar"><a class=reqback href="/chat?c=requests">Requests</a>'
             '<span class=reqchip>Request</span>'
             '<a class=datechip href="/chat?c=requests">Open ▾</a>'
@@ -3308,8 +3436,16 @@ def chat_request_create():
     practice_id = request.form.get("practice", type=int)
     now = dt.datetime.now(dt.timezone.utc).isoformat()
     d = db()
-    rid = d.execute("""INSERT INTO club_requests(member_id, audience, topic, subject, practice_id, status, created_at, updated_at, last_side, staff_replied)
-        VALUES(?,?,?,?,?,'open',?,?,'member',0)""", (me()["id"], audience, topic, subject, practice_id, now, now)).lastrowid
+    sport = (request.form.get("sport") or "").strip()
+    if audience == "coaches":
+        allowed = {item["slug"] for item in club_sports(d)}
+        if sport not in allowed:
+            flash("Pick which sport's coaches.")
+            return redirect("/chat?c=requests")
+    else:
+        sport = ""
+    rid = d.execute("""INSERT INTO club_requests(member_id, audience, topic, subject, practice_id, sport, status, created_at, updated_at, last_side, staff_replied)
+        VALUES(?,?,?,?,?,?, 'open', ?, ?, 'member', 0)""", (me()["id"], audience, topic, subject, practice_id, sport, now, now)).lastrowid
     d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)", (me()["id"], body, "req:%d" % rid))
     d.commit()
     _nudge_staff(d, rid, "New request: %s" % subject)
@@ -3319,10 +3455,18 @@ def _nudge_staff(d, rid, text):
     if not row:
         return
     if row["audience"] == "board":
-        people = d.execute("SELECT * FROM members WHERE is_admin=1 AND COALESCE(role,'')!='system' AND id!=?", (row["member_id"],)).fetchall()
+        people = [person for person in d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' AND id!=?", (row["member_id"],)).fetchall() if is_board(person)]
     else:
-        people = d.execute("""SELECT * FROM members WHERE COALESCE(role,'')!='system' AND id!=?
-            AND (is_admin=1 OR role='coach')""", (row["member_id"],)).fetchall()
+        sport = ""
+        try:
+            sport = row["sport"] or ""
+        except (KeyError, IndexError):
+            sport = ""
+        people = []
+        for person in d.execute("""SELECT * FROM members WHERE COALESCE(role,'')!='system' AND id!=?
+                AND (is_admin=1 OR role='coach')""", (row["member_id"],)).fetchall():
+            if person["is_admin"] or not sport or any(item["slug"] == sport for item in coach_sports(d, person)):
+                people.append(person)
     for person in people:
         d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (person["id"], text))
         try:
@@ -6705,10 +6849,13 @@ def signup_days(d):
 def _manage_catalog(d):
     """Destinations the signed-in person may open. Counts stay off when they are zero."""
     host, staff, admin = can_host_practice(), is_staff(), bool(me()["is_admin"])
+    board = is_board()
     rows = []
     def add(area, title, desc, href, icon, keywords, count=0, tone="info"):
         rows.append({"area": area, "title": title, "desc": desc, "href": href, "icon": icon,
                      "keywords": keywords, "count": count or 0, "tone": tone})
+    if board:
+        add("activities", "Board chat", "Private to the board. It can't be deleted.", "/chat?c=board", "tray", "board chat room")
     if staff or admin:
         add("activities", "Schedule", "Practices, scrimmages, and games", "/admin" if staff else "/manage/schedule", "cal", "practice scrimmage game schedule")
     if host:
@@ -6739,7 +6886,7 @@ _AREA_COPY = {
 @app.route("/manage")
 @login_required
 def manage_home():
-    if not can_host_practice(): abort(403)
+    if not can_open_manage(): abort(403)
     d = db()
     catalog = _manage_catalog(d)
     areas = []
@@ -6747,10 +6894,13 @@ def manage_home():
         kids = [row for row in catalog if row["area"] == key]
         if not kids: continue
         title, desc = _AREA_COPY[key]
+        href = "/manage/area/%s" % key
+        if len(kids) == 1 and kids[0]["title"] == "Board chat":
+            title, desc, href = kids[0]["title"], kids[0]["desc"], kids[0]["href"]
         count = sum(row["count"] for row in kids)
         tone = "warn" if any(row["tone"] == "warn" and row["count"] for row in kids) else "info"
         icon = kids[0]["icon"]
-        areas.append({"key": key, "title": title, "desc": desc, "href": "/manage/area/%s" % key, "icon": _micon(_MANAGE_ICONS[icon]),
+        areas.append({"key": key, "title": title, "desc": desc, "href": href, "icon": _micon(_MANAGE_ICONS[icon]),
                       "count": count, "tone": tone})
     quick = []
     if SHOW_MANAGE_QUICK and can_host_practice():
@@ -6805,7 +6955,7 @@ def _manage_search(d, q, admin):
 @app.route("/manage/search")
 @login_required
 def manage_search():
-    if not can_host_practice(): abort(403)
+    if not can_open_manage(): abort(403)
     q = " ".join((request.args.get("q") or "").split())
     if not q or len(q) > 80:
         return jsonify(people=[], settings=[])

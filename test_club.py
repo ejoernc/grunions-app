@@ -155,7 +155,7 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     assert "Personal messages" in html and "everyone" in html and "No practice chat right now" in html and "Requests" in html and "Ask the club" in html
     assert 'class=chatplus' in html and 'data-scope="team"' in html and "<h1>Team</h1>" not in html
     assert "New chat" in html and "Message someone" in html and "New group" in html and "Ask the club" in html
-    assert "New channel" not in html and "Board room" not in html and "New message" not in html
+    assert "New channel" not in html and "Board room" not in html and "Message the coaches" not in html and "New message" not in html
     assert "Preview Tuesday practice" not in html and "Preview Friday practice" not in html and "Preview recent practice" not in html
     ask = html.split("Ask the club", 1)[1].split("<dialog", 1)[0]
     assert "Message the board" not in ask and "Create channel" not in html
@@ -170,7 +170,7 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     assert 'data-place="me"' in mine and ">Calendar<" in mine and ">Profile<" in mine
     assert "Message someone" in mine and "New group" in mine and "Ask the club" not in mine and "New channel" not in mine
     sheet = coach.split("id=newChat", 1)[1].split("</dialog>", 1)[0]
-    assert "Board room" in sheet and "New channel" in sheet and "Message the board" not in sheet
+    assert "Requests" in sheet and "New channel" in sheet and "Board room" not in sheet and "Message the coaches" not in sheet and "Ask the club" not in sheet
     channel = coach.split("id=channelSheet", 1)[1]
     assert "data-toggle=auto_add" in channel and "type=checkbox name=auto_add" not in channel and "Who can post" in channel and "data-post=everyone" in channel
     assert "text-transform:none" in html and "border-radius:999px" in html.split(".practcard .unread{", 1)[1].split("}", 1)[0]
@@ -206,11 +206,17 @@ def test_a_request_replaces_messaging_the_coaches():
     coach = client()
     join(coach, "Nia", "Coach", "nia.ask@example.com")
     with A.app.app_context():
-        A.db().execute("UPDATE members SET role='coach' WHERE email='nia.ask@example.com'")
-        A.db().commit()
+        d = A.db()
+        d.execute("UPDATE members SET role='coach' WHERE email='nia.ask@example.com'")
+        import clubadmin
+        clubadmin.ensure(d)
+        nia = d.execute("SELECT id FROM members WHERE email='nia.ask@example.com'").fetchone()[0]
+        program = d.execute("SELECT id FROM programs WHERE slug='water-polo'").fetchone()
+        d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (program["id"], nia))
+        d.commit()
     token = csrf(member, "/chat?view=list")
     made = member.post("/chat/requests", data=dict(
-        csrf=token, audience="coaches", topic="equipment", subject="Lane key", message="The key box is empty."), follow_redirects=True)
+        csrf=token, audience="coaches", topic="equipment", sport="water-polo", subject="Lane key", message="The key box is empty."), follow_redirects=True)
     page = made.get_data(as_text=True)
     assert made.status_code == 200 and "The key box is empty." in page and "Waiting on coaches" in page and "Mute for a week" not in page and "Ada → Coaches" in page
     listed = member.get("/chat?c=requests").get_data(as_text=True)
@@ -228,6 +234,52 @@ def test_a_request_replaces_messaging_the_coaches():
     with A.app.app_context():
         row = A.db().execute("SELECT status, last_side FROM club_requests WHERE id=?", (rid,)).fetchone()
         assert row["status"] == "open" and row["last_side"] == "member"
+
+
+def test_a_coach_sees_the_sport_chat_and_a_board_member_sees_manage():
+    coach = client()
+    join(coach, "Mira", "Coach", "mira.sport@example.com")
+    board = client()
+    join(board, "Priya", "Board", "priya.board@example.com")
+    member = client()
+    join(member, "Ada", "Ask", "ada.sport@example.com")
+    with A.app.app_context():
+        d = A.db()
+        import clubadmin
+        clubadmin.ensure(d)
+        program = d.execute("SELECT id FROM programs WHERE slug='water-polo'").fetchone()
+        coach_id = d.execute("SELECT id FROM members WHERE email='mira.sport@example.com'").fetchone()[0]
+        d.execute("UPDATE members SET role='coach', is_admin=0, board_member=0 WHERE id=?", (coach_id,))
+        d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (program["id"], coach_id))
+        d.execute("UPDATE members SET role='athlete', is_admin=0, board_member=1 WHERE email='priya.board@example.com'")
+        d.commit()
+    coach_page = coach.get("/chat?view=list").get_data(as_text=True)
+    assert "Water Polo coaches" in coach_page and "Message the coaches" not in coach_page and ">Board room<" not in coach_page
+    assert coach.get("/chat?c=coach:water-polo").status_code == 200
+    assert coach.get("/chat?c=board").status_code == 403
+    assert coach.post("/chat/leave", data=dict(csrf=csrf(coach, "/chat?c=coach:water-polo"), c="coach:water-polo")).status_code == 400
+    board_nav = board.get("/manage").get_data(as_text=True)
+    assert board.get("/manage").status_code == 200 and "Board chat" in board_nav and "Permissions" not in board_nav and 'href="/manage/club/programs"' not in board_nav
+    assert ">Manage<" in board.get("/practices").get_data(as_text=True)
+    assert board.get("/chat?c=board").status_code == 200
+    assert board.get("/manage/club/programs").status_code == 403
+    assert "Message the coaches" not in member.get("/chat?view=list").get_data(as_text=True)
+    token = csrf(member, "/chat?view=list")
+    made = member.post("/chat/requests", data=dict(csrf=token, audience="coaches", topic="practice", sport="water-polo", subject="Caps", message="Need a cap."), follow_redirects=True)
+    assert "Need a cap." in made.get_data(as_text=True)
+    assert "Caps" in coach.get("/chat?c=requests").get_data(as_text=True)
+    swim = client()
+    join(swim, "Lee", "Laps", "lee.laps@example.com")
+    with A.app.app_context():
+        d = A.db()
+        sid = d.execute("SELECT id FROM members WHERE email='lee.laps@example.com'").fetchone()[0]
+        swimming = d.execute("SELECT id FROM programs WHERE slug='pool-swimming'").fetchone()
+        d.execute("UPDATE members SET role='coach', is_admin=0 WHERE id=?", (sid,))
+        d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (swimming["id"], sid))
+        d.commit()
+    assert "Caps" not in swim.get("/chat?c=requests").get_data(as_text=True)
+    assert swim.get("/chat?c=coach:water-polo").status_code == 403
+    assert swim.get("/chat?c=coach:pool-swimming").status_code == 200
 
 
 def test_practice_chat_is_read_only_after_seven_days():

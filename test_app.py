@@ -900,7 +900,7 @@ cht = john.get("/chat?view=list").get_data(as_text=True)
 member_list = jane.get("/chat?view=list").get_data(as_text=True)
 board = cht.split(">Board room<", 1)[-1][:220]
 sheet = cht.split("id=newChat", 1)[1].split("</dialog>", 1)[0]
-ok(jo["coaches"] == jb["coaches"] + 1 and ja["coaches"] == 0 and ja["total"] == jane_now["total"] and ">Board room<" in cht and "class=unread" in board and "Board room" in sheet and "New channel" in sheet and "Ask the club" in sheet and "Message the coaches" not in sheet and "New channel" not in member_list and "Board room" not in member_list, "coaches unread stays on the board row and off member totals")
+ok(jo["coaches"] == jb["coaches"] + 1 and ja["coaches"] == 0 and ja["total"] == jane_now["total"] and "Message the coaches" not in cht and "Message the coaches" not in member_list and ">Board room<" not in cht and "New channel" in sheet and "Requests" in sheet and "Ask the club" not in sheet and "New channel" not in member_list and "Board room" not in member_list, "a coach does not see the member ask row or the board room")
 ok(john.get("/chat?c=coaches").status_code == 200 and john.get("/api/unread").get_json()["coaches"] == 0, "opening coaches chat clears it")
 def _audience(channel):
     rows = D.execute("SELECT id, role, is_admin FROM members WHERE COALESCE(role,'')!='system'").fetchall()
