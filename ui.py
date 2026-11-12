@@ -572,6 +572,14 @@ dialog.crestmenu::backdrop{background:rgba(11,11,12,.45)}
 .nav3-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 10px/16px var(--r2-font-sans);text-align:center}
 .nav3-tabs a.on .nav3-badge{background:var(--r2-fixed-ink);color:var(--r2-lime)}
 .chatlock{margin:12px 0;padding:12px 14px;border-radius:16px;background:var(--r2-carbon);color:var(--r2-smoke);font:600 13px/1.4 var(--r2-font-sans)}
+.pchatbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}
+.pchatbar a{color:var(--r2-paper);font:700 15px/1.2 var(--r2-font-sans);text-decoration:none}
+.datechip{display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:999px;background:var(--r2-carbon);color:var(--r2-paper)}
+.chatsearch{margin:0 0 16px}
+.chatsearch input{width:100%;border-radius:999px;background:var(--r2-carbon);color:var(--r2-paper);border:0;padding:14px 16px}
+.chatlist a.upnext{background:var(--r2-sun);color:var(--r2-fixed-ink);border-radius:26px}
+.chatlist a.upnext b,.chatlist a.upnext small{color:var(--r2-fixed-ink)}
+.chatlist .mark.graphite{background:var(--r2-graphite);color:var(--r2-paper)}
 @media (min-width:768px){
  body:has(nav.nav3){padding-left:var(--r2-rail);--nav-clear:16px;--nav-offset-bottom:0px}
  nav.nav3{top:0;bottom:0;left:0;right:auto;width:var(--r2-rail);height:auto;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;padding:24px 0;border-radius:0;touch-action:auto}

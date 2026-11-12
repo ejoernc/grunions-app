@@ -2160,6 +2160,20 @@ def personal_chat_html(d, m):
     return ('<div class=chathead><h1 class=chatdisplay>Chat.</h1></div>'
             '<p class="r2caps">Your teams · unread</p><div class=chatlist>%s</div>'
             '<p class="r2caps">Direct</p><div class=chatlist>%s</div>') % (teams, direct_html)
+def _chip_date(iso):
+    day = dt.date.fromisoformat(str(iso)[:10])
+    return "%s %d" % (day.strftime("%a %b"), day.day)
+def _past_practice_summary(d, mid):
+    """Earlier practices this person went to or opened. Not every practice in the club."""
+    rows = d.execute("""SELECT p.date FROM practices p
+        WHERE p.date < ? AND (
+            EXISTS(SELECT 1 FROM rsvps r WHERE r.practice_id=p.id AND r.member_id=? AND r.going=1)
+            OR EXISTS(SELECT 1 FROM chat_follows f WHERE f.practice_id=p.id AND f.member_id=?))
+        ORDER BY p.date DESC""", (today_pt().isoformat(), mid, mid)).fetchall()
+    if not rows:
+        return 0, "Read-only after 7 days"
+    chips = " · ".join(_chip_date(r["date"]) for r in rows[:3])
+    return len(rows), chips + " — read-only after 7 days"
 def team_chat_html(d, m):
     """Direct chats, the practice you're going to, channels, and ask-the-club. Members do not create channels."""
     mid = m["id"]
@@ -2187,23 +2201,24 @@ def team_chat_html(d, m):
                     % (ch, escape(when_label), '<span class=unread>%d new</span>' % n if n else "",
                        escape(_clock_face(nxt["start"])), escape(meta), escape(detail)))
     else:
-        bits = []
-        for row in d.execute("""SELECT id, date, title FROM practices
-                WHERE COALESCE(cancelled,0)=0 AND COALESCE(skipped,0)=0 AND date>=? ORDER BY date, start LIMIT 4""",
-                (today_pt().isoformat(),)):
-            bits.append(_chat_row("/chat?c=practice:%d&peek=1" % row["id"], "P", escape((row["title"] or "Practice").strip()),
-                                 "Peek · %s" % row["date"], "", 0, "sun"))
-        practice = '<p class="r2caps">Practice chats</p><div class=chatlist>%s</div>' % (
-            "".join(bits) or '<p class="t3">No upcoming practices.</p>') if bits or True else ""
-    earlier = []
-    for row in d.execute("""SELECT p.id, p.date, p.title FROM practices p
-            WHERE p.date<? AND EXISTS(SELECT 1 FROM messages m WHERE m.channel='practice:'||p.id)
-            ORDER BY p.date DESC LIMIT 6""", (today_pt().isoformat(),)):
-        ch = "practice:%d" % row["id"]
-        locked = practice_chat_locked(d, ch)
-        title = escape((row["title"] or "Practice").strip())
-        note = "Read only · 7 days after practice" if locked else "Practice chat"
-        earlier.append(_chat_row("/chat?c=%s" % ch, "P", title, "%s · %s" % (escape(row["date"]), note), "", chat_unread_n(d, mid, ch), "sun"))
+        following = d.execute("""SELECT p.id, p.date, p.title FROM practices p
+            JOIN chat_follows f ON f.practice_id=p.id AND f.member_id=?
+            WHERE COALESCE(p.cancelled,0)=0 AND p.date>=?
+              AND NOT EXISTS (SELECT 1 FROM rsvps r WHERE r.practice_id=p.id AND r.member_id=? AND r.going=1)
+            ORDER BY p.date, p.start LIMIT 1""", (mid, today_pt().isoformat(), mid)).fetchone()
+        past_n, past_line = _past_practice_summary(d, mid)
+        if following:
+            practice = (_chat_row("/chat?c=practice:%d" % following["id"], "P", "Following",
+                                  "%s · %s" % ((following["title"] or "Practice").strip(), following["date"]), "", 0, "sun")
+                        + '<form method=post action=/chat/follow class=chattools>%s<input type=hidden name=practice value="%d">'
+                          '<button class="btn btn-secondary" name=leave value=1>Leave</button></form>'
+                          % (csrf_field(), following["id"]))
+        else:
+            practice = ('<p class="r2caps">Practice chats</p><div class=chatlist>'
+                        + _chat_row("/practices", "+", "No practice chat right now",
+                                    "Tap Going on a practice, scrimmage or game to join its chat", "", 0, "lime")
+                        + (_chat_row("/chat?view=practices", "↺", "Past practices · %d" % past_n, past_line, "", 0, "lime") if past_n else "")
+                        + "</div>")
     everyone_n = chat_unread_n(d, mid, "team")
     preview, when = channel_preview(d, "team")
     roster = d.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1").fetchone()[0]
@@ -2228,39 +2243,83 @@ def team_chat_html(d, m):
     return ('<div class=chathead><h1 class=chatdisplay>Chat.</h1></div><div class=chatlist>%s%s%s</div>'
             '<p class="r2caps">Grunions · team</p><div class=chatlist>%s</div>'
             '<p class="r2caps">Ask the club</p><div class=chatlist>%s</div>%s') % (
-                personal, practice, "".join(earlier), "".join(channels), "".join(ask),
+                personal, practice, "", "".join(channels), "".join(ask),
                 '<p class="t3"><a href="/chat/channels">New channel</a></p>' if can_host_practice() else "")
+def _practice_sessions(d, mid):
+    """Upcoming sessions this person is Going to, then earlier ones they went to or opened."""
+    today = today_pt().isoformat()
+    upcoming = d.execute("""SELECT p.id, p.date, p.start, p.title, p.location, p.cancelled FROM practices p
+        JOIN rsvps r ON r.practice_id=p.id AND r.member_id=? AND r.going=1
+        WHERE p.date>=? ORDER BY p.date, p.start""", (mid, today)).fetchall()
+    earlier = d.execute("""SELECT p.id, p.date, p.start, p.title, p.location, p.cancelled FROM practices p
+        WHERE p.date<? AND (
+            EXISTS(SELECT 1 FROM rsvps r WHERE r.practice_id=p.id AND r.member_id=? AND r.going=1)
+            OR EXISTS(SELECT 1 FROM chat_follows f WHERE f.practice_id=p.id AND f.member_id=?))
+        ORDER BY p.date DESC LIMIT 20""", (today, mid, mid)).fetchall()
+    return upcoming, earlier
+def _session_row(d, mid, row, live=False):
+    ch = "practice:%d" % row["id"]
+    preview, _when = channel_preview(d, ch)
+    n = chat_unread_n(d, mid, ch)
+    count = d.execute("SELECT COUNT(*) FROM messages WHERE channel=? AND COALESCE(deleted,0)=0", (ch,)).fetchone()[0]
+    day = dt.date.fromisoformat(str(row["date"])[:10]).day
+    where = (row["location"] or row["title"] or "Practice").strip()
+    title = "%s · %s" % (_chip_date(row["date"]), where)
+    if row["cancelled"]:
+        sub = "Cancelled"
+    elif live:
+        sub = preview or "Now"
+    else:
+        sub = preview or ("%d msgs" % count)
+    side = '<span class=unread>%d</span>' % n if n else ('<span class=chattime>Now</span>' if live else '<span class=chattime>%d msgs</span>' % count)
+    klass = "chatrow upnext" if live else "chatrow"
+    return ('<a class="%s" href="/chat?c=%s"><span class="mark %s">%d</span><span class=grow><b>%s</b><small>%s</small></span><span class=chatside>%s</span></a>'
+            % (klass, ch, "sun" if live else "graphite", day, escape(title), escape(sub), side))
+def practice_picker_html(d, m, query=""):
+    """06.11 / 06.27. Earlier chats live here, not in the Team Chat inbox."""
+    upcoming, earlier = _practice_sessions(d, m["id"])
+    q = (query or "").strip().lower()
+    def keep(row):
+        if not q:
+            return True
+        blob = " ".join([row["date"] or "", row["title"] or "", row["location"] or ""]).lower()
+        preview, _when = channel_preview(d, "practice:%d" % row["id"])
+        return q in blob or q in (preview or "").lower()
+    upcoming = [row for row in upcoming if keep(row)]
+    earlier = [row for row in earlier if keep(row)]
+    up_html = "".join(_session_row(d, m["id"], row, live=(i == 0 and not q)) for i, row in enumerate(upcoming)) or '<p class="t3">Nothing coming up.</p>'
+    early_html = "".join(_session_row(d, m["id"], row) for row in earlier) or '<p class="t3">No earlier practices yet.</p>'
+    return ('<div class=chathead><h1 class=chatdisplay>Practice chats.</h1></div>'
+            '<p class="t3">The chat follows the next practice you\'re signed up for. Earlier ones stay here, read-only after 7 days.</p>'
+            '<form method=get action=/chat class=chatsearch><input type=hidden name=view value=practices>'
+            '<input name=q value="%s" placeholder="Search all practice chats"></form>'
+            '<p class="r2caps">Up next</p><div class=chatlist>%s</div>'
+            '<p class="r2caps">Earlier</p><div class=chatlist>%s</div>') % (escape(query or ""), up_html, early_html)
 def practice_switcher(d, m, current):
-    """Date chip for the one practice chat: upcoming sessions you are Going to, then earlier ones you joined."""
+    """Date chip on the one practice chat. It opens the picker instead of listing sessions in the inbox."""
     if not current.startswith("practice:"):
         return ""
     pid = int(current.split(":", 1)[1])
-    upcoming = d.execute("""SELECT p.id, p.date, p.title FROM practices p
-        JOIN rsvps r ON r.practice_id=p.id AND r.member_id=? AND r.going=1
-        WHERE COALESCE(p.cancelled,0)=0 AND p.date>=? ORDER BY p.date, p.start""", (m["id"], today_pt().isoformat())).fetchall()
-    earlier = d.execute("""SELECT p.id, p.date, p.title FROM practices p
-        WHERE p.date<? AND (EXISTS(SELECT 1 FROM rsvps r WHERE r.practice_id=p.id AND r.member_id=? AND r.going=1)
-            OR EXISTS(SELECT 1 FROM chat_follows f WHERE f.practice_id=p.id AND f.member_id=?))
-        ORDER BY p.date DESC LIMIT 12""", (today_pt().isoformat(), m["id"], m["id"])).fetchall()
-    options = []
-    for row in list(upcoming) + list(earlier):
-        label = "%s · %s" % (row["date"], (row["title"] or "Practice").strip())
-        options.append('<option value="practice:%d"%s>%s</option>' % (row["id"], " selected" if row["id"] == pid else "", escape(label)))
-    if not options:
-        options.append('<option value="%s" selected>%s</option>' % (escape(current), escape(current)))
+    row = d.execute("SELECT date, start, title, location, cancelled FROM practices WHERE id=?", (pid,)).fetchone()
+    if not row:
+        return ""
     locked = practice_chat_locked(d, current)
+    upcoming, _earlier = _practice_sessions(d, m["id"])
+    note = ""
+    if row["cancelled"]:
+        note += '<p class=chatlock>Cancelled.</p>'
+    if locked:
+        note += '<p class=chatlock>Read-only · this practice ended %s.</p>' % escape(_chip_date(row["date"]))
     back = ""
-    if locked and upcoming:
-        back = '<a href="/chat?c=practice:%d">Back to the next practice</a>' % upcoming[0]["id"]
-    return ('<form class=chatswitch method=get action=/chat><label>Practice<select name=c onchange="this.form.submit()">%s</select></label></form>'
-            '<p class=chatlock>%s</p>' % (locked and "Read-only · this practice ended." or "") + back) % "".join(options) if False else (
-            '<form class=chatswitch method=get action=/chat><label class=r2caps>Practice<select name=c onchange="this.form.submit()">%s</select></label></form>%s%s' % (
-                "".join(options),
-                '<p class=chatlock>Read-only · this practice ended.</p>' if locked else "",
-                ('<p><a href="/chat?c=practice:%d">Back to the next practice</a></p>' % upcoming[0]["id"]) if locked and upcoming else ""))
+    if locked and upcoming and upcoming[0]["id"] != pid:
+        back = '<p><a href="/chat?c=practice:%d">Back to tonight</a></p>' % upcoming[0]["id"]
+    return ('<div class=pchatbar><a href="/chat?view=list">← Practice chat</a>'
+            '<a class=datechip href="/chat?view=practices">%s ▾</a></div>%s%s' % (escape(_chip_date(row["date"])), note, back))
 @app.route("/chat")
 @login_required
 def chat():
+    if request.args.get("view") == "practices":
+        return page(practice_picker_html(db(), me(), request.args.get("q") or ""), tab="chat")
     if request.args.get("view") == "list":
         return page(team_chat_html(db(), me()), tab="chat")
     raw = (request.args.get("c") or "team").strip()
@@ -2278,6 +2337,16 @@ def chat():
              '<button class="btn btn-secondary" name=mute value="%s">%s</button></form>'
              % (csrf_field(), escape(ch), "off" if muted else "week", "Unmute" if muted else "Mute for a week"))
     return page(head + tools + T["chat"], tab="chat", ch=ch, chat_label=label, chat_locked=practice_chat_locked(d, ch), chat_seed=chat_page_messages(d, ch, 50))
+@app.route("/chat/follow", methods=["POST"])
+@login_required
+def chat_follow_leave():
+    pid = request.form.get("practice", type=int)
+    if not pid:
+        abort(400)
+    if request.form.get("leave") == "1":
+        db().execute("DELETE FROM chat_follows WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
+        db().commit()
+    return redirect("/chat?view=list")
 @app.route("/chat/mute", methods=["POST"])
 @login_required
 def chat_mute():
