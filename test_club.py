@@ -87,6 +87,13 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     assert 'data-tab="calendar" class=on' in me_tabs
     assert ">Schedule<" not in me_tabs and ">Lineup<" not in me_tabs and "Settings" not in me_tabs
     assert "Calendar · chat · profile" in me_menu
+    for path, selected in (("/profile", "profile"), ("/privacy", "profile"), ("/inbox?place=me", "chat")):
+        page = member.get(path).get_data(as_text=True)
+        bar = page.split('class="nav3', 1)[1].split("</nav>", 1)[0]
+        assert 'data-place="me"' in page.split('class="nav3', 1)[1].split(">", 1)[0]
+        assert bar.find(">Calendar<") < bar.find(">Chat<") < bar.find(">Profile<")
+        assert ">Schedule<" not in bar and ">Lineup<" not in bar and ">Settings<" not in bar
+        assert 'data-tab="%s" class=on' % selected in bar
     assert "@media (min-width:768px)" in me and "window.innerWidth>=768" in me
     with A.app.app_context():
         d = A.db()

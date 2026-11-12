@@ -397,7 +397,8 @@ def nav_context():
         place = forced
     elif path in ("/discover", "/find", "/home") or path.startswith("/inbox"):
         place = "everything"
-    elif path.startswith("/calendar") or path.startswith("/profile") or path.startswith("/notifications"):
+    elif path.startswith("/calendar") or path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy"):
+        # Me is Calendar, Chat, Profile. The older Schedule · Settings · Lineup brief is not used.
         place = "me"
     else:
         place = "team"
@@ -428,7 +429,7 @@ def nav_context():
         tabs = [
             ("calendar", "Calendar", "/calendar", path.startswith("/calendar")),
             ("chat", "Chat", "/inbox?place=me", on_personal),
-            ("profile", "Profile", "/profile", path.startswith("/profile") or path.startswith("/notifications")),
+            ("profile", "Profile", "/profile", path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy")),
         ]
         crest = initials(m)
         switch = (("%s %s" % (display_first(m), m["last"] or "")).strip(), "Calendar · chat · profile")
