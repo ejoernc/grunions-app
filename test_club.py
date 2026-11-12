@@ -176,6 +176,29 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     assert "text-transform:none" in html and "border-radius:999px" in html.split(".practcard .unread{", 1)[1].split("}", 1)[0]
 
 
+def test_coaches_thread_mutes_from_the_name_not_a_week_chip():
+    member = client()
+    join(member, "Eli", "Mute", "eli.mute@example.com")
+    page = member.get("/chat?c=ask:coaches").get_data(as_text=True)
+    assert "Mute for a week" not in page and "value=week" not in page
+    assert "Mute for 1h" in page and "Mute for 8h" in page and "Mute until tomorrow" in page and "Mute until turned back on" in page
+    assert 'id=threadName' in page and "<a class=brand" not in page.split("<main>", 1)[0]
+    form = page.split(".composer form{", 1)[1].split("}", 1)[0]
+    assert "align-items:center" in form and "min-height:60px" in form and "padding:6px 6px 6px 8px" in form
+    token = csrf(member, "/chat?c=ask:coaches")
+    assert member.post("/chat/mute", data=dict(csrf=token, c="ask:coaches", mute="week")).status_code == 400
+    muted = member.post("/chat/mute", data=dict(csrf=token, c="ask:coaches", mute="1h"), follow_redirects=True)
+    assert muted.status_code == 200 and "Unmute" in muted.get_data(as_text=True)
+    with A.app.app_context():
+        row = A.db().execute("SELECT until FROM chat_mutes WHERE channel='ask:coaches'").fetchone()
+        assert row["until"] and "week" not in row["until"]
+    held = member.post("/chat/mute", data=dict(csrf=token, c="ask:coaches", mute="on"), follow_redirects=True)
+    assert held.status_code == 200
+    with A.app.app_context():
+        row = A.db().execute("SELECT until FROM chat_mutes WHERE channel='ask:coaches'").fetchone()
+        assert row["until"] == ""
+
+
 def test_practice_chat_is_read_only_after_seven_days():
     member = client()
     join(member, "Bea", "Lock", "bea.lock@example.com")
