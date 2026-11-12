@@ -580,7 +580,7 @@ main:has(.chathead){padding:16px 16px calc(var(--nav-clear) + 48px + env(safe-ar
 .chatlist .unread{min-width:18px;padding:2px 7px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 11px/16px var(--r2-font-sans);text-align:center}
 .practcard{display:block;margin:8px 0 16px;padding:16px 18px 18px 20px;border-radius:34px;background:var(--r2-sun);color:var(--r2-fixed-ink);text-decoration:none}
 .practcard .practtop{display:flex;justify-content:space-between;align-items:center;gap:8px;font:700 10px/1.2 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase}
-.practcard .unread{padding:3px 8px;background:var(--r2-fixed-ink);color:var(--r2-sun);font:700 11px/1.2 var(--r2-font-sans)}
+.practcard .unread{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:20px;padding:3px 8px;border-radius:999px;background:var(--r2-fixed-ink);color:var(--r2-sun);font:700 11px/14px var(--r2-font-sans);letter-spacing:0;text-transform:none;flex:none}
 .practcard .practbody{display:flex;align-items:flex-end;gap:10px;margin-top:8px}
 .practcard .practtime{font:700 64px/.86 var(--r2-font-display);letter-spacing:-.05em}
 .practcard .practmeta b{display:block;font:700 13px/1.2 var(--r2-font-sans)}
@@ -624,7 +624,12 @@ dialog.newchat .sheet,dialog.pickpeople .sheet{max-height:90dvh}
 .audchips button.on{background:var(--r2-lime);color:var(--r2-fixed-ink)}
 .switchrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-top:1px solid var(--r2-graphite);font:700 15px/1.3 var(--r2-font-sans);color:var(--r2-paper)}
 .switchrow small{display:block;margin-top:4px;color:var(--r2-smoke);font:600 12px/1.35 var(--r2-font-sans)}
-.switchrow .onword{color:var(--r2-lime);font:700 14px/1 var(--r2-font-sans)}
+button.switchrow{width:100%;border:0;background:transparent;text-align:left;cursor:pointer;color:inherit}
+.switchrow .onword{color:var(--r2-lime);font:700 14px/1 var(--r2-font-sans);flex:none}
+.switchrow .onword.off{color:var(--r2-smoke)}
+.postchoices{display:flex;flex-direction:column;gap:8px;margin:0 0 8px}
+.postchoices button{min-height:44px;border:0;border-radius:16px;background:var(--r2-graphite);color:var(--r2-paper);font:700 14px/1.2 var(--r2-font-sans);text-align:left;padding:0 14px}
+.postchoices button.on{background:var(--r2-lime);color:var(--r2-fixed-ink)}
 .peoplepick{display:flex;flex-direction:column;gap:4px;max-height:46vh;overflow:auto}
 .peoplepick label{display:flex;align-items:center;gap:12px;min-height:52px;color:var(--r2-paper);font:700 15px/1.2 var(--r2-font-sans)}
 .nav3-meta{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:0;max-width:100%}

@@ -171,6 +171,9 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     assert "Message someone" in mine and "New group" in mine and "Message the coaches" not in mine and "New channel" not in mine
     sheet = coach.split("id=newChat", 1)[1].split("</dialog>", 1)[0]
     assert "Board room" in sheet and "New channel" in sheet and "Message the board" not in sheet
+    channel = coach.split("id=channelSheet", 1)[1]
+    assert "data-toggle=auto_add" in channel and "type=checkbox name=auto_add" not in channel and "Who can post" in channel and "data-post=everyone" in channel
+    assert "text-transform:none" in html and "border-radius:999px" in html.split(".practcard .unread{", 1)[1].split("}", 1)[0]
 
 
 def test_practice_chat_is_read_only_after_seven_days():

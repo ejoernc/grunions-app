@@ -2305,13 +2305,11 @@ def _channel_sheet(d):
             '<div class="audchips" data-panel=role hidden><button type=button data-role=coach class=on>Coach</button>'
             '<button type=button data-role=athlete>Athlete</button></div><input type=hidden name=role value=coach>'
             '<div class=peoplepick data-panel=people hidden>%s</div>'
-            '<label class=switchrow><span>Auto-add active people<small>Anyone who went to a session in this sport in the last 60 days, or lists it in their profile.</small></span>'
-            '<input type=checkbox name=auto_add value=1 checked><span class=onword>On</span></label>'
-            '<label class=switchrow><span>Auto-remove when inactive<small>After 90 days with no sessions in this sport, they can rejoin.</small></span>'
-            '<input type=checkbox name=auto_remove value=1 checked><span class=onword>On</span></label>'
-            '<label class=switchrow><span>Members can leave<small>Off means a required channel. They can only mute it, like #everyone.</small></span>'
-            '<input type=checkbox name=can_leave value=1 checked><span class=onword>On</span></label>'
-            '<div class=switchrow><span>Who can post<small>Everyone in it, or coaches and admins only.</small></span><span class=onword>Everyone</span></div>'
+            '<button type=button class=switchrow data-toggle=auto_add><span>Auto-add active people<small>Anyone who went to a session in this sport in the last 60 days, or lists it in their profile.</small></span><span class=onword>On</span></button><input type=hidden name=auto_add value=1>'
+            '<button type=button class=switchrow data-toggle=auto_remove><span>Auto-remove when inactive<small>After 90 days with no sessions in this sport, they can rejoin.</small></span><span class=onword>On</span></button><input type=hidden name=auto_remove value=1>'
+            '<button type=button class=switchrow data-toggle=can_leave><span>Members can leave<small>Off means a required channel. They can only mute it, like #everyone.</small></span><span class=onword>On</span></button><input type=hidden name=can_leave value=1>'
+            '<button type=button class=switchrow data-open-posters><span>Who can post<small>Everyone in it, or coaches and admins only.</small></span><span class=onword id=postLabel>Everyone</span></button>'
+            '<div id=postChoices class=postchoices hidden><button type=button data-post=everyone class=on>Everyone in it</button><button type=button data-post=staff>Coaches and admins only</button></div>'
             '<input type=hidden name=who_posts value=everyone>'
             '<p class="t3">Practice chats are automatic: everyone going to a session is in its chat. You don\'t set those up here.</p>'
             '<button class="btn btn-primary full" id=createChannel data-roster="%d" data-coaches="%d">Create #open-water · %d people</button>'
@@ -2397,6 +2395,33 @@ _CHAT_PLUS_JS = """<script>
    fd.append('name', (document.getElementById('groupName').value||'').trim());
    Object.keys(picked).forEach(function(id){ fd.append('with', id); });
    fetch('/chat/dm', {method:'POST', body:fd, credentials:'same-origin'}).then(function(r){ location.href=r.url; });
+   return;
+  }
+  var tog=e.target.closest&&e.target.closest('[data-toggle]');
+  if(tog){
+   var input=tog.parentNode.querySelector('input[name="'+tog.getAttribute('data-toggle')+'"]');
+   var word=tog.querySelector('.onword');
+   if(input && word){
+    var on=input.value!=='1';
+    input.value=on?'1':'0';
+    word.textContent=on?'On':'Off';
+    word.classList.toggle('off', !on);
+   }
+   return;
+  }
+  var posters=e.target.closest&&e.target.closest('[data-open-posters]');
+  if(posters){
+   var choices=document.getElementById('postChoices');
+   if(choices) choices.hidden=!choices.hidden;
+   return;
+  }
+  var post=e.target.closest&&e.target.closest('[data-post]');
+  if(post){
+   var form=post.closest('form'), hidden=form.querySelector('input[name=who_posts]'), label=document.getElementById('postLabel');
+   if(hidden) hidden.value=post.getAttribute('data-post');
+   if(label) label.textContent=post.getAttribute('data-post')==='staff'?'Coaches & admins':'Everyone';
+   post.parentNode.querySelectorAll('button').forEach(function(b){ b.classList.remove('on'); });
+   post.classList.add('on');
    return;
   }
   var aud=e.target.closest&&e.target.closest('[data-aud]');
