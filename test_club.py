@@ -283,6 +283,8 @@ def test_schedule_is_not_the_old_home_and_profile_sheets_open():
     head = home.split("<main>", 1)[0]
     assert ">Schedule</h1>" in head and "Hi, Nia" not in head and "Enter your USAWP membership number" not in home and "Allow notifications" not in home and "This week" in home and "View full schedule" in home and "id=schedSheet" in home
     assert ">Hi, Nia.</h1>" in home and "class=hititle" in home and ">Upcoming</h1>" in home and 'class="schedfeed weeklist"' in home and home.index("mapcontrols") < home.index("id=schedSheet")
+    assert "body.schedopen header.homehead:has(.displayhead){background:var(--color-bg)" in home and "body.schedhome:has(.weekdrawer.full) .weekhi{" in home and "background:#17181A" in home
+    assert "div.card.tap.tripcard[data-kind=Clinic]:not(.cancelled){background:var(--r2-sky)" in home and "main:has(.lineupfilt){padding-bottom:calc(var(--nav-clear) + 64px" in home
     schedule = member.get("/practices?view=list").get_data(as_text=True)
     assert "id=schedule" in schedule and "view=list&when=past" in schedule
     assert "body.homefull .schedfeed{position:relative;z-index:2;pointer-events:auto}" in schedule

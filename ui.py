@@ -202,7 +202,9 @@ body.schedhome .weekhi .maplegend{position:static;display:flex;gap:10px;margin-t
 .weekdrawer.full{border-radius:0}
 .weekdrawer.full .weekhead,.weekdrawer.full .weekthis{display:none}
 .weekdrawer.full .weeklist{display:flex}
-.weekdrawer.full .weekbody{padding-top:28px}
+.weekdrawer.full .weekbody{padding-top:40px}
+body.schedhome:has(.weekdrawer.full) .weekhi{top:0;left:0;right:0;padding:calc(18px + env(safe-area-inset-top)) 16px 12px;background:#17181A}
+body.schedhome:has(.weekdrawer.full) .homemap{opacity:0}
 @media (max-width:767px){
  body.schedhome .weekdrawer:not(.full){touch-action:none}
  body.schedhome .weekdrawer:not(.full) .weekbody{overflow:hidden}
@@ -561,6 +563,7 @@ header.homehead .displayeye .usawpchip{height:auto;margin:0;padding:0;border:0;b
 header.homehead .displayhead h1{height:auto;margin:0;color:var(--r2-paper);font:700 clamp(52px,16vw,80px)/.86 var(--r2-font-display);letter-spacing:-.05em}
 header.homehead .displayhead h1::after{content:"."}
 body.homefull header.homehead:has(.displayhead){background:linear-gradient(180deg,color-mix(in srgb,var(--r2-ink) 92%,transparent),transparent)}
+body.schedopen header.homehead:has(.displayhead){background:var(--color-bg);padding-bottom:20px}
 .profilename{font-family:var(--r2-font-display);font-weight:700;font-size:32px;letter-spacing:-.03em}
 .seclabel{color:var(--r2-smoke);font:700 10px/1.2 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase}
 .lineupfilt .chip,.profswitch .chip,.rolechips .chip{background:var(--r2-graphite);color:var(--r2-paper);border-color:transparent;border-radius:999px;font:700 13px/1 var(--r2-font-sans)}
@@ -577,13 +580,17 @@ body.homefull .homealerts .card:not(#pushCard) .t3,body.homefull .homealerts .ca
 main:has(.lineupfilt) .seclabel{color:var(--r2-smoke);font:700 28px/.95 var(--r2-font-display);letter-spacing:-.03em;text-transform:none}
 .linekind{display:inline-flex;margin:0 0 8px;padding:5px 10px;border-radius:999px;background:var(--r2-fixed-ink);color:var(--r2-fixed-paper);font:700 11px/1 var(--r2-font-sans)}
 .tripcard .nxtitle.cardtitle{font:700 34px/.95 var(--r2-font-display);letter-spacing:-.03em}
-.tripcard[data-kind=Tournament],.tripcard[data-kind=Competition]{background:var(--r2-lavender);color:var(--r2-fixed-ink)}
-.tripcard[data-kind=Volunteer],.tripcard[data-kind=Fundraiser]{background:var(--r2-bubblegum);color:var(--r2-fixed-ink)}
-.tripcard[data-kind=Social],.tripcard[data-kind=Meeting],.tripcard[data-kind=Other]{background:var(--r2-mango);color:var(--r2-fixed-ink)}
-.tripcard[data-kind=Trip]{background:var(--r2-aqua);color:var(--r2-fixed-ink)}
-.tripcard[data-kind=Clinic]{background:var(--r2-sky);color:var(--r2-fixed-ink)}
-.tripcard[data-kind]:not(.cancelled) .nxtitle,.tripcard[data-kind]:not(.cancelled) .nxrow,.tripcard[data-kind]:not(.cancelled) .cardsub,.tripcard[data-kind]:not(.cancelled) .datetile{color:var(--r2-fixed-ink)}
-.tripcard.cancelled{background:var(--r2-carbon);color:var(--r2-smoke)}
+div.card.tap.tripcard[data-kind]:not(.cancelled){background:var(--r2-sun);color:var(--r2-fixed-ink)}
+div.card.tap.tripcard[data-kind=Tournament]:not(.cancelled),div.card.tap.tripcard[data-kind=Competition]:not(.cancelled){background:var(--r2-lavender);color:var(--r2-fixed-ink)}
+div.card.tap.tripcard[data-kind=Volunteer]:not(.cancelled),div.card.tap.tripcard[data-kind=Fundraiser]:not(.cancelled){background:var(--r2-bubblegum);color:var(--r2-fixed-ink)}
+div.card.tap.tripcard[data-kind=Social]:not(.cancelled),div.card.tap.tripcard[data-kind=Meeting]:not(.cancelled),div.card.tap.tripcard[data-kind=Other]:not(.cancelled){background:var(--r2-mango);color:var(--r2-fixed-ink)}
+div.card.tap.tripcard[data-kind=Trip]:not(.cancelled){background:var(--r2-aqua);color:var(--r2-fixed-ink)}
+div.card.tap.tripcard[data-kind=Clinic]:not(.cancelled){background:var(--r2-sky);color:var(--r2-fixed-ink)}
+div.card.tap.tripcard[data-kind]:not(.cancelled) .nxtitle,div.card.tap.tripcard[data-kind]:not(.cancelled) .nxrow,div.card.tap.tripcard[data-kind]:not(.cancelled) .cardsub,div.card.tap.tripcard[data-kind]:not(.cancelled) .datetile,div.card.tap.tripcard[data-kind]:not(.cancelled) .cardtitle{color:var(--r2-fixed-ink)}
+div.card.tap.tripcard[data-kind]:not(.cancelled) .datetile{background:rgba(11,11,12,.12)}
+div.card.tap.tripcard[data-kind]:not(.cancelled) .btn-secondary{background:#0B0B0C;color:#F6F4EF;border-color:transparent}
+div.card.tap.tripcard.cancelled{background:var(--r2-carbon);color:var(--r2-smoke)}
+main:has(.lineupfilt){padding-bottom:calc(var(--nav-clear) + 64px + env(safe-area-inset-bottom))}
 body.profilepage .profilehero{align-items:flex-start;padding:4px 0 8px}body.profilepage .profilename::after{content:"."}body.profilepage .seclabel{font:700 28px/.95 var(--r2-font-display);letter-spacing:-.03em;color:#F6F4EF}body.profilepage .numcard{margin-bottom:28px}body.profilepage main{padding-bottom:calc(var(--nav-clear) + 48px + env(safe-area-inset-bottom))}
 body.profilepage .avatar.hero{background:var(--r2-sun);color:var(--r2-fixed-ink);border:0;font:700 40px/.95 var(--r2-font-display);letter-spacing:-.04em}
 body.profilepage .profilename{margin:14px 0 8px;text-align:left;font:700 clamp(48px,14vw,64px)/.86 var(--r2-font-display);letter-spacing:-.05em}
@@ -1361,7 +1368,7 @@ a.evcard{display:block;color:inherit;text-decoration:none;background:var(--color
 button.dock,a.dock{background:var(--accent);color:var(--color-on-primary)}
 a.quietcheck,button.quietcheck{background:var(--surface2);color:var(--color-text);border:0;border-radius:var(--radius-button)}
 .emptyfind{color:var(--t2);margin:8px 0 16px}
-details.lineuppast{margin:20px 0 8px}details.lineuppast>summary{display:flex;align-items:center;gap:8px;list-style:none;min-height:48px;padding:12px 0 8px;font:700 22px/1 var(--r2-font-display);letter-spacing:-.03em;color:var(--r2-paper);cursor:pointer}details.lineuppast>summary::-webkit-details-marker,details.lineuppast>summary::marker{content:none;display:none}details.lineuppast>summary .pastn{color:#8B8F93;font:700 15px/1 var(--r2-font-sans)}details.lineuppast>summary::after{content:"›";margin-left:auto;color:#8B8F93;font:700 18px/1 var(--r2-font-sans)}
+details.lineuppast{margin:20px 0 28px}details.lineuppast>summary{display:flex;align-items:center;gap:8px;list-style:none;min-height:48px;padding:12px 0 8px;font:700 22px/1 var(--r2-font-display);letter-spacing:-.03em;color:var(--r2-paper);cursor:pointer}details.lineuppast>summary::-webkit-details-marker,details.lineuppast>summary::marker{content:none;display:none}details.lineuppast>summary .pastn{color:#8B8F93;font:700 15px/1 var(--r2-font-sans)}details.lineuppast>summary::after{content:"›";margin-left:auto;color:#8B8F93;font:700 18px/1 var(--r2-font-sans)}
 .repeatblock .repeatopts{display:none}.repeatblock:has(input[name=repeat]:checked) .repeatopts{display:block}
 .tripcard{padding:0;overflow:hidden}.tripcard .evbody{padding:0 18px 18px}.tripcard .nxcardhead{display:flex;flex-direction:column;align-items:stretch;gap:2px;min-width:0}.tripcard .cardsub{margin:0;color:var(--color-text-secondary);min-width:0;max-width:100%}.lineupchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.lineupchips .chip-info{margin:0}
 div.card.tap.tripcard{padding:18px;overflow:visible}div.card.tap.tripcard .nxcardhead{margin:0 0 10px}
