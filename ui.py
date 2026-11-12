@@ -2080,6 +2080,48 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro detail_hiddens(r) %}{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}{% endmacro %}
 {% macro cred_side(iso) %}{% if iso %}<span class=cred><span class="dot {{ date_dot(iso) }}" aria-hidden=true></span>{{ fmt_long(iso) }}</span>{% else %}<span class=t3>Not on file</span>{% endif %}{% endmacro %}
 {% macro date_field(label, name, value) %}<label class="datefield{% if not value %} empty{% endif %}">{{ label }}<input type=date name={{ name }} value="{{ value or '' }}" placeholder="Not on file"><span class=dateph>Not on file</span></label>{% endmacro %}
+{% macro r2_event_card(href, sport, title, clock, meridiem, duration, venue, people, extra, you=false) -%}
+<a class="r2-event-card evcard2" data-r2="event-card" href="{{ href }}"><div class=evmeta><span>{{ sport }}</span>{% if you %}<span class=yougo>✓ You’re going</span>{% endif %}</div><div class=evname>{{ title }}</div><div class=evtime><b>{{ clock }}</b><span><i>{{ meridiem }}</i><i>{{ duration }}</i></span></div><div class=evfoot><span class=evwho>{% for person in people[:3] %}<i>{{ initials(person) }}</i>{% endfor %}{% if people %}<em>{% if people|length > 3 %}+{{ people|length - 3 }} {% endif %}going</em>{% endif %}</span><span class=evvenue>{{ venue }}</span><span class=evchev aria-hidden=true>›</span></div></a>
+{%- endmacro %}
+{% macro r2_event_row(href, variant, kicker, title, meta, count, kind='') -%}
+{% if variant == 'cancelled' %}<a class="r2-event-row evcancel" data-r2="event-row" data-variant="cancelled" href="{{ href }}"><div class=evmeta><span>{{ kicker }}</span><span class=cancelpill>Cancelled</span></div><div class=evcantitle>{{ title }}</div>{% if meta %}<p>{{ meta }}</p>{% endif %}</a>
+{% elif variant == 'stack' %}<a class="r2-event-row evrow2" data-r2="event-row" href="{{ href }}"><div><span class=evcap>{{ kind or 'WATER POLO' }}</span><b>{{ kicker }}<br>{{ title }}</b><small>{{ meta }}</small></div><div class=evcount><b>{{ count }}</b><span>GOING</span><i aria-hidden=true>›</i></div></a>
+{% else %}<a class="r2-event-row homecard {{ kind }}{% if variant == 'off' %} cancelled{% endif %}" data-r2="event-row" data-kind="{{ kind }}" href="{{ href }}"><b>{{ kicker }}</b><span><i>{{ kind|upper }}</i>{{ title }}<small>{{ meta }}</small></span><em>{{ count }}</em></a>{% endif %}
+{%- endmacro %}
+{% macro r2_social_card(card, variant='home') -%}
+{% if variant == 'row' %}<div class="r2-social p5social" data-r2="social-card" data-variant="{{ card.when }}"><div class=grow><b>{% if card.when == 'before' %}BEFORE PRACTICE{% else %}AFTER PRACTICE{% endif %}{% if card.clock %} · {{ fmt_t(card.clock) }}{% endif %}</b><span>{{ card.title }} · {{ card.place }}</span></div><form method=post action="/practices/{{ card.practice_id }}">{{ csrf_field() }}<input type=hidden name=pid value="{{ card.practice_id }}"><input type=hidden name=back value=page><button name=action value=social_join>Join</button></form></div>
+{% else %}<div class="r2-social socialcard {{ card.when }}" data-r2="social-card" data-variant="{{ card.when }}"><div class=socialkicker>{% if card.live %}Happening now · {% endif %}{% if card.when == 'before' %}Before practice{% else %}After practice{% endif %}{% if card.clock %} · {{ card.clock }}{% endif %}</div><b>{{ card.title }}</b><p>{{ card.place }}{% if card.address %} · {{ card.address }}{% endif %}</p><small>{% if card.when == 'before' %}before{% else %}after{% endif %} {{ card.practice }}</small><div class=socialacts><form method=post action="/practices/{{ card.practice_id }}">{{ csrf_field() }}<input type=hidden name=pid value="{{ card.practice_id }}"><input type=hidden name=back value=home><button class=socialgo name=action value=social_join>I'm coming</button></form><a class=socialdir href="https://www.google.com/maps/search/?api=1&query={{ (card.address or card.place)|urlencode }}" target=_blank rel=noopener>Directions</a></div></div>{% endif %}
+{%- endmacro %}
+{% macro r2_drive_card(minutes, detail, leave, placeholder=false) -%}
+<div class="r2-drive drivecard" data-r2="drive-card" {% if placeholder %}data-placeholder=1{% endif %}><div class=drivetop><span>YOUR DRIVE</span>{% if leave %}<b>{{ leave }}</b>{% endif %}</div><div class=drivemain><strong>{{ minutes }}</strong><small>{{ detail }}</small></div></div>
+{%- endmacro %}
+{% macro r2_metric(value, label, tone='ink') -%}
+<div class="r2-metric {{ tone }}" data-r2="metric"><b>{{ value }}</b><span>{{ label }}</span></div>
+{%- endmacro %}
+{% macro r2_info(kicker, body) -%}
+<div class="r2-info p5info" data-r2="info-block"><span>{{ kicker }}</span><b>{{ body }}</b></div>
+{%- endmacro %}
+{% macro r2_section(title) -%}
+<h3 class="r2-section p5sec" data-r2="section-header">{{ title }}</h3>
+{%- endmacro %}
+{% macro r2_list_row(name, sub, letters, chip='') -%}
+<div class="r2-list-row p5person" data-r2="list-row"><span class="r2-avatar av">{{ letters }}</span><span class=grow><b>{{ name }}</b>{% if sub %}<small>{{ sub }}</small>{% endif %}</span>{% if chip %}<span class="{{ 'goingchip' if chip == 'Going' else 'outchip' }}">{{ chip }}</span>{% endif %}</div>
+{%- endmacro %}
+{% macro r2_practice_actions(href, label, count) -%}
+<div class="r2-actions p5chat" data-r2="practice-actions"><a class=practlink href="{{ href }}">{{ label }}{% if count %} <span>{{ count }}</span>{% endif %}</a><a class=p5more href="{{ href }}" aria-label="More">···</a></div>
+{%- endmacro %}
+{% macro r2_legend(pin) -%}
+<div class="r2-legend maplegend" data-r2="traffic-legend" data-traffic="placeholder" aria-hidden=true><span><i class=legclear></i>Clear</span><span><i class=legslow></i>Slow</span><span><i class=legjam></i>Jammed</span>{% if pin %}<b>{{ pin }}</b>{% endif %}</div>
+{%- endmacro %}
+{% macro r2_map_unavailable() -%}
+<p class="r2-mapmiss mapmiss" data-r2="map-unavailable">Map unavailable. <a href="/practices?view=list">See the schedule</a></p>
+{%- endmacro %}
+{% macro r2_cover(src) -%}
+<div class="r2-cover p5cover" data-r2="cover-image"><img src="{{ src }}" alt=""></div>
+{%- endmacro %}
+{% macro r2_chip(label, on=false) -%}
+<span class="r2-chip{% if on %} on{% endif %}" data-r2="chip">{{ label }}</span>
+{%- endmacro %}
 {% macro rsvp_btn(label, selected, on_value) -%}
 {%- set sweep = (not selected) and on_value == 'going' and label == 'Going' -%}
 <button class="btn {{ 'btn-primary' if selected else 'btn-secondary' }}"{% if sweep %} data-sweep{% endif %} name=action value="{{ 'clear' if selected else on_value }}">{% if selected %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ label }}</button>
@@ -4480,31 +4522,15 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
 {% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}</div>{% endif %}
 {% if sched_home %}
-<div class=maplegend data-traffic="placeholder" aria-hidden=true><span><i class=legclear></i>Clear</span><span><i class=legslow></i>Slow</span><span><i class=legjam></i>Jammed</span>{% if pin_label %}<b>{{ pin_label }}</b>{% endif %}</div>
-{% if not pins %}<p class=mapmiss>Map unavailable. <a href="/practices?view=list">See the schedule</a></p>{% endif %}
+{{ r2_legend(pin_label) }}
+{% if not pins %}{{ r2_map_unavailable() }}{% endif %}
 <div class=schedsheet id=schedSheet>
 <button type=button class=sheetgrab id=sheetGrab aria-label="Drag the schedule"></button>
 <div class=sheetcollapsed>
 <div class=sheettopline><h2>Next up</h2><a href="/practices?view=list">{{ week_n }} this week ↑</a></div>
-{% for card in social_cards %}
-<div class="socialcard {{ card.when }}">
-<div class=socialkicker>{% if card.live %}Happening now · {% endif %}{% if card.when == 'before' %}Before practice{% else %}After practice{% endif %}{% if card.clock %} · {{ card.clock }}{% endif %}</div>
-<b>{{ card.title }}</b>
-<p>{{ card.place }}{% if card.address %} · {{ card.address }}{% endif %}</p>
-<small>{% if card.when == 'before' %}before{% else %}after{% endif %} {{ card.practice }}</small>
-<div class=socialacts>
-<form method=post action="/practices/{{ card.practice_id }}">{{ csrf_field() }}<input type=hidden name=pid value="{{ card.practice_id }}"><input type=hidden name=back value=home><button class=socialgo name=action value=social_join>I'm coming</button></form>
-<a class=socialdir href="https://www.google.com/maps/search/?api=1&query={{ (card.address or card.place)|urlencode }}" target=_blank rel=noopener>Directions</a>
-</div>
-</div>
-{% endfor %}
-{% if show_drive %}
-<div class=drivecard {% if drive_placeholder %}data-placeholder=1{% endif %}>
-<div class=drivetop><span>YOUR DRIVE</span>{% if drive_chip %}<b>{{ drive_chip }}</b>{% endif %}</div>
-<div class=drivemain><strong>{{ drive_saved or '18 min' }}</strong><small>Practice at {{ fmt_clock(nextp.start) }} · {{ short_place(nextp.location) }}</small></div>
-</div>
-{% endif %}
-{% if nextp %}<a class=homecard href="/practices/{{ nextp.id }}"><b>{{ fmt_clock(nextp.start) }}</b><span><i>PRACTICE</i>{{ practice_title(nextp) }}<small>{% if nextp.date == today %}Tonight{% else %}{{ fmt_d(nextp.date) }}{% endif %} · {{ short_place(nextp.location) }}</small></span><em>{{ nextp_n }}</em></a>{% endif %}
+{% for card in social_cards %}{{ r2_social_card(card) }}{% endfor %}
+{% if show_drive %}{{ r2_drive_card(drive_saved or '18 min', 'Practice at ' ~ fmt_clock(nextp.start) ~ ' · ' ~ short_place(nextp.location), drive_chip, drive_placeholder) }}{% endif %}
+{% if nextp %}{{ r2_event_row('/practices/' ~ nextp.id, 'compact', fmt_clock(nextp.start), practice_title(nextp), ('Tonight' if nextp.date == today else fmt_d(nextp.date)) ~ ' · ' ~ short_place(nextp.location), nextp_n, 'practice') }}{% endif %}
 </div>
 <div class=sheetexpanded>
 <div class=sheettopline><h2>Schedule.</h2><button type=button id=mapDown>Map ↓</button></div>
@@ -4520,7 +4546,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% if p.date != ns.day %}{% set ns.day = p.date %}
 <p class=homeday id="day-{{ p.date }}">{{ tile.dn }} {{ weekday_name(p.date)[:3]|upper }}</p>
 {% endif %}
-<a class="homecard {{ x.kind }}{{ ' cancelled' if p.cancelled else '' }}" data-kind="{{ x.kind }}" href="/practices/{{ p.id }}"><b>{{ fmt_clock(p.start) }}</b><span><i>{{ x.kind|upper }}</i>{{ practice_title(p) }}<small>{{ short_place(p.location) }}</small></span><em>{{ x.going|length }}</em></a>
+{{ r2_event_row('/practices/' ~ p.id, 'off' if p.cancelled else 'compact', fmt_clock(p.start), practice_title(p), short_place(p.location), x.going|length, x.kind) }}
 {% endfor %}
 {% if not home_rows %}<p class=t3>Nothing in the next 14 days.</p>{% endif %}
 </div>
@@ -4555,11 +4581,11 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <div class=daygroup><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class=daycards>
 {% endif %}
 {% if p.cancelled %}
-<a class=evcancel href="/practices/{{ p.id }}"><div class=evmeta><span>{{ tile.wd }} · {{ month_abbr(p.date) }} {{ tile.dn }} · {{ (p.sport or 'Water Polo')|upper }}</span><span class=cancelpill>Cancelled</span></div><div class=evcantitle>{{ practice_title(p) }}</div>{% if p.cancel_reason %}<p>{{ p.cancel_reason }}</p>{% endif %}</a>
+{{ r2_event_row('/practices/' ~ p.id, 'cancelled', tile.wd ~ ' · ' ~ month_abbr(p.date) ~ ' ' ~ tile.dn ~ ' · ' ~ (p.sport or 'Water Polo')|upper, practice_title(p), p.cancel_reason, 0) }}
 {% elif ns.featured and sched_when != 'past' %}{% set ns.featured = false %}{% set clk = fmt_clock(p.start).split(' ') %}
-<a class=evcard2 href="/practices/{{ p.id }}"><div class=evmeta><span>{{ (p.sport or 'Water Polo')|upper }}</span>{% if x.mine == 1 %}<span class=yougo>✓ You’re going</span>{% endif %}</div><div class=evname>{{ practice_title(p) }}</div><div class=evtime><b>{{ clk[0] }}</b><span><i>{{ clk[1] }}</i><i>{{ practice_duration(p.start, p.end) }}</i></span></div><div class=evfoot><span class=evwho>{% for person in x.going[:3] %}<i>{{ initials(person) }}</i>{% endfor %}{% if x.going|length %}<em>{% if x.going|length > 3 %}+{{ x.going|length - 3 }} {% endif %}going</em>{% endif %}</span><span class=evvenue>{{ short_place(p.location) }}</span><span class=evchev aria-hidden=true>›</span></div></a>
+{{ r2_event_card('/practices/' ~ p.id, (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1], practice_duration(p.start, p.end), short_place(p.location), x.going, '', x.mine == 1) }}
 {% else %}
-<a class=evrow2 href="/practices/{{ p.id }}"><div><span class=evcap>{{ (p.sport or 'Water Polo')|upper }}</span><b>{{ weekday_name(p.date) }}<br>{{ practice_title(p) }}</b><small>{{ fmt_clock(p.start) }} · {{ short_place(p.location) }}</small></div><div class=evcount><b>{{ x.going|length }}</b><span>GOING</span><i aria-hidden=true>›</i></div></a>
+{{ r2_event_row('/practices/' ~ p.id, 'stack', weekday_name(p.date), practice_title(p), fmt_clock(p.start) ~ ' · ' ~ short_place(p.location), x.going|length, (p.sport or 'Water Polo')|upper) }}
 {% endif %}
 {% endfor %}{% if ns.open %}</div></div>{% endif %}
 {% if not sched_rows %}<p class="t3">Nothing coming up.</p>{% endif %}
@@ -6622,7 +6648,7 @@ T["practice"] = """{% set p = x.p %}
 {% endif %}
 {% else %}
 <div class=p5>
-{% if p.image %}<div class=p5cover><img src="/practice-image/{{ p.id }}?v={{ p.image }}" alt=""></div>{% endif %}
+{% if p.image %}{{ r2_cover('/practice-image/' ~ p.id ~ '?v=' ~ p.image) }}{% endif %}
 <div class="p5hero{% if p.cancelled %} off{% endif %}">
 <div class=p5over>{{ (p.sport or 'Water Polo')|upper }} · {{ weekday_name(p.date)[:3]|upper }} · {{ month_abbr(p.date)|upper }} {{ day_num(p.date) }}</div>
 <span class="p5chip{% if p.cancelled %} bad{% endif %}">{% if p.cancelled %}Cancelled{% else %}Scheduled{% endif %}</span>
@@ -6633,31 +6659,24 @@ T["practice"] = """{% set p = x.p %}
 {% if p.cancelled and p.cancel_reason %}<p>{{ p.cancel_reason }}</p>{% endif %}
 </div>
 <div class=p5metrics>
-<div class=lime><b>{{ '%02d'|format(x.going|length) }}</b><span>GOING</span></div>
-<div><b>{{ '%02d'|format(x.coaches|length) }}</b><span>COACHES</span></div>
-<div><b>{{ '%02d'|format(x.checked|length) }}</b><span>CHECKED IN</span></div>
+{{ r2_metric('%02d'|format(x.going|length), 'GOING', 'lime') }}
+{{ r2_metric('%02d'|format(x.coaches|length), 'COACHES') }}
+{{ r2_metric('%02d'|format(x.checked|length), 'CHECKED IN') }}
 </div>
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class="pills p5rsvp">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>{{ rsvp_base('p' ~ p.id) }}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>
-<div class=p5chat>
-<a class=practlink href="/chat?c=practice:{{ p.id }}{% if x.mine != 1 %}&amp;peek=1{% endif %}">{% if x.mine == 1 %}Chat{% else %}Peek{% endif %}{% if x.going|length %} <span>{{ x.going|length }}</span>{% endif %}</a>
-<a class=p5more href="/chat?c=practice:{{ p.id }}{% if x.mine != 1 %}&amp;peek=1{% endif %}" aria-label="More">···</a>
-</div>{% endif %}
-{% for card in social_cards %}
-<div class=p5social>
-<div class=grow><b>{% if card.when == 'before' %}BEFORE PRACTICE{% else %}AFTER PRACTICE{% endif %}{% if card.clock %} · {{ fmt_t(card.clock) }}{% endif %}</b><span>{{ card.title }} · {{ card.place }}</span></div>
-<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button name=action value=social_join>Join</button></form>
-</div>
-{% endfor %}
-<h3 class=p5sec>Who's going</h3>
-<div class=p5people>{% for r in x.going %}<div class=p5person><span class=av>{{ initials(r) }}</span><span class=grow><b>{{ display_first(r) }} {{ r.last }}</b><small>Player</small></span><span class=goingchip>Going</span></div>{% else %}<p class=p5empty>No one yet.</p>{% endfor %}</div>
-<h3 class=p5sec>Can't make it</h3>
-<div class=p5people>{% for r in x.notgoing %}<div class=p5person><span class=av>{{ initials(r) }}</span><span class=grow><b>{{ display_first(r) }} {{ r.last }}</b></span><span class=outchip>Out</span></div>{% else %}<p class=p5empty>No one yet.</p>{% endfor %}</div>
-<h3 class=p5sec>Details</h3>
-<div class=p5info><span>DETAILS</span><b>{% if p.note %}{{ p.note }}{% else %}No notes yet.{% endif %}</b></div>
-{% if not social_cards %}<div class=p5info><span>AFTER-PRACTICE SOCIAL</span><b>None yet.</b></div>{% endif %}
-<div class=p5info><span>COACHES</span><b>{% if x.coaches %}{% for c in x.coaches %}{{ display_first(c) }} {{ c.last }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}No coaches assigned.{% endif %}</b></div>
+{{ r2_practice_actions('/chat?c=practice:' ~ p.id ~ ('&peek=1' if x.mine != 1 else ''), 'Chat' if x.mine == 1 else 'Peek', x.going|length) }}
+{% endif %}
+{% for card in social_cards %}{{ r2_social_card(card, 'row') }}{% endfor %}
+{{ r2_section("Who's going") }}
+<div class=p5people>{% for r in x.going %}{{ r2_list_row(display_first(r) ~ ' ' ~ r.last, 'Player', initials(r), 'Going') }}{% else %}<p class=p5empty>No one yet.</p>{% endfor %}</div>
+{{ r2_section("Can't make it") }}
+<div class=p5people>{% for r in x.notgoing %}{{ r2_list_row(display_first(r) ~ ' ' ~ r.last, '', initials(r), 'Out') }}{% else %}<p class=p5empty>No one yet.</p>{% endfor %}</div>
+{{ r2_section('Details') }}
+{{ r2_info('DETAILS', p.note if p.note else 'No notes yet.') }}
+{% if not social_cards %}{{ r2_info('AFTER-PRACTICE SOCIAL', 'None yet.') }}{% endif %}
+{{ r2_info('COACHES', x.coaches|map(attribute='first')|join(', ') if x.coaches else 'No coaches assigned.') }}
 <div class=heldsocial hidden><div class=seclabel>After-practice social</div>
 <div class=list><div class=li>{% if social_line(p) %}{{ social_icon() }}{% endif %}<div class=grow>
 {% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
@@ -6688,7 +6707,7 @@ T["practice"] = """{% set p = x.p %}
 {% if can_host_practice() and x.checked %}<div class="sechead checkhead"><span class=seclabel>Checked in</span><a class="btn btn-secondary" href="{{ check_href }}">Check in</a></div>
 {% else %}<div class=seclabel>Checked in</div>{% endif %}
 <div class=list>{% for r in x.checked %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class="t3 grow">No one yet.</span>{% if can_host_practice() %}<a class="btn btn-secondary" href="{{ check_href }}">Check in</a>{% endif %}</div>{% endfor %}</div>
-{% if p.location %}{% set dest = (pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location) %}{% set soc = namespace(name='', sub='', href='', dest='') %}{% if social_line(p) %}{% set soc.name = (p.social_place or '')|trim %}{% set _saddr = (p.social_address or '')|trim %}{% if _saddr and not (_saddr.lower().startswith('http://') or _saddr.lower().startswith('https://')) %}{% set soc.sub = _saddr %}{% endif %}{% set _spin = namespace(lat=none, lng=none) %}{% for pin in pins %}{% if pin.kind == 'social' %}{% set _spin.lat = pin.lat %}{% set _spin.lng = pin.lng %}{% endif %}{% endfor %}{% if _saddr.lower().startswith('http://') or _saddr.lower().startswith('https://') %}{% set soc.href = _saddr %}{% elif _spin.lat is not none %}{% set soc.dest = _spin.lat|string ~ ',' ~ _spin.lng|string %}{% set soc.href = 'https://www.google.com/maps/dir/?api=1&destination=' ~ (soc.dest|urlencode) %}{% else %}{% set soc.href = 'https://www.google.com/maps/dir/?api=1&destination=' ~ ((soc.sub or soc.name)|urlencode) %}{% endif %}{% endif %}<h3 class=p5sec>Getting there</h3>{{ event_location('practiceLoc', pins, p.location, p.address or '', 'https://www.google.com/maps/dir/?api=1&destination=' ~ (dest|urlencode), social_route_points(p), p.social_drive_min if pins|selectattr('kind','equalto','social')|list else none, soc.name, soc.sub, soc.href, soc.dest) }}{% endif %}
+{% if p.location %}{% set dest = (pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location) %}{% set soc = namespace(name='', sub='', href='', dest='') %}{% if social_line(p) %}{% set soc.name = (p.social_place or '')|trim %}{% set _saddr = (p.social_address or '')|trim %}{% if _saddr and not (_saddr.lower().startswith('http://') or _saddr.lower().startswith('https://')) %}{% set soc.sub = _saddr %}{% endif %}{% set _spin = namespace(lat=none, lng=none) %}{% for pin in pins %}{% if pin.kind == 'social' %}{% set _spin.lat = pin.lat %}{% set _spin.lng = pin.lng %}{% endif %}{% endfor %}{% if _saddr.lower().startswith('http://') or _saddr.lower().startswith('https://') %}{% set soc.href = _saddr %}{% elif _spin.lat is not none %}{% set soc.dest = _spin.lat|string ~ ',' ~ _spin.lng|string %}{% set soc.href = 'https://www.google.com/maps/dir/?api=1&destination=' ~ (soc.dest|urlencode) %}{% else %}{% set soc.href = 'https://www.google.com/maps/dir/?api=1&destination=' ~ ((soc.sub or soc.name)|urlencode) %}{% endif %}{% endif %}{{ r2_section('Getting there') }}{{ event_location('practiceLoc', pins, p.location, p.address or '', 'https://www.google.com/maps/dir/?api=1&destination=' ~ (dest|urlencode), social_route_points(p), p.social_drive_min if pins|selectattr('kind','equalto','social')|list else none, soc.name, soc.sub, soc.href, soc.dest) }}{% endif %}
 </div>
 {% endif %}
 {% if me().is_admin or is_staff() %}{{ practice_extra_dialogs(p, 'page') }}

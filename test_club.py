@@ -285,8 +285,8 @@ def test_schedule_is_not_the_old_home_and_profile_sheets_open():
     schedule = member.get("/practices?view=list").get_data(as_text=True)
     assert "id=schedule" in schedule and "view=list&when=past" in schedule
     assert "body.homefull .schedfeed{position:relative;z-index:2;pointer-events:auto}" in schedule
-    for card in re.findall(r'<a class=(evcard2|evrow2|evcancel) href="([^"]+)"', schedule):
-        assert card[1].startswith("/practices/")
+    for href in re.findall(r'class="[^"]*(?:evcard2|evrow2|evcancel)[^"]*" href="([^"]+)"', schedule):
+        assert href.startswith("/practices/")
     own = member.get("/profile").get_data(as_text=True)
     assert "Edit profile" in own and "Type DELETE to confirm" in own and "id=deleteGo" in own and "Legal name" in own
     staff = admin.get("/profile/%d" % sam).get_data(as_text=True)
