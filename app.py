@@ -3132,11 +3132,16 @@ def practice_switcher(d, m, current):
     back = ""
     if locked and upcoming and upcoming[0]["id"] != pid:
         back = '<p><a href="/chat?c=practice:%d">Back to tonight</a></p>' % upcoming[0]["id"]
-    subject = "%s practice" % _chip_date(row["date"])
-    ask = ('<button type=button class=askcoach data-open-request data-to="coaches" data-about="practice" data-subject="%s" data-practice="%d">Ask the coaches</button>'
-           % (escape(subject), pid))
-    return ('<div class=pchatbar><a href="/chat?view=list">← Practice chat</a>'
-            '<a class=datechip href="/chat?view=practices">%s ▾</a>%s</div>%s%s' % (escape(_chip_date(row["date"])), ask, note, back))
+    live = upcoming[0]["id"] == pid if upcoming else False
+    back_link = '<a href="/chat?view=list">← Practice chat</a>'
+    if not live and upcoming:
+        back_link = '<a href="/chat?c=practice:%d">← Back to tonight</a>' % upcoming[0]["id"]
+    where = (row["location"] or row["title"] or "Practice").strip()
+    when = "Tonight · %s" % where if str(row["date"])[:10] == today_pt().isoformat() else "%s · %s" % (_chip_date(row["date"]), where)
+    going = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (pid,)).fetchone()[0]
+    hero = '<div class=pchathero><span class=pchatclock>%s</span><span><b>%s</b><small>%d going</small></span></div>' % (escape(_clock_face(row["start"])), escape(when), going)
+    return ('<div class=pchatbar>%s<a class=datechip href="/chat?view=practices">%s ▾</a></div>%s%s%s'
+            % (back_link, escape(_chip_date(row["date"])), hero, note, back))
 @app.route("/chat")
 @login_required
 def chat():
