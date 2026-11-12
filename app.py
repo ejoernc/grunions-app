@@ -2684,11 +2684,7 @@ def chat():
         d.commit()
     mark_chat_read(d, me()["id"], ch)
     label = "#everyone" if ch == "team" else ("the board" if ch == "coaches" else "this chat")
-    head = practice_switcher(d, me(), ch) if ch.startswith("practice:") else ""
-    muted = chat_muted(d, me()["id"], ch)
-    tools = ('<form method=post action=/chat/mute class=chattools>%s<input type=hidden name=c value="%s">'
-             '<button class="btn btn-secondary" name=mute value="%s">%s</button></form>'
-             % (csrf_field(), escape(ch), "off" if muted else "week", "Unmute" if muted else "Mute for a week"))
+    head = practice_switcher(d, me(), ch) if ch.startswith("practice:") else _thread_bar(d, me(), ch)
     if ch == "team":
         prompt = "Message the team"
     elif ch == "coaches":
@@ -2701,7 +2697,7 @@ def chat():
         prompt = "Message #%s" % ch.split(":", 1)[1]
     else:
         prompt = "Message"
-    return page(head + tools + T["chat"], tab="chat", ch=ch, chat_label=label, chat_placeholder=prompt, chat_locked=practice_chat_locked(d, ch), chat_seed=chat_page_messages(d, ch, 50))
+    return page(head + T["chat"], tab="chat", ch=ch, chat_label=label, chat_placeholder=prompt, chat_locked=practice_chat_locked(d, ch), chat_seed=chat_page_messages(d, ch, 50))
 @app.route("/chat/follow", methods=["POST"])
 @login_required
 def chat_follow_leave():
@@ -2712,20 +2708,69 @@ def chat_follow_leave():
         db().execute("DELETE FROM chat_follows WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
         db().commit()
     return redirect("/chat?view=list")
+def _thread_title(d, m, ch):
+    if ch == "team":
+        return "#everyone"
+    if ch == "coaches":
+        return "Board room"
+    if ch == "ask:coaches":
+        return "Message the coaches"
+    if ch == "ask:board":
+        return "Message the board"
+    if ch.startswith("ch:"):
+        return "#" + ch.split(":", 1)[1]
+    if ch.startswith("grp:"):
+        slug = ch.split(":", 1)[1]
+        row = d.execute("SELECT title FROM chat_channels WHERE slug=? AND kind='group'", (slug,)).fetchone()
+        return (row["title"] if row and row["title"] else slug.replace("-", " ").title())
+    if ch.startswith("dm:"):
+        return _other_dm_name(d, ch, m["id"])
+    return "Chat"
+def _thread_bar(d, m, ch):
+    """The thread name opens mute options. Nothing about mute sits in the transcript."""
+    title = _thread_title(d, m, ch)
+    muted = chat_muted(d, m["id"], ch)
+    unmute = '<button class=newrow name=mute value=off>Unmute</button>' if muted else ""
+    return ('<div class=threadbar><button type=button id=threadName>%s</button></div>'
+            '<dialog id=muteSheet class=botsheet><div class=sheet><div class=grab aria-hidden=true></div>'
+            '<h2 class=newtitle>%s</h2><form method=post action=/chat/mute class=newcard>%s'
+            '<input type=hidden name=c value="%s">'
+            '<button class=newrow name=mute value=1h>Mute for 1h</button>'
+            '<button class=newrow name=mute value=8h>Mute for 8h</button>'
+            '<button class=newrow name=mute value=tomorrow>Mute until tomorrow</button>'
+            '<button class=newrow name=mute value=on>Mute until turned back on</button>%s'
+            '</form></div></dialog>'
+            '<script>document.getElementById("threadName").onclick=function(){var s=document.getElementById("muteSheet");if(window.grunionsOpenSheet)grunionsOpenSheet(s);else s.showModal();};</script>'
+            ) % (escape(title), escape(title), csrf_field(), escape(ch), unmute)
+def _mute_until(kind):
+    now = dt.datetime.now(dt.timezone.utc)
+    if kind == "1h":
+        return (now + dt.timedelta(hours=1)).isoformat()
+    if kind == "8h":
+        return (now + dt.timedelta(hours=8)).isoformat()
+    if kind == "tomorrow":
+        nxt = dt.datetime.combine(today_pt() + dt.timedelta(days=1), dt.time.min, PT)
+        return nxt.astimezone(dt.timezone.utc).isoformat()
+    if kind == "on":
+        return ""
+    return None
 @app.route("/chat/mute", methods=["POST"])
 @login_required
 def chat_mute():
     ch = parse_channel(request.form.get("c") or "")
     if not can_read(ch): abort(403)
     d = db()
-    if request.form.get("mute") == "off":
+    kind = request.form.get("mute") or ""
+    if kind == "off":
         d.execute("DELETE FROM chat_mutes WHERE member_id=? AND channel=?", (me()["id"], ch))
     else:
-        until = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=7)).isoformat()
+        until = _mute_until(kind)
+        if until is None:
+            abort(400)
         d.execute("""INSERT INTO chat_mutes(member_id, channel, until) VALUES(?,?,?)
             ON CONFLICT(member_id, channel) DO UPDATE SET until=excluded.until""", (me()["id"], ch, until))
     d.commit()
-    return redirect(request.referrer or ("/chat?c=%s" % ch))
+    return redirect("/chat?c=%s" % ch)
 @app.route("/chat/dm", methods=["POST"])
 @login_required
 def chat_dm_start():
