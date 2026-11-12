@@ -264,10 +264,11 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
         A.db().commit()
     assert member.get("/manage").status_code == 403
     page = admin.get("/manage").get_data(as_text=True)
-    assert "id=growthCard" in page and "Search settings, people, tools..." in page
+    assert "id=growthCard" in page and "id=manageSearch" in page and "data-mseg=people" in page
     assert ">Practice</a>" not in page and ">Bulletin</a>" not in page and "class=qactions" not in page
     assert 'aria-label="Create event"' not in page and "class=headplus" not in page and 'aria-label="Profile"' not in page.split("<main>", 1)[0]
-    assert ">Activities</b>" in page and ">People</b>" in page and ">Club</b>" in page and ">Tools</b>" in page
+    assert "data-mseg=schedule" in page and "data-mseg=people" in page and "data-mseg=club" in page and "data-mseg=tools" in page
+    assert "+ New practice or event" in page
     club = admin.get("/manage/area/club").get_data(as_text=True)
     assert ">Sports</b>" in club or "Sports" in club
     assert 'href="/manage/club/programs"' in club and "Plans &amp; passes" in club and ">Requirements</span>" not in club

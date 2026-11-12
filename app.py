@@ -7489,8 +7489,20 @@ _MANAGE_ICONS = {
  "pin": "M128,16a88.1,88.1,0,0,0-88,88c0,75.3,80,132.17,83.41,134.55a8,8,0,0,0,9.18,0C136,236.17,216,179.3,216,104A88.1,88.1,0,0,0,128,16Zm0,56a32,32,0,1,1-32,32A32,32,0,0,1,128,72Z",
  "key": "M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A79.73,79.73,0,0,0,160,176h.1A80,80,0,0,0,216.57,39.43ZM224,104a63.7,63.7,0,0,1-18.26,45.1,8,8,0,0,1-5.66,2.34H160a8,8,0,0,0-5.66,2.34L144,164.69V176H128a8,8,0,0,0-8,8v16H104a8,8,0,0,0-8,8v8H40V187.31l55.06-55.07A8,8,0,0,0,97.5,122,64,64,0,1,1,224,104Zm-56-24a16,16,0,1,1-16-16A16,16,0,0,1,168,80Z",
 }
+_TILES = {
+ "Schedule": "sun", "Lineup": "sky", "Bulletin": "tangerine", "Requests": "lavender", "Board chat": "lavender",
+ "Participants": "sun", "Members": "sky", "Coaches": "tangerine", "Admins": "lavender", "Referees": "lime",
+ "Sports": "sun", "Venues": "tangerine", "Plans & passes": "lavender", "Permissions": "lime",
+ "Website & sharing": "aqua", "Leadership": "mango", "Integrations": "bubblegum",
+ "QR codes": "sun", "Data transfer": "sky", "Usage": "tangerine", "People": "sky",
+}
+_NUM_TILES = {"Participants", "Members", "Coaches", "Admins", "Referees", "Compliance", "Requests", "Usage"}
 def _manage_row(title, desc, href, icon, count=0, tone="info"):
-    return {"title": title, "desc": desc, "href": href, "icon": _micon(_MANAGE_ICONS[icon]), "count": count or 0, "tone": tone}
+    tile = _TILES.get(title, "carbon")
+    if title == "Compliance" and "Shared" in (desc or ""): tile = "sky"
+    elif title == "Compliance": tile = "aqua"
+    return {"title": title, "desc": desc, "href": href, "icon": _micon(_MANAGE_ICONS[icon]),
+            "count": count or 0, "tone": tone, "tile": tile, "num": title in _NUM_TILES}
 def expiring_people_count(d):
     ids = set()
     for bucket in expiry_report(d, EXPIRING_DAYS).values():
@@ -7719,8 +7731,13 @@ def event_new():
             return redirect("/lineup")
         flash("Preview", "toast")
         return redirect("/lineup/%d" % info["id"] if info["status"] == "published" else "/lineup")
+    practice_days = []
+    if staff:
+        practice_days = [r[0] for r in db().execute(
+            "SELECT DISTINCT date FROM practices WHERE cancelled=0 AND date>=? ORDER BY date",
+            (today_pt().isoformat(),)).fetchall()]
     return page(T["event_new"], tab="event_new", staff=staff, lane=lane, activity=activity, line_types=line_types,
-        coaches=coach_candidates(db()) if staff else [], dup=dup,
+        coaches=coach_candidates(db()) if staff else [], dup=dup, practice_days=practice_days,
         plan_back=("/practices/%d" % dup["id"]) if dup else (("/manage/lineup" if lane == "lineup" else ("/admin" if is_staff() else "/manage/schedule")) if staff else "/lineup"),
         plan_title=("Create event" if staff else "Suggest an event"),
         plan_save=("Save" if dup else ("Preview" if staff else "Submit")))
@@ -7849,7 +7866,7 @@ def _manage_catalog(d):
         add("club", "Integrations", "Club Assistant and other registration links", "/manage/club/integrations", "swap", "club assistant provider payment link")
         add("tools", "QR codes", "Check-in and sharing", "/qr", "qr", "qr code join check-in")
         add("tools", "Data transfer", "Import and export", "/transfer", "swap", "csv import export export csv")
-        add("tools", "Usage", "Mapbox calls today", "/manage/usage", "rules", "mapbox usage")
+        add("tools", "Usage", "Mapbox calls today", "/manage/usage", "rules", "mapbox usage", mapbox_calls_today())
     return rows
 _AREA_COPY = {
     "activities": ("Activities", "Schedule, Lineup, Bulletin, and requests"),
@@ -7857,37 +7874,87 @@ _AREA_COPY = {
     "club": ("Club", "Sports, plans, and sharing"),
     "tools": ("Tools", "QR codes, data transfer, and usage"),
 }
+def _manage_week(d, admin):
+    """This week's sessions for Manage home. Preview data only; no new rows."""
+    today = today_pt()
+    start, end = today.isoformat(), (today + dt.timedelta(days=6)).isoformat()
+    items = []
+    for p in d.execute("""SELECT * FROM practices WHERE cancelled=0 AND date>=? AND date<=?
+        ORDER BY date, start, id""", (start, end)):
+        n = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (p["id"],)).fetchone()[0]
+        kind = ((p["activity_type"] if "activity_type" in p.keys() else "") or "practice").lower()
+        label = {"scrimmage": "Scrimmage", "game": "Game"}.get(kind, "Practice")
+        tone = "sky" if kind == "practice" else "ink"
+        wd = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.date.fromisoformat(p["date"]).weekday()]
+        place = ((p["location"] or "").split(",")[0] or "Pool")
+        if admin:
+            action, href = "Edit", "/practices/%d?edit=1" % p["id"]
+            meta = "%s · %d going" % (place, n)
+        elif p["date"] == start:
+            action, href = "Check in", "/admin?date=%s" % p["date"]
+            meta = "You coach · %d going" % n
+        else:
+            action, href = "Edit", "/practices/%d?edit=1" % p["id"]
+            meta = "You coach · %d going" % n
+        items.append({"title": "%s %s · %s" % (wd, fmt_t(p["start"] or "19:00"), label),
+                      "meta": meta, "href": href, "action": action, "tone": tone, "sort": (p["date"], p["start"] or "", p["id"])})
+    try:
+        cols = {r[1] for r in d.execute("PRAGMA table_info(lineup_events)")}
+        if "date" in cols and "title" in cols:
+            status = "AND COALESCE(status,'published')='published'" if "status" in cols else ""
+            for e in d.execute("SELECT * FROM lineup_events WHERE date>=? AND date<=? %s ORDER BY date, id" % status, (start, end)):
+                try:
+                    place = (e["venue"] if "venue" in e.keys() and e["venue"] else "") or (e["city"] if "city" in e.keys() else "") or (e["location"] or "")
+                    kind = (e["event_type"] if "event_type" in e.keys() and e["event_type"] else "") or (e["subtype"] if "subtype" in e.keys() else "") or "Event"
+                    wd = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.date.fromisoformat(str(e["date"])[:10]).weekday()]
+                    items.append({"title": "%s · %s" % (wd, e["title"]), "meta": "%s · %s" % (kind, place or "Lineup"),
+                                  "href": "/lineup/%d/edit" % e["id"], "action": "Edit", "tone": "ink",
+                                  "sort": (str(e["date"]), "", e["id"])})
+                except (TypeError, ValueError):
+                    continue
+    except sqlite3.OperationalError:
+        pass
+    items.sort(key=lambda item: item["sort"])
+    return items
+def _manage_people_preview(d):
+    """A short roster for the Manage People chip. Not cleared floats first."""
+    people, needs = [], 0
+    rows = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first, id").fetchall()
+    for person in rows:
+        try:
+            cl = clearance(d, person)
+            bad = not cl["ok"]
+        except Exception:
+            bad = False
+        if bad: needs += 1
+        if person["is_admin"]: sub = "Admin"
+        elif (person["role"] or "") == "coach": sub = "Coach"
+        else: sub = "Member"
+        if bad: sub = "USAWP missing · " + sub
+        people.append({
+            "name": ("%s %s" % (display_first(person), person["last"] or "")).strip(),
+            "sub": sub, "chip": "Not cleared" if bad else "Cleared",
+            "tone": "tang" if bad else "lime", "href": "/profile/%d" % person["id"],
+            "rank": 0 if bad else 1,
+        })
+    people.sort(key=lambda row: (row["rank"], row["name"]))
+    return people[:8], needs, len(rows)
 @app.route("/manage")
 @login_required
 def manage_home():
     if not can_open_manage(): abort(403)
     d = db()
     catalog = _manage_catalog(d)
-    areas = []
-    for key in ("activities", "people", "club", "tools"):
-        kids = [row for row in catalog if row["area"] == key]
-        if not kids: continue
-        title, desc = _AREA_COPY[key]
-        href = "/manage/area/%s" % key
-        if len(kids) == 1 and kids[0]["title"] == "Board chat":
-            title, desc, href = kids[0]["title"], kids[0]["desc"], kids[0]["href"]
-        count = sum(row["count"] for row in kids)
-        tone = "warn" if any(row["tone"] == "warn" and row["count"] for row in kids) else "info"
-        icon = kids[0]["icon"]
-        areas.append({"key": key, "title": title, "desc": desc, "href": href, "icon": _micon(_MANAGE_ICONS[icon]),
-                      "count": count, "tone": tone})
-    quick = []
-    if SHOW_MANAGE_QUICK and can_host_practice():
-        quick = [
-            {"title": "Practice", "href": "/events/new?lane=schedule&type=practice"},
-            {"title": "Event", "href": "/events/new?lane=lineup"},
-            {"title": "Bulletin", "href": "/chat"},
-        ]
+    admin = is_club_admin()
+    club_rows = [_manage_row(row["title"], row["desc"], row["href"], row["icon"], row["count"], row["tone"]) for row in catalog if row["area"] == "club"]
+    tool_rows = [_manage_row(row["title"], row["desc"], row["href"], row["icon"], row["count"], row["tone"]) for row in catalog if row["area"] == "tools"]
     growth = ""
-    if is_club_admin():
+    people_preview, needs_n, people_n = [], 0, 0
+    if admin:
         growth = chart_card(growth_chart(*signup_days(d)), attendance_chart(recent_checkins(d)))
-    chev = Markup('<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>')
-    return page(T["manage"], tab="manage", areas=areas, quick=quick, growth=growth, chev=chev)
+        people_preview, needs_n, people_n = _manage_people_preview(d)
+    return page(T["manage"], tab="manage", growth=growth, club_admin=admin, club_rows=club_rows, tool_rows=tool_rows,
+        week=_manage_week(d, admin), people_preview=people_preview, needs_n=needs_n, people_n=people_n)
 def _search_words(q):
     needle = " ".join((q or "").split()).casefold()
     return needle, needle.split()

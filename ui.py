@@ -424,8 +424,116 @@ body.practicepage:not(.editor) .p5 .list.loccard{display:block}
 .p5info span{display:block;color:#8B8F93;font:700 11px/1 var(--r2-font-sans);letter-spacing:.06em}
 .p5info b{display:block;margin-top:6px;font:600 16px/1.3 var(--r2-font-sans);color:#F6F4EF}
 .p5empty{color:#8B8F93}
-.newevent{margin:8px 0 12px;font:700 48px/.95 var(--r2-font-display);letter-spacing:-.04em}
+.newevent{margin:8px 0 18px;font:700 clamp(52px,14vw,72px)/.9 var(--r2-font-display);letter-spacing:-.045em}
 .lanecard.on{background:#C8FF3C;color:#0B0B0C}
+body.editor header.profilebar{grid-template-columns:auto 1fr auto;padding:calc(8px + env(safe-area-inset-top)) 16px 0;background:#090D0B}
+body.editor header.profilebar a.profileact,body.editor header.profilebar button.profileact{height:40px;min-height:40px;padding:0 16px;border-radius:999px;background:#24262A;color:#F6F4EF}
+body.editor:not(.eventnew) header.profilebar button.savebtn{background:#C8FF3C;color:#0B0B0C}
+body.eventnew header.profilebar h1{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+body.editor main,body.adminpage main{padding-bottom:calc(var(--nav-clear) + 88px + env(safe-area-inset-bottom))}
+body.editor .lanepick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+body.editor button.lanecard{min-height:132px;padding:16px;border:0;border-radius:28px;background:#24262A;color:#F6F4EF;box-shadow:none}
+body.editor button.lanecard.on{background:#C8FF3C;color:#0B0B0C;border:0;box-shadow:none}
+body.editor button.lanecard.on span,body.editor button.lanecard span{color:inherit;opacity:.8}
+body.editor h2.planask,body.editor .fldlab{margin:18px 0 8px;font:700 11px/1 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase;color:#8B8F93}
+body.editor .actseg{gap:8px;margin:0 0 16px;padding:0;background:transparent}
+body.editor .actseg span{height:40px;min-height:40px;padding:0 14px;border-radius:999px;background:#24262A;color:#F6F4EF}
+body.editor #schedBlock .actseg input:checked+span,body.editor .hostseg input:checked+span,body.editor #whenPrec input:checked+span{background:#FFC61A;color:#0B0B0C}
+body.editor #lineBlock .actseg input:checked+span,body.editor #eventForm .actseg input:checked+span{background:#C9B6FF;color:#0B0B0C}
+body.editor .colordots{display:flex;gap:10px;margin:0 0 16px}
+body.editor button.cdot{width:28px;height:28px;min-height:28px;padding:0;border-radius:999px;border:0;background:var(--c);box-shadow:0 0 0 2px #090D0B}
+body.editor button.cdot.on{box-shadow:0 0 0 2px #090D0B,0 0 0 4px #F6F4EF}
+body.editor .typechips{display:flex;flex-wrap:wrap;gap:8px;margin:-8px 0 16px}
+body.editor .typechips button{height:40px;min-height:40px;padding:0 14px;border:0;border-radius:999px;background:#24262A;color:#F6F4EF}
+body.editor .typechips button.on{background:#C9B6FF;color:#0B0B0C}
+body.editor label{font:700 11px/1.2 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase;color:#8B8F93}
+body.editor label input,body.editor label select,body.editor label textarea,body.editor .livetitle{text-transform:none;letter-spacing:0;font:600 16px/1.3 var(--r2-font-sans);color:#F6F4EF}
+body.editor input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]),body.editor select,body.editor textarea.planfield{background:#17181A;border:0;border-radius:22px;min-height:56px;color:#F6F4EF}
+body.editor input.bad,body.editor button.setrow.bad{outline:2px solid #FF5A1F;outline-offset:0}
+body.editor #exactWhen{display:grid;grid-template-columns:1fr 1fr;gap:10px;background:transparent;border:0}
+body.editor #exactWhen .setrow{min-height:72px;border:0;border-radius:22px;background:#17181A;color:#F6F4EF;align-items:flex-start;flex-direction:column;padding:12px 14px}
+body.editor #exactWhen .setrow[data-matfor=dateInput],body.editor #exactWhen #repeatRow,body.editor #exactWhen #freqRow,body.editor #exactWhen #endsRow,body.editor #exactWhen #skipRow{grid-column:1 / -1}
+body.editor .livetitle{display:flex;align-items:center;justify-content:space-between;min-height:56px;margin:0 0 16px;padding:0 16px;border-radius:22px;background:#17181A}
+body.editor .plancards{flex-direction:row;align-items:stretch}
+body.editor label.plancard{flex:1;min-height:132px;border:0;border-radius:28px;background:#24262A;color:#F6F4EF;box-shadow:none}
+body.editor label.plancard .planmark{display:none}
+body.editor label.plancard:has(input:checked){background:#C9B6FF;color:#0B0B0C;border:0;box-shadow:none}
+body.editor label.plancard:has(input:checked) .plantxt span{color:#0B0B0C}
+body.editor .signupopts{display:flex;flex-direction:column;gap:8px;margin:0 0 16px}
+body.editor label.sigopt{display:flex;align-items:center;gap:12px;margin:0;padding:14px 16px;border-radius:22px;background:#17181A;text-transform:none;letter-spacing:0;color:#F6F4EF}
+body.editor label.sigopt b{display:block;font:700 16px/1.2 var(--r2-font-sans);text-transform:none;letter-spacing:0;color:#F6F4EF}
+body.editor label.sigopt small{display:block;color:#8B8F93;font:600 13px/1.3 var(--r2-font-sans);text-transform:none;letter-spacing:0}
+body.editor label.sigopt:has(input:checked){box-shadow:inset 0 0 0 2px #C8FF3C}
+body.editor main .note{background:#FF5A1F;color:#0B0B0C;border:0;border-radius:22px;padding:14px 16px;font-weight:700}
+body.editor .daypicks{display:flex;flex-wrap:wrap;gap:8px}
+body.editor .daypicks label{margin:0;text-transform:none;letter-spacing:0}
+body.editor .daypicks input{position:absolute;opacity:0;width:1px;height:1px}
+body.editor .daypicks span{display:inline-flex;align-items:center;height:40px;padding:0 14px;border-radius:999px;background:#24262A;color:#F6F4EF;font:700 14px/1 var(--r2-font-sans)}
+body.editor .daypicks input:checked+span{background:#FFC61A;color:#0B0B0C}
+#grunionsDateDlg .calday.today{background:#C8FF3C;color:#0B0B0C;border-radius:999px}
+#grunionsDateDlg .calday.on{box-shadow:inset 0 0 0 2px #C8FF3C;border-radius:999px}
+#grunionsDateDlg .calday.has{color:#FFC61A}
+#grunionsDateDlg .callegend{display:flex;gap:16px;margin:8px 8px 4px;color:#8B8F93;font:600 12px/1 var(--r2-font-sans)}
+#grunionsDateDlg .callegend i{display:inline-block;width:8px;height:8px;margin-right:6px;border-radius:999px;background:#C8FF3C}
+#grunionsDateDlg .callegend .practicedot{background:#FFC61A}
+#grunionsDateDlg .matactions,#grunionsTimeDlg .matactions{display:flex;gap:10px}
+#grunionsDateDlg .matactions button,#grunionsTimeDlg .matactions button{flex:1;height:52px;border-radius:999px;background:#24262A;color:#F6F4EF}
+#grunionsDateDlg #matDateOk,#grunionsTimeDlg #timeOk{background:#C8FF3C;color:#0B0B0C}
+.mseg{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 4px}
+.mseg .chip{background:#24262A;color:#F6F4EF;border:0;border-radius:999px}
+.mseg .chip.on{background:#F6F4EF;color:#0B0B0C}
+.needban{display:flex;align-items:center;gap:12px;min-height:64px;margin:8px 0;padding:12px 12px 12px 16px;border-radius:999px;background:#FF5A1F;color:#0B0B0C;text-decoration:none}
+.needban b{font:700 15px/1.2 var(--r2-font-sans)}
+.needban em{margin-left:auto;padding:8px 14px;border-radius:999px;background:#0B0B0C;color:#F6F4EF;font:700 13px/1 var(--r2-font-sans);font-style:normal}
+.wkrow{display:flex;align-items:center;gap:12px;min-height:76px;margin:0 0 10px;padding:14px 14px 14px 18px;border-radius:28px;background:#24262A;color:#F6F4EF;text-decoration:none}
+.wkrow.sky{background:#7CC8F4;color:#0B0B0C}
+.wkrow b{display:block;font:700 16px/1.25 var(--r2-font-sans)}
+.wkrow small{display:block;margin-top:2px;color:inherit;opacity:.75;font:600 13px/1.3 var(--r2-font-sans)}
+.wkact{margin-left:auto;padding:8px 12px;border-radius:999px;background:#0B0B0C;color:#F6F4EF;font:700 13px/1 var(--r2-font-sans)}
+.wkrow.sky .wkact{background:#0B0B0C;color:#F6F4EF}
+.wkadd{display:flex;align-items:center;justify-content:center;min-height:56px;margin:4px 0 12px;border-radius:999px;border:1.5px solid #3A3D42;color:#F6F4EF;text-decoration:none;font:700 15px/1 var(--r2-font-sans)}
+.prow2{display:flex;align-items:center;gap:12px;min-height:76px;margin:0 0 10px;padding:14px 16px;border-radius:28px;background:#17181A;color:#F6F4EF;text-decoration:none}
+.prow2 b{display:block;font:700 16px/1.2 var(--r2-font-sans)}
+.prow2 small{display:block;color:#8B8F93;font:600 13px/1.3 var(--r2-font-sans)}
+.stchip{margin-left:auto;padding:6px 10px;border-radius:999px;font:700 12px/1 var(--r2-font-sans)}
+.stchip.tang{background:#FF5A1F;color:#0B0B0C}
+.stchip.lime{background:#C8FF3C;color:#0B0B0C}
+.stchip.ink{background:#24262A;color:#F6F4EF}
+a.mrow.mtile{min-height:96px;margin:0 0 10px;border:0;border-radius:28px;padding:18px 20px;color:#0B0B0C}
+a.mrow.mtile.sun{background:#FFC61A}a.mrow.mtile.sky{background:#7CC8F4}a.mrow.mtile.tangerine{background:#FF5A1F}a.mrow.mtile.lavender{background:#C9B6FF}a.mrow.mtile.lime{background:#C8FF3C}a.mrow.mtile.aqua{background:#2DE2C4}a.mrow.mtile.mango{background:#FFA63D}a.mrow.mtile.bubblegum{background:#FFA6D5}a.mrow.mtile.carbon{background:#24262A;color:#F6F4EF}
+a.mrow.mtile .mico{display:none}
+a.mrow.mtile .mtitle{font:700 26px/1.05 var(--r2-font-display);letter-spacing:-.03em;color:inherit}
+a.mrow.mtile .mdesc{display:block;margin-top:4px;color:rgba(11,11,12,.72);font:600 13px/1.3 var(--r2-font-sans)}
+a.mrow.mtile.carbon .mdesc{color:#8B8F93}
+a.mrow.mtile .tnum{margin-left:auto;font:700 40px/.9 var(--r2-font-display)}
+a.mrow.mtile .mbadge{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+a.mrow.mtile .mchev{margin-left:auto;color:inherit}
+body.adminpage .pagehead h1{font:700 clamp(48px,14vw,72px)/.9 var(--r2-font-display);letter-spacing:-.04em}
+body.adminpage .pagehead h1::after{content:"."}
+body.adminpage .evcard{background:#FFC61A;color:#0B0B0C;border-radius:32px;padding:18px 20px 16px}
+body.adminpage .evcard .nxtitle,body.adminpage .evcard .t2,body.adminpage .evcard .t3{color:#0B0B0C}
+body.adminpage .chkhero{display:flex;align-items:flex-end;gap:10px;margin-top:8px}
+body.adminpage .chkhero b{font:700 64px/.85 var(--r2-font-display);letter-spacing:-.04em}
+body.adminpage .chkhero span{margin-bottom:8px;font:700 12px/1 var(--r2-font-sans);letter-spacing:.06em}
+body.adminpage .checkfilt .chip{border:0;border-radius:999px;background:#24262A;color:#F6F4EF}
+body.adminpage .checkfilt .chip.on,body.adminpage .checkfilt .chip-active{background:#F6F4EF;color:#0B0B0C}
+.reqcard{margin:0 0 12px;padding:16px;border-radius:28px;background:#FFA6D5;color:#0B0B0C}
+.reqcard.carbon{background:#17181A;color:#F6F4EF}
+.reqcard.carbon .btn-secondary{color:#F6F4EF;border-color:#F6F4EF}
+.reqcard a{color:inherit;text-decoration:none}
+.reqcard b{font:700 22px/1.15 var(--r2-font-display)}
+.reqpill{float:right;padding:6px 10px;border-radius:999px;background:#0B0B0C;color:#F6F4EF;font:700 12px/1 var(--r2-font-sans)}
+.reqacts{display:flex;gap:8px;margin-top:12px}
+.reqacts .btn{flex:1;border-radius:999px}
+.reqacts .btn-primary{background:#0B0B0C;color:#F6F4EF}
+.reqacts .btn-secondary{background:transparent;color:#0B0B0C;border:1.5px solid #0B0B0C}
+.roleopt{display:flex;align-items:center;gap:12px;width:100%;min-height:72px;margin:0 0 8px;padding:12px 14px;border:0;border-radius:22px;background:#24262A;color:#F6F4EF;text-align:left}
+.roleopt small{display:block;color:#8B8F93;font:600 13px/1.3 var(--r2-font-sans)}
+.roleopt em{margin-left:auto;padding:6px 10px;border-radius:999px;background:#24262A;color:#F6F4EF;font:700 12px/1 var(--r2-font-sans);font-style:normal;border:1px solid #3A3D42}
+.roleopt.on{box-shadow:inset 0 0 0 1.5px #3A3D42}
+.roleopt.on em{background:#C8FF3C;color:#0B0B0C;border-color:transparent}
+.coachmore{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.coachmore a{color:#F6F4EF;text-decoration:none;font:700 16px/1.2 var(--r2-font-sans)}
 #lineBlock:not([hidden]) ~ .lanepick .lanecard[data-lane=lineup],body .lanecard.on[data-lane=lineup]{background:#C9B6FF;color:#0B0B0C}
 .btn-tangerine{background:#FF5A1F;color:#0B0B0C;border:0}
 header.homehead .titlestack{position:relative;flex:1;min-width:0;height:44px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0}
@@ -1632,7 +1740,7 @@ dialog.memberedit .help a{color:var(--t1)}
 }
 </style>
 <script>try{if(sessionStorage.getItem("grunionsBoot"))document.documentElement.classList.add("booted")}catch(e){}</script>
-</head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if sched_home %} schedhome{% elif tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' or tab=='person' or tab=='privacy' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' or tab=='manage' %}adminpage{% endif %}{% if tab=='event_new' or tab=='lineup_edit' or tab=='series_edit' or (tab=='practice' and editing) %} editor{% endif %}">
+</head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if sched_home %} schedhome{% elif tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' or tab=='person' or tab=='privacy' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' or tab=='manage' %}adminpage{% endif %}{% if tab=='event_new' or tab=='lineup_edit' or tab=='series_edit' or (tab=='practice' and editing) %} editor{% endif %}{% if tab=='event_new' %} eventnew{% endif %}">
 <div id=boot role=status aria-label="Loading"><div class=mark><video class=bootvid autoplay muted loop playsinline preload=auto poster=/static/loader-first-frame.png><source src=/static/regulars-loader-hevc.mov type='video/quicktime; codecs="hvc1"'><source src=/static/regulars-loader-transparent.webm type=video/webm></video><img class=bootstill alt="" src=/static/regulars-logo.svg></div></div>
 <script>(function(){var el=document.getElementById("boot");if(!el)return;if(document.documentElement.classList.contains("booted")){el.remove();return;}var vid=el.querySelector("video"),still=el.querySelector(".bootstill");var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;var ios=/iPhone|iPad|iPod/.test(navigator.userAgent||"")||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);function showStill(){el.classList.add("bootstill");if(!vid)return;try{vid.pause()}catch(e){}vid.removeAttribute("src");while(vid.firstChild)vid.removeChild(vid.firstChild);try{vid.load()}catch(e){}}function blackFrame(){if(!vid||vid.readyState<2)return false;try{var c=document.createElement("canvas");c.width=16;c.height=8;var g=c.getContext("2d",{willReadFrequently:true});if(!g)return false;g.drawImage(vid,0,0,16,8);var d=g.getImageData(0,0,16,8).data,lime=0,dark=0,n=0;for(var i=0;i<d.length;i+=4){n++;var r=d[i],gc=d[i+1],b=d[i+2],a=d[i+3];if(a<12)continue;if(gc>80&&gc>r+15&&gc>b+10)lime++;else if(r<28&&gc<28&&b<28)dark++;}return lime===0&&dark>n*0.6;}catch(e){return false;}}if(reduce)showStill();else if(vid){try{vid.currentTime=0}catch(e){}function fast(){try{vid.playbackRate=2.0}catch(e){}}fast();vid.addEventListener("loadedmetadata",fast);vid.addEventListener("play",fast);vid.addEventListener("error",showStill);var play=vid.play();if(play&&play.catch)play.catch(function(){showStill()});if(ios){setTimeout(function(){if(blackFrame())showStill();},350);setTimeout(function(){if(blackFrame())showStill();},800);}}var started=Date.now(),MIN=2000,arm=false;function hide(){if(arm)return;arm=true;setTimeout(finish,Math.max(0,MIN-(Date.now()-started)));}function finish(){try{sessionStorage.setItem("grunionsBoot","1")}catch(e){}el.classList.add("gone");setTimeout(function(){if(el.parentNode)el.remove()},reduce?480:760);}if(document.readyState==="complete")hide();else window.addEventListener("load",hide);setTimeout(hide,8000);})();</script>
 <script>
@@ -2154,7 +2262,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% if subtitle %}<p class=pagesub>{{ subtitle }}</p>{% endif %}
 </div>
 {% endmacro %}
-{% macro manage_row(href, title, desc, icon, count=0, tone='info') %}<a class=mrow href="{{ href }}"><span class=mico aria-hidden=true>{{ icon|safe }}</span><span class=grow><span class=mtitle>{{ title }}</span>{% if desc %}<span class=mdesc>{{ desc }}</span>{% endif %}</span>{% if count %}<span class="mbadge {{ tone }}">{{ count if count < 100 else '99+' }}</span>{% endif %}<span class=mchev aria-hidden=true><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg></span></a>{% endmacro %}
+{% macro manage_row(href, title, desc, icon, count=0, tone='info', tile='carbon', num=false) %}<a class="mrow mtile {{ tile or 'carbon' }}" href="{{ href }}"><span class=mico aria-hidden=true>{{ icon|safe }}</span><span class=grow><span class=mtitle>{{ title }}</span>{% if desc %}<span class=mdesc>{{ desc }}</span>{% endif %}</span>{% if num or count %}<b class=tnum>{{ '%02d'|format(count if count < 100 else 99) }}</b>{% endif %}{% if count %}<span class="mbadge {{ tone }}">{{ count if count < 100 else '99+' }}</span>{% endif %}{% if not num and not count %}<span class=mchev aria-hidden=true><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg></span>{% endif %}</a>{% endmacro %}
 {% macro type_select(types, selected='') %}<select name=event_type id=lineType>{% for glabel, options in lineup_type_groups(types) %}<optgroup label="{{ glabel }}">{% for name, label in options %}<option value="{{ name }}" {% if selected == name %}selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>{% endfor %}</select>{% endmacro %}
 {% macro event_chooser(staff) %}
 <h2 class=planask>What are you planning?</h2>
@@ -3390,7 +3498,7 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   if(dateDlg) return dateDlg;
   dateDlg=document.createElement('dialog');
   dateDlg.className='matpick'; dateDlg.id='grunionsDateDlg'; dateDlg.setAttribute('aria-label','Select date');
-  dateDlg.innerHTML='<div class=sheet><div class=matkicker id=matKicker>Select date</div><div class=matheadline id=matHeadline></div><div class=calhead id=matCalHead><select id=matMonth class=matmonth aria-label="Month and year"></select><button type=button class=calmonth id=matPrev aria-label="Previous month"></button><button type=button class=calmonth id=matNext aria-label="Next month"></button></div><div class=yearrow id=matYearRow hidden><button type=button class=calmonth id=yearPrev aria-label="Previous year"></button><button type=button class=yearbtn id=yearBtn aria-label="Choose year">2027</button><button type=button class=calmonth id=yearNext aria-label="Next year"></button></div><div class=yearlist id=yearList hidden role=listbox aria-label=Years></div><div class=calwd id=matWd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class=calgrid id=matGrid></div><div class=monthgrid id=matMonths hidden></div><div class="actseg matpart" id=matPart role=radiogroup aria-label="Part of the month" hidden><label><input type=radio name=mat_part value=all checked><span>All month</span></label><label><input type=radio name=mat_part value=early><span>Early</span></label><label><input type=radio name=mat_part value=mid><span>Mid</span></label><label><input type=radio name=mat_part value=late><span>Late</span></label></div><div class=matactions><button type=button class=mattext id=matDateCancel>Cancel</button><button type=button class=mattext id=matDateOk>OK</button></div></div>';
+  dateDlg.innerHTML='<div class=sheet><div class=matkicker id=matKicker>Select date</div><div class=matheadline id=matHeadline></div><div class=calhead id=matCalHead><select id=matMonth class=matmonth aria-label="Month and year"></select><button type=button class=calmonth id=matPrev aria-label="Previous month"></button><button type=button class=calmonth id=matNext aria-label="Next month"></button></div><div class=yearrow id=matYearRow hidden><button type=button class=calmonth id=yearPrev aria-label="Previous year"></button><button type=button class=yearbtn id=yearBtn aria-label="Choose year">2027</button><button type=button class=calmonth id=yearNext aria-label="Next year"></button></div><div class=yearlist id=yearList hidden role=listbox aria-label=Years></div><div class=calwd id=matWd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class=calgrid id=matGrid></div><div class=monthgrid id=matMonths hidden></div><div class="actseg matpart" id=matPart role=radiogroup aria-label="Part of the month" hidden><label><input type=radio name=mat_part value=all checked><span>All month</span></label><label><input type=radio name=mat_part value=early><span>Early</span></label><label><input type=radio name=mat_part value=mid><span>Mid</span></label><label><input type=radio name=mat_part value=late><span>Late</span></label></div><div class=callegend><span><i></i>Today</span><span><i class=practicedot></i>Has practice</span></div><div class=matactions><button type=button class=mattext id=matDateCancel>Cancel</button><button type=button class=mattext id=matDateOk>Done</button></div></div>';
   document.body.appendChild(dateDlg);
   var prevSvg='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>';
   var nextSvg='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>';
@@ -3511,7 +3619,8 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   for(var i=0;i<blanks;i++) html+='<span class=calday></span>';
   for(day=1;day<=last;day++){
    iso=y+'-'+pad(m)+'-'+pad(day);
-   html+='<button type=button class="calday'+(iso===dateSt.iso?' on':'')+(iso===today?' today':'')+'" data-date="'+iso+'">'+day+'</button>';
+   var has=window.grunionsPracticeDays&&window.grunionsPracticeDays[iso];
+   html+='<button type=button class="calday'+(iso===dateSt.iso?' on':'')+(iso===today?' today':'')+(has?' has':'')+'" data-date="'+iso+'">'+day+(has?'<i class=caldot></i>':'')+'</button>';
   }
   dateDlg.querySelector('#matGrid').innerHTML=html;
  }
@@ -3530,7 +3639,7 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   if(timeDlg) return timeDlg;
   timeDlg=document.createElement('dialog');
   timeDlg.className='matpick'; timeDlg.id='grunionsTimeDlg'; timeDlg.setAttribute('aria-label','Select time');
-  timeDlg.innerHTML='<div class=sheet><div class=matkicker>Select time</div><div class=timebig><button type=button id=timeH></button><span>:</span><button type=button id=timeM></button><div class=ampm><button type=button id=timeAM>AM</button><button type=button id=timePM>PM</button></div></div><div class=clock id=timeClock><div class=clockhand id=timeHand></div></div><div class=matactions><button type=button class=mattext id=timeCancel>Cancel</button><button type=button class=mattext id=timeOk>OK</button></div></div>';
+  timeDlg.innerHTML='<div class=sheet><div class=matkicker>Select time</div><div class=timebig><button type=button id=timeH></button><span>:</span><button type=button id=timeM></button><div class=ampm><button type=button id=timeAM>AM</button><button type=button id=timePM>PM</button></div></div><div class=clock id=timeClock><div class=clockhand id=timeHand></div></div><div class=matactions><button type=button class=mattext id=timeCancel>Cancel</button><button type=button class=mattext id=timeOk>Done</button></div></div>';
   document.body.appendChild(timeDlg);
   timeDlg.querySelector('#timeH').onclick=function(){ timeSt.mode='h'; paintTime(); };
   timeDlg.querySelector('#timeM').onclick=function(){ timeSt.mode='m'; paintTime(); };
@@ -5349,6 +5458,14 @@ T["person"] = """<div class=profilehero>
 <div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
 <p class=profilesub>{% if attendance_private %}Practices attended are private{% else %}{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% endif %}</p>
 <a class=msgpill href="{{ message_href }}">Message {{ display_first(m) }}</a>
+{% if staff %}
+<p class=fldlab style="color:#FF5A1F">Club fields · you can edit</p>
+<div class=list>
+<button type=button class="li prow" data-open=roleSheet><span class=k>Role</span><span class=v>{% if m.is_admin %}Admin{% elif m.role == 'coach' %}Coach{% else %}Member{% endif %} · Change</span></button>
+<div class="li prow"><span class=k>Clearance</span><span class="stchip {{ 'tang' if not cleared else 'lime' }}">{% if cleared %}Cleared{% else %}Not cleared{% endif %}</span></div>
+</div>
+<p class=fldlab>Theirs · view only</p>
+{% endif %}
 {% if staff and needs %}<div class=needcard><p class=needkicker>Needs attention</p><b>{{ display_first(m) }}'s {{ needs }}.</b><p>Once you've checked USAWP and SafeSport, mark them in ⋯ › Update compliance.</p></div>{% endif %}
 <div class=metrics><div class="metric sun"><b>{{ '%02d'|format(0 if attendance_private else hist|length) }}</b><span>Attended</span></div><div class="metric sky"><b>{{ '%02d'|format(0 if attendance_private else (nmonth or 0)) }}</b><span>This month</span></div></div>
 <div class=seclabel>Cleared sports</div>
@@ -5382,12 +5499,7 @@ T["person"] = """<div class=profilehero>
 <a class=newrow href="/admin/member/{{ m.id }}"><span class=grow><b>Update compliance</b><small>USAWP, SafeSport, background</small></span><span class=chatgo>›</span></a>
 <button type=button class=newrow data-open=mergeSheet><span class=grow><b>Merge duplicate…</b><small>Two accounts for the same person</small></span><span class=chatgo>›</span></button>
 </div>
-<form method=post action="/profile/{{ m.id }}/role" class=newcard>{{ csrf_field() }}
-<p class=t3>Change role · Member, coach or admin in Grunions</p>
-<button class=newrow name=role value=member><b>Member</b></button>
-<button class=newrow name=role value=coach><b>Coach</b></button>
-<button class=newrow name=role value=admin><b>Admin</b></button>
-</form>
+<button type=button class=newrow data-open=roleSheet><span class=grow><b>Change role</b><small>Member, coach or admin in Grunions</small></span><span class=chatgo>›</span></button>
 <div class=newcard>
 <button type=button class="newrow actdanger" data-open=removeSheet><span class=grow><b>Remove from Grunions</b><small>{{ display_first(m) }}'s account and other clubs stay</small></span></button>
 </div>
@@ -5402,6 +5514,15 @@ T["person"] = """<div class=profilehero>
 {% endif %}
 </div></dialog>
 {% if staff %}
+<dialog id=roleSheet class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
+<form method=post action="/profile/{{ m.id }}/role">{{ csrf_field() }}
+<h2 class=newtitle>Role on Grunions</h2>
+{% set cur = 'admin' if m.is_admin else ('coach' if m.role == 'coach' else 'member') %}
+<button class="roleopt{% if cur == 'member' %} on{% endif %}" name=role value=member><span class=grow><b>Member</b><small>RSVP, chat, Lineup</small></span><em>{% if cur == 'member' %}Current{% else %}Choose{% endif %}</em></button>
+<button class="roleopt{% if cur == 'coach' %} on{% endif %}" name=role value=coach><span class=grow><b>Coach</b><small>Manage: schedule + roster</small></span><em>{% if cur == 'coach' %}Current{% else %}Choose{% endif %}</em></button>
+<button class="roleopt{% if cur == 'admin' %} on{% endif %}" name=role value=admin><span class=grow><b>Admin</b><small>Everything in Manage</small></span><em>{% if cur == 'admin' %}Current{% else %}Choose{% endif %}</em></button>
+<p class="t3 sm">Roles are per team. {{ display_first(m) }} stays a member on any other team they're on. Board is not a role on this sheet.</p>
+</form></div></dialog>
 <dialog id=editDetails class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
 <form method=post action="/profile/{{ m.id }}/details">{{ csrf_field() }}
 <h2 class=newtitle>Edit {{ display_first(m) }}'s details</h2>
@@ -6160,31 +6281,57 @@ T["approvals"] = """{% call admin_page('Events') %}<a class="btn quiet pageact" 
 T["usage"] = ADMIN_NAV + """{{ admin_page('Usage', 'Mapbox calls today for driving routes and place search. One typing session counts as one call.') }}
 <div class=card><h2 style="margin:0 0 8px">Today</h2>
 <p class="t2 sm" style="margin:0">{{ calls }} of {{ cap }}</p></div>"""
-T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
-<div class=managehome id=manageHome>
-<label class=mq>Search<span class=mqfield><input id=manageSearch type=search enterkeyhint=search placeholder="Search settings, people, tools..." autocomplete=off autocapitalize=off><button type=button class=mqclear id=manageClear hidden aria-label="Clear search">×</button></span></label>
+T["manage"] = ADMIN_NAV + """<div class=managehome id=manageHome>
+<div class="filt chiprow mseg" role=tablist aria-label="Manage">
+<button type=button class="chip on" data-mseg=schedule>Schedule</button>
+<button type=button class=chip data-mseg=people>People</button>
+{% if club_admin %}<button type=button class=chip data-mseg=club>Club</button>
+<button type=button class=chip data-mseg=tools>Tools</button>{% endif %}
+</div>
+{% if needs_n %}<a class=needban id=needBan href="/members?view=compliance"><span><b>{{ needs_n }} need you</b> · {{ needs_n }} not cleared</span><em>Review</em></a>{% endif %}
+<label class=mq id=manageSearchWrap hidden>Search<span class=mqfield><input id=manageSearch type=search enterkeyhint=search placeholder="Search {{ people_n }} people" autocomplete=off autocapitalize=off><button type=button class=mqclear id=manageClear hidden aria-label="Clear search">×</button></span></label>
 <div id=manageHits class=mgroups hidden aria-live=polite></div>
-{% if quick %}<div class=qactions>{% for act in quick %}<a class=qact href="{{ act.href }}">{{ act.title }}</a>{% endfor %}</div>{% endif %}
-<h2 class=mseclabel>Manage your organization</h2>
-<div class=orggrid id=manageAreas>{% for area in areas %}<a class=orgcard href="{{ area.href }}"><span class=mico aria-hidden=true>{{ area.icon|safe }}</span><b>{{ area.title }}{% if area.count %} <span class="mbadge {{ area.tone }}">{{ area.count if area.count < 100 else '99+' }}</span>{% endif %}</b><span class=mdesc>{{ area.desc }}</span><span class=mchev aria-hidden=true>{{ chev|safe }}</span></a>{% endfor %}</div>
+<section class=mpanel data-panel=schedule>
+<h2 class=mseclabel>This week</h2>
+{% for item in week %}<a class="wkrow {{ item.tone }}" href="{{ item.href }}"><span class=grow><b>{{ item.title }}</b><small>{{ item.meta }}</small></span><span class=wkact>{{ item.action }}</span></a>
+{% else %}<p class=emptyfind>Nothing this week.</p>{% endfor %}
+<a class=wkadd href="/events/new{% if not club_admin %}?lane=schedule{% endif %}">{% if club_admin %}+ New practice or event{% else %}+ Post a practice{% endif %}</a>
+{% if not club_admin %}<div class=coachmore><a href="/admin"><span class=mtitle>Schedule</span></a><a href="/manage/lineup"><span class=mtitle>Lineup</span></a><a href="/manage/requests"><span class=mtitle>Requests</span></a></div>{% endif %}
+{% if growth %}{{ growth }}{% endif %}
+</section>
+<section class=mpanel data-panel=people hidden>
+{% for person in people_preview %}<a class=prow2 href="{{ person.href }}"><span class=grow><b>{{ person.name }}</b><small>{{ person.sub }}</small></span><span class="stchip {{ person.tone }}">{{ person.chip }}</span></a>
+{% else %}{% if club_admin %}<p class=emptyfind>No one yet.</p>{% else %}<p class=emptyfind>Roster tools stay with admins.</p>{% endif %}{% endfor %}
+</section>
+{% if club_admin %}
+<section class=mpanel data-panel=club hidden>{% for row in club_rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone, row.tile, row.num) }}{% endfor %}</section>
+<section class=mpanel data-panel=tools hidden>{% for row in tool_rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone, row.tile, row.num) }}{% endfor %}</section>
+{% endif %}
 </div>
 <script>
 (function(){
   var input=document.getElementById("manageSearch");
   var hits=document.getElementById("manageHits");
-  var home=document.getElementById("manageAreas");
   var clearBtn=document.getElementById("manageClear");
+  var wrap=document.getElementById("manageSearchWrap");
   if(!input||!hits) return;
-  var label=home&&home.previousElementSibling;
-  var actions=document.querySelector(".qactions");
-  var seq=0, timer=0;
-  function show(on){
-    if(home) home.hidden=on;
-    if(label&&label!==hits) label.hidden=on;
-    if(actions) actions.hidden=on;
-    hits.hidden=!on;
-    if(clearBtn) clearBtn.hidden=!on;
+  var seq=0, timer=0, current="schedule";
+  function seg(name){
+    current=name||"schedule";
+    document.querySelectorAll("[data-mseg]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-mseg")===current); });
+    var q=(input.value||"").trim();
+    document.querySelectorAll(".mpanel").forEach(function(p){ p.hidden=!!q || p.getAttribute("data-panel")!==current; });
+    if(wrap) wrap.hidden=current!=="people" && !q;
+    hits.hidden=!q;
+    var ban=document.getElementById("needBan"); if(ban) ban.hidden=!!q;
+    if(clearBtn) clearBtn.hidden=!q;
   }
+  document.querySelectorAll("[data-mseg]").forEach(function(b){
+    b.addEventListener("click", function(){
+      if((input.value||"").trim()){ input.value=""; hits.textContent=""; }
+      seg(b.getAttribute("data-mseg"));
+    });
+  });
   function note(text){
     hits.textContent="";
     var p=document.createElement("p");
@@ -6194,30 +6341,27 @@ T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
   }
   function personRow(row){
     var a=document.createElement("a");
-    a.className="mrow";
+    a.className="prow2";
     a.href=row.href;
-    var av=document.createElement("span");
-    av.className="avatar ciav";
-    if(row.photo){
-      var img=document.createElement("img");
-      img.src=row.photo; img.alt=""; img.width=40; img.height=40;
-      av.appendChild(img);
-    } else av.textContent=row.initials||"";
     var grow=document.createElement("span");
     grow.className="grow";
-    var title=document.createElement("span");
-    title.className="mtitle";
+    var title=document.createElement("b");
     title.textContent=row.name||"";
-    var desc=document.createElement("span");
-    desc.className="mdesc";
+    var desc=document.createElement("small");
     desc.textContent=(row.role||"Member")+(row.status?" \\u00b7 "+row.status:"");
     grow.appendChild(title); grow.appendChild(desc);
-    a.appendChild(av); a.appendChild(grow);
+    a.appendChild(grow);
+    if(row.status){
+      var chip=document.createElement("span");
+      chip.className="stchip "+((row.status||"").toLowerCase().indexOf("not")===0?"tang":"lime");
+      chip.textContent=row.status;
+      a.appendChild(chip);
+    }
     return a;
   }
   function settingRow(row){
     var a=document.createElement("a");
-    a.className="mrow";
+    a.className="mrow mtile sun";
     a.href=row.href;
     var grow=document.createElement("span");
     grow.className="grow";
@@ -6236,9 +6380,9 @@ T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
     var sec=document.createElement("section");
     sec.className="mgroup";
     var h=document.createElement("h2");
+    h.className="mseclabel";
     h.textContent=title;
     var list=document.createElement("div");
-    list.className="mlist";
     rows.forEach(function(row){ list.appendChild(make(row)); });
     sec.appendChild(h); sec.appendChild(list);
     hits.appendChild(sec);
@@ -6249,12 +6393,15 @@ T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
     var settings=(data&&data.settings)||[];
     if(!people.length&&!settings.length){ note("No matches for \\u201c"+q+"\\u201d"); return; }
     group("People", people, personRow);
-    group("Settings & tools", settings, settingRow);
+    group("Settings", settings, settingRow);
   }
   function run(){
     var q=(input.value||"").replace(/\\s+/g," ").trim();
-    show(!!q);
+    seg(current);
     if(!q){ hits.textContent=""; return; }
+    if(wrap) wrap.hidden=false;
+    hits.hidden=false;
+    document.querySelectorAll(".mpanel").forEach(function(p){ p.hidden=true; });
     var mine=++seq;
     fetch("/manage/search?q="+encodeURIComponent(q),{credentials:"same-origin",headers:{Accept:"application/json"}})
       .then(function(r){ if(!r.ok) throw new Error("search"); return r.json(); })
@@ -6264,7 +6411,8 @@ T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
   input.addEventListener("input", function(){
     if(timer) clearTimeout(timer);
     if(!(input.value||"").trim()){ run(); return; }
-    show(true);
+    if(wrap) wrap.hidden=false;
+    hits.hidden=false;
     timer=setTimeout(run, 160);
   });
   input.addEventListener("keydown", function(e){
@@ -6283,17 +6431,27 @@ T["manage"] = ADMIN_NAV + """{% if growth %}{{ growth }}{% endif %}
     run();
     input.focus();
   });
+  var params=new URLSearchParams(location.search);
+  if(params.get("tab")&&document.querySelector('[data-mseg="'+params.get("tab")+'"]')) seg(params.get("tab"));
 })();
 </script>"""
 T["manage_area"] = ADMIN_NAV + """{{ admin_page(title, subtitle) }}
-<div class=mlist style="margin-bottom:120px">{% for row in rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone) }}{% endfor %}</div>"""
+<div class=mlist style="margin-bottom:120px">{% for row in rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone, row.tile, row.num) }}{% endfor %}</div>"""
 T["manage_schedule"] = ADMIN_NAV + """{{ admin_page('Schedule', 'Practices, scrimmages, and games.') }}
 {% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
 T["manage_lineup"] = ADMIN_NAV + """{{ admin_page('Lineup', 'Events, tournaments, camps, and socials.') }}
-{% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
+{% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}
+<a class=wkadd href="/events/new?lane=lineup">+ New lineup event</a>"""
 T["manage_requests"] = ADMIN_NAV + """{{ admin_page('Requests', 'Member-submitted events.') }}
 <div class="filt chiprow" data-seg role=group aria-label="Status"><a class="chip{{ ' chip-active on' if view=='pending' }}" href="/manage/requests?view=pending">Pending</a><a class="chip{{ ' chip-active on' if view=='approved' }}" href="/manage/requests?view=approved">Approved</a><a class="chip{{ ' chip-active on' if view=='declined' }}" href="/manage/requests?view=declined">Declined</a></div>
-{% if rows %}<div class=list>{% for e in rows %}<a class=li href="/manage/requests/{{ e.id }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ e.title }}</span><span class="t3 sm ell" style="display:block">{{ e.category }}{% if e.submitter %} · {{ e.submitter }}{% endif %}{% if e.when %} · {{ e.when }}{% endif %}</span></span><span class="st st-{{ e.status_kind }}">{{ e.status_text }}</span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing here.</p>{% endif %}"""
+{% if rows %}{% for e in rows %}<article class="reqcard{% if view != 'pending' %} carbon{% endif %}">
+<a href="/manage/requests/{{ e.id }}"><span class=reqpill>{{ e.status_text }}</span><b>{{ e.title }}</b>
+<p>{{ e.category }}{% if e.submitter %} · {{ e.submitter }}{% endif %}{% if e.when %} · {{ e.when }}{% endif %}</p></a>
+{% if e.status in ('pending', 'changes_requested') %}<div class=reqacts>
+<form method=post action=/admin/approvals>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><button class="btn btn-primary" name=action value=approve>Approve</button></form>
+<a class="btn btn-secondary" href="/manage/requests/{{ e.id }}">Decline</a>
+</div>{% endif %}
+</article>{% endfor %}{% else %}<p class=emptyfind>Nothing here.</p>{% endif %}"""
 T["manage_request"] = ADMIN_NAV + """{{ admin_page(e.title) }}
 <p class="t2 sm" style="margin-top:0">{{ e.category }}{% if e.submitter %} · {{ e.submitter }}{% endif %}{% if e.when %} · {{ e.when }}{% endif %}</p>
 <p>{{ st(e.status_kind, e.status_text) }}</p>
@@ -6305,7 +6463,7 @@ T["manage_request"] = ADMIN_NAV + """{{ admin_page(e.title) }}
 <div class=row><button class="btn btn-secondary" name=action value=changes>Request Changes</button><button class="btn btn-danger" name=action value=decline>Decline</button></div>
 </form>{% elif e.status == 'published' %}<p style="margin-top:16px"><a class="btn btn-secondary" href="/lineup/{{ e.id }}">View on Lineup</a></p>{% endif %}"""
 _CHEV = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
-T["event_new"] = """<form id=planForm method=post action=/events/new enctype=multipart/form-data data-editorform>{{ csrf_field() }}
+T["event_new"] = """<form id=planForm method=post action=/events/new enctype=multipart/form-data data-editorform data-practicedays='{{ practice_days|tojson }}'>{{ csrf_field() }}
 <h1 class=newevent id=newEventTitle>{% if lane == 'lineup' %}New lineup event.{% else %}New event.{% endif %}</h1>
 <input type=hidden name=lane id=laneVal value="{{ 'lineup' if not staff else lane }}">
 <input type=hidden name=title_mode id=titleMode value="{{ 'custom' if dup and dup.title else 'auto' }}">
@@ -6322,6 +6480,17 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label><input type=radio name=activity_type value=scrimmage {% if activity == 'scrimmage' %}checked{% endif %}><span>Scrimmage</span></label>
 <label><input type=radio name=activity_type value=game {% if activity == 'game' %}checked{% endif %}><span>Game</span></label>
 </div>
+<div class=fldlab>Team color</div>
+<div class=colordots role=radiogroup aria-label="Team color">
+<button type=button class="cdot on" style="--c:#FFC61A" aria-label="Sun"></button>
+<button type=button class=cdot style="--c:#7CC8F4" aria-label="Sky"></button>
+<button type=button class=cdot style="--c:#FF5A1F" aria-label="Tangerine"></button>
+<button type=button class=cdot style="--c:#C8FF3C" aria-label="Lime"></button>
+<button type=button class=cdot style="--c:#2DE2C4" aria-label="Aqua"></button>
+<button type=button class=cdot style="--c:#5B6CFF" aria-label="Blue"></button>
+<button type=button class=cdot style="--c:#FFA6D5" aria-label="Bubblegum"></button>
+<button type=button class=cdot style="--c:#FF5A6A" aria-label="Coral"></button>
+</div>
 <label>Sport<select name=sport id=sportSel><option{% if not dup or dup.sport == 'Water Polo' %} selected{% endif %}>Water Polo</option><option{% if dup and dup.sport == 'Swimming' %} selected{% endif %}>Swimming</option>{% if dup and dup.sport not in ('Water Polo', 'Swimming') %}<option selected>{{ dup.sport }}</option>{% endif %}</select></label>
 <div class=fldlab>Display name</div>
 <div class=livetitle><strong id=liveTitle>{% if dup and dup.title %}{{ dup.title }}{% else %}Water Polo Practice{% endif %}</strong><button type=button class="btn quiet" id=customize>Customize</button></div>
@@ -6329,6 +6498,12 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>{% endif %}
 <div id=lineBlock {% if staff and lane != 'lineup' %}hidden{% endif %}>
 <label>Type{{ type_select(line_types) }}</label>
+{% if staff %}<div class=typechips id=typeChips>
+<button type=button data-type=Tournament class=on>Tournament</button>
+<button type=button data-type=Clinic>Clinic</button>
+<button type=button data-type=Trip>Trip</button>
+<button type=button data-type=Social>Social</button>
+</div>{% endif %}
 <div class=fldlab>Who's hosting?</div>
 <div class="actseg hostseg" id=whoHost role=radiogroup aria-label="Who's hosting?">
 <label><input type=radio name=hosting value=Hosting checked><span>Our organization</span></label>
@@ -6388,6 +6563,15 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>{% endif %}
 <div class=list id=lineSets {% if staff and lane != 'lineup' %}hidden{% endif %}>
 <button type=button class="li setrow" id=regRow data-open=setReg><span class=grow>Registration<span class=sum id=regSum> Not set</span></span>""" + _CHEV + """</button>
+</div>
+<div id=signupBlock {% if not staff or lane != 'lineup' %}hidden{% endif %}>
+<div class=fldlab>Who can sign up</div>
+<p class="t3 sm">For this event. Club default is set in Manage · Club.</p>
+<div class=signupopts role=radiogroup aria-label="Who can sign up">
+<label class=sigopt><input type=radio name=signup_scope value=anyone><span><b>Anyone</b><small>Open to people outside Grunions. They can see it on the public schedule.</small></span></label>
+<label class=sigopt><input type=radio name=signup_scope value=network><span><b>Our network</b><small>Grunions plus partner clubs you've linked.</small></span></label>
+<label class=sigopt><input type=radio name=signup_scope value=team checked><span><b>Team members only</b><small>Outside people can see it but can't sign up.</small></span></label>
+</div>
 </div>
 <div class=createfoot>
 <p class=pagesub id=destHint>{% if not staff %}Sent to admins for review{% elif lane == 'lineup' %}Appears on Lineup by default{% else %}Appears on Home by default{% endif %}</p>
@@ -6500,6 +6684,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   if(line) line.hidden=home;
   if(schedSets) schedSets.hidden=!home;
   if(lineSets) lineSets.hidden=home;
+  var signup=document.getElementById('signupBlock'); if(signup) signup.hidden=!staff || home;
   if(hint) hint.textContent=home?'Appears on Home by default':'Appears on Lineup by default';
   var big=document.getElementById('newEventTitle'); if(big) big.textContent=home?'New event.':'New lineup event.';
   document.querySelectorAll('button.lanecard').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-lane')===name); });
@@ -6598,6 +6783,28 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
  var skipPick=document.getElementById('skipPick'); if(skipPick) skipPick.addEventListener('change', function(){ addSkip(skipPick.value); skipPick.value=''; });
  var recurCount=document.getElementById('recurCount'); if(recurCount) recurCount.addEventListener('input', syncRecurEnd);
  document.querySelectorAll('button.lanecard').forEach(function(b){ b.onclick=function(){ showLane(b.getAttribute('data-lane')); syncPrec(); }; });
+ document.querySelectorAll('button.cdot').forEach(function(b){ b.onclick=function(){ document.querySelectorAll('button.cdot').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); }; });
+ document.querySelectorAll('#typeChips button').forEach(function(b){
+  b.onclick=function(){
+   var sel=document.getElementById('lineType'); if(!sel) return;
+   var opt=[].slice.call(sel.options).some(function(o){ return o.value===b.getAttribute('data-type'); });
+   if(!opt) return;
+   sel.value=b.getAttribute('data-type');
+   sel.dispatchEvent(new Event('change',{bubbles:true}));
+   document.querySelectorAll('#typeChips button').forEach(function(x){ x.classList.toggle('on', x===b); });
+  };
+ });
+ (function(){
+  var form=document.getElementById('planForm'), raw=form&&form.getAttribute('data-practicedays');
+  window.grunionsPracticeDays={};
+  try{ JSON.parse(raw||'[]').forEach(function(d){ window.grunionsPracticeDays[d]=1; }); }catch(err){}
+  var note=document.querySelector('main > .note');
+  if(note && /date|location/i.test(note.textContent||'')){
+   var dateBtn=document.querySelector('[data-matfor=dateInput]'), loc=document.getElementById('locInput'), date=document.getElementById('dateInput');
+   if(dateBtn && date && !date.value) dateBtn.classList.add('bad');
+   if(loc && !loc.value) loc.classList.add('bad');
+  }
+ })();
  syncPrec();
  document.querySelectorAll('input[name=activity_type]').forEach(function(r){ r.addEventListener('change', paintTitle); });
  var sport=document.getElementById('sportSel'); if(sport) sport.addEventListener('change', paintTitle);
@@ -6643,6 +6850,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   if(title && !title.value){
     title.placeholder=name==='Trip'?'Fall team trip':(name==='Social'?'Fall Team Dinner':(name==='Tournament'?'IGLA 2027':'Event name'));
   }
+  document.querySelectorAll('#typeChips button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-type')===name); });
  }
  var lt=document.getElementById('lineType'); if(lt) lt.addEventListener('change', syncLine);
  document.querySelectorAll('#whoHost input[name=hosting]').forEach(function(r){ r.addEventListener('change', syncHost); });
@@ -6707,6 +6915,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 {% if me().is_admin %}<input type=hidden name=pin_present value=1><label><input type=checkbox name=featured value=1 {% if values.featured == '1' %}checked{% endif %}> Pin</label>{% endif %}
 </details>
 {% if organizer and not event_id %}<button class="btn btn-secondary full" name=action value=draft>Save draft</button>{% endif %}
+{% if event_id %}<button class="btn btn-primary full" name=action value=save>Save event</button>{% endif %}
 {% if show_cancel or show_delete %}<div class=eventacts>
 {% if show_cancel %}<button class="btn btn-secondary" name=action value=cancel formnovalidate onclick="return confirm('Cancel this event?')">Cancel event</button>{% endif %}
 {% if show_delete %}<button class="btn btn-secondary" name=action value=delete formnovalidate onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
@@ -6748,8 +6957,9 @@ T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ c
 <h1 class=newevent>Add day.</h1>
 <p class=t3>One weekday and its times. Saving does not add a session.</p>
 {{ sports_editor(series) }}
-<div class=checks role=group aria-label="Weekdays"><div class="t3 xs">Weekdays</div>
-{% for value, label in values.labels %}<label style="margin:8px 0"><input type=checkbox name=weekday value="{{ value }}" {% if value in values.weekdays %}checked{% endif %}>{{ label }}</label>{% endfor %}</div>
+<div class="t3 xs">Day</div>
+<div class="checks daypicks" role=group aria-label="Weekdays">
+{% for value, label in values.labels %}<label><input type=checkbox name=weekday value="{{ value }}" {% if value in values.weekdays %}checked{% endif %}><span>{{ label[:3] }}</span></label>{% endfor %}</div>
 <div class=row><label>Start<input type=time name=start value="{{ values.start }}" required></label><label>End<input type=time name=end value="{{ values.end }}" required></label></div>
 <label>Location<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location value="{{ values.location }}" data-places required autocomplete=off></label>
 <div class=row><label>Starts<input type=date name=start_date value="{{ values.start_date }}" required></label></div>
@@ -6825,7 +7035,7 @@ T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp
 
 T["practice"] = """{% set p = x.p %}
 {{ event_hero('practiceMap', pins if not p.image else [], ('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', p.location or 'Practice', social_route_points(p)) }}
-<div class=profilehero>
+{% if not editing %}<div class=profilehero>
 <div class="profilename{% if p.cancelled %} cancelled{% endif %}">{{ practice_title(p) }}</div>
 {% if practice_sports_line(p) %}<p class="t3 sm sportline">{{ practice_sports_line(p) }}</p>{% endif %}
 {% if p.activity_type == 'hybrid' %}{% for seg in SPORTS.parse_segments(p.segments) %}<p class="t3 sm">{{ SPORTS.ACTIVITY_NAME.get(seg.type, seg.type) }} · {{ fmt_span(seg.start, seg.end) }}</p>{% endfor %}{% endif %}
@@ -6842,9 +7052,24 @@ T["practice"] = """{% set p = x.p %}
 <div class=stattile><b>{{ x.coaches|length }}</b><span>Coaches</span></div>
 <div class=stattile><b>{{ x.checked|length }}</b><span>Checked in</span></div>
 </div>
-</div>
+</div>{% endif %}
 {% if p.skill_levels %}<details class=card><summary>Skill levels</summary><div class=body>{% for row in level_catalog(p.sport, p.skill_levels) %}{% if row[0] in p.skill_levels.split(',') %}<p><b>{{ row[1] }}</b> {{ row[2] }}</p>{% endif %}{% endfor %}</div></details>{% endif %}
 {% if editing %}
+<div class=p5>
+<div class="p5hero{% if p.cancelled %} off{% endif %}">
+<div class=p5over>{{ (p.sport or 'Water Polo')|upper }} · {{ weekday_name(p.date)[:3]|upper }} · {{ month_abbr(p.date)|upper }} {{ day_num(p.date) }}</div>
+<span class="p5chip{% if p.cancelled %} bad{% endif %}">{% if p.cancelled %}Cancelled{% else %}Scheduled{% endif %}</span>
+<h2>{% if p.activity_type == 'game' %}Game{% elif p.activity_type == 'scrimmage' %}Scrimmage{% else %}Practice{% endif %}</h2>
+{% set clk = fmt_clock(p.start).split(' ') %}
+<div class=p5time><b>{{ clk[0] }}</b><span><i>{{ clk[1] if clk|length > 1 else '' }}</i><i>TO {{ fmt_clock(p.end) }}</i></span></div>
+{% if p.location %}<div class=p5venue>{{ p.location }}</div>{% endif %}
+</div>
+<div class=p5metrics>
+{{ r2_metric('%02d'|format(x.going|length), 'GOING', 'lime') }}
+{{ r2_metric('%02d'|format(x.coaches|length), 'COACHES') }}
+{{ r2_metric('%02d'|format(x.checked|length), 'CHECKED IN') }}
+</div>
+</div>
 <form id=practiceForm method=post action="/practices/{{ p.id }}" class="card editorform" style="margin-top:16px" data-editorform enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <div class=formsec><h2>Practice details</h2>
 {{ sports_editor(p) }}
@@ -7039,7 +7264,7 @@ T["practice"] = """{% set p = x.p %}
 _CHEV_L = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>'
 _CHEV_R = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
 _CAL_I = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></svg>'
-T["admin"] = ADMIN_NAV + """{{ admin_page('Schedule') }}
+T["admin"] = ADMIN_NAV + """{{ admin_page('Check-in') }}
 {%- set qbit -%}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{%- endset -%}
 {%- set fbit -%}{% if filt != 'going' %}&amp;filt={{ filt }}{% endif %}{%- endset -%}
 <div class=checkbar>
@@ -7076,6 +7301,7 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Schedule') }}
 <p class=t2>{{ sel.when }}</p>
 {% if sel.place %}<p class=t2>{{ sel.place }}</p>{% endif %}
 {% if sel.who %}<p class="t3 sm">{{ sel.who }}</p>{% endif %}
+<div class=chkhero><b>{{ n }}/{{ going|length }}</b><span>CHECKED IN</span></div>
 </a>{% else %}<p class=emptyfind>No events on this day</p>{% endif %}
 <div class=checkmeta>
 <div class="filt checkfilt chiprow" data-seg role=group aria-label="RSVP">
@@ -7104,6 +7330,7 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Schedule') }}
 {% endif %}
 {% if ev_pinned %}<script>(function(){var el=document.querySelector('.evcard.on'); if(el) el.scrollIntoView({block:'center'});})();</script>{% endif %}
 {% if coming %}<div class=seclabel>Coming up</div><div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endif %}
+<a class=wkadd href="/events/new?lane=schedule">+ New practice or event</a>
 <script>
 if(!window.grunionsConfirm){window.grunionsConfirm=1;
  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-confirm]');if(!b||b.dataset.ok)return;e.preventDefault();if(window.confirm(b.getAttribute('data-confirm'))){b.dataset.ok='1';b.click()}});
