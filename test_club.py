@@ -35,7 +35,8 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     tabs = schedule.split('class="nav3', 1)[1].split("</nav>", 1)[0]
     assert ">Schedule<" in tabs and ">Lineup<" in tabs and ">Chat<" in tabs and ">Manage<" not in tabs
     assert 'data-tab="calendar" class=on' in tabs
-    assert 'a.on[data-tab="manage"]{background:var(--r2-tangerine)}' in schedule
+    assert '.nav3-slide.manage{background:var(--r2-tangerine)}' in schedule
+    assert 'touch-action:pan-y' in schedule and 'nav3Follow' in schedule
     assert "border-radius:var(--r2-radius-pill)" in schedule
     assert tabs.find(">Schedule<") < tabs.find(">Lineup<")
     assert "--r2-ink" in schedule and "#C8FF3C" in schedule and "#4A6A00" in schedule
@@ -48,8 +49,11 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     assert 'data-place="everything"' in discover and ">Map<" in discover
     me = member.get("/profile").get_data(as_text=True)
     me_tabs = me.split('class="nav3', 1)[1].split("</nav>", 1)[0]
-    assert me_tabs.find(">Schedule<") < me_tabs.find(">Settings<") < me_tabs.find(">Lineup<")
-    assert 'data-tab="settings" class=on' in me_tabs
+    me_menu = me.split('id="crestMenu"', 1)[1].split("</dialog>", 1)[0]
+    assert me_tabs.find(">Schedule<") < me_tabs.find(">Lineup<") < me_tabs.find(">Profile<")
+    assert 'data-tab="profile" class=on' in me_tabs
+    assert "Settings" not in me_tabs and "Settings" not in me_menu
+    assert "Schedule · lineup · profile" in me_menu
     with A.app.app_context():
         d = A.db()
         d.execute("UPDATE members SET is_admin=1 WHERE email='ada.nav@example.com'")

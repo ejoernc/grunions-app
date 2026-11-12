@@ -407,14 +407,14 @@ def nav_context():
         crest = ""
         switch = ("Everything", "All your teams")
     elif place == "me":
-        # Nav 3.0 component order: Schedule, Settings, Lineup. Schedule is the default.
+        # Schedule, Lineup, Profile. Schedule is the first tab and the default.
         tabs = [
             ("calendar", "Schedule", "/practices?place=me", here("/practices") and forced == "me"),
-            ("settings", "Settings", "/profile", path.startswith("/profile") or path.startswith("/notifications")),
             ("pin", "Lineup", "/lineup?place=me", here("/lineup") and forced == "me"),
+            ("profile", "Profile", "/profile", path.startswith("/profile") or path.startswith("/notifications")),
         ]
         crest = initials(m)
-        switch = (("%s %s" % (display_first(m), m["last"] or "")).strip(), "Settings · calendar · lineup")
+        switch = (("%s %s" % (display_first(m), m["last"] or "")).strip(), "Schedule · lineup · profile")
     else:
         tabs = [
             ("calendar", "Schedule", "/practices", here("/practices") and forced != "me"),
