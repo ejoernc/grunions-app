@@ -6250,7 +6250,7 @@ def practice_page(pid):
     host = can_host_practice()
     editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
     plan_editing = request.args.get("edit") == "1" and host and not me()["is_admin"]
-    return page(T["practice"], tab="practice", x=practice_bundle(d, p), editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin")
+    return page(T["practice"], tab="practice", x=practice_bundle(d, p), editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin", social_cards=schedule_social_cards(p))
 @app.route("/practices/series/new", methods=["GET", "POST"])
 @admin_required
 def series_new():
