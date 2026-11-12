@@ -2250,12 +2250,20 @@ def _unread_bits(d, mid):
         where = "%s, %s, and %s" % tuple(shown)
     return total, "%d unread in %s" % (total, where)
 def chat_muted(d, mid, channel):
+    """A blank until means muted until they turn it back on. A timestamp mutes until that moment."""
     row = d.execute("SELECT until FROM chat_mutes WHERE member_id=? AND channel=?", (mid, channel)).fetchone()
     if not row:
         return False
-    if not row["until"]:
+    until = (row["until"] or "").strip()
+    if not until:
         return True
-    return row["until"] > dt.datetime.now(dt.timezone.utc).isoformat()
+    try:
+        when = dt.datetime.fromisoformat(until.replace("Z", "+00:00"))
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=dt.timezone.utc)
+    except ValueError:
+        return True
+    return when > dt.datetime.now(dt.timezone.utc)
 def chat_tab_unread(d, mid, staff):
     """Unread across chats the person can see, skipping muted ones."""
     channels = ["team"]
@@ -2308,7 +2316,7 @@ def _action_meta(channel):
     if not channel:
         return "", 0, 0, "", ""
     if channel == "team":
-        return "everyone", 1, 1 if can_make_channel() else 0, "", "everyone"
+        return "everyone", 1, 0, "", "everyone"
     if channel == "coaches" or channel.startswith("coach:"):
         return "channel", 1, 0, "", "coaches"
     if channel == "board":
@@ -2337,19 +2345,35 @@ def _action_meta(channel):
                     required = 1
         except (sqlite3.OperationalError, TypeError, ValueError):
             pass
-        return "channel", required, 1 if can_make_channel() else 0, "", ""
+        return "channel", required, 1 if is_club_admin() else 0, "", ""
     return "", 0, 0, "", ""
+def _plain_chat_title(title):
+    """Drop the roster count so a sheet title is the channel name, not 'social 10'."""
+    text = re.sub(r"<span class=count[^>]*>.*?</span>", "", title or "", flags=re.I | re.S)
+    text = re.sub(r"<[^>]+>", "", text)
+    return " ".join(text.split())
+def _action_attrs(channel, title):
+    kind, required, manage, profile, permanent = _action_meta(channel)
+    people = muted = pinned = 0
+    if channel and me():
+        try:
+            people = _thread_people(db(), channel)
+        except Exception:
+            people = 0
+        muted = 1 if chat_muted(db(), me()["id"], channel) else 0
+        try:
+            pinned = 1 if db().execute("SELECT 1 FROM chat_pins WHERE member_id=? AND channel=?", (me()["id"], channel)).fetchone() else 0
+        except sqlite3.OperationalError:
+            pinned = 0
+    return ('data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s" data-permanent="%s" data-people="%d" data-muted="%d" data-pinned="%d"'
+            % (escape(channel or ""), kind, required, manage, escape(_plain_chat_title(title)), escape(profile), permanent, people, muted, pinned))
 def _chat_row(href, mark, title, sub, when="", n=0, tone="sun", muted=False):
     channel = ""
     found = re.search(r"[?&]c=([^\"&]+)", href or "")
     if found:
         channel = found.group(1)
-    kind, required, manage, profile, permanent = _action_meta(channel)
-    plain = re.sub(r"<[^>]+>", "", title or "")
-    attrs = ""
-    if channel and kind:
-        attrs = ' data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s" data-permanent="%s"' % (
-            escape(channel), kind, required, manage, escape(plain), escape(profile), permanent)
+    kind, _required, _manage, _profile, _permanent = _action_meta(channel)
+    attrs = (' ' + _action_attrs(channel, title)) if channel and kind else ""
     return ('<a class=chatrow href="%s"%s><span class="mark %s">%s</span><span class=grow><b>%s</b><small>%s</small></span>%s</a>'
             % (href, attrs, tone, mark, title, escape(sub or ""), _chat_side(when, n, muted)))
 def _clock_face(hhmm):
@@ -3223,9 +3247,7 @@ def _thread_back():
 def _thread_bar(d, m, ch):
     """2.0 / Chat header. The title and the more button open chat actions."""
     title = _thread_title(d, m, ch)
-    kind, required, manage, profile, permanent = _action_meta(ch)
-    attrs = 'data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s" data-permanent="%s"' % (
-        escape(ch), kind, required, manage, escape(title), escape(profile), permanent)
+    attrs = _action_attrs(ch, title)
     chevron = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     return ('<div class=chead><a class=cheadback href="%s" aria-label="Back">%s</a>%s'
             '<button type=button class=cheadname id=threadName %s><b>%s</b><small>%s</small></button>'
@@ -3245,14 +3267,14 @@ def _actions_bundle():
             '<a class=newrow id=actInfo href="/chat/info"><span class=grow><b>Channel info</b><small>Why you are in it</small></span></a>'
             '<a class=newrow id=actProfile href="/"><span class=grow><b>View profile</b></span></a>'
             '<form method=post action=/chat/leave>%s<input type=hidden name=c>'
-            '<button class=newrow id=actLeave><span class=grow><b>Leave channel</b><small>You can rejoin from the Left list.</small></span></button></form>'
+            '<button class=newrow id=actLeave><span class=grow><b>Leave channel</b><small>You can rejoin from Browse channels.</small></span></button></form>'
             '<p class=actnote id=actLeaveNo hidden>Required channel — you can only mute.</p>'
             '<form method=post action=/chat/block>%s<input type=hidden name=c>'
             '<button class=newrow id=actBlock><span class=grow><b>Block</b></span></button></form>'
             '<form method=post action=/chat/hide>%s<input type=hidden name=c>'
             '<button class=newrow id=actDeleteChat><span class=grow><b>Delete chat</b><small>For you. A new message brings it back.</small></span></button></form>'
             '<a class=newrow id=actEdit href="/chat/channels"><span class=grow><b>Edit channel</b></span></a>'
-            '<button type=button class="newrow danger" id=actDelete><span class=grow><b>Delete channel</b></span></button>'
+            '<button type=button class="newrow actdanger" id=actDelete hidden><span class=grow><b>Delete channel</b></span></button>'
             '<p class=actnote id=actDeleteNo hidden>#everyone can\'t be deleted — it\'s the whole team</p>'
             '</div>'
             '<form method=post action=/chat/mute id=actMutes class=newcard hidden>%s<input type=hidden name=c>'
@@ -3272,6 +3294,7 @@ def _actions_bundle():
             'el.style.left=Math.max(16,Math.min(r.left,window.innerWidth-w-16))+"px";el.style.top=(r.bottom+8)+"px";}}'
             'function openActions(src){var box=document.getElementById("chatActions");if(!box||!src)return;'
             'var ch=src.getAttribute("data-ch")||"",kind=src.getAttribute("data-kind")||"",title=src.getAttribute("data-title")||"Chat";'
+            'box.setAttribute("data-people", src.getAttribute("data-people")||"");'
             'var required=src.getAttribute("data-required")==="1",manage=src.getAttribute("data-manage")==="1",profile=src.getAttribute("data-profile")||"",permanent=src.getAttribute("data-permanent")||"";'
             'box.querySelectorAll("input[name=c]").forEach(function(i){i.value=ch});'
             'document.getElementById("actTitle").textContent=title;'
@@ -3286,17 +3309,22 @@ def _actions_bundle():
             'show("actLeaveNo", locked&&kind!=="direct"&&kind!=="request"&&kind!=="practice");'
             'var leaveNote=document.getElementById("actLeaveNo");if(leaveNote){leaveNote.textContent=permanent==="board"?"Board chat can\'t be left — you can only mute.":(permanent==="coaches"?"Coaches chat can\'t be left — you can only mute.":"Required channel — you can only mute.");}'
             'show("actBlock", kind==="direct");show("actDeleteChat", kind==="direct");'
-            'show("actEdit", manage&&kind==="channel");var edit=document.getElementById("actEdit");if(edit)edit.href="/chat/channels?edit="+encodeURIComponent(ch.split(":").slice(1).join(":"));'
+            'show("actEdit", manage&&kind==="channel"&&!permanent);var edit=document.getElementById("actEdit");if(edit)edit.href="/chat/channels?edit="+encodeURIComponent(ch.split(":").slice(1).join(":"));'
             'show("actDelete", manage&&kind==="channel"&&!permanent);show("actDeleteNo", kind==="everyone"||!!permanent);'
             'var deleteNote=document.getElementById("actDeleteNo");if(deleteNote){deleteNote.textContent=permanent==="board"?"Board chat can\'t be deleted.":(permanent==="coaches"?"Coaches chat can\'t be deleted.":"#everyone can\'t be deleted — it\'s the whole team");}'
-            'var pin=document.getElementById("actPin");if(pin)pin.value="on";'
+            'var pinned=src.getAttribute("data-pinned")==="1";'
+            'var pin=document.getElementById("actPin");if(pin)pin.value=pinned?"off":"on";'
+            'var pinLabel=document.getElementById("actPinLabel");if(pinLabel)pinLabel.textContent=pinned?"Unpin":"Pin to top";'
             'openBox(box, src);}'
-            'document.getElementById("actMuteOpen").onclick=function(){document.getElementById("actMain").hidden=true;document.getElementById("actMutes").hidden=false;};'
-            'var del=document.getElementById("actDelete");if(del)del.onclick=function(){var title=document.getElementById("actTitle").textContent;'
+            'function openMuteList(){document.getElementById("actMain").hidden=true;document.getElementById("actMutes").hidden=false;}'
+            'function openDeleteConfirm(){var title=(document.getElementById("actTitle").textContent||"").replace(/^#/,"");'
+            'var people=(document.getElementById("chatActions").getAttribute("data-people")||"");'
             'document.getElementById("actMain").hidden=true;document.getElementById("actDeleteForm").hidden=false;'
-            'document.getElementById("actDeleteCopy").textContent="Delete "+title+"? Messages can\'t be recovered.";'
-            'document.getElementById("actDeleteHelp").textContent="Deletes it and its history for everyone in it.";};'
-            'document.addEventListener("click",function(e){var t=e.target.closest&&e.target.closest("#threadName,#threadMore,[data-open-request]");'
+            'document.getElementById("actDeleteCopy").textContent="Delete #"+title+" for "+people+" people? Messages can\'t be recovered.";'
+            'document.getElementById("actDeleteHelp").textContent="Deletes it and its history for all "+people+" people.";}'
+            'document.addEventListener("click",function(e){var mute=e.target.closest&&e.target.closest("#actMuteOpen");if(mute){e.preventDefault();openMuteList();return;}'
+            'var del=e.target.closest&&e.target.closest("#actDelete");if(del){e.preventDefault();openDeleteConfirm();return;}'
+            'var t=e.target.closest&&e.target.closest("#threadName,#threadMore,[data-open-request]");'
             'if(t&&(t.id==="threadName"||t.id==="threadMore")){e.preventDefault();openActions(t);return;}'
             'if(t&&t.hasAttribute("data-open-request")){e.preventDefault();var form=document.getElementById("requestForm");'
             'if(!form)return;var to=t.getAttribute("data-to"),about=t.getAttribute("data-about"),subject=t.getAttribute("data-subject"),practice=t.getAttribute("data-practice");'
@@ -3377,7 +3405,7 @@ def chat_leave():
     d.execute("""INSERT INTO chat_hidden(member_id, channel, reason, at_id) VALUES(?,?, 'leave', ?)
         ON CONFLICT(member_id, channel) DO UPDATE SET reason='leave', at_id=excluded.at_id""", (me()["id"], ch, latest))
     d.commit()
-    flash("You left. You can rejoin from the Left list.")
+    flash("You left. You can rejoin from Browse channels.")
     return redirect("/chat?view=list")
 @app.route("/chat/rejoin", methods=["POST"])
 @login_required
@@ -3437,9 +3465,11 @@ def chat_info():
 @app.route("/chat/channel-delete", methods=["POST"])
 @login_required
 def chat_channel_delete():
-    if not can_make_channel(): abort(403)
+    """Only an admin, and never #everyone, the board room, or a sport's coaches chat."""
+    if not is_club_admin(): abort(403)
     ch = parse_channel(request.form.get("c") or "")
-    if not ch.startswith("ch:"): abort(400)
+    kind, _required, _manage, _profile, permanent = _action_meta(ch)
+    if permanent or kind != "channel" or not ch.startswith("ch:"): abort(400)
     slug = ch.split(":", 1)[1]
     d = db()
     row = d.execute("SELECT title FROM chat_channels WHERE slug=? AND kind='official'", (slug,)).fetchone()
@@ -3745,6 +3775,8 @@ def chat_channels():
     """Coaches and admins add an official channel. Members do not get this page."""
     if not can_make_channel(): abort(403)
     d = db()
+    editing = (request.values.get("edit") or "").strip()
+    if editing and not is_club_admin(): abort(403)
     if request.method == "POST":
         title = (request.form.get("title") or "").strip().lstrip("#")[:40]
         slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:40]

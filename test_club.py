@@ -220,6 +220,41 @@ def test_coaches_thread_mutes_from_the_name_not_a_week_chip():
     with A.app.app_context():
         row = A.db().execute("SELECT until FROM chat_mutes WHERE channel='team'").fetchone()
         assert row["until"] == ""
+    listing = member.get("/chat?view=list").get_data(as_text=True)
+    everyone = listing.split('data-ch="team"', 1)[1].split("</a>", 1)[0]
+    assert "chatmute" in everyone and "unread" not in everyone and 'data-title="everyone"' in everyone
+    assert "Browse channels." in listing and "Left list" not in listing and 'class="newrow actdanger"' in listing and 'class="newrow danger"' not in listing.split("id=chatActions", 1)[1].split("</dialog>", 1)[0]
+
+
+def test_only_an_admin_can_delete_a_normal_channel():
+    member = client()
+    join(member, "Nia", "Member", "nia.delete@example.com")
+    coach = client()
+    join(coach, "Bea", "Coach", "bea.delete@example.com")
+    admin = client()
+    join(admin, "Eli", "Admin", "eli.delete@example.com")
+    with A.app.app_context():
+        d = A.db()
+        d.execute("UPDATE members SET role='coach', is_admin=0, board_member=0 WHERE email='bea.delete@example.com'")
+        d.execute("UPDATE members SET role='coach', is_admin=1, board_member=0 WHERE email='eli.delete@example.com'")
+        d.execute("""INSERT OR IGNORE INTO chat_channels(slug, title, kind, created_by, created_at)
+            VALUES('social','social','official',1,?)""", (A.utc_stamp(),))
+        d.commit()
+    member_list = member.get("/chat?view=list").get_data(as_text=True)
+    social = member_list.split('data-ch="ch:social"', 1)[1].split("</a>", 1)[0]
+    assert 'data-title="social"' in social and "social 10" not in social and 'data-manage="0"' in social
+    coach_list = coach.get("/chat?view=list").get_data(as_text=True)
+    assert 'data-ch="ch:social"' in coach_list and 'data-manage="0"' in coach_list.split('data-ch="ch:social"', 1)[1].split(">", 1)[0]
+    assert coach.post("/chat/channel-delete", data=dict(csrf=csrf(coach, "/chat?view=list"), c="ch:social", confirm="social")).status_code == 403
+    assert coach.get("/chat/channels?edit=social").status_code == 403
+    admin_row = admin.get("/chat?view=list").get_data(as_text=True).split('data-ch="ch:social"', 1)[1].split(">", 1)[0]
+    assert 'data-manage="1"' in admin_row and 'data-permanent=""' in admin_row
+    assert admin.post("/chat/channel-delete", data=dict(csrf=csrf(admin, "/chat?c=team"), c="team", confirm="everyone")).status_code == 400
+    assert admin.post("/chat/channel-delete", data=dict(csrf=csrf(admin, "/chat?c=team"), c="coach:water-polo", confirm="water-polo")).status_code == 400
+    gone = admin.post("/chat/channel-delete", data=dict(csrf=csrf(admin, "/chat?view=list"), c="ch:social", confirm="social"), follow_redirects=True)
+    assert gone.status_code == 200
+    with A.app.app_context():
+        assert A.db().execute("SELECT 1 FROM chat_channels WHERE slug='social'").fetchone() is None
 
 
 def test_a_request_replaces_messaging_the_coaches():

@@ -643,6 +643,8 @@ main:has(.chathead){padding:16px 16px calc(var(--nav-clear) + 48px + env(safe-ar
 .chatlist .chattime,.chatgo{color:var(--r2-smoke);font:600 11px/1.2 var(--r2-font-sans)}
 .chatgo{font:700 16px/1 var(--r2-font-sans)}
 .chatlist .unread{min-width:18px;padding:2px 7px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 11px/16px var(--r2-font-sans);text-align:center}
+.chatlist .chatmute{display:inline-flex;align-items:center;justify-content:center;color:var(--r2-smoke)}
+.chatlist .chatmute svg{display:block;width:16px;height:16px}
 .practcard{display:block;margin:8px 0 16px;padding:16px 18px 18px 20px;border-radius:34px;background:var(--r2-sun);color:var(--r2-fixed-ink);text-decoration:none}
 .practcard .practtop{display:flex;justify-content:space-between;align-items:center;gap:8px;font:700 10px/1.2 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase}
 .practcard .unread{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:20px;padding:3px 8px;border-radius:999px;background:var(--r2-fixed-ink);color:var(--r2-sun);font:700 11px/14px var(--r2-font-sans);letter-spacing:0;text-transform:none;flex:none}
@@ -810,6 +812,7 @@ button.earlier{width:100%;height:auto;min-height:0;margin:0;padding:8px 0 4px;ba
 body:has(.resolvebar) .chatpad{height:calc(var(--composer-h, 76px) + var(--nav-clear) + env(safe-area-inset-bottom) + 72px)}
 .actnote{margin:0;padding:8px 10px;color:var(--r2-smoke);font:600 12px/1.3 var(--r2-font-sans)}
 .newrow.danger{color:#E15A4A}
+button.newrow.actdanger,button.newrow.actdanger b{background:transparent;color:#E15A4A;box-shadow:none;font-weight:700}
 @media (min-width:768px){
  dialog.botsheet.popover{width:340px;height:auto;max-height:90dvh;inset:auto;margin:0}
  dialog.botsheet.popover .sheet{border-radius:24px;border-bottom:1px solid var(--r2-graphite);max-height:min(90dvh,640px)}
