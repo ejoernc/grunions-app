@@ -246,6 +246,11 @@ body.schedhome:has(.weekdrawer.full) .mapcontrols,body.schedhome.mapcovered .map
 .ridearea{margin:0 0 8px;padding:14px 16px;border-radius:16px;background:#24262A;font:700 16px/1.2 var(--r2-font-sans)}
 .ridek{margin:8px 0 4px;color:#8B8F93;font:700 11px/1 var(--r2-font-sans);letter-spacing:.06em}
 .rideback{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}
+.rideback small{display:block;color:#8B8F93;font:600 12px/1.2 var(--r2-font-sans)}
+.rideon{color:#C8FF3C;font:700 14px/1 var(--r2-font-sans)}
+.rideback input{position:absolute;opacity:0}
+.previewstates{margin:8px 0 0;color:#8B8F93;font:600 12px/1.4 var(--r2-font-sans)}
+.previewstates a{color:#C8FF3C;text-decoration:none}
 @media (min-width:768px){
  body.schedhome .weekdrawer{top:16px;right:16px;bottom:16px;left:auto;width:420px;height:auto;border-radius:28px}
  body.schedhome .weekdrawer.peek .weekthis>*:not(.r2-drive){display:block}
@@ -291,10 +296,13 @@ body.schedhome .schedsheet.up .sheetexpanded{display:flex;flex-direction:column;
 .drivemain{position:relative}
 .drivego{margin-left:auto;width:44px;height:44px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:#0B0B0C;color:#C8FF3C;font:700 18px/1 var(--r2-font-sans);flex:none}
 .drivecard{border-radius:28px;background:#C8FF3C;color:#0B0B0C;padding:16px 18px}
-.drivetop{display:flex;justify-content:space-between;font:700 11px/1 var(--r2-font-sans);letter-spacing:.06em}
+.drivetop{display:flex;justify-content:space-between;align-items:center;font:700 11px/1 var(--r2-font-sans);letter-spacing:.06em}
+.drivetop b{padding:6px 10px;border-radius:999px;background:#0B0B0C;color:#C8FF3C;letter-spacing:0}
 .drivemain{display:flex;align-items:flex-end;gap:10px;margin-top:8px}
-.drivemain strong{font:700 48px/.9 var(--r2-font-display);letter-spacing:-.04em}
-.drivemain small{padding-bottom:8px;font:600 13px/1.2 var(--r2-font-sans)}
+.drivemain strong{font:700 64px/.85 var(--r2-font-display);letter-spacing:-.05em}
+.drivemain small{display:flex;flex-direction:column;gap:2px;padding-bottom:10px;font:600 13px/1.2 var(--r2-font-sans)}
+.drivemain small i{font:700 12px/1 var(--r2-font-sans);font-style:normal;letter-spacing:.06em}
+.mpin.mate{width:32px;height:32px;border-radius:999px;background:#7CC8F4;color:#0B0B0C;display:flex;align-items:center;justify-content:center;font:700 11px/1 var(--r2-font-sans)}
 a.homecard{display:flex;align-items:center;gap:12px;padding:16px 18px;border-radius:28px;background:#FFC61A;color:#0B0B0C;text-decoration:none}
 a.homecard.scrimmage,a.homecard.game{background:#17181A;color:#F6F4EF}
 a.homecard.cancelled{background:#17181A;color:#8B8F93}
@@ -2188,8 +2196,8 @@ dialog.memberedit .help a{color:var(--t1)}
 {% elif variant == 'row' %}<div class="r2-social p5social" data-r2="social-card" data-variant="{{ card.when }}"><div class=grow><b>{% if card.when == 'before' %}BEFORE PRACTICE{% else %}AFTER PRACTICE{% endif %}{% if card.clock %} · {{ fmt_t(card.clock) }}{% endif %}</b><span>{{ card.title }} · {{ card.place }}</span></div><form method=post action="/practices/{{ card.practice_id }}">{{ csrf_field() }}<input type=hidden name=pid value="{{ card.practice_id }}"><input type=hidden name=back value=page><button name=action value=social_join>Join</button></form></div>
 {% else %}<div class="r2-social socialcard {{ card.when }}" data-r2="social-card" data-variant="{{ card.when }}"><div class=socialtop><div class=socialkicker>{% if card.when == 'before' %}BEFORE PRACTICE{% else %}AFTER PRACTICE{% endif %}{% if card.live %} · HAPPENING NOW{% endif %}</div>{% if card.clock %}<span class=till><i></i>Till {{ fmt_t(card.clock) }}</span>{% endif %}</div><b>{{ card.title }}{% if not card.title.endswith('.') %}.{% endif %}</b><p>{{ card.place }}{% if card.address %} · {{ card.address }}{% endif %}</p><small>{% if card.when == 'before' %}before{% else %}after{% endif %} {{ card.practice }}</small><div class=socialwho>{% for person in card.people[:4] %}<i>{{ person.initials }}</i>{% endfor %}<span>{{ card.going_line }}</span></div><div class=socialacts><form method=post action="/practices/{{ card.practice_id }}">{{ csrf_field() }}<input type=hidden name=pid value="{{ card.practice_id }}"><input type=hidden name=back value=home><button class="socialgo{{ ' on' if card.joined }}" name=action value="{{ 'social_leave' if card.joined else 'social_join' }}">{% if card.joined %}✓ {% endif %}{{ 'Joined' if card.joined else "I'm coming" }}</button></form><a class=socialdir href="https://www.google.com/maps/search/?api=1&query={{ (card.address or card.place)|urlencode }}" target=_blank rel=noopener>↗ Directions</a></div></div>{% endif %}
 {%- endmacro %}
-{% macro r2_drive_card(minutes, detail, leave, placeholder=false) -%}
-<div class="r2-drive drivecard" data-r2="drive-card" {% if placeholder %}data-placeholder=1{% endif %}><div class=drivetop><span>YOUR DRIVE</span>{% if leave %}<b>{{ leave }}</b>{% endif %}</div><div class=drivemain><strong>{{ minutes }}</strong><small>{{ detail }}</small><span class=drivego aria-hidden=true>›</span></div></div>
+{% macro r2_drive_card(minutes, detail, leave, placeholder=false, kicker='YOUR DRIVE') -%}
+<div class="r2-drive drivecard" data-r2="drive-card" {% if placeholder %}data-placeholder=1{% endif %}><div class=drivetop><span>{{ kicker }}</span>{% if leave %}<b>{{ leave }}</b>{% endif %}</div><div class=drivemain><strong>{{ minutes }}</strong><small><i>MIN</i>{{ detail }}</small><span class=drivego aria-hidden=true>›</span></div></div>
 {%- endmacro %}
 {% macro r2_metric(value, label, tone='ink') -%}
 <div class="r2-metric {{ tone }}" data-r2="metric"><b>{{ value }}</b><span>{{ label }}</span></div>
@@ -4378,9 +4386,9 @@ window.grunionsMountMap=function(el, opts){
    function pinEl(kind, label, lat, lng){
     var name=pinText(label), pill=name?'<span class=pinpill>'+name+'</span>':'';
     var node=document.createElement('div');
-    node.className='mpin'+(kind==='social'?' social':'');
-    node.dataset.lng=String(lng); node.dataset.lat=String(lat); node.dataset.kind=kind==='social'?'social':'practice';
-    node.innerHTML='<span class=pinrow><span class=pinhold><span class=pindot></span></span>'+pill+'</span>';
+    node.className='mpin'+(kind==='social'?' social':(kind==='mate'?' mate':''));
+    node.dataset.lng=String(lng); node.dataset.lat=String(lat); node.dataset.kind=kind==='social'?'social':(kind==='mate'?'mate':'practice');
+    node.innerHTML=kind==='mate'?'<span class=pinmate>'+(name||'')+'</span>':'<span class=pinrow><span class=pinhold><span class=pindot></span></span>'+pill+'</span>';
     node.setAttribute('role','link');
     node.tabIndex=0;
     node.setAttribute('aria-label', (label||'Location')+' in Maps');
@@ -4647,24 +4655,25 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% if pin_label %}<b class=mappinchip>{{ pin_label }}</b>{% endif %}
 <div class=mapcontrols><button type=button data-zoom=1 aria-label="Zoom in">+</button><button type=button data-zoom=-1 aria-label="Zoom out">−</button></div>
 {% if not pins %}{{ r2_map_unavailable() }}{% endif %}
-<div class="weekdrawer half" id=schedSheet>
+<div class="weekdrawer {{ 'peek' if preview_drawer == 'peek' else 'half' }}" id=schedSheet data-start="{{ preview_drawer or 'half' }}">
 <button type=button class=sheetgrab id=sheetGrab aria-label="Drag the week"></button>
+{% if not_cleared %}<div class=clearbanner><b>NOT CLEARED YET</b><strong>Add your USAWP number to go to practice.</strong><p>Takes 2 minutes. Coaches can see you once it’s verified.</p><a href=/profile#membership>Add USAWP number</a></div>{% endif %}
 <div class=weekhead><h2>This week{% if week_n %} <span>({{ '%02d'|format(week_n) }})</span>{% endif %}</h2><a href="/practices?view=list">See all ›</a></div>
 <div class=weekbody id=weekBody>
 <div class=weekthis>
-{% if not_cleared %}<div class=clearbanner><b>NOT CLEARED YET</b><strong>Add your USAWP number to go to practice.</strong><p>Takes 2 minutes. Coaches can see you once it’s verified.</p><a href=/profile>Add USAWP number</a></div>{% endif %}
-{% if show_drive %}{{ r2_drive_card(drive_saved or '18 min', drive_detail, drive_chip, drive_placeholder) }}{% endif %}
+{% if show_drive %}{{ r2_drive_card(drive_num or '18', drive_note or drive_detail, drive_chip, drive_placeholder, drive_kicker or 'YOUR DRIVE · 7.4 MI') }}{% endif %}
 {% if show_rides %}<div class=ridebtns><button type=button id=needRide>{{ ride_label }}</button><button type=button id=offerRide>Offer a ride</button></div>{% endif %}
 {% if ann %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(ann)|upper }}</b><p>{{ ann.body }}</p></div>{% endif %}
 {% if not week_sessions %}<div class=weekempty><span>THIS WEEK</span><b>Nothing scheduled this week.</b><p>Your team hasn’t posted anything yet. Check Lineup for events or look at the full schedule.</p><a href=/lineup>See Lineup</a></div>{% endif %}
 {% for s in week_sessions %}
 {% for card in s.before %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
 {% if s.cancelled %}{{ r2_event_row('/practices/' ~ s.p.id, 'cancelled', (s.p.sport or 'Water Polo')|upper, practice_title(s.p), s.p.cancel_reason or 'Cancelled', s.going|length) }}
-{% else %}{% set clk = fmt_clock(s.p.start).split(' ') %}{{ r2_event_card('/practices/' ~ s.p.id, (s.p.sport or 'Water Polo')|upper, practice_title(s.p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(s.p.start, s.p.end), short_place(s.p.location), s.going, '' if s.mine == 1 else ('Today · ' ~ month_abbr(s.p.date) ~ ' ' ~ day_num(s.p.date)), s.mine == 1, 'sky' if s.kind == 'scrimmage' else '', practice_ended(s.p)) }}{% endif %}
+{% else %}{% set clk = fmt_clock(s.p.start).split(' ') %}{{ r2_event_card('/practices/' ~ s.p.id, (s.p.sport or 'Water Polo')|upper, practice_title(s.p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(s.p.start, s.p.end), short_place(s.p.location), s.going, '' if s.mine == 1 and not home_out else ('Today · ' ~ month_abbr(s.p.date) ~ ' ' ~ day_num(s.p.date)), s.mine == 1 and not home_out, 'sky' if s.kind == 'scrimmage' else '', practice_ended(s.p)) }}{% endif %}
 {% for card in s.after %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
 {% endfor %}
 <a class=fullsched href="/practices?view=list">View full schedule ›</a>
 <p class=fullhint>Upcoming · Past · All</p>
+{% if preview_on %}<p class=previewstates>Preview states <a href="/practices">now</a> · <a href="/practices?home=soon">3h</a> · <a href="/practices?home=later">later</a> · <a href="/practices?home=out">not going</a> · <a href="/practices?home=coffee">coffee</a> · <a href="/practices?home=uncleared">not cleared</a> · <a href="/practices?home=empty">empty</a> · <a href="/practices?drawer=peek">peek</a></p>{% endif %}
 </div>
 </div>
 </div>
@@ -4672,13 +4681,13 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <div class=grab aria-hidden=true></div>
 <h2>Ask for a ride.</h2>
 <p class=ridek>PICKUP</p>
-<p class=ridearea>Home · nearby area</p>
+<p class=ridearea>Home · Belmont Shore</p>
 <div class=ridechips>
 <button type=button class=on data-n=3>5 mi · 3 drivers</button>
 <button type=button data-n=7>10 mi · 7</button>
 <button type=button data-n=0>Anyone</button>
 </div>
-<label class=rideback><span>Ride back too<small>Practice ends {{ fmt_clock(nextp.end) if nextp else '' }}</small></span><input type=checkbox checked></label>
+<label class=rideback><span>Ride back too<small>Practice ends {{ fmt_clock(nextp.end) if nextp else '8:30' }}</small></span><b class=rideon>On</b><input type=checkbox checked></label>
 <button type=button class="btn btn-primary full" id=rideAskGo>Ask 3 drivers</button>
 <p class=t3>Preview only. This does not message anyone, and the pickup is an area, not a home address.</p>
 </div></dialog>
@@ -4699,7 +4708,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
  function wide(){ return window.innerWidth>=768; }
  function metrics(){
   var vh=window.innerHeight||document.documentElement.clientHeight||1;
-  return {peek:196, half:Math.round(vh*0.52), full:vh, vh:vh};
+  return {peek:300, half:Math.round(vh*0.52), full:vh, vh:vh};
  }
  function apply(next){
   var m=metrics();
@@ -4842,7 +4851,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   wheelT=setTimeout(function(){ var started=wheelFull; wheelT=0; settle(0, started); }, 160);
  }, {passive:false, signal:ac.signal});
  window.addEventListener('resize', function(){ if(!live()) return; if(wide()) resetWide(); else apply(h||metrics().half); }, {signal:ac.signal});
- if(wide()) resetWide(); else apply(metrics().half);
+ if(wide()) resetWide(); else apply(sheet.getAttribute('data-start')==='peek'?metrics().peek:metrics().half);
  var ask=document.getElementById('rideAsk'), offer=document.getElementById('rideOffer');
  var need=document.getElementById('needRide'); if(need) need.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(ask); else ask.showModal(); };
  var off=document.getElementById('offerRide'); if(off) off.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(offer); else offer.showModal(); };

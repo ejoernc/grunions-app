@@ -302,6 +302,18 @@ def test_schedule_is_not_the_old_home_and_profile_sheets_open():
         d.commit()
     past = member.get("/practices?view=list&when=past").get_data(as_text=True)
     assert ">WENT<" in past and "Went practice" in past
+    os.environ["IS_PULL_REQUEST"] = "true"
+    try:
+        empty = member.get("/practices?home=empty").get_data(as_text=True)
+        assert "Nothing scheduled this week." in empty and "YOUR DRIVE" not in empty and "See Lineup" in empty
+        banner = member.get("/practices?home=uncleared").get_data(as_text=True)
+        assert "NOT CLEARED" in banner and "Add USAWP number" in banner
+        later = member.get("/practices?home=later").get_data(as_text=True)
+        assert "Need a ride?" in later and "YOUR DRIVE" not in later
+        assert "Home · Belmont Shore" in later and "Ride to coffee?" in member.get("/practices?home=coffee").get_data(as_text=True)
+    finally:
+        os.environ.pop("IS_PULL_REQUEST", None)
+        clear_preview_rows()
     assert "font:700 104px/.8" in schedule and "font:700 56px/.85" in schedule and ".evrow2 .evcount{position:absolute" in schedule
     assert "body.homefull .schedfeed{position:relative;z-index:2;pointer-events:auto}" in schedule
     for href in re.findall(r'class="[^"]*(?:evcard2|evrow2|evcancel)[^"]*" href="([^"]+)"', schedule):
