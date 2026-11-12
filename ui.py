@@ -1356,7 +1356,6 @@ dialog.memberedit .help a{color:var(--t1)}
     if (wantCheck) btn.insertAdjacentHTML("afterbegin", CHECK);
   }
   function deselect(btn) {
-    if (btn.dataset.sweeping === "playing") return;
     var choice = choiceOf(btn);
     btn.classList.remove("btn-primary", "primary", "is-sweeping");
     btn.classList.add("btn-secondary");
@@ -1374,7 +1373,6 @@ dialog.memberedit .help a{color:var(--t1)}
     else { btn.removeAttribute("data-sweep"); writeLabel(btn, plainLabel(choice, btn), false); }
   }
   function selectVisual(btn) {
-    if (btn.dataset.sweeping === "playing") return;
     var choice = choiceOf(btn);
     btn.classList.remove("btn-secondary", "primary", "is-sweeping");
     btn.classList.add("btn-primary");
@@ -1626,11 +1624,15 @@ dialog.memberedit .help a{color:var(--t1)}
   var rsvpAbort = {};
   function save(button, sweep) {
     var form = button.form;
+    var choice = choiceOf(button);
+    var posted = button.value;
+    if (choice === "not") posted = "notgoing";
+    else if (choice === "going") posted = "going";
+    else if (choice === "interested") posted = "interested";
     var pid = field(form, "pid"), eid = field(form, "event_id");
     var social = isSocialForm(form);
     if(pid && !social && window.grunionsDriveSetGoing) window.grunionsDriveSetGoing(posted==="going"?"1":(posted==="notgoing"?"0":""));
     var key = (pid ? ("p" + pid) : ("e" + eid)) + (social ? ":social" : ":rsvp");
-    var posted = button.value;
     var forms = groupForms(document, pid, eid, social);
     if (!forms.length) forms = [form];
     if (rsvpGen[key] == null) {

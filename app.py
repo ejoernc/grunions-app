@@ -2753,7 +2753,7 @@ def team_chat_html(d, m):
         else:
             practice = ('<p class="r2caps">Practice chats</p><div class=chatlist>'
                         + _chat_row("/practices", "+", "No practice chat right now",
-                                    "Tap Going on a practice, scrimmage or game to join its chat", "", 0, "lime")
+                                    "Tap Going, or open Chat on a practice, to add it here", "", 0, "lime")
                         + (_chat_row("/chat?view=practices", "↺", "Past practices · %d" % past_n, past_line, "", 0, "lime") if past_n else "")
                         + "</div>")
     everyone_n = chat_unread_n(d, mid, "team")
@@ -2781,12 +2781,19 @@ def team_chat_html(d, m):
     return (_chat_title("team") + '<div class=chatlist>%s</div>%s'
             '<p class="r2caps">Grunions · team</p><div class=chatlist>%s</div>%s%s%s') % (
                 personal, practice, "".join(channels), _inbox_role_sections(d, m), left_html, chat_sheets(d, m, "team"))
+def join_practice_chat(d, pid, mid):
+    """Going, or opening that practice's Chat, keeps the session on My practices."""
+    if not pid or not mid:
+        return
+    d.execute("INSERT OR IGNORE INTO chat_follows(practice_id, member_id) VALUES(?,?)", (pid, mid))
 def _practice_sessions(d, mid):
-    """Upcoming sessions this person is Going to, then earlier ones they went to or opened."""
+    """Upcoming sessions this person is Going to or has entered the chat for, then earlier ones."""
     today = today_pt().isoformat()
     upcoming = d.execute("""SELECT p.id, p.date, p.start, p.title, p.location, p.cancelled FROM practices p
-        JOIN rsvps r ON r.practice_id=p.id AND r.member_id=? AND r.going=1
-        WHERE p.date>=? ORDER BY p.date, p.start""", (mid, today)).fetchall()
+        WHERE p.date>=? AND (
+            EXISTS(SELECT 1 FROM rsvps r WHERE r.practice_id=p.id AND r.member_id=? AND r.going=1)
+            OR EXISTS(SELECT 1 FROM chat_follows f WHERE f.practice_id=p.id AND f.member_id=?))
+        ORDER BY p.date, p.start""", (today, mid, mid)).fetchall()
     earlier = d.execute("""SELECT p.id, p.date, p.start, p.title, p.location, p.cancelled FROM practices p
         WHERE p.date<? AND (
             EXISTS(SELECT 1 FROM rsvps r WHERE r.practice_id=p.id AND r.member_id=? AND r.going=1)
@@ -2868,8 +2875,8 @@ def chat():
     ch = parse_channel(raw)
     if not can_read(ch): abort(403)
     d = db()
-    if ch.startswith("practice:") and request.args.get("peek") == "1":
-        d.execute("INSERT OR IGNORE INTO chat_follows(practice_id, member_id) VALUES(?,?)", (int(ch.split(":", 1)[1]), me()["id"]))
+    if ch.startswith("practice:"):
+        join_practice_chat(d, int(ch.split(":", 1)[1]), me()["id"])
         d.commit()
     mark_chat_read(d, me()["id"], ch)
     label = "#everyone" if ch == "team" else ("the board" if ch == "coaches" else "this chat")
@@ -5208,6 +5215,8 @@ def handle_practice_post(d):
             was_going = bool(prev and prev["going"] == 1)
         if a == "clear": d.execute("DELETE FROM rsvps WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
         else: d.execute("INSERT INTO rsvps(practice_id,member_id,going) VALUES(?,?,?) ON CONFLICT DO UPDATE SET going=excluded.going, at=CURRENT_TIMESTAMP", (pid, me()["id"], int(a == "going")))
+        if a == "going":
+            join_practice_chat(d, pid, me()["id"])
         if a == "going" and not was_going:
             practice = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
             if practice:

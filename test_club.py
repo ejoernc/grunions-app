@@ -700,6 +700,41 @@ def test_a_new_going_rsvp_confirms_once_and_does_not_rewrite_the_rsvp():
         assert d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=(SELECT id FROM members WHERE email='bea.signup@example.com')", (pid,)).fetchone()["going"] == 1
 
 
+def test_not_going_sticks_and_an_opened_practice_chat_stays_mine():
+    member = client()
+    join(member, "Nia", "Rsvp", "nia.rsvp@example.com")
+    with A.app.app_context():
+        d = A.db()
+        day = (A.today_pt() + __import__("datetime").timedelta(days=4)).isoformat()
+        later = (A.today_pt() + __import__("datetime").timedelta(days=5)).isoformat()
+        first = d.execute("INSERT INTO practices(date, start, end, location, sport, activity_type, cancelled) VALUES(?,?,?,?,?,?,0)",
+                          (day, "19:00", "20:30", "Not Going Pool", "Water Polo", "practice")).lastrowid
+        second = d.execute("INSERT INTO practices(date, start, end, location, sport, activity_type, cancelled) VALUES(?,?,?,?,?,?,0)",
+                           (later, "19:00", "20:30", "Chat Stay Pool", "Water Polo", "practice")).lastrowid
+        d.commit()
+    member.get("/practices/%d" % first)
+    with A.app.app_context():
+        assert A.db().execute("SELECT 1 FROM chat_follows WHERE practice_id=?", (first,)).fetchone() is None
+    member.post("/practices/%d" % first, data={"csrf": csrf(member, "/practices/%d" % first), "pid": first, "action": "notgoing", "back": "page"})
+    page = member.get("/practices/%d" % first).get_data(as_text=True)
+    not_going = page.split(">Not going</button>", 1)[0].rsplit("<button", 1)[-1]
+    assert 'class="btn btn-primary"' in not_going and 'value="clear"' in not_going
+    assert 'value="going"' in page.split(">Going</button>", 1)[0].rsplit("<button", 1)[-1]
+    with A.app.app_context():
+        assert A.db().execute("SELECT going FROM rsvps WHERE practice_id=?", (first,)).fetchone()["going"] == 0
+    member.get("/chat?c=practice:%d" % first)
+    with A.app.app_context():
+        assert A.db().execute("SELECT 1 FROM chat_follows WHERE practice_id=?", (first,)).fetchone()
+    member.post("/practices/%d" % second, data={"csrf": csrf(member, "/practices/%d" % second), "pid": second, "action": "going", "back": "page"})
+    member.post("/practices/%d" % second, data={"csrf": csrf(member, "/practices/%d" % second), "pid": second, "action": "notgoing", "back": "page"})
+    with A.app.app_context():
+        d = A.db()
+        assert d.execute("SELECT going FROM rsvps WHERE practice_id=?", (second,)).fetchone()["going"] == 0
+        assert d.execute("SELECT 1 FROM chat_follows WHERE practice_id=?", (second,)).fetchone()
+    mine = member.get("/chat?view=practices").get_data(as_text=True)
+    assert "Not Going Pool" in mine and "Chat Stay Pool" in mine
+
+
 def test_permissions_lists_admins_and_does_not_raise_access_on_its_own():
     admin, athlete = client(), client()
     join(admin, "Nia", "Admin", "nia.perm@example.com")
