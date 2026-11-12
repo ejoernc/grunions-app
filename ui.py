@@ -209,7 +209,7 @@ body.schedhome:has(.weekdrawer.full) .homemap{opacity:0}
  body.schedhome .weekdrawer.full .weekbody{touch-action:pan-y}
 }
 body.schedhome.sheetdrag{user-select:none}
-.weekbody{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:calc(var(--nav-clear) + 72px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.weekbody{flex:1;min-height:0;overflow-y:auto;overflow-anchor:none;display:flex;flex-direction:column;gap:12px;padding-bottom:calc(var(--nav-clear) + 72px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
 .weekhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .weekhead h2{margin:0;font:700 28px/1 var(--r2-font-display);letter-spacing:-.03em}
 .weekhead h2 span{color:#8B8F93;font:700 16px/1 var(--r2-font-sans)}
@@ -4839,8 +4839,13 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
    if(small) small.setAttribute('aria-hidden', morph>=0.5?'false':'true');
   }
   document.body.classList.toggle('mapcovered', !wide() && (m.vh-h)<120);
-  if(scroller && atFull!==wasFull) scroller.scrollTop=0;
+  if(scroller && !atFull && scroller.scrollTop) scroller.scrollTop=0;
+  else if(scroller && atFull!==wasFull) scroller.scrollTop=0;
   wasFull=atFull;
+ }
+ function pinList(){
+  if(!scroller || sheet.classList.contains('full')) return;
+  scroller.scrollTop=0;
  }
  function animateTo(target){
   if(anim) cancelAnimationFrame(anim);
@@ -4849,13 +4854,14 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   function frame(now){
    var p=dur?Math.min(1,(now-t0)/dur):1, e=1-Math.pow(1-p,3);
    apply(from+(target-from)*e);
-   if(p<1) anim=requestAnimationFrame(frame); else anim=0;
+   if(p<1) anim=requestAnimationFrame(frame);
+   else { anim=0; requestAnimationFrame(pinList); }
   }
   anim=requestAnimationFrame(frame);
  }
  function settle(vy, fromFull){
   var m=metrics(), midUp=(m.half+m.full)/2, midDown=(m.peek+m.half)/2, target=m.half;
-  if(fromFull && h<m.full-8) target=h<=midDown?m.peek:m.half;
+  if(fromFull && h<m.full-8) target=m.half;
   else if(vy<-0.6 && h>midDown) target=m.full;
   else if(vy>0.6 && h<midDown) target=m.peek;
   else if(h>=midUp) target=m.full;
