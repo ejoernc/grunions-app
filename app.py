@@ -2671,7 +2671,7 @@ def _pick_people(d, m):
             '<div class=pickhead><button type=button data-sheet-close>Cancel</button><h2 id=pickTitle>Message someone</h2>'
             '<button type=button id=pickNext hidden disabled>Next · 0</button></div>'
             '<div id=pickChips class=pickchips hidden></div>'
-            '<label class=picksearch><input id=pickSearch placeholder="Search your teams" autocomplete=off></label>'
+            '<label class=picksearch><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M14.25 9C14.25 11.8995 11.8995 14.25 9 14.25C6.10051 14.25 3.75 11.8995 3.75 9C3.75 6.10051 6.10051 3.75 9 3.75C11.8995 3.75 14.25 6.10051 14.25 9Z" stroke="#8B8F93" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.2 13.2L16.5 16.5" stroke="#8B8F93" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg><input id=pickSearch placeholder="Search your teams" autocomplete=off></label>'
             '<div id=pickName hidden><label>Group name, optional<input id=groupName maxlength=40 placeholder="Carpool, captains…"></label>'
             '<button type=button class="btn btn-primary full" id=pickCreate>Create</button></div>'
             '<div id=pickBody><p id=pickRecentLabel class=r2caps%s>Recent</p><div id=pickRecent>%s</div>'
@@ -2793,15 +2793,16 @@ _CHAT_PLUS_JS = """<script>
   document.getElementById('pickEmpty').hidden=!q||!!list.length;
   document.getElementById('pickTeam').hidden=!list.length;
   var n=Object.keys(picked).length, next=document.getElementById('pickNext');
-  next.hidden=mode!=='group'; next.disabled=n<1; next.textContent='Next · '+n;
+  next.hidden=false; next.style.visibility=mode==='group'?'visible':'hidden'; next.disabled=n<1; next.textContent='Next · '+n;
   var chips=document.getElementById('pickChips');
   chips.hidden=mode!=='group' || !n;
   chips.innerHTML=people.filter(function(p){ return picked[p.id]; }).map(function(p){
-   return '<button type=button class=pickchip data-drop="'+p.id+'"><span class="mark '+esc(p.tone)+'">'+esc(p.initials)+'</span>'+esc(p.name)+' ×</button>';
+   return '<button type=button class=pickchip data-drop="'+p.id+'"><span class="mark '+esc(p.tone)+'">'+esc(p.initials)+'</span>'+esc(p.name.split(' ')[0])+'<svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 5L10 10M10 10L15 15M10 10L15 5M10 10L5 15" stroke="#8B8F93" stroke-width="1.75" stroke-linecap="round"/></svg></button>';
   }).join('');
  }
  function row(p){
-  var box=mode==='group'?'<span class="pickbox'+(picked[p.id]?' on':'')+'" aria-hidden=true></span>':'';
+  var on=!!picked[p.id];
+  var box=mode==='group'?'<span class="pickbox'+(on?' on':'')+'" aria-hidden=true>'+(on?'<svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 10.5L8.2 14.5L16 6" stroke="#0B0B0C" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+'</span>':'';
   return '<button type=button class=newrow data-person="'+p.id+'"><span class="mark '+esc(p.tone)+'">'+esc(p.initials)+'</span><span class=grow><b>'+esc(p.name)+'</b><small>'+esc(p.line)+'</small></span>'+box+'</button>';
  }
  function showPick(kind, anchor){

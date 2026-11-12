@@ -180,6 +180,7 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     assert "Adele Voss" in roster and "Player · Water polo" in roster and "Mira Solano" in roster and "Coach · Water polo" in roster
     assert "Grunions Aquatics ·" in html and 'id=pickEmpty class=t3 hidden' in html and "No one on your teams by that name" in html
     assert "Search your teams" in html and "<textarea id=pickData" in html and 'id=pickData>' not in html.split("<textarea id=pickData", 1)[0]
+    assert "M14.25 9C14.25 11.8995" in html and ".pickbox{box-sizing:border-box;width:24px;height:24px;border:1.5px solid var(--r2-smoke);border-radius:999px" in html and "border-radius:6px" not in html.split(".pickbox{", 1)[1].split("}", 1)[0]
     assert "pickEmpty').hidden=!q||!!list.length" in html
     assert "New channel" not in html and "Board room" not in html and "Message the coaches" not in html and "New message" not in html
     assert "Preview Tuesday practice" not in html and "Preview Friday practice" not in html and "Preview recent practice" not in html

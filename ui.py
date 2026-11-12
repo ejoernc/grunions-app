@@ -704,20 +704,33 @@ dialog.newchat .sheet,dialog.pickpeople .sheet{max-height:90dvh}
 .newrow .mark.bubble{background:var(--r2-bubblegum)}
 .newrow .mark.aqua{background:var(--r2-aqua)}
 .mini{margin-left:8px;padding:5px 8px;border:1px solid var(--r2-smoke);border-radius:999px;color:var(--r2-smoke);font:700 10px/1 var(--r2-font-sans);letter-spacing:.04em;text-transform:uppercase}
-.pickhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 12px}
-.pickhead h2{margin:0;font:700 17px/1 var(--r2-font-sans)}
-.pickhead button{border:0;background:transparent;color:var(--r2-paper);font:700 15px/1 var(--r2-font-sans)}
-#pickNext{height:36px;padding:0 14px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink)}
+dialog.pickpeople .sheet{background:var(--r2-carbon);border:0;border-radius:28px 28px 0 0;padding:10px 16px 28px;display:flex;flex-direction:column;gap:14px}
+dialog.pickpeople .grab{width:40px;height:5px;margin:0 auto;padding:0;border-radius:3px;background:var(--r2-smoke)}
+dialog.pickpeople .grab::after{content:none}
+.pickhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0;width:100%}
+.pickhead h2{margin:0;font:700 17px/1 var(--r2-font-display);color:var(--r2-paper)}
+.pickhead button{border:0;background:transparent;color:var(--r2-smoke);font:600 15px/1 var(--r2-font-sans);padding:0}
+#pickNext{height:auto;padding:8px 14px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 14px/1 var(--r2-font-sans)}
 #pickNext:disabled{opacity:.45}
 #pickData{display:none !important}
-.picksearch{display:block;margin:0 0 12px}
-#pickList{display:flex;flex-direction:column;gap:2px}
-.picksearch input{width:100%;border:0;border-radius:16px;background:var(--r2-carbon);color:var(--r2-paper);padding:14px 16px;font:600 15px/1.2 var(--r2-font-sans)}
-.pickchips{display:flex;gap:8px;overflow:auto;margin:0 0 12px}
-.pickchip{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;background:var(--r2-carbon);color:var(--r2-paper);padding:4px 10px 4px 4px;font:700 13px/1 var(--r2-font-sans)}
-.pickchip .mark{width:28px;height:28px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font:700 11px/1 var(--r2-font-display);color:var(--r2-fixed-ink)}
-.pickbox{width:22px;height:22px;border:2px solid var(--r2-smoke);border-radius:6px;flex:none}
-.pickbox.on{background:var(--r2-lime);border-color:var(--r2-lime);box-shadow:inset 0 0 0 3px var(--r2-graphite)}
+.picksearch{display:flex;align-items:center;gap:10px;box-sizing:border-box;width:100%;height:48px;margin:0;padding:0 16px;border-radius:999px;background:var(--r2-graphite)}
+.picksearch svg{flex:none;display:block}
+dialog.pickpeople .picksearch input{flex:1;width:100%;height:auto;margin:0;padding:0;border:0;border-radius:0;background:transparent;color:var(--r2-paper);font:500 15px/1.2 var(--r2-font-sans)}
+dialog.pickpeople .picksearch input::placeholder{color:var(--r2-smoke)}
+.pickchips{display:flex;flex-wrap:wrap;gap:8px;margin:0;width:100%}
+.pickchip{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);padding:4px 10px 4px 4px;font:600 13px/1 var(--r2-font-sans)}
+.pickchip .mark{width:24px;height:24px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font:700 9px/1 var(--r2-font-sans);color:var(--r2-fixed-ink)}
+.pickbox{box-sizing:border-box;width:24px;height:24px;border:1.5px solid var(--r2-smoke);border-radius:999px;background:transparent;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.pickbox svg{display:block}
+.pickbox.on{background:#C8FF3C;border-color:#C8FF3C}
+dialog.pickpeople #pickList,dialog.pickpeople #pickRecent{display:flex;flex-direction:column;gap:0;background:var(--r2-graphite);border-radius:20px;overflow:hidden}
+dialog.pickpeople #pickList:empty,dialog.pickpeople #pickRecent:empty{display:none}
+dialog.pickpeople .newrow{min-height:0;padding:10px 14px;border-radius:0;gap:12px}
+dialog.pickpeople .newrow .mark{width:40px;height:40px;font:700 14.4px/1 var(--r2-font-sans)}
+dialog.pickpeople .newrow b{font:600 15px/1.2 var(--r2-font-sans)}
+dialog.pickpeople .newrow small{margin-top:1px;font:500 12px/1.3 var(--r2-font-sans)}
+dialog.pickpeople #pickTeam,dialog.pickpeople #pickRecentLabel{margin:0;font:700 11px/1 var(--r2-font-sans);letter-spacing:.88px}
+dialog.pickpeople #pickFoot{margin:0;font:500 12px/1.35 var(--r2-font-sans);color:var(--r2-smoke)}
 .plusacts{display:flex;flex-direction:column;gap:8px}
 .plusacts button,.sheetcancel{width:100%;min-height:52px;border:0;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);font:700 15px/1 var(--r2-font-sans)}
 .sheetcancel{margin-top:8px;background:transparent;color:var(--r2-smoke)}
