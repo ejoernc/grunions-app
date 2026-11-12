@@ -770,6 +770,39 @@ dialog.newchat .sheet,dialog.pickpeople .sheet{max-height:90dvh}
 .newrow{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;padding:8px 10px;border:0;border-radius:22px;background:transparent;color:var(--r2-paper);text-align:left;text-decoration:none;font:inherit;cursor:pointer}
 .newrow b{display:block;font:700 15px/1.2 var(--r2-font-sans)}
 .newrow small{display:block;margin-top:2px;color:var(--r2-smoke);font:600 12px/1.3 var(--r2-font-sans)}
+dialog#chatActions .sheet,dialog.msgactions .sheet{background:#17181A;color:#F6F4EF;border-radius:28px 28px 0 0;padding:10px 16px 28px;gap:12px}
+dialog#chatActions::backdrop,dialog.msgactions::backdrop{background:rgba(11,11,12,.6)}
+dialog#chatActions .grab,dialog.msgactions .grab{width:40px;height:5px;border-radius:3px;background:#8B8F93}
+dialog#chatActions .acthead{display:flex;align-items:center;gap:12px;min-height:44px}
+dialog#chatActions .actmark{width:44px;height:44px;border-radius:14px;background:#C8FF3C;color:#0B0B0C;display:flex;align-items:center;justify-content:center;flex:none;font:700 18px/1 var(--r2-font-display)}
+dialog#chatActions .acthead b{display:block;font:700 18px/1.1 var(--r2-font-display);color:#F6F4EF}
+dialog#chatActions .acthead small{display:block;margin-top:2px;font:500 12px/1.3 var(--r2-font-sans);color:#8B8F93}
+dialog#chatActions .actcards{display:flex;flex-direction:column;gap:12px}
+dialog#chatActions .actcard{display:flex;flex-direction:column;gap:0;margin:0;padding:0;border-radius:20px;background:#24262A;overflow:hidden}
+dialog#chatActions .actcard form{margin:0}
+dialog#chatActions .newrow{min-height:52px;margin:0;padding:13px 16px;border-radius:0;gap:12px;background:transparent;color:#F6F4EF;text-align:left;justify-content:flex-start}
+dialog#chatActions .newrow:focus,dialog#chatActions .newrow:focus-visible,dialog.msgactions .actrow:focus,dialog.msgactions .actrow:focus-visible,dialog.profmenu .newrow:focus,dialog.profmenu .newrow:focus-visible{outline:none}
+dialog#chatActions .newrow b{font:600 16px/1.2 var(--r2-font-sans);color:inherit}
+dialog#chatActions .newrow small{font:500 12px/1.3 var(--r2-font-sans);color:#8B8F93}
+dialog#chatActions .actico{width:24px;height:24px;flex:none;color:#F6F4EF}
+dialog#chatActions .actstatus,dialog#chatActions .chatgo{color:#8B8F93;font:600 13px/1 var(--r2-font-sans);flex:none}
+dialog#chatActions .actrowdim{opacity:.4}
+dialog#chatActions .newrow.actdanger{background:transparent;color:#FF3D57}
+dialog#chatActions .newrow.actdanger .actico{color:#FF3D57}
+dialog#chatActions .actfoot{margin:0;color:#8B8F93;font:500 12px/1.4 var(--r2-font-sans)}
+dialog#chatActions [hidden]{display:none !important}
+dialog.msgactions .actgroup{background:#24262A;border-radius:20px;overflow:hidden;margin:0}
+dialog.msgactions .emogrid{margin:4px 0 12px}
+dialog.msgactions .emogrid button{background:#24262A;border:0;color:#F6F4EF}
+dialog.msgactions .actgroup .actrow{border-bottom:0;height:52px;padding:0 16px;color:#F6F4EF;font:600 16px/1.2 var(--r2-font-sans);justify-content:flex-start;gap:12px}
+dialog.msgactions .actgroup .actrow svg{width:24px;height:24px}
+dialog.msgactions .actrow.danger,dialog.msgactions .actrow.danger svg{color:#FF3D57;background:transparent}
+dialog.profmenu .sheet{background:#17181A;color:#F6F4EF;border:0;border-radius:28px 28px 0 0;padding:10px 16px 28px}
+dialog.profmenu .grab{width:40px;height:5px;border-radius:3px;background:#8B8F93}
+dialog.profmenu .newcard{background:#24262A;border-radius:20px;padding:0;margin:0 0 12px;gap:0;overflow:hidden}
+dialog.profmenu .newrow{min-height:52px;padding:13px 16px;border-radius:0;text-align:left;justify-content:flex-start}
+dialog.profmenu .newrow b{font:600 16px/1.2 var(--r2-font-sans)}
+dialog.profmenu .newrow.actdanger{background:transparent;color:#FF3D57}
 .newrow .mark{width:44px;height:44px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;flex:none;font:700 14px/1 var(--r2-font-display);color:var(--r2-fixed-ink)}
 .newrow .mark svg{width:22px;height:22px;display:block}
 .newrow .mark.lime{background:var(--r2-lime)}
@@ -1030,6 +1063,9 @@ dialog.botsheet.opening::backdrop,dialog.botsheet.closing::backdrop{opacity:0}
 dialog.botsheet .sheet{background:var(--color-sheet);border:1px solid var(--color-sheet-border);border-bottom:0;border-radius:var(--radius-overlay) var(--radius-overlay) 0 0;padding:0 12px calc(14px + env(safe-area-inset-bottom));max-height:calc(100dvh - 12px);overflow:auto;transform:translateY(0);transition:transform .25s ease-out}
 .grab{display:block;width:100%;height:28px;margin:0 0 8px;padding:0;position:sticky;top:0;z-index:1;background:var(--color-sheet);touch-action:none;cursor:grab}
 .grab::after{content:"";position:absolute;left:50%;top:12px;width:36px;height:5px;margin-left:-18px;border-radius:3px;background:var(--color-sheet-handle)}
+dialog#chatActions .grab,dialog.msgactions .grab,dialog.botsheet.profmenu .grab{display:block;width:40px;height:5px;margin:2px auto 0;padding:0;position:relative;top:auto;z-index:0;background:#8B8F93;border-radius:3px;flex:none}
+dialog#chatActions .grab::after,dialog.msgactions .grab::after,dialog.botsheet.profmenu .grab::after{content:none}
+dialog.botsheet.profmenu .sheet{background:#17181A;color:#F6F4EF;border:0;border-radius:28px 28px 0 0;padding:10px 16px 28px}
 dialog.botsheet.attachsheet::backdrop{background:rgba(11,11,12,.6)}
 dialog.botsheet.attachsheet .sheet{background:var(--r2-carbon);color:var(--r2-paper);border:0;border-radius:28px 28px 0 0;padding:10px 16px calc(28px + env(safe-area-inset-bottom));gap:14px}
 dialog.botsheet.attachsheet .grab{height:5px;margin:0;padding:0;background:transparent;position:relative}
@@ -4615,7 +4651,9 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <button type=button class=newrow data-menu=edit><span class=grow><b>Edit profile</b><small>Name, email, phone</small></span><span class=chatgo>›</span></button>
 <a class=newrow href=/privacy><span class=grow><b>Privacy</b><small>Who sees your email and phone</small></span><span class=chatgo>›</span></a>
 </div>
+<div class=newcard>
 <button type=button class="newrow actdanger" data-menu=delete><span class=grow><b>Delete account</b><small>Leaves every club. Can't be undone.</small></span></button>
+</div>
 <p class=t3>Delete account lives here and in Settings › Account. It's yours alone — admins can only remove you from their club.</p>
 </div></dialog>
 <dialog id=editSheet class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
@@ -5142,15 +5180,18 @@ T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template><div class
 <p class=attacherr id=attachErr hidden></p>
 </div></dialog>
 <div id=dropveil class=dropcard hidden><div class="attachdrop over"><span class=attachico><img src="/static/nav/attach-upload.svg" width="24" height="24" alt=""></span><b>Drop to add</b><p class=attachcount id=dropCount>1 image</p></div></div>
-<dialog id=actSheet class=botsheet><div class=sheet>
+<dialog id=actSheet class="botsheet msgactions"><div class=sheet>
 <div class=grab aria-hidden=true></div>
 <div class=emogrid id=actEmoji>{% for e in REACTIONS %}<button type=button data-e="{{e}}">{{e}}</button>{% endfor %}<button type=button data-more=1 aria-label="More emoji">+</button></div>
 <div class=emopick id=emojiMore hidden></div>
 <p id=actConfirm hidden>Delete this message?</p>
-<div class=actgroup><button type=button class=actrow id=actReply><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232,200a8,8,0,0,1-16,0,88.1,88.1,0,0,0-88-88H51.31l34.35,34.34a8,8,0,0,1-11.32,11.32l-48-48a8,8,0,0,1,0-11.32l48-48A8,8,0,0,1,85.66,61.66L51.31,96H128A104.11,104.11,0,0,1,232,200Z"/></svg>Reply</button></div>
-<div class=actgroup id=actSaveGroup hidden><button type=button class=actrow id=actSave><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,124.69V32a8,8,0,0,0-16,0v92.69L93.66,98.34a8,8,0,0,0-11.32,11.32Z"/></svg>Save photo</button></div>
-<div class=actgroup id=actCopyGroup><button type=button class=actrow id=actCopy><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></svg>Copy</button></div>
-<div class=actgroup id=actOwn><button type=button class=actrow id=actEdit><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg>Edit</button><button type=button class="actrow danger" id=actDelete><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,48H180V36A28,28,0,0,0,152,8H104A28,28,0,0,0,76,36V48H40a12,12,0,0,0,0,24h4V208a20,20,0,0,0,20,20H192a20,20,0,0,0,20-20V72h4a12,12,0,0,0,0-24ZM100,36a4,4,0,0,1,4-4h48a4,4,0,0,1,4,4V48H100Zm88,168H68V72H188ZM116,104v64a12,12,0,0,1-24,0V104a12,12,0,0,1,24,0Zm48,0v64a12,12,0,0,1-24,0V104a12,12,0,0,1,24,0Z"/></svg><span id=actDeleteLabel>Delete</span></button></div>
+<div class=actgroup>
+<button type=button class=actrow id=actReply><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 16a8 8 0 0 0-8-8H6.5M9 4.5 5 8l4 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Reply</button>
+<div id=actSaveGroup hidden><button type=button class=actrow id=actSave><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v10M8 10l4 4 4-4M5 20h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Save photo</button></div>
+<div id=actCopyGroup><button type=button class=actrow id=actCopy><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 8V5.5A1.5 1.5 0 0 1 9.5 4h9A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H16M5.5 8h9A1.5 1.5 0 0 1 16 9.5v9A1.5 1.5 0 0 1 14.5 20h-9A1.5 1.5 0 0 1 4 18.5v-9A1.5 1.5 0 0 1 5.5 8Z" stroke="currentColor" stroke-width="1.8"/></svg>Copy text</button></div>
+<button type=button class=actrow id=actReport><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 20V4M6 5h11l-2 3.5L17 12H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Report</button>
+<div id=actOwn><button type=button class=actrow id=actEdit><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Edit</button><button type=button class="actrow danger" id=actDelete><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 7h14M9 7V5h6v2M8 7l1 13h6l1-13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span id=actDeleteLabel>Delete</span></button></div>
+</div>
 </div></dialog>
 <dialog id=whoSheet class=botsheet><div class=sheet>
 <div class=grab aria-hidden=true></div>
@@ -5451,6 +5492,7 @@ function photoError(kind){
 }
 document.getElementById('actReply').onclick=()=>{const id=actId;closeSheet();startReply(id)};
 document.getElementById('actCopy').onclick=async()=>{const m=msgs[actId];if(!m||!m.body)return;try{await navigator.clipboard.writeText(m.body)}catch(err){const t=document.createElement('textarea');t.value=m.body;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()}closeSheet();toast('Copied')};
+document.getElementById('actReport').onclick=()=>{closeSheet();var form=document.getElementById('requestForm');if(form){if(form.subject)form.subject.value='Report a message';if(window.grunionsPaintRequest)grunionsPaintRequest();if(window.grunionsOpenSheet)grunionsOpenSheet(document.getElementById('requestSheet'));return}location.href='/chat?c=requests'};
 document.getElementById('actSave').onclick=async()=>{const m=msgs[actId];if(!m||!m.image)return;var url=m.image.full;closeSheet();await savePhoto(url)};
 actEdit.onclick=(e)=>{e.preventDefault();e.stopPropagation();const id=actId;closeSheet();setTimeout(()=>startEdit(id),0)};
 actDelete.onclick=async()=>{if(!confirming){confirming=true;actConfirm.hidden=false;document.getElementById('actDeleteLabel').textContent='Delete message';return}

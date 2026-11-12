@@ -2580,6 +2580,29 @@ def _unread_bits(d, mid):
     else:
         where = "%s, %s, and %s" % tuple(shown)
     return total, "%d unread in %s" % (total, where)
+def _mute_status(d, mid, channel):
+    """Trailing Mute label. There is no mute-duration frame; this matches the durations the sheet offers."""
+    row = d.execute("SELECT until FROM chat_mutes WHERE member_id=? AND channel=?", (mid, channel)).fetchone()
+    if not row or not chat_muted(d, mid, channel):
+        return "Off"
+    until = (row["until"] or "").strip()
+    if not until:
+        return "Until I turn it back on"
+    try:
+        when = dt.datetime.fromisoformat(until.replace("Z", "+00:00"))
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=dt.timezone.utc)
+    except ValueError:
+        return "Until tomorrow"
+    nxt = dt.datetime.combine(today_pt() + dt.timedelta(days=1), dt.time.min, PT).astimezone(dt.timezone.utc)
+    if abs((when - nxt).total_seconds()) < 90 * 60:
+        return "Until tomorrow"
+    hours = (when - dt.datetime.now(dt.timezone.utc)).total_seconds() / 3600.0
+    if hours <= 2:
+        return "1 hour"
+    if hours <= 10:
+        return "8 hours"
+    return "Until tomorrow"
 def chat_muted(d, mid, channel):
     """A blank until means muted until they turn it back on. A timestamp mutes until that moment."""
     row = d.execute("SELECT until FROM chat_mutes WHERE member_id=? AND channel=?", (mid, channel)).fetchone()
@@ -2686,18 +2709,21 @@ def _plain_chat_title(title):
 def _action_attrs(channel, title):
     kind, required, manage, profile, permanent = _action_meta(channel)
     people = muted = pinned = 0
+    mute_label = "Off"
     if channel and me():
         try:
             people = _thread_people(db(), channel)
         except Exception:
             people = 0
         muted = 1 if chat_muted(db(), me()["id"], channel) else 0
+        mute_label = _mute_status(db(), me()["id"], channel)
         try:
             pinned = 1 if db().execute("SELECT 1 FROM chat_pins WHERE member_id=? AND channel=?", (me()["id"], channel)).fetchone() else 0
         except sqlite3.OperationalError:
             pinned = 0
-    return ('data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s" data-permanent="%s" data-people="%d" data-muted="%d" data-pinned="%d"'
-            % (escape(channel or ""), kind, required, manage, escape(_plain_chat_title(title)), escape(profile), permanent, people, muted, pinned))
+    admin = 1 if (me() and is_club_admin()) else 0
+    return ('data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s" data-permanent="%s" data-people="%d" data-muted="%d" data-mute="%s" data-pinned="%d" data-admin="%d"'
+            % (escape(channel or ""), kind, required, manage, escape(_plain_chat_title(title)), escape(profile), permanent, people, muted, escape(mute_label), pinned, admin))
 def _chat_row(href, mark, title, sub, when="", n=0, tone="sun", muted=False):
     channel = ""
     found = re.search(r"[?&]c=([^\"&]+)", href or "")
@@ -3635,91 +3661,133 @@ def _thread_bar(d, m, ch):
             '<button type=button class=cheadmore id=threadMore aria-label="Chat actions" %s>•••</button></div>'
             ) % (escape(_thread_back()), chevron, _thread_mark(d, m, ch), attrs, escape(title), escape(_thread_subtitle(d, ch)), attrs)
 def _actions_bundle():
-    """One sheet for a long-press in the inbox or a tap on the thread title."""
-    token = csrf_field()
-    return ('<dialog id=chatActions class=botsheet><div class=sheet><div class=grab aria-hidden=true></div>'
-            '<h2 class=newtitle id=actTitle>Chat</h2>'
-            '<div id=actMain class=newcard>'
-            '<button type=button class=newrow id=actMuteOpen><span class=grow><b>Mute</b><small>1 hour, 8 hours, until tomorrow, or until you turn it back on</small></span><span class=chatgo>›</span></button>'
-            '<form method=post action=/chat/pin>%s<input type=hidden name=c id=actPinC>'
-            '<button class=newrow name=pin value=on id=actPin><span class=grow><b id=actPinLabel>Pin to top</b></span></button></form>'
-            '<form method=post action=/chat/read>%s<input type=hidden name=c>'
-            '<button class=newrow name=read value=1><span class=grow><b>Mark as read</b></span></button></form>'
-            '<a class=newrow id=actInfo href="/chat/info"><span class=grow><b>Channel info</b><small>Why you are in it</small></span></a>'
-            '<a class=newrow id=actProfile href="/"><span class=grow><b>View profile</b></span></a>'
-            '<form method=post action=/chat/leave>%s<input type=hidden name=c>'
-            '<button class=newrow id=actLeave><span class=grow><b>Leave channel</b><small>You can rejoin from Browse channels.</small></span></button></form>'
-            '<p class=actnote id=actLeaveNo hidden>Required channel — you can only mute.</p>'
-            '<form method=post action=/chat/block>%s<input type=hidden name=c>'
-            '<button class=newrow id=actBlock><span class=grow><b>Block</b></span></button></form>'
-            '<form method=post action=/chat/hide>%s<input type=hidden name=c>'
-            '<button class=newrow id=actDeleteChat><span class=grow><b>Delete chat</b><small>For you. A new message brings it back.</small></span></button></form>'
-            '<a class=newrow id=actEdit href="/chat/channels"><span class=grow><b>Edit channel</b></span></a>'
-            '<button type=button class="newrow actdanger" id=actDelete hidden><span class=grow><b>Delete channel</b></span></button>'
-            '<p class=actnote id=actDeleteNo hidden>#everyone can\'t be deleted — it\'s the whole team</p>'
-            '</div>'
-            '<form method=post action=/chat/mute id=actMutes class=newcard hidden>%s<input type=hidden name=c>'
-            '<button class=newrow name=mute value=1h><b>1 hour</b></button>'
-            '<button class=newrow name=mute value=8h><b>8 hours</b></button>'
-            '<button class=newrow name=mute value=tomorrow><b>Until tomorrow</b></button>'
-            '<button class=newrow name=mute value=on><b>Until I turn it back on</b></button>'
-            '<button class=newrow name=mute value=off><b>Unmute</b></button></form>'
-            '<form method=post action=/chat/channel-delete id=actDeleteForm class=newcard hidden>%s<input type=hidden name=c>'
-            '<p id=actDeleteCopy></p><label>Type the channel name<input name=confirm autocomplete=off></label>'
-            '<p class="t3" id=actDeleteHelp></p><button class="btn btn-primary full">Delete channel</button></form>'
-            '</div></dialog>'
-            '<script>(function(){if(window.grunionsChatActions)return;window.grunionsChatActions=1;'
-            'function openBox(el,anchor){if(!el)return;if(window.grunionsOpenSheet)grunionsOpenSheet(el);else el.showModal();'
-            'el.classList.remove("popover");el.style.left="";el.style.top="";'
-            'if(window.innerWidth>=768&&anchor){el.classList.add("popover");var r=anchor.getBoundingClientRect(),w=340;'
-            'el.style.left=Math.max(16,Math.min(r.left,window.innerWidth-w-16))+"px";el.style.top=(r.bottom+8)+"px";}}'
-            'function openActions(src){var box=document.getElementById("chatActions");if(!box||!src)return;'
-            'var ch=src.getAttribute("data-ch")||"",kind=src.getAttribute("data-kind")||"",title=src.getAttribute("data-title")||"Chat";'
-            'box.setAttribute("data-people", src.getAttribute("data-people")||"");'
-            'var required=src.getAttribute("data-required")==="1",manage=src.getAttribute("data-manage")==="1",profile=src.getAttribute("data-profile")||"",permanent=src.getAttribute("data-permanent")||"";'
-            'box.querySelectorAll("input[name=c]").forEach(function(i){i.value=ch});'
-            'document.getElementById("actTitle").textContent=title;'
-            'document.getElementById("actMutes").hidden=true;document.getElementById("actMain").hidden=false;document.getElementById("actDeleteForm").hidden=true;'
-            'function show(id,on){var n=document.getElementById(id);if(n)n.hidden=!on;}'
-            'var channel=kind==="channel"||kind==="everyone"||kind==="group";'
-            'show("actInfo",kind==="channel"||kind==="everyone");'
-            'var info=document.getElementById("actInfo");if(info)info.href="/chat/info?c="+encodeURIComponent(ch);'
-            'show("actProfile",kind==="direct"&&!!profile);var prof=document.getElementById("actProfile");if(prof)prof.href=profile||"#";'
-            'var locked=!!permanent||required||kind==="everyone";'
-            'show("actLeave", (kind==="channel"||kind==="group")&&!locked);'
-            'show("actLeaveNo", locked&&kind!=="direct"&&kind!=="request"&&kind!=="practice");'
-            'var leaveNote=document.getElementById("actLeaveNo");if(leaveNote){leaveNote.textContent=permanent==="board"?"Board chat can\'t be left — you can only mute.":(permanent==="coaches"?"Coaches chat can\'t be left — you can only mute.":"Required channel — you can only mute.");}'
-            'show("actBlock", kind==="direct");show("actDeleteChat", kind==="direct");'
-            'show("actEdit", manage&&kind==="channel"&&!permanent);var edit=document.getElementById("actEdit");if(edit)edit.href="/chat/channels?edit="+encodeURIComponent(ch.split(":").slice(1).join(":"));'
-            'show("actDelete", manage&&kind==="channel"&&!permanent);show("actDeleteNo", kind==="everyone"||!!permanent);'
-            'var deleteNote=document.getElementById("actDeleteNo");if(deleteNote){deleteNote.textContent=permanent==="board"?"Board chat can\'t be deleted.":(permanent==="coaches"?"Coaches chat can\'t be deleted.":"#everyone can\'t be deleted — it\'s the whole team");}'
-            'var pinned=src.getAttribute("data-pinned")==="1";'
-            'var pin=document.getElementById("actPin");if(pin)pin.value=pinned?"off":"on";'
-            'var pinLabel=document.getElementById("actPinLabel");if(pinLabel)pinLabel.textContent=pinned?"Unpin":"Pin to top";'
-            'openBox(box, src);}'
-            'function openMuteList(){document.getElementById("actMain").hidden=true;document.getElementById("actMutes").hidden=false;}'
-            'function openDeleteConfirm(){var title=(document.getElementById("actTitle").textContent||"").replace(/^#/,"");'
-            'var people=(document.getElementById("chatActions").getAttribute("data-people")||"");'
-            'document.getElementById("actMain").hidden=true;document.getElementById("actDeleteForm").hidden=false;'
-            'document.getElementById("actDeleteCopy").textContent="Delete #"+title+" for "+people+" people? Messages can\'t be recovered.";'
-            'document.getElementById("actDeleteHelp").textContent="Deletes it and its history for all "+people+" people.";}'
-            'document.addEventListener("click",function(e){var mute=e.target.closest&&e.target.closest("#actMuteOpen");if(mute){e.preventDefault();openMuteList();return;}'
-            'var del=e.target.closest&&e.target.closest("#actDelete");if(del){e.preventDefault();openDeleteConfirm();return;}'
-            'var t=e.target.closest&&e.target.closest("#threadName,#threadMore,[data-open-request]");'
-            'if(t&&(t.id==="threadName"||t.id==="threadMore")){e.preventDefault();openActions(t);return;}'
-            'if(t&&t.hasAttribute("data-open-request")){e.preventDefault();var form=document.getElementById("requestForm");'
-            'if(!form)return;var to=t.getAttribute("data-to"),about=t.getAttribute("data-about"),subject=t.getAttribute("data-subject"),practice=t.getAttribute("data-practice");'
-            'if(to)form.audience.value=to;if(about)form.topic.value=about;if(subject)form.subject.value=subject;if(form.practice)form.practice.value=practice||"";'
-            'form.dataset.lock=t.getAttribute("data-lock")||"";'
-            'if(form.dataset.lock==="board"){form.audience.value="board";form.dataset.kept="1";}'
-            'if(window.grunionsPaintRequest)grunionsPaintRequest();openBox(document.getElementById("requestSheet"), t);}});'
-            'var hold,held=false;document.addEventListener("pointerdown",function(e){var row=e.target.closest&&e.target.closest("a.chatrow[data-ch],a.practcard[data-ch]");if(!row)return;'
-            'held=false;hold=setTimeout(function(){held=true;openActions(row);},480);});'
-            'document.addEventListener("click",function(e){if(!held)return;if(e.target.closest&&e.target.closest("a.chatrow[data-ch],a.practcard[data-ch]")){e.preventDefault();held=false;}},true);'
-            'document.addEventListener("pointerup",function(){clearTimeout(hold);});'
-            'document.addEventListener("pointermove",function(){clearTimeout(hold);});'
-            'document.addEventListener("contextmenu",function(e){var row=e.target.closest&&e.target.closest("a.chatrow[data-ch],a.practcard[data-ch]");if(!row)return;e.preventDefault();openActions(row);});'
-            '})();</script>') % (token, token, token, token, token, token, token)
+    """06.35–06.37 Chat actions. Two graphite cards, not one gray menu."""
+    token = str(csrf_field())
+    def ico(d):
+        return ('<svg class=actico width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+                '<path d="%s" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' % d)
+    bell = ico("M6.5 9.5a5.5 5.5 0 0 1 11 0c0 6 2.5 6.5 2.5 8.5H4c0-2 2.5-2.5 2.5-8.5M9.5 20.5a2.5 2.5 0 0 0 5 0")
+    pin = ico("M8 4h8v6l2 3H6l2-3V4M12 13v7")
+    check = ico("M5 12.5 9.5 17 19 7")
+    info = ico("M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16M12 11v5M12 8h.01")
+    pencil = ico("M4 20l4-1L19 8l-3-3L5 16l-1 4")
+    leave = ico("M10 5H6v14h4M10 12h10M16 8l4 4-4 4")
+    trash = ico("M5 7h14M9 7V5h6v2M8 7l1 13h6l1-13")
+    user = ico("M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M5 20c1.5-3 4-4.5 7-4.5S17.5 17 19 20")
+    block = ico("M6 6l12 12M18 6 6 18")
+    html = (
+        '<dialog id=chatActions class=botsheet><div class=sheet><div class=grab aria-hidden=true></div>'
+        '<div class=acthead><span class=actmark id=actMark>#</span><span class=grow><b id=actTitle>Chat</b><small id=actSub></small></span></div>'
+        '<div id=actMain class=actcards>'
+        '<div class="newcard actcard">'
+        '<button type=button class=newrow id=actMuteOpen>' + bell + '<span class=grow><b>Mute</b></span><span class=actstatus id=actMuteStatus>Off</span><span class=chatgo>›</span></button>'
+        '<form method=post action=/chat/pin>' + token + '<input type=hidden name=c>'
+        '<button class=newrow name=pin value=on id=actPin>' + pin + '<span class=grow><b id=actPinLabel>Pin to top</b></span></button></form>'
+        '<form method=post action=/chat/read>' + token + '<input type=hidden name=c>'
+        '<button class=newrow name=read value=1>' + check + '<span class=grow><b>Mark as read</b></span></button></form>'
+        '<a class=newrow id=actInfo href="/chat/info">' + info + '<span class=grow><b>Channel info</b><small>Members, notifications, who can post</small></span><span class=chatgo>›</span></a>'
+        '<a class=newrow id=actProfile href="/" hidden>' + user + '<span class=grow><b>View profile</b></span></a>'
+        '</div>'
+        '<div class="newcard actcard" id=actMore>'
+        '<a class=newrow id=actChanEdit href="/chat/channels" hidden>' + pencil + '<span class=grow><b>Edit channel</b><small>Name, who\'s in, who can post</small></span><span class=chatgo>›</span></a>'
+        '<form method=post action=/chat/leave>' + token + '<input type=hidden name=c>'
+        '<button class=newrow id=actLeave>' + leave + '<span class=grow><b>Leave channel</b><small id=actLeaveSub>You can rejoin from Browse channels.</small></span></button></form>'
+        '<form method=post action=/chat/block>' + token + '<input type=hidden name=c>'
+        '<button class=newrow id=actBlock hidden>' + block + '<span class=grow><b id=actBlockLabel>Block</b><small>They can\'t message you. They aren\'t told.</small></span></button></form>'
+        '<form method=post action=/chat/hide>' + token + '<input type=hidden name=c>'
+        '<button class="newrow actdanger" id=actDeleteChat hidden>' + trash + '<span class=grow><b>Delete chat</b><small>Removes it for you only</small></span></button></form>'
+        '<button type=button class="newrow actdanger" id=actChanDelete hidden>' + trash + '<span class=grow><b>Delete channel</b><small id=actDeleteSub>Deletes it and its history for all.</small></span></button>'
+        '</div></div>'
+        '<p class=actfoot id=actFoot hidden>#everyone is created with the team. No one can delete or leave it — admins can mute it or limit who can post.</p>'
+        '<form method=post action=/chat/mute id=actMutes class="newcard actcard" hidden>' + token + '<input type=hidden name=c>'
+        '<button class=newrow name=mute value=1h><b>1 hour</b></button>'
+        '<button class=newrow name=mute value=8h><b>8 hours</b></button>'
+        '<button class=newrow name=mute value=tomorrow><b>Until tomorrow</b></button>'
+        '<button class=newrow name=mute value=on><b>Until I turn it back on</b></button>'
+        '<button class=newrow name=mute value=off id=actUnmute hidden><b>Unmute</b></button></form>'
+        '<form method=post action=/chat/channel-delete id=actDeleteForm class="newcard actcard" hidden>' + token + '<input type=hidden name=c>'
+        '<p id=actDeleteCopy></p><label>Type the channel name<input name=confirm autocomplete=off></label>'
+        '<p class="t3" id=actDeleteHelp></p><button class="btn btn-primary full">Delete channel</button></form>'
+        '</div></dialog>'
+    )
+    script = (
+        '<script>(function(){if(window.grunionsChatActions)return;window.grunionsChatActions=1;'
+        'function openBox(el,anchor){if(!el)return;if(window.grunionsOpenSheet)grunionsOpenSheet(el);else el.showModal();'
+        'el.classList.remove("popover");el.style.left="";el.style.top="";'
+        'if(window.innerWidth>=768&&anchor){el.classList.add("popover");var r=anchor.getBoundingClientRect(),w=340;'
+        'el.style.left=Math.max(16,Math.min(r.left,window.innerWidth-w-16))+"px";el.style.top=(r.bottom+8)+"px";}}'
+        'function show(id,on){var n=document.getElementById(id);if(n)n.hidden=!on;}'
+        'function dim(id,on){var n=document.getElementById(id);if(!n)return;n.classList.toggle("actrowdim",!!on);n.disabled=!!on;}'
+        'function openActions(src){var box=document.getElementById("chatActions");if(!box||!src)return;'
+        'var ch=src.getAttribute("data-ch")||"",kind=src.getAttribute("data-kind")||"",title=src.getAttribute("data-title")||"Chat";'
+        'var people=src.getAttribute("data-people")||"",muted=src.getAttribute("data-muted")==="1";'
+        'var required=src.getAttribute("data-required")==="1",manage=src.getAttribute("data-manage")==="1",profile=src.getAttribute("data-profile")||"",permanent=src.getAttribute("data-permanent")||"";'
+        'var admin=src.getAttribute("data-admin")==="1";'
+        'box.setAttribute("data-people", people);box.setAttribute("data-muted", muted?"1":"0");'
+        'box.querySelectorAll("input[name=c]").forEach(function(i){i.value=ch});'
+        'document.getElementById("actTitle").textContent=title;'
+        'var sub=document.getElementById("actSub");'
+        'if(kind==="everyone") sub.textContent=people+" people · the whole team";'
+        'else if(kind==="direct") sub.textContent="Direct chat · Me › Chat";'
+        'else sub.textContent=people+" people · Grunions Aquatics";'
+        'var mark=document.getElementById("actMark");'
+        'mark.textContent=kind==="direct"?((title.match(/[A-Za-z]/g)||["?"]).slice(0,2).join("").toUpperCase()):"#";'
+        'document.getElementById("actMutes").hidden=true;document.getElementById("actMain").hidden=false;document.getElementById("actDeleteForm").hidden=true;'
+        'var channel=kind==="channel"||kind==="everyone"||kind==="group";'
+        'show("actInfo", channel);'
+        'var info=document.getElementById("actInfo");if(info)info.href="/chat/info?c="+encodeURIComponent(ch);'
+        'show("actProfile", kind==="direct"&&!!profile);var prof=document.getElementById("actProfile");if(prof)prof.href=profile||"#";'
+        'var everyone=kind==="everyone";'
+        'show("actChanEdit", (manage&&kind==="channel"&&!permanent)||(everyone&&admin));'
+        'var edit=document.getElementById("actChanEdit");if(edit)edit.href="/chat/channels?edit="+encodeURIComponent(ch.split(":").slice(1).join(":"));'
+        'show("actLeave", channel);'
+        'var leaveDim=everyone||required||!!permanent;'
+        'dim("actLeave", leaveDim);'
+        'var leaveSub=document.getElementById("actLeaveSub");'
+        'if(leaveSub) leaveSub.textContent=leaveDim?"Required channel — you can only mute":"You can rejoin from Browse channels.";'
+        'show("actBlock", kind==="direct");show("actDeleteChat", kind==="direct");'
+        'var blockLabel=document.getElementById("actBlockLabel");if(blockLabel) blockLabel.textContent="Block "+title;'
+        'var canDelete=(manage&&kind==="channel"&&!permanent)||(everyone&&admin);'
+        'show("actChanDelete", canDelete);'
+        'dim("actChanDelete", everyone||!!permanent);'
+        'var deleteSub=document.getElementById("actDeleteSub");'
+        'if(deleteSub) deleteSub.textContent=everyone?"#everyone can\'t be deleted — it\'s the whole team":"Deletes it and its history for all "+(people||"")+" people.";'
+        'show("actFoot", everyone);'
+        'var status=document.getElementById("actMuteStatus");if(status) status.textContent=src.getAttribute("data-mute")||(muted?"Until tomorrow":"Off");'
+        'var moreCard=document.getElementById("actMore");'
+        'if(moreCard) moreCard.hidden=["actChanEdit","actLeave","actBlock","actDeleteChat","actChanDelete"].every(function(id){var n=document.getElementById(id);return !n||n.hidden;});'
+        'var unmute=document.getElementById("actUnmute");if(unmute) unmute.hidden=!muted;'
+        'var pinned=src.getAttribute("data-pinned")==="1";'
+        'var pin=document.getElementById("actPin");if(pin) pin.value=pinned?"off":"on";'
+        'var pinLabel=document.getElementById("actPinLabel");if(pinLabel) pinLabel.textContent=pinned?"Unpin":"Pin to top";'
+        'openBox(box, src);}'
+        'function openMuteList(){document.getElementById("actMain").hidden=true;document.getElementById("actFoot").hidden=true;document.getElementById("actMutes").hidden=false;}'
+        'function openDeleteConfirm(){var btn=document.getElementById("actChanDelete");if(btn&&btn.classList.contains("actrowdim"))return;'
+        'var title=(document.getElementById("actTitle").textContent||"").replace(/^#/,"");'
+        'var people=(document.getElementById("chatActions").getAttribute("data-people")||"");'
+        'document.getElementById("actMain").hidden=true;document.getElementById("actFoot").hidden=true;document.getElementById("actDeleteForm").hidden=false;'
+        'document.getElementById("actDeleteCopy").textContent="Delete #"+title+" for "+people+" people? Messages can\'t be recovered.";'
+        'document.getElementById("actDeleteHelp").textContent="Deletes it and its history for all "+people+" people.";}'
+        'document.addEventListener("click",function(e){var mute=e.target.closest&&e.target.closest("#actMuteOpen");if(mute){e.preventDefault();openMuteList();return;}'
+        'var del=e.target.closest&&e.target.closest("#actChanDelete");if(del){e.preventDefault();openDeleteConfirm();return;}'
+        'var t=e.target.closest&&e.target.closest("#threadName,#threadMore,[data-open-request]");'
+        'if(t&&(t.id==="threadName"||t.id==="threadMore")){e.preventDefault();openActions(t);return;}'
+        'if(t&&t.hasAttribute("data-open-request")){e.preventDefault();var form=document.getElementById("requestForm");'
+        'if(!form)return;var to=t.getAttribute("data-to"),about=t.getAttribute("data-about"),subject=t.getAttribute("data-subject"),practice=t.getAttribute("data-practice");'
+        'if(to)form.audience.value=to;if(about)form.topic.value=about;if(subject)form.subject.value=subject;if(form.practice)form.practice.value=practice||"";'
+        'form.dataset.lock=t.getAttribute("data-lock")||"";'
+        'if(form.dataset.lock==="board"){form.audience.value="board";form.dataset.kept="1";}'
+        'if(window.grunionsPaintRequest)grunionsPaintRequest();openBox(document.getElementById("requestSheet"), t);}});'
+        'var hold,held=false;document.addEventListener("pointerdown",function(e){var row=e.target.closest&&e.target.closest("a.chatrow[data-ch],a.practcard[data-ch]");if(!row)return;'
+        'held=false;hold=setTimeout(function(){held=true;openActions(row);},480);});'
+        'document.addEventListener("click",function(e){if(!held)return;if(e.target.closest&&e.target.closest("a.chatrow[data-ch],a.practcard[data-ch]")){e.preventDefault();held=false;}},true);'
+        'document.addEventListener("pointerup",function(){clearTimeout(hold);});'
+        'document.addEventListener("pointermove",function(){clearTimeout(hold);});'
+        'document.addEventListener("contextmenu",function(e){var row=e.target.closest&&e.target.closest("a.chatrow[data-ch],a.practcard[data-ch]");if(!row)return;e.preventDefault();openActions(row);});'
+        '})();</script>'
+    )
+    return html + script
+
 def _mute_until(kind):
     now = dt.datetime.now(dt.timezone.utc)
     if kind == "1h":
