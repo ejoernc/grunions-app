@@ -207,6 +207,8 @@ def migrate_practices(d):
                  ("coach_note", "TEXT"), ("coach_note_by", "TEXT"), ("coach_note_at", "TEXT"),
                  ("image", "TEXT"), ("lat", "REAL"), ("lng", "REAL"), ("social_lat", "REAL"), ("social_lng", "REAL"),
                  ("social_route", "TEXT"), ("social_drive_min", "INTEGER"), ("social_routed", "INTEGER DEFAULT 0"),
+                 ("social_when", "TEXT"), ("social2_kind", "TEXT"), ("social2_place", "TEXT"),
+                 ("social2_address", "TEXT"), ("social2_time", "TEXT"),
                  ("address", "TEXT"), ("coaching_plan", "TEXT"),
                  ("series_id", "INTEGER"), ("series_detached", "INTEGER DEFAULT 0"), ("skipped", "INTEGER DEFAULT 0"),
                  ("activity_type", "TEXT"), ("sport", "TEXT"), ("title", "TEXT"), ("skill_levels", "TEXT"),
@@ -2158,6 +2160,29 @@ def seed_preview_club(d):
             d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (program["id"], eli["id"]))
         d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
             ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (pid, eli["id"]))
+        d.execute("""UPDATE practices SET lat=?, lng=?, address=?,
+            social_kind=?, social_place=?, social_address=?, social_time=?, social_when=?,
+            social2_kind=?, social2_place=?, social2_address=?, social2_time=?
+            WHERE id=?""",
+            (33.731441, -118.027846, "15871 Springdale St, Huntington Beach, CA 92649",
+             "Dinner,Drinks", "The Harp", "130 Main St", "21:00", "after",
+             "Coffee", "Preview Cafe", "12 Preview Way", "21:30", pid))
+        early_day = (day + dt.timedelta(days=1)).isoformat()
+        early = d.execute("SELECT id FROM practices WHERE location='Preview lane early'").fetchone()
+        if early:
+            early_id = early["id"]
+            d.execute("""UPDATE practices SET date=?, start='07:00', end='08:00', title='Preview early practice',
+                social_kind=?, social_place=?, social_address=?, social_time=?, social_when=? WHERE id=?""",
+                (early_day, "Coffee", "Preview Cafe", "12 Preview Way", "06:30", "before", early_id))
+        else:
+            early_id = d.execute("""INSERT INTO practices(date,start,end,location,address,note,sport,title,lat,lng,
+                social_kind,social_place,social_address,social_time,social_when)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (early_day, "07:00", "08:00", "Preview lane early", "12 Preview Way",
+                 "Preview only. Not a real Grunions practice.", "Water Polo", "Preview early practice",
+                 33.731441, -118.027846, "Coffee", "Preview Cafe", "12 Preview Way", "06:30", "before")).lastrowid
+        d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
+            ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (early_id, eli["id"]))
         for past_id in (north, south, west):
             d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
                 ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (past_id, eli["id"]))
@@ -5699,6 +5724,7 @@ def redirect_practice(pid, action):
     ref = request.referrer or ""
     if action in ("going", "notgoing", "clear", "social_join", "social_leave") and "/home" in ref: return redirect("/home")
     if action == "delete" or not pid: return redirect("/practices")
+    if request.form.get("back") == "home": return redirect("/practices")
     if request.form.get("back") == "page": return redirect("/practices/%s" % pid)
     return redirect("/practices#p%s" % pid)
 def rsvp_seq_fresh(key):
@@ -6036,6 +6062,61 @@ def upcoming_schedule(d, skip_id=None):
         row["unseen"] = unseen.get(str(p["id"]), 0)
         data.append(row)
     return data
+def _social_card(p, when, kinds, place, address, clock):
+    names = [kinds[0]] + [k.lower() for k in kinds[1:]]
+    title = " & ".join(names)
+    if when == "before":
+        title += " before"
+    elif len(kinds) > 1:
+        title += "."
+    else:
+        title += " after"
+    live = False
+    try:
+        start, end = practice_span(p)
+        now = wall_pt()
+        if when == "before":
+            live = start - dt.timedelta(hours=2) <= now < start
+        else:
+            live = social_after_window(p, now)
+    except (TypeError, ValueError):
+        live = False
+    return {"when": when, "title": title, "place": place, "address": address,
+            "clock": clock, "practice_id": p["id"], "practice": practice_title(p), "live": live}
+def schedule_social_cards(p):
+    """Before and after spots drawn on Schedule home. A practice keeps its existing after social."""
+    if not p:
+        return []
+    cards = []
+    when = (_field(p, "social_when") or "after").strip().lower()
+    if when not in ("before", "after"):
+        when = "after"
+    kinds = social_kinds_of(_field(p, "social_kind"))
+    place = " ".join(str(_field(p, "social_place") or "").split())
+    if kinds and place:
+        cards.append(_social_card(p, when, kinds, place, " ".join(str(_field(p, "social_address") or "").split()),
+                                  str(_field(p, "social_time") or "")[:5]))
+    kinds2 = social_kinds_of(_field(p, "social2_kind"))
+    place2 = " ".join(str(_field(p, "social2_place") or "").split())
+    if kinds2 and place2:
+        cards.append(_social_card(p, "after", kinds2, place2, " ".join(str(_field(p, "social2_address") or "").split()),
+                                  str(_field(p, "social2_time") or "")[:5]))
+    return cards
+def schedule_home_rows(d):
+    """14 days for the pulled-up Schedule home. Not the Upcoming / Past / All list."""
+    start = today_pt()
+    end = (start + dt.timedelta(days=13)).isoformat()
+    rows = d.execute("SELECT * FROM practices WHERE date>=? AND date<=? ORDER BY date, start",
+                     (start.isoformat(), end)).fetchall()
+    packed = []
+    for p in rows:
+        row = practice_bundle(d, p)
+        kind = (p["activity_type"] or "practice") if "activity_type" in p.keys() else "practice"
+        if kind not in ("practice", "scrimmage", "game"):
+            kind = "practice"
+        row["kind"] = kind
+        packed.append(row)
+    return packed
 def combined_view(entry):
     """Home and Schedule are one scrolling page. Schedule opens it already scrolled."""
     m = me(); d = db()
@@ -6089,12 +6170,50 @@ def combined_view(entry):
             drive_age = int(saved_age.total_seconds())
     social_after = next_kind == "practice" and bool(nextp) and social_after_window(nextp)
     social_mins = int(nextp["social_drive_min"]) if nextp and "social_drive_min" in nextp.keys() and nextp["social_drive_min"] else None
-    sched_when = (request.args.get("when") or "upcoming") if entry == "practices" else ""
+    sched_list = entry == "practices" and request.args.get("view") == "list"
+    sched_home = entry == "practices" and not sched_list
+    sched_when = (request.args.get("when") or "upcoming") if sched_list else ""
     if sched_when not in ("", "upcoming", "past", "all"):
         sched_when = "upcoming"
-    sched_rows = schedule_rows(d, sched_when or "upcoming") if entry == "practices" else []
+    sched_rows = schedule_rows(d, sched_when or "upcoming") if sched_list else []
+    home_rows = schedule_home_rows(d) if sched_home else []
+    week_end = (today_pt() + dt.timedelta(days=6)).isoformat()
+    week_n = sum(1 for row in home_rows if not row["p"]["cancelled"] and str(row["p"]["date"])[:10] <= week_end) if sched_home else 0
+    kind_n = {"all": 0, "practice": 0, "scrimmage": 0, "game": 0}
+    for row in home_rows:
+        if row["p"]["cancelled"]:
+            continue
+        kind_n["all"] += 1
+        kind_n[row["kind"]] += 1
+    social_cards = []
+    if sched_home:
+        seen = set()
+        for source in ([nextp] if nextp else []) + [row["p"] for row in home_rows[:6]]:
+            if not source or source["id"] in seen:
+                continue
+            seen.add(source["id"])
+            social_cards.extend(schedule_social_cards(source))
+    show_drive = bool(sched_home and nextp and nextp_mine == 1 and drive_on)
+    drive_placeholder = False
+    if show_drive and nextp and not drive_chip:
+        drive_placeholder = True
+        start, _end = practice_span(nextp)
+        leave = start - dt.timedelta(minutes=18)
+        drive_chip = "Leave by %s" % fmt_t(leave.strftime("%H:%M"))
+        drive_saved = "18 min"
+    pin_label = ""
+    if nextp:
+        pin_label = "%s · %s" % (short_place(nextp["location"]), fmt_clock(nextp["start"]))
+    monday = today_pt() - dt.timedelta(days=today_pt().weekday())
+    week_strip = []
+    for i in range(7):
+        day = monday + dt.timedelta(days=i)
+        week_strip.append({"iso": day.isoformat(), "wd": day.strftime("%a")[:1].upper(), "dn": day.day,
+                           "on": day == today_pt()})
     return page(T["home"], tab="practices" if entry == "practices" else "home",
-        sched_when=sched_when or "upcoming", sched_rows=sched_rows,
+        sched_home=sched_home, sched_list=sched_list, sched_when=sched_when or "upcoming", sched_rows=sched_rows,
+        home_rows=home_rows, week_n=week_n, kind_n=kind_n, social_cards=social_cards,
+        show_drive=show_drive, drive_placeholder=drive_placeholder, pin_label=pin_label, week_strip=week_strip,
         m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices,
         nextp=nextp, next_kind=next_kind, nextev=nextev, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined,
         vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, route=route, drive_on=drive_on, drive_until=drive_until, drive_saved=drive_saved, drive_age=drive_age, drive_chip=drive_chip, drive_going=drive_going,

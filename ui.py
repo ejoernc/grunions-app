@@ -184,6 +184,50 @@ body.homefull .schedlist{position:relative;z-index:2}
 .schedsame{display:none}
 .schedfeed{display:flex;flex-direction:column;gap:24px}
 body.homefull .schedfeed{position:relative;z-index:2;pointer-events:auto}
+body.schedhome header.homehead{height:0;min-height:0;padding:0;overflow:hidden;background:transparent}
+body.schedhome .schedsheet{position:relative;z-index:3;pointer-events:auto;margin-top:calc(42dvh);display:flex;flex-direction:column;gap:12px;padding:0 16px calc(var(--nav-clear) + 16px);color:#F6F4EF}
+body.schedhome .schedsheet.up{margin-top:12px}
+body.schedhome .sheetgrab{width:40px;height:5px;margin:0 auto;padding:0;border:0;border-radius:3px;background:#8B8F93}
+body.schedhome .sheetexpanded{display:none}
+body.schedhome .schedsheet.up .sheetcollapsed{display:none}
+body.schedhome .schedsheet.up .sheetexpanded{display:flex;flex-direction:column;gap:12px}
+.sheettopline{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sheettopline h2{margin:0;font:700 28px/1 var(--r2-font-display);letter-spacing:-.03em}
+.sheettopline a,.sheettopline button{border:0;background:transparent;color:#8B8F93;font:600 13px/1 var(--r2-font-sans);text-decoration:none}
+.maplegend{position:fixed;z-index:2;top:16px;left:16px;right:16px;display:flex;gap:10px;align-items:center;color:#F6F4EF;font:600 12px/1 var(--r2-font-sans);pointer-events:none}
+.maplegend i{display:inline-block;width:14px;height:3px;margin-right:4px;border-radius:2px;vertical-align:middle}
+.maplegend .legclear{background:#C8FF3C}.maplegend .legslow{background:#FFC61A}.maplegend .legjam{background:#FF5A1F}
+.maplegend b{margin-left:auto;padding:6px 10px;border-radius:999px;background:#17181A;font:600 12px/1 var(--r2-font-sans)}
+.mapmiss{position:relative;z-index:3;margin:24px 16px 0;color:#F6F4EF;pointer-events:auto}
+.mapmiss a{color:#C8FF3C}
+.socialcard{border-radius:28px;background:#FF5FB8;color:#0B0B0C;padding:18px 18px 16px}
+.socialcard .socialkicker{font:700 11px/1 var(--r2-font-sans);letter-spacing:.06em;text-transform:uppercase}
+.socialcard b{display:block;margin-top:8px;font:700 32px/1 var(--r2-font-display);letter-spacing:-.03em}
+.socialcard p,.socialcard small{display:block;margin:6px 0 0;font:600 13px/1.3 var(--r2-font-sans)}
+.socialacts{display:flex;gap:8px;margin-top:12px}
+.socialacts form{flex:1;margin:0}
+.socialgo,.socialdir{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;border-radius:999px;border:1.5px solid #0B0B0C;background:transparent;color:#0B0B0C;font:700 14px/1 var(--r2-font-sans);text-decoration:none}
+.drivecard{border-radius:28px;background:#C8FF3C;color:#0B0B0C;padding:16px 18px}
+.drivetop{display:flex;justify-content:space-between;font:700 11px/1 var(--r2-font-sans);letter-spacing:.06em}
+.drivemain{display:flex;align-items:flex-end;gap:10px;margin-top:8px}
+.drivemain strong{font:700 48px/.9 var(--r2-font-display);letter-spacing:-.04em}
+.drivemain small{padding-bottom:8px;font:600 13px/1.2 var(--r2-font-sans)}
+a.homecard{display:flex;align-items:center;gap:12px;padding:16px 18px;border-radius:28px;background:#FFC61A;color:#0B0B0C;text-decoration:none}
+a.homecard.scrimmage,a.homecard.game{background:#17181A;color:#F6F4EF}
+a.homecard.cancelled{background:#17181A;color:#8B8F93}
+a.homecard>b{font:700 36px/.9 var(--r2-font-display);letter-spacing:-.04em}
+a.homecard span{flex:1;min-width:0}
+a.homecard i{display:block;font:700 10px/1 var(--r2-font-sans);letter-spacing:.08em;font-style:normal}
+a.homecard small{display:block;margin-top:4px;font:600 12px/1.2 var(--r2-font-sans)}
+a.homecard em{font:700 28px/1 var(--r2-font-display);font-style:normal}
+.kindpills{display:flex;gap:8px;overflow:auto}
+.kindpills button{border:0;border-radius:999px;padding:8px 12px;background:#24262A;color:#F6F4EF;font:700 13px/1 var(--r2-font-sans);white-space:nowrap}
+.kindpills button.on{background:#F6F4EF;color:#0B0B0C}
+.weekstrip{display:flex;gap:6px}
+.weekstrip a{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;border-radius:16px;color:#8B8F93;text-decoration:none;font:700 11px/1 var(--r2-font-sans)}
+.weekstrip a.on{background:#F6F4EF;color:#0B0B0C}
+.weekstrip b{font:700 16px/1 var(--r2-font-display)}
+.homeday{margin:8px 0 0;color:#8B8F93;font:700 12px/1 var(--r2-font-sans);letter-spacing:.06em}
 .segpill{display:flex;gap:4px;height:52px;padding:4px;border-radius:999px;background:#24262A;box-sizing:border-box}
 .segpill a{flex:1;display:flex;align-items:center;justify-content:center;border-radius:999px;color:#F6F4EF;text-decoration:none;font:700 15px/1 var(--r2-font-sans)}
 .segpill a.on{background:#F6F4EF;color:#0B0B0C}
@@ -1440,7 +1484,7 @@ dialog.memberedit .help a{color:var(--t1)}
 }
 </style>
 <script>try{if(sessionStorage.getItem("grunionsBoot"))document.documentElement.classList.add("booted")}catch(e){}</script>
-</head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' or tab=='person' or tab=='privacy' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' or tab=='manage' %}adminpage{% endif %}{% if tab=='event_new' or tab=='lineup_edit' or tab=='series_edit' or (tab=='practice' and editing) %} editor{% endif %}">
+</head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if sched_home %} schedhome{% elif tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' or tab=='person' or tab=='privacy' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' or tab=='manage' %}adminpage{% endif %}{% if tab=='event_new' or tab=='lineup_edit' or tab=='series_edit' or (tab=='practice' and editing) %} editor{% endif %}">
 <div id=boot role=status aria-label="Loading"><div class=mark><video class=bootvid autoplay muted loop playsinline preload=auto poster=/static/loader-first-frame.png><source src=/static/regulars-loader-hevc.mov type='video/quicktime; codecs="hvc1"'><source src=/static/regulars-loader-transparent.webm type=video/webm></video><img class=bootstill alt="" src=/static/regulars-logo.svg></div></div>
 <script>(function(){var el=document.getElementById("boot");if(!el)return;if(document.documentElement.classList.contains("booted")){el.remove();return;}var vid=el.querySelector("video"),still=el.querySelector(".bootstill");var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;var ios=/iPhone|iPad|iPod/.test(navigator.userAgent||"")||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);function showStill(){el.classList.add("bootstill");if(!vid)return;try{vid.pause()}catch(e){}vid.removeAttribute("src");while(vid.firstChild)vid.removeChild(vid.firstChild);try{vid.load()}catch(e){}}function blackFrame(){if(!vid||vid.readyState<2)return false;try{var c=document.createElement("canvas");c.width=16;c.height=8;var g=c.getContext("2d",{willReadFrequently:true});if(!g)return false;g.drawImage(vid,0,0,16,8);var d=g.getImageData(0,0,16,8).data,lime=0,dark=0,n=0;for(var i=0;i<d.length;i+=4){n++;var r=d[i],gc=d[i+1],b=d[i+2],a=d[i+3];if(a<12)continue;if(gc>80&&gc>r+15&&gc>b+10)lime++;else if(r<28&&gc<28&&b<28)dark++;}return lime===0&&dark>n*0.6;}catch(e){return false;}}if(reduce)showStill();else if(vid){try{vid.currentTime=0}catch(e){}function fast(){try{vid.playbackRate=2.0}catch(e){}}fast();vid.addEventListener("loadedmetadata",fast);vid.addEventListener("play",fast);vid.addEventListener("error",showStill);var play=vid.play();if(play&&play.catch)play.catch(function(){showStill()});if(ios){setTimeout(function(){if(blackFrame())showStill();},350);setTimeout(function(){if(blackFrame())showStill();},800);}}var started=Date.now(),MIN=2000,arm=false;function hide(){if(arm)return;arm=true;setTimeout(finish,Math.max(0,MIN-(Date.now()-started)));}function finish(){try{sessionStorage.setItem("grunionsBoot","1")}catch(e){}el.classList.add("gone");setTimeout(function(){if(el.parentNode)el.remove()},reduce?480:760);}if(document.readyState==="complete")hide();else window.addEventListener("load",hide);setTimeout(hide,8000);})();</script>
 <script>
@@ -4370,7 +4414,7 @@ T["login"] = """<img class=loginlock src="/static/regulars-lockup.svg" alt="Regu
 <button class="btn btn-primary full">Send login link</button></form>
 <p class="t3 sm" style="text-align:center;margin-top:20px">New here? <a href=/join>Join the team</a></p>"""
 
-T["home"] = """{% if tab=='home' and pins %}
+T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <section class=homemap id=homeMap aria-label="Practice map"></section>
 {{ map_boot() }}
 <script>
@@ -4386,12 +4430,74 @@ T["home"] = """{% if tab=='home' and pins %}
 {% if tab != 'practices' %}<div class=homealerts>{{ push_card() }}
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
 {% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}</div>{% endif %}
-{% if tab == 'practices' %}
+{% if sched_home %}
+<div class=maplegend data-traffic="placeholder" aria-hidden=true><span><i class=legclear></i>Clear</span><span><i class=legslow></i>Slow</span><span><i class=legjam></i>Jammed</span>{% if pin_label %}<b>{{ pin_label }}</b>{% endif %}</div>
+{% if not pins %}<p class=mapmiss>Map unavailable. <a href="/practices?view=list">See the schedule</a></p>{% endif %}
+<div class=schedsheet id=schedSheet>
+<button type=button class=sheetgrab id=sheetGrab aria-label="Drag the schedule"></button>
+<div class=sheetcollapsed>
+<div class=sheettopline><h2>Next up</h2><a href="/practices?view=list">{{ week_n }} this week ↑</a></div>
+{% for card in social_cards %}
+<div class="socialcard {{ card.when }}">
+<div class=socialkicker>{% if card.live %}Happening now · {% endif %}{% if card.when == 'before' %}Before practice{% else %}After practice{% endif %}{% if card.clock %} · {{ card.clock }}{% endif %}</div>
+<b>{{ card.title }}</b>
+<p>{{ card.place }}{% if card.address %} · {{ card.address }}{% endif %}</p>
+<small>{% if card.when == 'before' %}before{% else %}after{% endif %} {{ card.practice }}</small>
+<div class=socialacts>
+<form method=post action="/practices/{{ card.practice_id }}">{{ csrf_field() }}<input type=hidden name=pid value="{{ card.practice_id }}"><input type=hidden name=back value=home><button class=socialgo name=action value=social_join>I'm coming</button></form>
+<a class=socialdir href="https://www.google.com/maps/search/?api=1&query={{ (card.address or card.place)|urlencode }}" target=_blank rel=noopener>Directions</a>
+</div>
+</div>
+{% endfor %}
+{% if show_drive %}
+<div class=drivecard {% if drive_placeholder %}data-placeholder=1{% endif %}>
+<div class=drivetop><span>YOUR DRIVE</span>{% if drive_chip %}<b>{{ drive_chip }}</b>{% endif %}</div>
+<div class=drivemain><strong>{{ drive_saved or '18 min' }}</strong><small>Practice at {{ fmt_clock(nextp.start) }} · {{ short_place(nextp.location) }}</small></div>
+</div>
+{% endif %}
+{% if nextp %}<a class=homecard href="/practices/{{ nextp.id }}"><b>{{ fmt_clock(nextp.start) }}</b><span><i>PRACTICE</i>{{ practice_title(nextp) }}<small>{% if nextp.date == today %}Tonight{% else %}{{ fmt_d(nextp.date) }}{% endif %} · {{ short_place(nextp.location) }}</small></span><em>{{ nextp_n }}</em></a>{% endif %}
+</div>
+<div class=sheetexpanded>
+<div class=sheettopline><h2>Schedule.</h2><button type=button id=mapDown>Map ↓</button></div>
+<div class=kindpills role=tablist>
+<button type=button class=on data-filter=all>All {{ '%02d'|format(kind_n.all) }}</button>
+<button type=button data-filter=practice>Practices {{ '%02d'|format(kind_n.practice) }}</button>
+<button type=button data-filter=scrimmage>Scrimmages {{ '%02d'|format(kind_n.scrimmage) }}</button>
+<button type=button data-filter=game>Games {{ '%02d'|format(kind_n.game) }}</button>
+</div>
+<div class=weekstrip>{% for day in week_strip %}<a class="{{ 'on' if day.on else '' }}" href="#day-{{ day.iso }}"><span>{{ day.wd }}</span><b>{{ day.dn }}</b></a>{% endfor %}</div>
+{% set ns = namespace(day='') %}
+{% for x in home_rows %}{% set p = x.p %}{% set tile = practice_tile(p) %}
+{% if p.date != ns.day %}{% set ns.day = p.date %}
+<p class=homeday id="day-{{ p.date }}">{{ tile.dn }} {{ weekday_name(p.date)[:3]|upper }}</p>
+{% endif %}
+<a class="homecard {{ x.kind }}{{ ' cancelled' if p.cancelled else '' }}" data-kind="{{ x.kind }}" href="/practices/{{ p.id }}"><b>{{ fmt_clock(p.start) }}</b><span><i>{{ x.kind|upper }}</i>{{ practice_title(p) }}<small>{{ short_place(p.location) }}</small></span><em>{{ x.going|length }}</em></a>
+{% endfor %}
+{% if not home_rows %}<p class=t3>Nothing in the next 14 days.</p>{% endif %}
+</div>
+</div>
+<script>
+(function(){
+ var sheet=document.getElementById('schedSheet'); if(!sheet) return;
+ var grab=document.getElementById('sheetGrab'), y=0;
+ grab.addEventListener('pointerdown', function(e){ y=e.clientY; });
+ grab.addEventListener('pointerup', function(e){ if(y-e.clientY>28) sheet.classList.add('up'); else if(e.clientY-y>28) sheet.classList.remove('up'); });
+ var down=document.getElementById('mapDown'); if(down) down.onclick=function(){ sheet.classList.remove('up'); };
+ sheet.querySelectorAll('[data-filter]').forEach(function(btn){
+  btn.onclick=function(){
+   sheet.querySelectorAll('[data-filter]').forEach(function(b){ b.classList.toggle('on', b===btn); });
+   var kind=btn.getAttribute('data-filter');
+   sheet.querySelectorAll('a.homecard[data-kind]').forEach(function(card){ card.hidden=kind!=='all'&&card.getAttribute('data-kind')!==kind; });
+  };
+ });
+})();
+</script>
+{% elif tab == 'practices' %}
 <div class=schedfeed id=schedule>
 <div class=segpill role=tablist aria-label="Schedule">
-<a class="{{ 'on' if sched_when == 'upcoming' else '' }}" href="/practices?when=upcoming">Upcoming</a>
-<a class="{{ 'on' if sched_when == 'past' else '' }}" href="/practices?when=past">Past</a>
-<a class="{{ 'on' if sched_when == 'all' else '' }}" href="/practices?when=all">All</a>
+<a class="{{ 'on' if sched_when == 'upcoming' else '' }}" href="/practices?view=list&when=upcoming">Upcoming</a>
+<a class="{{ 'on' if sched_when == 'past' else '' }}" href="/practices?view=list&when=past">Past</a>
+<a class="{{ 'on' if sched_when == 'all' else '' }}" href="/practices?view=list&when=all">All</a>
 </div>
 {% if ann %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(ann)|upper }}</b><p>{{ ann.body }}</p></div>{% endif %}
 {% set ns = namespace(day='', open=false, featured=true) %}

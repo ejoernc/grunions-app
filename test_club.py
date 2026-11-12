@@ -279,9 +279,11 @@ def test_schedule_is_not_the_old_home_and_profile_sheets_open():
         d.execute("UPDATE members SET is_admin=1 WHERE email='eli.sched@example.com'")
         sam = d.execute("SELECT id FROM members WHERE email='sam.sched@example.com'").fetchone()[0]
         d.commit()
-    schedule = member.get("/practices").get_data(as_text=True)
-    head = schedule.split("<main>", 1)[0]
-    assert ">Schedule</h1>" in head and "Hi, Nia" not in head and "Enter your USAWP membership number" not in schedule and "Allow notifications" not in schedule and "id=schedule" in schedule
+    home = member.get("/practices").get_data(as_text=True)
+    head = home.split("<main>", 1)[0]
+    assert ">Schedule</h1>" in head and "Hi, Nia" not in head and "Enter your USAWP membership number" not in home and "Allow notifications" not in home and "Next up" in home and "this week" in home and "id=schedSheet" in home
+    schedule = member.get("/practices?view=list").get_data(as_text=True)
+    assert "id=schedule" in schedule and "view=list&when=past" in schedule
     assert "body.homefull .schedfeed{position:relative;z-index:2;pointer-events:auto}" in schedule
     for card in re.findall(r'<a class=(evcard2|evrow2|evcancel) href="([^"]+)"', schedule):
         assert card[1].startswith("/practices/")
