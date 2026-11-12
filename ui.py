@@ -491,6 +491,7 @@ dialog.modal .sheet{background:var(--surface);border:1px solid var(--line);borde
 dialog.modal .sheet form>.btn,dialog.modal .sheet form>button.btn,dialog.modal .sheet form>.row:last-child,dialog.botsheet .sheet form>.btn,dialog.botsheet .sheet form>button.btn,dialog.botsheet .sheet form>.row:last-child,dialog.modal .sheet>.btn,dialog.botsheet .sheet>.btn{margin-top:var(--space-form-action)}
 dialog.modal .sheet form>:has(+.btn),dialog.modal .sheet form>:has(+button.btn),dialog.modal .sheet form>:has(+.row),dialog.botsheet .sheet form>:has(+.btn),dialog.botsheet .sheet form>:has(+button.btn),dialog.modal .sheet>:has(+.btn),dialog.botsheet .sheet>:has(+.btn){margin-bottom:0}
 #photoDlg .sheet{padding:var(--space-5)}
+#photoDlg:has(#photoCrop:not([hidden])) .attachphone,#photoDlg:has(#photoCrop:not([hidden])) .attachwide,#photoDlg:has(#photoCrop:not([hidden])) #photoRemove{display:none}
 #photoRemove{margin-top:var(--space-form-action)}
 .note{background:var(--surface);border-radius:var(--r);padding:14px 18px;margin:0 0 12px;color:var(--t2);font-size:15px}.note b{color:var(--t1)}
 .toast{position:fixed;left:50%;bottom:calc(var(--nav-clear) + 12px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;background:var(--surface);color:var(--t1);border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:15px;line-height:1.4;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.5);max-width:min(440px,calc(100% - 32px))}
@@ -815,20 +816,44 @@ body:has(.resolvebar) .chatpad{height:calc(var(--composer-h, 76px) + var(--nav-c
 .thumbs figure{position:relative;margin:0;flex:none}
 .thumbs img{width:64px;height:64px;object-fit:cover;border-radius:12px;display:block}
 .thumbs button{position:absolute;top:-4px;right:-4px;width:22px;height:22px;border:0;border-radius:999px;background:var(--r2-ink);color:var(--r2-paper);font:700 12px/22px var(--r2-font-sans)}
-.attachtiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0 16px}
-.attachtiles button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:148px;border:0;border-radius:24px;background:var(--r2-graphite);color:var(--r2-paper);font:700 14px/1.2 var(--r2-font-sans)}
-.attachtiles i{width:64px;height:64px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);display:flex;align-items:center;justify-content:center;font:700 28px/1 var(--r2-font-display);font-style:normal}
+.attachphone{display:flex;flex-direction:column;gap:14px;width:100%}
+.attachhead h2,.attachwidehead h2{margin:0;font:700 20px/1.2 var(--r2-font-display);color:var(--r2-paper);letter-spacing:0}
+.attachsub{margin:4px 0 0;color:var(--r2-smoke);font:500 13px/1.3 var(--r2-font-sans)}
+.attachtiles{display:flex;gap:12px;margin:0}
+dialog.attachsheet button.attachtile{flex:1;min-width:0;height:auto;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px 16px;border:0;border-radius:20px;background:var(--r2-graphite);color:var(--r2-paper);font:600 15px/1.2 var(--r2-font-sans)}
+.attachico{width:48px;height:48px;border-radius:24px;background:var(--r2-lime);display:flex;align-items:center;justify-content:center;flex:none}
+.attachico img,.attachbrowse img{width:24px;height:24px;display:block}
+dialog.attachsheet button.attachcancel{width:100%;height:52px;min-height:52px;padding:0;border:0;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);font:600 16px/1 var(--r2-font-sans)}
 .attachwide{display:none}
-.dropveil{position:fixed;left:16px;right:16px;top:72px;bottom:calc(var(--nav-clear) + 96px);border:2px solid var(--r2-lime);border-radius:24px;display:flex;align-items:center;justify-content:center;background:rgba(11,11,12,.72);color:var(--r2-lime);font:700 18px/1.3 var(--r2-font-sans);text-align:center;z-index:12;pointer-events:none}
+.attachwidehead{display:flex;align-items:center;gap:8px;width:100%}
+dialog.attachsheet button.attachx{width:32px;height:32px;min-height:32px;padding:0;border:0;border-radius:999px;background:transparent;color:var(--r2-smoke);font:600 18px/1 var(--r2-font-sans)}
+.attachdrop{box-sizing:border-box;height:200px;border:2px dashed var(--r2-smoke);border-radius:20px;background:var(--r2-graphite);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center}
+.attachdrop .hot{display:none}
+.attachdrop.over{border-style:solid;border-color:var(--r2-lime);background:color-mix(in srgb,var(--r2-lime) 12%,transparent)}
+.attachdrop.over .idle{display:none}
+.attachdrop.over .hot{display:flex;flex-direction:column;align-items:center;gap:6px}
+.attachdrop b{font:700 16px/1.2 var(--r2-font-sans);color:var(--r2-paper)}
+.attachcount{margin:0;color:var(--r2-smoke);font:500 13px/1.2 var(--r2-font-sans)}
+dialog.attachsheet button.attachbrowse{height:auto;min-height:0;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;border-radius:999px;background:var(--r2-paper);color:var(--r2-carbon);font:600 14px/1 var(--r2-font-sans)}
+.attachnote{margin:0;color:var(--r2-smoke);font:500 12px/1.35 var(--r2-font-sans)}
+.attacherr{margin:0;color:var(--r2-tangerine);font:600 13px/1.3 var(--r2-font-sans)}
+.attacherr[hidden]{display:none}
+dialog.attachsheet{width:min(640px,100%)}
+dialog.attachsheet:focus{outline:none}
+dialog.attachsheet::backdrop{background:rgba(11,11,12,.6)}
+dialog.attachsheet .sheet{background:var(--r2-carbon);color:var(--r2-paper);border:0;border-radius:28px 28px 0 0;padding:10px 16px calc(28px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
+dialog.attachsheet .grab{height:5px;margin:0 0 0;padding:0;background:transparent}
+dialog.attachsheet .grab::after{top:0;width:40px;height:5px;margin-left:-20px;background:var(--r2-smoke)}
+.dropcard{position:fixed;z-index:40;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100vw - 32px));padding:20px;border-radius:28px;background:var(--r2-carbon);box-shadow:0 16px 48px rgba(0,0,0,.35);pointer-events:none}
+.dropcard[hidden]{display:none}
 .chat{position:relative}
 .msgfoot{display:flex;align-items:center;gap:8px;margin-top:4px}
 .msgtime{color:var(--r2-smoke);font:600 11px/1.2 var(--r2-font-sans)}
 @media (min-width:768px){
- dialog.attachsheet{inset:auto 24px calc(var(--nav-clear) + 88px) auto;width:min(360px,calc(100vw - 48px));margin:0}
- dialog.attachsheet .sheet{border-radius:28px;border-bottom:1px solid var(--color-sheet-border)}
- dialog.attachsheet .grab,.attachphone{display:none}
- .attachwide{display:block}
- .attachwide .droptarget{min-height:120px;margin:8px 0;border:1px dashed var(--r2-smoke);border-radius:20px;display:flex;align-items:center;justify-content:center;color:var(--r2-smoke);font:600 14px/1.3 var(--r2-font-sans)}
+ dialog.attachsheet{width:420px;height:auto;max-height:none;inset:auto;margin:0}
+ dialog.attachsheet .sheet{border-radius:28px;padding:20px}
+ dialog.attachsheet .grab,dialog.attachsheet .attachphone{display:none}
+ dialog.attachsheet .attachwide{display:flex;flex-direction:column;gap:14px;width:100%}
 }
 .m .img{display:block;margin:0;width:min(66%,260px);aspect-ratio:3/4;max-height:none}.m .txt+.img{margin-top:4px}.m.mine .img{margin-left:auto}.m .img img{width:100%;height:100%;max-width:none;max-height:none;object-fit:cover;border-radius:20px;display:block;background:var(--surface)}
 .m .bubble{display:inline-block;max-width:min(85%,280px);background:var(--color-bubble);border-radius:var(--radius-card);overflow:hidden}.m.mine .bubble{background:var(--color-bubble-mine)}.m .bubble .txt{background:transparent;display:block;max-width:min(70vw,280px);border-radius:0}.m .bubble .img,.m .bubble .txt+.img{margin:0}.m .bubble .img img{border-radius:0}
@@ -860,11 +885,19 @@ dialog.botsheet.opening::backdrop,dialog.botsheet.closing::backdrop{opacity:0}
 dialog.botsheet .sheet{background:var(--color-sheet);border:1px solid var(--color-sheet-border);border-bottom:0;border-radius:var(--radius-overlay) var(--radius-overlay) 0 0;padding:0 12px calc(14px + env(safe-area-inset-bottom));max-height:calc(100dvh - 12px);overflow:auto;transform:translateY(0);transition:transform .25s ease-out}
 .grab{display:block;width:100%;height:28px;margin:0 0 8px;padding:0;position:sticky;top:0;z-index:1;background:var(--color-sheet);touch-action:none;cursor:grab}
 .grab::after{content:"";position:absolute;left:50%;top:12px;width:36px;height:5px;margin-left:-18px;border-radius:3px;background:var(--color-sheet-handle)}
+dialog.botsheet.attachsheet::backdrop{background:rgba(11,11,12,.6)}
+dialog.botsheet.attachsheet .sheet{background:var(--r2-carbon);color:var(--r2-paper);border:0;border-radius:28px 28px 0 0;padding:10px 16px calc(28px + env(safe-area-inset-bottom));gap:14px}
+dialog.botsheet.attachsheet .grab{height:5px;margin:0;padding:0;background:transparent;position:relative}
+dialog.botsheet.attachsheet .grab::after{top:0;width:40px;height:5px;margin-left:-20px;background:var(--r2-smoke)}
 @media (prefers-reduced-motion:reduce){dialog.botsheet::backdrop,dialog.botsheet .sheet{transition:none}}
 @media (min-width:768px){
  dialog.botsheet.newchat,dialog.botsheet.pickpeople{width:340px;height:auto;max-height:90dvh;inset:auto;margin:0}
  dialog.botsheet.newchat .sheet,dialog.botsheet.pickpeople .sheet{border-radius:24px;border:1px solid var(--r2-graphite);border-bottom:1px solid var(--r2-graphite);max-height:min(90dvh,640px)}
  dialog.botsheet.newchat .grab,dialog.botsheet.pickpeople .grab{display:none}
+ dialog.botsheet.attachsheet{width:420px;height:auto;max-height:none;inset:auto;margin:0}
+ dialog.botsheet.attachsheet .sheet{border-radius:28px;border:0;padding:20px;max-height:none}
+ dialog.botsheet.attachsheet .grab,dialog.botsheet.attachsheet .attachphone{display:none}
+ dialog.botsheet.attachsheet .attachwide{display:flex}
 }
 .emogrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:0 0 14px}
 .emogrid button{width:100%;aspect-ratio:1;height:auto;padding:0;border-radius:50%;background:var(--color-sheet-row);font-size:22px}
@@ -4308,15 +4341,32 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <button type=button class="avatar hero" id=avatarBtn aria-label="Profile photo">{% if m.photo %}<img id=avatarImg src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="" width="112" height="112">{% else %}<img id=avatarImg alt="" width="112" height="112" hidden>{% endif %}<span id=avatarLetters {% if m.photo %}hidden{% endif %}>{{ initials(m) }}</span></button>
 <button type=button class=cambadge id=camBadge aria-label="Choose photo">""" + _CAM + """</button>
 </div>
-<dialog class=modal id=photoDlg><div class=sheet>
-<h2 style="margin:0 0 12px">Profile photo</h2>
-<div id=photoDrop>
+<dialog class="botsheet attachsheet" id=photoDlg><div class=sheet>
+<div class=grab aria-hidden=true></div>
+<div class=attachphone id=photoPhone>
+<div class=attachhead><h2>Add an image</h2><p class=attachsub>Up to 10 · JPG, PNG, HEIC</p></div>
+<div class=attachtiles>
+<button type=button class=attachtile id=photoTake><span class=attachico><img src="/static/nav/attach-camera.svg" width="24" height="24" alt=""></span>Take photo</button>
+<button type=button class=attachtile id=photoChoose><span class=attachico><img src="/static/nav/attach-image.svg" width="24" height="24" alt=""></span>Choose photos</button>
+</div>
+<button type=button class=attachcancel id=photoPickCancel>Cancel</button>
+</div>
+<div class=attachwide id=photoWide>
+<div class=attachwidehead><h2>Add an image</h2><button type=button class=attachx id=photoWideX aria-label="Close">✕</button></div>
+<div class=attachdrop id=photoWideDrop>
+<div class=idle><span class=attachico><img src="/static/nav/attach-upload.svg" width="24" height="24" alt=""></span><b>Drop an image here</b><button type=button class=attachbrowse id=photoComputer><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" stroke="currentColor" stroke-width="2"/><circle cx="8" cy="9" r="2" fill="currentColor"/><path d="M3 19L10 12L14 16L17 13L21 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Choose from computer</button></div>
+<div class=hot><span class=attachico><img src="/static/nav/attach-upload.svg" width="24" height="24" alt=""></span><b>Drop to add</b><p class=attachcount id=photoDropCount>1 image</p></div>
+</div>
+<p class=attachnote>Up to 10 · JPG, PNG, HEIC, GIF · 20 MB each. You can also paste (⌘V) or drag straight into the chat.</p>
+</div>
+<p class=attacherr id=photoErr hidden></p>
+<div id=photoDrop hidden>
 <div class=dropzone id=photoZone>
 <input class=pick type=file name=photo id=photoFile accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif">
 <button type=button class=dropempty id=photoPick><span class=droplink>Drop a photo here</span><span class=drophint>or Select photo</span></button>
 </div>
-<button type=button class="btn btn-danger full" id=photoRemove {% if not m.photo %}hidden{% endif %}>Remove photo</button>
 </div>
+<button type=button class="btn btn-danger full" id=photoRemove {% if not m.photo %}hidden{% endif %}>Remove photo</button>
 <div id=photoCrop hidden>
 <div class=cropstage id=cropStage><img id=cropImg alt=""></div>
 <label class=croprange>Zoom<input type=range id=cropZoom min=1 max=4 step=0.01 value=1></label>
@@ -4324,6 +4374,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <button type=button class="btn quiet full" id=cropOther>Choose a different photo</button>
 </div>
 </div></dialog>
+<div id=photoDragCard class=dropcard hidden><div class="attachdrop over"><span class=attachico><img src="/static/nav/attach-upload.svg" width="24" height="24" alt=""></span><b>Drop to add</b><p class=attachcount id=photoDragCount>1 image</p></div></div>
 <div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
 <div class=profilerow><span class=rolechip>{{ role_label(m)|capitalize }}</span><p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p></div>
 <div class=metrics><div class="metric sun"><b>{{ '%02d'|format(hist|length) }}</b><span>Attended</span></div><div class="metric sky"><b>{{ '%02d'|format(nmonth or 0) }}</b><span>This month</span></div></div>
@@ -4388,10 +4439,16 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
  if(/[?&]edit=1/.test(location.search)) enter();
  document.getElementById('profileCancel').onclick=leave;
  document.getElementById('profileBack').onclick=function(){ grunionsLeave('/home'); };
- function openPhoto(){ if(drop) drop.hidden=false; if(cropBox) cropBox.hidden=true; if(removeBtn) removeBtn.hidden=!hasPhoto(); if(dlg && !dlg.open) dlg.showModal(); }
+ function placePhoto(){ if(!dlg||window.innerWidth<768){ if(dlg){dlg.style.left='';dlg.style.top=''} return; } var panel=dlg.querySelector('.sheet'); var w=420, h=(panel&&panel.offsetHeight)||324; var anchor=document.getElementById('avatarBtn'); var r=anchor.getBoundingClientRect(); var left=Math.max(16, Math.min(window.innerWidth-16-w, r.left)); var top=r.bottom+12; if(top+h>window.innerHeight-16) top=Math.max(16, r.top-12-h); dlg.style.left=left+'px'; dlg.style.top=top+'px'; dlg.style.margin='0'; }
+ function openPhoto(){ if(cropBox) cropBox.hidden=true; if(drop) drop.hidden=true; if(removeBtn) removeBtn.hidden=!hasPhoto(); var err=document.getElementById('photoErr'); if(err) err.hidden=true; if(dlg && !dlg.open){ if(window.grunionsOpenSheet) grunionsOpenSheet(dlg); else dlg.showModal(); } requestAnimationFrame(function(){ requestAnimationFrame(function(){ placePhoto(); dlg.tabIndex=-1; dlg.focus(); }); }); }
  document.getElementById('avatarBtn').onclick=openPhoto;
  document.getElementById('camBadge').onclick=function(e){ e.stopPropagation(); openPhoto(); };
  document.getElementById('photoPick').onclick=function(){ file.click(); };
+ document.getElementById('photoTake').onclick=function(){ file.setAttribute('capture','environment'); file.click(); };
+ document.getElementById('photoChoose').onclick=function(){ file.removeAttribute('capture'); file.click(); };
+ document.getElementById('photoComputer').onclick=function(){ file.removeAttribute('capture'); file.click(); };
+ document.getElementById('photoPickCancel').onclick=function(){ if(window.grunionsCloseSheet) grunionsCloseSheet(dlg); else dlg.close(); };
+ document.getElementById('photoWideX').onclick=function(){ if(window.grunionsCloseSheet) grunionsCloseSheet(dlg); else dlg.close(); };
  zone.addEventListener('dragenter', function(e){ e.preventDefault(); zone.classList.add('over'); });
  zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('over'); });
  zone.addEventListener('dragleave', function(e){ e.preventDefault(); zone.classList.remove('over'); });
@@ -4426,8 +4483,14 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
   panX=(c-cropImg.naturalWidth*s)/2; panY=(c-cropImg.naturalHeight*s)/2;
   paintCrop();
  }
+ function profileFileOk(f){
+  var err=document.getElementById('photoErr');
+  if(!f||f.size>20*1024*1024||((f.type||'').indexOf('video/')===0)){ if(err){err.hidden=false;err.textContent='Photos only, up to 20 MB'} return false; }
+  if(err) err.hidden=true;
+  return true;
+ }
  function startCrop(f){
-  if(!f) return;
+  if(!profileFileOk(f)) return;
   if(cropUrl) URL.revokeObjectURL(cropUrl);
   cropUrl=URL.createObjectURL(f);
   cropImg.onload=function(){ drop.hidden=true; cropBox.hidden=false; requestAnimationFrame(resetCrop); };
@@ -4435,6 +4498,19 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
   cropImg.src=cropUrl;
  }
  file.addEventListener('change', function(){ if(applying) return; var f=file.files&&file.files[0]; if(f) startCrop(f); });
+ var photoZoneDrop=document.getElementById('photoWideDrop');
+ function photoDrag(e){ return e.dataTransfer&&[].slice.call(e.dataTransfer.types||[]).indexOf('Files')>=0; }
+ if(photoZoneDrop){
+  photoZoneDrop.addEventListener('dragover', function(e){ if(!photoDrag(e)) return; e.preventDefault(); photoZoneDrop.classList.add('over'); var n=(e.dataTransfer.items&&e.dataTransfer.items.length)||1; var c=document.getElementById('photoDropCount'); if(c) c.textContent=n===1?'1 image':n+' images'; });
+  photoZoneDrop.addEventListener('dragleave', function(){ photoZoneDrop.classList.remove('over'); });
+  photoZoneDrop.addEventListener('drop', function(e){ if(!photoDrag(e)) return; e.preventDefault(); e.stopPropagation(); photoZoneDrop.classList.remove('over'); var f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) startCrop(f); });
+ }
+ document.addEventListener('paste', function(e){ if(!dlg.open||(cropBox&&!cropBox.hidden)) return; var list=e.clipboardData&&e.clipboardData.files; if(list&&list[0]){ e.preventDefault(); startCrop(list[0]); } });
+ var photoDragDepth=0;
+ document.addEventListener('dragenter', function(e){ if(!photoDrag(e)) return; photoDragDepth++; var n=(e.dataTransfer.items&&e.dataTransfer.items.length)||1; var label=n===1?'1 image':n+' images'; if(dlg.open&&window.innerWidth>=768&&photoZoneDrop){ photoZoneDrop.classList.add('over'); var c=document.getElementById('photoDropCount'); if(c) c.textContent=label; return; } var card=document.getElementById('photoDragCard'); if(card){ card.hidden=false; var dc=document.getElementById('photoDragCount'); if(dc) dc.textContent=label; } });
+ document.addEventListener('dragover', function(e){ if(!photoDrag(e)) return; e.preventDefault(); });
+ document.addEventListener('dragleave', function(e){ if(!photoDrag(e)) return; photoDragDepth=Math.max(0, photoDragDepth-1); if(photoDragDepth) return; if(photoZoneDrop) photoZoneDrop.classList.remove('over'); var card=document.getElementById('photoDragCard'); if(card) card.hidden=true; });
+ document.addEventListener('drop', function(e){ if(!photoDrag(e)) return; e.preventDefault(); photoDragDepth=0; if(photoZoneDrop) photoZoneDrop.classList.remove('over'); var card=document.getElementById('photoDragCard'); if(card) card.hidden=true; var f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f){ if(!dlg.open) openPhoto(); startCrop(f); } });
  if(zoomInput) zoomInput.addEventListener('input', function(){ setZoom(parseFloat(zoomInput.value)||1); });
  stage.addEventListener('pointerdown', function(e){
   stage.setPointerCapture(e.pointerId);
@@ -4462,7 +4538,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
  }
  stage.addEventListener('pointerup', endPointer);
  stage.addEventListener('pointercancel', endPointer);
- function backToDrop(){ cropBox.hidden=true; drop.hidden=false; file.value=''; if(removeBtn) removeBtn.hidden=!hasPhoto(); }
+ function backToDrop(){ cropBox.hidden=true; drop.hidden=true; file.value=''; if(removeBtn) removeBtn.hidden=!hasPhoto(); }
  function discardCrop(){ if(cropBox && !cropBox.hidden) backToDrop(); }
  dlg.addEventListener('click', function(e){ if(e.target===dlg) discardCrop(); });
  dlg.addEventListener('cancel', function(){ discardCrop(); });
@@ -4638,22 +4714,24 @@ T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template><div class
 <dialog id=attachSheet class="botsheet attachsheet"><div class=sheet>
 <div class=grab aria-hidden=true></div>
 <div class=attachphone>
-<h2 style="margin:0">Add an image</h2>
-<p class="t3">Up to 10 · JPG, PNG, HEIC</p>
+<div class=attachhead><h2>Add an image</h2><p class=attachsub>Up to 10 · JPG, PNG, HEIC</p></div>
 <div class=attachtiles>
-<button type=button id=takePhoto><i aria-hidden=true>⌁</i>Take photo</button>
-<button type=button id=choosePhotos><i aria-hidden=true>▣</i>Choose photos</button>
+<button type=button class=attachtile id=takePhoto><span class=attachico><img src="/static/nav/attach-camera.svg" width="24" height="24" alt=""></span>Take photo</button>
+<button type=button class=attachtile id=choosePhotos><span class=attachico><img src="/static/nav/attach-image.svg" width="24" height="24" alt=""></span>Choose photos</button>
 </div>
-<button type=button class=sheetcancel id=attachCancel>Cancel</button>
+<button type=button class=attachcancel id=attachCancel>Cancel</button>
 </div>
 <div class=attachwide>
-<h2 style="margin:0 0 8px">Add an image</h2>
-<div class=droptarget id=attachDrop>Drop images here</div>
-<button type=button class="btn btn-primary full" id=chooseComputer>Choose from computer</button>
-<p class="t3">Up to 10 · JPG, PNG, HEIC, GIF · 20 MB each. You can also paste (⌘V) or drag straight into the chat.</p>
+<div class=attachwidehead><h2>Add an image</h2><button type=button class=attachx id=attachWideX aria-label="Close">✕</button></div>
+<div class=attachdrop id=attachDrop>
+<div class=idle><span class=attachico><img src="/static/nav/attach-upload.svg" width="24" height="24" alt=""></span><b>Drop an image here</b><button type=button class=attachbrowse id=chooseComputer><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" stroke="currentColor" stroke-width="2"/><circle cx="8" cy="9" r="2" fill="currentColor"/><path d="M3 19L10 12L14 16L17 13L21 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Choose from computer</button></div>
+<div class=hot><span class=attachico><img src="/static/nav/attach-upload.svg" width="24" height="24" alt=""></span><b>Drop to add</b><p class=attachcount id=attachCount>1 image</p></div>
 </div>
+<p class=attachnote>Up to 10 · JPG, PNG, HEIC, GIF · 20 MB each. You can also paste (⌘V) or drag straight into the chat.</p>
+</div>
+<p class=attacherr id=attachErr hidden></p>
 </div></dialog>
-<div id=dropveil class=dropveil hidden>Drop to add</div>
+<div id=dropveil class=dropcard hidden><div class="attachdrop over"><span class=attachico><img src="/static/nav/attach-upload.svg" width="24" height="24" alt=""></span><b>Drop to add</b><p class=attachcount id=dropCount>1 image</p></div></div>
 <dialog id=actSheet class=botsheet><div class=sheet>
 <div class=grab aria-hidden=true></div>
 <div class=emogrid id=actEmoji>{% for e in REACTIONS %}<button type=button data-e="{{e}}">{{e}}</button>{% endfor %}<button type=button data-more=1 aria-label="More emoji">+</button></div>
@@ -5028,25 +5106,36 @@ function paintThumbs(){
  paintCompose();
 }
 function setFiles(list){var dt=new DataTransfer();list.forEach(function(f){dt.items.add(f)});file.files=dt.files;paintThumbs()}
+function attachError(msg){var el=document.getElementById('attachErr');if(el){el.hidden=!msg;el.textContent=msg||''}if(msg)toast(msg,4500)}
 function takePhotos(list){
  var next=filesNow().concat(list);
- if(next.length>10){toast('Photos only, up to 20 MB.',4500);return}
- for(var i=0;i<list.length;i++){if(list[i].size>20*1024*1024){toast('Photos only, up to 20 MB.',4500);return}var kind=photoKind(list[i]);if(kind){toast(photoError(kind),4500);return}}
+ if(next.length>10){attachError('Photos only, up to 20 MB');return false}
+ for(var i=0;i<list.length;i++){if(list[i].size>20*1024*1024){attachError('Photos only, up to 20 MB');return false}var kind=photoKind(list[i]);if(kind){attachError(photoError(kind));return false}}
+ attachError('');
  setFiles(next.slice(0,10));
+ return true;
 }
 function grow(){if(!ta.value){ta.style.height='44px';syncComposer();paintCompose();return}ta.style.height='44px';ta.style.height=Math.max(44, Math.min(ta.scrollHeight,120))+'px';syncComposer();paintCompose()}ta.addEventListener('input',grow);grow();if(window.ResizeObserver){var comp=document.querySelector('.composer');if(comp)new ResizeObserver(syncComposer).observe(comp)}
-function openAttach(){var sheet=document.getElementById('attachSheet');if(window.grunionsOpenSheet)grunionsOpenSheet(sheet);else sheet.showModal()}
+function placeAttach(){var sheet=document.getElementById('attachSheet'), anchor=document.getElementById('attach'); if(!sheet||window.innerWidth<768){if(sheet){sheet.style.left='';sheet.style.top=''}return} var panel=sheet.querySelector('.sheet'); var w=420, h=(panel&&panel.offsetHeight)||324; var r=anchor.getBoundingClientRect(); var left=Math.max(16, Math.min(window.innerWidth-16-w, r.right-w)); var top=r.top-12-h; if(top<16) top=Math.min(window.innerHeight-16-h, r.bottom+12); if(top<16) top=16; sheet.style.left=left+'px'; sheet.style.top=top+'px'; sheet.style.margin='0'; }
+function openAttach(){var sheet=document.getElementById('attachSheet');attachError('');if(window.grunionsOpenSheet)grunionsOpenSheet(sheet);else sheet.showModal();requestAnimationFrame(function(){requestAnimationFrame(function(){placeAttach();sheet.tabIndex=-1;sheet.focus()})})}
 function shutAttach(){var sheet=document.getElementById('attachSheet');if(window.grunionsCloseSheet)grunionsCloseSheet(sheet);else sheet.close()}
 document.getElementById('attach').onclick=function(){if(composeReady()) document.getElementById('f').requestSubmit(); else openAttach();};
 document.getElementById('attachCancel').onclick=shutAttach;
+document.getElementById('attachWideX').onclick=shutAttach;
 document.getElementById('takePhoto').onclick=function(){file.setAttribute('capture','environment');shutAttach();file.click()};
 document.getElementById('choosePhotos').onclick=function(){file.removeAttribute('capture');shutAttach();file.click()};
-document.getElementById('chooseComputer').onclick=function(){file.removeAttribute('capture');shutAttach();file.click()};
-file.onchange=()=>{var picked=[].slice.call(file.files||[]);file.value='';if(picked.length)takePhotos(picked)};
+document.getElementById('chooseComputer').onclick=function(){file.removeAttribute('capture');file.click()};
+file.onchange=()=>{var picked=[].slice.call(file.files||[]);file.value='';if(picked.length&&takePhotos(picked))shutAttach()};
 prev.addEventListener('click',function(e){var b=e.target.closest('button[data-x]');if(!b)return;var list=filesNow();list.splice(+b.getAttribute('data-x'),1);setFiles(list)});
-box.addEventListener('dragover',function(e){if(!e.dataTransfer||![].slice.call(e.dataTransfer.types||[]).includes('Files'))return;e.preventDefault();var veil=document.getElementById('dropveil');if(veil){veil.hidden=false;veil.textContent='Drop to add · '+((e.dataTransfer.items&&e.dataTransfer.items.length)||'')+' images'}});
-box.addEventListener('dragleave',function(e){if(e.target===box){var veil=document.getElementById('dropveil');if(veil)veil.hidden=true}});
-box.addEventListener('drop',function(e){e.preventDefault();var veil=document.getElementById('dropveil');if(veil)veil.hidden=true;var list=[].slice.call((e.dataTransfer&&e.dataTransfer.files)||[]);if(list.length)takePhotos(list)});
+function fileDrag(e){return e.dataTransfer&&[].slice.call(e.dataTransfer.types||[]).indexOf('Files')>=0}
+function dragLabel(e){var n=(e.dataTransfer.items&&e.dataTransfer.items.length)||1;return n===1?'1 image':n+' images'}
+var dragDepth=0;
+function showDrag(e){var label=dragLabel(e);var sheet=document.getElementById('attachSheet'), zone=document.getElementById('attachDrop'), count=document.getElementById('attachCount'); if(sheet&&sheet.open&&zone&&window.innerWidth>=768){zone.classList.add('over');if(count)count.textContent=label;return} var veil=document.getElementById('dropveil'); if(veil){veil.hidden=false;var c=document.getElementById('dropCount');if(c)c.textContent=label}}
+function hideDrag(){var zone=document.getElementById('attachDrop');if(zone)zone.classList.remove('over');var veil=document.getElementById('dropveil');if(veil)veil.hidden=true}
+document.addEventListener('dragenter',function(e){if(!fileDrag(e))return;dragDepth++;showDrag(e)});
+document.addEventListener('dragover',function(e){if(!fileDrag(e))return;e.preventDefault();showDrag(e)});
+document.addEventListener('dragleave',function(e){if(!fileDrag(e))return;dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)hideDrag()});
+document.addEventListener('drop',function(e){if(!fileDrag(e))return;e.preventDefault();dragDepth=0;hideDrag();var list=[].slice.call(e.dataTransfer.files||[]);if(list.length&&takePhotos(list)&&document.getElementById('attachSheet').open)shutAttach()});
 ta.addEventListener('paste',function(e){var list=[].slice.call((e.clipboardData&&e.clipboardData.files)||[]);if(list.length){e.preventDefault();takePhotos(list)}});
 document.getElementById('quoteX').onclick=()=>{replyTo=null;quoteBar.hidden=true};
 document.getElementById('editX').onclick=()=>{editId=null;editBar.hidden=true;ta.value='';grow()};
