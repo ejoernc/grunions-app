@@ -175,6 +175,7 @@ def db():
         backfill_checkin_going(g.db)
         drop_bot_verify_messages(g.db)
         seed_chat_reads(g.db)
+        seed_preview_club(g.db)
         expire_sweep(g.db)
         for e in ADMIN_EMAILS: g.db.execute("UPDATE members SET is_admin=1 WHERE email=?", (e,))
         g.db.commit()
@@ -384,9 +385,9 @@ def nav_context():
     forced = (request.args.get("place") or "").strip()
     if forced in ("everything", "me", "team"):
         place = forced
-    elif path in ("/discover", "/inbox", "/find", "/home"):
+    elif path in ("/discover", "/find", "/home") or path.startswith("/inbox"):
         place = "everything"
-    elif path.startswith("/profile") or path.startswith("/notifications"):
+    elif path.startswith("/calendar") or path.startswith("/profile") or path.startswith("/notifications"):
         place = "me"
     else:
         place = "team"
@@ -399,27 +400,29 @@ def nav_context():
     def here(prefix):
         return path == prefix or path.startswith(prefix + "/")
     if place == "everything":
+        on_personal = path.startswith("/inbox") or (path.startswith("/chat") and forced == "everything")
         tabs = [
             ("search", "Discover", "/discover", path == "/discover"),
             ("pin", "Map", "/home", path == "/home"),
-            ("chat", "Inbox", "/inbox", path == "/inbox"),
+            ("chat", "Chat", "/inbox", on_personal),
         ]
         crest = ""
         switch = ("Everything", "All your teams")
     elif place == "me":
-        # Schedule, Lineup, Profile. Schedule is the first tab and the default.
+        # Calendar, Chat, Profile. Calendar is the first tab and the default.
+        on_personal = (path.startswith("/inbox") and forced == "me") or (path.startswith("/chat") and forced == "me")
         tabs = [
-            ("calendar", "Schedule", "/practices?place=me", here("/practices") and forced == "me"),
-            ("pin", "Lineup", "/lineup?place=me", here("/lineup") and forced == "me"),
+            ("calendar", "Calendar", "/calendar", path.startswith("/calendar")),
+            ("chat", "Chat", "/inbox?place=me", on_personal),
             ("profile", "Profile", "/profile", path.startswith("/profile") or path.startswith("/notifications")),
         ]
         crest = initials(m)
-        switch = (("%s %s" % (display_first(m), m["last"] or "")).strip(), "Schedule · lineup · profile")
+        switch = (("%s %s" % (display_first(m), m["last"] or "")).strip(), "Calendar · chat · profile")
     else:
         tabs = [
             ("calendar", "Schedule", "/practices", here("/practices") and forced != "me"),
             ("pin", "Lineup", "/lineup", here("/lineup") and forced != "me"),
-            ("chat", "Chat", "/chat", here("/chat")),
+            ("chat", "Chat", "/chat?view=list", here("/chat") and forced not in ("me", "everything")),
         ]
         if can_host_practice():
             tabs.append(("manage", "Manage", "/manage", path.startswith("/manage") or path.startswith("/admin") or path.startswith("/members") or path.startswith("/expiring")))
@@ -1126,10 +1129,24 @@ def discover():
 @app.route("/inbox")
 @login_required
 def inbox():
-    """A thin door to the team chat. The inbox itself is a later slice."""
-    return page("""<p class="r2caps">Everything</p><h1>Inbox.</h1>
-<p>Team messages stay in Grunions chat.</p>
-<p><a class="btn btn-primary" href="/chat">Open chat</a></p>""", tab="inbox")
+    """Personal chat: your teams, then direct messages. Me and Everything share this list."""
+    return page(personal_chat_html(db(), me()), tab="chat")
+@app.route("/calendar")
+@login_required
+def calendar():
+    """Me's first tab. Upcoming practices, not the team Schedule chrome."""
+    d = db()
+    rows = d.execute("""SELECT id, date, start, location, title, sport FROM practices
+        WHERE COALESCE(cancelled,0)=0 AND COALESCE(skipped,0)=0 AND date>=? ORDER BY date, start LIMIT 12""",
+        (today_pt().isoformat(),)).fetchall()
+    bits = []
+    for r in rows:
+        title = (r["title"] or r["sport"] or "Practice").strip()
+        bits.append('<a class="chatrow" href="/practices/%d"><span class="mark">%s</span><span><b>%s</b><small>%s · %s</small></span></a>'
+                    % (r["id"], escape(title[:1]), escape(title), escape(r["date"]), escape(r["location"] or "")))
+    body = '<p class="r2caps">Me</p><h1>Calendar.</h1><div class=chatlist>%s</div>' % (
+        "".join(bits) or '<p class="t3">Nothing upcoming.</p>')
+    return page(body, tab="calendar")
 @app.route("/find")
 @login_required
 def find_team():
@@ -1525,7 +1542,102 @@ def reply_target(d, ch, raw):
     src = d.execute("SELECT id, channel, deleted FROM messages WHERE id=?", (rid,)).fetchone()
     if not src or src["deleted"] or (src["channel"] or "team") != ch: return None
     return src["id"]
-def can_read(ch): return ch == "team" or (ch == "coaches" and is_staff())
+def parse_channel(ch):
+    """team, coaches, practice:<id>, or dm:<lo>:<hi>. Anything else is not a channel."""
+    ch = (ch or "").strip()
+    if ch in ("team", "coaches"):
+        return ch
+    if ch.startswith("practice:"):
+        pid = ch.split(":", 1)[1]
+        if pid.isdigit():
+            return ch
+    if ch.startswith("dm:"):
+        parts = ch.split(":")
+        if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit() and int(parts[1]) < int(parts[2]):
+            return ch
+    return ""
+def can_read(ch):
+    ch = parse_channel(ch)
+    if not ch or not me():
+        return False
+    if ch == "team":
+        return True
+    if ch == "coaches":
+        return is_staff()
+    if ch.startswith("practice:"):
+        return db().execute("SELECT 1 FROM practices WHERE id=?", (int(ch.split(":", 1)[1]),)).fetchone() is not None
+    lo, hi = [int(x) for x in ch.split(":")[1:]]
+    return me()["id"] in (lo, hi)
+def dm_channel(a, b):
+    lo, hi = sorted((int(a), int(b)))
+    return "dm:%d:%d" % (lo, hi)
+PREVIEW_PEOPLE = (
+    ("Mira", "Solano", "mira.solano@preview.regulars.invalid", "coach", 0),
+    ("Jonah", "Peck", "jonah.peck@preview.regulars.invalid", "athlete", 1),
+    ("Adele", "Voss", "adele.voss@preview.regulars.invalid", "athlete", 0),
+    ("Priya", "Nand", "priya.nand@preview.regulars.invalid", "athlete", 0),
+    ("Theo", "March", "theo.march@preview.regulars.invalid", "athlete", 0),
+    ("Lena", "Ortiz", "lena.ortiz@preview.regulars.invalid", "athlete", 0),
+)
+ELI_PREVIEW_EMAIL = "ejoernc@gmail.com"
+def seed_preview_club(d):
+    """Fictional people for the pull-request preview disk. Never runs anywhere else, and never deletes rows."""
+    if os.environ.get("IS_PULL_REQUEST") != "true":
+        return {"ran": False, "promoted": False, "people": 0}
+    ids = {}
+    for first, last, email, role, admin in PREVIEW_PEOPLE:
+        row = d.execute("SELECT id FROM members WHERE email=?", (email,)).fetchone()
+        if row:
+            ids[email] = row["id"]
+            d.execute("UPDATE members SET role=?, is_admin=?, joined=1 WHERE id=?", (role, admin, row["id"]))
+        else:
+            cur = d.execute("""INSERT INTO members(first,last,email,phone,is_admin,role,preferred_first,joined)
+                VALUES(?,?,?,?,?,?,?,1)""", (first, last, email, "555-0199", admin, role, first))
+            ids[email] = cur.lastrowid
+    day = today_pt()
+    ahead = 0 if day.weekday() == 1 else (1 - day.weekday()) % 7
+    when = (day + dt.timedelta(days=ahead)).isoformat()
+    practice = d.execute("SELECT id FROM practices WHERE location=?", ("Preview Pool",)).fetchone()
+    if practice:
+        pid = practice["id"]
+        try:
+            d.execute("UPDATE practices SET date=?, start='19:00', end='20:30', sport='Water Polo', title='Preview practice' WHERE id=?", (when, pid))
+        except sqlite3.IntegrityError:
+            pass
+    else:
+        pid = d.execute("""INSERT INTO practices(date,start,end,location,address,note,sport,title)
+            VALUES(?,?,?,?,?,?,?,?)""", (when, "19:00", "20:30", "Preview Pool", "1 Preview Way",
+            "Preview only. Not a real Grunions practice.", "Water Polo", "Preview practice")).lastrowid
+    for mid in ids.values():
+        d.execute("INSERT OR IGNORE INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)", (pid, mid))
+    lineup = d.execute("SELECT id FROM lineup_events WHERE title=?", ("Preview harbor weekend",)).fetchone()
+    if not lineup:
+        d.execute("""INSERT INTO lineup_events(kind, title, date, city, venue, start, description)
+            VALUES('Team trip','Preview harbor weekend',?,'Long Beach','Preview Pool','09:00','Preview only.')""", (when,))
+    def say(email, channel, body):
+        if d.execute("SELECT 1 FROM messages WHERE channel=? AND body=?", (channel, body)).fetchone():
+            return
+        d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)", (ids[email], body, channel))
+    say("jonah.peck@preview.regulars.invalid", "team", "Preview: caps at the pool tonight.")
+    say("priya.nand@preview.regulars.invalid", "team", "Preview: I can bring an extra cap.")
+    say("lena.ortiz@preview.regulars.invalid", "team", "Preview: see you at Preview Pool.")
+    pch = "practice:%d" % pid
+    say("mira.solano@preview.regulars.invalid", pch, "Preview: warm up is in the shallow end.")
+    say("theo.march@preview.regulars.invalid", pch, "Preview: I'll be there by 6:40.")
+    say("mira.solano@preview.regulars.invalid", dm_channel(ids["mira.solano@preview.regulars.invalid"], ids["jonah.peck@preview.regulars.invalid"]),
+        "Preview: can you open the gate?")
+    promoted = False
+    eli = d.execute("SELECT id, is_admin FROM members WHERE lower(email)=?", (ELI_PREVIEW_EMAIL,)).fetchone()
+    if eli:
+        if not eli["is_admin"]:
+            d.execute("UPDATE members SET is_admin=1 WHERE id=?", (eli["id"],))
+            promoted = True
+        channel = dm_channel(eli["id"], ids["adele.voss@preview.regulars.invalid"])
+        if not d.execute("SELECT 1 FROM messages WHERE channel=? AND body LIKE 'Preview: Eli,%'", (channel,)).fetchone():
+            d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)",
+                      (ids["adele.voss@preview.regulars.invalid"], "Preview: Eli, this direct chat is sample data on the preview.", channel))
+    d.commit()
+    return {"ran": True, "promoted": promoted, "people": len(PREVIEW_PEOPLE)}
 def member_brief(m):
     photo = ""
     try:
@@ -1824,8 +1936,8 @@ def reactions_for(d, ch):
 @app.route("/api/reactions")
 @login_required
 def api_reactions():
-    ch = request.args.get("c", "team")
-    if ch not in ("team", "coaches") or not can_read(ch): abort(403)
+    ch = parse_channel(request.args.get("c", "team"))
+    if not can_read(ch): abort(403)
     return jsonify(reactions_for(db(), ch))
 def chat_page_messages(d, ch, limit=50):
     """The same first page the thread would fetch, so chat can paint without a second round trip."""
@@ -1836,20 +1948,96 @@ def chat_page_messages(d, ch, limit=50):
       WHERE m.id>? AND m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT ?""",
       (0, ch, deleted_cutoff(), limit)).fetchall()
     return with_seen(d, ch, list(reversed(rows)), info)
+def _unread_bits(d, mid):
+    """Short line for the Grunions row: where the unread messages are."""
+    parts = []
+    n_team = chat_unread_n(d, mid, "team")
+    if n_team:
+        parts.append("#everyone")
+    practice_n = 0
+    for row in d.execute("SELECT DISTINCT channel FROM messages WHERE channel LIKE 'practice:%'"):
+        practice_n += chat_unread_n(d, mid, row["channel"])
+    if practice_n:
+        parts.append("practice chat")
+    total = n_team + practice_n
+    if not total:
+        return 0, "You're caught up"
+    where = " and ".join(parts)
+    return total, "%d unread in %s" % (total, where)
+def _dm_unread(d, mid):
+    total = 0
+    rows = []
+    like_a, like_b = "dm:%d:%%" % mid, "dm:%%:%d" % mid
+    for row in d.execute("""SELECT channel, MAX(id) latest FROM messages
+            WHERE channel LIKE ? OR channel LIKE ? GROUP BY channel ORDER BY latest DESC""", (like_a, like_b)):
+        n = chat_unread_n(d, mid, row["channel"])
+        total += n
+        rows.append((row["channel"], n, row["latest"]))
+    return total, rows
+def _other_dm_name(d, channel, mid):
+    lo, hi = [int(x) for x in channel.split(":")[1:]]
+    other = hi if lo == mid else lo
+    person = d.execute("SELECT first, last, preferred_first FROM members WHERE id=?", (other,)).fetchone()
+    if not person:
+        return "Someone"
+    return ("%s %s" % (display_first(person), person["last"] or "")).strip()
+def personal_chat_html(d, m):
+    """YOUR TEAMS, then DIRECT. Grunions is the only live team."""
+    mid = m["id"]
+    place = "me" if (request.args.get("place") or "") == "me" else "everything"
+    total, blurb = _unread_bits(d, mid)
+    badge = '<span class=unread>%d</span>' % total if total else ""
+    teams = '<a class=chatrow href="/chat?view=list"><span class=mark>G</span><span><b>Grunions</b><small>%s</small></span>%s</a>' % (escape(blurb), badge)
+    directs = []
+    if is_staff():
+        n = chat_unread_n(d, mid, "coaches")
+        directs.append((10**12, '<a class=chatrow href="/chat?c=coaches&place=%s"><span class=mark>B</span><span><b>Board</b><small>Coaches</small></span>%s</a>'
+                        % (place, '<span class=unread>%d</span>' % n if n else "")))
+    for channel, n, latest in _dm_unread(d, mid)[1]:
+        name = _other_dm_name(d, channel, mid)
+        directs.append((latest or 0, '<a class=chatrow href="/chat?c=%s&place=%s"><span class=mark>%s</span><span><b>%s</b><small>Direct</small></span>%s</a>'
+                        % (escape(channel), place, escape(name[:1]), escape(name), '<span class=unread>%d</span>' % n if n else "")))
+    directs.sort(key=lambda item: item[0], reverse=True)
+    direct_html = "".join(html for _latest, html in directs) or '<p class="t3">No direct messages yet.</p>'
+    return ('<p class="r2caps">Your teams</p><div class=chatlist>%s</div>'
+            '<p class="r2caps">Direct</p><div class=chatlist>%s</div>') % (teams, direct_html)
+def team_chat_html(d, m):
+    """Personal messages, the next practice chat, and #everyone. Members do not create channels."""
+    mid = m["id"]
+    dm_n, _rows = _dm_unread(d, mid)
+    personal = '<a class=chatrow href="/inbox?place=me"><span class=mark>✉</span><span><b>Personal messages</b><small>%s</small></span>%s</a>' % (
+        "Switch to Me · Chat", '<span class=unread>%d</span>' % dm_n if dm_n else "")
+    nxt = d.execute("""SELECT id, date, start, title, sport FROM practices
+        WHERE COALESCE(cancelled,0)=0 AND COALESCE(skipped,0)=0 AND date>=? ORDER BY date, start LIMIT 1""",
+        (today_pt().isoformat(),)).fetchone()
+    practice = ""
+    if nxt:
+        label = (nxt["title"] or "Practice").strip()
+        ch = "practice:%d" % nxt["id"]
+        n = chat_unread_n(d, mid, ch)
+        practice = '<a class=chatrow href="/chat?c=%s"><span class=mark>P</span><span><b>%s</b><small>%s · practice chat</small></span>%s</a>' % (
+            ch, escape(label), escape(nxt["date"]), '<span class=unread>%d</span>' % n if n else "")
+    everyone_n = chat_unread_n(d, mid, "team")
+    everyone = '<a class=chatrow href="/chat?c=team"><span class=mark>#</span><span><b>#everyone</b><small>The whole team</small></span>%s</a>' % (
+        '<span class=unread>%d</span>' % everyone_n if everyone_n else "")
+    return '<p class="r2caps">Grunions</p><div class=chatlist>%s%s%s</div>' % (personal, practice, everyone)
 @app.route("/chat")
 @login_required
 def chat():
-    ch = request.args.get("c", "team")
-    if ch == "coaches" and not is_staff(): abort(403)
-    if ch not in ("team", "coaches"): ch = "team"
+    if request.args.get("view") == "list":
+        return page(team_chat_html(db(), me()), tab="chat")
+    raw = (request.args.get("c") or "team").strip()
+    ch = parse_channel(raw)
+    if not can_read(ch): abort(403)
     d = db()
     mark_chat_read(d, me()["id"], ch)
-    return page(T["chat"], tab="chat", ch=ch, chat_seed=chat_page_messages(d, ch, 50))
+    label = "#everyone" if ch == "team" else ("Board" if ch == "coaches" else "this chat")
+    return page(T["chat"], tab="chat", ch=ch, chat_label=label, chat_seed=chat_page_messages(d, ch, 50))
 @app.route("/api/messages", methods=["GET", "POST"])
 @login_required
 def api_messages():
-    d = db(); ch = request.args.get("c", "team")
-    if ch not in ("team", "coaches") or (ch == "coaches" and not is_staff()): abort(403)
+    d = db(); ch = parse_channel(request.args.get("c", "team"))
+    if not can_read(ch): abort(403)
     if request.method == "POST":
         image = None
         if request.files.get("image"):

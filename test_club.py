@@ -26,6 +26,23 @@ def join(browser, first, last, email):
     return browser.post("/join", data=dict(csrf=csrf(browser, "/join"), first=first, last=last, email=email, phone="555-0100"))
 
 
+def clear_preview_rows():
+    """Drop only the fictional preview rows these tests inserted. Live data is a different database."""
+    with A.app.app_context():
+        d = A.db()
+        ids = [r["id"] for r in d.execute("SELECT id FROM members WHERE email LIKE '%@preview.regulars.invalid' OR email='ejoernc@gmail.com'")]
+        if ids:
+            marks = ",".join("?" * len(ids))
+            d.execute("DELETE FROM messages WHERE member_id IN (%s) OR body LIKE 'Preview:%%'" % marks, ids)
+            d.execute("DELETE FROM rsvps WHERE member_id IN (%s)" % marks, ids)
+            d.execute("DELETE FROM lineup_rsvps WHERE member_id IN (%s)" % marks, ids)
+            d.execute("DELETE FROM members WHERE id IN (%s)" % marks, ids)
+        d.execute("DELETE FROM practices WHERE location='Preview Pool'")
+        d.execute("DELETE FROM lineup_events WHERE title='Preview harbor weekend'")
+        d.execute("DELETE FROM messages WHERE body LIKE 'Preview:%'")
+        d.commit()
+
+
 def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     member = client()
     join(member, "Ada", "Nav", "ada.nav@example.com")
@@ -46,14 +63,15 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     assert ">Member<" in menu and "Surf City" not in menu and "Harbor Seals" not in menu
     discover = member.get("/discover").get_data(as_text=True)
     assert "Discover." in discover and "Grunions is your team" in discover and "Surf City" not in discover
-    assert 'data-place="everything"' in discover and ">Map<" in discover
-    me = member.get("/profile").get_data(as_text=True)
+    assert 'data-place="everything"' in discover and ">Map<" in discover and ">Chat<" in discover and ">Inbox<" not in discover.split('class="nav3', 1)[1].split("</nav>", 1)[0]
+    me = member.get("/calendar").get_data(as_text=True)
     me_tabs = me.split('class="nav3', 1)[1].split("</nav>", 1)[0]
     me_menu = me.split('id="crestMenu"', 1)[1].split("</dialog>", 1)[0]
-    assert me_tabs.find(">Schedule<") < me_tabs.find(">Lineup<") < me_tabs.find(">Profile<")
-    assert 'data-tab="profile" class=on' in me_tabs
-    assert "Settings" not in me_tabs and "Settings" not in me_menu
-    assert "Schedule · lineup · profile" in me_menu
+    assert me_tabs.find(">Calendar<") < me_tabs.find(">Chat<") < me_tabs.find(">Profile<")
+    assert 'data-tab="calendar" class=on' in me_tabs
+    assert ">Schedule<" not in me_tabs and ">Lineup<" not in me_tabs and "Settings" not in me_tabs
+    assert "Calendar · chat · profile" in me_menu
+    assert "@media (min-width:768px)" in me and "window.innerWidth>=768" in me
     with A.app.app_context():
         d = A.db()
         d.execute("UPDATE members SET is_admin=1 WHERE email='ada.nav@example.com'")
@@ -62,6 +80,51 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     admin_tabs = member.get("/practices").get_data(as_text=True).split('class="nav3', 1)[1].split("</nav>", 1)[0]
     assert ">Manage<" in admin_tabs and admin_tabs.find(">Schedule<") < admin_tabs.find(">Manage<")
     assert 'href="/practices"' in member.get("/practices").get_data(as_text=True).split("YOUR TEAMS", 1)[1].split("</dialog>", 1)[0]
+
+
+def test_preview_seed_stays_off_the_live_database_and_is_idempotent():
+    with A.app.app_context():
+        d = A.db()
+        kept = d.execute("SELECT COUNT(*) FROM members").fetchone()[0]
+        os.environ.pop("IS_PULL_REQUEST", None)
+        assert A.seed_preview_club(d) == {"ran": False, "promoted": False, "people": 0}
+        assert d.execute("SELECT COUNT(*) FROM members WHERE email LIKE '%@preview.regulars.invalid'").fetchone()[0] == 0
+        os.environ["IS_PULL_REQUEST"] = "true"
+        try:
+            first = A.seed_preview_club(d)
+            d.execute("INSERT INTO members(first,last,email,is_admin,joined) VALUES('Eli','Joern','ejoernc@gmail.com',0,1)")
+            d.commit()
+            second = A.seed_preview_club(d)
+            third = A.seed_preview_club(d)
+            assert first["ran"] is True and first["people"] == 6 and first["promoted"] is False
+            assert second["promoted"] is True and third["promoted"] is False and third["people"] == 6
+            assert d.execute("SELECT COUNT(*) FROM members WHERE email LIKE '%@preview.regulars.invalid'").fetchone()[0] == 6
+            assert d.execute("SELECT is_admin FROM members WHERE email='ejoernc@gmail.com'").fetchone()["is_admin"] == 1
+            assert d.execute("SELECT COUNT(*) FROM members").fetchone()[0] >= kept + 6
+            assert d.execute("SELECT 1 FROM practices WHERE location='Preview Pool'").fetchone()
+        finally:
+            os.environ.pop("IS_PULL_REQUEST", None)
+            clear_preview_rows()
+
+
+def test_team_chat_list_keeps_everyone_and_personal_messages():
+    member = client()
+    join(member, "Nia", "Chat", "nia.chat@example.com")
+    os.environ["IS_PULL_REQUEST"] = "true"
+    try:
+        with A.app.app_context():
+            A.seed_preview_club(A.db())
+        html = member.get("/chat?view=list").get_data(as_text=True)
+        inbox = member.get("/inbox").get_data(as_text=True)
+        mine = member.get("/inbox?place=me").get_data(as_text=True)
+    finally:
+        os.environ.pop("IS_PULL_REQUEST", None)
+        clear_preview_rows()
+    assert "Personal messages" in html and "#everyone" in html and "practice chat" in html
+    assert "Create channel" not in html
+    assert "Your teams" in inbox and ">Grunions<" in inbox and "Direct" in inbox
+    assert 'data-place="everything"' in inbox
+    assert 'data-place="me"' in mine and ">Calendar<" in mine and ">Profile<" in mine
 
 
 def test_programs_start_with_water_polo_on_and_swimming_off():
@@ -252,7 +315,8 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
         assert (usawp or "") != "verified"
     paying = admin.get("/members?view=membership").get_data(as_text=True)
     participants = admin.get("/members").get_data(as_text=True)
-    assert "<h1>Members</h1>" in paying and "Bea" in paying and "Nia" not in paying and ">Paying</a>" not in paying
+    paying_list = re.sub(r'<nav class="nav3.*?</nav>|<dialog id="crestMenu".*?</dialog>', "", paying, flags=re.S)
+    assert "<h1>Members</h1>" in paying and "Bea" in paying and "Nia" not in paying_list and ">Paying</a>" not in paying
     assert "<h1>Participants</h1>" in participants and "Bea" in participants and "Nia" in participants and ">Paying</a>" not in participants
     old = admin.get("/members?pay=paying")
     assert old.status_code == 200 and "Bea" in old.get_data(as_text=True) and "Nia" in old.get_data(as_text=True)
@@ -367,8 +431,8 @@ def test_practice_reminders_stay_off_and_use_the_branded_mail():
     finally:
         A.send_email, A.smtp_ready = real_send, real_ready
     by = {row[0]: row for row in sent}
-    assert len(sent) == 4
-    assert set(by) == {"bea.remind@example.com", "ada.remind@example.com", "nia.remind@example.com", "cam.remind@example.com"}
+    assert {"bea.remind@example.com", "ada.remind@example.com", "nia.remind@example.com", "cam.remind@example.com"} <= set(by)
+    assert not any(addr.endswith("@preview.regulars.invalid") for addr in by)
     assert by["bea.remind@example.com"][1] == "Water Polo practice today at 7:00 PM, Marina High School"
     assert ">SPORT<" in by["bea.remind@example.com"][3] or "SPORT" in by["bea.remind@example.com"][3]
     assert "Sign up for practice" in by["bea.remind@example.com"][3]

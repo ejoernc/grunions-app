@@ -546,7 +546,13 @@ dialog.crestmenu::backdrop{background:rgba(11,11,12,.45)}
 .crestgo,.crestout{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;padding:14px;border-radius:var(--r2-radius-pill);border:2px solid var(--r2-graphite);background:transparent;color:var(--r2-paper);font:700 14px/normal var(--r2-font-sans);text-decoration:none}
 .crestout{border-color:var(--r2-tangerine);color:var(--r2-tangerine)}
 .r2caps{margin:0 0 8px;color:var(--r2-smoke);font:var(--r2-caps);letter-spacing:.08em;text-transform:uppercase}
-@media (min-width:1112px){
+.chatlist{display:flex;flex-direction:column;gap:8px;margin:0 0 18px}
+.chatlist a.chatrow{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:16px;background:var(--r2-carbon);color:inherit;text-decoration:none}
+.chatlist a.chatrow b{display:block;font:var(--r2-label);color:var(--r2-paper)}
+.chatlist a.chatrow small{display:block;margin-top:2px;color:var(--r2-smoke);font:600 13px/1.3 var(--r2-font-sans)}
+.chatlist .mark{width:40px;height:40px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--r2-sun);color:var(--r2-fixed-ink);font:700 14px/1 var(--r2-font-display);flex:none}
+.chatlist .unread{margin-left:auto;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 12px/22px var(--r2-font-sans);text-align:center}
+@media (min-width:768px){
  body:has(nav.nav3){padding-left:var(--r2-rail);--nav-clear:16px;--nav-offset-bottom:0px}
  nav.nav3{top:0;bottom:0;left:0;right:auto;width:var(--r2-rail);height:auto;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;padding:24px 0;border-radius:0;touch-action:auto}
  .nav3-crest,.nav3-crest-face{width:60px;height:60px}
@@ -1728,8 +1734,8 @@ TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and tab != 'event_
 </nav>
 <dialog id="crestMenu" class="crestmenu" tabindex="-1">
 <p class="crestlabel">GO TO</p>
-<a class="crestrow{% if nav.place == 'everything' %} here{% endif %}" href="/discover"><span class="crestmark brand"><img src="/static/nav/mark-ink.svg" width="26" height="10" alt=""></span><span><b>Everything</b><small>Discover · map · inbox</small></span></a>
-<a class="crestrow{% if nav.place == 'me' %} here{% endif %}" href="/practices?place=me"><span class="crestmark who">{{ initials(me()) }}</span><span><b>{{ nav.name }}</b><small>Schedule · lineup · profile</small></span></a>
+<a class="crestrow{% if nav.place == 'everything' %} here{% endif %}" href="/discover"><span class="crestmark brand"><img src="/static/nav/mark-ink.svg" width="26" height="10" alt=""></span><span><b>Everything</b><small>Discover · map · chat</small></span></a>
+<a class="crestrow{% if nav.place == 'me' %} here{% endif %}" href="/calendar"><span class="crestmark who">{{ initials(me()) }}</span><span><b>{{ nav.name }}</b><small>Calendar · chat · profile</small></span></a>
 <span class="crestline"></span>
 <p class="crestlabel">YOUR TEAMS</p>
 <a class="crestrow{% if nav.place == 'team' %} here{% endif %}" href="/practices"><span class="crestmark team">G</span><span><b>Grunions</b><small>Default · opens here</small></span><span class="rolechip role-{{ nav.role|lower }}">{{ nav.role }}</span></a>
@@ -1880,7 +1886,7 @@ function nav3Follow(anchor){
  var swipe={x:0,y:0,on:false,used:false};
  document.addEventListener('pointerdown', function(e){
   swipe.used=false; swipe.on=false;
-  if(window.innerWidth>=1112 || e.button) return;
+  if(window.innerWidth>=768 || e.button) return;
   var nav=e.target.closest&&e.target.closest('nav.nav3');
   if(!nav) return;
   var menu=document.getElementById('crestMenu');
@@ -4400,7 +4406,7 @@ T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template><div class
 <div class="composer noprint"><div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=preview id=prev hidden><img id=prevImg alt=""><span id=prevName></span><button type=button class="quiet compact" id=prevX>Remove</button></div>
 <form id=f><input type=file id=file accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif" hidden>
 <button type=button class="iconbtn" id=attach title="Attach image" aria-label="Attach image"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z"/></svg></button>
-<textarea id=body rows=1 maxlength=2000 placeholder="Message {{'coaches' if ch=='coaches' else 'the team'}}"></textarea>
+<textarea id=body rows=1 maxlength=2000 placeholder="Message {{ chat_label or ('coaches' if ch=='coaches' else 'the team') }}"></textarea>
 <button class="iconbtn send" type=submit aria-label=Send><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M230.14,25.86a20,20,0,0,0-19.57-5.11l-.22.07L18.44,79a20,20,0,0,0-3.06,37.25L99,157l40.71,83.65a19.81,19.81,0,0,0,18,11.38c.57,0,1.15,0,1.73-.07A19.82,19.82,0,0,0,177,237.56L235.18,45.65a1.42,1.42,0,0,0,.07-.22A20,20,0,0,0,230.14,25.86ZM156.91,221.07l-34.37-70.64,46-45.95a12,12,0,0,0-17-17l-46,46L34.93,99.09,210,46Z"/></svg></button></form></div>
 <dialog id=actSheet class=botsheet><div class=sheet>
 <div class=grab aria-hidden=true></div>
