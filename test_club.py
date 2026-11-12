@@ -253,16 +253,24 @@ def test_a_coach_sees_the_sport_chat_and_a_board_member_sees_manage():
         d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (program["id"], coach_id))
         d.execute("UPDATE members SET role='athlete', is_admin=0, board_member=1 WHERE email='priya.board@example.com'")
         d.commit()
+    plain = client()
+    join(plain, "Ned", "Admin", "ned.admin@example.com")
+    with A.app.app_context():
+        A.db().execute("UPDATE members SET role='athlete', is_admin=1, board_member=0 WHERE email='ned.admin@example.com'")
+        A.db().commit()
     coach_page = coach.get("/chat?view=list").get_data(as_text=True)
     assert "Water Polo coaches" in coach_page and "Message the coaches" not in coach_page and ">Board room<" not in coach_page
     assert coach.get("/chat?c=coach:water-polo").status_code == 200
     assert coach.get("/chat?c=board").status_code == 403
     assert coach.post("/chat/leave", data=dict(csrf=csrf(coach, "/chat?c=coach:water-polo"), c="coach:water-polo")).status_code == 400
-    board_nav = board.get("/manage").get_data(as_text=True)
-    assert board.get("/manage").status_code == 200 and "Board chat" in board_nav and "Permissions" not in board_nav and 'href="/manage/club/programs"' not in board_nav
+    activities = board.get("/manage/area/activities").get_data(as_text=True)
+    assert board.get("/manage").status_code == 200 and "People" in board.get("/manage").get_data(as_text=True) and "Board chat" in activities
     assert ">Manage<" in board.get("/practices").get_data(as_text=True)
-    assert board.get("/chat?c=board").status_code == 200
-    assert board.get("/manage/club/programs").status_code == 403
+    assert board.get("/chat?c=board").status_code == 200 and ">Board room<" in board.get("/chat?view=list").get_data(as_text=True)
+    assert board.get("/manage/club/programs").status_code == 200
+    plain_list = plain.get("/chat?view=list").get_data(as_text=True)
+    assert plain.get("/chat?c=board").status_code == 403 and ">Board room<" not in plain_list and "Board chat" not in plain.get("/manage/area/activities").get_data(as_text=True)
+    assert plain.get("/manage/club/programs").status_code == 200
     assert "Message the coaches" not in member.get("/chat?view=list").get_data(as_text=True)
     token = csrf(member, "/chat?view=list")
     made = member.post("/chat/requests", data=dict(csrf=token, audience="coaches", topic="practice", sport="water-polo", subject="Caps", message="Need a cap."), follow_redirects=True)
@@ -274,7 +282,8 @@ def test_a_coach_sees_the_sport_chat_and_a_board_member_sees_manage():
         d = A.db()
         sid = d.execute("SELECT id FROM members WHERE email='lee.laps@example.com'").fetchone()[0]
         swimming = d.execute("SELECT id FROM programs WHERE slug='pool-swimming'").fetchone()
-        d.execute("UPDATE members SET role='coach', is_admin=0 WHERE id=?", (sid,))
+        d.execute("UPDATE members SET role='coach', is_admin=0, board_member=0 WHERE id=?", (sid,))
+        d.execute("DELETE FROM program_coaches WHERE member_id=?", (sid,))
         d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (swimming["id"], sid))
         d.commit()
     assert "Caps" not in swim.get("/chat?c=requests").get_data(as_text=True)

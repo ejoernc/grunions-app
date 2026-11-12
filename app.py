@@ -394,10 +394,10 @@ def nav_context():
         place = "me"
     else:
         place = "team"
-    if m["is_admin"]:
-        role = "Admin"
-    elif is_board_member(m) and (m["role"] or "") != "coach":
+    if is_board_member(m):
         role = "Board"
+    elif m["is_admin"]:
+        role = "Admin"
     elif (m["role"] or "") == "coach":
         role = "Coach"
     else:
@@ -726,7 +726,7 @@ def admin_required(f):
     @functools.wraps(f)
     def w(*a, **k):
         if not me(): return redirect(url_for("login", next=request.path))
-        if not me()["is_admin"]: abort(403)
+        if not is_club_admin(): abort(403)
         return f(*a, **k)
     return w
 def is_active_coach(m=None):
@@ -746,11 +746,14 @@ def is_board_member(m=None):
     except (KeyError, IndexError):
         return False
 def is_board(m=None):
-    """The board chat. Board members and admins. A coach is not on the board unless this role is set."""
+    """The board chat. Only board members. An admin who is not on the board does not see it."""
+    return is_board_member(m)
+def is_club_admin(m=None):
+    """Full Manage. Board members are admins. Not every admin is on the board."""
     m = m or me()
     return bool(m and (m["is_admin"] or is_board_member(m)))
 def can_open_manage(m=None):
-    """Manage for coaches, admins, admin lite, and board members. Board members do not become admins."""
+    """Manage for coaches, admins, admin lite, and board members."""
     return can_host_practice(m) or is_board_member(m)
 def club_sports(d):
     """Sports the club has. Members pick one when they ask that sport's coaches."""
@@ -767,7 +770,7 @@ def coach_sports(d, m):
     if not m:
         return []
     sports = club_sports(d)
-    if m["is_admin"]:
+    if is_club_admin(m):
         return sports
     if (m["role"] or "") != "coach":
         return []
@@ -789,7 +792,7 @@ def can_host_practice(m=None):
     m = m or me()
     if not m:
         return False
-    if m["is_admin"] or is_active_coach(m):
+    if is_club_admin(m) or is_active_coach(m):
         return True
     try:
         import clubadmin
@@ -1809,7 +1812,7 @@ def seed_preview_club(d):
                 continue
             for email in emails:
                 d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (program["id"], ids[email]))
-        d.execute("UPDATE members SET board_member=1, is_admin=0 WHERE email=?", ("priya.nand@preview.regulars.invalid",))
+        d.execute("UPDATE members SET board_member=1, is_admin=1 WHERE email=?", ("priya.nand@preview.regulars.invalid",))
     except Exception:
         pass
     say("mira.solano@preview.regulars.invalid", "coach:water-polo", "Preview: coaches meet at the shallow end.")
@@ -2965,7 +2968,7 @@ def _request_visible(row, m):
     if row["member_id"] == m["id"]:
         return True
     if row["audience"] == "coaches":
-        if m["is_admin"]:
+        if is_club_admin(m):
             return True
         if (m["role"] or "") != "coach":
             return False
@@ -3465,7 +3468,7 @@ def _nudge_staff(d, rid, text):
         people = []
         for person in d.execute("""SELECT * FROM members WHERE COALESCE(role,'')!='system' AND id!=?
                 AND (is_admin=1 OR role='coach')""", (row["member_id"],)).fetchall():
-            if person["is_admin"] or not sport or any(item["slug"] == sport for item in coach_sports(d, person)):
+            if is_club_admin(person) or not sport or any(item["slug"] == sport for item in coach_sports(d, person)):
                 people.append(person)
     for person in people:
         d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (person["id"], text))
@@ -5076,7 +5079,7 @@ def handle_practice_post(d):
     elif a == "coach_plan" and pid:
         if not can_host_practice(): abort(403)
         cid = request.form.get("coach_id", type=int)
-        if not me()["is_admin"] and cid != me()["id"]: abort(403)
+        if not is_club_admin() and cid != me()["id"]: abort(403)
         if not cid or not d.execute("SELECT 1 FROM practice_coaches WHERE practice_id=? AND member_id=?", (pid, cid)).fetchone():
             abort(404)
         focus = clean_focus(request.form.get("focus"))
@@ -5099,7 +5102,7 @@ def handle_practice_post(d):
             if not apply_practice_image(d, pid): flash("Choose a picture.")
         except ValueError as e:
             flash(str(e))
-    elif not me()["is_admin"]: abort(403)
+    elif not is_club_admin(): abort(403)
     elif a == "add":
         if request.form.get("repeat"):
             try: save_series(d)
@@ -6052,7 +6055,7 @@ def api_places_retrieve():
 @app.route("/manage/usage")
 @login_required
 def usage_page():
-    if not me()["is_admin"]: abort(403)
+    if not is_club_admin(): abort(403)
     return page(T["usage"], tab="manage", calls=mapbox_calls_today(), cap=MAPBOX_DAILY_CAP)
 @app.route("/manage/pricing", methods=["GET", "POST"])
 @admin_required
@@ -6533,12 +6536,12 @@ def roster_sets(d, rows=None):
     ref_ids = {r["id"] for r in rows if referee_eligibility(d, r)["eligible"]}
     coaches = {r["id"] for r in rows if (r["role"] or "") == "coach" or r["id"] in listed or r["id"] in coach_ids}
     refs = {r["id"] for r in rows if r["id"] in referees or r["id"] in ref_ids}
-    admins = {r["id"] for r in rows if r["is_admin"]}
+    admins = {r["id"] for r in rows if r["is_admin"] or (r["board_member"] if "board_member" in r.keys() else 0)}
     return {"rows": rows, "listed": listed, "referees": referees, "coach_ids": coach_ids, "ref_ids": ref_ids,
             "coaches": coaches, "refs": refs, "admins": admins}
 def manage_home_groups(d):
     """Rows the signed-in coach or admin is allowed to open."""
-    host, staff, admin = can_host_practice(), is_staff(), bool(me()["is_admin"])
+    host, staff, admin = can_host_practice(), is_staff(), is_club_admin()
     activities, people, club = [], [], []
     if staff or admin:
         activities.append(_manage_row("Schedule", "Practices, scrimmages & games", "/admin" if staff else "/manage/schedule", "cal"))
@@ -6848,7 +6851,7 @@ def signup_days(d):
     return joined, verified
 def _manage_catalog(d):
     """Destinations the signed-in person may open. Counts stay off when they are zero."""
-    host, staff, admin = can_host_practice(), is_staff(), bool(me()["is_admin"])
+    host, staff, admin = can_host_practice(), is_staff(), is_club_admin()
     board = is_board()
     rows = []
     def add(area, title, desc, href, icon, keywords, count=0, tone="info"):
@@ -6910,7 +6913,7 @@ def manage_home():
             {"title": "Bulletin", "href": "/chat"},
         ]
     growth = ""
-    if me()["is_admin"]:
+    if is_club_admin():
         growth = chart_card(growth_chart(*signup_days(d)), attendance_chart(recent_checkins(d)))
     chev = Markup('<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>')
     return page(T["manage"], tab="manage", areas=areas, quick=quick, growth=growth, chev=chev)
@@ -6959,7 +6962,7 @@ def manage_search():
     q = " ".join((request.args.get("q") or "").split())
     if not q or len(q) > 80:
         return jsonify(people=[], settings=[])
-    return jsonify(**_manage_search(db(), q, bool(me()["is_admin"])))
+    return jsonify(**_manage_search(db(), q, is_club_admin()))
 def _club_page(title, subtitle, body, back):
     import clubadmin
     clubadmin.ensure(db())
@@ -7540,7 +7543,7 @@ def manage_area(area):
     if area not in _AREA_COPY: abort(404)
     if not can_host_practice(): abort(403)
     if area == "people":
-        if not me()["is_admin"]: abort(403)
+        if not is_club_admin(): abort(403)
         if request.args.get("view"):
             return redirect("/members?" + request.query_string.decode())
         d = db()
@@ -7574,7 +7577,7 @@ def manage_area(area):
 def manage_schedule():
     if not can_host_practice(): abort(403)
     if is_staff(): return redirect("/admin")
-    if not me()["is_admin"]: abort(403)
+    if not is_club_admin(): abort(403)
     return page(T["manage_schedule"], tab="admin", coming=manage_activity_lists(db())[0])
 @app.route("/manage/lineup")
 @login_required
@@ -7864,7 +7867,7 @@ def handle_member_detail(d, mid):
     """Check-in and the members list share these edits. 'ok' saves, 'halt' leaves the row unchanged."""
     act = request.form.get("action")
     if act not in DETAIL_ACTIONS: return None
-    if not me()["is_admin"]: abort(403)
+    if not is_club_admin(): abort(403)
     if act == "verify":
         num = (request.form.get("number") or "").strip()[:20] or None
         vu = parse_date(request.form.get("valid_until")); now = stamp_pt("minutes")
@@ -7933,7 +7936,7 @@ def apply_member_roles(d, mid):
     else: d.execute("DELETE FROM referee_list WHERE member_id=?", (mid,))
 def save_legal_name(d, mid):
     """Admins may rename someone from the member page. A blank name is refused. Unchanged names are not audited."""
-    if not me()["is_admin"]: abort(403)
+    if not is_club_admin(): abort(403)
     if "first" not in request.form and "last" not in request.form: return True
     first, last = clean_legal(request.form.get("first")), clean_legal(request.form.get("last"))
     if not first or not last: return False
@@ -7950,13 +7953,13 @@ def save_legal_name(d, mid):
 @login_required
 def member_page(mid):
     """Full-page member view for an admin or a coach. Manual edits stay admin-only."""
-    if not (me()["is_admin"] or is_staff()): abort(403)
+    if not (is_club_admin() or is_staff()): abort(403)
     import clubadmin
     d = db()
     exists = d.execute("SELECT id FROM members WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone()
     if not exists: abort(404)
     if request.method == "POST" and request.form.get("action") == "paid":
-        if not me()["is_admin"]:
+        if not is_club_admin():
             abort(403)
         try:
             before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
