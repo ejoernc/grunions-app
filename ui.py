@@ -652,12 +652,12 @@ nav.nav3[data-place="me"]:has(.nav3-photo) .nav3-initials{display:none}
 .nav3-tabs{position:relative;display:flex;flex:1;align-items:center;gap:6px;min-width:0;height:56px}
 .nav3-slide{position:absolute;z-index:0;left:0;top:0;height:56px;border-radius:var(--r2-radius-pill);background:var(--r2-lime);pointer-events:none;transition:left 280ms cubic-bezier(0.22,1,0.36,1),top 280ms cubic-bezier(0.22,1,0.36,1),width 280ms cubic-bezier(0.22,1,0.36,1),height 280ms cubic-bezier(0.22,1,0.36,1),background-color 280ms ease,border-radius 280ms ease}
 .nav3-slide.manage{background:var(--r2-tangerine)}
-.nav3-tabs a{position:relative;z-index:1;width:auto;height:56px;flex:0 0 auto;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 6px;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-smoke);text-decoration:none;font:700 11px/normal var(--r2-font-sans);box-sizing:border-box;transition:color 280ms ease,font-size 280ms cubic-bezier(0.22,1,0.36,1)}
-.nav3-tabs a.on{flex:1 1 auto;width:auto;min-width:max-content;flex-direction:row;flex-wrap:nowrap;justify-content:center;align-items:center;gap:6px;padding:0 14px;background:transparent;color:var(--r2-fixed-ink);font:700 16px/normal var(--r2-font-sans);overflow:visible}
+.nav3-tabs a{position:relative;z-index:1;width:max-content;height:56px;flex:0 0 max-content;min-width:max-content;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 6px;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-smoke);text-decoration:none;font:700 11px/normal var(--r2-font-sans);box-sizing:border-box;overflow:visible;transition:color 280ms ease,font-size 280ms cubic-bezier(0.22,1,0.36,1)}
+.nav3-tabs a.on{flex:1 1 0%;width:auto;min-width:0;max-width:100%;flex-direction:row;flex-wrap:nowrap;justify-content:center;align-items:center;gap:6px;padding:0 10px;background:transparent;color:var(--r2-fixed-ink);font:700 16px/normal var(--r2-font-sans);overflow:hidden}
 nav.nav3:has(.nav3-tabs>a:nth-child(5)){gap:4px}
 nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs{gap:4px}
-nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a{flex:0 0 auto;width:auto;padding:0 6px}
-nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a.on{flex:1 1 auto;width:auto;min-width:max-content;padding:0 14px}
+nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a{flex:0 0 max-content;width:max-content;min-width:max-content;padding:0 6px;overflow:visible}
+nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a.on{flex:1 1 0%;width:auto;min-width:0;max-width:100%;padding:0 10px;overflow:hidden}
 .nav3-glyph,.nav3-label{transition:transform 280ms cubic-bezier(0.22,1,0.36,1)}
 .nav3-glyph{width:20px;height:20px;display:block;flex:none;color:var(--r2-smoke)}
 .nav3-tabs a.on .nav3-glyph{color:var(--r2-fixed-ink)}
