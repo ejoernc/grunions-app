@@ -6177,9 +6177,6 @@ def combined_view(entry):
     pins = map_pins(nextp)
     data = upcoming_schedule(d)
     route = social_route_points(nextp) if nextp else []
-    if entry == "practices" and nextp and nextp["lat"] is not None and nextp["lng"] is not None:
-        pins = [{"lat": nextp["lat"], "lng": nextp["lng"], "kind": "pool", "label": " ".join(str(nextp["location"] or "").split())}]
-        route = []
     drive_going = "1" if nextp_mine == 1 else ("" if nextp_mine is None else "0")
     drive_on = next_kind == "practice" and bool(nextp) and drive_offer(d, nextp, m["id"])
     drive_until = practice_start_epoch(nextp) if drive_on and nextp else 0
@@ -6202,31 +6199,71 @@ def combined_view(entry):
         sched_when = "upcoming"
     sched_rows = schedule_rows(d, sched_when or "upcoming") if sched_list else []
     home_rows = schedule_home_rows(d) if sched_home else []
-    week_end = (today_pt() + dt.timedelta(days=6)).isoformat()
-    week_n = sum(1 for row in home_rows if not row["p"]["cancelled"] and str(row["p"]["date"])[:10] <= week_end) if sched_home else 0
-    kind_n = {"all": 0, "practice": 0, "scrimmage": 0, "game": 0}
-    for row in home_rows:
-        if row["p"]["cancelled"]:
-            continue
-        kind_n["all"] += 1
-        kind_n[row["kind"]] += 1
-    social_cards = []
+    today = today_pt()
+    week_end = (today + dt.timedelta(days=(6 - today.weekday()))).isoformat()
+    week_sessions = []
     if sched_home:
-        seen = set()
-        for source in ([nextp] if nextp else []) + [row["p"] for row in home_rows[:6]]:
-            if not source or source["id"] in seen:
+        for row in home_rows:
+            if str(row["p"]["date"])[:10] > week_end:
                 continue
-            seen.add(source["id"])
-            for card in schedule_social_cards(source):
-                social_cards.append(_decorate_social(d, card, m["id"]))
-    show_drive = bool(sched_home and nextp and nextp_mine == 1 and drive_on)
+            cards = [_decorate_social(d, card, m["id"]) for card in schedule_social_cards(row["p"])]
+            week_sessions.append({"p": row["p"], "going": row["going"], "mine": row["mine"], "kind": row["kind"],
+                                  "cancelled": bool(row["p"]["cancelled"]),
+                                  "before": [c for c in cards if c["when"] == "before"],
+                                  "after": [c for c in cards if c["when"] != "before"]})
+    week_n = sum(1 for s in week_sessions if not s["cancelled"])
+    kind_n = {"all": week_n, "practice": 0, "scrimmage": 0, "game": 0}
+    going_today = next((s for s in week_sessions if str(s["p"]["date"])[:10] == today.isoformat() and s["mine"] == 1 and not s["cancelled"]), None)
+    show_rides = bool(sched_home and going_today)
+    ride_label = "Need a ride?"
+    drive_detail = ""
+    show_drive = False
     drive_placeholder = False
-    if show_drive and nextp and not drive_chip:
-        drive_placeholder = True
-        start, _end = practice_span(nextp)
-        leave = start - dt.timedelta(minutes=18)
-        drive_chip = "Leave by %s" % fmt_t(leave.strftime("%H:%M"))
-        drive_saved = "18 min"
+    now = wall_pt()
+    if going_today:
+        target = going_today["p"]
+        joined_before = next((c for c in going_today["before"] if c.get("joined")), None)
+        social_at = None
+        if joined_before and joined_before.get("clock"):
+            try:
+                hh, mm = [int(x) for x in joined_before["clock"].split(":")[:2]]
+                social_at = dt.datetime.combine(today, dt.time(hh, mm), PT)
+            except (TypeError, ValueError):
+                social_at = None
+        if joined_before and social_at and now < social_at and social_at - dt.timedelta(hours=3) <= now:
+            show_drive = True
+            ride_label = "Ride to coffee?"
+            leave = social_at - dt.timedelta(minutes=16)
+            drive_chip = "Leave by %s" % fmt_t(leave.strftime("%H:%M"))
+            drive_saved = "16 min"
+            drive_detail = "Coffee %s · practice %s" % (fmt_t(joined_before["clock"]), fmt_clock(target["start"]))
+            drive_placeholder = True
+        elif drive_on and nextp_mine == 1:
+            show_drive = True
+            drive_detail = "Practice at %s · %s" % (fmt_clock(target["start"]), short_place(target["location"]))
+            if not drive_chip:
+                start, _end = practice_span(target)
+                leave = start - dt.timedelta(minutes=18)
+                drive_chip = "Leave by %s" % fmt_t(leave.strftime("%H:%M"))
+                drive_saved = "18 min"
+                drive_placeholder = True
+    if sched_home and nextp and nextp["lat"] is not None:
+        pool = {"lat": nextp["lat"], "lng": nextp["lng"], "kind": "pool", "label": "%s · %s" % (short_place(nextp["location"]), fmt_clock(nextp["start"]))}
+        pins = [pool]
+        route = []
+        if show_drive and ride_label.startswith("Ride to coffee"):
+            pins.append({"lat": nextp["lat"] + 0.01, "lng": nextp["lng"] + 0.01, "kind": "social", "label": "Cafe"})
+            route = [[nextp["lng"] - 0.02, nextp["lat"] - 0.01], [nextp["lng"] + 0.01, nextp["lat"] + 0.01]]
+        elif show_drive:
+            route = [[nextp["lng"] - 0.03, nextp["lat"] - 0.02], [nextp["lng"], nextp["lat"]]]
+        else:
+            pins.append({"lat": nextp["lat"] + 0.012, "lng": nextp["lng"] - 0.008, "kind": "social", "label": "Before"})
+            pins.append({"lat": nextp["lat"] - 0.008, "lng": nextp["lng"] + 0.014, "kind": "social", "label": "After"})
+    not_cleared = False
+    try:
+        not_cleared = bool(sched_home and not clearance(m).ok)
+    except Exception:
+        not_cleared = False
     pin_label = ""
     if nextp:
         pin_label = "%s · %s" % (short_place(nextp["location"]), fmt_clock(nextp["start"]))
@@ -6238,7 +6275,8 @@ def combined_view(entry):
                            "on": day == today_pt()})
     return page(T["home"], tab="practices" if entry == "practices" else "home",
         sched_home=sched_home, sched_list=sched_list, sched_when=sched_when or "upcoming", sched_rows=sched_rows,
-        home_rows=home_rows, week_n=week_n, kind_n=kind_n, social_cards=social_cards,
+        home_rows=home_rows, week_n=week_n, kind_n=kind_n, social_cards=[],
+        week_sessions=week_sessions, show_rides=show_rides, ride_label=ride_label, drive_detail=drive_detail, not_cleared=not_cleared,
         show_drive=show_drive, drive_placeholder=drive_placeholder, pin_label=pin_label, week_strip=week_strip,
         m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices,
         nextp=nextp, next_kind=next_kind, nextev=nextev, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined,
