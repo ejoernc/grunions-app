@@ -2158,8 +2158,7 @@ def seed_preview_club(d):
         program = d.execute("SELECT id FROM programs WHERE slug='water-polo'").fetchone()
         if program:
             d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (program["id"], eli["id"]))
-        d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
-            ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (pid, eli["id"]))
+        d.execute("INSERT OR IGNORE INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)", (pid, eli["id"]))
         d.execute("""UPDATE practices SET lat=?, lng=?, address=?,
             social_kind=?, social_place=?, social_address=?, social_time=?, social_when=?,
             social2_kind=?, social2_place=?, social2_address=?, social2_time=?
@@ -2181,15 +2180,13 @@ def seed_preview_club(d):
                 (early_day, "07:00", "08:00", "Preview lane early", "12 Preview Way",
                  "Preview only. Not a real Grunions practice.", "Water Polo", "Preview early practice",
                  33.731441, -118.027846, "Coffee", "Preview Cafe", "12 Preview Way", "06:30", "before")).lastrowid
-        d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
-            ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (early_id, eli["id"]))
+        d.execute("INSERT OR IGNORE INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)", (early_id, eli["id"]))
         for email in ("mira.solano@preview.regulars.invalid", "jonah.peck@preview.regulars.invalid", "adele.voss@preview.regulars.invalid"):
             if email in ids:
                 d.execute("INSERT OR IGNORE INTO social_joins(practice_id, member_id) VALUES(?,?)", (early_id, ids[email]))
                 d.execute("INSERT OR IGNORE INTO social_joins(practice_id, member_id) VALUES(?,?)", (pid, ids[email]))
         for past_id in (north, south, west):
-            d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
-                ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (past_id, eli["id"]))
+            d.execute("INSERT OR IGNORE INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)", (past_id, eli["id"]))
             d.execute("INSERT OR IGNORE INTO chat_follows(practice_id, member_id) VALUES(?,?)", (past_id, eli["id"]))
         closed_when = (day - dt.timedelta(days=20)).isoformat()
         closed = d.execute("SELECT id FROM practices WHERE location='Preview pool closed'").fetchone()
@@ -2199,8 +2196,7 @@ def seed_preview_club(d):
                 "Preview only.", "Water Polo", "Cancelled preview")).lastrowid
         else:
             closed_id = closed["id"]
-        d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
-            ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (closed_id, eli["id"]))
+        d.execute("INSERT OR IGNORE INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)", (closed_id, eli["id"]))
         say("mira.solano@preview.regulars.invalid", "practice:%d" % closed_id, "Preview: pool closed.")
         harbor = d.execute("SELECT id FROM lineup_events WHERE title='Harbor Invitational'").fetchone()
         if not harbor:
@@ -2210,8 +2206,7 @@ def seed_preview_club(d):
         else:
             harbor_id = harbor["id"]
         try:
-            d.execute("""INSERT INTO lineup_rsvps(event_id, member_id, going, state) VALUES(?,?,1,'going')
-                ON CONFLICT(event_id, member_id) DO UPDATE SET going=1, state='going'""", (harbor_id, eli["id"]))
+            d.execute("INSERT OR IGNORE INTO lineup_rsvps(event_id, member_id, going, state) VALUES(?,?,1,'going')", (harbor_id, eli["id"]))
         except sqlite3.OperationalError:
             pass
         channel = dm_channel(eli["id"], ids["adele.voss@preview.regulars.invalid"])

@@ -181,6 +181,11 @@ def test_preview_seed_stays_off_the_live_database_and_is_idempotent():
             assert d.execute("SELECT is_admin FROM members WHERE email='ejoernc@gmail.com'").fetchone()["is_admin"] == 1
             assert d.execute("SELECT COUNT(*) FROM members").fetchone()[0] >= kept + 6
             assert d.execute("SELECT 1 FROM practices WHERE location='Preview Pool'").fetchone()
+            early = d.execute("SELECT id FROM practices WHERE location='Preview lane early'").fetchone()
+            eli_id = d.execute("SELECT id FROM members WHERE email='ejoernc@gmail.com'").fetchone()["id"]
+            d.execute("UPDATE rsvps SET going=0 WHERE practice_id=? AND member_id=?", (early["id"], eli_id))
+            A.seed_preview_club(d)
+            assert d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (early["id"], eli_id)).fetchone()["going"] == 0
         finally:
             os.environ.pop("IS_PULL_REQUEST", None)
             clear_preview_rows()

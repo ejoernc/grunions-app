@@ -1855,9 +1855,13 @@ dialog.memberedit .help a{color:var(--t1)}
       }
     });
     if (!social && (location.pathname.indexOf("/practices/") === 0 || location.pathname.indexOf("/lineup/") === 0)) {
-      var lb = document.querySelectorAll(".stattile b"), fb = doc.querySelectorAll(".stattile b");
+      var lb = document.querySelectorAll(".stattile b, .r2-metric b"), fb = doc.querySelectorAll(".stattile b, .r2-metric b");
       if (lb.length && lb.length === fb.length) {
         for (var i = 0; i < lb.length; i++) lb[i].textContent = fb[i].textContent;
+      }
+      var lp = document.querySelectorAll(".p5people"), fp = doc.querySelectorAll(".p5people");
+      if (lp.length && lp.length === fp.length) {
+        for (var p = 0; p < lp.length; p++) lp[p].innerHTML = fp[p].innerHTML;
       }
     }
     if (!social && location.pathname.indexOf("/lineup/") === 0) {
