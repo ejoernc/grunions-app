@@ -287,11 +287,14 @@ def test_schedule_is_not_the_old_home_and_profile_sheets_open():
     home = member.get("/practices").get_data(as_text=True)
     head = home.split("<main>", 1)[0]
     assert ">Schedule</h1>" in head and "Hi, Nia" not in head and "Enter your USAWP membership number" not in home and "Allow notifications" not in home and "This week" in home and "View full schedule" in home and "id=schedSheet" in home
-    assert ">Hi, Nia.</h1>" in home and "class=hititle" in home and ">Upcoming</h1>" in home and 'class="schedfeed weeklist"' in home and home.index("mapcontrols") < home.index("id=schedSheet")
+    assert ">Hi, Nia.</h1>" in home and "class=hititle" in home and ">Upcoming</h1>" in home and "id=schedFull" not in home and 'class="schedfeed weeklist"' not in home and home.index("mapcontrols") < home.index("id=schedSheet")
     assert "body.schedopen header.homehead:has(.displayhead){background:var(--color-bg)" in home and "body.schedhome:has(.weekdrawer.full) .weekhi{" in home and "background:#17181A" in home
     assert "div.card.tap.tripcard[data-kind=Clinic]:not(.cancelled){background:var(--r2-sky)" in home and "main:has(.lineupfilt){padding-bottom:calc(var(--nav-clear) + 64px" in home
     schedule = member.get("/practices?view=list").get_data(as_text=True)
+    sched_head = schedule.split("<main>", 1)[0]
+    assert ">Calendar</h1>" in sched_head and ">Schedule</h1>" not in sched_head and 'class="nav3-label">Schedule</span>' in schedule
     assert "id=schedule" in schedule and "view=list&when=past" in schedule
+    assert "font:700 104px/.8" in schedule and "font:700 56px/.85" in schedule and ".evrow2 .evcount{position:absolute" in schedule
     assert "body.homefull .schedfeed{position:relative;z-index:2;pointer-events:auto}" in schedule
     for href in re.findall(r'class="[^"]*(?:evcard2|evrow2|evcancel)[^"]*" href="([^"]+)"', schedule):
         assert href.startswith("/practices/")
