@@ -894,6 +894,7 @@ dialog.attachsheet button.attachbrowse{height:auto;min-height:0;display:inline-f
 .attachnote{margin:0;color:var(--r2-smoke);font:500 12px/1.35 var(--r2-font-sans)}
 .attacherr{margin:0;color:var(--r2-tangerine);font:600 13px/1.3 var(--r2-font-sans)}
 .attacherr[hidden]{display:none}
+.fileclip{position:fixed;left:0;top:0;width:1px;height:1px;margin:0;padding:0;border:0;opacity:0;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%)}
 dialog.attachsheet{width:min(640px,100%)}
 dialog.attachsheet:focus{outline:none}
 dialog.attachsheet::backdrop{background:rgba(11,11,12,.6)}
@@ -4433,9 +4434,9 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <p class=attachnote>Up to 10 · JPG, PNG, HEIC, GIF · 20 MB each. You can also paste (⌘V) or drag straight into the chat.</p>
 </div>
 <p class=attacherr id=photoErr hidden></p>
+<input class="pick fileclip" type=file name=photo id=photoFile accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif">
 <div id=photoDrop hidden>
 <div class=dropzone id=photoZone>
-<input class=pick type=file name=photo id=photoFile accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif">
 <button type=button class=dropempty id=photoPick><span class=droplink>Drop a photo here</span><span class=drophint>or Select photo</span></button>
 </div>
 </div>
@@ -4999,7 +5000,7 @@ T["notifications"] = """
 
 T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template><div class=chat id=chat><div class=chatin><button type=button id=earlier class=earlier hidden>Load earlier messages</button></div></div><div class=chatpad></div>
 {% if chat_locked %}<p class=chatlock>read-only · this practice ended.</p>{% endif %}<div class="composer noprint"><div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=thumbs id=prev hidden></div>
-<form id=f><input type=file id=file accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif,.gif,.png,.jpg,.jpeg,.webp" multiple hidden>
+<form id=f><input class=fileclip type=file id=file accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif,.gif,.png,.jpg,.jpeg,.webp" multiple>
 <textarea id=body rows=1 maxlength=2000 placeholder="{{ chat_placeholder or 'Message' }}" {% if chat_locked %}disabled{% endif %}></textarea>
 <button type=button class="iconbtn send" id=attach aria-label="Add photo">+</button>
 </form></div>
@@ -5414,8 +5415,8 @@ function shutAttach(){var sheet=document.getElementById('attachSheet');if(window
 document.getElementById('attach').onclick=function(){if(composeReady()) document.getElementById('f').requestSubmit(); else openAttach();};
 document.getElementById('attachCancel').onclick=shutAttach;
 document.getElementById('attachWideX').onclick=shutAttach;
-document.getElementById('takePhoto').onclick=function(){file.setAttribute('capture','environment');shutAttach();file.click()};
-document.getElementById('choosePhotos').onclick=function(){file.removeAttribute('capture');shutAttach();file.click()};
+document.getElementById('takePhoto').onclick=function(){file.setAttribute('capture','environment');file.click()};
+document.getElementById('choosePhotos').onclick=function(){file.removeAttribute('capture');file.click()};
 document.getElementById('chooseComputer').onclick=function(){file.removeAttribute('capture');file.click()};
 file.onchange=()=>{var picked=[].slice.call(file.files||[]);file.value='';if(picked.length&&takePhotos(picked))shutAttach()};
 prev.addEventListener('click',function(e){var b=e.target.closest('button[data-x]');if(!b)return;var list=filesNow();list.splice(+b.getAttribute('data-x'),1);setFiles(list)});

@@ -878,6 +878,8 @@ def test_chat_accepts_heic_and_names_live_photo_and_proraw():
     join(member, "Jon", "Photo", "jon.photo@example.com")
     page = member.get("/chat").get_data(as_text=True)
     accept = page.split('id=file', 1)[1].split('>', 1)[0]
+    assert 'class=fileclip type=file id=file' in page and ' hidden' not in page.split('id=file', 1)[0].rsplit('<input', 1)[-1]
+    assert "file.setAttribute('capture','environment');file.click()" in page and "shutAttach();file.click()" not in page
     assert 'accept="image/*' in accept
     assert "image/heic" in accept and "image/heif" in accept
     assert "image/heic-sequence" in accept and ".heic" in accept and ".heif" in accept
