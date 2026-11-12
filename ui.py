@@ -730,6 +730,8 @@ button.earlier{width:100%;height:auto;min-height:0;margin:0;padding:8px 0 4px;ba
 .reqbar .reqback{flex:none;font:700 13px/1 var(--r2-font-sans)}
 .reqbar .datechip{margin-left:auto;background:#fff;color:#241838;height:32px}
 .reqbar #threadName{flex-basis:100%;text-align:left}
+.reqtop{display:flex;align-items:center;gap:8px;width:100%}
+.reqsubject{display:block;width:100%;border:0;background:transparent;padding:0;text-align:left;cursor:pointer;font:700 32px/1 var(--r2-font-display);letter-spacing:-.03em;color:#241838}
 .reqmeta{flex-basis:100%;margin:0}
 .reqchip{display:inline-flex;align-items:center;margin-left:8px;padding:3px 8px;border-radius:999px;background:#9B6BFF;color:#fff;font:700 10px/1.2 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase}
 .reqmeta{margin:4px 0 0;color:#5C4A78;font:600 12px/1.3 var(--r2-font-sans)}

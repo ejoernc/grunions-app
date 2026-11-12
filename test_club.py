@@ -33,6 +33,8 @@ def clear_preview_rows():
         ids = [r["id"] for r in d.execute("SELECT id FROM members WHERE email LIKE '%@preview.regulars.invalid' OR email='ejoernc@gmail.com'")]
         if ids:
             marks = ",".join("?" * len(ids))
+            d.execute("DELETE FROM program_coaches WHERE member_id IN (%s)" % marks, ids)
+            d.execute("DELETE FROM practice_coaches WHERE member_id IN (%s)" % marks, ids)
             d.execute("DELETE FROM messages WHERE member_id IN (%s) OR body LIKE 'Preview:%%'" % marks, ids)
             d.execute("DELETE FROM rsvps WHERE member_id IN (%s)" % marks, ids)
             d.execute("DELETE FROM lineup_rsvps WHERE member_id IN (%s)" % marks, ids)
@@ -170,7 +172,9 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     assert 'data-place="me"' in mine and ">Calendar<" in mine and ">Profile<" in mine
     assert "Message someone" in mine and "New group" in mine and "Ask the club" not in mine and "New channel" not in mine
     sheet = coach.split("id=newChat", 1)[1].split("</dialog>", 1)[0]
-    assert "Requests" in sheet and "New channel" in sheet and "Board room" not in sheet and "Message the coaches" not in sheet and "Ask the club" not in sheet
+    assert "Ask the club" in sheet and "New channel" in sheet and "Board room" not in sheet and "Message the coaches" not in sheet
+    team = coach.split("Grunions · team", 1)[1].split(">Ask the club<", 1)[0]
+    assert "Board room" not in team and "c=requests" not in team and "c=board" not in team
     channel = coach.split("id=channelSheet", 1)[1]
     assert "data-toggle=auto_add" in channel and "type=checkbox name=auto_add" not in channel and "Who can post" in channel and "data-post=everyone" in channel
     assert "text-transform:none" in html and "border-radius:999px" in html.split(".practcard .unread{", 1)[1].split("}", 1)[0]
@@ -260,14 +264,18 @@ def test_a_coach_sees_the_sport_chat_and_a_board_member_sees_manage():
         A.db().execute("UPDATE members SET role='athlete', is_admin=1, board_member=0 WHERE email='ned.admin@example.com'")
         A.db().commit()
     coach_page = coach.get("/chat?view=list").get_data(as_text=True)
-    assert "Water Polo coaches" in coach_page and "Message the coaches" not in coach_page and ">Board room<" not in coach_page
+    assert "Water Polo coaches" in coach_page and "Water Polo requests" in coach_page and "Message the coaches" not in coach_page and ">Board room<" not in coach_page
+    assert ">Coaches<" in coach_page and "Request the board" in coach_page
+    team = coach_page.split("Grunions · team", 1)[1].split(">Coaches<", 1)[0]
+    assert "Board room" not in team and "requests" not in team
     assert coach.get("/chat?c=coach:water-polo").status_code == 200
     assert coach.get("/chat?c=board").status_code == 403
     assert coach.post("/chat/leave", data=dict(csrf=csrf(coach, "/chat?c=coach:water-polo"), c="coach:water-polo")).status_code == 400
     activities = board.get("/manage/area/activities").get_data(as_text=True)
     assert board.get("/manage").status_code == 200 and "People" in board.get("/manage").get_data(as_text=True) and "Board chat" in activities
     assert ">Manage<" in board.get("/practices").get_data(as_text=True)
-    assert board.get("/chat?c=board").status_code == 200 and ">Board room<" in board.get("/chat?view=list").get_data(as_text=True)
+    board_list = board.get("/chat?view=list").get_data(as_text=True)
+    assert board.get("/chat?c=board").status_code == 200 and ">Board room<" in board_list and "Board requests" in board_list and ">Admin<" in board_list and "Ask the club" not in board_list.split(">Admin<", 1)[-1].split("<dialog", 1)[0]
     assert board.get("/manage/club/programs").status_code == 200
     plain_list = plain.get("/chat?view=list").get_data(as_text=True)
     assert plain.get("/chat?c=board").status_code == 403 and ">Board room<" not in plain_list and "Board chat" not in plain.get("/manage/area/activities").get_data(as_text=True)

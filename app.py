@@ -2420,9 +2420,11 @@ def _new_chat_sheet(d, m, team):
         '</div>')
     club = ""
     if team:
-        if is_active_coach() or (me() and me()["is_admin"]):
-            rows = ('<a class=newrow href="/chat?c=requests"><span class="mark sun" aria-hidden=true>R</span>'
-                    '<span class=grow><b>Requests</b><small>Open requests for your sports</small></span><span class=chatgo>›</span></a>')
+        if is_board():
+            rows = ""
+        elif is_active_coach():
+            rows = ('<button type=button class=newrow data-open-request data-to=board data-lock=board data-about=other><span class="mark grape" aria-hidden=true>B</span>'
+                    '<span class=grow><b>Ask the club</b><small>Request the board. You already see coach requests.</small></span><span class=chatgo>›</span></button>')
         else:
             rows = ('<button type=button class=newrow data-open-request><span class="mark sun" aria-hidden=true>'
                     '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M8 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm8 0a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16 11ZM8 12.5C5.2 12.5 3 14 3 15.8V17h8v-1.2c0-.7.3-1.4.8-2A7 7 0 0 0 8 12.5Zm8 .5a3.4 3.4 0 0 0-1.4.3 3.4 3.4 0 0 1 1.4 2.8V17h5v-.8c0-1.7-2.2-3.2-5-3.2Z"/></svg></span>'
@@ -2765,14 +2767,11 @@ def team_chat_html(d, m):
         channels.append(_chat_row("/chat?c=%s" % escape(ch), "#", "%s <span class=count>%d</span>" % (escape(slug), roster), preview or "Team channel", when, chat_unread_n(d, mid, ch), _channel_tone(slug), chat_muted(d, mid, ch)))
     channels, left = _without_hidden(d, mid, channels)
     channels = _pins_first(d, mid, channels)
-    _open_n, req_sub, req_badge = _requests_inbox_meta(d, m)
-    ask_label, ask = _ask_rows(d, m, req_sub, req_badge)
     left_html = ('<p class="r2caps">Left</p><div class=chatlist>%s</div>' % "".join(
         html + _rejoin_form(ch) for html in left for ch in [_row_channel(html)])) if left else ""
     return (_chat_title("team") + '<div class=chatlist>%s</div>%s'
-            '<p class="r2caps">Grunions · team</p><div class=chatlist>%s</div>'
-            '<p class="r2caps">%s</p><div class=chatlist>%s</div>%s%s') % (
-                personal, practice, "".join(channels), ask_label, "".join(ask), left_html, chat_sheets(d, m, "team"))
+            '<p class="r2caps">Grunions · team</p><div class=chatlist>%s</div>%s%s%s') % (
+                personal, practice, "".join(channels), _inbox_role_sections(d, m), left_html, chat_sheets(d, m, "team"))
 def _practice_sessions(d, mid):
     """Upcoming sessions this person is Going to, then earlier ones they went to or opened."""
     today = today_pt().isoformat()
@@ -2881,7 +2880,9 @@ def chat():
     elif ch.startswith("practice:"):
         prompt = "Message tonight's practice"
     elif ch.startswith("req:"):
-        prompt = "Reply"
+        req = d.execute("SELECT * FROM club_requests WHERE id=?", (int(ch.split(":", 1)[1]),)).fetchone()
+        author = d.execute("SELECT first, last, preferred_first FROM members WHERE id=?", (req["member_id"],)).fetchone() if req else None
+        prompt = "Reply to %s" % display_first(author) if author and _staff_view(req, me()) else "Reply"
     elif ch.startswith("ask:"):
         prompt = "Message"
     elif ch.startswith("ch:"):
@@ -2968,8 +2969,6 @@ def _request_visible(row, m):
     if row["member_id"] == m["id"]:
         return True
     if row["audience"] == "coaches":
-        if is_club_admin(m):
-            return True
         if (m["role"] or "") != "coach":
             return False
         sport = ""
@@ -2979,7 +2978,7 @@ def _request_visible(row, m):
             sport = ""
         if not sport:
             return True
-        return any(item["slug"] == sport for item in coach_sports(db(), m))
+        return any(item["slug"] == sport for item in _assigned_sports(db(), m))
     if row["audience"] == "board":
         return is_board(m)
     return False
@@ -3062,20 +3061,58 @@ def _coach_chat_title(d, ch):
             name = sport["name"]
             break
     return "%s coaches" % name
-def _ask_rows(d, m, req_sub, req_badge):
-    """Members get Requests. Coaches get each sport's coaches chat, never the member ask row."""
-    rows = []
-    sports = coach_sports(d, m)
-    for sport in sports:
+def _assigned_sports(d, m):
+    """Sports this person coaches. An admin who is not a coach is not in this list."""
+    if not m or (m["role"] or "") != "coach":
+        return []
+    try:
+        import clubadmin
+        slugs = clubadmin.coached_slugs(d, m["id"])
+    except Exception:
+        slugs = set()
+    return [sport for sport in club_sports(d) if sport["slug"] in slugs]
+def _open_scoped(d, m, audience, sport=""):
+    n = 0
+    for row in _requests_for(d, m):
+        if row["status"] == "resolved" or row["audience"] != audience:
+            continue
+        if sport and (row["sport"] or "") != sport:
+            continue
+        n += 1
+    return n
+def _section(label, rows):
+    if not rows:
+        return ""
+    return '<p class="r2caps">%s</p><div class=chatlist>%s</div>' % (escape(label), "".join(rows))
+def _inbox_role_sections(d, m):
+    """Coaches and Admin hold the staff inboxes. Ask the club is only for people who can still file one."""
+    parts = []
+    coach_rows = []
+    for sport in _assigned_sports(d, m):
         ch = "coach:" + sport["slug"]
         preview, when = channel_preview(d, ch)
-        rows.append(_chat_row("/chat?c=%s" % ch, "C", "%s coaches" % sport["name"], preview or "Coaches only · can't be deleted", when, chat_unread_n(d, m["id"], ch), "sky", chat_muted(d, m["id"], ch)))
+        coach_rows.append(_chat_row("/chat?c=%s" % ch, "C", "%s coaches" % sport["name"], preview or "Coaches only · can't be deleted", when, chat_unread_n(d, m["id"], ch), "sky", chat_muted(d, m["id"], ch)))
+        n = _open_scoped(d, m, "coaches", sport["slug"])
+        coach_rows.append(_chat_row("/chat?c=requests&sport=%s" % escape(sport["slug"]), "R", "%s requests" % sport["name"],
+                                    "%d open" % n if n else "No open requests — nice.", "", n, "sun", False))
+    parts.append(_section("Coaches", coach_rows))
+    admin_rows = []
     if is_board(m):
         preview, when = channel_preview(d, "board")
-        rows.append(_chat_row("/chat?c=board", "B", "Board room", preview or "Private to board members", when, chat_unread_n(d, m["id"], "board"), "grape", chat_muted(d, m["id"], "board")))
-    rows.append(_chat_row("/chat?c=requests", "R", "Requests", req_sub, "", req_badge, "sun", False))
-    label = "Coaches" if sports else "Ask the club"
-    return label, rows
+        admin_rows.append(_chat_row("/chat?c=board", "B", "Board room", preview or "Private to board members", when, chat_unread_n(d, m["id"], "board"), "grape", chat_muted(d, m["id"], "board")))
+        n = _open_scoped(d, m, "board")
+        admin_rows.append(_chat_row("/chat?c=requests&audience=board", "R", "Board requests",
+                                    "%d open" % n if n else "No open requests — nice.", "", n, "grape", False))
+    parts.append(_section("Admin", admin_rows))
+    ask = []
+    if not is_board(m):
+        if (m["role"] or "") == "coach":
+            ask.append('<a class=chatrow href="/chat?view=list" data-open-request data-to=board data-lock=board data-about=other><span class="mark grape">B</span><span class=grow><b>Request the board</b><small>Private to board members</small></span></a>')
+        else:
+            _n, sub, badge = _requests_inbox_meta(d, m)
+            ask.append(_chat_row("/chat?c=requests", "R", "Requests", sub, "", badge, "sun", False))
+    parts.append(_section("Ask the club", ask))
+    return "".join(parts)
 def _thread_title(d, m, ch):
     if ch == "team":
         return "#everyone"
@@ -3231,6 +3268,8 @@ def _actions_bundle():
             'if(t&&t.hasAttribute("data-open-request")){e.preventDefault();var form=document.getElementById("requestForm");'
             'if(!form)return;var to=t.getAttribute("data-to"),about=t.getAttribute("data-about"),subject=t.getAttribute("data-subject"),practice=t.getAttribute("data-practice");'
             'if(to)form.audience.value=to;if(about)form.topic.value=about;if(subject)form.subject.value=subject;if(form.practice)form.practice.value=practice||"";'
+            'form.dataset.lock=t.getAttribute("data-lock")||"";'
+            'if(form.dataset.lock==="board"){form.audience.value="board";form.dataset.kept="1";}'
             'if(window.grunionsPaintRequest)grunionsPaintRequest();openBox(document.getElementById("requestSheet"), t);}});'
             'var hold,held=false;document.addEventListener("pointerdown",function(e){var row=e.target.closest&&e.target.closest("a.chatrow[data-ch],a.practcard[data-ch]");if(!row)return;'
             'held=false;hold=setTimeout(function(){held=true;openActions(row);},480);});'
@@ -3390,7 +3429,7 @@ def _request_dialog(d):
             '<form method=post action=/chat/requests id=requestForm>%s'
             '<div class=pickhead><button type=button data-sheet-close>Cancel</button><h2>Ask the club.</h2>'
             '<button class="btn btn-primary" id=requestSend>Send</button></div>'
-            '<p class="r2caps">To</p><select name=audience><option value=coaches>Coaches</option><option value=board>The board</option></select>'
+            '<div id=toField><p class="r2caps">To</p><select name=audience><option value=coaches>Coaches</option><option value=board>The board</option></select></div>'
             '<label id=sportField>Which coaches<select name=sport>%s</select></label>'
             '<p class="r2caps">About</p><select name=topic>%s</select>'
             '<label>Subject<input name=subject maxlength=80 placeholder="Optional"></label>'
@@ -3402,12 +3441,33 @@ def _request_dialog(d):
             'var board={membership:1,waiver:1};if(board[form.topic.value]&&!form.dataset.kept)form.audience.value="board";'
             'var foot=document.getElementById("requestFoot");'
             'var sportField=document.getElementById("sportField");if(sportField)sportField.hidden=form.audience.value==="board";'
-            'foot.textContent=form.audience.value==="board"?"Only board members and admins see this. Replies show up in Chat › Requests.":"Only that sport\'s coaches see this. Replies show up in Chat › Requests, and you\'ll get a notification. It stays open until someone marks it resolved.";};'
+            'var toField=document.getElementById("toField");if(toField)toField.hidden=form.dataset.lock==="board";'
+            'foot.textContent=form.audience.value==="board"?"Only board members see this. Replies show up in Chat › Requests.":"Only that sport\'s coaches see this. Replies show up in Chat › Requests, and you\'ll get a notification. It stays open until someone marks it resolved.";};'
             'var form=document.getElementById("requestForm");if(form){form.topic.addEventListener("change",function(){form.dataset.kept="";window.grunionsPaintRequest()});'
             'form.audience.addEventListener("change",function(){form.dataset.kept="1";window.grunionsPaintRequest()});window.grunionsPaintRequest();}</script>'
             ) % (csrf_field(), sports, topics)
+def _request_scope():
+    return (request.args.get("sport") or "").strip(), (request.args.get("audience") or "").strip()
 def requests_list_html(d, m):
+    sport, audience = _request_scope()
+    q = (request.args.get("q") or "").strip().lower()
     rows = _requests_for(d, m)
+    staff_list = False
+    if sport:
+        rows = [row for row in rows if row["audience"] == "coaches" and (row["sport"] or "") == sport and row["member_id"] != m["id"]]
+        staff_list = True
+    elif audience == "board":
+        rows = [row for row in rows if row["audience"] == "board" and row["member_id"] != m["id"]]
+        staff_list = True
+    elif (m["role"] or "") == "coach":
+        mine = {item["slug"] for item in _assigned_sports(d, m)}
+        rows = [row for row in rows if row["member_id"] == m["id"] or (row["audience"] == "coaches" and (row["sport"] or "") in mine)]
+    elif is_board(m):
+        rows = [row for row in rows if row["member_id"] == m["id"] or row["audience"] == "board"]
+    else:
+        rows = [row for row in rows if row["member_id"] == m["id"]]
+    if q:
+        rows = [row for row in rows if q in (row["subject"] or "").lower()]
     open_rows = [row for row in rows if row["status"] != "resolved"]
     done = [row for row in rows if row["status"] == "resolved"]
     def one(row):
@@ -3418,25 +3478,49 @@ def requests_list_html(d, m):
         who = "To coaches" if row["audience"] == "coaches" else "To the board"
         return _chat_row("/chat?c=%s" % ch, "R", escape(row["subject"]), "%s · %s" % (who, sub), "", n, "grape", chat_muted(d, m["id"], ch))
     empty = '<p class="t3">No open requests — nice.</p>'
-    return ('<div class=chathead><h1 class=chatdisplay>Requests.</h1>'
-            '<button type=button class=chatplus data-open-request aria-label="New request">+</button></div>'
+    plus = "" if staff_list else '<button type=button class=chatplus data-open-request aria-label="New request">+</button>'
+    hidden = ""
+    if sport:
+        hidden += '<input type=hidden name=sport value="%s">' % escape(sport)
+    if audience:
+        hidden += '<input type=hidden name=audience value="%s">' % escape(audience)
+    return ('<div class=chathead><h1 class=chatdisplay>Requests.</h1>%s</div>'
+            '<p class="t3">Questions stay open until someone marks them resolved, then they move to history.</p>'
+            '<form method=get action=/chat class=chatsearch><input type=hidden name=c value=requests>%s'
+            '<input name=q value="%s" placeholder="Search all requests"></form>'
             '<p class="r2caps">Open</p><div class=chatlist>%s</div>'
             '<p class="r2caps">Resolved</p><div class=chatlist>%s</div>') % (
+                plus, hidden, escape(q),
                 "".join(one(row) for row in open_rows) or empty,
                 "".join(one(row) for row in done) or '<p class="t3">Nothing resolved yet.</p>')
+def _request_list_href(row):
+    if not row:
+        return "/chat?c=requests"
+    if row["audience"] == "board":
+        return "/chat?c=requests&audience=board"
+    if row["sport"]:
+        return "/chat?c=requests&sport=%s" % row["sport"]
+    return "/chat?c=requests"
 def _request_thread_head(d, m, ch):
     row = d.execute("SELECT * FROM club_requests WHERE id=?", (int(ch.split(":", 1)[1]),)).fetchone()
-    title = _thread_title(d, m, ch)
+    subject = (row["subject"] if row else "Request") or "Request"
+    who = "Someone"
+    if row:
+        person = d.execute("SELECT first, last, preferred_first FROM members WHERE id=?", (row["member_id"],)).fetchone()
+        if person:
+            who = ("%s %s" % (display_first(person), person["last"] or "")).strip()
+    dest = "The board" if row and row["audience"] == "board" else "Coaches"
+    back = _request_list_href(row)
     kind, required, manage, profile, _permanent = _action_meta(ch)
-    return ('<div class="threadbar reqbar"><a class=reqback href="/chat?c=requests">Requests</a>'
-            '<span class=reqchip>Request</span>'
-            '<a class=datechip href="/chat?c=requests">Open ▾</a>'
-            '<button type=button class=threadmore id=threadMore aria-label="Chat actions" data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s">⋯</button>'
-            '<button type=button id=threadName data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s">%s</button>'
-            '<p class=reqmeta>%s</p></div>') % (
-                escape(ch), kind, required, manage, escape(title), escape(profile),
-                escape(ch), kind, required, manage, escape(title), escape(profile), escape(title),
-                escape(_opened_ago(row["created_at"]) if row else "Request"))
+    attrs = 'data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s"' % (
+        escape(ch), kind, required, manage, escape(subject), escape(profile))
+    chip = "%s · %s" % (who.split(" ")[0], subject)
+    return ('<div class="reqbar"><div class=reqtop><a class=reqback href="%s">← Requests</a>'
+            '<a class=datechip href="%s">%s ▾</a></div>'
+            '<button type=button id=threadName class=reqsubject %s>%s</button>'
+            '<p class=reqmeta>%s → %s · %s</p></div>'
+            ) % (escape(back), escape(back), escape(chip), attrs, escape(subject),
+                 escape(who.split(" ")[0]), dest, escape(_opened_ago(row["created_at"]) if row else "Request"))
 def _request_resolve_bar(d, m, ch):
     row = d.execute("SELECT * FROM club_requests WHERE id=?", (int(ch.split(":", 1)[1]),)).fetchone()
     if not row:
@@ -3445,14 +3529,19 @@ def _request_resolve_bar(d, m, ch):
         return '<div class=resolvebar><span>%s</span></div>' % escape(_resolved_line(d, row))
     if _staff_view(row, m):
         people = d.execute("""SELECT id, first, last, preferred_first FROM members
-            WHERE COALESCE(role,'')!='system' AND (is_admin=1 OR role='coach') ORDER BY first""").fetchall()
+            WHERE COALESCE(role,'')!='system' AND (COALESCE(board_member,0)=1 OR role='coach' OR is_admin=1) ORDER BY first""").fetchall()
         options = '<option value="">Assign</option>' + "".join(
             '<option value="%d"%s>%s</option>' % (person["id"], " selected" if person["id"] == row["assignee_id"] else "", escape(display_first(person)))
             for person in people)
+        if row["assignee_id"]:
+            who = d.execute("SELECT first, last, preferred_first FROM members WHERE id=?", (row["assignee_id"],)).fetchone()
+            status = "Open · %s is on it" % (display_first(who) if who else "Someone")
+        else:
+            status = "Open"
         return ('<div class=resolvebar><span>%s</span>'
                 '<form method=post action="/chat/requests/%d/assign">%s<select name=assignee onchange="this.form.submit()">%s</select></form>'
                 '<form method=post action="/chat/requests/%d/resolve">%s<button>Mark resolved</button></form></div>'
-                ) % (escape(_request_status(row, m)), row["id"], csrf_field(), options, row["id"], csrf_field())
+                ) % (escape(status), row["id"], csrf_field(), options, row["id"], csrf_field())
     waiting = "Coaches replied" if row["staff_replied"] else ("Waiting on the board" if row["audience"] == "board" else "Waiting on coaches")
     return ('<div class=resolvebar><span>%s</span><form method=post action="/chat/requests/%d/resolve">%s<button>This is solved.</button></form></div>'
             ) % (escape(waiting), row["id"], csrf_field())
@@ -3519,7 +3608,7 @@ def _nudge_staff(d, rid, text):
         people = []
         for person in d.execute("""SELECT * FROM members WHERE COALESCE(role,'')!='system' AND id!=?
                 AND (is_admin=1 OR role='coach')""", (row["member_id"],)).fetchall():
-            if is_club_admin(person) or not sport or any(item["slug"] == sport for item in coach_sports(d, person)):
+            if (person["role"] or "") == "coach" and (not sport or any(item["slug"] == sport for item in _assigned_sports(d, person))):
                 people.append(person)
     for person in people:
         d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (person["id"], text))
@@ -3565,6 +3654,10 @@ def chat_request_assign(rid):
         if not person:
             abort(400)
     d.execute("UPDATE club_requests SET assignee_id=?, updated_at=? WHERE id=?", (assignee, dt.datetime.now(dt.timezone.utc).isoformat(), rid))
+    if assignee and assignee != row["assignee_id"]:
+        who = d.execute("SELECT first, last, preferred_first FROM members WHERE id=?", (assignee,)).fetchone()
+        if who:
+            d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)", (me()["id"], "%s picked this up" % display_first(who), "req:%d" % rid))
     d.commit()
     return redirect("/chat?c=req:%d" % rid)
 def nudge_stale_requests(d):
