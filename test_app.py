@@ -898,9 +898,9 @@ eli.post("/api/messages?c=coaches", json={"body": "Badge coaches"}, headers={"X-
 ja, jo = jane.get("/api/unread").get_json(), john.get("/api/unread").get_json()
 cht = john.get("/chat?view=list").get_data(as_text=True)
 member_list = jane.get("/chat?view=list").get_data(as_text=True)
-board = cht.split("Message the board", 1)[-1][:220]
+board = cht.split(">Board room<", 1)[-1][:220]
 sheet = cht.split("id=newChat", 1)[1].split("</dialog>", 1)[0]
-ok(jo["coaches"] == jb["coaches"] + 1 and ja["coaches"] == 0 and ja["total"] == jane_now["total"] and "Message the board" in cht and "class=unread" in board and "Board room" in sheet and "New channel" in sheet and "New channel" not in member_list and "Board room" not in member_list, "coaches unread stays on the board row and off member totals")
+ok(jo["coaches"] == jb["coaches"] + 1 and ja["coaches"] == 0 and ja["total"] == jane_now["total"] and ">Board room<" in cht and "class=unread" in board and "Board room" in sheet and "New channel" in sheet and "Ask the club" in sheet and "Message the coaches" not in sheet and "New channel" not in member_list and "Board room" not in member_list, "coaches unread stays on the board row and off member totals")
 ok(john.get("/chat?c=coaches").status_code == 200 and john.get("/api/unread").get_json()["coaches"] == 0, "opening coaches chat clears it")
 def _audience(channel):
     rows = D.execute("SELECT id, role, is_admin FROM members WHERE COALESCE(role,'')!='system'").fetchall()
@@ -1131,15 +1131,17 @@ ok(_seen_proc.returncode == 0 and _seen_out.get("afterDup") == 1 and _seen_out.g
 ok("m.seen&&m.seen.label" in chui and "seenNow=receipt(r,j)" in chui and ".msgfoot:has(.seenline){margin-top:3px}" in chui and ".msgfoot:has(.rx:not(:empty)){margin-top:6px}" in chui and "align-self:flex-start" in chui.split(".seenline{")[1].split("}")[0], "seen by is painted with the message, and the label lines up with the top of a reaction")
 _when_src = chui[chui.find("function chatWhen"):chui.find("const t=iso")]
 _when_proc = subprocess.run(["node", "-e", _when_src + r'''
-var old=chatWhen("2026-10-30T20:32:00-07:00", "2026-11-04T12:00:00-08:00");
-var recent=chatWhen("2026-11-02T20:32:00-08:00", "2026-11-04T12:00:00-08:00");
-var today=chatWhen("2026-11-04T08:32:00-08:00", "2026-11-04T12:00:00-08:00");
-console.log(JSON.stringify({old:old, recent:recent, today:today}));
+var old=burstWhen("2026-10-30T20:32:00-07:00", null, "2026-11-04T12:00:00-08:00");
+var recent=burstWhen("2026-11-02T20:32:00-08:00", null, "2026-11-04T12:00:00-08:00");
+var today=burstWhen("2026-11-04T08:32:00-08:00", null, "2026-11-04T12:00:00-08:00");
+var gap=burstWhen("2026-11-04T08:32:00-08:00", "2026-11-04T07:00:00-08:00", "2026-11-04T12:00:00-08:00");
+var exact=chatWhen("2026-11-04T08:32:00-08:00");
+console.log(JSON.stringify({old:old, recent:recent, today:today, gap:gap, exact:exact}));
 '''], capture_output=True, text=True)
 _when = {}
 try: _when = json.loads(_when_proc.stdout or "{}")
 except ValueError: _when = {}
-ok(_when_proc.returncode == 0 and _when.get("old") == "10.30.26 8:32PM" and _when.get("recent") == "Mon 8:32 PM" and _when.get("today") == "Wed 8:32 AM" and ".txt.deleted{font-style:italic;font-size:12px;font-weight:500;line-height:1.3;color:var(--t3)" in chui and ".msgfoot{display:flex;align-items:center" in chui and ".mstack{display:inline-flex" in chui and "width:0;min-width:100%" in chui and ".seenline{" in chui, "chat times older than three days use a Pacific date, and deleted text matches Seen by")
+ok(_when_proc.returncode == 0 and _when.get("old") == "FRI · 8:32 PM" and _when.get("recent") == "MON · 8:32 PM" and _when.get("today") == "THIS MORNING · 8:32 AM" and _when.get("gap") == "8:32 AM" and _when.get("exact") == "8:32 AM" and ".txt.deleted{font-style:italic;font-size:12px;font-weight:500;line-height:1.3;color:var(--t3)" in chui and ".msgfoot{display:flex;align-items:center" in chui and ".mstack{display:inline-flex" in chui and "width:0;min-width:100%" in chui and ".seenline{" in chui and ".daydiv{" in chui, "chat bursts use a centered divider, and a tap time is just the clock")
 _grp_src = chui[chui.find("function sameGroup"):chui.find("function placeWho")]
 _grp_proc = subprocess.run(["node", "-e", _grp_src + r'''
 function chain(times, uids){
@@ -1156,14 +1158,14 @@ function mins(m){return new Date(t0+m*60000).toISOString()}
 console.log(JSON.stringify({
  long:chain([mins(0),mins(4),mins(8),mins(12)],[1,1,1,1]),
  exact:chain([mins(0),mins(5)],[1,1]),
- gap:chain([mins(0),mins(4),mins(10)],[1,1,1]),
+ gap:chain([mins(0),mins(4),mins(40)],[1,1,1]),
  other:chain([mins(0),mins(4),mins(5)],[1,1,2])
 }));
 '''], capture_output=True, text=True)
 _grp_out = {}
 try: _grp_out = json.loads(_grp_proc.stdout or "{}")
 except ValueError: _grp_out = {}
-ok(_grp_proc.returncode == 0 and _grp_out.get("long") == 4 and _grp_out.get("exact") == 2 and _grp_out.get("gap") == 2 and _grp_out.get("other") == 2, "a rolling five-minute gap keeps a chain together until someone else speaks or the gap is longer")
+ok(_grp_proc.returncode == 0 and _grp_out.get("long") == 4 and _grp_out.get("exact") == 2 and _grp_out.get("gap") == 2 and _grp_out.get("other") == 2, "a rolling thirty-minute gap keeps a chain together until someone else speaks or the gap is longer")
 _link_src = chui[chui.find("function safeHttp"):chui.find("function bodyHtml")]
 _link_proc = subprocess.run(["node", "-e", r'''
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

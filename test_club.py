@@ -152,9 +152,9 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     finally:
         os.environ.pop("IS_PULL_REQUEST", None)
         clear_preview_rows()
-    assert "Personal messages" in html and "everyone" in html and "No practice chat right now" in html and "Message the coaches" in html
+    assert "Personal messages" in html and "everyone" in html and "No practice chat right now" in html and "Requests" in html and "Ask the club" in html
     assert 'class=chatplus' in html and 'data-scope="team"' in html and "<h1>Team</h1>" not in html
-    assert "New chat" in html and "Message someone" in html and "New group" in html and "Message the board" in html
+    assert "New chat" in html and "Message someone" in html and "New group" in html and "Ask the club" in html
     assert "New channel" not in html and "Board room" not in html and "New message" not in html
     assert "Preview Tuesday practice" not in html and "Preview Friday practice" not in html and "Preview recent practice" not in html
     ask = html.split("Ask the club", 1)[1].split("<dialog", 1)[0]
@@ -168,7 +168,7 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     assert "Your teams" in inbox and ">Grunions<" in inbox and "Direct" in inbox
     assert 'data-place="everything"' in inbox
     assert 'data-place="me"' in mine and ">Calendar<" in mine and ">Profile<" in mine
-    assert "Message someone" in mine and "New group" in mine and "Message the coaches" not in mine and "New channel" not in mine
+    assert "Message someone" in mine and "New group" in mine and "Ask the club" not in mine and "New channel" not in mine
     sheet = coach.split("id=newChat", 1)[1].split("</dialog>", 1)[0]
     assert "Board room" in sheet and "New channel" in sheet and "Message the board" not in sheet
     channel = coach.split("id=channelSheet", 1)[1]
@@ -179,24 +179,55 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
 def test_coaches_thread_mutes_from_the_name_not_a_week_chip():
     member = client()
     join(member, "Eli", "Mute", "eli.mute@example.com")
-    page = member.get("/chat?c=ask:coaches").get_data(as_text=True)
+    page = member.get("/chat?c=team").get_data(as_text=True)
     assert "Mute for a week" not in page and "value=week" not in page
-    assert "Mute for 1h" in page and "Mute for 8h" in page and "Mute until tomorrow" in page and "Mute until turned back on" in page
+    assert ">1 hour<" in page and ">8 hours<" in page and ">Until tomorrow<" in page and ">Until I turn it back on<" in page
     assert 'id=threadName' in page and "<a class=brand" not in page.split("<main>", 1)[0]
+    assert "daydiv" in page
     form = page.split(".composer form{", 1)[1].split("}", 1)[0]
     assert "align-items:center" in form and "min-height:60px" in form and "padding:6px 6px 6px 8px" in form
-    token = csrf(member, "/chat?c=ask:coaches")
-    assert member.post("/chat/mute", data=dict(csrf=token, c="ask:coaches", mute="week")).status_code == 400
-    muted = member.post("/chat/mute", data=dict(csrf=token, c="ask:coaches", mute="1h"), follow_redirects=True)
+    token = csrf(member, "/chat?c=team")
+    assert member.post("/chat/mute", data=dict(csrf=token, c="team", mute="week")).status_code == 400
+    muted = member.post("/chat/mute", data=dict(csrf=token, c="team", mute="1h"), follow_redirects=True)
     assert muted.status_code == 200 and "Unmute" in muted.get_data(as_text=True)
     with A.app.app_context():
-        row = A.db().execute("SELECT until FROM chat_mutes WHERE channel='ask:coaches'").fetchone()
+        row = A.db().execute("SELECT until FROM chat_mutes WHERE channel='team'").fetchone()
         assert row["until"] and "week" not in row["until"]
-    held = member.post("/chat/mute", data=dict(csrf=token, c="ask:coaches", mute="on"), follow_redirects=True)
+    held = member.post("/chat/mute", data=dict(csrf=token, c="team", mute="on"), follow_redirects=True)
     assert held.status_code == 200
     with A.app.app_context():
-        row = A.db().execute("SELECT until FROM chat_mutes WHERE channel='ask:coaches'").fetchone()
+        row = A.db().execute("SELECT until FROM chat_mutes WHERE channel='team'").fetchone()
         assert row["until"] == ""
+
+
+def test_a_request_replaces_messaging_the_coaches():
+    member = client()
+    join(member, "Ada", "Ask", "ada.ask@example.com")
+    coach = client()
+    join(coach, "Nia", "Coach", "nia.ask@example.com")
+    with A.app.app_context():
+        A.db().execute("UPDATE members SET role='coach' WHERE email='nia.ask@example.com'")
+        A.db().commit()
+    token = csrf(member, "/chat?view=list")
+    made = member.post("/chat/requests", data=dict(
+        csrf=token, audience="coaches", topic="equipment", subject="Lane key", message="The key box is empty."), follow_redirects=True)
+    page = made.get_data(as_text=True)
+    assert made.status_code == 200 and "The key box is empty." in page and "Waiting on coaches" in page and "Mute for a week" not in page and "Ada → Coaches" in page
+    listed = member.get("/chat?c=requests").get_data(as_text=True)
+    assert "Lane key" in listed and "No open requests" not in listed.split("Open", 1)[1].split("Resolved", 1)[0]
+    staff = coach.get("/chat?c=requests").get_data(as_text=True)
+    assert "Lane key" in staff and "New" in staff
+    rid = A.db().execute("SELECT id FROM club_requests WHERE subject='Lane key'").fetchone()[0] if False else None
+    with A.app.app_context():
+        rid = A.db().execute("SELECT id FROM club_requests WHERE subject='Lane key'").fetchone()[0]
+    resolved = coach.post("/chat/requests/%d/resolve" % rid, data=dict(csrf=csrf(coach, "/chat?c=req:%d" % rid)), follow_redirects=True)
+    assert "Resolved by Nia" in resolved.get_data(as_text=True)
+    token = csrf(member, "/chat?c=req:%d" % rid)
+    again = member.post("/api/messages?c=req:%d" % rid, json={"body": "One more thing"}, headers={"X-CSRF": token})
+    assert again.status_code == 200
+    with A.app.app_context():
+        row = A.db().execute("SELECT status, last_side FROM club_requests WHERE id=?", (rid,)).fetchone()
+        assert row["status"] == "open" and row["last_side"] == "member"
 
 
 def test_practice_chat_is_read_only_after_seven_days():
