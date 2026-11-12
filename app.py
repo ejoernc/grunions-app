@@ -379,7 +379,7 @@ def fmt_phone(raw):
     if digits: return "(%s) %s-%s" % (digits[:3], digits[3:6], digits[6:])
     text = " ".join(str(raw or "").split())
     return text or "—"
-# Discover stays in Everything on this preview. The first live Grunions push hides it.
+# Preview keeps Discover in Everything. Do not hide it here. The first live Grunions push hides it, and that hide is not deployed from this preview.
 # Do not turn this off on grunions.regulars.team from this branch.
 SHOW_DISCOVER = True
 def nav_context():
