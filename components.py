@@ -87,6 +87,11 @@ def day(label):
     return Markup('<h3 class=rg-day>%s</h3>' % _e(label))
 
 
+def label(text):
+    """Caps section label (CLEARANCE, ACCOUNT, TUE 17)."""
+    return Markup('<h3 class=rg-day>%s</h3>' % _e(text))
+
+
 def event_line(href, title, sub="", tone="sun", badge="", cta=""):
     """Compact event line (Me · Calendar 09.03, Manage › Schedule 08.01). Team-colored, title + one line,
     ink pill on the right: an arrow, or a short action like Edit / Check in / Post."""
@@ -141,7 +146,7 @@ def row(title, sub="", href="", lead="", lead_tone="", trail="", chip_label="", 
         side += '<span class=rg-side>%s%s</span>' % (('<span class=rg-trail>%s</span>' % _e(trail)) if trail else "",
                                                     ('<span class=rg-count>%s</span>' % _e(badge)) if badge else "")
     if href and chevron and kind == "settings":
-        side += '<span class=rg-chev aria-hidden=true>›</span>'
+        side += '<span class=rg-chev aria-hidden=true>→</span>'
     inner = '%s<span class=rg-txt><b>%s</b>%s</span>%s' % (lead_html, _e(title), ('<small>%s</small>' % _e(sub)) if sub else "", side)
     return _tag(href, "rg-row rg-%s%s" % (kind, " muted" if muted else ""), inner, extra)
 
@@ -201,6 +206,6 @@ def checklist(title, steps, done_label=""):
 
 
 def jinja_globals():
-    return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_filters=filters, rg_day=day,
+    return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
                 rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_checklist=checklist, event_tone=event_tone)

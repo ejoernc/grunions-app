@@ -717,7 +717,7 @@ main:has(.lineupfilt){padding-bottom:calc(var(--nav-clear) + 80px + env(safe-are
 details.lineuppast{border:0}
 details.lineuppast>summary{cursor:pointer;list-style:none}
 details.lineuppast>summary::-webkit-details-marker{display:none}
-div.card.tap.tripcard.lcard{padding:22px 20px 20px;border-radius:36px;gap:10px;min-height:156px;box-sizing:border-box;display:flex;flex-direction:column;text-decoration:none;overflow:hidden}
+.card.tap.tripcard.lcard{color:inherit;padding:22px 20px 20px;border-radius:36px;gap:10px;min-height:156px;box-sizing:border-box;display:flex;flex-direction:column;text-decoration:none;overflow:hidden}
 div.card.tap.tripcard.lcard.ltall{gap:12px;min-height:208px}
 div.card.tap.tripcard.lcard.ltall.pinned{min-height:228px}
 .lcard .lctop,.lcard .ltop,.lcard .ltfoot,.lcard .lcfoot,.lcard .lmain{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -2246,14 +2246,16 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro expiry_text(m) %}{% if not m.usawp_valid_until %}missing{% else %}expires {{ m.usawp_valid_until }}{% endif %}{% endmacro %}
 {% macro titledot(kind, title) %}<span class=rowtitle><span class="dot{% if kind %} {{ kind }}{% endif %}" aria-hidden=true></span>{{ title }}</span>{% endmacro %}
 {% macro memhead(m) %}<div class=sechead id=membership><div class=seclabel>Compliance</div><span hidden>Water Polo Membership</span>{% if m.usawp_verified_at %}<div class=verifiedwhen>Verified {{ m.usawp_verified_at[:10] }}</div>{% endif %}</div>{% endmacro %}
+{# Credential line on the list-row component: ok = Cleared (lime), warn = Expiring (sun), anything else = Not cleared (tangerine). #}
+{% macro cred_row(kind, title, side) -%}{{ rg_row(title, side, '', '', '', '', {'ok':'Cleared','warn':'Expiring'}.get(kind|trim, 'Not cleared'), {'ok':'going','warn':'expiring'}.get(kind|trim, 'notcleared')) }}{%- endmacro %}
 {% macro membership_section(m, vr_pending) %}{% if can_see_member_status(m) %}{% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set ex = expiry_notes(m, cl) %}{% set cc = coach_clearance(m) %}{% set left = days_left(m.usawp_valid_until) %}{% set locked = m.usawp_status == 'verified' and not (left is not none and left < 0) %}{% set on_trial = tw and tw.active and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}
 {{ memhead(m) }}
 <div class=list>
-<div class="li prow">{{ titledot('warn' if on_trial else expiry_kind(m)|trim, 'USAWP #' ~ (m.usawp_number or '—')) }}<span class=v>{% if on_trial %}{{ trial_badge(tw) }}{% else %}{{ expiry_text(m)|trim }}{% endif %}</span></div>
+{{ cred_row('warn' if on_trial else expiry_kind(m)|trim, 'USAWP #' ~ (m.usawp_number or '—'), (trial_badge(tw)|striptags) if on_trial else expiry_text(m)|trim) }}
 {% if not locked %}<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">USAWP number<input form=profileForm id=usawpNumber name=usawp_number inputmode=numeric autocomplete=off value="{{ m.usawp_number or '' }}" data-original="{{ m.usawp_number or '' }}"></label></div>{% endif %}
-{% for it in cl.checks %}{% set sk = {'ok':'ok','no date':'warn'}.get(it.status,'bad') %}{% set side = (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status != 'expired' else 'expired' %}<div class="li prow">{{ titledot(sk, it.req.name) }}<span class=v>{{ side }}</span></div>{% endfor %}
-{% if background_view(m) %}{% set bg = background_view(m) %}<div class="li prow">{{ titledot(bg.kind, 'Background screening') }}<span class=v>{{ ('expires ' ~ bg.date) if bg.date else 'missing' }}</span></div>{% endif %}
-{% if cc %}<div class="li prow">{{ titledot('ok' if cc.ok else 'bad', 'Coaching') }}<span class=v>{{ 'cleared' if cc.ok else cc.text }}</span></div>{% elif coach_eligibility(m).text %}{% set ce = coach_eligibility(m) %}<div class="li prow">{{ titledot('ok' if ce.eligible else 'bad', 'Coaching') }}<span class=v>{{ ce.text }}</span></div>{% endif %}
+{% for it in cl.checks %}{% set sk = {'ok':'ok','no date':'warn'}.get(it.status,'bad') %}{% set side = (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status != 'expired' else 'expired' %}{{ cred_row(sk, it.req.name, side) }}{% endfor %}
+{% if background_view(m) %}{% set bg = background_view(m) %}{{ cred_row(bg.kind, 'Background screening', ('expires ' ~ bg.date) if bg.date else 'missing') }}{% endif %}
+{% if cc %}{{ cred_row('ok' if cc.ok else 'bad', 'Coaching', 'cleared' if cc.ok else cc.text) }}{% elif coach_eligibility(m).text %}{% set ce = coach_eligibility(m) %}{{ cred_row('ok' if ce.eligible else 'bad', 'Coaching', ce.text) }}{% endif %}
 </div>
 {% if tw and tw.expired and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<p class="sm" style="margin:8px 0 0">Trial ended {{tw.ends}}</p>{% endif %}
 {% if not cl.ok %}{% if not vr_pending %}{% for line in ex.lines %}<p class="sm" style="margin:8px 0 0">{{line}}</p>{% endfor %}{% elif ex.safesport %}<p class="sm" style="margin:8px 0 0">SafeSport expired {{ex.safesport}}</p>{% endif %}
@@ -5261,10 +5263,8 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <button class="btn btn-primary full">Save</button></form>
 <p class=t3><a href=/notifications>Notification settings</a></p>
 </div>{% endif %}
-<div class=seclabel>Cleared sports</div>
-<div class=sporthead><b>Grunions</b>{% if m.is_admin or m.board_member %}<span class=minichip>Admin</span>{% elif m.role == 'coach' %}<span class=minichip>Coach</span>{% endif %}</div>
-{% set mine_clear = clearance(m) %}
-<div class=sportline><span>Water polo</span><span class="st {{ 'st-ok' if mine_clear.ok else 'st-warn' }}">{{ 'Cleared' if mine_clear.ok else 'Pending' }}</span></div>
+{% set mine_clear = clearance(m) %}{{ rg_label('Cleared sports') }}
+{{ rg_row('Water polo', 'Grunions' ~ (' · Admin' if (m.is_admin or m.board_member) else (' · Coach' if m.role == 'coach' else '')), '', '', '', '', 'Cleared' if mine_clear.ok else 'Pending', 'going' if mine_clear.ok else 'expiring') }}
 {{ membership_section(m, vr_pending) }}
 <div class=seclabel>Personal</div>
 <div class="list infogrid">
@@ -5275,13 +5275,11 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class="li prow viewonly"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
 <div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Phone<input form=profileForm name=phone id=phoneInput type=tel inputmode=numeric autocomplete=tel value="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}" data-original="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}"></label></div>
 </div>
-<div class=seclabel>Role</div>
-<div class=list><div class="li prow"><span class=k>Role</span><span class="chip-info" style="margin:0">{{ role_label(m)|capitalize }}</span></div></div>
-<div class=seclabel>Settings</div>
-<div class=list>
-<a class="li prow chevrow" href=/notifications><span>Notifications</span><span class=v>Push + email</span><span class=nxchev aria-hidden=true>›</span></a>
-<a class="li prow chevrow" href=/privacy><span>Account</span><span class=v>{{ m.email }}</span><span class=nxchev aria-hidden=true>›</span></a>
-</div>
+{{ rg_label('Account') }}
+{{ rg_row('Teams & roles', 'Grunions · ' ~ role_label(m)|capitalize) }}
+{{ rg_row('Notifications', 'Leave-by · changes · @mentions', '/notifications') }}
+{{ rg_row('Privacy', 'Who sees your email and phone', '/privacy') }}
+{{ rg_row('Your week', (m.avail_days or 'Not set')|replace(',', ' · '), '/setup/week') }}
 <a class="btn btn-secondary full ghostpill" href=/logout>Log out</a>
 {% else %}
 {% if prof_upcoming or prof_past %}

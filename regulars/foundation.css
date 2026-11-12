@@ -348,7 +348,7 @@
 .rg-event .rg-badge{flex:none;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--fixed-ink);color:var(--lime);font:700 11px/22px var(--font-sans);text-align:center}
 .rg-callout.tone-graphite,.rg-callout.tone-carbon{color:var(--paper)}
 .rg-callout.tone-graphite .rg-pill,.rg-callout.tone-carbon .rg-pill{background:var(--paper);color:var(--ink)}
-.rg-row{display:flex;align-items:center;gap:14px;box-sizing:border-box;width:100%;margin:0 0 8px;padding:18px 16px 18px 20px;border-radius:var(--row-radius);background:var(--carbon);color:var(--paper);text-decoration:none}
+.rg-row{display:flex;align-items:center;gap:14px;box-sizing:border-box;width:100%;margin:0 0 12px;padding:14px 16px;border-radius:var(--row-radius);background:var(--carbon);color:var(--paper);text-decoration:none}
 .rg-row.rg-person{padding:12px 16px 12px 12px}
 .rg-row .rg-txt b{font:700 16px/1.25 var(--font-sans)}
 .rg-row.rg-person .rg-txt b{font:700 18px/1.2 var(--font-display);letter-spacing:-.02em}
@@ -357,7 +357,7 @@
 .rg-lead:not([class*=tone-]){color:var(--paper)}
 .rg-settings .rg-lead{width:32px;height:32px;font-size:14px}
 .rg-trail{flex:none;color:var(--smoke);font:600 14px/1 var(--font-sans)}
-.rg-chev{flex:none;color:var(--smoke);font:700 20px/1 var(--font-sans)}
+.rg-chev{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 12px/1 var(--font-sans)}
 .rg-chip{flex:none;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px 0 10px;border-radius:999px;background:var(--lime);color:var(--fixed-ink);font:700 12px/1 var(--font-sans);white-space:nowrap}
 .rg-chip i{width:6px;height:6px;border-radius:50%;background:currentColor}
 .rg-chip.st-paid{background:var(--team-sage)}.rg-chip.st-expiring{background:var(--team-sun)}.rg-chip.st-notcleared{background:var(--team-tangerine)}
