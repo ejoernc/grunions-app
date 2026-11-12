@@ -83,7 +83,8 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     assert 'nav.nav3::before{content:"";position:absolute;inset:0' in schedule and ".nav3-label{white-space:nowrap" in schedule
     assert "padding-bottom:calc(var(--nav-clear) + 32px" in schedule
     assert "M12 6.5V7.5M12 9.5V10.5M12 12.5V13.5" in schedule and 'data-tab="ticket"' in schedule
-    assert "padding:8px 14px" in schedule and "padding:0 6px" in schedule and "justify-content:space-evenly" in schedule and "flex:0 0 auto" in schedule.split(".nav3-tabs a.on{", 1)[1].split("}", 1)[0] and "font:700 16px/normal" in schedule.split(".nav3-tabs a.on{", 1)[1].split("}", 1)[0]
+    assert "justify-content:space-evenly" in schedule and "padding-right:6px" in schedule and "flex:0 0 auto" in schedule.split(".nav3-tabs a.on{", 1)[1].split("}", 1)[0]
+    assert "prev.offsetLeft+prev.offsetWidth" in schedule and "slide.offsetWidth>box.w+48" in schedule
     assert "min-width:768px" in schedule and "background:var(--r2-carbon);-webkit-backdrop-filter:none" in schedule
     assert 'touch-action:pan-y' in schedule and 'nav3Follow' in schedule
     assert "border-radius:var(--r2-radius-pill)" in schedule

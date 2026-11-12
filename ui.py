@@ -658,7 +658,7 @@ nav.nav3[data-place="me"]:has(.nav3-photo) .nav3-initials{display:none}
 .crestmark.who img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
 .nav3-more{position:absolute;left:38px;top:38px;width:20px;height:20px;border-radius:var(--r2-radius-pill);background:var(--r2-ink);color:var(--r2-paper);font:700 11px/20px var(--r2-font-sans);display:flex;align-items:center;justify-content:center}
 .nav3-switch-copy,.nav3-chevron,.nav3-menu-label,.nav3-rule,.nav3-dot{display:none}
-.nav3-tabs{position:relative;display:flex;flex:1;align-items:center;justify-content:space-evenly;gap:6px;min-width:0;height:56px}
+.nav3-tabs{position:relative;display:flex;flex:1;align-items:center;justify-content:space-evenly;gap:6px;min-width:0;height:56px;padding-right:6px;box-sizing:border-box}
 .nav3-slide{position:absolute;z-index:0;left:0;top:0;height:56px;border-radius:var(--r2-radius-pill);background:var(--r2-lime);pointer-events:none;transition:left 280ms cubic-bezier(0.22,1,0.36,1),top 280ms cubic-bezier(0.22,1,0.36,1),width 280ms cubic-bezier(0.22,1,0.36,1),height 280ms cubic-bezier(0.22,1,0.36,1),background-color 280ms ease,border-radius 280ms ease}
 .nav3-slide.manage{background:var(--r2-tangerine)}
 .nav3-tabs a{position:relative;z-index:1;width:max-content;height:56px;flex:0 0 auto;min-width:max-content;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 6px;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-smoke);text-decoration:none;font:700 11px/normal var(--r2-font-sans);box-sizing:border-box;overflow:visible;transition:color 280ms ease,font-size 280ms cubic-bezier(0.22,1,0.36,1)}
@@ -817,7 +817,7 @@ button.switchrow{width:100%;border:0;background:transparent;text-align:left;curs
  .nav3-more{display:none}
  .nav3-menu-label{display:block;margin:0;color:var(--r2-smoke);font:700 9px/normal var(--r2-font-sans)}
  .nav3-rule{display:block;width:40px;height:2px;background:var(--r2-graphite)}
- .nav3-tabs{flex:none;flex-direction:column;justify-content:flex-start;width:76px;height:auto;gap:10px}
+ .nav3-tabs{flex:none;flex-direction:column;justify-content:flex-start;width:76px;height:auto;gap:10px;padding-right:0}
  nav.nav3:has(.nav3-tabs>a:nth-child(5)){gap:6px}
  nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs{gap:6px}
  .nav3-slide{border-radius:22px}
@@ -2157,19 +2157,32 @@ grunionsCaptureArea();
  menu.addEventListener('close', function(){ crest.setAttribute('aria-expanded','false'); });
 })();
 function nav3Reduced(){ return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+function nav3Fill(on){
+ var prev=on.previousElementSibling;
+ while(prev && prev.tagName!=='A') prev=prev.previousElementSibling;
+ var next=on.nextElementSibling;
+ while(next && next.tagName!=='A') next=next.nextElementSibling;
+ var left=prev?prev.offsetLeft+prev.offsetWidth:on.offsetLeft;
+ var right=next?next.offsetLeft:on.offsetLeft+on.offsetWidth;
+ if(right-left<on.offsetWidth){ left=on.offsetLeft; right=left+on.offsetWidth; }
+ return {l:left, t:on.offsetTop, w:right-left, h:on.offsetHeight};
+}
 function nav3Place(animate){
  var tabs=document.querySelector('nav.nav3 .nav3-tabs');
  if(!tabs) return;
  var slide=tabs.querySelector('.nav3-slide'), on=tabs.querySelector('a.on');
  if(!slide||!on) return;
- if(!animate || nav3Reduced()) slide.style.transition='none';
+ var box=nav3Fill(on);
+ if(!box.w||!box.h) return;
+ var jump=!animate || nav3Reduced() || !slide.offsetWidth || slide.offsetWidth>box.w+48;
+ if(jump) slide.style.transition='none';
  else slide.style.transition='';
  slide.classList.toggle('manage', on.getAttribute('data-tab')==='manage');
- slide.style.left=on.offsetLeft+'px';
- slide.style.top=on.offsetTop+'px';
- slide.style.width=on.offsetWidth+'px';
- slide.style.height=on.offsetHeight+'px';
- if(!animate || nav3Reduced()){ slide.offsetWidth; slide.style.transition=''; }
+ slide.style.left=box.l+'px';
+ slide.style.top=box.t+'px';
+ slide.style.width=box.w+'px';
+ slide.style.height=box.h+'px';
+ if(jump){ slide.offsetWidth; slide.style.transition=''; }
 }
 function nav3MoveTo(anchor){
  var tabs=anchor&&anchor.closest&&anchor.closest('.nav3-tabs');
