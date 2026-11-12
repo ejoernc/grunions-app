@@ -300,9 +300,19 @@ button.mqclear{position:absolute;right:4px;top:50%;transform:translateY(-50%);wi
 .mseclabel{margin:4px 0 0;font-size:13px;font-weight:650;color:var(--t3)}
 .orggrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .orggrid[hidden],.qactions[hidden],#manageHits[hidden]{display:none}
-.orgcard{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-height:124px;padding:14px;border-radius:16px;background:var(--color-raised);color:inherit;text-decoration:none}
-.orgcard b{font-size:15px;line-height:1.3}
-.orgcard .mdesc{color:var(--t3);font-size:13px;font-weight:450;line-height:1.35}
+.orgcard{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-height:124px;padding:16px;border-radius:20px;background:var(--r2-graphite);color:var(--r2-paper);text-decoration:none}
+.orgcard b{font:700 18px/1.15 var(--r2-font-display);letter-spacing:-.02em}
+.orgcard .mdesc{color:var(--r2-smoke);font:500 13px/1.35 var(--r2-font-sans)}
+.mseclabel{margin:8px 0 0;color:var(--r2-smoke);font:700 10px/1.2 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase}
+.mqfield input{height:48px;border:0;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);font:600 15px/48px var(--r2-font-sans);padding:0 44px 0 16px;box-sizing:border-box}
+header.homehead h1,header.profilebar h1{font-family:var(--r2-font-display);font-weight:700;letter-spacing:-.03em}
+.profilename{font-family:var(--r2-font-display);font-weight:700;font-size:32px;letter-spacing:-.03em}
+.seclabel{color:var(--r2-smoke);font:700 10px/1.2 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase}
+.lineupfilt .chip.on,.profswitch .chip.on,.rolechips .chip.on{background:var(--r2-lime);color:var(--r2-fixed-ink);border-color:transparent}
+body.homefull .homedock .card,body.homefull .schedlist .card,div.card.tap.tripcard{border-radius:28px;border-color:transparent;background:var(--r2-carbon);color:var(--r2-paper)}
+@media (min-width:476px){.orggrid{gap:16px}}
+@media (min-width:768px){.orggrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:1280px){.orggrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .orgcard .mchev{margin-top:auto;align-self:flex-end}
 .rolechips{display:flex;gap:8px;overflow-x:auto;margin:0 0 8px;scrollbar-width:none}
 .rolechips .chip{flex:none}

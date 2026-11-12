@@ -379,6 +379,9 @@ def fmt_phone(raw):
     if digits: return "(%s) %s-%s" % (digits[:3], digits[3:6], digits[6:])
     text = " ".join(str(raw or "").split())
     return text or "—"
+# Discover stays in Everything on this preview. The first live Grunions push hides it.
+# Do not turn this off on grunions.regulars.team from this branch.
+SHOW_DISCOVER = True
 def nav_context():
     """Where the crest is, and which tabs belong there. Grunions is the only live team."""
     m = me()
@@ -406,13 +409,15 @@ def nav_context():
         return path == prefix or path.startswith(prefix + "/")
     if place == "everything":
         on_personal = path.startswith("/inbox") or (path.startswith("/chat") and forced == "everything")
-        tabs = [
-            ("search", "Discover", "/discover", path == "/discover"),
+        tabs = []
+        if SHOW_DISCOVER:
+            tabs.append(("search", "Discover", "/discover", path == "/discover"))
+        tabs.extend([
             ("pin", "Map", "/home", path == "/home"),
             ("chat", "Chat", "/inbox", on_personal),
-        ]
+        ])
         crest = ""
-        switch = ("Everything", "All your teams")
+        switch = ("Everything", "Discover · map · chat" if SHOW_DISCOVER else "Map · chat")
     elif place == "me":
         # Calendar, Chat, Profile. Calendar is the first tab and the default.
         on_personal = (path.startswith("/inbox") and forced == "me") or (path.startswith("/chat") and forced == "me")
