@@ -503,7 +503,14 @@ nav.tabs a .badge{position:absolute;top:0;right:0;margin:0}.datetile{position:re
 nav.tabs svg{width:var(--icon-nav);height:var(--icon-nav);flex:none;display:block}
 body.editor nav.nav3,body.profile-edit nav.nav3{display:none}
 body:has(nav.nav3){--nav-clear:104px}
-nav.nav3{position:fixed;z-index:9;left:var(--r2-space-4);right:var(--r2-space-4);bottom:calc(var(--r2-space-5) + env(safe-area-inset-bottom));height:72px;display:flex;align-items:center;gap:var(--r2-space-1);padding:var(--r2-space-2);border:0;border-radius:var(--r2-radius-pill);background:var(--r2-carbon);box-sizing:border-box;touch-action:pan-y}
+nav.nav3{position:fixed;z-index:9;left:var(--r2-space-4);right:var(--r2-space-4);bottom:calc(20px + env(safe-area-inset-bottom));height:72px;display:flex;align-items:center;gap:var(--r2-space-1);padding:var(--r2-space-2);border:0;border-radius:var(--r2-radius-pill);background:var(--r2-nav-translucent);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-sizing:border-box;touch-action:pan-y}
+@media (min-width:476px) and (max-width:767px){
+ nav.nav3{bottom:calc(28px + env(safe-area-inset-bottom))}
+ body:has(nav.nav3){--nav-clear:120px}
+}
+@media (prefers-reduced-transparency:reduce){
+ nav.nav3{background:var(--r2-carbon);-webkit-backdrop-filter:none;backdrop-filter:none}
+}
 .nav3-crest{position:relative;width:56px;height:56px;flex:none;display:flex;align-items:center;justify-content:center;gap:10px;padding:0;border:0;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-fixed-ink);cursor:pointer}
 .nav3-crest-face{width:56px;height:56px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:var(--r2-radius-pill);background:var(--r2-sun);color:var(--r2-fixed-ink);font:700 20px/1 var(--r2-font-display);box-sizing:border-box}
 nav.nav3[data-place="me"] .nav3-crest-face{background:var(--r2-paper);color:var(--r2-ink)}
@@ -634,7 +641,7 @@ dialog.newchat .sheet,dialog.pickpeople .sheet{max-height:90dvh}
  dialog.newchat .sheet,dialog.pickpeople .sheet{border-radius:24px;border:1px solid var(--r2-graphite);max-height:min(90dvh,640px)}
  dialog.newchat .grab,dialog.pickpeople .grab{display:none}
  body:has(nav.nav3){padding-left:var(--r2-rail);--nav-clear:16px;--nav-offset-bottom:0px}
- nav.nav3{top:0;bottom:0;left:0;right:auto;width:var(--r2-rail);height:auto;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;padding:24px 0;border-radius:0;touch-action:auto}
+ nav.nav3{top:0;bottom:0;left:0;right:auto;width:var(--r2-rail);height:auto;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;padding:24px 0;border-radius:0;background:var(--r2-carbon);-webkit-backdrop-filter:none;backdrop-filter:none;touch-action:auto}
  .nav3-crest,.nav3-crest-face{width:60px;height:60px}
  .nav3-crest-face{font-size:22px;letter-spacing:-0.66px}
  .nav3-more{display:none}
