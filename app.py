@@ -379,9 +379,10 @@ def fmt_phone(raw):
     if digits: return "(%s) %s-%s" % (digits[:3], digits[3:6], digits[6:])
     text = " ".join(str(raw or "").split())
     return text or "—"
-# Preview keeps Discover in Everything. Do not hide it here. The first live Grunions push hides it, and that hide is not deployed from this preview.
-# Do not turn this off on grunions.regulars.team from this branch.
+# Preview keeps Discover in Everything, and keeps Find or join a team.
+# The first live Grunions push turns both off. Do not deploy that hide to grunions.regulars.team from this branch.
 SHOW_DISCOVER = True
+SHOW_FIND_TEAM = True
 def nav_context():
     """Where the crest is, and which tabs belong there. Grunions is the only live team."""
     m = me()
@@ -445,7 +446,10 @@ def nav_context():
         unread = 0
     return {"show": True, "place": place, "tabs": tabs, "crest": crest,
             "name": ("%s %s" % (display_first(m), m["last"] or "")).strip(), "role": role,
-            "team": "Grunions", "switch_title": switch[0], "switch_sub": switch[1], "chat_unread": unread}
+            "team": "Grunions", "switch_title": switch[0], "switch_sub": switch[1], "chat_unread": unread,
+            "everything_href": "/discover" if SHOW_DISCOVER else "/home",
+            "everything_sub": "Discover · map · chat" if SHOW_DISCOVER else "Map · chat",
+            "show_find": SHOW_FIND_TEAM}
 app.jinja_env.globals.update(display_first=display_first, initials=initials, fmt_phone=fmt_phone, nav_context=nav_context, nav_icon=ui.nav_icon)
 # applies_to: all | athlete | coach. keywords: normalized substrings to find this item's columns in a Sport:80 export.
 DEFAULT_REQS = [("SafeSport training", "all", "safesport", 1), ("Background screening", "coach", "background", 1)]
@@ -1216,8 +1220,8 @@ def calendar():
 @app.route("/find")
 @login_required
 def find_team():
-    """Find or join opens Everything, on Discover."""
-    return redirect("/discover")
+    """Find or join opens Everything. The live push sends this to Map with the button off."""
+    return redirect("/discover" if SHOW_FIND_TEAM else "/home")
 
 @app.route("/join", methods=["GET", "POST"])
 def join():

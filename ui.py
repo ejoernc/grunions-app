@@ -1960,12 +1960,12 @@ TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and tab != 'event_
 </nav>
 <dialog id="crestMenu" class="crestmenu" tabindex="-1">
 <p class="crestlabel">GO TO</p>
-<a class="crestrow{% if nav.place == 'everything' %} here{% endif %}" href="/discover"><span class="crestmark brand"><img src="/static/nav/mark-ink.svg" width="26" height="10" alt=""></span><span><b>Everything</b><small>Discover · map · chat</small></span></a>
+<a class="crestrow{% if nav.place == 'everything' %} here{% endif %}" href="{{ nav.everything_href }}"><span class="crestmark brand"><img src="/static/nav/mark-ink.svg" width="26" height="10" alt=""></span><span><b>Everything</b><small>{{ nav.everything_sub }}</small></span></a>
 <a class="crestrow{% if nav.place == 'me' %} here{% endif %}" href="/calendar"><span class="crestmark who">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="">{% else %}{{ initials(me()) }}{% endif %}</span><span><b>{{ nav.name }}</b><small>Calendar · chat · profile</small></span></a>
 <span class="crestline"></span>
 <p class="crestlabel">YOUR TEAMS</p>
 <a class="crestrow{% if nav.place == 'team' %} here{% endif %}" href="/practices"><span class="crestmark team">G</span><span><b>Grunions</b><small>Default · opens here</small></span><span class="rolechip role-{{ nav.role|lower }}">{{ nav.role }}</span></a>
-<a class="crestgo" href="/discover">+ Find or join a team</a>
+{% if nav.show_find %}<a class="crestgo" href="/discover">+ Find or join a team</a>{% endif %}
 <a class="crestout" href="/logout">Log out</a>
 </dialog>{% endif %}
 <script>
