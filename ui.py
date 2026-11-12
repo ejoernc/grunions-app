@@ -705,7 +705,46 @@ div.card.tap.tripcard[data-kind]:not(.cancelled) .nxtitle,div.card.tap.tripcard[
 div.card.tap.tripcard[data-kind]:not(.cancelled) .datetile{background:rgba(11,11,12,.12)}
 div.card.tap.tripcard[data-kind]:not(.cancelled) .btn-secondary{background:#0B0B0C;color:#F6F4EF;border-color:transparent}
 div.card.tap.tripcard.cancelled{background:var(--r2-carbon);color:var(--r2-smoke)}
-main:has(.lineupfilt){padding-bottom:calc(var(--nav-clear) + 64px + env(safe-area-inset-bottom))}
+main:has(.lineupfilt){padding-bottom:calc(var(--nav-clear) + 80px + env(safe-area-inset-bottom))}
+.lmetrics{display:flex;gap:8px;margin:2px 0 8px}
+.lmetric{flex:1;min-width:0;min-height:110px;border-radius:28px;padding:14px 12px 12px;display:flex;flex-direction:column;justify-content:space-between}
+.lmetric b{font:700 60px/.85 var(--r2-font-display);letter-spacing:-.06em}
+.lmetric span{font:700 10px/1.1 var(--r2-font-sans);letter-spacing:.08em}
+.lmetric.hrs{background:#17181A;color:#C8FF3C}
+.lmetric.reg{background:#C8FF3C;color:#0B0B0C}
+.lmetric.dec{background:#FFC61A;color:#0B0B0C}
+.lmonth,details.lineuppast>summary{margin:18px 0 10px;color:#8B8F93;font:700 28px/.95 var(--r2-font-display);letter-spacing:-.03em;text-transform:none}
+details.lineuppast{border:0}
+details.lineuppast>summary{cursor:pointer;list-style:none}
+details.lineuppast>summary::-webkit-details-marker{display:none}
+div.card.tap.tripcard.lcard{padding:22px 20px 20px;border-radius:36px;gap:10px;min-height:156px;box-sizing:border-box;display:flex;flex-direction:column;text-decoration:none;overflow:hidden}
+div.card.tap.tripcard.lcard.ltall{gap:12px;min-height:208px}
+div.card.tap.tripcard.lcard.ltall.pinned{min-height:228px}
+.lcard .lctop,.lcard .ltop,.lcard .ltfoot,.lcard .lcfoot,.lcard .lmain{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.lcard .lcpill{background:#0B0B0C;color:#F6F4EF;border-radius:999px;padding:5px 10px;font:700 11px/1 var(--r2-font-sans)}
+.lcard .lcstatus,.lcard .lover{display:inline-flex;align-items:center;gap:4px;font:700 12px/1 var(--r2-font-sans);color:inherit}
+.lcard .lover{font-size:10px;letter-spacing:.08em}
+.lcard .lccheck{display:block;flex:none}
+.lcard .lctitle{margin:0;font:700 34px/.95 var(--r2-font-display);letter-spacing:-.03em;color:inherit}
+.lcard .lttitle{display:block;margin:0;font:700 36px/.95 var(--r2-font-display);letter-spacing:-.03em;color:inherit}
+.lcard .lcmeta,.lcard .ltmeta{margin:0;font:600 12px/1.35 var(--r2-font-sans);color:inherit}
+.lcard .lcfoot{margin-top:auto}
+.lcard .lctrack{flex:1;height:10px;border-radius:5px;background:rgba(0,0,0,.2);overflow:hidden}
+.lcard .lctrack i{display:block;height:100%;background:#000;border-radius:5px}
+.lcard .lmain{align-items:flex-start;justify-content:flex-start}
+.lcard .ldate{display:flex;flex-direction:column;align-items:flex-start;min-width:88px;color:inherit}
+.lcard .ldate b{font:700 104px/.86 var(--r2-font-display);letter-spacing:-.05em;color:inherit}
+.lcard.past .ldate b{font-size:80px}
+.lcard .ldate span{font:700 11px/1 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase;color:inherit}
+.lcard .lgrow{min-width:0;flex:1}
+.lcard .ltfoot span,.lcard .lcfoot>span:last-child{font:700 13px/1 var(--r2-font-sans);color:inherit;white-space:nowrap}
+.lcard .lacts{display:flex;gap:8px;margin:0}
+.lcard button.lghost,.lcard button.lfill{width:auto;height:auto;min-height:0;padding:8px 12px;border-radius:999px;font:700 12px/1 var(--r2-font-sans)}
+.lcard button.lghost{background:transparent;color:#0B0B0C;border:1.5px solid #0B0B0C}
+.lcard button.lfill{background:#0B0B0C;color:#F6F4EF;border:0}
+.lcard .pastpill{background:#24262A;color:#F6F4EF;border-radius:999px;padding:4px 8px;font:700 11px/1 var(--r2-font-sans)}
+.lcard .cardlink{color:inherit;text-decoration:none;display:flex;flex-direction:column;gap:12px}
+div.card.tap.tripcard.lcard[data-kind] .lctitle,div.card.tap.tripcard.lcard[data-kind] .lttitle,div.card.tap.tripcard.lcard[data-kind] .lcmeta,div.card.tap.tripcard.lcard[data-kind] .ltmeta,div.card.tap.tripcard.lcard[data-kind] .lover,div.card.tap.tripcard.lcard[data-kind] .lcstatus,div.card.tap.tripcard.lcard[data-kind] .ldate,div.card.tap.tripcard.lcard[data-kind] .ldate b{color:inherit}
 body.profilepage .profilehero{align-items:flex-start;padding:4px 0 8px}body.profilepage .profilename::after{content:"."}body.profilepage .seclabel{font:700 28px/.95 var(--r2-font-display);letter-spacing:-.03em;color:#F6F4EF}body.profilepage .numcard{margin-bottom:28px}body.profilepage main{padding-bottom:calc(var(--nav-clear) + 48px + env(safe-area-inset-bottom))}
 body.profilepage .avatar.hero{background:var(--r2-sun);color:var(--r2-fixed-ink);border:0;font:700 40px/.95 var(--r2-font-display);letter-spacing:-.04em}
 body.profilepage .profilename{margin:14px 0 8px;text-align:left;font:700 clamp(48px,14vw,64px)/.86 var(--r2-font-display);letter-spacing:-.05em}
@@ -2430,20 +2469,50 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro event_hero(id, pins, banner_src, label, route=None) %}{% if banner_src %}<div class=evhero><img src="{{ banner_src }}" alt=""></div>{% else %}{{ mount_map(id, pins, 'card', '', route) }}{% endif %}{% endmacro %}
 {% macro whos_going(people, kind="going") %}<div class=seclabel>{% if kind == "interested" %}Who's interested{% else %}Who's going{% endif %}</div><div class=list>{% for r in people %}<div class=li>{% if me().is_admin or is_staff() %}<a class=ci-name href="/admin/member/{{ r.id }}">{% else %}<span class=ci-name>{% endif %}{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span></span>{% if kind == 'going' and r.id != me().id %}{% set lo = me().id if me().id < r.id else r.id %}{% set hi = r.id if me().id < r.id else me().id %}<a href="/chat?c=dm:{{ lo }}:{{ hi }}&place=me">Message</a>{% endif %}{% if me().is_admin or is_staff() %}</a>{% else %}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>{% endmacro %}
 {% macro event_location(id, pins, name, sub, href, route=None, route_min=None, social_name='', social_sub='', social_href='', social_dest='') %}<div class=seclabel>Location</div><div class="list loccard">{{ mount_map(id, pins, 'tap' if pins else 'still', href, route) }}{% if route_min %}<div class="li"><span class="t3 sm">{{ route_min }} min drive</span></div>{% endif %}<div class="li locrow"><span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ name }}</span>{% if sub and sub != name %}<span class="t3 sm">{{ sub }}</span>{% endif %}</span><a class="btn btn-secondary" href="{{ href }}" target=_blank rel=noopener {% if pins %}data-directions="{{ pins[0].lat }},{{ pins[0].lng }}"{% endif %}>Open in Maps</a></div>{% if social_name %}<div class="li locrow"><span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ social_name }}</span>{% if social_sub and social_sub != social_name %}<span class="t3 sm">{{ social_sub }}</span>{% endif %}</span><a class="btn btn-secondary" href="{{ social_href }}" target=_blank rel=noopener {% if social_dest %}data-directions="{{ social_dest }}"{% endif %}>Open in Maps</a></div>{% endif %}</div>{% endmacro %}
-{% macro lineup_card(e, back='/lineup') %}<div class="card tap tripcard{% if e.status == 'canceled' %} cancelled{% endif %}" data-kind="{{ e.event_type or '' }}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
-<a class=cardlink href="/lineup/{{ e.id }}">
-{% if e.event_type %}<span class=linekind>{{ e.event_type }}</span>{% endif %}
-<div class=nxcardhead><div class="nxtitle cardtitle">{{ e.title }}</div>{% if e.card_line %}<div class="cardsub ell">{{ e.card_line }}</div>{% endif %}</div>
-<div class=nxmain><div class=datetile>{% if e.tile.wd %}<span class=wd>{{ e.tile.wd }}</span>{% endif %}<span class=dn>{{ e.tile.dn }}</span><span class=mo>{{ e.tile.mo }}</span></div>
-<div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
-{% if e.city %}<div class=nxrow>{{ glyph_pin() }}<span>{{ e.city }}</span></div>{% endif %}
-<div class=nxrow>{{ glyph_people() }}<span>{{ e.count_line }}</span></div></div></div></a>
-{% if e.status != 'published' %}<div class="t3 sm">{{ e.status_label }}{% if e.review_note %} · {{ e.review_note }}{% endif %}</div>{% else %}
-<form method=post action=/lineup class="pills rsvprow">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><input type=hidden name=back value="{{ back }}">{{ rsvp_base('e' ~ e.id) }}
-{{ rsvp_btn('Interested', e.mine == 'interested', 'interested') }}
-{{ rsvp_btn('Going', e.mine == 'going', 'going') }}
-{{ rsvp_btn('Not going', e.mine == 'notgoing', 'notgoing') }}</form>{% endif %}
-</div>{% endmacro %}
+{% macro lineup_fill(e, mode, past=false) -%}
+{%- if past -%}#17181A
+{%- elif mode == 'tall' and e.event_type == 'Trip' -%}#FF9F1C
+{%- elif mode == 'tall' and e.event_type in ('Social', 'Meeting', 'Other', 'Volunteer', 'Fundraiser') -%}#FF5FB8
+{%- elif e.event_type in ('Tournament', 'Competition') -%}#A89CFF
+{%- elif e.event_type in ('Volunteer', 'Fundraiser') -%}#FF5FB8
+{%- elif e.event_type == 'Trip' -%}#2EE6C8
+{%- elif e.event_type == 'Clinic' -%}#2EE6C8
+{%- else -%}#FF9F1C
+{%- endif -%}
+{%- endmacro %}
+{% macro lineup_card(e, back='/lineup', mode='compact', past=false) %}
+{%- set title = e.title if e.title.endswith('.') else e.title ~ '.' -%}
+{%- set place = e.city or e.venue -%}
+{%- set fill = lineup_fill(e, mode, past) -%}
+{%- set ink = '#F6F4EF' if past else '#0B0B0C' -%}
+{%- set pill = {'Tournament':'Compete','Competition':'Compete','Volunteer':'Volunteer','Fundraiser':'Volunteer','Trip':'Trips','Clinic':'Clinic'}.get(e.event_type, 'Community') -%}
+{%- set over = {'Tournament':'TOURNAMENT','Competition':'TOURNAMENT','Clinic':'CLINIC','Trip':'TRIP','Volunteer':'VOLUNTEER','Fundraiser':'FUNDRAISER'}.get(e.event_type, 'SOCIAL') -%}
+{%- set ns = namespace(bar=0, foot=(e.going_n ~ (' went' if past else ' going'))) -%}
+{%- if e.capacity -%}
+{%- set ns.bar = (e.going_n * 100 / e.capacity)|round(0, 'floor')|int -%}
+{%- if ns.bar > 100 %}{% set ns.bar = 100 %}{% endif %}
+{%- set ns.foot = e.going_n ~ '/' ~ e.capacity ~ (' team' if e.event_type in ('Tournament', 'Competition') else (' seats' if e.event_type == 'Trip' else ' filled')) -%}
+{%- elif e.going_n -%}
+{%- set ns.bar = 12 + e.going_n * 8 if e.going_n < 11 else 100 -%}
+{%- endif %}
+{% if mode == 'tall' %}<div class="lcard ltall card tap tripcard{% if past %} past{% endif %}{% if e.featured %} pinned{% endif %}{% if e.status == 'canceled' %} cancelled{% endif %}" data-kind="{{ e.event_type or '' }}" data-r2="lineup-card" data-variant="tall" style="background:{{ fill }};color:{{ ink }}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
+<a class=cardlink href="/lineup/{{ e.id }}"><div class=ltop><span class=lover>{{ 'PINNED · ' if e.featured else '' }}{{ over }}</span>{% if past %}<span class=pastpill>Past</span>{% endif %}</div>
+<div class=lmain><div class=ldate>{% if e.tile.wd %}<span>{{ e.tile.wd }}</span>{% endif %}<b>{{ e.tile.dn }}</b><span>{{ e.tile.mo }}</span></div>
+<div class=lgrow><b class=lttitle>{{ title }}</b><p class=ltmeta>{{ e.when }}{% if place %} · {{ place }}{% endif %}</p></div></div></a>
+{% if e.status != 'published' %}<p class=ltmeta>{{ e.status_label }}{% if e.review_note %} · {{ e.review_note }}{% endif %}</p>
+{% elif past %}<div class=ltfoot><span>{{ e.going_n }} went</span></div>
+{% else %}<div class=ltfoot><span>{% if e.interested_n and not e.going_n %}{{ e.interested_n }} interested{% else %}{{ e.going_n }} going{% endif %}</span>
+<form method=post action=/lineup class=lacts>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><input type=hidden name=back value="{{ back }}">{{ rsvp_base('e' ~ e.id) }}
+<button class="lghost{% if e.mine == 'interested' %} on{% endif %}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">Interested</button>
+<button class="lfill{% if e.mine == 'going' %} on{% endif %}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">Going</button>
+</form></div>{% endif %}
+</div>{% else %}<a class="lcard lcompact card tap tripcard{% if past %} past{% endif %}{% if e.status == 'canceled' %} cancelled{% endif %}" data-kind="{{ e.event_type or '' }}" data-r2="lineup-card" data-variant="compact" style="background:{{ fill }};color:{{ ink }}" href="/lineup/{{ e.id }}">
+<div class=lctop><span class=lcpill>{{ pill }}</span><span class=lcstatus>{% if e.mine == 'going' %}Registered<svg class=lccheck width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8.2 6.2 11.5 13 4.5" stroke="#0B0B0C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>{% elif e.event_type in ('Volunteer', 'Fundraiser') %}Pick a shift{% elif e.event_type == 'Trip' %}Claim a seat{% else %}RSVP{% endif %}</span></div>
+<b class=lctitle>{{ title }}</b>
+<p class=lcmeta>{{ e.span_label }}{% if place %} · {{ place }}{% endif %}{% if e.mine == 'going' %} · you're registered{% endif %}</p>
+{% if not past %}<div class=lcfoot><span class=lctrack><i style="width:{{ ns.bar }}%"></i></span><span>{{ ns.foot }}</span></div>{% else %}<div class=lcfoot><span>{{ e.going_n }} went</span></div>{% endif %}
+</a>{% endif %}
+{% endmacro %}
 {% macro app_header(fade, entry, show_plus) %}<header class="homehead apphead{% if fade %} homefade{% endif %}"{% if entry %} data-entry="{{ entry }}"{% endif %}><div class=headmain>{{ caller() }}</div></header>{% endmacro %}
 {% if tab == 'profile' and me() %}<header class=profilebar>
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
@@ -6223,12 +6292,13 @@ _PRACTICE_JS = """<script>
 })();
 </script>"""
 
-T["lineup"] = """{% macro lineup_months(groups) %}{% for g in groups %}<div class=seclabel>{{ g.label }}</div>{% for e in g.events %}{{ lineup_card(e) }}{% endfor %}{% endfor %}{% endmacro %}
+T["lineup"] = """{% macro lineup_months(groups, mode, past=false) %}{% for g in groups %}<div class=lmonth>{% if mode == 'tall' %}{{ g.label }}{% if past %} · Past{% endif %}{% else %}{{ g.label.split(' ')[0] }}{% endif %}</div>{% for e in g.events %}{{ lineup_card(e, '/lineup' ~ ('?group=' ~ group if group else ''), mode, past) }}{% endfor %}{% endfor %}{% endmacro %}
 <div class="filt lineupfilt chiprow" data-seg role=group aria-label="Type"><a class="chip{{ ' chip-active on' if not group }}" href=/lineup>All</a>{% for slug, label in filter_groups %}<a class="chip{{ ' chip-active on' if group == slug }}" href="/lineup?group={{ slug }}">{{ label }}</a>{% endfor %}</div>
-{% if featured %}<div class=seclabel>Pinned</div>{% for e in featured %}{{ lineup_card(e) }}{% endfor %}{% endif %}
+{% if not group %}<div class=lmetrics><div class="lmetric hrs"><b>{{ '%02d'|format(lineup_hours) }}</b><span>SERVICE HRS</span></div><div class="lmetric reg"><b>{{ '%02d'|format(lineup_registered) }}</b><span>REGISTERED</span></div><div class="lmetric dec"><b>{{ '%02d'|format(lineup_decide) }}</b><span>TO DECIDE</span></div></div>{% endif %}
+{% if featured %}<div class=lmonth>Pinned</div>{% for e in featured %}{{ lineup_card(e, '/lineup?group=' ~ group, 'tall') }}{% endfor %}{% endif %}
 {% if empty_public %}<p class=emptyfind>Nothing on the Lineup yet.</p>{% endif %}
-{{ lineup_months(upcoming) }}
-{% if past %}<details class=lineuppast><summary>Past <span class=pastn>{{ past_n }}</span></summary>{{ lineup_months(past) }}</details>{% endif %}"""
+{{ lineup_months(upcoming, 'tall' if group else 'compact') }}
+{% if past %}<details class=lineuppast open><summary>{% if group %}Past{% else %}Past{% endif %} <span class=pastn>{{ past_n }}</span></summary>{{ lineup_months(past, 'tall' if group else 'compact', true) }}</details>{% endif %}"""
 T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
 <div class=profilehero>
 <div class="profilename{% if e.status == 'canceled' %} cancelled{% endif %}">{{ e.title }}</div>

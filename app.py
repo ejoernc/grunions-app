@@ -6452,6 +6452,17 @@ def lineup_range(start, end):
     end = str(end or start)[:10]
     if end <= start: return fmt_d(start)
     return "%s – %s" % (fmt_d(start), fmt_d(end))
+def lineup_span_label(start, end):
+    """Nov 13–15, or Sat Nov 21 when it is one day. No icons."""
+    try:
+        s = dt.date.fromisoformat(str(start)[:10])
+        e = dt.date.fromisoformat(str(end or start)[:10])
+    except ValueError:
+        return ""
+    if s == e: return s.strftime("%a") + " " + s.strftime("%b") + " " + str(s.day)
+    if s.year == e.year and s.month == e.month:
+        return s.strftime("%b") + " " + str(s.day) + "–" + str(e.day)
+    return s.strftime("%b") + " " + str(s.day) + "–" + e.strftime("%b") + " " + str(e.day)
 def lineup_month(iso):
     day = dt.date.fromisoformat(str(iso)[:10])
     return day.strftime("%B ") + str(day.year)
@@ -6653,7 +6664,8 @@ def lineup_pack(d, rows):
             "host_line": lineup_host_line(r), "member_event": not r["official"], "featured": bool(r["featured"]),
             "where": lineup_where(r["city"] or "", r["venue"] or ""), "map_href": lineup_map_href(r["city"] or "", r["venue"] or ""),
             "dir_href": lineup_dir_href(r["city"] or "", r["venue"] or ""),
-            "when": lineup_when_label(r), "date": r["date"], "end_date": r["end_date"] or r["date"],
+            "when": lineup_when_label(r), "span_label": lineup_span_label(r["date"], r["end_date"] or r["date"]),
+            "date": r["date"], "end_date": r["end_date"] or r["date"],
             "precision": r["date_precision"] if "date_precision" in r.keys() and r["date_precision"] else "exact",
             "part": (r["date_part"] or "") if "date_part" in r.keys() else "",
             "sort_date": effective_sort_date(r),
@@ -7364,10 +7376,17 @@ def lineup():
     def feed_key(e): return (e.get("sort_date") or effective_sort_date(e), e["id"])
     upcoming = sorted((e for e in public if still_on(e)), key=feed_key)
     past = sorted((e for e in public if not still_on(e)), key=feed_key, reverse=True)
-    featured = [e for e in upcoming if e["featured"]]
-    rest = [e for e in upcoming if not e["featured"]]
+    if group:
+        featured = [e for e in upcoming if e["featured"]]
+        rest = [e for e in upcoming if not e["featured"]]
+    else:
+        featured, rest = [], upcoming
+    shown_now = featured + rest
+    registered = sum(1 for e in shown_now if e.get("mine") == "going")
+    to_decide = sum(1 for e in shown_now if e.get("mine") not in ("going", "notgoing"))
     return page(T["lineup"], tab="lineup", featured=featured, upcoming=lineup_groups(rest), past=lineup_groups(past), past_n=len(past),
-        cat=cat, group=group, filter_groups=[(slug, label) for slug, label, _types in lineupfeed.FILTER_GROUPS], empty_public=not upcoming and not past)
+        cat=cat, group=group, filter_groups=[(slug, label) for slug, label, _types in lineupfeed.FILTER_GROUPS], empty_public=not upcoming and not past,
+        lineup_registered=registered, lineup_decide=to_decide, lineup_hours=0)
 @app.route("/lineup/new", methods=["GET", "POST"])
 @login_required
 def lineup_new():
