@@ -2383,6 +2383,10 @@ def _chat_title(mode):
             '<button type=button class=chatplus data-scope="%s" aria-label="New chat">+</button></div>') % mode
 def _person_tone(n):
     return ("sun", "sky", "bubble", "grape", "mango", "aqua")[n % 6]
+def _pick_button(person):
+    return ('<button type=button class=newrow data-person="%d"><span class="mark %s">%s</span>'
+            '<span class=grow><b>%s</b><small>%s</small></span></button>'
+            % (person["id"], person["tone"], escape(person["initials"]), escape(person["name"]), escape(person["line"])))
 def _pick_people(d, m):
     recent = []
     for channel, _n, _latest in _dm_unread(d, m["id"])[1][:4]:
@@ -2403,19 +2407,22 @@ def _pick_people(d, m):
             "href": "/chat?c=%s&place=me" % dm_channel(m["id"], person["id"]),
         })
     roster = len(people)
+    recent_rows = [person for person in people if person["recent"]]
+    blob = json.dumps(people).replace("<", "\\u003c")
     return ('<dialog id=pickPeople class="botsheet pickpeople"><div class=sheet><div class=grab aria-hidden=true></div>'
             '<div class=pickhead><button type=button data-sheet-close>Cancel</button><h2 id=pickTitle>Message someone</h2>'
-            '<button type=button id=pickNext disabled>Next · 0</button></div>'
-            '<div id=pickChips class=pickchips></div>'
+            '<button type=button id=pickNext hidden disabled>Next · 0</button></div>'
+            '<div id=pickChips class=pickchips hidden></div>'
             '<label class=picksearch><input id=pickSearch placeholder="Search your teams" autocomplete=off></label>'
             '<div id=pickName hidden><label>Group name, optional<input id=groupName maxlength=40 placeholder="Carpool, captains…"></label>'
             '<button type=button class="btn btn-primary full" id=pickCreate>Create</button></div>'
-            '<div id=pickBody><p id=pickRecentLabel class=r2caps hidden>Recent</p><div id=pickRecent></div>'
-            '<p class=r2caps id=pickTeam>Grunions · %d</p><div id=pickList></div>'
+            '<div id=pickBody><p id=pickRecentLabel class=r2caps%s>Recent</p><div id=pickRecent>%s</div>'
+            '<p class="r2caps" id=pickTeam%s>Grunions Aquatics · %d</p><div id=pickList>%s</div>'
             '<p id=pickEmpty class=t3 hidden>No one on your teams by that name</p>'
-            '<p id=pickFoot class=t3></p></div>'
-            '<script type="application/json" id=pickData>%s</script>%s</div></dialog>'
-            ) % (roster, json.dumps(people).replace("<", "\\u003c"), csrf_field())
+            '<p id=pickFoot class=t3>Opens a 1:1 in Me › Chat. You can message anyone on a team you\'re on.</p></div>'
+            '<textarea id=pickData hidden readonly>%s</textarea>%s</div></dialog>'
+            ) % ("" if recent_rows else " hidden", "".join(_pick_button(person) for person in recent_rows),
+                 "" if people else " hidden", roster, "".join(_pick_button(person) for person in people), blob, csrf_field())
 def _new_chat_sheet(d, m, team):
     """06.30 member, 06.31 coach/admin. Me and Everything keep only the personal section."""
     personal = (
@@ -2495,9 +2502,13 @@ def _channel_sheet(d):
             '</form></div></dialog>') % (csrf_field(), escape((sports[0]["slug"] if sports else "water-polo")), "".join(chips), "".join(people), roster, coaches, roster)
 _CHAT_PLUS_JS = """<script>
 (function(){
- var people=[];
- try{ people=JSON.parse((document.getElementById('pickData')||{}).textContent||'[]'); }catch(err){ people=[]; }
  var mode='direct', picked={};
+ function roster(){
+  var node=document.getElementById('pickData');
+  if(!node) return [];
+  try{ return JSON.parse(node.value||node.textContent||'[]')||[]; }catch(err){ return []; }
+ }
+ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
  function openSheet(id, anchor){var el=document.getElementById(id); if(!el) return; if(window.grunionsOpenSheet) grunionsOpenSheet(el); else el.showModal(); placePopover(el, anchor);}
  function shut(el){if(!el) return; if(window.grunionsCloseSheet) grunionsCloseSheet(el); else el.close();}
  function placePopover(el, anchor){
@@ -2509,25 +2520,31 @@ _CHAT_PLUS_JS = """<script>
   el.style.left=left+'px'; el.style.top=top+'px';
  }
  function paintPick(){
+  var people=roster();
   var q=(document.getElementById('pickSearch').value||'').trim().toLowerCase();
+  var listEl=document.getElementById('pickList');
+  if(!people.length && !q && listEl && listEl.querySelector('[data-person]')){
+   document.getElementById('pickEmpty').hidden=true;
+   return;
+  }
   var list=people.filter(function(p){ return !q || p.name.toLowerCase().indexOf(q)>=0; });
   var recent=list.filter(function(p){ return p.recent; });
   document.getElementById('pickRecentLabel').hidden=mode!=='direct' || !recent.length;
   document.getElementById('pickRecent').innerHTML=mode==='direct'?recent.map(row).join(''):'';
-  document.getElementById('pickList').innerHTML=list.map(row).join('');
-  document.getElementById('pickEmpty').hidden=!!list.length;
+  listEl.innerHTML=list.map(row).join('');
+  document.getElementById('pickEmpty').hidden=!q||!!list.length;
   document.getElementById('pickTeam').hidden=!list.length;
   var n=Object.keys(picked).length, next=document.getElementById('pickNext');
   next.hidden=mode!=='group'; next.disabled=n<1; next.textContent='Next · '+n;
   var chips=document.getElementById('pickChips');
   chips.hidden=mode!=='group' || !n;
   chips.innerHTML=people.filter(function(p){ return picked[p.id]; }).map(function(p){
-   return '<button type=button class=pickchip data-drop="'+p.id+'"><span class="mark '+p.tone+'">'+p.initials+'</span>'+p.name+' ×</button>';
+   return '<button type=button class=pickchip data-drop="'+p.id+'"><span class="mark '+esc(p.tone)+'">'+esc(p.initials)+'</span>'+esc(p.name)+' ×</button>';
   }).join('');
  }
  function row(p){
   var box=mode==='group'?'<span class="pickbox'+(picked[p.id]?' on':'')+'" aria-hidden=true></span>':'';
-  return '<button type=button class=newrow data-person="'+p.id+'"><span class="mark '+p.tone+'">'+p.initials+'</span><span class=grow><b>'+p.name+'</b><small>'+p.line+'</small></span>'+box+'</button>';
+  return '<button type=button class=newrow data-person="'+p.id+'"><span class="mark '+esc(p.tone)+'">'+esc(p.initials)+'</span><span class=grow><b>'+esc(p.name)+'</b><small>'+esc(p.line)+'</small></span>'+box+'</button>';
  }
  function showPick(kind, anchor){
   mode=kind; picked={};
@@ -2551,7 +2568,7 @@ _CHAT_PLUS_JS = """<script>
   if(bye){ shut(bye.closest('dialog')); return; }
   var person=e.target.closest&&e.target.closest('[data-person]');
   if(person && document.getElementById('pickPeople') && document.getElementById('pickPeople').open){
-   var id=+person.getAttribute('data-person'), hit=null;
+   var id=+person.getAttribute('data-person'), hit=null, people=roster();
    people.forEach(function(p){ if(p.id===id) hit=p; });
    if(!hit) return;
    if(mode==='direct'){ location.href=hit.href; return; }

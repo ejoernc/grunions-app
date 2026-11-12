@@ -672,7 +672,9 @@ dialog.newchat .sheet,dialog.pickpeople .sheet{max-height:90dvh}
 .pickhead button{border:0;background:transparent;color:var(--r2-paper);font:700 15px/1 var(--r2-font-sans)}
 #pickNext{height:36px;padding:0 14px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink)}
 #pickNext:disabled{opacity:.45}
+#pickData{display:none !important}
 .picksearch{display:block;margin:0 0 12px}
+#pickList{display:flex;flex-direction:column;gap:2px}
 .picksearch input{width:100%;border:0;border-radius:16px;background:var(--r2-carbon);color:var(--r2-paper);padding:14px 16px;font:600 15px/1.2 var(--r2-font-sans)}
 .pickchips{display:flex;gap:8px;overflow:auto;margin:0 0 12px}
 .pickchip{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;background:var(--r2-carbon);color:var(--r2-paper);padding:4px 10px 4px 4px;font:700 13px/1 var(--r2-font-sans)}
@@ -2367,6 +2369,8 @@ function grunionsRunScripts(scripts){
  var orig=window.setInterval;
  window.setInterval=function(fn,t){var id=orig.call(window,fn,t);grunionsPageTimers.push(id);return id;};
  try{scripts.forEach(function(old){
+  var type=(old.getAttribute('type')||'').toLowerCase();
+  if(type && type!=='text/javascript' && type!=='application/javascript' && type!=='module') return;
   var code=old.textContent||''; if(!code.trim())return;
   var s=document.createElement('script'); s.textContent='(function(){\\n'+code+'\\n})();';
   document.body.appendChild(s); if(s.parentNode) s.parentNode.removeChild(s);
@@ -2750,7 +2754,11 @@ function grunionsApply(html,url,pop,replace){
  grunionsClearPage();
  document.querySelectorAll('body>.menu.floating').forEach(function(m){ m.remove(); });
  var scripts=[].slice.call(newMain.querySelectorAll('script'));
- scripts.forEach(function(s){if(s.parentNode) s.parentNode.removeChild(s);});
+ scripts.forEach(function(s){
+  var type=(s.getAttribute('type')||'').toLowerCase();
+  var js=!type || type==='text/javascript' || type==='application/javascript' || type==='module';
+  if(js && s.parentNode) s.parentNode.removeChild(s);
+ });
  if(doc.body) document.body.className=doc.body.className;
  var main=document.querySelector('main');
  grunionsParkHomeMap();

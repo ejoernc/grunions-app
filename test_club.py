@@ -169,6 +169,11 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     assert "Personal messages" in html and "everyone" in html and "No practice chat right now" in html and "Requests" in html and "Ask the club" in html
     assert 'class=chatplus' in html and 'data-scope="team"' in html and "<h1>Team</h1>" not in html
     assert "New chat" in html and "Message someone" in html and "New group" in html and "Ask the club" in html
+    roster = html.split("id=pickList", 1)[1].split("id=pickEmpty", 1)[0]
+    assert "Adele Voss" in roster and "Player · Water polo" in roster and "Mira Solano" in roster and "Coach · Water polo" in roster
+    assert "Grunions Aquatics ·" in html and 'id=pickEmpty class=t3 hidden' in html and "No one on your teams by that name" in html
+    assert "Search your teams" in html and "<textarea id=pickData" in html and 'id=pickData>' not in html.split("<textarea id=pickData", 1)[0]
+    assert "pickEmpty').hidden=!q||!!list.length" in html
     assert "New channel" not in html and "Board room" not in html and "Message the coaches" not in html and "New message" not in html
     assert "Preview Tuesday practice" not in html and "Preview Friday practice" not in html and "Preview recent practice" not in html
     ask = html.split("Ask the club", 1)[1].split("<dialog", 1)[0]
