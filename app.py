@@ -2183,6 +2183,10 @@ def seed_preview_club(d):
                  33.731441, -118.027846, "Coffee", "Preview Cafe", "12 Preview Way", "06:30", "before")).lastrowid
         d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
             ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (early_id, eli["id"]))
+        for email in ("mira.solano@preview.regulars.invalid", "jonah.peck@preview.regulars.invalid", "adele.voss@preview.regulars.invalid"):
+            if email in ids:
+                d.execute("INSERT OR IGNORE INTO social_joins(practice_id, member_id) VALUES(?,?)", (early_id, ids[email]))
+                d.execute("INSERT OR IGNORE INTO social_joins(practice_id, member_id) VALUES(?,?)", (pid, ids[email]))
         for past_id in (north, south, west):
             d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
                 ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (past_id, eli["id"]))
@@ -6083,6 +6087,24 @@ def _social_card(p, when, kinds, place, address, clock):
         live = False
     return {"when": when, "title": title, "place": place, "address": address,
             "clock": clock, "practice_id": p["id"], "practice": practice_title(p), "live": live}
+def _decorate_social(d, card, mid):
+    """Faces and the going line for the shared social card. Joins only — not practice RSVPs."""
+    rows = d.execute("""SELECT m.id, m.first, m.last, m.preferred_first FROM social_joins j
+        JOIN members m ON m.id=j.member_id WHERE j.practice_id=? ORDER BY m.first LIMIT 6""", (card["practice_id"],)).fetchall()
+    people = [{"id": r["id"], "initials": initials(r), "name": display_first(r)} for r in rows]
+    card["people"] = people
+    card["joined"] = any(person["id"] == mid for person in people)
+    others = [person["name"] for person in people if person["id"] != mid]
+    n = len(people)
+    if card["joined"] and n > 1 and others:
+        card["going_line"] = "You + %d going · %s is there" % (n - 1, others[0])
+    elif card["joined"]:
+        card["going_line"] = "You're going"
+    elif n and others:
+        card["going_line"] = "%d going · %s is there" % (n, others[0])
+    else:
+        card["going_line"] = "%d going" % n
+    return card
 def schedule_social_cards(p):
     """Before and after spots drawn on Schedule home. A practice keeps its existing after social."""
     if not p:
@@ -6155,6 +6177,9 @@ def combined_view(entry):
     pins = map_pins(nextp)
     data = upcoming_schedule(d)
     route = social_route_points(nextp) if nextp else []
+    if entry == "practices" and nextp and nextp["lat"] is not None and nextp["lng"] is not None:
+        pins = [{"lat": nextp["lat"], "lng": nextp["lng"], "kind": "pool", "label": " ".join(str(nextp["location"] or "").split())}]
+        route = []
     drive_going = "1" if nextp_mine == 1 else ("" if nextp_mine is None else "0")
     drive_on = next_kind == "practice" and bool(nextp) and drive_offer(d, nextp, m["id"])
     drive_until = practice_start_epoch(nextp) if drive_on and nextp else 0
@@ -6192,7 +6217,8 @@ def combined_view(entry):
             if not source or source["id"] in seen:
                 continue
             seen.add(source["id"])
-            social_cards.extend(schedule_social_cards(source))
+            for card in schedule_social_cards(source):
+                social_cards.append(_decorate_social(d, card, m["id"]))
     show_drive = bool(sched_home and nextp and nextp_mine == 1 and drive_on)
     drive_placeholder = False
     if show_drive and nextp and not drive_chip:

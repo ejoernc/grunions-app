@@ -185,7 +185,7 @@ body.homefull .schedlist{position:relative;z-index:2}
 .schedfeed{display:flex;flex-direction:column;gap:24px}
 body.homefull .schedfeed{position:relative;z-index:2;pointer-events:auto}
 body.schedhome header.homehead{height:0;min-height:0;padding:0;overflow:hidden;background:transparent}
-body.schedhome .schedsheet{position:relative;z-index:3;pointer-events:auto;margin-top:calc(42dvh);display:flex;flex-direction:column;gap:12px;padding:0 16px calc(var(--nav-clear) + 16px);color:#F6F4EF}
+body.schedhome .schedsheet{position:relative;z-index:3;pointer-events:auto;margin-top:22dvh;display:flex;flex-direction:column;gap:12px;padding:10px 16px calc(var(--nav-clear) + 28px);color:#F6F4EF;background:#0B0B0C;border-radius:32px 32px 0 0}
 body.schedhome .schedsheet.up{margin-top:12px}
 body.schedhome .sheetgrab{width:40px;height:5px;margin:0 auto;padding:0;border:0;border-radius:3px;background:#8B8F93}
 body.schedhome .sheetexpanded{display:none}
@@ -193,20 +193,28 @@ body.schedhome .schedsheet.up .sheetcollapsed{display:none}
 body.schedhome .schedsheet.up .sheetexpanded{display:flex;flex-direction:column;gap:12px}
 .sheettopline{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .sheettopline h2{margin:0;font:700 28px/1 var(--r2-font-display);letter-spacing:-.03em}
-.sheettopline a,.sheettopline button{border:0;background:transparent;color:#8B8F93;font:600 13px/1 var(--r2-font-sans);text-decoration:none}
+.sheettopline a,.sheettopline button{border:0;background:transparent;color:#C8FF3C;font:700 14px/1 var(--r2-font-sans);text-decoration:none}
 .maplegend{position:fixed;z-index:2;top:16px;left:16px;right:16px;display:flex;gap:10px;align-items:center;color:#F6F4EF;font:600 12px/1 var(--r2-font-sans);pointer-events:none}
 .maplegend i{display:inline-block;width:14px;height:3px;margin-right:4px;border-radius:2px;vertical-align:middle}
 .maplegend .legclear{background:#C8FF3C}.maplegend .legslow{background:#FFC61A}.maplegend .legjam{background:#FF5A1F}
 .maplegend b{margin-left:auto;padding:6px 10px;border-radius:999px;background:#17181A;font:600 12px/1 var(--r2-font-sans)}
 .mapmiss{position:relative;z-index:3;margin:24px 16px 0;color:#F6F4EF;pointer-events:auto}
 .mapmiss a{color:#C8FF3C}
-.socialcard{border-radius:28px;background:#FF5FB8;color:#0B0B0C;padding:18px 18px 16px}
-.socialcard .socialkicker{font:700 11px/1 var(--r2-font-sans);letter-spacing:.06em;text-transform:uppercase}
-.socialcard b{display:block;margin-top:8px;font:700 32px/1 var(--r2-font-display);letter-spacing:-.03em}
-.socialcard p,.socialcard small{display:block;margin:6px 0 0;font:600 13px/1.3 var(--r2-font-sans)}
-.socialacts{display:flex;gap:8px;margin-top:12px}
+.socialcard{border-radius:32px;background:#FF5FB8;color:#0B0B0C;padding:18px 18px 16px}
+.socialtop{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.socialcard .socialkicker{font:700 11px/1.2 var(--r2-font-sans);letter-spacing:.04em}
+.till{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#0B0B0C;color:#C8FF3C;font:700 12px/1 var(--r2-font-sans);flex:none}
+.till i{width:8px;height:8px;border-radius:999px;background:#C8FF3C;font-style:normal}
+.socialcard b{display:block;margin-top:10px;font:700 40px/.95 var(--r2-font-display);letter-spacing:-.04em}
+.socialcard p,.socialcard small{display:block;margin:6px 0 0;font:600 14px/1.3 var(--r2-font-sans)}
+.socialwho{display:flex;align-items:center;gap:6px;margin-top:12px;font:700 14px/1.2 var(--r2-font-sans)}
+.socialwho i{width:28px;height:28px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:#0B0B0C;color:#FF5FB8;font:700 10px/1 var(--r2-font-sans);font-style:normal}
+.socialacts{display:flex;gap:8px;margin-top:14px}
 .socialacts form{flex:1;margin:0}
-.socialgo,.socialdir{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;border-radius:999px;border:1.5px solid #0B0B0C;background:transparent;color:#0B0B0C;font:700 14px/1 var(--r2-font-sans);text-decoration:none}
+.socialgo,.socialdir{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;border-radius:999px;border:1.5px solid #0B0B0C;background:transparent;color:#0B0B0C;font:700 15px/1 var(--r2-font-sans);text-decoration:none}
+.socialgo.on{background:#0B0B0C;color:#F6F4EF}
+.drivemain{position:relative}
+.drivego{margin-left:auto;width:44px;height:44px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:#0B0B0C;color:#C8FF3C;font:700 18px/1 var(--r2-font-sans);flex:none}
 .drivecard{border-radius:28px;background:#C8FF3C;color:#0B0B0C;padding:16px 18px}
 .drivetop{display:flex;justify-content:space-between;font:700 11px/1 var(--r2-font-sans);letter-spacing:.06em}
 .drivemain{display:flex;align-items:flex-end;gap:10px;margin-top:8px}
@@ -2090,10 +2098,10 @@ dialog.memberedit .help a{color:var(--t1)}
 {%- endmacro %}
 {% macro r2_social_card(card, variant='home') -%}
 {% if variant == 'row' %}<div class="r2-social p5social" data-r2="social-card" data-variant="{{ card.when }}"><div class=grow><b>{% if card.when == 'before' %}BEFORE PRACTICE{% else %}AFTER PRACTICE{% endif %}{% if card.clock %} · {{ fmt_t(card.clock) }}{% endif %}</b><span>{{ card.title }} · {{ card.place }}</span></div><form method=post action="/practices/{{ card.practice_id }}">{{ csrf_field() }}<input type=hidden name=pid value="{{ card.practice_id }}"><input type=hidden name=back value=page><button name=action value=social_join>Join</button></form></div>
-{% else %}<div class="r2-social socialcard {{ card.when }}" data-r2="social-card" data-variant="{{ card.when }}"><div class=socialkicker>{% if card.live %}Happening now · {% endif %}{% if card.when == 'before' %}Before practice{% else %}After practice{% endif %}{% if card.clock %} · {{ card.clock }}{% endif %}</div><b>{{ card.title }}</b><p>{{ card.place }}{% if card.address %} · {{ card.address }}{% endif %}</p><small>{% if card.when == 'before' %}before{% else %}after{% endif %} {{ card.practice }}</small><div class=socialacts><form method=post action="/practices/{{ card.practice_id }}">{{ csrf_field() }}<input type=hidden name=pid value="{{ card.practice_id }}"><input type=hidden name=back value=home><button class=socialgo name=action value=social_join>I'm coming</button></form><a class=socialdir href="https://www.google.com/maps/search/?api=1&query={{ (card.address or card.place)|urlencode }}" target=_blank rel=noopener>Directions</a></div></div>{% endif %}
+{% else %}<div class="r2-social socialcard {{ card.when }}" data-r2="social-card" data-variant="{{ card.when }}"><div class=socialtop><div class=socialkicker>{% if card.when == 'before' %}BEFORE PRACTICE{% else %}AFTER PRACTICE{% endif %}{% if card.live %} · HAPPENING NOW{% endif %}</div>{% if card.clock %}<span class=till><i></i>Till {{ fmt_t(card.clock) }}</span>{% endif %}</div><b>{{ card.title }}{% if not card.title.endswith('.') %}.{% endif %}</b><p>{{ card.place }}{% if card.address %} · {{ card.address }}{% endif %}</p><small>{% if card.when == 'before' %}before{% else %}after{% endif %} {{ card.practice }}</small><div class=socialwho>{% for person in card.people[:4] %}<i>{{ person.initials }}</i>{% endfor %}<span>{{ card.going_line }}</span></div><div class=socialacts><form method=post action="/practices/{{ card.practice_id }}">{{ csrf_field() }}<input type=hidden name=pid value="{{ card.practice_id }}"><input type=hidden name=back value=home><button class="socialgo{{ ' on' if card.joined }}" name=action value="{{ 'social_leave' if card.joined else 'social_join' }}">{% if card.joined %}✓ {% endif %}{{ 'Joined' if card.joined else "I'm coming" }}</button></form><a class=socialdir href="https://www.google.com/maps/search/?api=1&query={{ (card.address or card.place)|urlencode }}" target=_blank rel=noopener>↗ Directions</a></div></div>{% endif %}
 {%- endmacro %}
 {% macro r2_drive_card(minutes, detail, leave, placeholder=false) -%}
-<div class="r2-drive drivecard" data-r2="drive-card" {% if placeholder %}data-placeholder=1{% endif %}><div class=drivetop><span>YOUR DRIVE</span>{% if leave %}<b>{{ leave }}</b>{% endif %}</div><div class=drivemain><strong>{{ minutes }}</strong><small>{{ detail }}</small></div></div>
+<div class="r2-drive drivecard" data-r2="drive-card" {% if placeholder %}data-placeholder=1{% endif %}><div class=drivetop><span>YOUR DRIVE</span>{% if leave %}<b>{{ leave }}</b>{% endif %}</div><div class=drivemain><strong>{{ minutes }}</strong><small>{{ detail }}</small><span class=drivego aria-hidden=true>›</span></div></div>
 {%- endmacro %}
 {% macro r2_metric(value, label, tone='ink') -%}
 <div class="r2-metric {{ tone }}" data-r2="metric"><b>{{ value }}</b><span>{{ label }}</span></div>
@@ -4527,8 +4535,10 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <div class=schedsheet id=schedSheet>
 <button type=button class=sheetgrab id=sheetGrab aria-label="Drag the schedule"></button>
 <div class=sheetcollapsed>
-<div class=sheettopline><h2>Next up</h2><a href="/practices?view=list">{{ week_n }} this week ↑</a></div>
-{% for card in social_cards %}{{ r2_social_card(card) }}{% endfor %}
+{% set ht = namespace(t='Next up') %}
+{% if social_cards %}{% if social_cards[0].when == 'before' %}{% set ht.t = 'Before practice' %}{% elif social_cards[0].live %}{% set ht.t = 'Right now' %}{% endif %}{% endif %}
+<div class=sheettopline><h2>{{ ht.t }}</h2><a href="/practices?view=list">{{ week_n }} this week ↑</a></div>
+{% if social_cards %}{{ r2_social_card(social_cards[0]) }}{% endif %}
 {% if show_drive %}{{ r2_drive_card(drive_saved or '18 min', 'Practice at ' ~ fmt_clock(nextp.start) ~ ' · ' ~ short_place(nextp.location), drive_chip, drive_placeholder) }}{% endif %}
 {% if nextp %}{{ r2_event_row('/practices/' ~ nextp.id, 'compact', fmt_clock(nextp.start), practice_title(nextp), ('Tonight' if nextp.date == today else fmt_d(nextp.date)) ~ ' · ' ~ short_place(nextp.location), nextp_n, 'practice') }}{% endif %}
 </div>
@@ -4549,6 +4559,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {{ r2_event_row('/practices/' ~ p.id, 'off' if p.cancelled else 'compact', fmt_clock(p.start), practice_title(p), short_place(p.location), x.going|length, x.kind) }}
 {% endfor %}
 {% if not home_rows %}<p class=t3>Nothing in the next 14 days.</p>{% endif %}
+{% for card in social_cards[1:] %}{{ r2_social_card(card) }}{% endfor %}
 </div>
 </div>
 <script>
