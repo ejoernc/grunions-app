@@ -121,8 +121,9 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     finally:
         os.environ.pop("IS_PULL_REQUEST", None)
         clear_preview_rows()
-    assert "Direct chats" in html and "everyone" in html and "Practice chat" in html and "Message the coaches" in html
-    assert "Create channel" not in html
+    assert "Personal messages" in html and "everyone" in html and "Practice chat" in html and "Message the coaches" in html
+    assert "Message the board" not in html and "Create channel" not in html
+    assert member.get("/chat/channels").status_code == 403
     assert "Your teams" in inbox and ">Grunions<" in inbox and "Direct" in inbox
     assert 'data-place="everything"' in inbox
     assert 'data-place="me"' in mine and ">Calendar<" in mine and ">Profile<" in mine
