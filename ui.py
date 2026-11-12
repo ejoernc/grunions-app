@@ -765,7 +765,13 @@ button.switchrow{width:100%;border:0;background:transparent;text-align:left;curs
 .chatsearch{margin:0 0 16px}
 .chatsearch input{width:100%;border-radius:999px;background:var(--r2-carbon);color:var(--r2-paper);border:0;padding:14px 16px}
 .chatlist a.upnext{background:var(--r2-sun);color:var(--r2-fixed-ink);border-radius:26px}
-.chatlist a.upnext b,.chatlist a.upnext small{color:var(--r2-fixed-ink)}
+.chatlist a.upnext b,.chatlist a.upnext small,.chatlist a.upnext .chattime{color:var(--r2-fixed-ink)}
+.chatlist a.upnext .mark{background:var(--r2-sun);color:var(--r2-fixed-ink)}
+.chatlist a.upnext .unread{background:var(--r2-fixed-ink);color:var(--r2-paper)}
+.histlist .mark{width:48px;height:48px;font:700 18px/1 var(--r2-font-display)}
+.searchpill{margin:18px 0 0}
+.searchpill input{width:100%;height:56px;margin:0;border-radius:999px;border:1.5px solid var(--r2-graphite);background:transparent;text-align:center;color:var(--r2-paper);font:700 16px/1 var(--r2-font-sans)}
+.searchpill input::placeholder{color:var(--r2-paper);opacity:1}
 .chatlist .mark.graphite{background:var(--r2-graphite);color:var(--r2-paper)}
 @media (min-width:768px){
  dialog.newchat,dialog.pickpeople{position:fixed;width:340px;height:auto;max-height:90dvh;inset:auto;margin:0}

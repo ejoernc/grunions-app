@@ -39,10 +39,34 @@ def clear_preview_rows():
             d.execute("DELETE FROM rsvps WHERE member_id IN (%s)" % marks, ids)
             d.execute("DELETE FROM lineup_rsvps WHERE member_id IN (%s)" % marks, ids)
             d.execute("DELETE FROM members WHERE id IN (%s)" % marks, ids)
-        d.execute("DELETE FROM practices WHERE location='Preview Pool' OR location LIKE 'Preview lane %'")
-        d.execute("DELETE FROM lineup_events WHERE title='Preview harbor weekend'")
+        d.execute("DELETE FROM club_requests WHERE subject IN ('Drop-in next month','Pool key for Saturday','Does my trial end this week?','Typo in my waiver name','Monthly vs drop-in')")
+        d.execute("DELETE FROM practices WHERE location='Preview Pool' OR location LIKE 'Preview lane %' OR location='Preview pool closed'")
+        d.execute("DELETE FROM lineup_events WHERE title='Preview harbor weekend' OR title='Harbor Invitational'")
         d.execute("DELETE FROM messages WHERE body LIKE 'Preview:%'")
         d.commit()
+
+
+def test_preview_lists_follow_the_practice_and_request_pattern():
+    os.environ["IS_PULL_REQUEST"] = "true"
+    member = client()
+    join(member, "Eli", "Preview", "ejoernc@gmail.com")
+    try:
+        with A.app.app_context():
+            A.seed_preview_club(A.db())
+        picker = member.get("/chat?view=practices").get_data(as_text=True)
+        reqs = member.get("/chat?c=requests").get_data(as_text=True)
+    finally:
+        os.environ.pop("IS_PULL_REQUEST", None)
+        clear_preview_rows()
+    assert "Practice chats." in picker and "Your practice chats." not in picker
+    assert "Cancelled — pool closed" in picker and "Harbor Invitational" in picker and "Photos from the weekend" in picker
+    assert 'class="chatrow histrow upnext"' in picker
+    assert picker.find("Earlier") < picker.find("Search all practice chats")
+    assert "Questions sent to the coaches or the board." in reqs
+    assert "Open · " in reqs and "Pool key for Saturday" in reqs and "Does my trial end this week?" in reqs
+    assert "Typo in my waiver name" in reqs and "Resolved by Mira" in reqs
+    assert reqs.find("Resolved") < reqs.find("Search all requests")
+    assert 'class="chatrow histrow upnext"' in reqs
 
 
 def test_nav_3_lands_on_schedule_and_lists_only_grunions():
@@ -189,6 +213,9 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     assert "Message the board" not in ask and "Create channel" not in html
     picker = member.get("/chat?view=practices").get_data(as_text=True)
     assert "Practice chats." in picker and "Up next" in picker and "Earlier" in picker and "Search all practice chats" in picker
+    assert picker.find("Earlier") < picker.find("Search all practice chats")
+    sheet = member.get("/chat?view=practices&sheet=1").get_data(as_text=True)
+    assert "Your practice chats." in sheet and "Practices you went to or are going to." in sheet
     with A.app.app_context():
         A.db().execute("UPDATE members SET role='athlete' WHERE email='nia.chat@example.com'")
         A.db().commit()

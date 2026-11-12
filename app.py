@@ -2044,6 +2044,20 @@ def seed_preview_club(d):
             VALUES(?,?, 'membership', 'Drop-in next month', 'open', ?, ?, 'member', 0)""",
             (ids["adele.voss@preview.regulars.invalid"], "coaches", now, now)).lastrowid
         say("adele.voss@preview.regulars.invalid", "req:%d" % rid, "Preview: can I switch to drop-in next month?")
+    def preview_request(subject, audience, email, status, days_ago, resolver=None):
+        if d.execute("SELECT 1 FROM club_requests WHERE subject=?", (subject,)).fetchone():
+            return
+        stamp = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days_ago)).isoformat()
+        resolved_by = ids.get(resolver) if resolver else None
+        d.execute("""INSERT INTO club_requests(member_id, audience, topic, subject, status, created_at, updated_at, last_side, staff_replied, resolved_by, resolved_at)
+            VALUES(?,?, 'other', ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (ids[email], audience, subject, status, stamp, stamp,
+             "staff" if status == "resolved" else "member", 1 if status == "resolved" else 0,
+             resolved_by, stamp if status == "resolved" else None))
+    preview_request("Pool key for Saturday", "coaches", "adele.voss@preview.regulars.invalid", "open", 0)
+    preview_request("Does my trial end this week?", "board", "jonah.peck@preview.regulars.invalid", "open", 1)
+    preview_request("Typo in my waiver name", "board", "lena.ortiz@preview.regulars.invalid", "resolved", 8, "mira.solano@preview.regulars.invalid")
+    preview_request("Monthly vs drop-in", "coaches", "theo.march@preview.regulars.invalid", "resolved", 10, "mira.solano@preview.regulars.invalid")
     say("mira.solano@preview.regulars.invalid", "coaches", "Preview: Adele asked about drop-in. I said yes.")
     try:
         import clubadmin
@@ -2087,6 +2101,33 @@ def seed_preview_club(d):
             d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (program["id"], eli["id"]))
         d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
             ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (pid, eli["id"]))
+        for past_id in (north, south, west):
+            d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
+                ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (past_id, eli["id"]))
+            d.execute("INSERT OR IGNORE INTO chat_follows(practice_id, member_id) VALUES(?,?)", (past_id, eli["id"]))
+        closed_when = (day - dt.timedelta(days=20)).isoformat()
+        closed = d.execute("SELECT id FROM practices WHERE location='Preview pool closed'").fetchone()
+        if not closed:
+            closed_id = d.execute("""INSERT INTO practices(date,start,end,location,address,note,sport,title,cancelled,cancel_reason)
+                VALUES(?,?,?,?,?,?,?,?,1,'pool closed')""", (closed_when, "19:00", "20:30", "Preview pool closed", "1 Preview Way",
+                "Preview only.", "Water Polo", "Cancelled preview")).lastrowid
+        else:
+            closed_id = closed["id"]
+        d.execute("""INSERT INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)
+            ON CONFLICT(practice_id, member_id) DO UPDATE SET going=1""", (closed_id, eli["id"]))
+        say("mira.solano@preview.regulars.invalid", "practice:%d" % closed_id, "Preview: pool closed.")
+        harbor = d.execute("SELECT id FROM lineup_events WHERE title='Harbor Invitational'").fetchone()
+        if not harbor:
+            harbor_id = d.execute("""INSERT INTO lineup_events(kind, title, date, city, venue, start, description)
+                VALUES('Team trip','Harbor Invitational',?,'Long Beach','Preview Pool','09:00','Photos from the weekend')""",
+                ((day - dt.timedelta(days=12)).isoformat(),)).lastrowid
+        else:
+            harbor_id = harbor["id"]
+        try:
+            d.execute("""INSERT INTO lineup_rsvps(event_id, member_id, going, state) VALUES(?,?,1,'going')
+                ON CONFLICT(event_id, member_id) DO UPDATE SET going=1, state='going'""", (harbor_id, eli["id"]))
+        except sqlite3.OperationalError:
+            pass
         channel = dm_channel(eli["id"], ids["adele.voss@preview.regulars.invalid"])
         if not d.execute("SELECT 1 FROM messages WHERE channel=? AND body LIKE 'Preview: Eli,%'", (channel,)).fetchone():
             d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)",
@@ -3065,55 +3106,96 @@ def join_practice_chat(d, pid, mid):
 def _practice_sessions(d, mid):
     """Upcoming sessions this person is Going to or has entered the chat for, then earlier ones."""
     today = today_pt().isoformat()
-    upcoming = d.execute("""SELECT p.id, p.date, p.start, p.title, p.location, p.cancelled FROM practices p
+    upcoming = d.execute("""SELECT p.id, p.date, p.start, p.title, p.location, p.cancelled, p.cancel_reason FROM practices p
         WHERE p.date>=? AND (
             EXISTS(SELECT 1 FROM rsvps r WHERE r.practice_id=p.id AND r.member_id=? AND r.going=1)
             OR EXISTS(SELECT 1 FROM chat_follows f WHERE f.practice_id=p.id AND f.member_id=?))
         ORDER BY p.date, p.start""", (today, mid, mid)).fetchall()
-    earlier = d.execute("""SELECT p.id, p.date, p.start, p.title, p.location, p.cancelled FROM practices p
+    earlier = d.execute("""SELECT p.id, p.date, p.start, p.title, p.location, p.cancelled, p.cancel_reason FROM practices p
         WHERE p.date<? AND (
             EXISTS(SELECT 1 FROM rsvps r WHERE r.practice_id=p.id AND r.member_id=? AND r.going=1)
             OR EXISTS(SELECT 1 FROM chat_follows f WHERE f.practice_id=p.id AND f.member_id=?))
         ORDER BY p.date DESC LIMIT 20""", (today, mid, mid)).fetchall()
     return upcoming, earlier
-def _session_row(d, mid, row, live=False):
+def _history_row(href, mark, title, sub, meta="", unread=0, featured=False):
+    """06.27 / 06.39. One sun row, then quiet graphite circles."""
+    klass = "chatrow histrow upnext" if featured else "chatrow histrow"
+    tone = "sun" if featured else "graphite"
+    bits = ""
+    if meta or unread:
+        badge = '<span class=unread>%d</span>' % unread if unread else ""
+        bits = '<span class=chatside>%s%s</span>' % (('<span class=chattime>%s</span>' % escape(meta)) if meta else "", badge)
+    return ('<a class="%s" href="%s"><span class="mark %s">%s</span><span class=grow><b>%s</b><small>%s</small></span>%s</a>'
+            % (klass, href, tone, mark, escape(title), escape(sub or ""), bits))
+def _session_row(d, mid, row, featured=False, upcoming=False):
     ch = "practice:%d" % row["id"]
     preview, _when = channel_preview(d, ch)
     n = chat_unread_n(d, mid, ch)
     count = d.execute("SELECT COUNT(*) FROM messages WHERE channel=? AND COALESCE(deleted,0)=0", (ch,)).fetchone()[0]
-    day = dt.date.fromisoformat(str(row["date"])[:10]).day
+    day = "%02d" % dt.date.fromisoformat(str(row["date"])[:10]).day
     where = (row["location"] or row["title"] or "Practice").strip()
     title = "%s · %s" % (_chip_date(row["date"]), where)
+    reason = ""
+    try:
+        reason = (row["cancel_reason"] or "").strip()
+    except (KeyError, IndexError):
+        reason = ""
     if row["cancelled"]:
-        sub = "Cancelled"
-    elif live:
+        sub = "Cancelled — %s" % reason if reason else "Cancelled"
+        meta = "%d msgs" % count
+    elif featured and str(row["date"])[:10] == today_pt().isoformat():
         sub = preview or "Now"
+        meta = "Now"
+    elif upcoming:
+        sub = preview or "Starts when the first person RSVPs"
+        meta = ""
     else:
-        sub = preview or ("%d msgs" % count)
-    side = '<span class=unread>%d</span>' % n if n else ('<span class=chattime>Now</span>' if live else '<span class=chattime>%d msgs</span>' % count)
-    klass = "chatrow upnext" if live else "chatrow"
-    return ('<a class="%s" href="/chat?c=%s"><span class="mark %s">%d</span><span class=grow><b>%s</b><small>%s</small></span><span class=chatside>%s</span></a>'
-            % (klass, ch, "sun" if live else "graphite", day, escape(title), escape(sub), side))
-def practice_picker_html(d, m, query=""):
-    """06.11 / 06.27. Earlier chats live here, not in the Team Chat inbox."""
+        sub = preview or "No messages yet"
+        meta = "%d msgs" % count
+    return _history_row("/chat?c=%s&keep=1" % ch, day, title, sub, meta, n, featured)
+def practice_picker_html(d, m, query="", sheet=False):
+    """06.11 full page, or the 06.27 date-chip sheet. Same rows."""
     upcoming, earlier = _practice_sessions(d, m["id"])
+    try:
+        lineup = d.execute("""SELECT e.id, e.date, e.title, e.venue, e.city, e.description FROM lineup_events e
+            JOIN lineup_rsvps r ON r.event_id=e.id AND r.member_id=? AND (r.going=1 OR r.state='going')
+            WHERE e.date<? ORDER BY e.date DESC LIMIT 8""", (m["id"], today_pt().isoformat())).fetchall()
+    except sqlite3.OperationalError:
+        lineup = []
     q = (query or "").strip().lower()
-    def keep(row):
+    def keep_practice(row):
         if not q:
             return True
         blob = " ".join([row["date"] or "", row["title"] or "", row["location"] or ""]).lower()
         preview, _when = channel_preview(d, "practice:%d" % row["id"])
         return q in blob or q in (preview or "").lower()
-    upcoming = [row for row in upcoming if keep(row)]
-    earlier = [row for row in earlier if keep(row)]
-    up_html = "".join(_session_row(d, m["id"], row, live=(i == 0 and not q)) for i, row in enumerate(upcoming)) or '<p class="t3">Nothing coming up.</p>'
-    early_html = "".join(_session_row(d, m["id"], row) for row in earlier) or '<p class="t3">No earlier practices yet.</p>'
-    return ('<div class=chathead><h1 class=chatdisplay>Practice chats.</h1></div>'
-            '<p class="t3">The chat follows the next practice you\'re signed up for. Earlier ones stay here, read-only after 7 days.</p>'
-            '<form method=get action=/chat class=chatsearch><input type=hidden name=view value=practices>'
-            '<input name=q value="%s" placeholder="Search all practice chats"></form>'
-            '<p class="r2caps">Up next</p><div class=chatlist>%s</div>'
-            '<p class="r2caps">Earlier</p><div class=chatlist>%s</div>') % (escape(query or ""), up_html, early_html)
+    upcoming = [row for row in upcoming if keep_practice(row)]
+    earlier = [row for row in earlier if keep_practice(row)]
+    featured_id = upcoming[0]["id"] if upcoming and not q else None
+    up_html = "".join(_session_row(d, m["id"], row, featured=(row["id"] == featured_id), upcoming=True) for row in upcoming) or '<p class="t3">Nothing coming up.</p>'
+    early_bits = [(str(row["date"]), _session_row(d, m["id"], row)) for row in earlier]
+    for event in lineup:
+        blob = " ".join([event["date"] or "", event["title"] or "", event["venue"] or "", event["city"] or ""]).lower()
+        if q and q not in blob:
+            continue
+        day = "%02d" % dt.date.fromisoformat(str(event["date"])[:10]).day
+        place = (event["venue"] or event["city"] or "Lineup").strip()
+        title = "%s · %s" % (_chip_date(event["date"]), event["title"] or place)
+        sub = (event["description"] or "Photos from the weekend").strip()
+        early_bits.append((str(event["date"]), _history_row("/lineup/%d" % event["id"], day, title, sub, "")))
+    early_bits.sort(key=lambda item: item[0], reverse=True)
+    early_html = "".join(html for _date, html in early_bits) or '<p class="t3">No earlier practices yet.</p>'
+    if sheet:
+        title, sub = "Your practice chats.", "Practices you went to or are going to. Pick one to open its chat — older ones are read-only."
+    else:
+        title, sub = "Practice chats.", "The chat follows the next practice you're signed up for. Earlier ones stay here, read-only after 7 days."
+    return ('<div class=chathead><h1 class=chatdisplay>%s</h1></div>'
+            '<p class="t3">%s</p>'
+            '<p class="r2caps">Up next</p><div class="chatlist histlist">%s</div>'
+            '<p class="r2caps">Earlier</p><div class="chatlist histlist">%s</div>'
+            '<form method=get action=/chat class=searchpill><input type=hidden name=view value=practices>'
+            '<input name=q value="%s" placeholder="Search all practice chats" aria-label="Search all practice chats"></form>'
+            ) % (title, sub, up_html, early_html, escape(query or ""))
 def practice_switcher(d, m, current):
     """Date chip on the one practice chat. It opens the picker instead of listing sessions in the inbox."""
     if not current.startswith("practice:"):
@@ -3140,13 +3222,13 @@ def practice_switcher(d, m, current):
     when = "Tonight · %s" % where if str(row["date"])[:10] == today_pt().isoformat() else "%s · %s" % (_chip_date(row["date"]), where)
     going = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (pid,)).fetchone()[0]
     hero = '<div class=pchathero><span class=pchatclock>%s</span><span><b>%s</b><small>%d going</small></span></div>' % (escape(_clock_face(row["start"])), escape(when), going)
-    return ('<div class=pchatbar>%s<a class=datechip href="/chat?view=practices">%s ▾</a></div>%s%s%s'
+    return ('<div class=pchatbar>%s<a class=datechip href="/chat?view=practices&amp;sheet=1">%s ▾</a></div>%s%s%s'
             % (back_link, escape(_chip_date(row["date"])), hero, note, back))
 @app.route("/chat")
 @login_required
 def chat():
     if request.args.get("view") == "practices":
-        return page(practice_picker_html(db(), me(), request.args.get("q") or ""), tab="chat")
+        return page(practice_picker_html(db(), me(), request.args.get("q") or "", sheet=request.args.get("sheet") == "1"), tab="chat")
     if request.args.get("view") == "list":
         return page(team_chat_html(db(), me()), tab="chat")
     raw = (request.args.get("c") or "team").strip()
@@ -3264,6 +3346,8 @@ def _request_visible(row, m):
     if not row or not m:
         return False
     if row["member_id"] == m["id"]:
+        return True
+    if m["is_admin"]:
         return True
     if row["audience"] == "coaches":
         if (m["role"] or "") != "coach":
@@ -3762,9 +3846,11 @@ def requests_list_html(d, m):
     elif audience == "board":
         rows = [row for row in rows if row["audience"] == "board" and row["member_id"] != m["id"]]
         staff_list = True
+    elif m["is_admin"]:
+        pass
     elif (m["role"] or "") == "coach":
         mine = {item["slug"] for item in _assigned_sports(d, m)}
-        rows = [row for row in rows if row["member_id"] == m["id"] or (row["audience"] == "coaches" and (row["sport"] or "") in mine)]
+        rows = [row for row in rows if row["member_id"] == m["id"] or (row["audience"] == "coaches" and ((row["sport"] or "") in mine or not (row["sport"] or "")))]
     elif is_board(m):
         rows = [row for row in rows if row["member_id"] == m["id"] or row["audience"] == "board"]
     else:
@@ -3773,13 +3859,29 @@ def requests_list_html(d, m):
         rows = [row for row in rows if q in (row["subject"] or "").lower()]
     open_rows = [row for row in rows if row["status"] != "resolved"]
     done = [row for row in rows if row["status"] == "resolved"]
-    def one(row):
+    def one(row, featured=False):
         ch = "req:%d" % row["id"]
         n = chat_unread_n(d, m["id"], ch)
-        status = _resolved_line(d, row) if row["status"] == "resolved" else _request_status(row, m)
-        sub = "%s · %s" % (status, _opened_ago(row["created_at"]))
+        author = d.execute("SELECT first, last, preferred_first FROM members WHERE id=?", (row["member_id"],)).fetchone()
+        letters = initials(author) if author else "?"
         who = "To coaches" if row["audience"] == "coaches" else "To the board"
-        return _chat_row("/chat?c=%s" % ch, "R", escape(row["subject"]), "%s · %s" % (who, sub), "", n, "grape", chat_muted(d, m["id"], ch))
+        if row["status"] == "resolved":
+            sub = _resolved_line(d, row)
+            meta = ""
+            if row["resolved_at"]:
+                try:
+                    moment = dt.datetime.fromisoformat(str(row["resolved_at"]).replace("Z", "+00:00"))
+                    if moment.tzinfo is None:
+                        moment = moment.replace(tzinfo=dt.timezone.utc)
+                    local = moment.astimezone(PT)
+                    meta = "%s %d" % (local.strftime("%b"), local.day)
+                except ValueError:
+                    meta = ""
+        else:
+            sub = "%s · %s" % (who, _request_status(row, m))
+            meta = _opened_ago(row["updated_at"] or row["created_at"]).replace("Opened ", "")
+        title = "%s · %s" % (display_first(author) if author else "Someone", row["subject"])
+        return _history_row("/chat?c=%s" % ch, letters, title, sub, meta, n, featured)
     empty = '<p class="t3">No open requests — nice.</p>'
     plus = "" if staff_list else '<button type=button class=chatplus data-open-request aria-label="New request">+</button>'
     hidden = ""
@@ -3787,15 +3889,18 @@ def requests_list_html(d, m):
         hidden += '<input type=hidden name=sport value="%s">' % escape(sport)
     if audience:
         hidden += '<input type=hidden name=audience value="%s">' % escape(audience)
+    staff = bool(m["is_admin"] or (m["role"] or "") == "coach" or is_board(m))
+    blurb = "Questions sent to the coaches or the board. Open ones stay on top until someone marks them resolved — then they move to history." if staff else "Questions you sent. Open ones stay on top until someone marks them resolved."
+    open_html = "".join(one(row, featured=(i == 0 and not q)) for i, row in enumerate(open_rows)) or empty
     return ('<div class=chathead><h1 class=chatdisplay>Requests.</h1>%s</div>'
-            '<p class="t3">Questions stay open until someone marks them resolved, then they move to history.</p>'
-            '<form method=get action=/chat class=chatsearch><input type=hidden name=c value=requests>%s'
-            '<input name=q value="%s" placeholder="Search all requests"></form>'
-            '<p class="r2caps">Open</p><div class=chatlist>%s</div>'
-            '<p class="r2caps">Resolved</p><div class=chatlist>%s</div>') % (
-                plus, hidden, escape(q),
-                "".join(one(row) for row in open_rows) or empty,
-                "".join(one(row) for row in done) or '<p class="t3">Nothing resolved yet.</p>')
+            '<p class="t3">%s</p>'
+            '<p class="r2caps">Open · %d</p><div class="chatlist histlist">%s</div>'
+            '<p class="r2caps">Resolved</p><div class="chatlist histlist">%s</div>'
+            '<form method=get action=/chat class=searchpill><input type=hidden name=c value=requests>%s'
+            '<input name=q value="%s" placeholder="Search all requests" aria-label="Search all requests"></form>') % (
+                plus, blurb, len(open_rows), open_html,
+                "".join(one(row) for row in done) or '<p class="t3">Nothing resolved yet.</p>',
+                hidden, escape(q))
 def _request_list_href(row):
     if not row:
         return "/chat?c=requests"
