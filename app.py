@@ -244,7 +244,10 @@ def migrate_members(d):
                  ("trial_acknowledged_at", "TEXT"), ("notify_prefs", "TEXT"),
                  ("email_reminders", "INTEGER DEFAULT 1"), ("practice_reminder", "TEXT DEFAULT 'both'"), ("membership_type", "TEXT"), ("joined", "INTEGER DEFAULT 0"),
                  ("require_background", "INTEGER DEFAULT 0"), ("photo", "TEXT"), ("trial_claim_until", "TEXT"),
-                 ("board_member", "INTEGER DEFAULT 0")):
+                 ("board_member", "INTEGER DEFAULT 0"),
+                 ("show_attendance", "INTEGER DEFAULT 1"), ("show_pronouns", "INTEGER DEFAULT 1"),
+                 ("messages_outside", "INTEGER DEFAULT 0"), ("show_in_picker", "INTEGER DEFAULT 1"),
+                 ("share_exact_location", "INTEGER DEFAULT 1")):
         if c not in cols: d.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
     # /join always stores a phone. Existing registrations keep Google sign-in; a blank phone is not one.
     cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
@@ -1513,6 +1516,111 @@ def profile():
         prof_upcoming, prof_past, prof_past_n = profile_lineup(d, m["id"], "mine" if ptab == "hosting" else "interested")
     return page(T["profile"], tab="profile", m=m, hist=hist, nmonth=sum(1 for h in hist if h["practice_date"].startswith(month)), vr_pending=vr_pending,
         ptab=ptab, hosts=hosts, prof_upcoming=prof_upcoming, prof_past=prof_past, prof_past_n=prof_past_n, prof_back="/profile?tab=" + ptab)
+def _privacy_prefs(m):
+    def flag(key, default):
+        try:
+            value = m[key]
+        except (KeyError, IndexError, TypeError):
+            return default
+        return default if value is None else bool(value)
+    return {
+        "show_attendance": flag("show_attendance", True),
+        "show_pronouns": flag("show_pronouns", True),
+        "messages_outside": flag("messages_outside", False),
+        "show_in_picker": flag("show_in_picker", True),
+        "share_exact_location": flag("share_exact_location", True),
+    }
+@app.route("/privacy", methods=["GET", "POST"])
+@login_required
+def privacy():
+    m = me(); d = db()
+    if request.method == "POST":
+        d.execute("""UPDATE members SET show_attendance=?, show_pronouns=?, messages_outside=?, show_in_picker=?, share_exact_location=? WHERE id=?""",
+                  (1 if request.form.get("show_attendance") else 0, 1 if request.form.get("show_pronouns") else 0,
+                   1 if request.form.get("messages_outside") else 0, 1 if request.form.get("show_in_picker") else 0,
+                   1 if request.form.get("share_exact_location") else 0, m["id"]))
+        d.commit()
+        flash("Saved", "toast")
+        return redirect("/privacy")
+    hist = d.execute("SELECT practice_date FROM checkins WHERE member_id=?", (m["id"],)).fetchall()
+    return page(T["privacy"], tab="privacy", prefs=_privacy_prefs(m), hist=hist)
+@app.route("/profile/delete", methods=["POST"])
+@login_required
+def delete_own_account():
+    """Leaves this club. The row stays so history is not rewritten; the person is signed out."""
+    d = db(); mid = me()["id"]
+    d.execute("UPDATE members SET joined=0 WHERE id=?", (mid,))
+    d.commit()
+    session.clear()
+    return redirect("/join")
+@app.route("/profile/<int:mid>", methods=["GET"])
+@login_required
+def person_profile(mid):
+    if mid == me()["id"]:
+        return redirect("/profile")
+    d = db()
+    m = d.execute("SELECT * FROM members WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone()
+    if not m: abort(404)
+    staff = bool(is_club_admin() or is_active_coach())
+    prefs = _privacy_prefs(m)
+    attendance_private = (not staff) and (not prefs["show_attendance"])
+    hist = [] if attendance_private else d.execute("SELECT practice_date FROM checkins WHERE member_id=?", (mid,)).fetchall()
+    month = today_pt().strftime("%Y-%m")
+    cl = clearance(d, m) if staff else None
+    cred = credential_dates(m) if staff else None
+    needs = ""
+    if staff and cl and not cl["ok"]:
+        parts = []
+        if (m["usawp_status"] or "") != "verified":
+            parts.append("membership is pending")
+        if not (cred and cred.get("safesport")):
+            parts.append("SafeSport is missing")
+        needs = ". ".join(parts[:2])
+    return page(T["person"], tab="person", m=m, staff=staff, hist=hist, attendance_private=attendance_private,
+        nmonth=sum(1 for h in hist if h["practice_date"].startswith(month)),
+        cleared=bool(cl and cl["ok"]), needs=needs,
+        safesport=(cred or {}).get("safesport") if cred else "",
+        background=(cred or {}).get("background") if cred else "",
+        message_href="/chat?c=%s&place=me" % dm_channel(me()["id"], mid),
+        dm=dm_channel(me()["id"], mid))
+@app.route("/profile/<int:mid>/role", methods=["POST"])
+@login_required
+def person_role(mid):
+    if not is_club_admin() or mid == me()["id"]: abort(403)
+    role = request.form.get("role") or ""
+    d = db()
+    if role == "admin":
+        d.execute("UPDATE members SET is_admin=1 WHERE id=?", (mid,))
+    elif role == "coach":
+        d.execute("UPDATE members SET role='coach', is_admin=0 WHERE id=?", (mid,))
+    elif role == "member":
+        d.execute("UPDATE members SET role='athlete', is_admin=0 WHERE id=?", (mid,))
+    else:
+        abort(400)
+    d.commit()
+    return redirect("/profile/%d" % mid)
+@app.route("/profile/<int:mid>/remove", methods=["POST"])
+@login_required
+def person_remove(mid):
+    if not is_club_admin() or mid == me()["id"]: abort(403)
+    db().execute("UPDATE members SET joined=0 WHERE id=?", (mid,))
+    db().commit()
+    flash("Removed from Grunions. Their account stays.", "toast")
+    return redirect("/manage")
+@app.route("/profile/<int:mid>/report", methods=["POST"])
+@login_required
+def person_report(mid):
+    if mid == me()["id"]: abort(400)
+    d = db()
+    who = d.execute("SELECT first, last, preferred_first FROM members WHERE id=?", (mid,)).fetchone()
+    if not who: abort(404)
+    now = dt.datetime.now(dt.timezone.utc).isoformat()
+    name = ("%s %s" % (display_first(who), who["last"] or "")).strip()
+    d.execute("""INSERT INTO club_requests(member_id, audience, topic, subject, status, created_at, updated_at, last_side, staff_replied)
+        VALUES(?, 'board', 'other', ?, 'open', ?, ?, 'member', 0)""", (me()["id"], "Report %s" % name[:60], now, now))
+    d.commit()
+    flash("Sent to the Grunions admins.", "toast")
+    return redirect("/profile/%d" % mid)
 
 # ---------- unread badges ----------
 def empty_unread():
@@ -2399,8 +2507,9 @@ def _session_eyebrow(iso, start):
         return "Tonight" if hour >= 17 else "Today"
     return day.strftime("%a")
 def _joined_people(d, mid):
-    return d.execute("""SELECT id, first, last, preferred_first, role FROM members
+    return d.execute("""SELECT id, first, last, preferred_first, role, COALESCE(show_in_picker,1) AS show_in_picker FROM members
         WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1 AND id!=?
+          AND COALESCE(show_in_picker,1)=1
         ORDER BY first, last""", (mid,)).fetchall()
 def _chat_title(mode):
     return ('<div class=chathead><h1 class=chatdisplay>Chat.</h1>'
@@ -7162,7 +7271,7 @@ def _manage_search(d, q, admin):
                 "name": name, "role": " · ".join(roles) or "Member", "status": status,
                 "initials": initials(person),
                 "photo": ("/avatar/%d?v=%s" % (person["id"], person["photo"])) if person["photo"] else "",
-                "href": "/admin/member/%d" % person["id"],
+                "href": "/profile/%d" % person["id"],
             })
             if len(people) >= 24: break
     return {"people": people, "settings": settings}

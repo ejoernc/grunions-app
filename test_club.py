@@ -226,6 +226,33 @@ def test_coaches_thread_mutes_from_the_name_not_a_week_chip():
     assert "Browse channels." in listing and "Left list" not in listing and 'class="newrow actdanger"' in listing and 'class="newrow danger"' not in listing.split("id=chatActions", 1)[1].split("</dialog>", 1)[0]
 
 
+def test_profile_views_hide_contact_and_privacy_hides_the_roster():
+    member = client()
+    join(member, "Nia", "Member", "nia.view@example.com")
+    other = client()
+    join(other, "Sam", "Rivera", "sam.view@example.com")
+    admin = client()
+    join(admin, "Eli", "Admin", "eli.view@example.com")
+    with A.app.app_context():
+        d = A.db()
+        d.execute("UPDATE members SET is_admin=1 WHERE email='eli.view@example.com'")
+        sam = d.execute("SELECT id FROM members WHERE email='sam.view@example.com'").fetchone()[0]
+        d.commit()
+    seen = member.get("/profile/%d" % sam).get_data(as_text=True)
+    assert "Message Sam" in seen and "sam.view@example.com" not in seen and "Compliance" not in seen.split("Cleared sports", 1)[1].split("personMenu", 1)[0]
+    assert "Members don't see compliance" in seen
+    staff = admin.get("/profile/%d" % sam).get_data(as_text=True)
+    assert "sam.view@example.com" in staff and "Update compliance" in staff and "Remove from Grunions" in staff
+    priv = member.get("/privacy").get_data(as_text=True)
+    assert "Show me in 'Message someone'" in priv and "Messages from outside my teams" in priv and "Share my exact location" in priv
+    member.post("/privacy", data={"csrf": csrf(member, "/privacy"), "show_attendance": "1", "show_pronouns": "1", "share_exact_location": "1"})
+    with A.app.app_context():
+        nia = A.db().execute("SELECT id, show_in_picker FROM members WHERE email='nia.view@example.com'").fetchone()
+        assert nia["show_in_picker"] == 0
+    roster = other.get("/inbox").get_data(as_text=True).split("id=pickList", 1)[1].split("id=pickEmpty", 1)[0]
+    assert "Nia Member" not in roster
+
+
 def test_only_an_admin_can_delete_a_normal_channel():
     member = client()
     join(member, "Nia", "Member", "nia.delete@example.com")

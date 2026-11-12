@@ -352,6 +352,39 @@ body.profilepage .metric.sun{background:var(--r2-sun)}
 body.profilepage .metric.sky{background:var(--r2-sky)}
 body.profilepage header.profilebar{grid-template-columns:44px 1fr auto;gap:8px;padding:env(safe-area-inset-top) 16px 0;background:var(--r2-ink)}
 body.profilepage header.profilebar h1{text-align:left;font:700 20px/44px var(--r2-font-display);letter-spacing:-.02em}
+body.profilepage .morebtn{width:40px;height:40px;min-width:40px;padding:0;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);font:700 18px/1 var(--r2-font-sans)}
+header.profilebar #profileEdit{display:none !important}
+.msgpill{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;min-height:52px;margin:0 0 16px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 16px/1 var(--r2-font-sans);text-decoration:none}
+.needcard{margin:0 0 16px;padding:16px 18px;border-radius:28px;background:#ff5a1f;color:#0b0b0c}
+.needkicker{margin:0 0 6px;font:700 10px/1.2 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase}
+.needcard b{display:block;margin:0 0 8px;font:700 28px/1.05 var(--r2-font-display);letter-spacing:-.03em}
+.needcard p{margin:0;font:600 14px/1.35 var(--r2-font-sans)}
+.sporthead{display:flex;align-items:center;gap:8px;margin:0 0 4px;font:700 16px/1.2 var(--r2-font-sans);color:var(--r2-paper)}
+.minichip{padding:4px 8px;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);font:700 11px/1 var(--r2-font-sans)}
+.sportline{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;color:var(--r2-paper);font:700 16px/1.2 var(--r2-font-sans)}
+.menuwho{display:flex;align-items:center;gap:12px;margin:0 0 12px}
+.menuwho .mark{width:44px;height:44px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--r2-sun);color:var(--r2-fixed-ink);font:700 14px/1 var(--r2-font-display)}
+.menuwho .mark.sky{background:var(--r2-sky)}
+.menuwho b{display:block;color:var(--r2-paper);font:700 16px/1.2 var(--r2-font-sans)}
+.menuwho small{display:block;color:var(--r2-smoke);font:600 12px/1.3 var(--r2-font-sans)}
+.privcard{display:flex;flex-direction:column;margin:0 0 18px;padding:6px;border-radius:26px;background:var(--r2-graphite)}
+.privrow{display:flex;align-items:center;gap:12px;padding:12px 10px;color:var(--r2-paper)}
+.privrow b{display:block;font:700 15px/1.2 var(--r2-font-sans)}
+.privrow small{display:block;margin-top:2px;color:var(--r2-smoke);font:600 12px/1.35 var(--r2-font-sans)}
+.privgo{flex:none;color:var(--r2-smoke);font:700 14px/1.2 var(--r2-font-sans)}
+.r2switch{position:relative;width:52px;height:32px;flex:none}
+.r2switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0}
+.r2switch i{position:absolute;inset:0;border-radius:999px;background:#3a3d42;pointer-events:none}
+.r2switch i:before{content:"";position:absolute;width:26px;height:26px;left:3px;top:3px;border-radius:50%;background:#fff;transition:transform .15s ease}
+.r2switch input:checked+i{background:var(--r2-lime)}
+.r2switch input:checked+i:before{transform:translateX(20px)}
+.privacyform{max-width:400px}
+@media (min-width:768px){
+ body.profilepage .privacyform{margin:24px auto}
+ dialog.profmenu.popover{position:fixed;width:340px;height:auto;max-height:90dvh;inset:auto;margin:0}
+ dialog.profmenu.popover .sheet{border-radius:24px;border:1px solid var(--r2-graphite);max-height:min(90dvh,640px)}
+ dialog.profmenu.popover .grab{display:none}
+}
 body.profilepage header.profilebar .profileback{width:44px;height:44px;min-width:44px;padding:0;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper)}
 body.profilepage .seclabel{margin:22px 0 8px;color:var(--r2-paper);font:700 28px/.95 var(--r2-font-display);letter-spacing:-.03em;text-transform:none}
 body.profilepage .list,body.adminpage .list,body.adminpage .mlist{background:transparent;display:flex;flex-direction:column;gap:8px;overflow:visible}
@@ -1266,7 +1299,7 @@ dialog.memberedit .help a{color:var(--t1)}
 }
 </style>
 <script>try{if(sessionStorage.getItem("grunionsBoot"))document.documentElement.classList.add("booted")}catch(e){}</script>
-</head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' or tab=='manage' %}adminpage{% endif %}{% if tab=='event_new' or tab=='lineup_edit' or tab=='series_edit' or (tab=='practice' and editing) %} editor{% endif %}">
+</head><body style="background:#090D0B;color:#F2F6F1;margin:0" class="{% if (tab=='home' or tab=='practices') and me() %}homefull{% if tab=='practices' %} schedopen{% endif %}{% elif tab=='profile' or tab=='member' or tab=='person' or tab=='privacy' %}profilepage{% if tab=='member' and editing %} profile-edit{% endif %}{% elif tab=='practice' or tab=='lineup_event' %}practicepage{% elif tab=='admin' or tab=='manage' %}adminpage{% endif %}{% if tab=='event_new' or tab=='lineup_edit' or tab=='series_edit' or (tab=='practice' and editing) %} editor{% endif %}">
 <div id=boot role=status aria-label="Loading"><div class=mark><video class=bootvid autoplay muted loop playsinline preload=auto poster=/static/loader-first-frame.png><source src=/static/regulars-loader-hevc.mov type='video/quicktime; codecs="hvc1"'><source src=/static/regulars-loader-transparent.webm type=video/webm></video><img class=bootstill alt="" src=/static/regulars-logo.svg></div></div>
 <script>(function(){var el=document.getElementById("boot");if(!el)return;if(document.documentElement.classList.contains("booted")){el.remove();return;}var vid=el.querySelector("video"),still=el.querySelector(".bootstill");var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;var ios=/iPhone|iPad|iPod/.test(navigator.userAgent||"")||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);function showStill(){el.classList.add("bootstill");if(!vid)return;try{vid.pause()}catch(e){}vid.removeAttribute("src");while(vid.firstChild)vid.removeChild(vid.firstChild);try{vid.load()}catch(e){}}function blackFrame(){if(!vid||vid.readyState<2)return false;try{var c=document.createElement("canvas");c.width=16;c.height=8;var g=c.getContext("2d",{willReadFrequently:true});if(!g)return false;g.drawImage(vid,0,0,16,8);var d=g.getImageData(0,0,16,8).data,lime=0,dark=0,n=0;for(var i=0;i<d.length;i+=4){n++;var r=d[i],gc=d[i+1],b=d[i+2],a=d[i+3];if(a<12)continue;if(gc>80&&gc>r+15&&gc>b+10)lime++;else if(r<28&&gc<28&&b<28)dark++;}return lime===0&&dark>n*0.6;}catch(e){return false;}}if(reduce)showStill();else if(vid){try{vid.currentTime=0}catch(e){}function fast(){try{vid.playbackRate=2.0}catch(e){}}fast();vid.addEventListener("loadedmetadata",fast);vid.addEventListener("play",fast);vid.addEventListener("error",showStill);var play=vid.play();if(play&&play.catch)play.catch(function(){showStill()});if(ios){setTimeout(function(){if(blackFrame())showStill();},350);setTimeout(function(){if(blackFrame())showStill();},800);}}var started=Date.now(),MIN=2000,arm=false;function hide(){if(arm)return;arm=true;setTimeout(finish,Math.max(0,MIN-(Date.now()-started)));}function finish(){try{sessionStorage.setItem("grunionsBoot","1")}catch(e){}el.classList.add("gone");setTimeout(function(){if(el.parentNode)el.remove()},reduce?480:760);}if(document.readyState==="complete")hide();else window.addEventListener("load",hide);setTimeout(hide,8000);})();</script>
 <script>
@@ -1722,7 +1755,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro expiry_kind(m) %}{% set left = days_left(m.usawp_valid_until) %}{% if not m.usawp_valid_until %}bad{% elif left < 0 %}bad{% elif left <= EXPIRING_DAYS %}warn{% else %}ok{% endif %}{% endmacro %}
 {% macro expiry_text(m) %}{% if not m.usawp_valid_until %}missing{% else %}expires {{ m.usawp_valid_until }}{% endif %}{% endmacro %}
 {% macro titledot(kind, title) %}<span class=rowtitle><span class="dot{% if kind %} {{ kind }}{% endif %}" aria-hidden=true></span>{{ title }}</span>{% endmacro %}
-{% macro memhead(m) %}<div class=sechead id=membership><div class=seclabel>Water Polo Membership</div>{% if m.usawp_verified_at %}<div class=verifiedwhen>Verified {{ m.usawp_verified_at[:10] }}</div>{% endif %}</div>{% endmacro %}
+{% macro memhead(m) %}<div class=sechead id=membership><div class=seclabel>Compliance</div><span hidden>Water Polo Membership</span>{% if m.usawp_verified_at %}<div class=verifiedwhen>Verified {{ m.usawp_verified_at[:10] }}</div>{% endif %}</div>{% endmacro %}
 {% macro membership_section(m, vr_pending) %}{% if can_see_member_status(m) %}{% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set ex = expiry_notes(m, cl) %}{% set cc = coach_clearance(m) %}{% set left = days_left(m.usawp_valid_until) %}{% set locked = m.usawp_status == 'verified' and not (left is not none and left < 0) %}{% set on_trial = tw and tw.active and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}
 {{ memhead(m) }}
 <div class=list>
@@ -1927,7 +1960,15 @@ dialog.memberedit .help a{color:var(--t1)}
 {% if tab == 'profile' and me() %}<header class=profilebar>
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
 <h1>Profile</h1>
-<div class=right><button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=profileForm>Save</button></div>
+<div class=right><button type=button class="profileact viewonly morebtn" id=profileMore aria-label="Profile menu">•••</button><button type=button id=profileEdit hidden>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=profileForm>Save</button></div>
+</header>{% elif me() and tab == 'person' %}<header class=profilebar>
+<div class=left><a class=profileback href="/chat?view=list" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div>
+<h1>Profile</h1>
+<div class=right><button type=button class="profileact morebtn" id=profileMore aria-label="Profile menu">•••</button></div>
+</header>{% elif me() and tab == 'privacy' %}<header class=profilebar>
+<div class=left><a class=profileback href="/profile" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div>
+<h1>Privacy</h1>
+<div class=right></div>
 </header>{% elif me() and tab == 'member' %}<header class=profilebar>
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
@@ -4399,6 +4440,10 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 </div>
 </form>
 {% if ptab == 'general' %}
+<div class=seclabel>Cleared sports</div>
+<div class=sporthead><b>Grunions</b>{% if m.is_admin or m.board_member %}<span class=minichip>Admin</span>{% elif m.role == 'coach' %}<span class=minichip>Coach</span>{% endif %}</div>
+{% set mine_clear = clearance(m) %}
+<div class=sportline><span>Water polo</span><span class="st {{ 'st-ok' if mine_clear.ok else 'st-warn' }}">{{ 'Cleared' if mine_clear.ok else 'Pending' }}</span></div>
 {{ membership_section(m, vr_pending) }}
 <div class=seclabel>Personal</div>
 <div class="list infogrid">
@@ -4412,8 +4457,10 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class=seclabel>Role</div>
 <div class=list><div class="li prow"><span class=k>Role</span><span class="chip-info" style="margin:0">{{ role_label(m)|capitalize }}</span></div></div>
 <div class=seclabel>Settings</div>
-<div class=list><a class="li prow chevrow" href=/notifications><span>Notifications</span><span class=nxchev aria-hidden=true>›</span></a></div>
-<div class=seclabel>Account</div>
+<div class=list>
+<a class="li prow chevrow" href=/notifications><span>Notifications</span><span class=v>Push + email</span><span class=nxchev aria-hidden=true>›</span></a>
+<a class="li prow chevrow" href=/privacy><span>Account</span><span class=v>{{ m.email }}</span><span class=nxchev aria-hidden=true>›</span></a>
+</div>
 <a class="btn btn-secondary full ghostpill" href=/logout>Log out</a>
 {% else %}
 {% if prof_upcoming or prof_past %}
@@ -4421,6 +4468,16 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 {% if prof_past %}<details class=lineuppast><summary>Past <span class=t3>{{ prof_past_n }}</span></summary>{% for g in prof_past %}<div class=seclabel>{{ g.label }}</div>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}</details>{% endif %}
 {% else %}<p class=emptyfind>Nothing yet.</p>{% endif %}
 {% endif %}
+<dialog id=selfMenu class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
+<div class=menuwho><span class="mark sun">{{ initials(m) }}</span><span class=grow><b>{{ display_first(m) }} {{ m.last }}</b><small>Your profile</small></span></div>
+<div class=newcard>
+<button type=button class=newrow data-menu=photo><span class=grow><b>Change photo</b><small>Take a photo or choose one</small></span><span class=chatgo>›</span></button>
+<button type=button class=newrow data-menu=edit><span class=grow><b>Edit profile</b><small>Name, email, phone</small></span><span class=chatgo>›</span></button>
+<a class=newrow href=/privacy><span class=grow><b>Privacy</b><small>Who sees your email and phone</small></span><span class=chatgo>›</span></a>
+</div>
+<form method=post action=/profile/delete class=newcard>{{ csrf_field() }}<button class="newrow actdanger"><span class=grow><b>Delete account</b><small>Leaves every club. Can't be undone.</small></span></button></form>
+<p class=t3>Delete account lives here and in Settings › Account. It's yours alone — admins can only remove you from their club.</p>
+</div></dialog>
 <script>
 (function(){
  var file=document.getElementById('photoFile'), clear=document.getElementById('photoClear'), img=document.getElementById('avatarImg'), letters=document.getElementById('avatarLetters'), pref=document.getElementById('prefName'), phone=document.getElementById('phoneInput'), removeBtn=document.getElementById('photoRemove'), usawp=document.getElementById('usawpNumber');
@@ -4453,6 +4510,10 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
   if(hadPhoto) removeBtn.hidden=false;
  }
  document.getElementById('profileEdit').onclick=function(){ if(/tab=(interested|mine)/.test(location.search)){ location.href='/profile?tab=general&edit=1'; return; } enter(); };
+ var more=document.getElementById('profileMore'), selfMenu=document.getElementById('selfMenu');
+ function placeMenu(el){ if(!el||window.innerWidth<768){ if(el){el.style.left='';el.style.top='';el.classList.remove('popover');} return; } el.classList.add('popover'); var w=el.classList.contains('privacy')?400:340; var r=more.getBoundingClientRect(); var left=Math.max(16, Math.min(window.innerWidth-16-w, r.right-w)); var top=r.bottom+8; el.style.left=left+'px'; el.style.top=top+'px'; el.style.margin='0'; }
+ if(more&&selfMenu) more.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(selfMenu); else selfMenu.showModal(); requestAnimationFrame(function(){ placeMenu(selfMenu); }); };
+ if(selfMenu) selfMenu.addEventListener('click', function(e){ var b=e.target.closest&&e.target.closest('[data-menu]'); if(!b) return; if(window.grunionsCloseSheet) grunionsCloseSheet(selfMenu); else selfMenu.close(); if(b.getAttribute('data-menu')==='photo') openPhoto(); else document.getElementById('profileEdit').click(); });
  if(/[?&]edit=1/.test(location.search)) enter();
  document.getElementById('profileCancel').onclick=leave;
  document.getElementById('profileBack').onclick=function(){ grunionsLeave('/home'); };
@@ -4595,6 +4656,95 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
   body.append('action','photo');
   body.append('photo_clear','1');
   fetch('/profile', {method:'POST', body:body, headers:{'Accept':'application/json'}}).then(function(r){ if(!r.ok) return; clear.value=''; hadPhoto=false; originalSrc=''; showLetters(); dlg.close(); }).catch(function(){});
+ };
+})();
+</script>"""
+
+T["privacy"] = """<form method=post action=/privacy class=privacyform>{{ csrf_field() }}
+<p class="r2caps">Who sees your profile</p>
+<div class=privcard>
+<div class=privrow><span class=grow><b>Profile visible to</b><small>Your teams · coaches &amp; admins always see clearance</small></span><span class=privgo>My teams ›</span></div>
+<label class=privrow><span class=grow><b>Show practices attended</b><small>Teammates see your count (e.g. {{ hist|length }} this season)</small></span><span class=r2switch><input type=checkbox name=show_attendance value=1 {% if prefs.show_attendance %}checked{% endif %}><i></i></span></label>
+<label class=privrow><span class=grow><b>Show pronouns</b><small>she/her</small></span><span class=r2switch><input type=checkbox name=show_pronouns value=1 {% if prefs.show_pronouns %}checked{% endif %}><i></i></span></label>
+</div>
+<p class="r2caps">Messages</p>
+<div class=privcard>
+<label class=privrow><span class=grow><b>Messages from outside my teams</b><small>Off: only people on your teams can message you. Coaches &amp; admins always can.</small></span><span class=r2switch><input type=checkbox name=messages_outside value=1 {% if prefs.messages_outside %}checked{% endif %}><i></i></span></label>
+<label class=privrow><span class=grow><b>Show me in 'Message someone'</b><small>Teammates can find you when starting a chat</small></span><span class=r2switch><input type=checkbox name=show_in_picker value=1 {% if prefs.show_in_picker %}checked{% endif %}><i></i></span></label>
+</div>
+<p class="r2caps">Rides</p>
+<div class=privcard>
+<label class=privrow><span class=grow><b>Share my exact location</b><small>Only with a driver who agreed to pick you up. Everyone else sees an area.</small></span><span class=r2switch><input type=checkbox name=share_exact_location value=1 {% if prefs.share_exact_location %}checked{% endif %}><i></i></span></label>
+</div>
+<p class=t3>Public (people not on your teams): first name + last initial and your club only. No stats, no About, no Message.</p>
+<button class="btn btn-primary full">Save</button>
+</form>"""
+
+T["person"] = """<div class=profilehero>
+<div class=avatarwrap><span class="avatar hero">{% if m.photo %}<img src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="" width="112" height="112">{% else %}{{ initials(m) }}{% endif %}</span></div>
+<div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
+<p class=profilesub>{% if attendance_private %}Practices attended are private{% else %}{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% endif %}</p>
+<a class=msgpill href="{{ message_href }}">Message {{ display_first(m) }}</a>
+{% if staff and needs %}<div class=needcard><p class=needkicker>Needs attention</p><b>{{ display_first(m) }}'s {{ needs }}.</b><p>Once you've checked USAWP and SafeSport, mark them in ⋯ › Update compliance.</p></div>{% endif %}
+<div class=metrics><div class="metric sun"><b>{{ '%02d'|format(0 if attendance_private else hist|length) }}</b><span>Attended</span></div><div class="metric sky"><b>{{ '%02d'|format(0 if attendance_private else (nmonth or 0)) }}</b><span>This month</span></div></div>
+<div class=seclabel>Cleared sports</div>
+<div class=sporthead><b>Grunions</b></div>
+{% if staff %}
+<div class=sportline><span>Water polo</span><span class="st {{ 'st-ok' if cleared else 'st-warn' }}">{{ 'Cleared' if cleared else 'Pending' }}</span></div>
+{% if not cleared %}<p class=t3>Not cleared for any sports yet</p>{% endif %}
+<div class=seclabel>Compliance</div>
+<div class=list>
+<div class="li prow"><span class=rowtitle><span class="dot {{ 'ok' if m.usawp_status=='verified' else 'warn' }}" aria-hidden=true></span>Water polo membership</span><span class=v>{% if m.usawp_number %}USAWP #{{ m.usawp_number }}{% else %}Not on file{% endif %}</span></div>
+<div class="li prow"><span class=rowtitle><span class="dot {{ 'ok' if safesport else 'bad' }}" aria-hidden=true></span>SafeSport training</span><span class=v>{% if safesport %}expires {{ safesport }}{% else %}Missing{% endif %}</span></div>
+<div class="li prow"><span class=rowtitle><span class="dot {{ 'ok' if background else 'warn' }}" aria-hidden=true></span>Background screening</span><span class=v>{% if background %}expires {{ background }}{% else %}Not on file{% endif %}</span></div>
+</div>
+<div class=seclabel>Personal</div>
+<div class="list infogrid">
+<div class="li prow"><span class=k>Legal name</span><span class=v>{{ m.first }} {{ m.last }}</span></div>
+<div class="li prow"><span class=k>Preferred name</span><span class=v>{{ m.preferred_first or '—' }}</span></div>
+<div class="li prow"><span class=k>Email</span><span class=v>{{ m.email }}</span></div>
+<div class="li prow"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
+</div>
+{% else %}
+<p class=t3>Not cleared for any sports yet</p>
+{% endif %}
+</div>
+<dialog id=personMenu class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
+<div class=menuwho><span class="mark sky">{{ initials(m) }}</span><span class=grow><b>{{ display_first(m) }} {{ m.last }}</b><small>{% if staff %}Grunions · {{ 'Admin' if m.is_admin else ('Coach' if m.role=='coach' else 'Member') }} · you're {{ 'an admin' if me().is_admin else 'a coach' }}{% else %}Grunions{% endif %}</small></span></div>
+{% if staff %}
+<div class=newcard>
+<a class=newrow href="{{ message_href }}"><span class=grow><b>Message {{ display_first(m) }}</b><small>From you, not the board</small></span><span class=chatgo>›</span></a>
+<a class=newrow href="/admin/member/{{ m.id }}"><span class=grow><b>Edit details</b><small>Name, email, phone</small></span><span class=chatgo>›</span></a>
+<a class=newrow href="/admin/member/{{ m.id }}"><span class=grow><b>Update compliance</b><small>USAWP, SafeSport, background</small></span><span class=chatgo>›</span></a>
+</div>
+<form method=post action="/profile/{{ m.id }}/role" class=newcard>{{ csrf_field() }}
+<p class=t3>Change role · Member, coach or admin in Grunions</p>
+<button class=newrow name=role value=member><b>Member</b></button>
+<button class=newrow name=role value=coach><b>Coach</b></button>
+<button class=newrow name=role value=admin><b>Admin</b></button>
+</form>
+<div class=newcard>
+<form method=post action="/profile/{{ m.id }}/remove">{{ csrf_field() }}<button class="newrow actdanger"><span class=grow><b>Remove from Grunions</b><small>{{ display_first(m) }}'s account and other clubs stay</small></span></button></form>
+</div>
+<p class=t3>Only Grunions admins see these. Nothing here changes {{ display_first(m) }}'s other clubs.</p>
+{% else %}
+<div class=newcard>
+<a class=newrow href="{{ message_href }}"><span class=grow><b>Message {{ display_first(m) }}</b><small>Opens a direct chat</small></span><span class=chatgo>›</span></a>
+<form method=post action="/profile/{{ m.id }}/report">{{ csrf_field() }}<button class=newrow><span class=grow><b>Report</b><small>Tell the Grunions admins</small></span></button></form>
+<form method=post action=/chat/block>{{ csrf_field() }}<input type=hidden name=c value="{{ dm }}"><button class="newrow actdanger"><span class=grow><b>Block</b><small>{{ display_first(m) }} can't message you</small></span></button></form>
+</div>
+<p class=t3>Members don't see compliance, contact info or roles.</p>
+{% endif %}
+</div></dialog>
+<script>
+(function(){
+ var more=document.getElementById('profileMore'), menu=document.getElementById('personMenu');
+ if(!more||!menu) return;
+ more.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(menu); else menu.showModal();
+  if(window.innerWidth<768){ menu.style.left=''; menu.style.top=''; menu.classList.remove('popover'); return; }
+  menu.classList.add('popover'); var w=340, r=more.getBoundingClientRect();
+  menu.style.left=Math.max(16, Math.min(window.innerWidth-16-w, r.right-w))+'px';
+  menu.style.top=(r.bottom+8)+'px'; menu.style.margin='0';
  };
 })();
 </script>"""
