@@ -10,7 +10,7 @@ A.send_email = lambda to, subj, text, html=None: SENT.append((to, subj, text))
 HERE = os.path.dirname(os.path.abspath(__file__))
 def csrf(c, p): return re.search(r'(?:name=csrf value=|const CSRF=)"([^"]+)"', c.get(p).get_data(as_text=True)).group(1)
 def join(first, last, email):
-    c = A.app.test_client(); c.post("/join", data=dict(csrf=csrf(c, "/join"), first=first, last=last, email=email, phone="1")); return c
+    c = A.app.test_client(); c.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(c, "/join"), first=first, last=last, email=email, phone="1")); return c
 boss = join("Boss", "One", "boss@example.com"); sec = join("Sec", "Two", "second@example.com"); mem = join("Mem", "Three", "mem@example.com")
 sqlite3.connect(A.DB).execute("UPDATE members SET role='coach' WHERE email='boss@example.com'").connection.commit()
 def ids(): return {r[0]: r[1] for r in sqlite3.connect(A.DB).execute("SELECT email,id FROM members")}
@@ -177,11 +177,11 @@ def test_preferred_first_display_and_legal_verify():
     join_page = A.app.test_client().get("/join").get_data(as_text=True)
     assert "Preferred first name (optional)" in join_page and "Leave blank to use your legal first name" in join_page
     blank = A.app.test_client()
-    blank.post("/join", data=dict(csrf=csrf(blank, "/join"), first="Zoe", last="Blank", email="zoe@example.com", phone="1", preferred_first="   "))
+    blank.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(blank, "/join"), first="Zoe", last="Blank", email="zoe@example.com", phone="1", preferred_first="   "))
     assert sqlite3.connect(A.DB).execute("SELECT preferred_first FROM members WHERE email='zoe@example.com'").fetchone()[0] is None
     assert "Hi, Zoe</h1>" in blank.get("/home").get_data(as_text=True)
     c = A.app.test_client()
-    c.post("/join", data=dict(csrf=csrf(c, "/join"), first="Samuel", last="River", email="samuel@example.com", phone="1", preferred_first="  Sam  "), follow_redirects=True)
+    c.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(c, "/join"), first="Samuel", last="River", email="samuel@example.com", phone="1", preferred_first="  Sam  "), follow_redirects=True)
     assert sqlite3.connect(A.DB).execute("SELECT first, preferred_first FROM members WHERE email='samuel@example.com'").fetchone() == ("Samuel", "Sam")
     home = c.get("/home").get_data(as_text=True)
     prof = c.get("/profile").get_data(as_text=True)

@@ -8,7 +8,7 @@ import app as A
 INFO = {}
 A.google_userinfo = lambda: dict(INFO)
 def csrf(c, p): return re.search(r'name=csrf value="([^"]+)"', c.get(p).get_data(as_text=True)).group(1)
-c0 = A.app.test_client(); c0.post("/join", data=dict(csrf=csrf(c0, "/join"), first="Jane", last="Doe", email="Jane@Example.com", phone="1"))
+c0 = A.app.test_client(); c0.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(c0, "/join"), first="Jane", last="Doe", email="Jane@Example.com", phone="1"))
 def q(sql, *a): return sqlite3.connect(A.DB).execute(sql, a).fetchall()
 def cb(info):
     INFO.clear(); INFO.update(info); c = A.app.test_client(); return c, c.get("/auth/google/callback?code=x&state=y", follow_redirects=True).get_data(as_text=True)
@@ -43,7 +43,7 @@ def test_unknown_email_does_not_create_account():
     assert "We couldn't find a Grunions registration for boss@example.com." in t2
     assert q("SELECT email FROM members WHERE lower(email)='boss@example.com'") == [] and c2.get("/home").status_code == 302
 def test_joined_admin_can_sign_in():
-    c = A.app.test_client(); c.post("/join", data=dict(csrf=csrf(c, "/join"), first="Big", last="Boss", email="Boss@Example.com", phone="1"))
+    c = A.app.test_client(); c.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(c, "/join"), first="Big", last="Boss", email="Boss@Example.com", phone="1"))
     assert q("SELECT first,last,is_admin,joined FROM members WHERE email='boss@example.com'") == [("Big", "Boss", 1, 1)]
     c2, t = cb({"email": "BOSS@example.com", "email_verified": True, "name": "Ignored Name"})
     assert "Hi, Big" in t and c2.get("/admins", follow_redirects=True).status_code == 200 and ">People<" in c2.get("/members").get_data(as_text=True)

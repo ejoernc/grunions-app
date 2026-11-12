@@ -10,10 +10,17 @@ import lineupfeed
 import mailhtml
 import publicfeed
 import sportspay
+import flows2
 import routing
 import sports
 import ui
 from ui import T
+_PANEL_AT = '{% for card in social_cards %}{{ r2_social_card(card, \'row\') }}{% endfor %}'
+assert _PANEL_AT in T["practice"], "practice template anchor moved"
+T["practice"] = T["practice"].replace(_PANEL_AT, _PANEL_AT + flows2.PRACTICE_PANEL, 1)
+_WEEK_AT = '<div class=weekhead><h2>This week'
+assert _WEEK_AT in T["home"], "home template anchor moved"
+T["home"] = T["home"].replace(_WEEK_AT, '{% set setup = setup_card() %}' + flows2.SETUP_CARD + _WEEK_AT, 1)
 from flask import (Flask, request, redirect, url_for, session, g, render_template_string, Response, abort, flash, jsonify, send_from_directory)
 
 DATA_DIR = os.environ.get("DATA_DIR") or os.path.dirname(os.path.abspath(__file__))  # persistent disk in production
@@ -164,7 +171,8 @@ def db():
         migrate_drive_cache(g.db)
         if not g.db.execute("SELECT 1 FROM requirements").fetchone():
             g.db.executemany("INSERT INTO requirements(name,applies_to,keywords,expires) VALUES(?,?,?,?)", DEFAULT_REQS); g.db.commit()
-        drop_club_waiver(g.db)
+        # drop_club_waiver() used to delete the waiver requirement on every boot. Regulars 2.0 needs a waiver
+        # (flows2.club_waiver), so nothing here deletes rows any more.
         drop_concussion_rule(g.db)
         ensure_referee_req(g.db)
         migrate_messages(g.db)
@@ -173,6 +181,7 @@ def db():
         migrate_series(g.db)
         publicfeed.ensure_schema(g.db)
         sportspay.ensure_schema(g.db)
+        flows2.ensure_schema(g.db)
         backfill_checkin_going(g.db)
         drop_bot_verify_messages(g.db)
         seed_chat_reads(g.db)
@@ -1292,14 +1301,21 @@ def join():
         f = {k: (request.form.get(k) or "").strip() for k in ("first", "last", "email", "phone")}
         if not all(f.values()) or not re.match(r"[^@\s]+@[^@\s]+\.[^@\s]+$", f["email"]):
             flash("Please fill in every field with a valid email."); return redirect("/join")
+        birth = flows2.parse_birth(request.form.get("birth_date"))
+        if not birth:
+            flash("Add your date of birth."); return redirect("/join")
+        if not flows2.is_adult(birth, today_pt()):
+            flash("Grunions is an adults club. You need to be 18 or older to join. Look for a youth water polo program near you."); return redirect("/join")
         email = f["email"].lower(); d = db(); pref = clean_preferred(request.form.get("preferred_first"))
         if d.execute("SELECT 1 FROM members WHERE email=?", (email,)).fetchone():
             flash("You already have an account. We sent you a login link instead.")
             return send_link(email)
-        cur = d.execute("INSERT INTO members(first,last,email,phone,is_admin,preferred_first,joined) VALUES(?,?,?,?,?,?,1)",
-                        (f["first"], f["last"], email, f["phone"], int(email in ADMIN_EMAILS), pref))
+        cur = d.execute("INSERT INTO members(first,last,email,phone,is_admin,preferred_first,joined,birth_date) VALUES(?,?,?,?,?,?,1,?)",
+                        (f["first"], f["last"], email, f["phone"], int(email in ADMIN_EMAILS), pref, birth.isoformat()))
         d.commit(); sync_practice_sheets(d)
         dest = auth_destination(cur.lastrowid)
+        session["setup_next"] = dest
+        dest = "/setup/week"
         flash(f"Welcome to the Grunions, {pref or f['first']}! Find a coach on deck to get checked in.")
         return redirect(dest)
     return page(T["join"])
@@ -5747,6 +5763,8 @@ def handle_practice_post(d):
         return redirect_practice(pid, a)
     new_id = None
     if a in ("going", "notgoing", "clear"):
+        if a == "going" and pid and signup_needs(d, me()):
+            return redirect("/practices/%d/signup" % pid)
         if a == "going" and sportspay.require_rsvp(d):
             practice = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
             choice = sportspay.decide(d, me(), practice, today_pt().isoformat())
@@ -5757,6 +5775,7 @@ def handle_practice_post(d):
         if a == "going":
             prev = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, me()["id"])).fetchone()
             was_going = bool(prev and prev["going"] == 1)
+        if a in ("clear", "notgoing"): _cancel_rides_when_not_going(d, pid, me()["id"])
         if a == "clear": d.execute("DELETE FROM rsvps WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
         else: d.execute("INSERT INTO rsvps(practice_id,member_id,going) VALUES(?,?,?) ON CONFLICT DO UPDATE SET going=excluded.going, at=CURRENT_TIMESTAMP", (pid, me()["id"], int(a == "going")))
         if a == "going":
@@ -6388,7 +6407,7 @@ def practice_page(pid):
     host = can_host_practice()
     editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
     plan_editing = request.args.get("edit") == "1" and host and not me()["is_admin"]
-    return page(T["practice"], tab="practice", x=practice_bundle(d, p), editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin", social_cards=schedule_social_cards(p))
+    return page(T["practice"], tab="practice", fx=practice_flows(d, p), x=practice_bundle(d, p), editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin", social_cards=schedule_social_cards(p))
 @app.route("/practices/series/new", methods=["GET", "POST"])
 @admin_required
 def series_new():
@@ -7876,6 +7895,7 @@ def _manage_catalog(d):
         add("people", "People", "Participants, members, coaches, admins, and referees", "/manage/area/people", "people", "participant member coach admin referee roster compliance membership certification expiring", expiring_people_count(d), "warn")
         add("club", "Sports", "Sport-specific compliance and requirements", "/manage/club/programs", "cal", "sport program water polo swimming requirement safesport usawp usms eligibility division")
         add("club", "Compliance", "Shared requirements, credentials, insurance", "/manage/club/compliance", "shield", "compliance requirement safesport insurance waiver background screening certification")
+        add("club", "Waiver", "Club waiver members sign on their first Going", "/manage/club/waiver", "shield", "waiver liability agreement sign version")
         add("club", "Venues", "Manage locations and assign them to sports", "/manage/club/venues", "pin", "venue pool location address marina westminster")
         add("club", "Plans & passes", "Memberships, drop-ins, access and pricing", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass")
         add("club", "Permissions", "Who can manage the club, sports and schedule", "/manage/club/permissions", "key", "permission admin admin lite sport admin who can manage")
@@ -10037,6 +10057,7 @@ NOTIFY_PUSH = (
     ("practice_reminder", "Practice reminder (~3 hours before)", "all"),
     ("verification_result", "Verification result", "all"),
     ("practice_cancelled", "Practice cancelled", "all"),
+    ("ride", "Rides: requests, pickups, and changes", "all"),
     ("expiry", "Trial, membership, SafeSport, and background screening expiring or expired", "all"),
     ("verify_request", "New verification requests", "admin"),
 )
@@ -10636,6 +10657,230 @@ def notifications():
             d.execute("UPDATE members SET notify_prefs=?, email_reminders=? WHERE id=?", (json.dumps(prefs), 1 if request.form.get("email_reminders") else 0, m["id"]))
         d.commit(); flash("Notification settings saved."); return redirect("/notifications")
     return page(T["notifications"], tab="notifications", types=notify_types_for(m), prefs=notify_prefs(m), email_on=wants_email_reminders(m), practice_reminder=practice_reminder_choice(m))
+
+# ---------- Regulars 2.0 flows (flows2.py) ----------
+def _trial_active(m):
+    tw = trial_window(m)
+    return bool(tw and tw["active"])
+def signup_needs(d, m):
+    """What the one-sheet sign-up still needs before this person can tap Going."""
+    if not m: return []
+    return flows2.gate_needs(d, m, today_pt().isoformat(), _trial_active(m))
+def hold_reason(r):
+    """Check-in: why a coach should hold someone at the deck. Empty when they're good to go."""
+    d = db()
+    cl = view_clearance(r)
+    if not cl.get("ok"):
+        why = (cl.get("reasons") or ["not cleared"])[0]
+        if not (r["usawp_number"] or "").strip() and (r["usawp_status"] or "") != "verified": why = "USAWP missing"
+        return "Not cleared · %s" % why
+    if not flows2.accepted_waiver(d, r["id"]):
+        return "Waiver not signed yet"
+    return ""
+app.jinja_env.globals.update(hold_reason=hold_reason)
+def _write_going(d, pid, mid):
+    prev = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, mid)).fetchone()
+    d.execute("INSERT INTO rsvps(practice_id,member_id,going) VALUES(?,?,1) ON CONFLICT DO UPDATE SET going=1, at=CURRENT_TIMESTAMP", (pid, mid))
+    join_practice_chat(d, pid, mid)
+    if not (prev and prev["going"] == 1):
+        practice = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+        try: send_practice_signup(d, practice, d.execute("SELECT * FROM members WHERE id=?", (mid,)).fetchone())
+        except Exception: app.logger.exception("signup confirmation failed")
+def practice_flows(d, p):
+    m = me()
+    mine = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (p["id"], m["id"])).fetchone()
+    going = bool(mine and mine["going"] == 1)
+    needs = [] if going else signup_needs(d, m)
+    hint = ""
+    if needs:
+        w = flows2.waiver(d)
+        parts = (["USA Water Polo"] if "number" in needs else []) + (["club waiver"] if "waiver" in needs else [])
+        hint = "Requires " + " + ".join(parts)
+    rides = flows2.rides_for(d, p["id"], m["id"]) if going else None
+    last = d.execute("SELECT area FROM ride_requests WHERE rider_id=? UNION ALL SELECT area FROM ride_offers WHERE driver_id=? LIMIT 1", (m["id"], m["id"])).fetchone()
+    wr = flows2.wrap(d, p["id"])
+    return {"going": going, "gate_hint": hint, "rides": rides, "last_area": last["area"] if last else "",
+            "seats_left": flows2.seats_left(d, rides["offer"]) if rides and rides["offer"] else 0,
+            "in_window": flows2.ride_window(p, wall_pt()),
+            "can_wrap": can_host_practice() and p["date"] <= today_pt().isoformat(), "closed": bool(wr and wr["closed_at"])}
+
+@app.route("/practices/<int:pid>/signup", methods=["GET", "POST"])
+@login_required
+def practice_signup(pid):
+    """05.15: one sheet for the insurance number and the club waiver, then Going."""
+    d = db(); m = me()
+    p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+    if not p: abort(404)
+    if p["cancelled"]: flash("This practice is cancelled."); return redirect("/practices/%d" % pid)
+    needs = signup_needs(d, m)
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "trial" and "number" in needs:
+            d.execute("""UPDATE members SET trial_acknowledged_at=? WHERE id=? AND (trial_acknowledged_at IS NULL OR trial_acknowledged_at='')
+                AND (usawp_number IS NULL OR trim(usawp_number)='') AND COALESCE(usawp_status,'')!='verified'""", (dt.datetime.now().isoformat(timespec="seconds"), m["id"]))
+            d.commit(); flash("Trial started. %d days to get your USA Water Polo membership." % TRIAL_DAYS, "toast")
+            return redirect("/practices/%d/signup" % pid)
+        if "number" in needs:
+            num = (request.form.get("usawp_number") or "").strip()
+            if not re.fullmatch(r"[0-9]{4,10}", num):
+                flash("Membership number must be 4-10 digits."); return redirect("/practices/%d/signup" % pid)
+            d.execute("UPDATE members SET usawp_number=? WHERE id=?", (num, m["id"]))
+            d.execute("INSERT INTO usawp_submits(member_id, at) VALUES(?,?)", (m["id"], dt.datetime.now().isoformat(timespec="seconds")))
+            create_verify_request(d, m["id"], update_pending=True)
+        if "waiver" in needs:
+            typed = request.form.get("typed_name") or ""
+            if not request.form.get("agree") or not flows2.typed_name_ok(typed, m):
+                d.commit()
+                flash("Check the box and type your full name, including your last name, to sign the waiver."); return redirect("/practices/%d/signup" % pid)
+            flows2.accept_waiver(d, m["id"], typed, pid)
+        d.commit()
+        if signup_needs(d, me()):
+            return redirect("/practices/%d/signup" % pid)
+        if sportspay.require_rsvp(d) and not sportspay.decide(d, me(), p, today_pt().isoformat())["allow"]:
+            session["pay_practice"] = pid
+            return redirect("/practices/%d/participate" % pid)
+        _write_going(d, pid, m["id"]); d.commit(); sync_practice_sheets(d)
+        flash("You're going. Saved to your profile, so next time Going is one tap.", "toast")
+        return redirect("/practices/%d" % pid)
+    if not needs:
+        return redirect("/practices/%d" % pid)
+    tw = trial_window(m)
+    trial_offer = not (m["trial_acknowledged_at"] or "") and not tw
+    when = "%s · %s" % (fmt_d(p["date"]), fmt_span(p["start"], p["end"]))
+    return page(flows2.SIGNUP, tab="", p=p, needs=needs, w=flows2.waiver(d), when=when, org=org_name(), trial_offer=trial_offer)
+
+@app.route("/practices/<int:pid>/rides", methods=["POST"])
+@login_required
+def practice_rides(pid):
+    """04.23 / 04.25. Areas only. An exact pickup spot is shared by the driver with a matched rider, in the pickup window."""
+    d = db(); m = me()
+    p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+    if not p: abort(404)
+    going = d.execute("SELECT 1 FROM rsvps WHERE practice_id=? AND member_id=? AND going=1", (pid, m["id"])).fetchone()
+    if not going: flash("Tap Going first to ask for or offer a ride."); return redirect("/practices/%d" % pid)
+    a = request.form.get("action"); now = dt.datetime.now().isoformat(timespec="seconds")
+    if a in ("ask", "offer"):
+        area = flows2.clean_area(request.form.get("area"))
+        if not area:
+            flash("Use a neighborhood or city, not a street address."); return redirect("/practices/%d" % pid)
+        back = 1 if request.form.get("back") else 0
+        if a == "ask":
+            d.execute("UPDATE ride_requests SET status='cancelled' WHERE practice_id=? AND rider_id=? AND status='open'", (pid, m["id"]))
+            d.execute("INSERT INTO ride_requests(practice_id, rider_id, area, back, created) VALUES(?,?,?,?,?)", (pid, m["id"], area, back, now))
+            for o in d.execute("SELECT m.* FROM ride_offers o JOIN members m ON m.id=o.driver_id WHERE o.practice_id=? AND o.status='open' AND o.driver_id!=?", (pid, m["id"])).fetchall():
+                if wants_push(o, "ride"): push_member(d, o, "ride", "%s needs a ride" % display_first(m), "%s · %s" % (area, fmt_d(p["date"])), "/practices/%d" % pid)
+            flash("Asked. We'll tell you when a driver picks you up.", "toast")
+        else:
+            seats = max(1, min(6, request.form.get("seats", type=int) or 1))
+            d.execute("""INSERT INTO ride_offers(practice_id, driver_id, area, seats, back, created) VALUES(?,?,?,?,?,?)
+                ON CONFLICT(practice_id, driver_id) DO UPDATE SET area=excluded.area, seats=excluded.seats, back=excluded.back, status='open'""", (pid, m["id"], area, seats, back, now))
+            flash("Thanks. Teammates who need a ride can see you're driving.", "toast")
+    elif a == "pick":
+        offer = d.execute("SELECT * FROM ride_offers WHERE practice_id=? AND driver_id=? AND status='open'", (pid, m["id"])).fetchone()
+        rid = request.form.get("req_id", type=int)
+        if not offer or flows2.seats_left(d, offer) < 1: flash("No seats left."); return redirect("/practices/%d" % pid)
+        d.execute("UPDATE ride_requests SET status='matched', driver_id=?, matched_at=? WHERE id=? AND practice_id=? AND status='open'", (m["id"], now, rid, pid))
+        if d.execute("SELECT changes()").fetchone()[0]:
+            rider = d.execute("SELECT m.* FROM ride_requests r JOIN members m ON m.id=r.rider_id WHERE r.id=?", (rid,)).fetchone()
+            if rider and wants_push(rider, "ride"): push_member(d, rider, "ride", "Ride confirmed", "%s is picking you up for %s" % (display_first(m), fmt_d(p["date"])), "/practices/%d" % pid)
+            flash("You're picking them up. Add a pickup spot so they know where to wait.", "toast")
+        else:
+            flash("Someone else already picked them up.")
+    elif a == "spot":
+        d.execute("UPDATE ride_requests SET pickup_note=? WHERE id=? AND practice_id=? AND driver_id=? AND status='matched'",
+                  (" ".join((request.form.get("pickup_note") or "").split())[:120], request.form.get("req_id", type=int), pid, m["id"]))
+        flash("Pickup spot saved. Only your rider sees it, starting 3 hours before practice.", "toast")
+    elif a == "cancel":
+        r = d.execute("SELECT * FROM ride_requests WHERE practice_id=? AND rider_id=? AND status IN ('open','matched') ORDER BY id DESC LIMIT 1", (pid, m["id"])).fetchone()
+        if r:
+            d.execute("UPDATE ride_requests SET status='cancelled' WHERE id=?", (r["id"],))
+            if r["driver_id"]:
+                drv = d.execute("SELECT * FROM members WHERE id=?", (r["driver_id"],)).fetchone()
+                if drv and wants_push(drv, "ride"): push_member(d, drv, "ride", "Ride cancelled", "%s doesn't need a ride anymore" % display_first(m), "/practices/%d" % pid)
+    elif a == "unoffer":
+        d.execute("UPDATE ride_offers SET status='cancelled' WHERE practice_id=? AND driver_id=?", (pid, m["id"]))
+        for r in d.execute("SELECT r.id, mm.* FROM ride_requests r JOIN members mm ON mm.id=r.rider_id WHERE r.practice_id=? AND r.driver_id=? AND r.status='matched'", (pid, m["id"])).fetchall():
+            if wants_push(r, "ride"): push_member(d, r, "ride", "Your driver can't make it", "Your ride request is open again", "/practices/%d" % pid)
+        d.execute("UPDATE ride_requests SET status='open', driver_id=NULL, pickup_note=NULL, matched_at=NULL WHERE practice_id=? AND driver_id=? AND status='matched'", (pid, m["id"]))
+    d.commit()
+    return redirect("/practices/%d" % pid)
+def _cancel_rides_when_not_going(d, pid, mid):
+    d.execute("UPDATE ride_requests SET status='cancelled' WHERE practice_id=? AND rider_id=? AND status IN ('open','matched')", (pid, mid))
+    d.execute("UPDATE ride_requests SET status='open', driver_id=NULL, pickup_note=NULL WHERE practice_id=? AND driver_id=? AND status='matched'", (pid, mid))
+    d.execute("UPDATE ride_offers SET status='cancelled' WHERE practice_id=? AND driver_id=?", (pid, mid))
+
+@app.route("/practices/<int:pid>/wrap", methods=["GET", "POST"])
+@login_required
+def practice_wrap(pid):
+    """08.10. Attended / no-show / walk-in, a private note for admins, an optional recap, then Close."""
+    if not can_host_practice(): abort(403)
+    d = db()
+    p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+    if not p: abort(404)
+    if request.method == "POST":
+        note = (request.form.get("admin_note") or "").strip()[:2000]
+        recap = " ".join((request.form.get("recap") or "").split())[:280]
+        close = request.form.get("action") == "close"
+        d.execute("INSERT INTO practice_wraps(practice_id, admin_note) VALUES(?,?) ON CONFLICT(practice_id) DO UPDATE SET admin_note=excluded.admin_note", (pid, note))
+        if close:
+            d.execute("UPDATE practice_wraps SET closed_by=?, closed_at=COALESCE(closed_at, ?) WHERE practice_id=?", (me()["id"], dt.datetime.now().isoformat(timespec="seconds"), pid))
+        if recap:
+            d.execute("UPDATE practice_wraps SET recap=? WHERE practice_id=?", (recap, pid))
+            d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)", (me()["id"], recap, "practice:%d" % pid))
+        d.commit()
+        flash("Practice closed." if close else "Saved.", "toast")
+        return redirect("/practices/%d/wrap" % pid)
+    c = {"attended": 0, "no_show": 0, "walk_in": 0}
+    going = {r[0] for r in d.execute("SELECT member_id FROM rsvps WHERE practice_id=? AND going=1", (pid,))}
+    checked = {r[0] for r in d.execute("SELECT member_id FROM checkins WHERE practice_date=?", (p["date"],))}
+    c = {"attended": len(checked), "no_show": len(going - checked), "walk_in": len(checked - going)}
+    when = "%s · %s" % (fmt_d(p["date"]), fmt_span(p["start"], p["end"]))
+    return page(flows2.WRAP, tab="", p=p, c=c, wr=flows2.wrap(d, pid), when=when)
+
+@app.route("/manage/club/waiver", methods=["GET", "POST"])
+@admin_required
+def manage_waiver():
+    d = db()
+    if request.method == "POST":
+        flows2.save_waiver(d, request.form.get("enabled"), request.form.get("title"), request.form.get("body"),
+                           request.form.get("url"), request.form.get("bump"), _person_name(me()))
+        d.commit(); flash("Waiver saved.", "toast"); return redirect("/manage/club/waiver")
+    w = flows2.waiver(d)
+    signed = d.execute("SELECT COUNT(DISTINCT member_id) FROM waiver_acceptances WHERE version=?", (w["version"],)).fetchone()[0]
+    return page(flows2.WAIVER_ADMIN, tab="manage", w=w, signed=signed)
+
+@app.route("/setup/week", methods=["GET", "POST"])
+@login_required
+def setup_week():
+    """10.31. Optional: the days you can usually play. Practices on those days are marked as a fit."""
+    d = db(); m = me()
+    back = safe_return_path(session.get("setup_next") or "") or "/practices"
+    if request.method == "POST":
+        d.execute("UPDATE members SET avail_days=? WHERE id=?", (flows2.parse_days(request.form.getlist("day")), m["id"]))
+        d.commit(); session.pop("setup_next", None); flash("Saved your week.", "toast")
+        return redirect(back)
+    picked = (m["avail_days"] or "").split(",")
+    today = today_pt().isoformat()
+    upcoming = d.execute("SELECT date FROM practices WHERE date>=? AND COALESCE(cancelled,0)=0 ORDER BY date LIMIT 20", (today,)).fetchall()
+    fit = "We'll mark practices that fit your week."
+    if picked and picked[0] and upcoming:
+        n = sum(1 for r in upcoming if flows2.DAYS[dt.date.fromisoformat(r["date"]).weekday()] in picked)
+        fit = "%d of the next %d practices fit." % (n, len(upcoming))
+    return page(flows2.WEEK, tab="", days=flows2.DAYS, picked=picked, fit=fit, back=back)
+
+@app.route("/setup/dismiss", methods=["POST"])
+@login_required
+def setup_dismiss():
+    d = db(); d.execute("UPDATE members SET setup_dismissed=1 WHERE id=?", (me()["id"],)); d.commit()
+    return redirect(request.referrer if safe_return_path(urllib.parse.urlparse(request.referrer or "").path) else "/practices")
+def setup_card():
+    m = me()
+    if not m or ("setup_dismissed" in m.keys() and m["setup_dismissed"]): return None
+    has_push = bool(db().execute("SELECT 1 FROM push_subscriptions WHERE member_id=? LIMIT 1", (m["id"],)).fetchone())
+    steps = flows2.setup_steps(m, has_push)
+    done = sum(1 for s in steps if s[1])
+    return {"show": done < len(steps), "steps": steps, "done": done}
+app.jinja_env.globals.update(setup_card=setup_card)
 
 ensure_vapid()
 start_scheduler()

@@ -23,7 +23,7 @@ def csrf(browser, path):
 
 
 def join(browser, first, last, email):
-    return browser.post("/join", data=dict(csrf=csrf(browser, "/join"), first=first, last=last, email=email, phone="555-0100"))
+    return browser.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(browser, "/join"), first=first, last=last, email=email, phone="555-0100"))
 
 
 def clear_preview_rows():
@@ -835,6 +835,8 @@ def test_a_new_going_rsvp_confirms_once_and_does_not_rewrite_the_rsvp():
     member = client()
     join(member, "Bea", "Signup", "bea.signup@example.com")
     with A.app.app_context():
+        A.db().execute("UPDATE members SET usawp_number='1234567' WHERE email=?", ("bea.signup@example.com",)); A.db().commit()  # returning member: Going is one tap
+    with A.app.app_context():
         d = A.db()
         day = (A.today_pt() + __import__("datetime").timedelta(days=2)).isoformat()
         pid = d.execute("INSERT INTO practices(date, start, end, location, address, sport, activity_type, cancelled) VALUES(?,?,?,?,?,?,?,0)",
@@ -869,6 +871,8 @@ def test_a_new_going_rsvp_confirms_once_and_does_not_rewrite_the_rsvp():
 def test_not_going_sticks_and_an_opened_practice_chat_stays_mine():
     member = client()
     join(member, "Nia", "Rsvp", "nia.rsvp@example.com")
+    with A.app.app_context():
+        A.db().execute("UPDATE members SET usawp_number='1234567' WHERE email=?", ("nia.rsvp@example.com",)); A.db().commit()  # returning member: Going is one tap
     with A.app.app_context():
         d = A.db()
         day = (A.today_pt() + __import__("datetime").timedelta(days=4)).isoformat()
@@ -996,3 +1000,108 @@ def test_chat_accepts_heic_and_names_live_photo_and_proraw():
             path = os.path.join(A.UPLOADS, suffix)
             if os.path.isfile(path):
                 os.remove(path)
+
+
+def _new_practice(days=3):
+    with A.app.app_context():
+        d = A.db()
+        day = (A.today_pt() + __import__("datetime").timedelta(days=days)).isoformat()
+        pid = d.execute("INSERT INTO practices(date, start, end, location, sport, activity_type, cancelled) VALUES(?,?,?,?,?,?,0)",
+                        (day, "19:00", "20:30", "Flow Pool", "Water Polo", "practice")).lastrowid
+        d.commit()
+        return pid
+
+
+def test_join_needs_an_adult_date_of_birth():
+    kid = client()
+    r = kid.post("/join", data=dict(birth_date=(A.today_pt().replace(year=A.today_pt().year - 17)).isoformat(), csrf=csrf(kid, "/join"),
+                                    first="Kid", last="Young", email="kid.young@example.com", phone="1"), follow_redirects=True)
+    assert "adults club" in r.get_data(as_text=True)
+    with A.app.app_context():
+        assert A.db().execute("SELECT 1 FROM members WHERE email='kid.young@example.com'").fetchone() is None
+    adult = client()
+    r = join(adult, "Ada", "Grown", "ada.grown@example.com")
+    assert r.headers["Location"].endswith("/setup/week")
+    adult.post("/setup/week", data=dict(csrf=csrf(adult, "/setup/week"), day=["Tue", "Thu"]))
+    with A.app.app_context():
+        row = A.db().execute("SELECT birth_date, avail_days FROM members WHERE email='ada.grown@example.com'").fetchone()
+    assert row["birth_date"] == "1990-03-04" and row["avail_days"] == "Tue,Thu"
+
+
+def test_first_going_opens_the_one_sheet_and_stores_number_and_waiver():
+    with A.app.app_context():
+        A.flows2.save_waiver(A.db(), True, "Grunions Liability Waiver", "Swim at your own risk.", "", False, "test"); A.db().commit()
+    try:
+        pid = _new_practice()
+        m = client(); join(m, "Gia", "Gate", "gia.gate@example.com")
+        r = m.post("/practices/%d" % pid, data=dict(csrf=csrf(m, "/practices/%d" % pid), pid=pid, action="going"))
+        assert r.headers["Location"].endswith("/practices/%d/signup" % pid)
+        page = m.get("/practices/%d/signup" % pid).get_data(as_text=True)
+        assert "Two things, then you" in page and "USA WATER POLO MEMBER #" in page and "Grunions Liability Waiver" in page
+        bad = m.post("/practices/%d/signup" % pid, data=dict(csrf=csrf(m, "/practices/%d/signup" % pid), action="go", usawp_number="1002004", agree="1", typed_name="Gia"))
+        assert bad.headers["Location"].endswith("/signup")
+        with A.app.app_context():
+            assert A.db().execute("SELECT 1 FROM rsvps r JOIN members m ON m.id=r.member_id WHERE m.email='gia.gate@example.com' AND going=1").fetchone() is None
+        ok = m.post("/practices/%d/signup" % pid, data=dict(csrf=csrf(m, "/practices/%d/signup" % pid), action="go", agree="1", typed_name="Gia Gate"))
+        assert ok.headers["Location"].endswith("/practices/%d" % pid)
+        with A.app.app_context():
+            d = A.db(); mid = d.execute("SELECT id FROM members WHERE email='gia.gate@example.com'").fetchone()[0]
+            assert d.execute("SELECT usawp_number FROM members WHERE id=?", (mid,)).fetchone()[0] == "1002004"
+            assert d.execute("SELECT typed_name FROM waiver_acceptances WHERE member_id=?", (mid,)).fetchone()[0] == "Gia Gate"
+            assert d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, mid)).fetchone()[0] == 1
+        pid2 = _new_practice(5)
+        r = m.post("/practices/%d" % pid2, data=dict(csrf=csrf(m, "/practices/%d" % pid2), pid=pid2, action="going"))
+        assert "/signup" not in r.headers["Location"]  # second time is one tap
+    finally:
+        with A.app.app_context():
+            A.flows2.save_waiver(A.db(), False, "Club liability waiver", "", "", False, "test"); A.db().commit()
+
+
+def test_rides_show_areas_only_and_match_one_driver():
+    pid = _new_practice(2)
+    rider = client(); join(rider, "Rae", "Rider", "rae.rider@example.com")
+    driver = client(); join(driver, "Dev", "Driver", "dev.driver@example.com")
+    with A.app.app_context():
+        A.db().execute("UPDATE members SET usawp_number='5550001' WHERE email IN ('rae.rider@example.com','dev.driver@example.com')"); A.db().commit()
+    for b in (rider, driver):
+        b.post("/practices/%d" % pid, data=dict(csrf=csrf(b, "/practices/%d" % pid), pid=pid, action="going"))
+    r = rider.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(rider, "/practices/%d" % pid), action="ask", area="1234 Main St", back="1"), follow_redirects=True)
+    assert "not a street address" in r.get_data(as_text=True)
+    rider.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(rider, "/practices/%d" % pid), action="ask", area="Belmont Shore", back="1"))
+    driver.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(driver, "/practices/%d" % pid), action="offer", area="Long Beach", seats="2", back="1"))
+    page = driver.get("/practices/%d" % pid).get_data(as_text=True)
+    assert "Needs a ride · Belmont Shore" in page and "Pick up" in page
+    with A.app.app_context():
+        rid = A.db().execute("SELECT r.id FROM ride_requests r JOIN members m ON m.id=r.rider_id WHERE m.email='rae.rider@example.com' AND status='open'").fetchone()[0]
+    driver.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(driver, "/practices/%d" % pid), action="pick", req_id=rid))
+    driver.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(driver, "/practices/%d" % pid), action="spot", req_id=rid, pickup_note="Corner of 2nd and Granada"))
+    mine = rider.get("/practices/%d" % pid).get_data(as_text=True)
+    assert "RIDE CONFIRMED" in mine and "Dev is driving" in mine
+    assert "Corner of 2nd and Granada" not in mine  # two days out: outside the pickup window
+    rider.post("/practices/%d" % pid, data=dict(csrf=csrf(rider, "/practices/%d" % pid), pid=pid, action="notgoing"))
+    with A.app.app_context():
+        assert A.db().execute("SELECT status FROM ride_requests WHERE id=?", (rid,)).fetchone()[0] == "cancelled"
+
+
+def test_coach_wrap_up_counts_and_private_note():
+    pid = _new_practice(0)
+    boss = client(); join(boss, "Wren", "Wrap", "wren.wrap@example.com")
+    with A.app.app_context():
+        A.db().execute("UPDATE members SET is_admin=1 WHERE email='wren.wrap@example.com'"); A.db().commit()
+    page = boss.get("/practices/%d/wrap" % pid).get_data(as_text=True)
+    assert "Wrap up." in page and "NO-SHOW" in page
+    boss.post("/practices/%d/wrap" % pid, data=dict(csrf=csrf(boss, "/practices/%d/wrap" % pid), action="close", admin_note="Lane 3 light out", recap="Good set tonight"))
+    with A.app.app_context():
+        d = A.db(); w = d.execute("SELECT * FROM practice_wraps WHERE practice_id=?", (pid,)).fetchone()
+        assert w["admin_note"] == "Lane 3 light out" and w["closed_at"]
+        assert d.execute("SELECT 1 FROM messages WHERE channel=? AND body='Good set tonight'", ("practice:%d" % pid,)).fetchone()
+    member = client(); join(member, "Mo", "Member", "mo.member@example.com")
+    assert member.get("/practices/%d/wrap" % pid).status_code == 403
+
+
+def test_boot_never_deletes_a_waiver_requirement():
+    with A.app.app_context():
+        d = A.db()
+        d.execute("INSERT INTO requirements(name, applies_to, keywords, expires) VALUES('Club waiver', 'all', 'waiver', 0)"); d.commit()
+    with A.app.app_context():
+        assert A.db().execute("SELECT 1 FROM requirements WHERE name='Club waiver'").fetchone()

@@ -2183,7 +2183,13 @@ dialog.memberedit .help a{color:var(--t1)}
     var ctrl = new AbortController();
     rsvpAbort[key] = ctrl;
     fetch(action, {method: "POST", body: data, credentials: "same-origin", redirect: "follow", headers: {Accept: "text/html"}, signal: ctrl.signal})
-      .then(function (res) { return res.text().then(function (html) { if (!res.ok) throw new Error("save"); pending.ok = true; pending.html = html; }); })
+      .then(function (res) {
+        // Going can need a step first: the one-sheet sign-up (05.15) or Before you go. Open it instead of faking the RSVP.
+        if (res.ok && res.redirected && /\/practices\/\d+\/(signup|participate)$/.test(new URL(res.url).pathname)) {
+          pending.handled = true; snaps.forEach(function (row) { restore(row.form, row.snap); });
+          location.href = res.url; return;
+        }
+        return res.text().then(function (html) { if (!res.ok) throw new Error("save"); pending.ok = true; pending.html = html; }); })
       .then(function () { pending.done = true; if (pending.ok && rsvpGen[key] === gen) applyHtml(pending.html, pid, eid, social); })
       .catch(function () {
         pending.done = true;
@@ -2611,7 +2617,7 @@ TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and tab != 'event_
 <a class="crestout" href="/logout">Log out</a>
 </dialog>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=118');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=119');
 function grunionsClearTransition(){try{var t=document.activeViewTransition; if(t&&t.skipTransition) t.skipTransition();}catch(e){}}
 grunionsClearTransition();
 window.addEventListener('pageshow', grunionsClearTransition);
@@ -4778,6 +4784,8 @@ T["join"] = """<h1>Join the Grunions</h1>
 <label>Legal last name<input name=last required autocomplete=family-name></label>
 <label>Email<input name=email type=email required autocomplete=email placeholder="The one on your USA Water Polo account"></label>
 <label>Phone<input name=phone type=tel required autocomplete=tel></label>
+<label>Date of birth <span class=r2-chip>18+ only</span><input name=birth_date type=date required autocomplete=bday></label>
+<p class="t3 sm">Grunions is an adults club. If you're under 18 you can't join. We'll point you to youth programs nearby.</p>
 <button class="btn btn-primary full">Create account</button></form>
 <p class="t3 sm" style="text-align:center;margin-top:20px">Already a member? <a href=/login>Log in</a></p>"""
 
@@ -7385,12 +7393,12 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Check-in') }}
 {% if n_not %}<a class="chip{{ ' chip-active on' if filt=='not' }}" href="/admin?date={{ date }}&amp;filt=not{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Not Going ({{ n_not }})</a>{% else %}<button type=button class=chip disabled aria-disabled=true>Not Going (0)</button>{% endif %}
 {% if n %}<a class="chip{{ ' chip-active on' if filt=='in' }}" href="/admin?date={{ date }}&amp;filt=in{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if evkey %}&amp;ev={{ evkey }}{% endif %}">Checked in ({{ n }})</a>{% else %}<button type=button class=chip disabled aria-disabled=true>Checked in (0)</button>{% endif %}
 </div>
-<form class=playersearch method=get action=/admin><input type=hidden name=date value="{{ date }}">{% if filt != 'going' %}<input type=hidden name=filt value="{{ filt }}">{% endif %}{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}<input name=q value="{{ q }}" placeholder="Search players..." style="margin:0"></form>
+{% if pr %}<p class=fxcheckacts><a class="btn btn-secondary" href="/qr">+ Walk-in · show QR</a> <a class="btn btn-secondary" href="/practices/{{ pr.id }}/wrap">Wrap up</a></p>{% endif %}<form class=playersearch method=get action=/admin><input type=hidden name=date value="{{ date }}">{% if filt != 'going' %}<input type=hidden name=filt value="{{ filt }}">{% endif %}{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}<input name=q value="{{ q }}" placeholder="Search players..." style="margin:0"></form>
 </div>
 {% macro ci(r) %}
-<div class="li personrow cirow" data-rsvp="{{ 'going' if r.going==1 else ('not' if r.going==0 else 'none') }}" data-checked="{{ 1 if r.cid else 0 }}">{% call person_link(r) %}{% endcall %}
+<div class="li personrow cirow" data-rsvp="{{ 'going' if r.going==1 else ('not' if r.going==0 else 'none') }}" data-checked="{{ 1 if r.cid else 0 }}">{% call person_link(r) %}{% endcall %}{% set hr = hold_reason(r) %}{% if hr and not r.cid %}<small class=holdchip>{{ hr }}</small>{% endif %}
 <form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{filt}}">{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}
-{% if r.cid %}<button class="btn btn-secondary" name=action value=undo title="Undo check-in">✓ Checked in</button>{% else %}<button class="btn btn-primary" {% if not clearance(r).ok %}data-confirm="Not cleared — check in anyway?"{% endif %}>Check in</button>{% endif %}</form></div>{% endmacro %}
+{% if r.cid %}<button class="btn btn-secondary" name=action value=undo title="Undo check-in">✓ Checked in</button>{% elif hr %}<button class="btn btn-secondary" data-confirm="{{ hr }}. Check in anyway?">Hold</button>{% else %}<button class="btn btn-primary">Check in</button>{% endif %}</form></div>{% endmacro %}
 {% if q and ((filt=='not' and not not_going) or (filt=='in' and not checked) or (filt=='going' and not going and not rest)) %}<p class=emptyfind>No players match “{{ q }}”.</p>{% endif %}
 {% if filt == 'not' %}
 <h2>Not Going <span class=t3>{{ n_not }}</span></h2>

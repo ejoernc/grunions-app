@@ -23,7 +23,7 @@ def csrf(browser, path):
 
 
 def join(browser, first, last, email):
-    return browser.post("/join", data=dict(csrf=csrf(browser, "/join"), first=first, last=last, email=email, phone="555-0100"))
+    return browser.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(browser, "/join"), first=first, last=last, email=email, phone="555-0100"))
 
 
 def counts():
@@ -368,7 +368,7 @@ def test_registration_checks_eligibility_and_does_not_charge_or_email():
         with A.app.app_context():
             again = A.db().execute("SELECT usawp_status, trial_acknowledged_at, usawp_valid_until FROM members WHERE email='nia.reg@example.com'").fetchone()
             assert tuple(again) == tuple(snapshot)
-        created = guest.post("/join", data=dict(csrf=csrf(guest, "/join"), first="Rio", last="Visitor", email="rio.reg@example.com", phone="555-0199"))
+        created = guest.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(guest, "/join"), first="Rio", last="Visitor", email="rio.reg@example.com", phone="555-0199"))
         assert created.status_code == 302 and created.headers["Location"].endswith("/register?event=%s" % event)
         claim = guest.get("/register?event=%s" % event).get_data(as_text=True)
         assert "<h2>USA Water Polo trial</h2>" in claim and "Submit for verification" in claim

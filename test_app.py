@@ -6,7 +6,7 @@ def client():
 def csrf(c, path):
     return re.search(r'(?:name=csrf value=|const CSRF=)"([^"]+)"', c.get(path).get_data(as_text=True)).group(1)
 def join(c, first, last, email):
-    return c.post("/join", data=dict(csrf=csrf(c, "/join"), first=first, last=last, email=email, phone="555-0100"), follow_redirects=True)
+    return c.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(c, "/join"), first=first, last=last, email=email, phone="555-0100"), follow_redirects=True)
 ok = lambda cond, name: print(("PASS " if cond else "FAIL ") + name) or cond
 def people_row(html, name):
     i = html.find(">" + name + "</span>")
@@ -663,7 +663,7 @@ day = "2026-12-06"
 eli.post("/practices", data=dict(csrf=csrf(eli, "/practices"), action="add", date=day, start="19:00", end="20:30", location="Sort Pool"))
 spid = D.execute("SELECT id FROM practices WHERE date=? AND location='Sort Pool'", (day,)).fetchone()[0]
 def sorter(first, last, email, pref=None, going=False):
-    c = A.app.test_client(); data = dict(csrf=csrf(c, "/join"), first=first, last=last, email=email, phone="1")
+    c = A.app.test_client(); data = dict(birth_date="1990-03-04", csrf=csrf(c, "/join"), first=first, last=last, email=email, phone="1")
     if pref: data["preferred_first"] = pref
     c.post("/join", data=data, follow_redirects=True)
     if going: c.post("/practices", data=dict(csrf=csrf(c, "/practices"), pid=spid, action="going"))
