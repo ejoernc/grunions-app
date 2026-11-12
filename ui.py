@@ -187,9 +187,10 @@ body.homefull .schedfeed{position:relative;z-index:2;pointer-events:auto}
 body.schedhome{overflow:hidden;height:100dvh;--drawer-h:52dvh}
 body.schedhome header.homehead{height:0;min-height:0;padding:0;overflow:hidden;background:transparent}
 body.schedhome main{overflow:hidden;height:100dvh;max-height:100dvh;padding-bottom:0}
-body.schedhome .weekhi{position:fixed;z-index:2;top:52px;left:16px;right:88px;pointer-events:none;color:#F6F4EF}
+body.schedhome .weekhi{position:fixed;z-index:2;top:16px;left:16px;right:72px;pointer-events:none;color:#F6F4EF}
 body.schedhome .weekeye{display:block;font:600 12px/1 var(--r2-font-sans);letter-spacing:.04em;color:#F6F4EF}
-body.schedhome .weekhi h1{margin:4px 0 0;font:700 56px/.9 var(--r2-font-display);letter-spacing:-.04em}
+body.schedhome .weekhi h1{margin:4px 0 0;font:700 40px/1.05 var(--r2-font-display);letter-spacing:-.04em;white-space:nowrap}
+body.schedhome .weekhi .maplegend{position:static;display:flex;gap:10px;margin-top:10px;width:auto}
 .weekdrawer{position:fixed;z-index:3;left:0;right:0;bottom:0;height:var(--drawer-h);pointer-events:auto;display:flex;flex-direction:column;gap:8px;margin:0;padding:8px 16px 0;overflow:hidden;color:#F6F4EF;background:#17181A;border-radius:32px 32px 0 0}
 .weekdrawer.peek .weekbody>*:not(.r2-drive){display:none}
 .weekbody{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:calc(var(--nav-clear) + 12px);-webkit-overflow-scrolling:touch}
@@ -251,7 +252,8 @@ body.schedhome .schedsheet.up .sheetexpanded{display:flex;flex-direction:column;
 .maplegend{position:fixed;z-index:2;top:16px;left:16px;right:16px;display:flex;gap:10px;align-items:center;color:#F6F4EF;font:600 12px/1 var(--r2-font-sans);pointer-events:none}
 .maplegend i{display:inline-block;width:14px;height:3px;margin-right:4px;border-radius:2px;vertical-align:middle}
 .maplegend .legclear{background:#C8FF3C}.maplegend .legslow{background:#FFC61A}.maplegend .legjam{background:#FF5A1F}
-.maplegend b{margin-left:auto;padding:6px 10px;border-radius:999px;background:#17181A;font:600 12px/1 var(--r2-font-sans)}
+.maplegend b,.mappinchip{margin-left:auto;padding:6px 10px;border-radius:999px;background:#17181A;font:600 12px/1 var(--r2-font-sans)}
+.mappinchip{position:fixed;z-index:2;top:16px;right:16px;margin:0;color:#F6F4EF;pointer-events:none}
 .mapmiss{position:relative;z-index:3;margin:24px 16px 0;color:#F6F4EF;pointer-events:auto}
 .mapmiss a{color:#C8FF3C}
 .socialcard{border-radius:32px;background:#FF5FB8;color:#0B0B0C;padding:18px 18px 16px}
@@ -3994,7 +3996,7 @@ window.grunionsMountMap=function(el, opts){
    }
    function headerFloor(){
     var best=0;
-    ['header.homehead .titlestack','header.homehead .usawpchip','header.homehead .hititle','header.homehead .headplus','header.homehead a.avatar','header.homehead'].forEach(function(sel){
+    ['.weekhi','header.homehead .titlestack','header.homehead .usawpchip','header.homehead .hititle','header.homehead .headplus','header.homehead a.avatar','header.homehead'].forEach(function(sel){
      var n=document.querySelector(sel); if(!n) return;
      var b=n.getBoundingClientRect().bottom;
      if(b>best) best=b;
@@ -4012,6 +4014,8 @@ window.grunionsMountMap=function(el, opts){
    }
    function lowerLimit(){
     var box=el.getBoundingClientRect();
+    var drawer=document.querySelector('.weekdrawer');
+    if(drawer){ var d=drawer.getBoundingClientRect(); if(d.height>1) return d.top; }
     var card=document.querySelector('.nextcard');
     var edge=card?card.getBoundingClientRect().top:(box.top+box.height*0.62);
     var chip=document.querySelector('.nexstack>.drivechip');
@@ -4585,8 +4589,8 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
 {% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}</div>{% endif %}
 {% if sched_home %}
-<div class=weekhi><span class=weekeye>{% if not_cleared %}NOT CLEARED{% elif me().usawp_number %}USAWP #{{ me().usawp_number }}{% endif %}</span><h1>Hi,<br>{{ display_first(me()) }}.</h1></div>
-{{ r2_legend(pin_label) }}
+<div class=weekhi><span class=weekeye>{% if not_cleared %}NOT CLEARED{% elif me().usawp_number %}USAWP #{{ me().usawp_number }}{% endif %}</span><h1>Hi, {{ display_first(me()) }}.</h1>{{ r2_legend('') }}</div>
+{% if pin_label %}<b class=mappinchip>{{ pin_label }}</b>{% endif %}
 <div class=mapcontrols><button type=button data-zoom=1 aria-label="Zoom in">+</button><button type=button data-zoom=-1 aria-label="Zoom out">−</button></div>
 {% if not pins %}{{ r2_map_unavailable() }}{% endif %}
 <div class="weekdrawer half" id=schedSheet>
