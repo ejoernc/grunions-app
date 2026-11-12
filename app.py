@@ -1133,11 +1133,8 @@ def inbox():
 @app.route("/find")
 @login_required
 def find_team():
-    """Find or join stays quiet while Grunions is the only team."""
-    return page("""<p class="r2caps">Everything</p><h1>Find or join.</h1>
-<p>You're on Grunions. This club stays at grunions.regulars.team.</p>
-<p class="t3">Another team can have its own regulars.team address later. None are attached here.</p>
-<p><a class="btn btn-primary" href="/practices">Back to Schedule</a></p>""", tab="discover")
+    """Find or join opens Everything, on Discover."""
+    return redirect("/discover")
 
 @app.route("/join", methods=["GET", "POST"])
 def join():

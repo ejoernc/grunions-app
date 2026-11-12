@@ -40,7 +40,8 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     assert tabs.find(">Schedule<") < tabs.find(">Lineup<")
     assert "--r2-ink" in schedule and "#C8FF3C" in schedule and "#4A6A00" in schedule
     menu = schedule.split('id="crestMenu"', 1)[1].split("</dialog>", 1)[0]
-    assert ">Everything<" in menu and ">Grunions<" in menu and "Find or join" in menu and ">Log out<" in menu
+    assert ">Everything<" in menu and ">Grunions<" in menu and 'class="crestgo" href="/discover"' in menu and ">Log out<" in menu
+    assert member.get("/find").headers["Location"].endswith("/discover")
     assert ">Member<" in menu and "Surf City" not in menu and "Harbor Seals" not in menu
     discover = member.get("/discover").get_data(as_text=True)
     assert "Discover." in discover and "Grunions is your team" in discover and "Surf City" not in discover

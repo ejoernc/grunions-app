@@ -1727,7 +1727,7 @@ TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and tab != 'event_
 <span class="crestline"></span>
 <p class="crestlabel">YOUR TEAMS</p>
 <a class="crestrow{% if nav.place == 'team' %} here{% endif %}" href="/practices"><span class="crestmark team">G</span><span><b>Grunions</b><small>Default · opens here</small></span><span class="rolechip role-{{ nav.role|lower }}">{{ nav.role }}</span></a>
-<a class="crestgo" href="/find">+ Find or join a team</a>
+<a class="crestgo" href="/discover">+ Find or join a team</a>
 <a class="crestout" href="/logout">Log out</a>
 </dialog>{% endif %}
 <script>
