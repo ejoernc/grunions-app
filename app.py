@@ -8005,7 +8005,30 @@ def manage_home():
         growth = chart_card(growth_chart(*signup_days(d)), attendance_chart(recent_checkins(d)))
         people_preview, needs_n, people_n = _manage_people_preview(d)
     return page(T["manage"], tab="manage", growth=growth, club_admin=admin, club_rows=club_rows, tool_rows=tool_rows,
-        week=_manage_week(d, admin), people_preview=people_preview, needs_n=needs_n, people_n=people_n)
+        week=_manage_week(d, admin), people_preview=people_preview, needs_n=needs_n, people_n=people_n, stat=manage_stat(d))
+def manage_stat(d):
+    """08.13 Avg checked in: check-ins per practice day over the last 4 weeks, the change vs the 4 weeks
+    before, and the average for each weekday (Mon–Sun) over the last 8 weeks."""
+    today = today_pt()
+    since = (today - dt.timedelta(days=56)).isoformat()
+    rows = d.execute("""SELECT p.date, (SELECT COUNT(*) FROM checkins c WHERE c.practice_date=p.date) AS n
+        FROM practices p WHERE COALESCE(p.cancelled,0)=0 AND p.date>=? AND p.date<=? GROUP BY p.date""", (since, today.isoformat())).fetchall()
+    if not rows:
+        return None
+    cut = (today - dt.timedelta(days=28)).isoformat()
+    recent = [r["n"] for r in rows if r["date"] > cut]
+    before = [r["n"] for r in rows if r["date"] <= cut]
+    avg = lambda xs: (sum(xs) / len(xs)) if xs else 0
+    value = round(avg(recent) if recent else avg(before))
+    delta = ""
+    if recent and before:
+        diff = round(avg(recent) - avg(before))
+        delta = ("+%d vs last" % diff) if diff >= 0 else ("%d vs last" % diff)
+    by_day = {i: [] for i in range(7)}
+    for r in rows:
+        by_day[dt.date.fromisoformat(r["date"]).weekday()].append(r["n"])
+    bars = [(lab, avg(by_day[i])) for i, lab in enumerate("MTWTFSS")]
+    return {"value": value, "delta": delta, "bars": bars}
 def _search_words(q):
     needle = " ".join((q or "").split()).casefold()
     return needle, needle.split()

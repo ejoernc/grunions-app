@@ -242,6 +242,30 @@ def practice_actions(href, label="Chat", count=0, more_href=""):
                       '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 8L10 13L15 8" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>'))
 
 
+def search_field(input_id, placeholder, action_href="", action_icon="settings", clear_id=""):
+    """2.0 / Search field (02 C, 349:617): graphite pill, search icon, input, lime round action."""
+    clear = ('<button type=button class=rg-sclear id="%s" hidden aria-label="Clear search">×</button>' % _e(clear_id)) if clear_id else ""
+    act = ('<a class=rg-sact href="%s" aria-label="Settings">%s</a>' % (_e(action_href), icon(action_icon, "sm"))) if action_href else ""
+    return Markup('<label class=rg-search>%s<input id="%s" type=search enterkeyhint=search placeholder="%s" autocomplete=off autocapitalize=off>%s%s</label>'
+                  % (icon("search"), _e(input_id), _e(placeholder), clear, act))
+
+
+def stat_card(label, value, delta="", bars=()):
+    """2.0 / Stat card (02 D, 350:825): label + delta, 128px value, 7 day bars (highest is lime)."""
+    bars = list(bars)
+    top = max([b[1] for b in bars] or [0])
+    cols = "".join('<span class=rg-bar><i style="height:%dpx"%s></i><small>%s</small></span>' % (
+        max(24, int(88 * (v / top))) if top else 24, ' class=hi' if top and v == top else "", _e(lab)) for lab, v in bars)
+    return Markup('<div class=rg-stat><div class=rg-stattop><span>%s</span>%s</div><b class=rg-statval>%s</b>%s</div>' % (
+        _e(label), ('<em>%s</em>' % _e(delta)) if delta else "", _e(value), ('<div class=rg-bars>%s</div>' % cols) if bars else ""))
+
+
+def hub_tile(href, count, title, desc, tone="sun"):
+    """Manage hub tile (08.13): colored 200px tile, big count + arrow, title, one line."""
+    return Markup('<a class="rg-hub tone-%s" href="%s"><span class=rg-hubtop><b>%02d</b><i aria-hidden=true>→</i></span>'
+                  '<span class=rg-hubtxt><b>%s</b><small>%s</small></span></a>' % (_tone(tone, "sun"), _e(href), int(count or 0), _e(title), _e(desc)))
+
+
 def callout(title, sub="", cta="", href="", tone="graphite", onclick=""):
     """Tinted one-line action card ("Need a ride?  Ask →", "Requires USA Water Polo + club waiver  Once")."""
     inner = '<span class=rg-txt><b>%s</b>%s</span>%s' % (_e(title), ('<small>%s</small>' % _e(sub)) if sub else "",
@@ -282,4 +306,4 @@ def checklist(title, steps, done_label=""):
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_event_cancelled=event_cancelled, rg_checklist=checklist, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_hub=hub_tile, rg_event_cancelled=event_cancelled, rg_checklist=checklist, event_tone=event_tone)

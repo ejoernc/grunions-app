@@ -264,11 +264,11 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
         A.db().commit()
     assert member.get("/manage").status_code == 403
     page = admin.get("/manage").get_data(as_text=True)
-    assert "id=growthCard" in page and "id=manageSearch" in page and "data-mseg=people" in page
+    assert 'id="manageSearch"' in page and "class=rg-search" in page  # 08.13: search · stat · hub tiles
     assert ">Practice</a>" not in page and ">Bulletin</a>" not in page and "class=qactions" not in page
     assert 'aria-label="Create event"' not in page and "class=headplus" not in page and 'aria-label="Profile"' not in page.split("<main>", 1)[0]
-    assert "data-mseg=schedule" in page and "data-mseg=people" in page and "data-mseg=club" in page and "data-mseg=tools" in page
-    assert "+ New practice or event" in page
+    for area in ("activities", "people", "club", "tools"):
+        assert 'href="/manage/area/%s"' % area in page
     club = admin.get("/manage/area/club").get_data(as_text=True)
     assert ">Sports</b>" in club or "Sports" in club
     assert 'href="/manage/club/programs"' in club and "Plans &amp; passes" in club and ">Requirements</span>" not in club
@@ -293,7 +293,7 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     paying = admin.get("/members?view=membership").get_data(as_text=True)
     assert "<h1>Members</h1>" in paying and "Export CSV" in paying and "Search people..." in paying and 'aria-label="Payment"' not in paying
     assert "<h1>Participants</h1>" in roster
-    assert 'id=manageClear' in page and "/manage/search?q=" in page and "No matches for" in page
+    assert 'id="manageClear"' in page and "/manage/search?q=" in page and "No matches for" in page
     assert "min-height:72px;padding:16px 12px 16px 10px" in page
     assert "div.growthcard{position:relative;background:transparent;border:0;border-radius:0;padding:0;margin:0 0 16px}" in page
     assert "id=manageIndex" not in page
