@@ -3943,11 +3943,53 @@ def chat_block():
 @app.route("/chat/person/<int:mid>")
 @login_required
 def chat_person(mid):
-    person = db().execute("SELECT first, last, preferred_first, role FROM members WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone()
+    """2.0 / Person profile (08.72 teammate, 08.73 coach & admin view). Tap any person in chat, Who's going or the roster."""
+    d = db(); viewer = me()
+    person = d.execute("SELECT * FROM members WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone()
     if not person: abort(404)
     name = ("%s %s" % (display_first(person), person["last"] or "")).strip()
-    role = "Coach" if (person["role"] or "") == "coach" else "Player"
-    return page("<p class=r2caps>Profile</p><h1>%s</h1><p class=t3>%s</p>" % (escape(name), escape(role)), tab="chat")
+    role = {"coach": "Coach", "admin": "Admin"}.get(person["role"] or "", "Teammate")
+    if person["id"] == viewer["id"]: role = "You"
+    line1 = " · ".join(x for x in ((person["pronouns"] or "").strip() if person["show_pronouns"] else "", "Coach" if (person["role"] or "") == "coach" else "") if x)
+    since = (person["created"] or "")[:4]
+    line2 = " · ".join(x for x in (("%s since %s" % (org_name(), since)) if since else org_name(), (person["other_clubs"] or "").strip()) if x)
+    today = today_pt()
+    practices = d.execute("SELECT COUNT(*) FROM checkins WHERE member_id=?", (mid,)).fetchone()[0]
+    month = d.execute("SELECT COUNT(*) FROM checkins WHERE member_id=? AND substr(practice_date,1,7)=?", (mid, today.isoformat()[:7])).fetchone()[0]
+    try:
+        events = d.execute("SELECT COUNT(*) FROM lineup_rsvps WHERE member_id=? AND going=1", (mid,)).fetchone()[0]
+    except sqlite3.OperationalError:
+        events = 0
+    show_stats = person["show_attendance"] != 0 or can_host_practice()
+    together = [r["t"] for r in d.execute("""SELECT COALESCE(NULLIF(p.title,''), 'Practice') AS t FROM practices p
+        JOIN rsvps a ON a.practice_id=p.id AND a.member_id=? AND a.going=1
+        JOIN rsvps b ON b.practice_id=p.id AND b.member_id=? AND b.going=1
+        WHERE p.date>=? AND COALESCE(p.cancelled,0)=0 ORDER BY p.date LIMIT 2""", (mid, viewer["id"], today.isoformat()))]
+    drives = d.execute("SELECT area, seats FROM ride_offers WHERE driver_id=? ORDER BY id DESC LIMIT 1", (mid,)).fetchone() if mid != viewer["id"] else None
+    ref = request.args.get("back") or ""
+    if not ref.startswith("/"):
+        r = request.referrer or ""
+        ref = urllib.parse.urlparse(r).path + (("?" + urllib.parse.urlparse(r).query) if urllib.parse.urlparse(r).query else "") if r.startswith(request.host_url) else ""
+    if not ref or ref.startswith("/chat/person/"): ref = "/chat?view=list"
+    av = ('<img src="/avatar/%d?v=%s" alt="">' % (mid, escape(person["photo"]))) if person["photo"] else escape(initials(person))
+    acts = ""
+    if mid != viewer["id"]:
+        acts = ('<div class=rg-pfacts><a class="rg-pfbtn lime" href="/chat?c=%s">%s<span>Message</span></a>%s</div>'
+                % (escape(dm_channel(viewer["id"], mid)), components.icon("chat"),
+                   ('<a class=rg-pfbtn href="/admin/member/%d">Manage member</a>' % mid) if can_host_practice() else ""))
+    stats = ""
+    if show_stats:
+        stats = ('<div class=rg-pfstats><div class="rg-pfstat on"><b>%d</b><span>PRACTICES</span></div><div class=rg-pfstat><b>%d</b><span>THIS MONTH</span></div>'
+                 '<div class=rg-pfstat><b>%d</b><span>EVENTS</span></div></div>' % (practices, month, events))
+    rows = [("Teams in common", org_name())]
+    if together: rows.append(("Going together", " · ".join(together)))
+    if drives and drives["area"]: rows.append(("Drives to practice", "%s area · %d seat%s" % (drives["area"], drives["seats"] or 0, "" if (drives["seats"] or 0) == 1 else "s")))
+    card = '<div class=rg-pfcard>%s</div>' % "".join('<div class=rg-pfrow><b>%s</b><small>%s</small></div>' % (escape(a), escape(b)) for a, b in rows)
+    html = ('<div class=rg-profile><div class=rg-pftop>%s<span class=rg-pfpill>%s</span></div>'
+            '<div class=rg-pfhero><span class="rg-pfav tone-%s">%s</span><div class=rg-pfname><h1>%s</h1>%s%s</div></div>%s%s%s</div>'
+            % (components.back_button(ref), escape(role), {"bubble": "bubblegum"}.get(_person_tone(mid), _person_tone(mid)), av, escape(name),
+               ('<small>%s</small>' % escape(line1)) if line1 else "", ('<small>%s</small>' % escape(line2)) if line2 else "", acts, stats, card))
+    return page(html, tab="chat")
 @app.route("/chat/info")
 @login_required
 def chat_info():
