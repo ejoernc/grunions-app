@@ -1831,11 +1831,11 @@ def empty_unread():
 def seed_chat_reads(d):
     """Baseline every member at the latest message so existing history is not a badge storm."""
     for ch in ("team", "coaches"):
-        mx = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE channel=?", (ch,)).fetchone()[0]
+        mx = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=?", (ch,)).fetchone()[0]
         d.execute("""INSERT OR IGNORE INTO chat_reads(member_id, channel, last_read)
             SELECT id, ?, ? FROM members WHERE COALESCE(role,'')!='system'""", (ch, mx))
 def mark_chat_read(d, mid, channel):
-    mx = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE channel=?", (channel,)).fetchone()[0]
+    mx = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=?", (channel,)).fetchone()[0]
     d.execute("""INSERT INTO chat_reads(member_id, channel, last_read) VALUES(?,?,?)
         ON CONFLICT(member_id, channel) DO UPDATE SET last_read=MAX(chat_reads.last_read, excluded.last_read)""",
         (mid, channel, mx))
@@ -1843,7 +1843,7 @@ def mark_chat_read(d, mid, channel):
 def chat_unread_n(d, mid, channel):
     row = d.execute("SELECT last_read FROM chat_reads WHERE member_id=? AND channel=?", (mid, channel)).fetchone()
     if not row: return 0
-    return d.execute("SELECT COUNT(*) FROM messages WHERE channel=? AND id>? AND member_id!=?", (channel, row["last_read"], mid)).fetchone()[0]
+    return d.execute("SELECT COUNT(*) FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=? AND id>? AND member_id!=?", (channel, row["last_read"], mid)).fetchone()[0]
 def ensure_cancel_notices(d, mid):
     """One unseen cancel row per practice still on the schedule. Existing seen_at values stay put."""
     d.execute("""INSERT OR IGNORE INTO practice_notices(practice_id, member_id, kind, seen_at)
@@ -2075,7 +2075,7 @@ def seed_preview_club(d):
         d.execute("""INSERT INTO lineup_events(kind, title, date, city, venue, start, description)
             VALUES('Team trip','Preview harbor weekend',?,'Long Beach','Preview Pool','09:00','Preview only.')""", (when,))
     def say(email, channel, body, at=None):
-        row = d.execute("SELECT id FROM messages WHERE channel=? AND body=?", (channel, body)).fetchone()
+        row = d.execute("SELECT id FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=? AND body=?", (channel, body)).fetchone()
         if row:
             return row["id"]
         cur = d.execute("INSERT INTO messages(member_id, body, channel, at) VALUES(?,?,?,?)",
@@ -2229,11 +2229,11 @@ def seed_preview_club(d):
         except sqlite3.OperationalError:
             pass
         channel = dm_channel(eli["id"], ids["adele.voss@preview.regulars.invalid"])
-        if not d.execute("SELECT 1 FROM messages WHERE channel=? AND body LIKE 'Preview: Eli,%'", (channel,)).fetchone():
+        if not d.execute("SELECT 1 FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=? AND body LIKE 'Preview: Eli,%'", (channel,)).fetchone():
             d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)",
                       (ids["adele.voss@preview.regulars.invalid"], "Preview: Eli, this direct chat is sample data on the preview.", channel))
         def hold_unread(channel_name):
-            mx = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE channel=? AND COALESCE(deleted,0)=0", (channel_name,)).fetchone()[0]
+            mx = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=? AND COALESCE(deleted,0)=0", (channel_name,)).fetchone()[0]
             if not mx:
                 return
             d.execute("""INSERT INTO chat_reads(member_id, channel, last_read) VALUES(?,?,?)
@@ -2273,7 +2273,7 @@ def seen_summary(d, channel, message_id, sender_id):
     label = "Seen by everyone" if n == total else "Seen by %d" % n
     return {"id": mid, "n": n, "total": total, "label": label, "seen": seen}
 def latest_seen(d, channel):
-    latest = d.execute("""SELECT id, member_id FROM messages WHERE channel=? AND COALESCE(deleted,0)=0
+    latest = d.execute("""SELECT id, member_id FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=? AND COALESCE(deleted,0)=0
         ORDER BY id DESC LIMIT 1""", (channel,)).fetchone()
     if not latest: return None
     return seen_summary(d, channel, latest["id"], latest["member_id"])
@@ -2544,7 +2544,7 @@ def api_message_one(mid):
 def reactions_for(d, ch):
     out = {}
     for x in d.execute("""SELECT x.message_id, x.emoji, COUNT(*) n, SUM(x.member_id=?) mine FROM reactions x JOIN messages m ON m.id=x.message_id
-        WHERE m.channel=? AND COALESCE(m.deleted,0)=0 AND m.id > (SELECT COALESCE(MAX(id),0)-300 FROM messages WHERE channel=?) GROUP BY x.message_id, x.emoji""", (me()["id"], ch, ch)):
+        WHERE COALESCE(NULLIF(m.channel,''),'team')=? AND COALESCE(m.deleted,0)=0 AND m.id > (SELECT COALESCE(MAX(id),0)-300 FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=?) GROUP BY x.message_id, x.emoji""", (me()["id"], ch, ch)):
         out.setdefault(str(x["message_id"]), {})[x["emoji"]] = {"n": x["n"], "mine": bool(x["mine"])}
     return out
 @app.route("/api/reactions")
@@ -2559,7 +2559,7 @@ def chat_page_messages(d, ch, limit=50):
     rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first,
       rm.body AS reply_body, rm.deleted AS reply_deleted, rm.image AS reply_image,
       rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM + """
-      WHERE m.id>? AND m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT ?""",
+      WHERE m.id>? AND COALESCE(NULLIF(m.channel,''),'team')=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT ?""",
       (0, ch, deleted_cutoff(), limit)).fetchall()
     return with_seen(d, ch, list(reversed(rows)), info)
 def chat_clock(at):
@@ -2583,7 +2583,7 @@ def chat_clock(at):
 def channel_preview(d, channel):
     row = d.execute("""SELECT m.body, m.at, p.first, p.preferred_first FROM messages m
         LEFT JOIN members p ON p.id=m.member_id
-        WHERE m.channel=? AND COALESCE(m.deleted,0)=0 ORDER BY m.id DESC LIMIT 1""", (channel,)).fetchone()
+        WHERE COALESCE(NULLIF(m.channel,''),'team')=? AND COALESCE(m.deleted,0)=0 ORDER BY m.id DESC LIMIT 1""", (channel,)).fetchone()
     if not row:
         return "", ""
     text = (row["body"] or "").strip()
@@ -3133,7 +3133,7 @@ def personal_chat_html(d, m):
             continue
         n = chat_unread_n(d, mid, channel)
         preview, when = channel_preview(d, channel)
-        latest = d.execute("SELECT MAX(id) FROM messages WHERE channel=?", (channel,)).fetchone()[0] or 0
+        latest = d.execute("SELECT MAX(id) FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=?", (channel,)).fetchone()[0] or 0
         title = titles.get(channel) or channel.split(":", 1)[1].replace("-", " ").title()
         directs.append((latest, _chat_row("/chat?c=%s&place=%s" % (escape(channel), place), escape(title[:1].upper()), escape(title), preview or "Group", when, n, "bubble", chat_muted(d, mid, channel))))
     directs.sort(key=lambda item: item[0], reverse=True)
@@ -3258,7 +3258,7 @@ def _session_row(d, mid, row, featured=False, upcoming=False):
     ch = "practice:%d" % row["id"]
     preview, _when = channel_preview(d, ch)
     n = chat_unread_n(d, mid, ch)
-    count = d.execute("SELECT COUNT(*) FROM messages WHERE channel=? AND COALESCE(deleted,0)=0", (ch,)).fetchone()[0]
+    count = d.execute("SELECT COUNT(*) FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=? AND COALESCE(deleted,0)=0", (ch,)).fetchone()[0]
     day = "%02d" % dt.date.fromisoformat(str(row["date"])[:10]).day
     where = (row["location"] or row["title"] or "Practice").strip()
     title = "%s · %s" % (_chip_date(row["date"]), where)
@@ -3433,7 +3433,7 @@ def _hidden_row(d, mid, channel):
     if not row:
         return False
     if (row["reason"] or "") == "delete":
-        latest = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE channel=?", (channel,)).fetchone()[0]
+        latest = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=?", (channel,)).fetchone()[0]
         if latest > (row["at_id"] or 0):
             d.execute("DELETE FROM chat_hidden WHERE member_id=? AND channel=?", (mid, channel))
             d.commit()
@@ -3901,7 +3901,7 @@ def chat_leave():
     if permanent or kind == "everyone" or required or kind not in ("channel", "group"):
         abort(400)
     d = db()
-    latest = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE channel=?", (ch,)).fetchone()[0]
+    latest = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=?", (ch,)).fetchone()[0]
     d.execute("""INSERT INTO chat_hidden(member_id, channel, reason, at_id) VALUES(?,?, 'leave', ?)
         ON CONFLICT(member_id, channel) DO UPDATE SET reason='leave', at_id=excluded.at_id""", (me()["id"], ch, latest))
     d.commit()
@@ -3921,7 +3921,7 @@ def chat_hide():
     ch = parse_channel(request.form.get("c") or "")
     if not ch.startswith("dm:") or not can_read(ch): abort(403)
     d = db()
-    latest = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE channel=?", (ch,)).fetchone()[0]
+    latest = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=?", (ch,)).fetchone()[0]
     d.execute("""INSERT INTO chat_hidden(member_id, channel, reason, at_id) VALUES(?,?, 'delete', ?)
         ON CONFLICT(member_id, channel) DO UPDATE SET reason='delete', at_id=excluded.at_id""", (me()["id"], ch, latest))
     d.commit()
@@ -3935,7 +3935,7 @@ def chat_block():
     other = int(parts[2]) if int(parts[1]) == me()["id"] else int(parts[1])
     d = db()
     d.execute("INSERT OR IGNORE INTO chat_blocks(member_id, other_id) VALUES(?,?)", (me()["id"], other))
-    latest = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE channel=?", (ch,)).fetchone()[0]
+    latest = d.execute("SELECT COALESCE(MAX(id),0) FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=?", (ch,)).fetchone()[0]
     d.execute("""INSERT INTO chat_hidden(member_id, channel, reason, at_id) VALUES(?,?, 'block', ?)
         ON CONFLICT(member_id, channel) DO UPDATE SET reason='block', at_id=excluded.at_id""", (me()["id"], ch, latest))
     d.commit()
@@ -4021,7 +4021,7 @@ def chat_channel_delete():
     if (request.form.get("confirm") or "").strip().lower() not in (title.lower(), slug.lower(), ("#" + slug).lower()):
         flash("Type the channel name to delete it.")
         return redirect("/chat?c=%s" % ch)
-    d.execute("DELETE FROM messages WHERE channel=?", (ch,))
+    d.execute("DELETE FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=?", (ch,))
     d.execute("DELETE FROM chat_channels WHERE slug=?", (slug,))
     d.execute("DELETE FROM chat_mutes WHERE channel=?", (ch,))
     d.execute("DELETE FROM chat_pins WHERE channel=?", (ch,))
@@ -4420,7 +4420,7 @@ def api_messages():
         rows = d.execute("""SELECT m.*, p.first, p.last, p.is_admin, p.preferred_first,
           rm.body AS reply_body, rm.deleted AS reply_deleted, rm.image AS reply_image,
           rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM + """
-          WHERE m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT 80""", (ch, deleted_cutoff())).fetchall()
+          WHERE COALESCE(NULLIF(m.channel,''),'team')=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT 80""", (ch, deleted_cutoff())).fetchall()
         return messages_json(with_seen(d, ch, _own_board(list(reversed(rows)), ch), info), info)
     raw_limit = request.args.get("limit", type=int)
     limit = 200 if raw_limit is None else max(1, min(raw_limit, 200))
@@ -4430,12 +4430,12 @@ def api_messages():
       rp.first AS rfirst, rp.last AS rlast, rp.preferred_first AS rpref """ + MSG_FROM
     if before:
         rows = d.execute(msg_sql + """
-          WHERE m.id<? AND m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT ?""",
+          WHERE m.id<? AND COALESCE(NULLIF(m.channel,''),'team')=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT ?""",
                          (before, ch, deleted_cutoff(), limit)).fetchall()
     else:
         after = request.args.get("after", 0, type=int)
         rows = d.execute(msg_sql + """
-          WHERE m.id>? AND m.channel=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT ?""",
+          WHERE m.id>? AND COALESCE(NULLIF(m.channel,''),'team')=? AND """ + FRESH_DELETE + """ ORDER BY m.id DESC LIMIT ?""",
                          (after, ch, deleted_cutoff(), limit)).fetchall()
     return messages_json(with_seen(d, ch, _own_board(list(reversed(rows)), ch), info), info)
 
