@@ -403,9 +403,10 @@
 .rg-row.rg-chat .rg-lead{width:48px;height:48px;font-size:16px}
 .rg-row.muted .rg-txt b{color:var(--smoke)}
 .rg-row .rg-trail{font:600 12px/1 var(--font-sans)}
-.rg-metric{display:grid;align-content:space-between;min-height:111px;padding:16px;border-radius:24px;background:var(--tone);color:var(--paper)}
+.rg-metric{display:flex;flex-direction:column;gap:8px;padding:18px 20px;border-radius:32px;background:var(--tone);color:var(--paper);box-sizing:border-box}
 .rg-metric:not(.tone-carbon):not(.tone-graphite){color:var(--fixed-ink)}
-.rg-metric b{font:700 40px/.9 var(--font-display);letter-spacing:-.04em}
+.rg-metric b{font:700 clamp(44px,14vw,58px)/.85 var(--font-display);letter-spacing:-.06em}
+.rg-metric.tone-carbon b,.rg-metric.tone-graphite b{color:var(--accent-text)}
 .rg-metric span{font:700 10px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase}
 .rg-info{display:grid;gap:4px;padding:16px 20px;border-radius:24px;background:var(--carbon)}
 .rg-info span{font:700 10px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--smoke)}
@@ -420,3 +421,31 @@
 .rg-step.ok .rg-tick{border:0;background:var(--lime);color:var(--fixed-ink)}
 .rg-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 12px}
 .rg-screen{padding:0 0 calc(var(--nav-clear) + 24px);max-width:720px;margin:0 auto;box-sizing:border-box}
+.rg-social{box-sizing:border-box;width:100%;margin:0;background:var(--team-bubblegum);color:var(--fixed-ink)}
+/* Condensed socials attach to their practice: 6px instead of the list gap. */
+.rg-social.cond[data-when=before]{margin-bottom:-6px}
+.rg-social.cond[data-when=after]{margin-top:-6px}
+.rg-social form{display:contents}
+.rg-social.cond{display:flex;align-items:center;gap:12px;min-height:60px;padding:10px 12px 10px 14px;border-radius:20px}
+.rg-socicon{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:14px;background:var(--fixed-ink);color:var(--fixed-paper);font-size:18px}
+.rg-social .rg-txt{gap:1px}.rg-sk{font:700 10px/1.2 var(--font-sans);letter-spacing:.04em}
+.rg-social .rg-txt b{font:700 15px/1.2 var(--font-sans)}.rg-social .rg-txt small{font:500 12px/1.2 var(--font-sans);opacity:1}
+.rg-outline{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:44px;padding:0 18px;border:1.5px solid var(--fixed-ink);border-radius:999px;background:transparent;color:var(--fixed-ink);font:700 14px/1 var(--font-sans);text-decoration:none;cursor:pointer}
+.rg-social.open{display:grid;gap:14px;padding:20px;border-radius:28px}
+.rg-sotop{display:flex;align-items:center;justify-content:space-between;gap:8px}.rg-sotop .rg-sk{font-size:11px}
+.rg-live{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--fixed-ink);color:var(--fixed-paper);font:700 11px/1 var(--font-sans)}.rg-live i{width:8px;height:8px;border-radius:4px;background:var(--lime)}
+.rg-sotitle{font:700 40px/1 var(--font-display);letter-spacing:-.03em}
+.rg-sowhere{display:grid;gap:2px}.rg-sowhere b{font:700 15px/1.2 var(--font-sans)}.rg-sowhere small{font:500 12px/1.2 var(--font-sans)}
+.rg-sowho{display:flex;align-items:center;gap:10px;font:600 13px/1.2 var(--font-sans)}
+.rg-faces{display:flex}.rg-faces i{display:grid;place-items:center;width:30px;height:30px;margin-right:-8px;border:2px solid var(--team-bubblegum);border-radius:15px;background:var(--team-sky);color:var(--fixed-ink);font:700 10px/1 var(--font-sans);font-style:normal;box-sizing:border-box}
+.rg-faces i:nth-child(2){background:var(--team-sun)}.rg-faces i:nth-child(3){background:var(--lime)}.rg-faces i.more{background:var(--fixed-ink);color:var(--fixed-paper);margin-right:0}
+.rg-faces+span{padding-left:8px}
+.rg-soacts{display:flex;gap:8px}.rg-soacts .rg-joined,.rg-soacts .rg-outline{flex:1 1 0}
+.rg-joined{height:44px;border:0;border-radius:999px;background:var(--fixed-ink);color:var(--fixed-paper);font:700 14px/1 var(--font-sans);cursor:pointer}
+.rg-cancelled{min-height:200px;align-content:start}
+.rg-cancelled .rg-ectitle{text-decoration:line-through;color:var(--smoke)}
+.rg-reason{font:600 13px/1.4 var(--font-sans);color:var(--paper)}
+.rg-pactions{display:flex;gap:3px}
+.rg-pamain{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;height:56px;padding:0 20px;border-radius:999px 8px 8px 999px;background:var(--graphite);color:var(--paper);font:700 16px/1 var(--font-sans);text-decoration:none}
+.rg-pabadge{display:grid;place-items:center;min-width:22px;height:22px;padding:0 7px;border-radius:11px;background:var(--lime);color:var(--fixed-ink);font:700 11px/1 var(--font-sans);box-sizing:border-box}
+.rg-pamore{flex:none;display:grid;place-items:center;width:56px;height:56px;border-radius:8px 28px 28px 8px;background:var(--graphite);color:var(--paper)}

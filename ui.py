@@ -382,29 +382,27 @@ a.practlink small{display:block;margin-top:2px;color:var(--r2-smoke);font:600 12
 body.practicepage:not(.editor) .profilehero,body.practicepage:not(.editor) .evhero,body.practicepage:not(.editor) .homemap.banner{display:none}
 body.practicepage:not(.editor) .p5 .seclabel,body.practicepage:not(.editor) .p5>.list,body.practicepage:not(.editor) .p5 .sechead{display:none}
 body.practicepage:not(.editor) .p5 .list.loccard{display:block}
-.p5{display:flex;flex-direction:column;gap:20px;padding:0 16px 24px}
+.p5{display:flex;flex-direction:column;gap:20px;padding:0 0 24px}
 .p5cover{margin:0 -16px;height:220px;overflow:hidden}
 .p5cover img{width:100%;height:100%;object-fit:cover}
-.p5hero{position:relative;border-radius:40px;background:var(--team-sun);color:var(--ink);padding:22px 22px 24px}
+.p5hero{position:relative;display:flex;flex-direction:column;gap:14px;border-radius:40px;background:var(--team-sun);color:var(--fixed-ink);padding:22px 22px 24px}
 .p5hero.off{background:var(--carbon);color:var(--paper)}
-.p5over{font:700 11px/1 var(--r2-font-sans);letter-spacing:.06em}
-.p5chip{position:absolute;top:22px;right:22px;padding:6px 10px;border-radius:999px;background:var(--ink);color:var(--team-sun);font:700 12px/1 var(--r2-font-sans)}
-.p5hero.off .p5chip{background:var(--team-tangerine);color:var(--ink)}
-.p5hero h2{margin:14px 0 0;font:700 44px/.95 var(--r2-font-display);letter-spacing:-.05em}
-.p5time{display:flex;align-items:flex-end;gap:8px;margin-top:8px}
-.p5time b{font:700 64px/.85 var(--r2-font-display);letter-spacing:-.05em}
-.p5time span{display:flex;flex-direction:column;gap:2px;padding-bottom:8px;font:700 12px/1 var(--r2-font-sans)}
+.p5over{font:700 10px/1.2 var(--r2-font-sans);letter-spacing:.08em;min-height:27px;display:flex;align-items:center;padding-right:110px}
+.p5chip{position:absolute;top:22px;right:22px;padding:7px 12px;border-radius:999px;background:var(--fixed-ink);color:var(--fixed-paper);font:700 12px/1 var(--r2-font-sans)}
+.p5hero.off .p5chip{background:var(--team-tangerine);color:var(--fixed-ink)}
+.p5hero h2{margin:0;font:700 44px/.95 var(--r2-font-display);letter-spacing:-.05em}
+.p5time{display:flex;align-items:flex-end;gap:10px;margin:0}
+.p5time b{font:700 clamp(88px,30vw,120px)/.86 var(--r2-font-display);letter-spacing:-.05em}
+.p5time span{display:flex;flex-direction:column;gap:2px;padding-bottom:12px;font:700 12px/1 var(--r2-font-sans)}
+.p5time i:first-child{font:700 20px/.95 var(--r2-font-display)}
 .p5time i{font-style:normal}
-.p5venue{margin-top:8px;font:700 15px/1.2 var(--r2-font-sans)}
+.p5venue{margin:0;font:700 15px/1.2 var(--r2-font-sans)}
 .p5metrics{display:flex;gap:10px}
-.p5metrics div{flex:1;min-height:108px;border-radius:32px;background:var(--carbon);color:var(--lime);padding:18px 20px}
-.p5metrics .lime{background:var(--lime);color:var(--ink)}
-.p5metrics b{display:block;font:700 36px/1 var(--r2-font-display)}
-.p5metrics span{font:700 11px/1 var(--r2-font-sans);letter-spacing:.06em}
+.p5metrics>.rg-metric{flex:1;min-width:0}
 .p5rsvp{display:flex;gap:10px}
 .p5rsvp .btn{flex:1;height:56px;border-radius:999px}
 .p5rsvp .btn-primary{background:var(--lime);color:var(--ink)}
-.p5rsvp .btn-secondary{background:var(--graphite);color:var(--paper)}
+.p5rsvp .btn-secondary{background:var(--graphite);color:var(--paper);border:0}
 .p5chat{display:flex;gap:8px}
 .p5chat .practlink{flex:1;margin:0;min-height:56px;border-radius:999px;justify-content:center;background:var(--graphite)}
 .p5more{width:56px;height:56px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--graphite);color:var(--paper);text-decoration:none}
@@ -2344,25 +2342,19 @@ dialog.memberedit .help a{color:var(--t1)}
 {{ rg_event_card(href, sport, title, clock, meridiem, duration, venue, inits, people|length, you or went, tone or 'sun', '' if (you or went) else extra, went) }}
 {%- endmacro %}
 {% macro r2_event_row(href, variant, kicker, title, meta, count, kind='', went=false) -%}
-{%- if variant == 'cancelled' -%}{{ rg_event_row(href, kicker, title, meta, none, 'GOING', 'graphite', 'Cancelled') }}
+{%- if variant == 'cancelled' -%}{{ rg_event_cancelled(href, kicker, title, meta) }}
 {%- elif variant == 'stack' -%}{{ rg_event_row(href, kind or 'WATER POLO', kicker ~ ' ' ~ title, meta, count, 'WENT' if went else 'GOING', event_tone(kind)) }}
 {%- else -%}{{ rg_event_line(href, kicker ~ ' · ' ~ title, meta ~ ((' · ' ~ count ~ ' going') if count else ''), 'graphite' if variant == 'off' else event_tone(kind)) }}{%- endif -%}
 {%- endmacro %}
-{% macro r2_social_card(card, variant='home') -%}
-{% if variant == 'condensed' %}<div class="r2-social socialcond" data-r2="social-card" data-variant="condensed"><span class=grow><b>{% if card.when == 'before' %}BEFORE PRACTICE{% else %}AFTER PRACTICE{% endif %}{% if card.clock %} · {{ fmt_t(card.clock) }}{% endif %}</b><span>{{ card.title }} · {{ card.place }}</span><small>{{ card.going_line }}</small></span><form method=post action="/practices/{{ card.practice_id }}">{{ csrf_field() }}<input type=hidden name=pid value="{{ card.practice_id }}"><input type=hidden name=back value=home><button name=action value=social_join>Join</button></form></div>
-{% elif variant == 'row' %}<div class="r2-social p5social" data-r2="social-card" data-variant="{{ card.when }}"><div class=grow><b>{% if card.when == 'before' %}BEFORE PRACTICE{% else %}AFTER PRACTICE{% endif %}{% if card.clock %} · {{ fmt_t(card.clock) }}{% endif %}</b><span>{{ card.title }} · {{ card.place }}</span></div><form method=post action="/practices/{{ card.practice_id }}">{{ csrf_field() }}<input type=hidden name=pid value="{{ card.practice_id }}"><input type=hidden name=back value=page><button name=action value=social_join>Join</button></form></div>
-{% else %}<div class="r2-social socialcard {{ card.when }}" data-r2="social-card" data-variant="{{ card.when }}"><div class=socialtop><div class=socialkicker>{% if card.when == 'before' %}BEFORE PRACTICE{% else %}AFTER PRACTICE{% endif %}{% if card.live %} · HAPPENING NOW{% endif %}</div>{% if card.clock %}<span class=till><i></i>Till {{ fmt_t(card.clock) }}</span>{% endif %}</div><b>{{ card.title }}{% if not card.title.endswith('.') %}.{% endif %}</b><p>{{ card.place }}{% if card.address %} · {{ card.address }}{% endif %}</p><small>{% if card.when == 'before' %}before{% else %}after{% endif %} {{ card.practice }}</small><div class=socialwho>{% for person in card.people[:4] %}<i>{{ person.initials }}</i>{% endfor %}<span>{{ card.going_line }}</span></div><div class=socialacts><form method=post action="/practices/{{ card.practice_id }}">{{ csrf_field() }}<input type=hidden name=pid value="{{ card.practice_id }}"><input type=hidden name=back value=home><button class="socialgo{{ ' on' if card.joined }}" name=action value="{{ 'social_leave' if card.joined else 'social_join' }}">{% if card.joined %}✓ {% endif %}{{ 'Joined' if card.joined else "I'm coming" }}</button></form><a class=socialdir href="https://www.google.com/maps/search/?api=1&query={{ (card.address or card.place)|urlencode }}" target=_blank rel=noopener>↗ Directions</a></div></div>{% endif %}
-{%- endmacro %}
+{% macro r2_social_card(card, variant='home') -%}{{ rg_social_card(card, csrf_field(), 'page' if variant == 'row' else 'home', fmt_clock(card.clock) if card.clock else '') }}{%- endmacro %}
 {% macro r2_drive_card(minutes, detail, leave, placeholder=false, kicker='YOUR DRIVE') -%}
 <div class="r2-drive drivecard" data-r2="drive-card" {% if placeholder %}data-placeholder=1{% endif %}><div class=drivetop><span>{{ kicker }}</span>{% if leave %}<b>{{ leave }}</b>{% endif %}</div><div class=drivemain><strong>{{ minutes }}</strong><small><i>MIN</i>{{ detail }}</small><span class=drivego aria-hidden=true>›</span></div></div>
 {%- endmacro %}
 {% macro r2_metric(value, label, tone='ink') -%}{{ rg_metric(value, label, {'ink':'carbon','lime':'lime'}.get(tone, tone)) }}{%- endmacro %}
 {% macro r2_info(kicker, body) -%}{{ rg_info(kicker, body) }}{%- endmacro %}
 {% macro r2_section(title) -%}{{ rg_section(title) }}{%- endmacro %}
-{% macro r2_list_row(name, sub, letters, chip='') -%}{{ rg_row(name, sub, '', letters, '', '', chip, 'going' if chip == 'Going' else 'neutral', false, 'person') }}{%- endmacro %}
-{% macro r2_practice_actions(href, label, count) -%}
-<div class="r2-actions p5chat" data-r2="practice-actions"><a class=practlink href="{{ href }}">{{ label }}{% if count %} <span>{{ count }}</span>{% endif %}</a><a class=p5more href="{{ href }}" aria-label="More">···</a></div>
-{%- endmacro %}
+{% macro r2_list_row(name, sub, letters, chip='') -%}{{ rg_row(name, sub, '', letters, 'sun', '', chip, 'going' if chip == 'Going' else ('notcleared' if chip == 'Out' else 'neutral'), false, 'person') }}{%- endmacro %}
+{% macro r2_practice_actions(href, label, count) -%}{{ rg_practice_actions(href, label, count) }}{%- endmacro %}
 {% macro r2_legend(pin) -%}
 <div class="r2-legend maplegend" data-r2="traffic-legend" data-traffic="placeholder" aria-hidden=true><span><i class=legclear></i>Clear</span><span><i class=legslow></i>Slow</span><span><i class=legjam></i>Jammed</span>{% if pin %}<b>{{ pin }}</b>{% endif %}</div>
 {%- endmacro %}
@@ -4850,7 +4842,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% for s in week_sessions %}
 {% for card in s.before %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
 {% if s.cancelled %}{{ r2_event_row('/practices/' ~ s.p.id, 'cancelled', (s.p.sport or 'Water Polo')|upper, practice_title(s.p), s.p.cancel_reason or 'Cancelled', s.going|length) }}
-{% else %}{% set clk = fmt_clock(s.p.start).split(' ') %}{{ r2_event_card('/practices/' ~ s.p.id, (s.p.sport or 'Water Polo')|upper, practice_title(s.p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(s.p.start, s.p.end), short_place(s.p.location), s.going, '' if s.mine == 1 and not home_out else ('Today · ' ~ month_abbr(s.p.date) ~ ' ' ~ day_num(s.p.date)), s.mine == 1 and not home_out, 'sky' if s.kind == 'scrimmage' else '', practice_ended(s.p)) }}{% endif %}
+{% else %}{% set clk = fmt_clock(s.p.start).split(' ') %}{{ r2_event_card('/practices/' ~ s.p.id, (s.p.sport or 'Water Polo')|upper, practice_title(s.p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(s.p.start, s.p.end), short_place(s.p.location), s.going, '' if s.mine == 1 and not home_out else day_chip(s.p.date), s.mine == 1 and not home_out, event_tone(s.kind or 'practice'), practice_ended(s.p)) }}{% endif %}
 {% for card in s.after %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
 {% endfor %}
 <a class=fullsched href="/practices?view=list">View full schedule ›</a>
@@ -4890,7 +4882,9 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
  function wide(){ return window.innerWidth>=768; }
  function metrics(){
   var vh=window.innerHeight||document.documentElement.clientHeight||1;
-  return {peek:300, half:Math.round(vh*0.52), full:vh, vh:vh};
+  // 04.01: the default (half) height is the floor. The sheet only grows upward; it never drops to a peek that hides the cards.
+  var half=Math.round(vh*0.52);
+  return {peek:half, half:half, full:vh, vh:vh};
  }
  function apply(next){
   var m=metrics();
@@ -4899,7 +4893,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   h=next;
   var atFull=h>=m.full-1;
   sheet.classList.toggle('full', atFull);
-  sheet.classList.toggle('peek', !atFull && h<=m.peek+1);
+  sheet.classList.remove('peek');
   sheet.classList.toggle('half', !atFull && Math.abs(h-m.half)<1.5);
   document.body.style.setProperty('--drawer-h', Math.round(h)+'px');
   var morph=(h-m.half)/((m.full-m.half)||1);

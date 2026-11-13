@@ -6038,6 +6038,12 @@ def practice_duration(start, end):
     if minutes:
         return "%dH %dM" % (hours, minutes)
     return "%dH" % hours
+def day_chip(s):
+    """Event card date chip (04.01): Today · Nov 10, Tomorrow · Nov 11, Fri · Nov 13."""
+    day = dt.date.fromisoformat(str(s)[:10]); today = today_pt()
+    lead = "Today" if day == today else ("Tomorrow" if day == today + dt.timedelta(days=1) else day.strftime("%a"))
+    return "%s · %s %d" % (lead, day.strftime("%b"), day.day)
+app.jinja_env.globals.update(day_chip=day_chip)
 def weekday_name(s):
     return dt.date.fromisoformat(str(s)[:10]).strftime("%A")
 def schedule_rows(d, when):

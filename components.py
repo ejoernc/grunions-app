@@ -17,7 +17,7 @@ CHIP_STATUS = ("going", "paid", "expiring", "notcleared", "cleared", "interested
 
 # What color an event is (Figma 01 Foundations: sun = team, sky = swim/coach, lavender = Lineup,
 # aqua = rides/trips, bubblegum = volunteer, mango = community, tangerine = admin / not cleared).
-EVENT_TONE = {"practice": "sun", "scrimmage": "sky", "game": "tangerine", "lineup": "lavender", "tournament": "lavender",
+EVENT_TONE = {"practice": "sun", "scrimmage": "aqua", "game": "tangerine", "lineup": "lavender", "tournament": "lavender",
               "competition": "lavender", "trip": "aqua", "clinic": "aqua", "volunteer": "bubblegum",
               "fundraiser": "bubblegum", "social": "mango", "community": "mango", "cancelled": "graphite", "coaching": "sky"}
 
@@ -168,6 +168,80 @@ def manage_tile(href, title, desc="", icon_html="", count=0, tone="info", tile="
         _e(tile or "carbon"), _e(href), Markup(icon_html or ""), _e(title), ('<span class=mdesc>%s</span>' % _e(desc)) if desc else "", right))
 
 
+def _social_icon(title):
+    t = (title or "").lower()
+    if "coffee" in t:
+        return "☕"
+    if any(k in t for k in ("dinner", "drink", "beer", "bar")):
+        return "🍻"
+    if any(k in t for k in ("dessert", "ice cream")):
+        return "🍦"
+    if "potluck" in t or "food" in t:
+        return "🍲"
+    return "🎉"
+
+
+def _social_title(title):
+    t = str(title or "").strip().rstrip(".")
+    for tail in (" before", " after"):
+        if t.lower().endswith(tail):
+            t = t[: -len(tail)]
+    return t
+
+
+def social_card(card, csrf_html, back="home", clock_label=""):
+    """2.0 / Social card (02 H, 2072:3771). Condensed until you join (slim row: icon · when · place · going · Join);
+    joining expands it (who's there, Joined, Directions). Condensed cards attach right above/below their practice."""
+    when = "BEFORE PRACTICE" if card.get("when") == "before" else "AFTER PRACTICE"
+    title = _social_title(card.get("title"))
+    place = card.get("place") or ""
+    pid = int(card.get("practice_id") or 0)
+    form = ('<form method=post action="/practices/%d">%s<input type=hidden name=pid value="%d"><input type=hidden name=back value="%s">'
+            % (pid, csrf_html, pid, _e(back)))
+    if not card.get("joined"):
+        n = len(card.get("people") or [])
+        kicker = when + ((" · " + clock_label.upper()) if clock_label else "")
+        return Markup('<div class="rg-social cond" data-when="%s"><span class=rg-socicon aria-hidden=true>%s</span>'
+                      '<span class=rg-txt><span class=rg-sk>%s</span><b>%s</b><small>%d going</small></span>%s'
+                      '<button class=rg-outline name=action value=social_join>Join</button></form></div>'
+                      % (_e(card.get("when")), _social_icon(title), _e(kicker), _e(title + (" · " + place if place else "")), n, form))
+    live = card.get("live")
+    kicker = when + (" · HAPPENING NOW" if live else ((" · " + clock_label.upper()) if clock_label else ""))
+    till = ('<span class=rg-live><i></i>Till %s</span>' % _e(clock_label)) if (live and clock_label) else ""
+    faces = "".join('<i>%s</i>' % _e(p.get("initials")) for p in (card.get("people") or [])[:3])
+    extra = len(card.get("people") or []) - 3
+    if extra > 0:
+        faces += '<i class=more>+%d</i>' % extra
+    addr = card.get("address") or ""
+    q = __import__("urllib.parse").parse.quote(addr or place)
+    return Markup('<div class="rg-social open" data-when="%s"><div class=rg-sotop><span class=rg-sk>%s</span>%s</div>'
+                  '<b class=rg-sotitle>%s.</b><div class=rg-sowhere><b>%s</b><small>%s %s</small></div>'
+                  '<div class=rg-sowho><span class=rg-faces>%s</span><span>%s</span></div>'
+                  '<div class=rg-soacts>%s<button class=rg-joined name=action value=social_leave>✓ Joined</button></form>'
+                  '<a class=rg-outline href="https://www.google.com/maps/search/?api=1&amp;query=%s" target=_blank rel=noopener>↗ Directions</a></div></div>'
+                  % (_e(card.get("when")), _e(kicker), till, _e(title), _e(place + (" · " + addr if addr else "")),
+                     "Then" if card.get("when") == "before" else "After", _e(card.get("practice") or "practice"),
+                     faces, _e(card.get("going_line") or ""), form, q))
+
+
+def event_cancelled(href, kicker, title, reason=""):
+    """Event card · Cancelled (04.01): carbon card, Cancelled chip, struck title, the reason."""
+    return Markup('<a class="rg-ecard rg-cancelled tone-carbon" href="%s"><span class=rg-ectop><span class=rg-ek>%s</span>%s</span>'
+                  '<b class=rg-ectitle>%s</b>%s</a>' % (_e(href), _e(kicker), chip("Cancelled", "notcleared"), _e(title),
+                                                       ('<small class=rg-reason>%s</small>' % _e(reason)) if reason else ""))
+
+
+def practice_actions(href, label="Chat", count=0, more_href=""):
+    """2.0 / Practice actions (02 H, 2143:155580): split Chat button under Going / Not going.
+    Main part opens this practice's chat with a lime count; the ▾ part opens the menu (practice chat, ask the coaches)."""
+    badge = ('<span class=rg-pabadge>%s</span>' % _e(count)) if count else ""
+    more = more_href or href
+    return Markup('<div class=rg-pactions><a class=rg-pamain href="%s">%s<span>%s</span>%s</a>'
+                  '<a class=rg-pamore href="%s" aria-label="More">%s</a></div>' % (
+                      _e(href), icon("chat"), _e(label), badge, _e(more),
+                      '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 8L10 13L15 8" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>'))
+
+
 def callout(title, sub="", cta="", href="", tone="graphite", onclick=""):
     """Tinted one-line action card ("Need a ride?  Ask →", "Requires USA Water Polo + club waiver  Once")."""
     inner = '<span class=rg-txt><b>%s</b>%s</span>%s' % (_e(title), ('<small>%s</small>' % _e(sub)) if sub else "",
@@ -208,4 +282,4 @@ def checklist(title, steps, done_label=""):
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_checklist=checklist, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_event_cancelled=event_cancelled, rg_checklist=checklist, event_tone=event_tone)
