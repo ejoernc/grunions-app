@@ -441,7 +441,7 @@
 .rg-faces i:nth-child(2){background:var(--team-sun)}.rg-faces i:nth-child(3){background:var(--lime)}.rg-faces i.more{background:var(--fixed-ink);color:var(--fixed-paper);margin-right:0}
 .rg-faces+span{padding-left:8px}
 .rg-soacts{display:flex;gap:8px}.rg-soacts .rg-joined,.rg-soacts .rg-outline{flex:1 1 0}
-.rg-joined{height:44px;border:0;border-radius:999px;background:var(--fixed-ink);color:var(--fixed-paper);font:700 14px/1 var(--font-sans);cursor:pointer}
+.rg-joined{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:44px;border:0;border-radius:999px;background:var(--fixed-ink);color:var(--fixed-paper);font:700 14px/1 var(--font-sans);cursor:pointer}
 .rg-cancelled{min-height:200px;align-content:start}
 .rg-cancelled .rg-ectitle{text-decoration:line-through;color:var(--smoke)}
 .rg-reason{font:600 13px/1.4 var(--font-sans);color:var(--paper)}

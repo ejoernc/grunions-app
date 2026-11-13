@@ -217,7 +217,7 @@ def social_card(card, csrf_html, back="home", clock_label=""):
     return Markup('<div class="rg-social open" data-when="%s"><div class=rg-sotop><span class=rg-sk>%s</span>%s</div>'
                   '<b class=rg-sotitle>%s.</b><div class=rg-sowhere><b>%s</b><small>%s %s</small></div>'
                   '<div class=rg-sowho><span class=rg-faces>%s</span><span>%s</span></div>'
-                  '<div class=rg-soacts>%s<button class=rg-joined name=action value=social_leave>✓ Joined</button></form>'
+                  '<div class=rg-soacts>%s<button class=rg-joined name=action value=social_leave><svg width=16 height=16 viewBox="0 0 20 20" fill=none aria-hidden=true><path d="M4.5 10.5L8.25 14.25L15.5 6.5" stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round/></svg><span>Joined</span></button></form>'
                   '<a class=rg-outline href="https://www.google.com/maps/search/?api=1&amp;query=%s" target=_blank rel=noopener>↗ Directions</a></div></div>'
                   % (_e(card.get("when")), _e(kicker), till, _e(title), _e(place + (" · " + addr if addr else "")),
                      "Then" if card.get("when") == "before" else "After", _e(card.get("practice") or "practice"),
@@ -314,7 +314,7 @@ def checklist(title, steps, done_label=""):
     """Finish-setup style checklist card: [(label, done, href)]."""
     done = sum(1 for s in steps if s[1])
     rows = "".join('<a class="rg-step%s" href="%s"><span class=rg-tick>%s</span><b>%s</b>%s</a>' % (
-        " ok" if ok else "", _e(href or "#"), "✓" if ok else "", _e(label), "" if ok else '<span class=rg-chev aria-hidden=true>›</span>')
+        " ok" if ok else "", _e(href or "#"), _CHECK if ok else "", _e(label), "" if ok else '<span class=rg-chev aria-hidden=true>›</span>')
         for label, ok, href in steps)
     return Markup('<div class=rg-check><div class=rg-checkhead><b>%s</b>%s</div>%s</div>' % (
         _e(title), chip("%d of %d" % (done, len(steps)), "neutral"), rows))
