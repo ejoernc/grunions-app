@@ -1145,7 +1145,7 @@ button.rg-secact{border:0;background:transparent;padding:0;cursor:pointer;color:
 .rg-auth{padding:8px 0 32px}
 .rg-authhead{margin:0 0 20px}
 .rg-authlogo{display:block;width:150px;height:auto;margin:4px 0 20px}
-.rg-authtitle{margin:0;font:700 clamp(52px,19vw,112px)/.88 var(--font-display);overflow-wrap:break-word;letter-spacing:-.06em;color:var(--paper)}
+.rg-authtitle{margin:0;font:700 clamp(44px,13.5vw,64px)/.95 var(--font-display);overflow-wrap:break-word;letter-spacing:-.06em;color:var(--paper)}
 .rg-authsub{margin:16px 0 0;color:var(--smoke);font:600 14px/1.4 var(--font-sans)}
 .rg-auth form{display:grid;gap:12px}
 .rg-auth .rg-btn{width:100%}
@@ -1187,3 +1187,12 @@ body:has(.rg-authhead)>header{display:none}
 [data-theme="light"] .rg-dobbox{background:var(--carbon)}
 .rg-fieldnote{display:block;margin-top:2px;color:var(--smoke);font:600 12px/1.35 var(--font-sans);text-transform:none;letter-spacing:0}
 .rg-field .rg-chipset{margin:4px 0 0}
+
+.rg-brand{display:inline-flex;align-items:center;gap:8px;margin:4px 0 22px;color:var(--paper)}
+.rg-brandmark{display:block;width:40px;height:17px;background:var(--lime);-webkit-mask:url(/static/regulars-logo.svg) center/contain no-repeat;mask:url(/static/regulars-logo.svg) center/contain no-repeat}
+[data-theme="light"] .rg-brandmark{background:var(--paper)}
+.rg-brand b{font:600 22px/1 var(--font-display);letter-spacing:-.02em}
+.rg-authtitle.xl{font-size:clamp(84px,27vw,120px);line-height:.84;letter-spacing:-.065em}
+.rg-auth .rg-field :is(input,select,textarea){background:var(--carbon)}
+.rg-auth .rg-dobbox{background:var(--carbon)}
+.rg-auth .rg-btn.secondary{background:var(--graphite)}

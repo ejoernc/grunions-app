@@ -1370,6 +1370,16 @@ def find_team():
     """Find or join opens Everything. The live push sends this to Map with the button off."""
     return redirect("/discover" if SHOW_FIND_TEAM else "/home")
 
+def _short_span(start, end):
+    """7–8:30 PM: one meridiem when both ends share it, :00 dropped."""
+    def part(v):
+        try: h, m = [int(x) for x in str(v)[:5].split(":")]
+        except Exception: return None
+        return ("%d" % ((h - 1) % 12 + 1)) + (":%02d" % m if m else ""), "AM" if h < 12 else "PM"
+    a, b = part(start), part(end)
+    if not a: return ""
+    if not b: return "%s %s" % a
+    return ("%s–%s %s" % (a[0], b[0], b[1])) if a[1] == b[1] else ("%s %s–%s %s" % (a[0], a[1], b[0], b[1]))
 def _short_venue(name):
     return re.sub(r"\s+High School\b", " HS", (name or "").strip())
 def _join_card():
@@ -1388,7 +1398,7 @@ def _join_card():
         for dnum in sl.get("days") or []:
             days.append((publicfeed.DAY_SHORT[dnum].upper(), place))
             line_bits.append("%ss at %s" % (publicfeed.DAYS[dnum], place) if place else "%ss" % publicfeed.DAYS[dnum])
-        time = time or publicfeed._span(sl)
+        time = time or _short_span(sl.get("start"), sl.get("end"))
     monthly = ((data.get("pricing") or {}).get("monthly") or "").strip()
     price = publicfeed.money(monthly) if monthly else ""
     note = ""
