@@ -81,7 +81,7 @@ def test_retired_urls_redirect_to_their_new_home():
         "/requirements": "/manage/club/programs",
         "/manage/club/compliance": "/manage/club/programs#requirements",
         "/manage/club/requirements": "/manage/club/programs#requirements",
-        "/manage/club/integrations": "/manage/club/plans#pay",
+        "/manage/club/integrations": "/manage/club/plans",
         "/admins": "/members?view=admins",
         "/export": "/manage/tools/transfer",
         "/import": "/manage/tools/transfer",

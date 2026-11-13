@@ -8947,10 +8947,9 @@ def club_plans():
     import clubadmin
     d = db()
     clubadmin.ensure(d)
-    # Integrations folds in here as "How members pay" (Figma 61 · Club › Plans & payments).
-    return page(ui.ADMIN_NAV + "{{ admin_page('Plans & payments', 'A pass grants access. It does not clear a sport requirement.') }}{{ club_body|safe }}"
-                "<section id=pay>{{ rg_label('How members pay') }}<p class=ty-muted>External registration links. Stripe stays off.</p>{{ pay_body|safe }}</section>",
-        tab="admin", club_body=clubadmin.plans_html(d), pay_body=clubadmin.integrations_html(d))
+    # "How members pay" (payment providers) is hidden for now (Nov 13). clubadmin.integrations_html still exists.
+    return page(ui.ADMIN_NAV + "{{ admin_page('Plans & payments', 'A pass grants access. It does not clear a sport requirement.') }}{{ club_body|safe }}",
+        tab="admin", club_body=clubadmin.plans_html(d))
 @app.route("/manage/club/plans/new", methods=["GET", "POST"])
 @admin_required
 def club_plan_new():
@@ -9026,7 +9025,7 @@ def club_requirement(req_id):
 @admin_required
 def club_integrations():
     """Retired: folded into Plans & payments › How members pay."""
-    return redirect("/manage/club/plans#pay", 301)
+    return redirect("/manage/club/plans", 301)
 @app.route("/manage/area/<area>")
 @login_required
 def manage_area(area):
