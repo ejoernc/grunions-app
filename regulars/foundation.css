@@ -521,3 +521,10 @@ body.adminpage .pagehead .pagerow h1{overflow-wrap:normal;word-break:keep-all}
 .rg-walkin b{font:700 15px/1.25 var(--font-sans)}
 .rg-walkin small{font:600 11px/1.3 var(--font-sans)}
 .rg-wrapbtn{display:flex;align-items:center;justify-content:center;height:48px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 14px/1 var(--font-sans);text-decoration:none;margin:0 0 20px}
+
+/* Header plus (same as Chat's) */
+a.rg-plus{display:grid;place-items:center;text-decoration:none;flex:none}
+header.homehead .headmain:has(.rg-plus){display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+header.homehead .headmain .rg-plus{margin-left:auto;align-self:center}
+a.rg-back{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:999px;background:var(--graphite);color:var(--paper);margin:0 0 20px;text-decoration:none}
+.rg-subhead{margin:0 0 16px}.rg-subhead h1{margin:6px 0 0}

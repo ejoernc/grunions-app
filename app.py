@@ -3781,7 +3781,7 @@ def _actions_bundle():
         'document.getElementById("actMutes").hidden=true;document.getElementById("actMain").hidden=false;document.getElementById("actDeleteForm").hidden=true;'
         'var channel=kind==="channel"||kind==="everyone"||kind==="group";'
         'show("actInfo", channel);'
-        'var info=document.getElementById("actInfo");if(info)info.href="/chat/info?c="+encodeURIComponent(ch);'
+        'var info=document.getElementById("actInfo");if(info)info.href="/chat/info?c="+encodeURIComponent(ch)+(document.getElementById("threadName")?"&from=thread":"&from=list");'
         'show("actProfile", kind==="direct"&&!!profile);var prof=document.getElementById("actProfile");if(prof)prof.href=profile||"#";'
         'var everyone=kind==="everyone";'
         'show("actChanEdit", (manage&&kind==="channel"&&!permanent)||(everyone&&admin));'
@@ -3956,7 +3956,9 @@ def chat_info():
         why = "You're in this channel because a coach or admin added it for the team."
     else:
         why = "This chat follows the people in it."
-    return page("<p class=r2caps>Channel info</p><h1>%s</h1><p class=t3>%s</p><p class=t3>Notifications follow mute. A separate mentions setting is not in the app yet.</p><p><a href=\"/chat?c=%s\">Back to the chat</a></p>" % (escape(_thread_title(db(), me(), ch)), escape(why), escape(ch)), tab="chat")
+    back = ("/chat?c=%s" % ch) if request.args.get("from") == "thread" else "/chat?view=list"
+    return page("%s<div class=rg-subhead><p class=r2caps>Channel info</p><h1>%s</h1></div><p class=t3>%s</p><p class=t3>Notifications follow mute. A separate mentions setting is not in the app yet.</p>"
+                % (components.back_button(back), escape(_thread_title(db(), me(), ch)), escape(why)), tab="chat")
 @app.route("/chat/channel-delete", methods=["POST"])
 @login_required
 def chat_channel_delete():
