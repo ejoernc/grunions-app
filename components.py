@@ -277,6 +277,53 @@ def stat_card(label, value, delta="", bars=()):
         _e(label), ('<em>%s</em>' % _e(delta)) if delta else "", _e(value), ('<div class=rg-bars>%s</div>' % cols) if bars else ""))
 
 
+def _nice_ticks(vmax, n=3):
+    """0..top in n steps of a 1/2/5 step, top >= vmax. Integer counts only."""
+    vmax = max(1, int(vmax or 0))
+    step = 1
+    for base in (1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000):
+        if base * n >= vmax:
+            step = base; break
+    else:
+        step = -(-vmax // n)
+    return [step * i for i in range(max(2, -(-vmax // step)) + 1)]
+
+
+def chart_switch(views, card_id="mgrChart"):
+    """2.0 / Chart card (02 Components · Membership): one card, dots top-right switch views.
+    Each view: {key, kicker, value, title, sub, bars:[{label, segs:[n,...], tip}], series:[(name, count)], empty}.
+    Bars stand on a 0 baseline with 3 gridlines labelled on the right; series colors come from --cc-1/--cc-2."""
+    dots = "".join('<button type=button role=tab class=rg-ccdot aria-selected="%s" aria-controls="%s-%s" aria-label="%s" data-cc="%s"></button>' % (
+        "true" if i == 0 else "false", _e(card_id), _e(v["key"]), _e(v["title"]), _e(v["key"])) for i, v in enumerate(views))
+    panes = []
+    for i, v in enumerate(views):
+        bars = v.get("bars") or []
+        totals = [sum(b["segs"]) for b in bars]
+        ticks = _nice_ticks(max(totals or [0])) if any(totals) else [0]
+        top = ticks[-1] or 1
+        grid = "".join('<i style="bottom:%.2f%%"><small>%d</small></i>' % (100.0 * t / top, t) for t in ticks)
+        cols = []
+        for b, tot in zip(bars, totals):
+            segs = "".join('<span class="rg-ccseg s%d" style="height:%.2f%%"></span>' % (k + 1, 100.0 * n / tot) for k, n in enumerate(b["segs"]) if n) if tot else ""
+            cols.append('<button type=button class=rg-cccol data-tip="%s" aria-label="%s"><span class="rg-ccstack%s" style="height:%.2f%%">%s</span></button>' % (
+                _e(b["tip"]), _e(b["tip"]), "" if tot else " zero", (100.0 * tot / top) if tot else 0, segs))
+        xs = "".join("<span>%s</span>" % _e(b["label"]) for b in bars)
+        series = v.get("series") or []
+        legend = ('<ul class=rg-cclegend>%s</ul>' % "".join('<li><i class=s%d></i><span>%s</span><b>%s</b></li>' % (k + 1, _e(name), _e(n)) for k, (name, n) in enumerate(series))) if len(series) > 1 else ""
+        rows = "".join("<tr><th scope=row>%s</th>%s</tr>" % (_e(b["label"]), "".join("<td>%d</td>" % n for n in b["segs"])) for b in bars)
+        head = "".join("<th scope=col>%s</th>" % _e(name) for name, _n in series) or "<th scope=col>%s</th>" % _e(v["title"])
+        table = '<table class=rg-srtable><caption>%s</caption><thead><tr><th></th>%s</tr></thead><tbody>%s</tbody></table>' % (_e(v["title"]), head, rows)
+        plot = ('<div class=rg-ccplot><div class=rg-ccgrid aria-hidden=true>%s</div><div class=rg-cccols style="--n:%d">%s</div></div><div class=rg-ccx aria-hidden=true style="--n:%d">%s</div>' % (
+            grid, max(1, len(bars)), "".join(cols), max(1, len(bars)), xs)) if bars else '<p class=ty-muted>%s</p>' % _e(v.get("empty") or "Nothing yet.")
+        panes.append('<div class=rg-ccview id="%s-%s" role=tabpanel data-cc="%s"%s><p class=ty-caps>%s</p>'
+                     '<div class=rg-cchero><b>%s</b><span><b>%s</b><small>%s</small></span></div>%s%s'
+                     '<p class=rg-cctip aria-live=polite>%s</p>%s</div>' % (
+            _e(card_id), _e(v["key"]), _e(v["key"]), "" if i == 0 else " hidden", _e(v["kicker"]), _e(v["value"]), _e(v["title"]), _e(v["sub"]),
+            plot, legend, "Tap a bar for its numbers" if bars else "", table))
+    dotbar = ('<div class=rg-ccdots role=tablist aria-label="Charts">%s</div>' % dots) if len(views) > 1 else ""
+    return Markup('<section class=rg-chartcard id="%s" data-chartcard>%s%s</section>' % (_e(card_id), dotbar, "".join(panes)))
+
+
 def hub_tile(href, count, title, desc, tone="sun"):
     """Manage hub tile (08.13): colored 200px tile, big count + arrow, title, one line."""
     return Markup('<a class="rg-hub tone-%s" href="%s"><span class=rg-hubtop><b>%02d</b><i aria-hidden=true>→</i></span>'
@@ -447,4 +494,4 @@ def plus_button(href, label="Add"):
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, event_tone=event_tone)

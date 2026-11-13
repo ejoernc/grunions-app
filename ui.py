@@ -2962,6 +2962,20 @@ return fetch('/api/push/subscribe',{method:'POST',headers:{'Content-Type':'appli
 }).then(function(){card.hidden=true;});}).catch(function(){btn.disabled=false;});};
 }
 grunionsPushCard();
+// Chart card (02 Components): dots switch views (remembered per browser); tapping a bar shows its numbers.
+if(!window.grunionsCharts){window.grunionsCharts=1;
+document.addEventListener('click',function(e){
+ var dot=e.target.closest&&e.target.closest('.rg-ccdot');
+ if(dot){var card=dot.closest('[data-chartcard]'), key=dot.getAttribute('data-cc'); grunionsChartShow(card,key); try{localStorage.setItem('grunionsChart:'+card.id,key)}catch(err){} return;}
+ var col=e.target.closest&&e.target.closest('.rg-cccol');
+ if(col){var view=col.closest('.rg-ccview'); view.querySelectorAll('.rg-cccol[aria-pressed]').forEach(function(c){c.removeAttribute('aria-pressed')});
+  col.setAttribute('aria-pressed','true'); var tip=view.querySelector('.rg-cctip'); if(tip) tip.textContent=col.getAttribute('data-tip');}
+});
+window.grunionsChartShow=function(card,key){ if(!card) return; var hit=false;
+ card.querySelectorAll('.rg-ccview').forEach(function(v){var on=v.getAttribute('data-cc')===key; v.hidden=!on; hit=hit||on;});
+ if(!hit){var first=card.querySelector('.rg-ccview'); if(first){first.hidden=false; key=first.getAttribute('data-cc');}}
+ card.querySelectorAll('.rg-ccdot').forEach(function(d){d.setAttribute('aria-selected', d.getAttribute('data-cc')===key?'true':'false')});};
+document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('[data-chartcard]').forEach(function(card){var k=null; try{k=localStorage.getItem('grunionsChart:'+card.id)}catch(err){} if(k) grunionsChartShow(card,k);});});}
 // Shared: any [data-open-dialog=id] opens that dialog; tapping the backdrop closes it.
 if(!window.grunionsDialogs){window.grunionsDialogs=1;
 document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-open-dialog]');
@@ -3371,7 +3385,8 @@ function grunionsRestoreHomeMap(main){
  slot.replaceWith(parked);
  if(window.grunionsRefreshMap) grunionsRefreshMap(parked, !(parked._gmap || (window.grunionsMapAlive && grunionsMapAlive(parked))));
 }
-function grunionsApply(html,url,pop,replace){
+function grunionsApply(html,url,pop,replace,quiet){
+ var keepY=quiet?(window.scrollY||0):null;
  var doc=new DOMParser().parseFromString(html,'text/html');
  var newMain=doc.querySelector('main'), newNav=doc.querySelector('nav.tabs');
  if(!newMain){location.href=url; return;}
@@ -3416,13 +3431,34 @@ function grunionsApply(html,url,pop,replace){
  grunionsPushCard();
  if(window.grunionsRefresh) grunionsRefresh();
  var hash=url.split('#')[1]||'';
- if(hash){var el=document.getElementById(hash); if(el) el.scrollIntoView(); else scrollTo(0,0);}
+ if(keepY!==null) scrollTo(0, keepY);
+ else if(hash){var el=document.getElementById(hash); if(el) el.scrollIntoView(); else scrollTo(0,0);}
  else if(typeof window.grunionsRestoreY==='number') scrollTo(0, window.grunionsRestoreY);
  else scrollTo(0,0);
  try{sessionStorage.setItem('grunionsNavFrom', grunionsScrollId(url))}catch(e){}
  var seen=/^#p(\\d+)$/.exec(location.hash);
  if(seen&&location.pathname==='/practices') grunionsSeen(seen[1]);
  if(window.grunionsWakeHome) grunionsWakeHome();
+}
+// Back/forward swipe: Chrome previews the previous entry, then shows this document. If the swap waits on the
+// network, the page being left flashes in between. Pages already seen are kept here (HTML only, in memory,
+// newest 20) and drawn synchronously on popstate, then refreshed quietly in the background.
+var grunionsPages=new Map();
+function grunionsPageKey(u){ try{var a=new URL(u,location.href); return a.pathname+a.search;}catch(e){return u;} }
+function grunionsCachePage(u,html){ var k=grunionsPageKey(u); grunionsPages.delete(k); grunionsPages.set(k,html); while(grunionsPages.size>20) grunionsPages.delete(grunionsPages.keys().next().value); }
+function grunionsBackTo(url){
+ var k=grunionsPageKey(url), html=grunionsPages.get(k);
+ if(!html){ grunionsGo(url,true); return; }
+ var gen=++grunionsNavGen;
+ grunionsApply(html,url,true,false);
+ fetch(url,{credentials:'same-origin',cache:'no-store',headers:{Accept:'text/html','X-Grunions-Nav':'1'}}).then(function(res){
+  if(gen!==grunionsNavGen || (res.headers.get('content-type')||'').indexOf('text/html')===-1) return;
+  return res.text().then(function(fresh){
+   if(gen!==grunionsNavGen || grunionsPageKey(location.href)!==k) return;
+   grunionsCachePage(url, fresh);
+   if(fresh!==html) grunionsApply(fresh,location.href,true,false,true);
+  });
+ }).catch(function(){});
 }
 function grunionsGo(url,pop,replace){
  var abs; try{abs=new URL(url,location.href);}catch(e){location.href=url; return;}
@@ -3435,6 +3471,7 @@ function grunionsGo(url,pop,replace){
   return res.text().then(function(html){
    if(gen!==grunionsNavGen) return;
    var dest=res.url||abs.href; if(abs.hash&&dest.indexOf('#')<0) dest+=abs.hash;
+   grunionsCachePage(dest, html); if(dest!==abs.href) grunionsCachePage(abs.href, html);
    grunionsApply(html,dest,pop,replace);
   });
  }).catch(function(){if(gen===grunionsNavGen) location.href=abs.href;});
@@ -3444,6 +3481,8 @@ if(document.querySelector('nav.nav3, nav.tabs')){
   if(adminLink&&adminLast&&['/admin','/members','/expiring','/transfer','/requirements','/qr'].indexOf(adminLast)>=0) adminLink.setAttribute('href', adminLast);}catch(e){}
  history.scrollRestoration='manual';
  history.replaceState({grunions:1},'',location.href);
+ (function(first){ var go=function(){ fetch(first,{credentials:'same-origin',cache:'no-store',headers:{Accept:'text/html','X-Grunions-Nav':'1'}}).then(function(r){ if((r.headers.get('content-type')||'').indexOf('text/html')>=0) return r.text().then(function(h){ if(!grunionsPages.has(grunionsPageKey(first))) grunionsCachePage(first,h); }); }).catch(function(){}); };
+  if(window.requestIdleCallback) requestIdleCallback(go,{timeout:4000}); else setTimeout(go,1500); })(location.href);
  try{sessionStorage.setItem('grunionsNavFrom', grunionsScrollId(location.href))}catch(e){}
  if((function(){try{return sessionStorage.getItem('grunionsBackNav')||''}catch(e){return ''}})()===grunionsScrollId(location.href)){window.grunionsRestoreY=grunionsTakeBack(location.href); if(typeof window.grunionsRestoreY==='number') scrollTo(0, window.grunionsRestoreY)}
  document.addEventListener('click',function(e){
@@ -3524,7 +3563,7 @@ window.addEventListener('popstate',function(){
  var dest=location.pathname+location.search;
  if(grunionsChildBack(from, dest)) grunionsMarkBack(location.href);
  else try{sessionStorage.removeItem('grunionsBackNav')}catch(e){}
- if(document.querySelector('nav.nav3, nav.tabs')) grunionsGo(location.href,true);
+ if(document.querySelector('nav.nav3, nav.tabs')) grunionsBackTo(location.href);
  else if(window.grunionsWakeHome) grunionsWakeHome();
 });
 window.grunionsOpenSheet=function(d){
@@ -5840,12 +5879,10 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 <div class=seclabel>Paid membership audit</div>
 {% for row in paid_audits %}<p class="t3 sm">{{ row.at[:16] }} · {{ row.actor }} · {{ row.detail }}</p>{% else %}<p class="t3 sm">No paid-membership changes yet.</p>{% endfor %}
 <div class=seclabel>Actions</div>
-{% if not verify_webhook_configured() %}<div class=note>Set VERIFY_WEBHOOK_URL so Grunions can look members up on Sport:80. Results come back through /api/verify-requests/&lt;id&gt;/result.</div>{% endif %}
-{% if m.vr_status == 'pending' %}<p class="t2 sm viewonly" style="margin:0 0 10px">Check requested · looking up on Sport:80</p>{% endif %}
-<form method=post action="/admin/member/{{ m.id }}" class=viewonly style="margin:0">{{ csrf_field() }}<input type=hidden name=member_id value={{ m.id }}><button class="btn btn-secondary full" name=action value=ask_bot>Verify</button></form>
+{% if m.vr_status == 'pending' %}<p class="t2 sm viewonly" style="margin:0 0 10px">Waiting on an admin to check Sport:80</p>{% endif %}
 <button type=button class="btn btn-secondary full viewonly" id=memberManual style="margin-top:10px">Manual Entry</button>
 {% set chk = list_row_status(m, 'members') %}
-{% if chk.tone in ('bad', 'warn') and m.vr_status != 'pending' %}<form method=post action="/admin/member/{{ m.id }}" class=viewonly style="margin-top:10px">{{ csrf_field() }}<input type=hidden name=member_id value={{ m.id }}><button class="btn btn-secondary full" name=action value=ask_bot>Ask Grunions to verify</button></form>{% endif %}
+
 {% endif %}
 <script>
 (function(){
@@ -6424,7 +6461,7 @@ T["manage"] = ADMIN_NAV + """<div class=managehome id=manageHome>
 <div id=manageHits class=mgroups hidden aria-live=polite></div>
 <div id=manageBody class=rg-stack>
 {% if needs_n %}{{ rg_callout(needs_n ~ ' need you', needs_n ~ ' not cleared', 'Review', '/members?view=compliance', 'tangerine') }}{% endif %}
-{% if stat %}{{ rg_stat('AVG CHECKED IN', stat.value, stat.delta, stat.bars) }}{% endif %}
+{{ rg_chart_switch(charts if club_admin else charts[:1]) }}
 <div class=rg-hubgrid>
 {{ rg_hub('/manage/area/activities', week|length, 'Activities', 'Schedule, Lineup, Bulletin & requests', 'sun') }}
 {% if club_admin %}{{ rg_hub('/manage/area/people', people_n, 'People', 'Participants, members, coaches, admins & refs', 'sky') }}
@@ -7573,8 +7610,11 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pa
 <span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></button>
 <div class=menu hidden role=menu>
 {% set rowst = list_row_status(r, view) %}
-{% if rowst.tone in ('bad', 'warn') and (r.vr_status or '') != 'pending' %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=ask_bot>Check USAWP</button></form>{% endif %}
+{% set who = display_first(r) ~ ' ' ~ (r.last or '') %}
+{% if rowst.tone in ('bad', 'warn') and (r.vr_status or '') != 'pending' %}<button type=button data-sheet=insSheet data-mid="{{ r.id }}" data-who="{{ who }}" data-num="{{ r.usawp_number or '' }}">Check insurance</button>{% endif %}
+{% if member_plans %}<button type=button data-sheet=memSheet data-mid="{{ r.id }}" data-who="{{ who }}">Check membership</button>{% endif %}
 {% if kind == 'members' %}
+{% if r.id in board_ids %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=remove_board>Remove from leadership</button></form>{% else %}<button type=button data-sheet=boardSheet data-mid="{{ r.id }}" data-who="{{ who }}">Add to leadership</button>{% endif %}
 {% if r.is_admin %}{% if n_admins<=1 or r.email in boot %}<button type=button disabled title="{% if n_admins<=1 %}Last admin{% else %}Set by ADMIN_EMAIL{% endif %}">Remove admin</button>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=remove_admin>Remove admin</button></form>{% endif %}{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=make_admin>Make admin</button></form>{% endif %}
 {% if r.id in listed %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=remove_coaching>Remove from coaches</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=add_coaching>Add to coaches</button></form>{% endif %}
 {% if r.id in referees %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=remove_referee>Remove from referees</button></form>{% else %}<form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=add_referee>Add to referees</button></form>{% endif %}
@@ -7592,6 +7632,53 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pa
 <form method=post>{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=list_view value=referees><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{ filt }}"><button name=action value=add_referee>Add to referees</button></form>
 {% endif %}
 </div></span></div><!--endrow-->{% endmacro %}
+{% macro sheet_hidden() %}{{ csrf_field() }}<input type=hidden name=member_id value="" data-fill=mid><input type=hidden name=list_view value="{{ view }}"><input type=hidden name=q value="{{ q }}"><input type=hidden name=filt value="{{ filt }}">{% endmacro %}
+<dialog id=insSheet class="botsheet modal"><form method=post class=sheet>{{ sheet_hidden() }}<div class=grab aria-hidden=true></div>
+<p class=ty-caps data-fill=who></p><h2>Check insurance.</h2>
+<p class=ty-muted>Look them up on Sport:80, then enter their USA Water Polo membership here.</p>
+<label class=rg-field><span>USAWP MEMBER #</span><input name=number inputmode=numeric maxlength=20 autocomplete=off data-fill=num></label>
+<label class=rg-field><span>VALID UNTIL</span><input type=date name=valid_until min="{{ today_iso }}"></label>
+<label class=checkline><input type=checkbox name=no_date value=1> No expiration date on Sport:80</label>
+<button class="rg-btn primary" name=action value=verify>Mark insured</button>
+</form></dialog>
+{% if member_plans %}<dialog id=memSheet class="botsheet modal"><form method=post class=sheet>{{ sheet_hidden() }}<div class=grab aria-hidden=true></div>
+<p class=ty-caps data-fill=who></p><h2>Check membership.</h2>
+<p class=ty-muted>Mark them paying once you've seen the payment. Paying isn't clearance; insurance still counts.</p>
+<label class=rg-field><span>PLAN</span><select name=plan_id required id=memPlan>{% for p in member_plans %}<option value="{{ p.id }}" data-kind="{{ p.kind }}">{{ p.name }} · {{ 'Monthly' if p.kind == 'monthly' else 'Annual' }}</option>{% endfor %}</select></label>
+<label class=rg-field><span>PAID THROUGH</span><input type=date name=paid_through required min="{{ today_iso }}" id=memThrough></label>
+<button class="rg-btn primary" name=action value=membership>Mark paying</button>
+</form></dialog>{% endif %}
+<dialog id=boardSheet class="botsheet modal"><form method=post class=sheet>{{ sheet_hidden() }}<div class=grab aria-hidden=true></div>
+<p class=ty-caps data-fill=who></p><h2>Add to leadership.</h2>
+<p class=ty-muted>Pick their role or add a new one. Leadership joins Board chat and gets full Manage access.</p>
+{% if board_roles %}<label class=rg-field><span>ROLE</span><select name=role_id id=boardRole>{% for r in board_roles %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}<option value="">New role…</option></select></label>{% endif %}
+<label class=rg-field id=boardNewRow{% if board_roles %} hidden{% endif %}><span>NEW ROLE</span><input name=new_role maxlength=80 placeholder="e.g. Treasurer" autocomplete=off></label>
+<button class="rg-btn primary" name=action value=add_board>Add to leadership</button>
+</form></dialog>
+<script>
+(function(){
+ if(window.grunionsPeopleSheets) return; window.grunionsPeopleSheets=1;
+ document.addEventListener('click',function(e){
+  var b=e.target.closest&&e.target.closest('[data-sheet]'); if(!b) return;
+  var d=document.getElementById(b.getAttribute('data-sheet')); if(!d) return;
+  e.preventDefault(); e.stopPropagation();
+  d.querySelectorAll('[data-fill=mid]').forEach(function(x){x.value=b.getAttribute('data-mid')});
+  d.querySelectorAll('[data-fill=who]').forEach(function(x){x.textContent=b.getAttribute('data-who')});
+  d.querySelectorAll('[data-fill=num]').forEach(function(x){x.value=b.getAttribute('data-num')||''});
+  if(window.grunionsDismissMenu) grunionsDismissMenu();
+  setTimeout(function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(d); else d.showModal(); }, 0);
+ }, true);
+ document.addEventListener('change',function(e){
+  if(e.target.id==='boardRole'){ var row=document.getElementById('boardNewRow'); row.hidden=!!e.target.value; if(!row.hidden) row.querySelector('input').focus(); }
+  if(e.target.id==='memPlan') fillThrough();
+ });
+ function fillThrough(){ var sel=document.getElementById('memPlan'), out=document.getElementById('memThrough'); if(!sel||!out) return;
+  var kind=sel.options[sel.selectedIndex].getAttribute('data-kind'), t=new Date();
+  if(kind==='annual') t.setFullYear(t.getFullYear()+1); else t.setMonth(t.getMonth()+1);
+  out.value=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); }
+ fillThrough();
+})();
+</script>
 <div class=people>
 {% macro lettered() %}{% set ns = namespace(letter='') %}{% for r in rows %}{% set letter = ((r.last or '?')[:1])|upper %}{% if letter != ns.letter %}{% if ns.letter %}</div></div>{% endif %}<div class=lgroup><h3 class=alpha>{{ letter }}</h3><div class="list loose">{% set ns.letter = letter %}{% endif %}{% if view == 'coaches' %}{{ prow(r, 'coaches' if r.id in listed else 'eligible') }}{% elif view == 'referees' %}{{ prow(r, 'referees' if r.id in referees else 'ref_eligible') }}{% elif view == 'admins' %}{{ prow(r, 'admins') }}{% else %}{{ prow(r, 'members') }}{% endif %}{% else %}<div class="list loose"><div class=li><span class=t3>{% if q %}No people match “{{ q }}”.{% else %}No one here.{% endif %}</span></div></div>{% endfor %}{% if ns.letter %}</div></div>{% endif %}{% endmacro %}
 {{ lettered() }}
@@ -7655,6 +7742,7 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pa
   return true;
  };
  window.grunionsPlacePeopleMenu=function(){ if(state.btn) place(state.btn); };
+ window.grunionsDismissMenu=function(){ closeAll(false); };
  if(!window.grunionsPeopleMenuBound){ window.grunionsPeopleMenuBound=1;
   document.addEventListener('click', function(e){
    if(e.target.closest && e.target.closest('.menu,.morebtn')) return;
@@ -7677,9 +7765,8 @@ T["expiring"] = ADMIN_NAV + """{{ admin_page('Expiring', 'Membership, SafeSport,
 <div class=list>{% for r in rep[key] %}<div class=li><a class=grow href="/admin/member/{{ r.id }}" style="color:inherit;text-decoration:none;min-width:0"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span class=ell style="font-weight:500;flex:1">{{display_first(r)}} {{r.last}}</span>
 <span class="chip-info daybadge"><span class="dot {{ 'bad' if r.days_left < 0 else ('warn' if r.days_left <= 7 else '') }}" aria-hidden=true></span>{% if r.days_left < 0 %}{{ -r.days_left }}d ago{% elif r.days_left == 0 %}Today{% else %}{{ r.days_left }}d left{% endif %}</span></div>
 <div class="t3 xs">{{ r.item }} · {{ fmt_long(r.usawp_valid_until) }}</div></a>
-<form method=post action="/admin/member/{{ r.id }}" style="margin:0">{{ csrf_field() }}<input type=hidden name=member_id value={{ r.id }}><button class="btn btn-secondary" name=action value=ask_bot>Verify</button></form></div>{% else %}<div class=li><span class=t3>None</span></div>{% endfor %}</div>{% endfor %}
-<form method=post style="margin-top:20px">{{csrf_field()}}<input type=hidden name=action value=ask_all><input type=hidden name=days value="{{days}}"><button class="btn btn-primary full">Ask Grunions to recheck all</button></form>
-<p class="t3 sm" style="margin-top:10px">Asks Grunions to look up everyone listed. Daily report: <a href=/api/expiring>/api/expiring</a>.</p>
+<a class="btn btn-secondary" href="/admin/member/{{ r.id }}">Check</a></div>{% else %}<div class=li><span class=t3>None</span></div>{% endfor %}</div>{% endfor %}
+<p class="t3 sm" style="margin-top:20px">Check each person on Sport:80 and update them from their page. Daily report: <a href=/api/expiring>/api/expiring</a>.</p>
 </div>"""
 
 T["requirements_page"] = ADMIN_NAV + """{{ admin_page('Rules', 'Cleared to play means a current USAWP membership and current SafeSport.') }}

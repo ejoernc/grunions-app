@@ -36,9 +36,6 @@ ADMIN_EMAIL = next(iter(sorted(ADMIN_EMAILS)), "")
 LINK_MINUTES = int(os.environ.get("LINK_MINUTES", 15))
 SMTP = {k: os.environ.get(k) for k in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "MAIL_FROM")}
 EXPIRING_DAYS = int(os.environ.get("EXPIRING_DAYS", 30))
-VERIFY_WEBHOOK_URL = os.environ.get("VERIFY_WEBHOOK_URL")  # required: POST each Sport:80 lookup to Eli's assistant; the assistant writes the result to /api/verify-requests/<id>/result
-VERIFY_WEBHOOK_KEY = os.environ.get("VERIFY_WEBHOOK_KEY")  # if set, Authorization: Bearer <key> (unless HEADER overrides)
-VERIFY_WEBHOOK_HEADER = os.environ.get("VERIFY_WEBHOOK_HEADER")  # if set, this header carries the raw key
 BOT_API_KEY = os.environ.get("BOT_API_KEY")  # inbound: bearer token for the bot read APIs
 CRON_KEY = os.environ.get("CRON_KEY")  # lets a scheduler call /api/expiring without a session
 DEV_SHOW_LINKS = os.environ.get("DEV_SHOW_LINKS", "0") == "1"  # local testing only: show magic link on screen
@@ -1118,8 +1115,8 @@ def on_coaching_list(member):
     except (TypeError, KeyError, IndexError): return False
     return db().execute("SELECT 1 FROM coaching_list WHERE member_id=?", (mid,)).fetchone() is not None
 def verify_webhook_configured():
-    """True when VERIFY_WEBHOOK_URL is set. The key and header are optional."""
-    return bool((VERIFY_WEBHOOK_URL or "").strip())
+    """Automatic Sport:80 lookup is removed. Kept so older templates render; always False."""
+    return False
 app.jinja_env.globals.update(is_staff=is_staff, can_host_practice=can_host_practice, approval_count=approval_count, role_label=role_label, usawp_coach_badge=view_usawp_coach_badge, coach_eligibility=view_coach_eligibility, referee_eligibility=view_referee_eligibility, credential_dates=view_credential_dates, coach_row_expiry=view_coach_row_expiry, fmt_long=fmt_long, fmt_when=fmt_when, date_dot=date_dot, panel_status=view_panel_status, on_coaching_list=on_coaching_list, verify_webhook_configured=verify_webhook_configured)
 def staff_required(f):
     @functools.wraps(f)
@@ -1230,6 +1227,10 @@ def discover():
 def inbox():
     """Personal chat: your teams, then direct messages. Me and Everything share this list."""
     return page(personal_chat_html(db(), me()), tab="chat")
+def calendar_when_items(kind="all"):
+    """Calendar segmented control. Availability is its own page (09.06) but keeps the same control."""
+    return [("upcoming", "Upcoming", "/calendar?when=upcoming&kind=%s" % kind), ("past", "Past", "/calendar?when=past&kind=%s" % kind),
+            ("availability", "Availability", "/availability")]
 @app.route("/calendar")
 @login_required
 def calendar():
@@ -1279,7 +1280,7 @@ def calendar():
             items.append((event["date"], "", "/lineup/%d" % event["id"], event["title"] or "Lineup",
                           "Lineup · %s" % ("registered" if state == "going" else state), components.event_tone(event["event_type"] or "lineup")))
     items.sort(key=lambda item: (item[0] or "", item[1]), reverse=(show == "past"))
-    when_items = [(v, l, "/calendar?when=%s&kind=%s" % (v, kind)) for v, l in (("upcoming", "Upcoming"), ("past", "Past"), ("availability", "Availability"))]
+    when_items = calendar_when_items(kind)
     kind_items = [(v, l, "/calendar?when=%s&kind=%s" % (show, v)) for v, l in (("all", "All"), ("practices", "Practices"), ("scrimmages", "Scrimmages"), ("games", "Games"), ("lineup", "Lineup"))]
     out = [components.seg(when_items, show)]
     if show == "availability":
@@ -8098,8 +8099,9 @@ def _manage_catalog(d):
         add("activities", "Requests", "Member-submitted events", "/manage/requests", "tray", "approval pending request")
     if admin:
         add("people", "People", "Participants, members, coaches, admins, and referees", "/manage/area/people", "people", "participant member coach admin referee roster compliance membership certification expiring", expiring_people_count(d), "warn")
-        add("club", "Sports", "Sport-specific compliance and requirements", "/manage/club/programs", "cal", "sport program water polo swimming requirement safesport usawp usms eligibility division")
-        add("club", "Compliance", "Shared requirements, credentials, insurance", "/manage/club/compliance", "shield", "compliance requirement safesport insurance waiver background screening certification")
+        # Nov 13: Compliance is covered per sport, so it's folded into Sports (its route stays for old links).
+        add("club", "Sports", "Club supported sports, sports insurance and requirements", "/manage/club/programs", "cal",
+            "sport program water polo swimming requirement safesport usawp usms eligibility division compliance insurance credentials background screening certification")
         add("club", "Waiver", "Club waiver members sign on their first Going", "/manage/club/waiver", "shield", "waiver liability agreement sign version")
         add("club", "Venues", "Manage locations and assign them to sports", "/manage/club/venues", "pin", "venue pool location address marina westminster")
         add("club", "Plans & passes", "Memberships, drop-ins, access and pricing", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass")
@@ -8198,7 +8200,7 @@ def manage_home():
         growth = chart_card(growth_chart(*signup_days(d)), attendance_chart(recent_checkins(d)))
         people_preview, needs_n, people_n = _manage_people_preview(d)
     return page(T["manage"], tab="manage", growth=growth, club_admin=admin, club_rows=club_rows, tool_rows=tool_rows,
-        week=_manage_week(d, admin), people_preview=people_preview, needs_n=needs_n, people_n=people_n, stat=manage_stat(d))
+        week=_manage_week(d, admin), people_preview=people_preview, needs_n=needs_n, people_n=people_n, stat=manage_stat(d), charts=manage_charts(d))
 def manage_stat(d):
     """08.13 Avg checked in: check-ins per practice day over the last 4 weeks, the change vs the 4 weeks
     before, and the average for each weekday (Mon–Sun) over the last 8 weeks."""
@@ -8222,6 +8224,68 @@ def manage_stat(d):
         by_day[dt.date.fromisoformat(r["date"]).weekday()].append(r["n"])
     bars = [(lab, avg(by_day[i])) for i, lab in enumerate("MTWTFSS")]
     return {"value": value, "delta": delta, "bars": bars}
+def _bucket_plan(first, today):
+    """Membership bars (08.13): months when there are 8 months of history, else half-months when there are
+    8 of those, else the last 8 weeks. Returns [(label, end_date, tip_label)] oldest first, at most 8."""
+    def month_end(y, m):
+        return (dt.date(y + (m == 12), m % 12 + 1, 1) - dt.timedelta(days=1))
+    months_back = (today.year - first.year) * 12 + (today.month - first.month)
+    out = []
+    if months_back >= 7:
+        y, m = today.year, today.month
+        for _ in range(8):
+            end = min(month_end(y, m), today)
+            out.append((dt.date(y, m, 1).strftime("%b"), end, end.strftime("%B %Y") if end != today else "Now"))
+            y, m = (y - 1, 12) if m == 1 else (y, m - 1)
+    elif (today - first).days >= 120:
+        end = today
+        for _ in range(8):
+            out.append(("%d/%d" % (end.month, end.day), end, "%s %d" % (end.strftime("%b"), end.day) if end != today else "Now"))
+            end = dt.date(end.year, end.month, 15) if end.day > 15 else dt.date(end.year, end.month, 1) - dt.timedelta(days=1)
+            if end < first - dt.timedelta(days=16): break
+    else:
+        end = today
+        for _ in range(8):
+            out.append(("%d/%d" % (end.month, end.day), end, "Week of %s %d" % ((end - dt.timedelta(days=6)).strftime("%b"), (end - dt.timedelta(days=6)).day) if end != today else "Now"))
+            end -= dt.timedelta(days=7)
+    out.reverse()
+    return out
+
+
+def manage_charts(d, today=None):
+    """08.13 Manage chart card. Two views, real data only.
+    Practices: average checked in per practice day this year; bars are the latest 8 practice days.
+    Members: current count; bars are the member count at the end of each bucket, split by whether the
+    member was cleared (USAWP verified) by then. Past expiries aren't recorded, so there's no 'expired' split."""
+    today = today or today_pt()
+    year0 = dt.date(today.year, 1, 1).isoformat()
+    days = d.execute("""SELECT p.date, (SELECT COUNT(*) FROM checkins c WHERE c.practice_date=p.date) AS n FROM practices p
+        WHERE COALESCE(p.cancelled,0)=0 AND p.date>=? AND p.date<=? GROUP BY p.date ORDER BY p.date""", (year0, today.isoformat())).fetchall()
+    avg = (sum(r["n"] for r in days) / len(days)) if days else 0
+    last = days[-8:]
+    att_bars = []
+    for r in last:
+        day = dt.date.fromisoformat(r["date"])
+        att_bars.append({"label": "%d/%d" % (day.month, day.day), "segs": [int(r["n"])],
+                         "tip": "%s %s %d · %d checked in" % (day.strftime("%a"), day.strftime("%b"), day.day, r["n"])})
+    practices = {"key": "practices", "kicker": "AVG CHECKED IN · %d" % today.year, "value": ("%.1f" % avg).rstrip("0").rstrip(".") if days else "–",
+                 "title": "Practices", "sub": ("per practice · %d practice%s this year" % (len(days), "" if len(days) == 1 else "s")) if days else "No practices yet this year",
+                 "bars": att_bars, "series": [("Checked in", "")], "empty": "No practices yet this year."}
+    joined, verified = signup_days(d)
+    joined = sorted(x for x in joined if x <= today)
+    total = len(joined)
+    mem_bars = []
+    if joined:
+        for label, end, tip in _bucket_plan(joined[0], today):
+            n = sum(1 for x in joined if x <= end)
+            c = min(n, sum(1 for x in verified if x <= end))
+            mem_bars.append({"label": label, "segs": [c, n - c], "tip": "%s · %d member%s, %d cleared" % (tip, n, "" if n == 1 else "s", c)})
+    this_year = sum(1 for x in joined if x.isoformat() >= year0)
+    cleared_now = mem_bars[-1]["segs"][0] if mem_bars else 0
+    members = {"key": "members", "kicker": "MEMBERS · %d" % today.year, "value": str(total), "title": "Members",
+               "sub": "%+d since Jan 1" % this_year, "bars": mem_bars,
+               "series": [("Cleared", cleared_now), ("Not cleared yet", total - cleared_now)], "empty": "No members yet."}
+    return [practices, members]
 def _search_words(q):
     needle = " ".join((q or "").split()).casefold()
     return needle, needle.split()
@@ -8962,26 +9026,11 @@ def drop_bot_verify_messages(d):
     d.commit()
 def vr_dict(r):
     return {k: r[k] for k in ("id", "member_id", "name", "email", "member_number", "requested_by", "status", "created", "answered", "note")} | {"member_submitted": bool(r["member_submitted"]), "admin_requested": bool(r["admin_requested"]) if "admin_requested" in r.keys() else False, "result": json.loads(r["result"]) if r["result"] else None}
-def webhook_headers():
-    h = {"Content-Type": "application/json"}
-    if VERIFY_WEBHOOK_KEY:
-        h[VERIFY_WEBHOOK_HEADER or "Authorization"] = VERIFY_WEBHOOK_KEY if VERIFY_WEBHOOK_HEADER else "Bearer " + VERIFY_WEBHOOK_KEY
-    return h
 def _person_name(row):
     return ("%s %s" % ((row["first"] or "").strip(), (row["last"] or "").strip())).strip()
 def post_verify_webhook(row, preferred_first=None):
-    """POST a verify request. Failures are logged and never raised."""
-    if not VERIFY_WEBHOOK_URL: return "skipped (no VERIFY_WEBHOOK_URL)"
-    admin_requested = bool(row["admin_requested"]) if "admin_requested" in row.keys() else False
-    payload = {"request_id": row["id"], "member_id": row["member_id"], "name": row["name"], "preferred_first": clean_preferred(preferred_first),
-               "email": row["email"], "member_number": row["member_number"], "requested_by": row["requested_by"],
-               "member_submitted": bool(row["member_submitted"]), "admin_requested": admin_requested, "app_url": PUBLIC_URL}
-    try:
-        req = urllib.request.Request(VERIFY_WEBHOOK_URL, data=json.dumps(payload).encode(), headers=webhook_headers(), method="POST")
-        with urllib.request.urlopen(req, timeout=5) as resp: return f"sent ({resp.status})"
-    except Exception as e:
-        app.logger.warning("verify webhook failed: %s", e)
-        return f"failed: {e.__class__.__name__}"
+    """Automatic Sport:80 lookup is removed (Nov 13). Requests wait for an admin to check by hand; nothing is sent."""
+    return "manual"
 def create_verify_request(d, mid, update_pending=False, by_admin=False):
     m = d.execute("SELECT * FROM members WHERE id=?", (mid,)).fetchone()
     actor = me()
@@ -9011,7 +9060,7 @@ def create_verify_request(d, mid, update_pending=False, by_admin=False):
     d.execute("UPDATE verify_requests SET webhook=? WHERE id=?", (wh, rid)); d.commit()
     try: notify_new_verify_request(d, m)
     except Exception as e: app.logger.warning("verify-request push failed: %s", e)
-    return f"Asked Grunions to verify {m['first']} {m['last']}. Webhook {wh}."
+    return f"Asked an admin to check {m['first']} {m['last']} on Sport:80."
 def bot_auth():
     h = request.headers.get("Authorization", "")
     if not BOT_API_KEY or not h.startswith("Bearer ") or not secrets.compare_digest(h[7:], BOT_API_KEY): abort(401)
@@ -9073,11 +9122,13 @@ def api_attendance():
     finally: d.close()
 @app.route("/api/verify-requests")
 def api_verify_list():
+    return jsonify(error="Automatic USAWP lookup was removed. Admins check Sport:80 by hand."), 410
     bot_auth(); st = request.args.get("status")
     rows = db().execute("SELECT * FROM verify_requests WHERE (? IS NULL OR status=?) ORDER BY id", (st, st)).fetchall()
     return jsonify([vr_dict(r) for r in rows])
 @app.route("/api/verify-requests/<int:rid>/result", methods=["POST"])
 def api_verify_result(rid):
+    return jsonify(error="Automatic USAWP lookup was removed. Admins check Sport:80 by hand."), 410
     bot_auth(); d = db(); j = request.get_json(silent=True)
     if not isinstance(j, dict) or not isinstance(j.get("verified"), bool): return jsonify(error="JSON body with boolean 'verified' required"), 400
     r = d.execute("SELECT * FROM verify_requests WHERE id=?", (rid,)).fetchone()
@@ -9130,7 +9181,7 @@ def qr_svg():
 def qr_page():
     return page(T["qr_page"], tab="admin", u=signup_url())
 
-DETAIL_ACTIONS = ("verify", "req", "role", "ask_bot", "preferred", "background", "recheck", "edit")
+DETAIL_ACTIONS = ("verify", "req", "role", "preferred", "background", "recheck", "edit")
 def save_req_expiry(d, mid, req, exp, by):
     if not req or not exp: return
     now = stamp_pt("minutes")
@@ -9182,12 +9233,6 @@ def handle_member_detail(d, mid):
             d.execute("""UPDATE members SET usawp_status='verified', usawp_raw='Manually verified', usawp_number=COALESCE(?,usawp_number),
               usawp_valid_until=COALESCE(?,usawp_valid_until), usawp_updated=?, usawp_verified_by=?, usawp_verified_at=? WHERE id=?""",
               (num, vu.isoformat() if vu else None, now, f"{me()['first']} {me()['last']}", now, mid))
-    elif act == "ask_bot":
-        if not verify_webhook_configured():
-            flash("Set VERIFY_WEBHOOK_URL so Grunions can look this member up on Sport:80.", "toast")
-        else:
-            create_verify_request(d, mid, update_pending=True, by_admin=True)
-            flash("Check requested · looking up on Sport:80", "toast")
     elif act == "req":
         rid = int(request.form["req_id"]); done = parse_date(request.form.get("completed_on")); exp = parse_date(request.form.get("expires_on"))
         q = d.execute("SELECT * FROM requirements WHERE id=?", (rid,)).fetchone()
@@ -9448,13 +9493,6 @@ def expiring_roster(d, rep):
 @admin_required
 def expiring():
     d = db(); days = request.values.get("days", EXPIRING_DAYS, type=int) or EXPIRING_DAYS
-    if request.method == "POST" and request.form.get("action") == "ask_all":
-        rep = expiry_report(d, days)
-        ids = [r["id"] for r in expiring_roster(d, rep)]
-        asked = sum(1 for mid in ids if create_verify_request(d, mid, by_admin=True).startswith("Asked"))
-        if not ids: flash("No one to recheck.", "toast")
-        else: flash("Asked Grunions to recheck %d %s." % (asked, "person" if asked == 1 else "people"), "toast")
-        return redirect(url_for("expiring", days=days))
     if request.method == "POST" and request.form.get("member_id") and request.form.get("action") in DETAIL_ACTIONS:
         mid = int(request.form["member_id"])
         detail = handle_member_detail(d, mid)
@@ -9827,6 +9865,44 @@ def members():
             d.execute("DELETE FROM referee_list WHERE member_id=?", (mid,))
             d.commit(); sync_practice_sheets(d)
             flash("%s was removed from referees." % name, "toast")
+        elif act == "membership":
+            plan = d.execute("SELECT * FROM payment_plans WHERE id=? AND active=1 AND kind IN ('monthly','annual')", (request.form.get("plan_id", type=int) or 0,)).fetchone()
+            through = parse_date(request.form.get("paid_through"))
+            if not plan: flash("Choose a membership plan.", "toast")
+            elif not through or through < today_pt(): flash("Enter a paid-through date from today on.", "toast")
+            else:
+                before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+                sportspay.save_entitlement(d, mid, me(), plan["id"], "active", today_pt().isoformat(), through.isoformat(), "Marked paying from People")
+                if d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != before: raise RuntimeError("paid membership must not change RSVPs")
+                d.commit()
+                flash("%s is paying · %s through %s" % (name, plan["name"], fmt_d(through.isoformat())), "toast")
+        elif act == "add_board":
+            import clubadmin
+            clubadmin.ensure(d)
+            role_id = request.form.get("role_id", type=int)
+            new_role = " ".join((request.form.get("new_role") or "").split())[:80]
+            if new_role:
+                if len(new_role) < 2: flash("Add a role name.", "toast"); return members_back()
+                hit = d.execute("SELECT id FROM leadership_roles WHERE program_id IS NULL AND lower(name)=lower(?)", (new_role,)).fetchone()
+                if hit: role_id = hit["id"]
+                else:
+                    sort = d.execute("SELECT COALESCE(MAX(sort),0)+1 FROM leadership_roles WHERE program_id IS NULL").fetchone()[0]
+                    role_id = d.execute("INSERT INTO leadership_roles(program_id, name, permission, sort, board) VALUES(NULL,?,'none',?,1)", (new_role, sort)).lastrowid
+            role = d.execute("SELECT * FROM leadership_roles WHERE id=? AND program_id IS NULL", (role_id or 0,)).fetchone()
+            if not role: flash("Choose a role or add one.", "toast"); return members_back()
+            d.execute("UPDATE leadership_roles SET board=1 WHERE id=?", (role["id"],))
+            d.execute("INSERT OR IGNORE INTO leadership_members(role_id, member_id) VALUES(?,?)", (role["id"], mid))
+            d.execute("UPDATE members SET board_member=1 WHERE id=?", (mid,))
+            d.commit(); sync_practice_sheets(d)
+            flash("%s is in leadership as %s · added to Board chat" % (name, role["name"]), "toast")
+        elif act == "remove_board":
+            others = d.execute("""SELECT COUNT(*) FROM members WHERE id!=? AND COALESCE(role,'')!='system'
+                AND (is_admin=1 OR COALESCE(board_member,0)=1)""", (mid,)).fetchone()[0]
+            if not others: flash("The last admin cannot be removed.", "toast"); return members_back()
+            d.execute("UPDATE members SET board_member=0 WHERE id=?", (mid,))
+            d.execute("DELETE FROM leadership_members WHERE member_id=? AND role_id IN (SELECT id FROM leadership_roles WHERE board=1)", (mid,))
+            d.commit(); sync_practice_sheets(d)
+            flash("%s is out of leadership and Board chat." % name, "toast")
         else: abort(400)
         return members_back()
     days = practice_days(d)
@@ -9878,7 +9954,19 @@ def members():
     return page(T["members"],
         tab="admin", admin_back="/manage/area/people", rows=rows, c=c, view=view, filt=filt, pay="", date=focus, q=q, title=titles[view],
         listed=sets["listed"], referees=sets["referees"], coach_ids=sets["coach_ids"], ref_ids=sets["ref_ids"],
-        n_admins=len(sets["admins"]), boot=ADMIN_EMAILS)
+        n_admins=len(sets["admins"]), boot=ADMIN_EMAILS, **_people_sheets(d))
+def _people_sheets(d):
+    """Data for the People ⋯ sheets: insurance, membership plans (monthly/annual only), board roles."""
+    import clubadmin
+    clubadmin.ensure(d)
+    try:
+        plans = d.execute("SELECT id, name, kind FROM payment_plans WHERE active=1 AND kind IN ('monthly','annual') ORDER BY kind DESC, name").fetchall()
+    except sqlite3.OperationalError:
+        plans = []
+    roles = d.execute("SELECT id, name, board FROM leadership_roles WHERE program_id IS NULL ORDER BY board DESC, sort, name").fetchall()
+    board = {r[0] for r in d.execute("SELECT id FROM members WHERE COALESCE(board_member,0)=1")}
+    return {"member_plans": plans, "board_roles": roles, "board_ids": board, "today_iso": today_pt().isoformat(),
+            }
 def csv_attachment(filename, header, rows):
     """UTF-8 with a BOM so Excel opens names and punctuation correctly."""
     buf = io.StringIO(); buf.write("\ufeff"); w = csv.writer(buf); w.writerow(header)
@@ -11158,7 +11246,7 @@ def availability():
         flows2.sync_days(d, m["id"]); d.commit(); flash("Saved", "toast")
         return redirect(nxt)
     wins = flows2.windows(d, m["id"])
-    return page(flows2.AVAIL_WEEK, tab="availability", wins=wins, blocks=_avail_blocks(wins), DAYS=flows2.DAYS,
+    return page(flows2.AVAIL_WEEK, tab="calendar", seg=components.seg(calendar_when_items(), "availability"), wins=wins, blocks=_avail_blocks(wins), DAYS=flows2.DAYS,
                 clock_range=flows2.clock_range, away_n=len(flows2.away(d, m["id"], today_pt().isoformat())))
 
 @app.route("/availability/fit")

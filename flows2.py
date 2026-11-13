@@ -606,9 +606,9 @@ LEAVE_BY = """<div class="rg-page rg-rides rg-leaveby" data-practice="{{ p.id }}
 </script>
 </div>"""
 
-AVAIL_WEEK = """<div class="rg-page rg-rides rg-avail">
-<p class=ty-caps>Me · Availability</p>
-<h1 class=ty-display-l>When can you play?</h1>
+AVAIL_WEEK = """<div class="rg-screen rg-avail">
+{{ seg }}
+<h2 class=ty-title>When can you play?</h2>
 <p class=ty-muted>Your regular week. Teams you're on can see "available" without the details.</p>
 {{ rg_week_grid(blocks, 'Your available windows') }}
 <h2 class=ty-title>Windows</h2>

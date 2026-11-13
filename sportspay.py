@@ -7,7 +7,7 @@ import datetime as dt
 from markupsafe import escape
 
 BODIES = (("usawp", "USA Water Polo"), ("usms", "US Masters Swimming"), ("none", "None"))
-PLAN_KINDS = (("monthly", "Monthly membership"), ("drop_in", "Drop-in"), ("pass", "Session pass"), ("trial", "Introductory trial"), ("free", "Free sessions"))
+PLAN_KINDS = (("monthly", "Monthly membership"), ("annual", "Annual membership"), ("drop_in", "Drop-in"), ("pass", "Session pass"), ("trial", "Introductory trial"), ("free", "Free sessions"))
 PROVIDER_KINDS = (("external_link", "External payment link"), ("manual", "Manual payment"), ("free", "Free / trial access"), ("stripe", "Stripe"))
 STATUSES = ("active", "pending", "expired", "inactive")
 ACTIVITIES = (("practice", "Practice"), ("scrimmage", "Scrimmage"), ("game", "Game"))

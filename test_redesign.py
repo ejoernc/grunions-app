@@ -306,3 +306,51 @@ def test_volunteer_shifts_capacity_one_per_event_and_hours():
     assert "Your service hours" in done and "of 10 hrs" in done and ">03<" in done and "Past cleanup" in done
     assert "BEGIN:VEVENT" in vol.get("/lineup/%d/shifts/%d.ics" % (eid, s2)).get_data(as_text=True)
     assert "Pick a shift" in vol.get("/lineup/%d" % eid).get_data(as_text=True) or "Your shift" in vol.get("/lineup/%d" % eid).get_data(as_text=True)
+
+
+def test_people_menu_insurance_membership_board_and_no_auto_lookup():
+    import sportspay
+    pm = join("Pat", "Menu", "pat@example.com")
+    pid_ = sql("SELECT id FROM members WHERE email='pat@example.com'")[0][0]
+    page = boss.get("/members").get_data(as_text=True)
+    assert "Check insurance" in page and "data-sheet=insSheet" in page and "Check USAWP" not in page
+    assert "ask_bot" not in page and "Look it up" not in page and "Add to leadership" in page and "Add to board" not in page
+    t = csrf(boss, "/members")
+    boss.post("/members", data=dict(csrf=t, member_id=pid_, action="verify", number="1002020", valid_until="2099-01-01"))
+    assert sql("SELECT usawp_status, usawp_number FROM members WHERE id=?", (pid_,))[0] == ("verified", "1002020")
+    assert boss.post("/members", data=dict(csrf=t, member_id=pid_, action="ask_bot")).status_code == 400
+    assert A.app.test_client().get("/api/verify-requests").status_code == 410
+    # Membership: an annual plan makes the item appear and marks them paying.
+    con = A.open_db(); sportspay.ensure(con) if hasattr(sportspay, "ensure") else None; con.close()
+    sql("INSERT INTO payment_plans(name, kind, active) VALUES('Season pass','annual',1)")
+    plan = sql("SELECT id FROM payment_plans WHERE name='Season pass'")[0][0]
+    assert "Check membership" in boss.get("/members").get_data(as_text=True)
+    boss.post("/members", data=dict(csrf=t, member_id=pid_, action="membership", plan_id=plan, paid_through="2099-06-30"))
+    assert sql("SELECT status, paid_through FROM access_entitlements WHERE member_id=? AND plan_id=?", (pid_, plan))[-1] == ("active", "2099-06-30")
+    # Board: a new role is created as a board role, they join Board chat, then leave it.
+    boss.post("/members", data=dict(csrf=t, member_id=pid_, action="add_board", role_id="", new_role="Treasurer"))
+    assert sql("SELECT board_member FROM members WHERE id=?", (pid_,))[0][0] == 1
+    assert sql("SELECT r.name, r.board FROM leadership_roles r JOIN leadership_members m ON m.role_id=r.id WHERE m.member_id=?", (pid_,)) == [("Treasurer", 1)]
+    assert pm.get("/chat?c=board").status_code == 200 and "Remove from leadership" in boss.get("/members").get_data(as_text=True)
+    boss.post("/members", data=dict(csrf=t, member_id=pid_, action="remove_board"))
+    assert sql("SELECT board_member FROM members WHERE id=?", (pid_,))[0][0] == 0
+    assert not sql("SELECT 1 FROM leadership_members WHERE member_id=?", (pid_,))
+
+
+def test_manage_chart_card_two_views_real_data():
+    page = boss.get("/manage").get_data(as_text=True)
+    assert "data-chartcard" in page and "AVG CHECKED IN" in page and "MEMBERS ·" in page and 'role=tablist' in page
+    import components
+    assert components._nice_ticks(20) == [0, 10, 20] and components._nice_ticks(23) == [0, 10, 20, 30]
+    today = dt.date(2026, 11, 13)
+    months = A._bucket_plan(dt.date(2026, 1, 5), today)
+    assert len(months) == 8 and months[-1][0] == "Nov" and months[0][0] == "Apr"
+    halves = A._bucket_plan(dt.date(2026, 6, 20), today)
+    assert len(halves) == 8 and halves[-1][1] == today and halves[-2][1] == dt.date(2026, 10, 31)
+    weeks = A._bucket_plan(dt.date(2026, 10, 1), today)
+    assert len(weeks) == 8 and (weeks[-1][1] - weeks[-2][1]).days == 7
+
+
+def test_availability_keeps_the_calendar_control():
+    page = member.get("/availability").get_data(as_text=True)
+    assert "Upcoming" in page and "Past" in page and 'href="/availability"' in page and "When can you play?" in page

@@ -57,6 +57,8 @@ def ensure(d):
         permission TEXT NOT NULL DEFAULT 'none', sort INTEGER NOT NULL DEFAULT 0)""")
     d.execute("""CREATE TABLE IF NOT EXISTS leadership_members(
         role_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(role_id, member_id))""")
+    if "board" not in [r[1] for r in d.execute("PRAGMA table_info(leadership_roles)")]:
+        d.execute("ALTER TABLE leadership_roles ADD COLUMN board INTEGER NOT NULL DEFAULT 0")  # role held by a board member
     _migrate(d)
     _ensure_pass_columns(d)
     _seed_passes(d)
