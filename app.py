@@ -5435,6 +5435,15 @@ def map_pins(p):
     if sh and p["social_lat"] is not None and p["social_lng"] is not None:
         pins.append({"lat": p["social_lat"], "lng": p["social_lng"], "kind": "social", "label": sh["place"]})
     return pins
+import contextvars, contextlib
+_route_purpose = contextvars.ContextVar("route_purpose", default="maps")
+ROUTE_PURPOSES = (("leave_by", "Leave-by times"), ("maps", "Practice maps & drive times"))
+@contextlib.contextmanager
+def route_purpose(name):
+    """Tag map/traffic calls made inside this block for Tools › Usage."""
+    tok = _route_purpose.set(name)
+    try: yield
+    finally: _route_purpose.reset(tok)
 class SqliteRouteCap:
     """Counts provider calls per Pacific day. It does not store a place or a person."""
 
@@ -5446,6 +5455,12 @@ class SqliteRouteCap:
         day = as_pt(now).date().isoformat()
         d.execute("INSERT OR IGNORE INTO route_budget(day, calls) VALUES(?,0)", (day,))
         cur = d.execute("UPDATE route_budget SET calls=calls+1 WHERE day=? AND calls<?", (day, self.limit))
+        if cur.rowcount == 1:
+            try:
+                d.execute("""INSERT INTO route_usage(day, purpose, calls) VALUES(?,?,1)
+                    ON CONFLICT(day, purpose) DO UPDATE SET calls=calls+1""", (day, _route_purpose.get()))
+            except sqlite3.OperationalError:
+                pass
         d.commit()
         return cur.rowcount == 1
 def _drive_service():
@@ -7259,7 +7274,29 @@ def api_places_retrieve():
 @login_required
 def usage_page():
     if not is_club_admin(): abort(403)
-    return page(T["usage"], tab="manage", calls=mapbox_calls_today(), cap=MAPBOX_DAILY_CAP)
+    return redirect(url_for("tools_usage"), 301)
+MAPBOX_FREE_MONTHLY = max(1, int(os.environ.get("MAPBOX_FREE_MONTHLY") or 100000))
+@app.route("/manage/tools/usage")
+@login_required
+def tools_usage():
+    """Tools › Usage (Figma 61 · M4.4): calls today vs yesterday, last 7 days, this month vs the free tier, by use."""
+    if not is_club_admin(): abort(403)
+    d = db(); today = today_pt()
+    def day_calls(day):
+        row = d.execute("SELECT calls FROM route_budget WHERE day=?", (day.isoformat(),)).fetchone()
+        return int(row["calls"]) if row else 0
+    calls, yday = day_calls(today), day_calls(today - dt.timedelta(days=1))
+    diff = calls - yday
+    bars = [("MTWTFSS"[(today - dt.timedelta(days=k)).weekday()], day_calls(today - dt.timedelta(days=k))) for k in range(6, -1, -1)]
+    month0 = today.replace(day=1).isoformat()
+    month_calls = d.execute("SELECT COALESCE(SUM(calls),0) FROM route_budget WHERE day>=?", (month0,)).fetchone()[0]
+    rows = dict(d.execute("SELECT purpose, SUM(calls) FROM route_usage WHERE day>=? GROUP BY purpose", (month0,)).fetchall())
+    uses = [(label, str(rows.get(key, 0))) for key, label in ROUTE_PURPOSES]
+    nxt = (today.replace(day=28) + dt.timedelta(days=4)).replace(day=1)
+    return page(T["usage"], tab="manage", calls=str(calls), delta=("%+d vs yesterday" % diff) if (calls or yday) else "",
+                bars=bars, month_calls=str(month_calls), pct=int(round(100.0 * month_calls / MAPBOX_FREE_MONTHLY)),
+                free_label=("%dK" % (MAPBOX_FREE_MONTHLY // 1000)) if MAPBOX_FREE_MONTHLY >= 1000 else str(MAPBOX_FREE_MONTHLY),
+                uses=uses, uses_tracked=bool(rows), cap=MAPBOX_DAILY_CAP, resets="%s %d" % (nxt.strftime("%b"), nxt.day))
 @app.route("/manage/pricing", methods=["GET", "POST"])
 @admin_required
 def manage_pricing():
@@ -7857,10 +7894,10 @@ def manage_home_groups(d):
         people.append(_manage_row("Compliance", "Memberships & certifications", "/expiring", "shield", expiring_people_count(d), "warn"))
         club.append(_manage_row("Sports & pricing", "Sports, prices, and a free trial", "/manage/pricing", "cal"))
         club.append(_manage_row("Website widget", "Embed the public schedule", "/manage/widget", "widget"))
-        club.append(_manage_row("Usage", "Mapbox calls today", "/manage/usage", "rules"))
-        club.append(_manage_row("Data transfer", "Import & export", "/transfer", "swap"))
+        club.append(_manage_row("Usage", "Mapbox calls today", "/manage/tools/usage", "rules"))
+        club.append(_manage_row("Data transfer", "Import & export", "/manage/tools/transfer", "swap"))
         club.append(_manage_row("Rules", "Policies & requirements", "/requirements", "rules"))
-        club.append(_manage_row("QR codes", "Check-in & sharing", "/qr", "qr"))
+        club.append(_manage_row("QR codes", "Join and schedule", "/manage/tools/qr", "qr"))
     groups = []
     if activities: groups.append({"label": "Activities", "rows": activities})
     if people: groups.append({"label": "People", "rows": people})
@@ -8175,17 +8212,16 @@ def _manage_catalog(d):
         # Nov 13: Compliance is covered per sport, so it's folded into Sports (its route stays for old links).
         add("club", "Sports", "Club supported sports, sports insurance and requirements", "/manage/club/programs", "cal",
             "sport program water polo swimming requirement safesport usawp usms eligibility division compliance insurance credentials background screening certification")
-        add("club", "Waiver", "Club waiver members sign on their first Going", "/manage/club/waiver", "shield", "waiver liability agreement sign version")
+        # Club list (Figma 61 · M3): Sports, Plans & payments, Venues, Documents, Roles & permissions, Website & sharing, Reminders.
+        add("club", "Plans & payments", "Memberships, drop-ins, pricing and how members pay", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass integration club assistant provider payment link")
         add("club", "Venues", "Manage locations and assign them to sports", "/manage/club/venues", "pin", "venue pool location address marina westminster")
-        add("club", "Plans & passes", "Memberships, drop-ins, access and pricing", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass")
-        add("club", "Permissions", "Who can manage the club, sports and schedule", "/manage/club/permissions", "key", "permission admin admin lite sport admin who can manage")
+        add("club", "Documents", "Waiver and agreements members sign on their first Going", "/manage/club/waiver", "shield", "waiver liability agreement sign version document code of conduct")
+        add("club", "Roles & permissions", "Club roles, who holds them, and who can manage what", "/manage/club/permissions", "key", "permission admin admin lite sport admin who can manage leadership president treasurer board role")
         add("club", "Website & sharing", "Public schedule and the website widget", "/manage/widget", "widget", "embed website widget preview")
-        add("club", "Leadership", "Club roles and who holds them", "/manage/club/leadership", "people", "leadership president treasurer board role")
-        add("club", "Practice reminders", "Emails and notifications before a practice. Off until you turn them on.", "/manage/club/reminders", "tray", "practice reminder email hours before")
-        add("club", "Integrations", "Club Assistant and other registration links", "/manage/club/integrations", "swap", "club assistant provider payment link")
-        add("tools", "QR codes", "Check-in and sharing", "/qr", "qr", "qr code join check-in")
-        add("tools", "Data transfer", "Import and export", "/transfer", "swap", "csv import export export csv")
-        add("tools", "Usage", "Mapbox calls today", "/manage/usage", "rules", "mapbox usage", mapbox_calls_today())
+        add("club", "Reminders", "Emails and notifications before a practice. Off until you turn them on.", "/manage/club/reminders", "tray", "practice reminder email hours before")
+        add("tools", "QR codes", "Join and schedule", "/manage/tools/qr", "qr", "qr code join check-in")
+        add("tools", "Data transfer", "Import and export", "/manage/tools/transfer", "swap", "csv import export export csv")
+        add("tools", "Usage", "Mapbox calls today", "/manage/tools/usage", "rules", "mapbox usage", mapbox_calls_today())
     return rows
 _AREA_COPY = {
     "activities": ("Activities", "Schedule, Lineup, Bulletin, and requests"),
@@ -8728,8 +8764,11 @@ def club_permissions():
     import clubadmin
     d = db()
     clubadmin.ensure(d)
-    return page(ui.ADMIN_NAV + "{{ admin_page('Permissions', 'Who can manage the club, sports and schedule.') }}<div style=\"padding-bottom:120px\">{{ club_body|safe }}</div>",
-        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.permissions_html(d))
+    # Leadership + Permissions merged (Figma 61 · M3): club roles first, then who can manage what.
+    return page(ui.ADMIN_NAV + "{{ admin_page('Roles & permissions', 'Club roles, who holds them, and who can manage the club, sports and schedule.') }}"
+                "<section id=roles>{{ rg_label('Club roles') }}{{ roles_body|safe }}</section>"
+                "<section id=access>{{ rg_label('Who can manage') }}<div style=\"padding-bottom:120px\">{{ club_body|safe }}</div></section>",
+        tab="admin", club_body=clubadmin.permissions_html(d), roles_body=clubadmin.leadership_list_html(d))
 @app.route("/manage/club/permissions/new", methods=["GET", "POST"])
 @admin_required
 def club_permission_new():
@@ -8768,8 +8807,7 @@ def club_leadership():
     import clubadmin
     d = db()
     clubadmin.ensure(d)
-    return page(ui.ADMIN_NAV + "{{ admin_page('Leadership', 'Roles for the whole club. Sport roles stay on each sport.') }}{{ club_body|safe }}",
-        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.leadership_list_html(d))
+    return redirect("/manage/club/permissions#roles", 301)  # merged into Roles & permissions
 @app.route("/manage/club/leadership/new", methods=["GET", "POST"])
 @admin_required
 def club_leadership_new():
@@ -9245,12 +9283,26 @@ def signup_url(): return (PUBLIC_URL or request.host_url.rstrip("/")) + "/join"
 @app.route("/qr.svg")
 @admin_required
 def qr_svg():
-    img = qrcode.make(signup_url(), image_factory=qrcode.image.svg.SvgPathImage, box_size=20)
+    target = public_schedule_url() if request.args.get("for") == "schedule" else signup_url()
+    if not target: abort(404)
+    img = qrcode.make(target, image_factory=qrcode.image.svg.SvgPathImage, box_size=20)
     buf = io.BytesIO(); img.save(buf); return Response(buf.getvalue(), mimetype="image/svg+xml")
 @app.route("/qr")
 @admin_required
 def qr_page():
-    return page(T["qr_page"], tab="admin", u=signup_url())
+    return redirect(url_for("tools_qr"), 301)
+def public_schedule_url():
+    """The website schedule, only once it's published (Website & sharing)."""
+    try:
+        if not (publicfeed.load(db()).get("widget") or {}).get("enabled"): return ""
+    except Exception:
+        return ""
+    return app_base() + "/widget"
+@app.route("/manage/tools/qr")
+@admin_required
+def tools_qr():
+    """Tools › QR codes (Figma 61 · M4.2). Practice check-in isn't here: members can't check themselves in yet."""
+    return page(T["qr_page"], tab="admin", join_url=signup_url(), schedule_url=public_schedule_url())
 
 DETAIL_ACTIONS = ("verify", "req", "role", "preferred", "background", "recheck", "edit")
 def save_req_expiry(d, mid, req, exp, by):
@@ -10282,7 +10334,10 @@ def run_daily_sheet_sync():
     run_sheet_sync()
 def render_transfer(stats=None):
     start, end = export_default_range()
-    return page(T["transfer"], tab="admin", start=start.isoformat(), end=end.isoformat(), sheet_on=sheet_configured(), sheet_status=sheet_status(), stats=stats)
+    year0 = today_pt().replace(month=1, day=1).isoformat()
+    last = flows2.pref(db(), "last_export") if hasattr(flows2, "pref") else ""
+    return page(T["transfer"], tab="admin", start=start.isoformat(), end=end.isoformat(), year0=year0, today_iso=today_pt().isoformat(),
+                sheet_on=sheet_configured(), sheet_status=sheet_status(), stats=stats, last_export=last or "")
 def take_import():
     """Read an uploaded Sport:80 file. None when nothing was saved."""
     f = request.files.get("file")
@@ -10295,12 +10350,17 @@ def take_import():
 @app.route("/transfer", methods=["GET", "POST"])
 @admin_required
 def transfer_page():
-    stats = take_import() if request.method == "POST" else None
-    return render_transfer(stats)
+    if request.method == "GET": return redirect(url_for("tools_transfer"), 301)
+    return render_transfer(take_import())
+@app.route("/manage/tools/transfer", methods=["GET", "POST"])
+@admin_required
+def tools_transfer():
+    """Tools › Data transfer (Figma 61 · M4.3). Imports never delete; exports are read-only."""
+    return render_transfer(take_import() if request.method == "POST" else None)
 @app.route("/export")
 @admin_required
 def export_page():
-    return redirect("/transfer")
+    return redirect("/manage/tools/transfer", 301)
 @app.route("/export/sheet", methods=["POST"])
 @admin_required
 def export_sheet_now():
@@ -10309,13 +10369,13 @@ def export_sheet_now():
     st = sheet_status()
     if st and st.get("ok"): flash("Google Sheet synced.", "toast")
     else: flash("Google Sheet sync failed. The error was logged.", "toast")
-    return redirect("/transfer")
+    return redirect("/manage/tools/transfer")
 @app.route("/export/practices.csv")
 @admin_required
 def practices_csv():
     bounds = export_range()
     if not bounds:
-        flash("Choose a start and end date."); return redirect("/transfer")
+        flash("Choose a start and end date."); return redirect("/manage/tools/transfer")
     start, end = bounds
     d = db()
     practices = d.execute("SELECT * FROM practices WHERE date>=? AND date<=? ORDER BY date, start, id", (start.isoformat(), end.isoformat())).fetchall()
@@ -10326,6 +10386,49 @@ def practices_csv():
     rows = [practice_summary_row(d, p, rsvps, checkins, assigned.get(p["id"], [])) for p in practices]
     return csv_attachment("grunions-practices-%s.csv" % span, PRACTICE_CSV_HEADER, rows)
 
+PAYMENTS_CSV_HEADER = ["Date", "Member", "Email", "Plan", "Amount", "Status", "Note", "Recorded by"]
+def payment_csv_rows(d):
+    """Payments recorded in the app (manual / external links). Read-only."""
+    try:
+        rows = d.execute("""SELECT r.at, m.first, m.preferred_first, m.last, m.email, p.name AS plan, r.amount_cents, r.status, r.note, r.actor
+            FROM payment_records r LEFT JOIN members m ON m.id=r.member_id LEFT JOIN payment_plans p ON p.id=r.plan_id ORDER BY r.at, r.id""").fetchall()
+    except sqlite3.OperationalError:
+        return []
+    out = []
+    for r in rows:
+        amount = "" if r["amount_cents"] is None else "%.2f" % (r["amount_cents"] / 100.0)
+        out.append([str(r["at"] or "")[:16], ("%s %s" % (r["preferred_first"] or r["first"] or "", r["last"] or "")).strip(),
+                    r["email"] or "", r["plan"] or "", amount, r["status"] or "", r["note"] or "", r["actor"] or ""])
+    return out
+@app.route("/export/payments.csv")
+@admin_required
+def payments_csv():
+    return csv_attachment("grunions-payments-%s.csv" % today_pt().isoformat(), PAYMENTS_CSV_HEADER, payment_csv_rows(db()))
+def _csv_bytes(header, rows):
+    buf = io.StringIO(); buf.write("\ufeff"); w = csv.writer(buf); w.writerow(header)
+    for row in rows: w.writerow(["" if v is None else v for v in row])
+    return buf.getvalue().encode("utf-8")
+@app.route("/export/all.zip")
+@admin_required
+def export_all_zip():
+    """Tools › Data transfer › Export everything: members & clearance, practices, attendance, payments. Read-only."""
+    import zipfile
+    d = db()
+    practices = d.execute("SELECT * FROM practices ORDER BY date, start, id").fetchall()
+    rsvps, checkins, assigned = practice_export_bundle(d, practices)
+    members = member_sheet_rows(d)
+    files = {"members.csv": _csv_bytes(members[0], members[1:]),
+             "practices.csv": _csv_bytes(PRACTICE_CSV_HEADER, [practice_summary_row(d, p, rsvps, checkins, assigned.get(p["id"], [])) for p in practices]),
+             "attendance.csv": _csv_bytes(ATTENDANCE_CSV_HEADER, attendance_rows(d, practices)),
+             "payments.csv": _csv_bytes(PAYMENTS_CSV_HEADER, payment_csv_rows(d))}
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for name, data in files.items(): z.writestr(name, data)
+    set_club_pref = getattr(flows2, "set_pref", None)
+    if set_club_pref: set_club_pref(d, "last_export", "%s · %s" % (fmt_d(today_pt().isoformat()), display_first(me()))); d.commit()
+    resp = Response(buf.getvalue(), mimetype="application/zip")
+    resp.headers["Content-Disposition"] = 'attachment; filename="grunions-export-%s.zip"' % today_pt().isoformat()
+    return resp
 # ---- USAWP (Sport:80 Smart List export) import ----
 ALIASES = {  # normalized header -> field. Sport:80 Smart List columns vary by chosen columns, so match loosely.
     "preferred": ["preferredfirstname", "preferredname", "nickname", "knownas"],
@@ -10437,7 +10540,7 @@ def import_roster(fname, data):
 @admin_required
 def import_page():
     if request.method == "POST": return render_transfer(take_import())
-    return redirect("/transfer")
+    return redirect("/manage/tools/transfer", 301)
 
 # ---------- notifications (web push + email) ----------
 import base64, threading
@@ -11265,8 +11368,9 @@ def api_leave_by():
     if not (now <= start <= now + dt.timedelta(hours=24)): return jsonify(ok=False, error="window")
     buf = int(m["leave_buffer"]) if "leave_buffer" in m.keys() and m["leave_buffer"] is not None else 5
     origin, dest = (lat, lng), (p["lat"], p["lng"])
-    plan = flows2.leave_plan(start, buf, lambda deps: drive_service.forecast(origin, dest, deps, now_pt()))
-    bike = drive_service.once(origin, dest, "cycling", now_pt())
+    with route_purpose("leave_by"):
+        plan = flows2.leave_plan(start, buf, lambda deps: drive_service.forecast(origin, dest, deps, now_pt()))
+        bike = drive_service.once(origin, dest, "cycling", now_pt())
     bike_min = bike.minutes if not bike.estimated else max(1, int(round(routing.haversine_km(origin, dest) * 1.3 / 16 * 60)))
     resp = jsonify(ok=True, leave_by=_clock_short(plan["leave_by"]), arrive_by=_clock_short(plan["arrive_by"]), buffer=buf,
                    minutes=plan["minutes"], miles=round(routing.haversine_km(origin, dest) * 1.3 * 0.621, 1), estimated=plan["estimated"],
@@ -11388,7 +11492,8 @@ def run_leave_alerts(d, now=None, recheck_min=14, nudge_min=5):
             if not origin or not wants_push(mem, "leave_by"): continue
             row = d.execute("SELECT * FROM leave_alerts WHERE member_id=? AND practice_id=?", (mem["id"], p["id"])).fetchone()
             if row and row["checked"] and now - dt.datetime.fromisoformat(row["checked"]) < dt.timedelta(minutes=recheck_min): continue
-            route = drive_service.once(origin, (p["lat"], p["lng"]), "driving-traffic", as_pt(now))
+            with route_purpose("leave_by"):
+                route = drive_service.once(origin, (p["lat"], p["lng"]), "driving-traffic", as_pt(now))
             stamp = now.isoformat(timespec="seconds")
             if route.estimated:
                 d.execute("""INSERT INTO leave_alerts(member_id, practice_id, leave_by, checked) VALUES(?,?,?,?)

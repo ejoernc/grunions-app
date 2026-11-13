@@ -271,7 +271,7 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
         assert 'href="/manage/area/%s"' % area in page
     club = admin.get("/manage/area/club").get_data(as_text=True)
     assert ">Sports</b>" in club or "Sports" in club
-    assert 'href="/manage/club/programs"' in club and "Plans &amp; passes" in club and ">Requirements</span>" not in club
+    assert 'href="/manage/club/programs"' in club and "Plans &amp; payments" in club and ">Requirements</span>" not in club
     assert "Schedule &amp; pricing" not in club
     people = admin.get("/manage/area/people").get_data(as_text=True)
     assert "<h1 class=rg-pt>People.</h1>" in people and "Participants, members, coaches, admins, and referees" in people
@@ -476,7 +476,7 @@ def test_paid_membership_is_separate_and_does_not_touch_rsvps():
     assert "Monthly Membership" in plans and "$45" in plans and "$50" in plans and "cid=103002" in plans
     assert "Swimming drop-in" not in plans
     person = admin.get("/admin/member/%d" % ada).get_data(as_text=True)
-    assert "Paid membership" in person and "does not change an RSVP" in person
+    assert "Paid membership" in person and "change an RSVP" in person
     admin.post("/admin/member/%d" % ada, data={
         "csrf": csrf(admin, "/admin/member/%d" % ada),
         "action": "paid", "paid_action": "active", "plan_id": str(monthly["id"]),

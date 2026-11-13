@@ -162,17 +162,20 @@ route("manage_waiver", "Documents", ("manage_area", {"area": "club"}), "manage")
 route("club_permissions", "Roles & permissions", ("manage_area", {"area": "club"}), "manage")
 route("club_permission_new", "Add person", "club_permissions", "manage", "sheet")
 route("club_permission_edit", "Edit access", "club_permissions", "manage", "sheet")
-route("club_leadership", "Leadership", "club_permissions", "manage")
-route("club_leadership_new", "New role", "club_leadership", "manage", "sheet")
-route("club_leadership_edit", "Edit role", "club_leadership", "manage", "sheet")
+route("club_leadership", "Roles & permissions", "club_permissions", "manage", "redirect")
+route("club_leadership_new", "New role", "club_permissions", "manage", "sheet")
+route("club_leadership_edit", "Edit role", "club_permissions", "manage", "sheet")
 route("club_reminders", "Reminders", ("manage_area", {"area": "club"}), "manage")
 route("manage_widget", "Website & sharing", ("manage_area", {"area": "club"}), "manage")
 # Tools pages keep their current URLs until the Figma 61 · M4 rebuild moves them under /manage/tools/.
-route("qr_page", "QR codes", ("manage_area", {"area": "tools"}), "manage")
-route("transfer_page", "Data transfer", ("manage_area", {"area": "tools"}), "manage")
-route("export_page", "Data transfer", "transfer_page", "manage", "redirect")
-route("import_page", "Data transfer", "transfer_page", "manage", "redirect")
-route("usage_page", "Usage", ("manage_area", {"area": "tools"}), "manage")
+route("qr_page", "QR codes", "tools_qr", "manage", "redirect")
+route("tools_qr", "QR codes", ("manage_area", {"area": "tools"}), "manage")
+route("transfer_page", "Data transfer", "tools_transfer", "manage", "redirect")
+route("tools_transfer", "Data transfer", ("manage_area", {"area": "tools"}), "manage")
+route("export_page", "Data transfer", "tools_transfer", "manage", "redirect")
+route("import_page", "Data transfer", "tools_transfer", "manage", "redirect")
+route("usage_page", "Usage", "tools_usage", "manage", "redirect")
+route("tools_usage", "Usage", ("manage_area", {"area": "tools"}), "manage")
 route("design_system_page", "Design system", ("manage_area", {"area": "tools"}), "manage")
 # Public / visitor
 route("discover", "Discover", None, "public", "root")
@@ -181,7 +184,7 @@ route("join", "Join", "discover", "public")
 route("login", "Log in", "discover", "public")
 # Files, feeds and endpoints that aren't screens
 for ep in ("avatar", "media", "practice_image", "lineup_image", "practice_ics", "lineup_shift_ics", "practices_csv",
-           "members_csv", "qr_svg", "service_worker", "webmanifest", "widget_frame", "auth", "auth_google",
+           "members_csv", "payments_csv", "export_all_zip", "qr_svg", "service_worker", "webmanifest", "widget_frame", "auth", "auth_google",
            "auth_google_callback", "logout", "practice_reminder_off", "static"):
     route(ep, "", None, "public", "asset")
 

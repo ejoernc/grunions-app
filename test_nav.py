@@ -83,8 +83,12 @@ def test_retired_urls_redirect_to_their_new_home():
         "/manage/club/requirements": "/manage/club/programs#requirements",
         "/manage/club/integrations": "/manage/club/plans#pay",
         "/admins": "/members?view=admins",
-        "/export": "/transfer",
-        "/import": "/transfer",
+        "/export": "/manage/tools/transfer",
+        "/import": "/manage/tools/transfer",
+        "/transfer": "/manage/tools/transfer",
+        "/qr": "/manage/tools/qr",
+        "/manage/usage": "/manage/tools/usage",
+        "/manage/club/leadership": "/manage/club/permissions#roles",
         "/calendar?when=availability": None,  # renders in place
     }
     for old, new in retired.items():
@@ -94,3 +98,23 @@ def test_retired_urls_redirect_to_their_new_home():
             continue
         assert r.status_code in (301, 302, 308), (old, r.status_code)
         assert r.headers["Location"].endswith(new), (old, r.headers["Location"])
+
+
+def test_tools_pages_render_real_data():
+    c = A.app.test_client()
+    tok = re.search(r'name=csrf value="([^"]+)"', c.get("/join").get_data(as_text=True)).group(1)
+    c.post("/join", data=dict(birth_date="1990-03-04", csrf=tok, first="Tool", last="Admin", email="tooladmin@example.com", phone="1"))
+    import sqlite3
+    con = sqlite3.connect(A.DB); con.execute("UPDATE members SET is_admin=1 WHERE email='tooladmin@example.com'")
+    con.execute("INSERT OR REPLACE INTO route_budget(day, calls) VALUES(?, 7)", (A.today_pt().isoformat(),)); con.commit(); con.close()
+    usage = c.get("/manage/tools/usage").get_data(as_text=True)
+    assert "Usage." in usage and "MAPBOX CALLS TODAY" in usage and ">7<" in usage and "Leave-by times" in usage
+    qr = c.get("/manage/tools/qr").get_data(as_text=True)
+    assert "QR codes." in qr and "Join the club" in qr and "/qr.svg?for=join" in qr and "Public schedule" in qr
+    tr = c.get("/manage/tools/transfer").get_data(as_text=True)
+    assert "Data transfer." in tr and "/export/payments.csv" in tr and "/export/all.zip" in tr and "data-sheet-name=import" in tr
+    z = c.get("/export/all.zip")
+    import io, zipfile
+    names = zipfile.ZipFile(io.BytesIO(z.data)).namelist()
+    assert z.status_code == 200 and set(names) == {"members.csv", "practices.csv", "attendance.csv", "payments.csv"}
+    assert c.get("/export/payments.csv").data.startswith("\ufeffDate,Member".encode())

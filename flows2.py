@@ -47,6 +47,8 @@ def ensure_schema(d):
     d.execute("""CREATE TABLE IF NOT EXISTS shift_signups(
         shift_id INTEGER NOT NULL, member_id INTEGER NOT NULL, at TEXT NOT NULL, PRIMARY KEY(shift_id, member_id))""")
     d.execute("CREATE TABLE IF NOT EXISTS club_prefs(key TEXT PRIMARY KEY, value TEXT)")
+    # Tools › Usage: map/traffic calls per day by what used them (counts only, no places or people).
+    d.execute("CREATE TABLE IF NOT EXISTS route_usage(day TEXT NOT NULL, purpose TEXT NOT NULL, calls INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(day, purpose))")
     # 04.09 leave-by alert per member per practice: the last leave-by we told them, and when we last checked traffic.
     d.execute("""CREATE TABLE IF NOT EXISTS leave_alerts(
         member_id INTEGER NOT NULL, practice_id INTEGER NOT NULL, leave_by TEXT, checked TEXT, PRIMARY KEY(member_id, practice_id))""")

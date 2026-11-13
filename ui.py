@@ -480,7 +480,7 @@ body.editor .daypicks input{position:absolute;opacity:0;width:1px;height:1px}
 body.editor .daypicks span{display:inline-flex;align-items:center;height:40px;padding:0 14px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 14px/1 var(--r2-font-sans)}
 body.editor .daypicks input:checked+span{background:var(--team-sun);color:var(--ink)}
 #grunionsDateDlg .calday.today{background:var(--lime);color:var(--ink);border-radius:999px}
-#grunionsDateDlg .calday.on{box-shadow:inset 0 0 0 2px var(--lime);border-radius:999px}
+#grunionsDateDlg .calday.on{box-shadow:inset 0 0 0 2px var(--lime);border-radius:999px;color:var(--paper)}
 #grunionsDateDlg .calday.has{color:var(--team-sun)}
 #grunionsDateDlg .callegend{display:flex;gap:16px;margin:8px 8px 4px;color:var(--smoke);font:600 12px/1 var(--r2-font-sans)}
 #grunionsDateDlg .callegend i{display:inline-block;width:8px;height:8px;margin-right:6px;border-radius:999px;background:var(--lime)}
@@ -488,6 +488,18 @@ body.editor .daypicks input:checked+span{background:var(--team-sun);color:var(--
 #grunionsDateDlg .matactions,#grunionsTimeDlg .matactions{display:flex;gap:10px}
 #grunionsDateDlg .matactions button,#grunionsTimeDlg .matactions button{flex:1;height:52px;border-radius:999px;background:var(--graphite);color:var(--paper)}
 #grunionsDateDlg #matDateOk,#grunionsTimeDlg #timeOk{background:var(--lime);color:var(--ink)}
+/* Compact date picker: whole month fits without scrolling (Nov 13). */
+#grunionsDateDlg .sheet{overflow:visible;padding:16px 12px 12px}
+#grunionsDateDlg .matkicker{margin:0 8px 2px}
+#grunionsDateDlg .matheadline{margin:0 8px 8px;font-size:1.5rem}
+#grunionsDateDlg .calhead{margin:0 0 4px}
+#grunionsDateDlg .calwd span{font-size:12px;line-height:28px}
+#grunionsDateDlg .calgrid{gap:2px 0}
+#grunionsDateDlg button.calday{height:40px!important;min-height:0!important;padding:0!important;margin:0;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1}
+#grunionsDateDlg button.calday::before{display:none}
+#grunionsDateDlg .calday.today,#grunionsDateDlg .calday.on{width:40px;justify-self:center}
+#grunionsDateDlg .matactions{margin:8px 0 0}
+#grunionsDateDlg .matactions button{height:44px;min-height:0}
 .mseg{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 4px}
 .mseg .chip{background:var(--graphite);color:var(--paper);border:0;border-radius:999px}
 .mseg .chip.on{background:var(--paper);color:var(--ink)}
@@ -3869,7 +3881,14 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   document.querySelectorAll('input[type=date],input[type=time],input[type=month]').forEach(function(input){
    if(input.dataset.matarm||input.classList.contains('pickhold')||input.hasAttribute('data-native')) return;
    input.dataset.matarm='1';
-   input.addEventListener('pointerdown', function(e){ e.preventDefault(); if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input); });
+   // Open on a real tap only: a scroll that starts on the field must not open the picker.
+   var px=null, py=0, pt=0;
+   function openIt(){ if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input); }
+   input.addEventListener('pointerdown', function(e){ px=e.clientX; py=e.clientY; pt=Date.now(); if(e.pointerType==='mouse'){ e.preventDefault(); } });
+   input.addEventListener('pointercancel', function(){ px=null; });
+   input.addEventListener('pointerup', function(e){ if(px===null) return; var moved=Math.abs(e.clientX-px)>10||Math.abs(e.clientY-py)>10; px=null; if(moved||Date.now()-pt>700) return; e.preventDefault(); openIt(); });
+   input.addEventListener('click', function(e){ e.preventDefault(); });
+   input.addEventListener('focus', function(){ if(input.type!=='time' && input.type!=='date' && input.type!=='month') return; });
    input.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '||e.key==='ArrowDown'){ e.preventDefault(); if(input.type==='time') grunionsOpenTime(input); else grunionsOpenDate(input); } });
   });
  };
@@ -5397,7 +5416,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class=rg-day>Personal</div>
 <div class="list infogrid">
 <div class="li prow"><span class=k>Legal name</span><span class=v>{{ m.first }} {{ m.last }}</span></div>
-<div class="li prow viewonly"><span class=k>Preferred name</span><span class=v>{{ m.preferred_first or '—' }}</span></div>
+<div class=viewonly>{{ rg_row('Preferred name', m.preferred_first or '—', chevron=False) }}</div>
 <div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Preferred name<input form=profileForm name=preferred_first id=prefName value="{{ m.preferred_first or '' }}" data-original="{{ m.preferred_first or '' }}" placeholder="Leave blank to use your legal first name" autocomplete=off></label></div>
 <div class="li prow"><span class=k>Email</span><span class=v>{{ m.email }}</span></div>
 <div class="li prow viewonly"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
@@ -5710,8 +5729,8 @@ T["person"] = """<div class=profilehero>
 <div class="list infogrid">
 <div class="li prow"><span class=k>Legal name</span><span class=v>{{ m.first }} {{ m.last }}</span></div>
 <div class="li prow"><span class=k>Preferred name</span><span class=v>{{ m.preferred_first or '—' }}</span></div>
-<div class="li prow"><span class=k>Email</span><span class=v>{{ m.email }}</span></div>
-<div class="li prow"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
+{{ rg_row('Email', m.email, 'mailto:' ~ m.email, chevron=False) }}
+{{ rg_row('Phone', fmt_phone(m.phone) or '—', ('tel:' ~ m.phone) if m.phone else '', chevron=False) }}
 </div>
 {% else %}
 <p class='ty-muted ty-sm'>Not cleared for any sports yet</p>
@@ -5848,12 +5867,14 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 <div class=stats><div class=stattile><b>{{ hist|length }}</b><span>Attended</span></div><div class=stattile><b>{{ nmonth }}</b><span>This month</span></div></div>
 </div>
 {{ memhead(m) }}
-<div class=list>
-<div class="li prow viewonly">{{ titledot('warn' if on_trial else date_dot(m.usawp_valid_until), 'USAWP # ' ~ (m.usawp_number or '—')) }}<span class=v>{% if on_trial %}{{ trial_badge(tw) }}{% elif m.usawp_valid_until %}{{ fmt_long(m.usawp_valid_until) }}{% else %}Not on file{% endif %}</span></div>
-<div class="li prow viewonly">{{ titledot(date_dot(cred.safesport), 'SafeSport training') }}<span class=v>{% if cred.safesport %}{{ fmt_long(cred.safesport) }}{% else %}Not on file{% endif %}</span></div>
-<div class="li prow viewonly">{{ titledot(date_dot(cred.background), 'Background screening') }}<span class=v>{% if cred.background %}{{ fmt_long(cred.background) }}{% else %}Not on file{% endif %}</span></div>
-<div class="li prow viewonly">{% set rf = referee_eligibility(m) %}{{ titledot(date_dot(cred.referee), 'Referee') }}<span class=v>{% if cred.referee %}{{ fmt_long(cred.referee) }}{% else %}Not on file{% endif %}{% if rf.eligible %} {{ referee_tag(m) }}{% elif rf.expired %}<span class="st st-bad ref-elig">Referee eligibility expired {{ fmt_long(rf.expired) }}</span>{% elif rf.text %} {{ referee_tag(m) }}{% endif %}</span></div>
-{% if cc or ce.eligible or ce.text %}<div class="li prow viewonly">{% if cc %}{{ titledot('ok' if cc.ok else 'bad', 'Coaching') }}<span class=v>{{ 'cleared' if cc.ok else cc.text }}</span>{% elif ce.eligible %}{{ titledot('ok', 'Coaching') }}<span class=v>Coach eligible</span>{% else %}{{ titledot('bad' if ce.expired else 'warn', 'Coaching') }}<span class=v>{{ ce.text or 'Not eligible' }}</span>{% endif %}</div>{% endif %}
+<div class="list memlist">
+<div class=viewonly>
+{{ cred_row('warn' if on_trial else date_dot(m.usawp_valid_until)|trim, 'USAWP # ' ~ (m.usawp_number or '—'), (trial_badge(tw)|striptags) if on_trial else (fmt_long(m.usawp_valid_until) if m.usawp_valid_until else 'Not on file')) }}
+{{ cred_row(date_dot(cred.safesport)|trim, 'SafeSport training', fmt_long(cred.safesport) if cred.safesport else 'Not on file') }}
+{{ cred_row(date_dot(cred.background)|trim, 'Background screening', fmt_long(cred.background) if cred.background else 'Not on file') }}
+{% set rf = referee_eligibility(m) %}{{ cred_row(date_dot(cred.referee)|trim, 'Referee', (fmt_long(cred.referee) if cred.referee else 'Not on file') ~ ((' · eligibility expired ' ~ fmt_long(rf.expired)) if rf.expired and not rf.eligible else '')) }}
+{% if cc %}{{ cred_row('ok' if cc.ok else 'bad', 'Coaching', 'cleared' if cc.ok else cc.text) }}{% elif ce.eligible %}{{ cred_row('ok', 'Coaching', 'Coach eligible') }}{% elif ce.text %}{{ cred_row('bad' if ce.expired else 'warn', 'Coaching', ce.text) }}{% endif %}
+</div>
 {% if me().is_admin %}
 <div class="li editonly"><label class=prefedit style="width:100%;margin:0">USAWP number<input name=number inputmode=numeric autocomplete=off value="{{ m.usawp_number or '' }}"></label></div>
 <div class="li editonly"><label class=prefedit style="width:100%;margin:0">Status<select name=verified><option value=yes {{ 'selected' if m.usawp_status=='verified' }}>Verified</option><option value=no {{ 'selected' if m.usawp_status!='verified' }}>Not verified</option></select></label></div>
@@ -5867,22 +5888,22 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 </div>
 {% if not on_trial and ps.reason %}<p class="sm viewonly" style="margin:8px 0 0">{{ ps.reason }}</p>{% endif %}
 {% if not cl.ok or m.usawp_status != 'verified' %}<p class="ty-muted ty-sm sm viewonly" style="margin:8px 0 0"><a target=_blank rel=noopener href="https://usawp.sport80.com/">Open Sport:80</a> if you want to look it up yourself.</p>{% endif %}
-<div class=rg-day>Personal</div>
-<div class=list>
-<div class="li prow viewonly"><span class=k>Legal name</span><span class=v>{{ m.first }} {{ m.last }}</span></div>
+<h3 class=rg-day>Personal</h3>
+<div class="list memlist">
+<div class=viewonly>{{ rg_row('Legal name', m.first ~ ' ' ~ m.last, chevron=False) }}</div>
 {% if me().is_admin %}
 <div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Legal first name<input name=first value="{{ m.first }}" autocomplete=off required></label></div>
 <div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Legal last name<input name=last value="{{ m.last }}" autocomplete=off required></label></div>
 {% endif %}
-<div class="li prow viewonly"><span class=k>Preferred name</span><span class=v>{{ m.preferred_first or '—' }}</span></div>
+<div class=viewonly>{{ rg_row('Preferred name', m.preferred_first or '—', chevron=False) }}</div>
 {% if me().is_admin %}<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Preferred first name<input name=preferred_first value="{{ m.preferred_first or '' }}" placeholder="Leave blank to use legal first name" autocomplete=off></label></div>{% endif %}
-<div class="li prow"><span class=k>Email</span><span class=v>{{ m.email }}</span></div>
-<div class="li prow"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
+{{ rg_row('Email', m.email, 'mailto:' ~ m.email, chevron=False) }}
+{{ rg_row('Phone', fmt_phone(m.phone) or '—', ('tel:' ~ m.phone) if m.phone else '', chevron=False) }}
 </div>
 {% if me().is_admin %}
-<div class=rg-day>Role</div>
-<div class=list>
-<div class="li prow viewonly"><span class=k>Roles</span><span class=v>{% if m.is_admin %}<span class="chip-info" style="margin:0 6px 0 0">Admin</span>{% endif %}{% if m.role=='coach' %}<span class="chip-info" style="margin:0 6px 0 0">Coach</span>{% endif %}{% if on_referees %}<span class="chip-info" style="margin:0">Referee</span>{% endif %}{% if not m.is_admin and m.role!='coach' and not on_referees %}<span class='ty-muted ty-sm'>Member</span>{% endif %}</span></div>
+<h3 class=rg-day>Role</h3>
+<div class="list memlist">
+{% set _roles = (['Admin'] if m.is_admin else []) + (['Coach'] if m.role=='coach' else []) + (['Referee'] if on_referees else []) %}<div class=viewonly>{{ rg_row('Roles', _roles|join(' · ') if _roles else 'Member', chevron=False) }}</div>
 <div class="li editonly"><input type=hidden name=roles_present value=1 form=memberForm><label style="margin:0"><input type=checkbox name=is_admin value=1 form=memberForm {% if m.is_admin %}checked{% endif %}> Admin</label></div>
 <div class="li editonly"><label style="margin:0"><input type=checkbox name=is_coach value=1 form=memberForm {% if m.role=='coach' %}checked{% endif %}> Active coach</label></div>
 <div class="li editonly"><label style="margin:0"><input type=checkbox name=is_referee value=1 form=memberForm {% if on_referees %}checked{% endif %}> Referee</label></div>
@@ -5891,42 +5912,52 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 {% for a in audits %}<p class="ty-muted ty-sm sm viewonly" style="margin:8px 0 0">{{ a.actor }} changed {{ a.old_name }} → {{ a.new_name }} · {{ fmt_when(a.at) }}</p>{% endfor %}
 </form>
 {% if me().is_admin %}
-{% if program_eligibility is defined and program_eligibility %}{{ program_eligibility|safe }}{% endif %}
-<div class=rg-day id=paid>Paid membership</div>
-<p class="ty-muted ty-sm sm">Separate from clearance. Paying does not satisfy USA Water Polo or USMS. This does not change an RSVP and does not charge a card.</p>
+{% if program_eligibility is defined and program_eligibility %}<div class=viewonly>{{ program_eligibility|safe }}</div>{% endif %}
+<div class=viewonly>
+<h3 class=rg-day id=paid>Paid membership</h3>
+<div class="rg-list memlist">
+{% for ent in paid_details %}{{ rg_row(ent.plan, (('Paid through ' ~ fmt_long(ent.end)) if ent.end else 'No end date') ~ ' · ' ~ (ent.source or 'manual'), '#', '', '', '', ent.status|capitalize, {'active':'paid','pending':'expiring'}.get(ent.status, 'notcleared'), extra='data-open-dialog="paidSheet' ~ ent.id ~ '"') }}
+{% endfor %}
+{{ rg_row('Add a paid membership', 'Paying is separate from clearance', '#', rg_icon('plus'), 'graphite', extra='data-open-dialog="paidNew"') }}
+{% if paid_audits %}{{ rg_row('Membership history', paid_audits|length ~ ' change' ~ ('' if paid_audits|length == 1 else 's'), '#', extra='data-open-dialog="paidHistory"') }}{% endif %}
+</div>
+<h3 class=rg-day>Clearance</h3>
+<div class="rg-list memlist">
+{% if m.vr_status == 'pending' %}{{ rg_row('Waiting on an admin', 'Check Sport:80, then enter their membership', chevron=False) }}{% endif %}
+<button type=button class="rg-row rg-settings memrowbtn" id=memberManual><span class="rg-lead tone-graphite">{{ rg_icon('edit') }}</span><span class=rg-txt><b>Edit clearance</b><small>USAWP number, SafeSport, background, referee</small></span><span class=rg-chev aria-hidden=true>→</span></button>
+</div>
+</div>
 {% for ent in paid_details %}
-<form method=post action="/admin/member/{{ m.id }}#paid" class=card>{{ csrf_field() }}
+<dialog id="paidSheet{{ ent.id }}" class="botsheet modal"><form method=post action="/admin/member/{{ m.id }}#paid" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
 <input type=hidden name=action value=paid><input type=hidden name=entitlement_id value="{{ ent.id }}">
-<p><b>{{ ent.plan }}</b> · {{ ent.status }}</p>
-<p class="ty-muted ty-sm sm">Programs: {{ ent.programs|join(', ') if ent.programs else 'None selected' }}</p>
-<p class="ty-muted ty-sm sm">Source: {{ ent.source or 'manual' }}{% if ent.url %} · {{ ent.url }}{% endif %}</p>
-<label>Plan<select name=plan_id>{% for plan in paid_plans if plan.active or plan.id==ent.plan_id %}<option value="{{ plan.id }}" {% if plan.id==ent.plan_id %}selected{% endif %}>{{ plan.name }}</option>{% endfor %}</select></label>
-<label>Status<select name=paid_status>{% for name in paid_statuses %}<option value="{{ name }}" {% if name==ent.status %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
-<label>Valid from<input type=date name=valid_from value="{{ ent.start }}"></label>
-<label>Paid through<input type=date name=paid_through value="{{ ent.end }}"></label>
-<label>Notes<textarea class=planfield name=paid_notes rows=2>{{ ent.notes }}</textarea></label>
+<p class=ty-caps>{{ display_first(m) }} {{ m.last }}</p><h2>{{ ent.plan }}.</h2>
+<p class=ty-muted>{% if ent.programs %}{{ ent.programs|join(', ') }} · {% endif %}{{ ent.source or 'manual' }}. Paying doesn't clear them; insurance still counts.</p>
+<label class=rg-field><span>PLAN</span><select name=plan_id>{% for plan in paid_plans if plan.active or plan.id==ent.plan_id %}<option value="{{ plan.id }}" {% if plan.id==ent.plan_id %}selected{% endif %}>{{ plan.name }}</option>{% endfor %}</select></label>
+<label class=rg-field><span>STATUS</span><select name=paid_status>{% for name in paid_statuses %}<option value="{{ name }}" {% if name==ent.status %}selected{% endif %}>{{ name|capitalize }}</option>{% endfor %}</select></label>
+<div class=rg-fieldpair><label class=rg-field><span>VALID FROM</span><input type=date name=valid_from value="{{ ent.start }}"></label>
+<label class=rg-field><span>PAID THROUGH</span><input type=date name=paid_through value="{{ ent.end }}"></label></div>
+<label class=rg-field><span>NOTES</span><textarea name=paid_notes rows=2>{{ ent.notes }}</textarea></label>
 <button class="rg-btn primary" name=paid_action value=edit>Save</button>
-<button class="rg-btn secondary" name=paid_action value=end>End</button>
-</form>
-{% else %}<p class="ty-muted ty-sm sm">No paid membership yet.</p>{% endfor %}
-<form method=post action="/admin/member/{{ m.id }}#paid">
-{{ csrf_field() }}
+<button class="rg-btn ghost" name=paid_action value=end>End membership</button>
+</form></dialog>
+{% endfor %}
+<dialog id=paidNew class="botsheet modal"><form method=post action="/admin/member/{{ m.id }}#paid" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
 <input type=hidden name=action value=paid>
-<label>Plan<select name=plan_id>{% for plan in paid_plans if plan.active %}<option value="{{ plan.id }}">{{ plan.name }}</option>{% endfor %}</select></label>
-<label>Status<select name=paid_status>{% for name in paid_statuses %}<option value="{{ name }}">{{ name }}</option>{% endfor %}</select></label>
-<label>Valid from<input type=date name=valid_from></label>
-<label>Paid through<input type=date name=paid_through></label>
-<label>Notes<textarea class=planfield name=paid_notes rows=3></textarea></label>
+<p class=ty-caps>{{ display_first(m) }} {{ m.last }}</p><h2>Add a paid membership.</h2>
+<p class=ty-muted>Record a payment you've seen. This doesn't charge a card, change an RSVP, or clear them for USA Water Polo or USMS.</p>
+<label class=rg-field><span>PLAN</span><select name=plan_id>{% for plan in paid_plans if plan.active %}<option value="{{ plan.id }}">{{ plan.name }}</option>{% endfor %}</select></label>
+<label class=rg-field><span>STATUS</span><select name=paid_status>{% for name in paid_statuses %}<option value="{{ name }}">{{ name|capitalize }}</option>{% endfor %}</select></label>
+<div class=rg-fieldpair><label class=rg-field><span>VALID FROM</span><input type=date name=valid_from></label>
+<label class=rg-field><span>PAID THROUGH</span><input type=date name=paid_through></label></div>
+<label class=rg-field><span>NOTES</span><textarea name=paid_notes rows=2></textarea></label>
 <button class="rg-btn primary" name=paid_action value=save>Save</button>
-<button class="rg-btn secondary" name=paid_action value=active>Mark active</button>
-</form>
-<div class=rg-day>Paid membership audit</div>
-{% for row in paid_audits %}<p class="ty-muted ty-sm sm">{{ row.at[:16] }} · {{ row.actor }} · {{ row.detail }}</p>{% else %}<p class="ty-muted ty-sm sm">No paid-membership changes yet.</p>{% endfor %}
-<div class=rg-day>Actions</div>
-{% if m.vr_status == 'pending' %}<p class="ty-body sm viewonly" style="margin:0 0 10px">Waiting on an admin to check Sport:80</p>{% endif %}
-<button type=button class="rg-btn secondary full viewonly" id=memberManual style="margin-top:10px">Manual Entry</button>
+<button class="rg-btn ghost" name=paid_action value=active>Save as active</button>
+</form></dialog>
+{% if paid_audits %}<dialog id=paidHistory class="botsheet modal"><div class=sheet><div class=grab aria-hidden=true></div>
+<p class=ty-caps>{{ display_first(m) }} {{ m.last }}</p><h2>Membership history.</h2>
+<div class="rg-list memlist">{% for row in paid_audits %}{{ rg_row(row.detail, fmt_when(row.at) ~ ' · ' ~ row.actor, chevron=False) }}{% endfor %}</div>
+</div></dialog>{% endif %}
 {% set chk = list_row_status(m, 'members') %}
-
 {% endif %}
 <script>
 (function(){
@@ -6493,9 +6524,15 @@ T["approvals"] = """{% call admin_page('Events') %}<a class="rg-btn ghost pageac
 </form></div>{% endfor %}{% endif %}
 {% for g in groups %}<h2>{{ g.label }}</h2><div class=list>{% for item in g['items'] %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ item.title }}</span><span class="ty-muted ty-sm sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endfor %}
 {% if not groups and not queue %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
-T["usage"] = ADMIN_NAV + """{{ admin_page('Usage', 'Mapbox calls today for driving routes and place search. One typing session counts as one call.') }}
-<div class=card><h2 style="margin:0 0 8px">Today</h2>
-<p class="ty-body sm" style="margin:0">{{ calls }} of {{ cap }}</p></div>"""
+T["usage"] = ADMIN_NAV + """<div class=rg-screen>
+{{ rg_page_title('Usage', 'Map and traffic calls. Free tier resets ' ~ resets ~ '.') }}
+{{ rg_stat('MAPBOX CALLS TODAY', calls, delta, bars) }}
+<div class=rg-metrics>{{ rg_metric(month_calls, 'This month', 'lime') }}{{ rg_metric(pct ~ '%', 'Of ' ~ free_label ~ ' free', 'carbon') }}</div>
+{{ rg_label('What uses it') }}
+<div class=rg-srows>{% for label, n in uses %}{{ rg_settings_row(label, n) }}{% endfor %}</div>
+{% if not uses_tracked %}<p class="ty-muted ty-sm">The breakdown starts counting from today.</p>{% endif %}
+<p class="ty-muted ty-sm">If the daily limit ({{ cap }}) is hit, maps fall back to the venue address. Nothing breaks.</p>
+</div>"""
 T["manage"] = ADMIN_NAV + """<div class=managehome id=manageHome>
 {# 08.13 Manage home: search · Avg checked in · four hub tiles. Every piece is a component. #}
 <div id=manageSearchWrap>{{ rg_search('manageSearch', 'Search settings, people, tools…', '/manage/area/club' if club_admin else '', 'settings', 'manageClear') }}</div>
@@ -7611,31 +7648,36 @@ grid.addEventListener('click', function(e){
 })();
 </script>"""
 
-T["transfer"] = ADMIN_NAV + """{{ admin_page('Transfer', 'Bring in a Sport:80 export, or download the roster and attendance.') }}
-<h2>Import</h2>
-<div class=card><ol class="ty-body sm" style="margin:0;padding-left:18px;line-height:1.7">
-<li>Log in at <a href=https://usawp.sport80.com>usawp.sport80.com</a> and switch to the Grunions club profile.</li>
-<li>Members → Smart Lists → Edit Columns: name, email, membership status, member number, valid until, plus SafeSport / background columns.</li>
+T["transfer"] = ADMIN_NAV + """<div class=rg-screen>
+{{ rg_page_title('Data transfer', 'Bring members in, take records out. Nothing is deleted.') }}
+{% if stats %}{{ rg_callout('Imported', 'Read ' ~ stats.rows ~ ' rows · updated ' ~ stats.matched ~ ' members · ' ~ (stats.req_updates or 0) ~ ' compliance items · ' ~ (stats.unmatched|length) ~ ' not in the app', '', '', 'lime') }}
+{% if stats.unmatched %}<details class=rg-tableview><summary>Not signed up in the app</summary>{% for u in stats.unmatched %}<p class=ty-muted>{{ u }}</p>{% endfor %}</details>{% endif %}{% endif %}
+{{ rg_label('Import') }}
+<div class=rg-srows><button type=button class=rg-srow data-open-dialog=importSheet><span class=rg-srlabel>Members from CSV</span><span class=rg-srvalue>Upload</span>{{ rg_icon('chevron_right', 'sm') }}</button></div>
+<p class="ty-muted ty-sm">Matching uses email first, then exact legal first and last name. Nothing is removed.</p>
+{{ rg_label('Export') }}
+<div class=rg-srows>
+{{ rg_settings_row('Members & clearance', 'CSV', '/members.csv') }}
+{{ rg_settings_row('Practices', 'CSV', '/export/practices.csv?start=' ~ year0 ~ '&end=' ~ today_iso) }}
+{{ rg_settings_row('Attendance', 'CSV', '/export/practices.csv?detail=1&start=' ~ year0 ~ '&end=' ~ today_iso) }}
+{{ rg_settings_row('Payments recorded', 'CSV', '/export/payments.csv') }}
+</div>
+<p class="ty-muted ty-sm">Practices and attendance cover this year so far.</p>
+{{ rg_button('Export everything (.zip)', 'primary', '/export/all.zip') }}
+{% if last_export %}<p class="ty-muted ty-sm">Last export · {{ last_export }}</p>{% endif %}
+{% if sheet_on %}{{ rg_label('Google Sheet') }}
+<p class="ty-muted ty-sm">{% if sheet_status.at %}Last sync {{sheet_status.at}} PT · {{sheet_status.label}}{% else %}Not synced yet{% endif %}{% if sheet_status.detail and not sheet_status.ok %} · {{sheet_status.detail}}{% endif %}. Members, Practices and Attendance stay in sync after changes; a full rewrite also runs daily.</p>
+<form method=post action=/export/sheet>{{csrf_field()}}{{ rg_button('Sync to Google Sheet now', 'secondary') }}</form>{% endif %}
+<dialog id=importSheet class="botsheet modal" data-sheet-name=import><form method=post action=/manage/tools/transfer enctype=multipart/form-data class=sheet>{{csrf_field()}}<div class=grab aria-hidden=true></div>
+<h2>Members from CSV.</h2>
+<ol class=ty-muted style="margin:0;padding-left:18px;line-height:1.6">
+<li>Log in at <a href=https://usawp.sport80.com>usawp.sport80.com</a> and switch to the club profile.</li>
+<li>Members → Smart Lists → Edit Columns: name, email, membership status, member number, valid until, plus SafeSport / background.</li>
 <li>Actions → Export Report, then upload the emailed file here.</li></ol>
-<form method=post action=/transfer enctype=multipart/form-data style="margin-top:14px">{{csrf_field()}}{{ upload_field('file', 'file', 'CSV or Excel', '.csv,.xlsx') }}<button class="rg-btn primary full" style="margin-top:12px">Import</button></form>
-{% if stats %}<div class=note style="margin-top:16px">Read {{stats.rows}} rows · updated {{stats.matched}} members · {{stats.req_updates or 0}} compliance items · {{stats.unmatched|length}} roster rows not in the app</div>
-{% if stats.unmatched %}<details style="margin-top:12px"><summary>Not signed up in the app</summary><div class=body>{% for u in stats.unmatched %}<div class="kv ty-body">{{u}}</div>{% endfor %}</div></details>{% endif %}
-{% else %}<p class="ty-muted ty-sm sm" style="margin:12px 0 0">No file imported yet.</p>{% endif %}
-<p class="ty-muted ty-sm xs" style="margin:12px 0 0">Matching uses email first, then exact legal first and last name. An optional Preferred First Name column is stored as the name shown in the app and is not used for matching. A Membership Type or Member Type column adds USAWP coaches to the coaching list.</p></div>
-<h2>Export</h2>
-<div class=card><h2 style="margin:0 0 8px">Members</h2>
-<p class="ty-body sm">Legal name, preferred name, phone, role, clearance, USAWP number, membership, SafeSport, background screening, trial dates, and attendance.</p>
-<a class="rg-btn secondary full" href=/members.csv>Download members CSV</a></div>
-<div class=card><h2 style="margin:0 0 8px">Practices and attendance</h2>
-<form method=get action=/export/practices.csv>
-<div class=row><label>Start<input type=date name=start value="{{start}}" required></label><label>End<input type=date name=end value="{{end}}" required></label></div>
-<button class="rg-btn secondary full" name=detail value=0>Download practices CSV</button>
-<button class="rg-btn secondary full" style="margin-top:10px" name=detail value=1>Download detailed attendance CSV</button></form>
-<p class="ty-muted ty-sm sm" style="margin:12px 0 0">Practices is one row per practice, with the assigned coaches, a coach count, and how many of those coaches are coach-eligible. Detailed attendance is one row per member per practice, with RSVP and check-in.</p></div>
-{% if sheet_on %}<div class=card><h2 style="margin:0 0 8px">Google Sheet</h2>
-<p class="ty-body sm">{% if sheet_status.at %}Last sync {{sheet_status.at}} PT · {{sheet_status.label}}{% else %}Not synced yet{% endif %}{% if sheet_status.detail and not sheet_status.ok %} · {{sheet_status.detail}}{% endif %}</p>
-<p class="ty-muted ty-sm sm">Members, Practices, and Attendance stay in sync after changes. A full rewrite also runs daily.</p>
-<form method=post action=/export/sheet>{{csrf_field()}}<button class="rg-btn secondary full">Sync to Google Sheet now</button></form></div>{% endif %}"""
+{{ upload_field('file', 'file', 'CSV or Excel', '.csv,.xlsx') }}
+<button class="rg-btn primary">Import</button>
+</form></dialog>
+</div>"""
 
 T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="rg-btn ghost pageact" href=/members.csv>Export CSV</a>{% endcall %}
 <div class=peoplebar>
@@ -7822,33 +7864,14 @@ T["requirements_page"] = ADMIN_NAV + """{{ admin_page('Rules', 'Cleared to play 
 <div class=row><label>Applies to<select name=applies_to><option>all</option><option>athlete</option><option>coach</option></select></label><label>Keywords<input name=keywords placeholder="cpr,firstaid"></label></div>
 <label><input type=checkbox name=expires checked>Has an expiration date</label><button class="rg-btn secondary full" name=action value=add>Add</button></form></details>"""
 
-T["qr_page"] = ADMIN_NAV + """{{ admin_page('Join QR', 'Anyone who scans this joins the team.') }}
-<div style="text-align:center">
-{% if u %}<div style="background:var(--paper);border-radius:16px;padding:18px;display:inline-block;margin-top:8px"><img src=/qr.svg alt="Sign-up QR code" width="240" height="240" style="width:min(64vw,240px);height:auto;display:block"></div>
-<p class="ty-muted ty-sm sm" id=joinLink style="margin-top:12px;word-break:break-all">{{u}}</p>
-<button class="rg-btn primary full noprint" type=button id=copyJoin>Copy link</button>
-<button class="rg-btn secondary full noprint" type=button id=shareJoin style="margin-top:8px">Share</button>
-<button class="rg-btn secondary noprint" type=button onclick="print()" style="margin-top:8px">Print</button>
-{% else %}<p class=emptyfind>The join link is not ready yet.</p>{% endif %}</div>
-<script>
-(function(){
- var link=document.getElementById('joinLink'), copy=document.getElementById('copyJoin'), share=document.getElementById('shareJoin');
- if(!link||!copy) return;
- function text(){return (link.textContent||'').trim()}
- function copied(){copy.textContent='Copied'; setTimeout(function(){copy.textContent='Copy link'},1600)}
- function fallback(value){var ta=document.createElement('textarea'); ta.value=value; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy')}catch(e){} ta.remove()}
- copy.onclick=function(){
-  var value=text();
-  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(value).then(copied, function(){fallback(value); copied()});
-  else {fallback(value); copied()}
- };
- if(share) share.onclick=function(){
-  var value=text();
-  if(navigator.share) navigator.share({title:'Join the Grunions', url:value}).catch(function(){});
-  else copy.click();
- };
-})();
-</script>"""
+T["qr_page"] = ADMIN_NAV + """<div class=rg-screen>
+{{ rg_page_title('QR codes', 'Print or share. Each code opens one thing.') }}
+<div class=rg-qrgrid>
+{{ rg_qr_card('Join the club', 'Opens the join page with the team picked.', '/qr.svg?for=join' if join_url else '', join_url, 'join-qr.svg', 'The join link is not ready yet.') }}
+{{ rg_qr_card('Public schedule', 'Opens the website schedule. No login.', '/qr.svg?for=schedule' if schedule_url else '', schedule_url, 'schedule-qr.svg', "Publish the schedule in <a href='/manage/widget'>Website &amp; sharing</a> first.") }}
+</div>
+<p class="ty-muted ty-sm">Codes don't expire. Changing a practice time doesn't change its code.</p>
+</div>"""
 
 def _ds_nav(label, keys):
     names = {"home": "Home", "lineup": "Lineup", "chat": "Chat", "manage": "Manage"}

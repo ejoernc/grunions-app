@@ -543,7 +543,19 @@ def page_title(title, sub="", actions=""):
         t, ('<p class=rg-ptsub>%s</p>' % _e(sub)) if sub else "", ('<div class=rg-ptacts>%s</div>' % actions) if actions else ""))
 
 
+def qr_card(title, sub, img_src="", url="", filename="qr.svg", note=""):
+    """Tools › QR codes (Figma 61 · M4.2): one code per card, Download + Share. note replaces the code when it isn't ready."""
+    if not img_src:
+        return Markup('<section class=rg-qrcard><b class=rg-qrtitle>%s</b><p class=ty-muted>%s</p><p class="ty-muted ty-sm">%s</p></section>' % (_e(title), _e(sub), note))
+    return Markup('<section class=rg-qrcard><div class=rg-qrimg><img src="%s" alt="%s QR code" width=200 height=200></div>'
+                  '<b class=rg-qrtitle>%s</b><p class=ty-muted>%s</p><p class="ty-muted ty-sm rg-qrurl">%s</p>'
+                  '<div class=rg-qracts><a class="rg-btn secondary" href="%s" download="%s">Download</a>'
+                  '<button type=button class="rg-btn secondary" data-share-text="%s">Share</button></div>'
+                  '<small class=ty-muted data-share-note hidden></small></section>' % (
+                      _e(img_src), _e(title), _e(title), _e(sub), _e(url), _e(img_src), _e(filename), _e(url)))
+
+
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, event_tone=event_tone)

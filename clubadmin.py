@@ -2454,16 +2454,19 @@ def integrations_html(d):
 
 
 def program_eligibility_html(d, member, today):
-    bits = ['<div class=rg-day id=programs>Eligibility by program</div>',
-            '<p class="ty-muted ty-sm sm">Clearance is separate from payment. An off program does not apply its requirements.</p>']
+    """Sports on the admin member page: one list row per sport with its clearance chip (2.0 / List row)."""
+    import components as C
+    rows = []
     for program in programs(d):
         if not program["active"]:
-            bits.append("<p><b>%s</b> · Off</p>" % escape(program["name"]))
+            rows.append(C.row(program["name"], "Off for the club", chip_label="Off", chip_status="neutral", chevron=False, muted=True))
             continue
         result = eligibility(d, member, program, "practice", "athlete", today)
-        missing = (", ".join(result["missing"])) if result["missing"] else ""
-        bits.append("<p><b>%s</b> · %s%s</p>" % (escape(program["name"]), escape(result["status"] or "Cleared"), (" · " + escape(missing)) if missing else ""))
-    return "".join(bits)
+        status = result["status"] or "Cleared"
+        st = {"Cleared": "cleared", "Pending verification": "expiring"}.get(status, "notcleared")
+        sub = ("Needs " + ", ".join(result["missing"])) if result["missing"] else ""
+        rows.append(C.row(program["name"], sub, chip_label=status, chip_status=st, chevron=False))
+    return Markup('<h3 class=rg-day id=programs>Sports</h3><div class="rg-list memlist">%s</div>' % "".join(str(r) for r in rows))
 
 
 def attention(d, member, view="members"):

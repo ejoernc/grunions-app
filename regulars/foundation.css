@@ -1020,3 +1020,24 @@ button.rg-srow{width:100%;border:0;text-align:left;font:inherit;cursor:pointer}
 /* A condensed social card sits under the practice card that follows it (16px overlap: 10 stack + 6 own).
    Pad its bottom by that much so its Join button shows whole above the next card's edge. */
 .rg-social.cond[data-when=before]{padding-bottom:calc(var(--space-3) + 16px)}
+/* Tools › QR codes */
+.rg-qrgrid{display:grid;gap:12px}
+@media (min-width:768px){.rg-qrgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.rg-qrcard{display:grid;gap:8px;padding:20px;border-radius:28px;background:var(--carbon);min-width:0}
+.rg-qrimg{justify-self:start;padding:12px;border-radius:16px;background:var(--fixed-paper)}
+.rg-qrimg img{display:block;width:min(46vw,160px);height:auto}
+.rg-qrtitle{font:700 20px/1.1 var(--font-display);color:var(--paper)}
+.rg-qrcard p{margin:0}
+.rg-qrurl{overflow-wrap:anywhere}
+.rg-qracts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rg-qracts .rg-btn{min-height:44px}
+
+/* Admin member page (Nov 13): rows + sheets instead of raw forms. */
+.memlist .rg-row{margin:0 0 8px}
+.memlist .rg-row .rg-txt small{display:block}
+button.memrowbtn{border:0;text-align:left;font:inherit;cursor:pointer}
+.rg-fieldpair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rg-fieldpair .rg-field{min-width:0}
+button.memrowbtn{height:auto;min-height:0;padding:14px 16px;border-radius:var(--row-radius);background:var(--carbon);color:var(--paper);justify-content:flex-start;width:100%}
+button.memrowbtn .rg-txt{flex:1;min-width:0}
+.memlist .rg-lead.tone-graphite{color:var(--paper)}

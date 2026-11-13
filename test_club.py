@@ -554,8 +554,8 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
     assert "SafeSport" in athletes and "On" in athletes
     assert "Background screening" in coaches and "Off" in coaches
     club = admin.get("/manage/area/club").get_data(as_text=True)
-    assert "Leadership" in club and "<b>Permissions</b>" in club
-    assert "Who can manage the club, sports and schedule" in club and 'href="/manage/club/permissions"' in club
+    assert "Roles &amp; permissions" in club
+    assert "Club roles, who holds them, and who can manage what" in club and 'href="/manage/club/permissions"' in club
     club_area = admin.get("/manage/area/club").get_data(as_text=True)
     # Nov 13: Compliance folded into Sports (covered per sport).
     assert "<b>Compliance</b>" not in club_area and "Club supported sports, sports insurance and requirements" in club_area and "Venues" in club_area
