@@ -216,7 +216,11 @@ body.schedhome:has(.weekdrawer.full) .homemap{opacity:0}
  body.schedhome .weekdrawer.full .weekbody{touch-action:pan-y}
 }
 body.schedhome.sheetdrag{user-select:none}
-.weekbody{flex:1;min-height:0;overflow-y:auto;overflow-anchor:none;display:flex;flex-direction:column;gap:12px;padding-bottom:calc(var(--nav-clear) + 72px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.weekbody{flex:1;min-height:0;overflow-y:auto;overflow-anchor:none;display:flex;flex-direction:column;gap:12px;padding-bottom:0;-webkit-overflow-scrolling:touch}
+/* A real spacer, not padding: scroll containers that are flex columns drop bottom padding, which left
+   View full schedule under the nav. */
+.weekbody>*{flex-shrink:0}  /* children must not squash: .weekthis was shrinking, so the list never got taller than the sheet */
+.weekbody::after{content:"";flex:none;height:calc(var(--nav-clear) + 16px + env(safe-area-inset-bottom))}
 .weekhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .weekhead h2{margin:0;font:700 28px/1 var(--r2-font-display);letter-spacing:-.03em}
 .weekhead h2 span{color:var(--smoke);font:700 16px/1 var(--r2-font-sans)}
@@ -235,7 +239,7 @@ body.schedhome.sheetdrag{user-select:none}
 .weekempty b{display:block;margin-top:8px;font:700 22px/1.15 var(--r2-font-display)}
 .weekempty p{margin:6px 0 12px;color:var(--smoke);font:600 13px/1.3 var(--r2-font-sans)}
 .weekempty a{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;background:var(--lime);color:var(--ink);font:700 14px/1 var(--r2-font-sans);text-decoration:none}
-.fullsched{display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:999px;border:1px solid var(--slate);color:var(--paper);text-decoration:none;font:700 15px/1 var(--r2-font-sans)}
+.fullsched{display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:999px;border:1px solid var(--smoke);color:var(--paper);text-decoration:none;font:700 15px/1 var(--r2-font-sans)}
 .fullhint{margin:0;text-align:center;color:var(--smoke);font:600 12px/1 var(--r2-font-sans)}
 .socialcond{display:flex;align-items:center;gap:12px;min-height:60px;padding:10px 12px;border-radius:20px;background:var(--team-bubblegum);color:var(--ink)}
 .socialcond b{display:block;font:700 11px/1.2 var(--r2-font-sans);letter-spacing:.03em}
@@ -497,7 +501,7 @@ body.editor .daypicks input:checked+span{background:var(--team-sun);color:var(--
 .wkrow small{display:block;margin-top:2px;color:inherit;opacity:.75;font:600 13px/1.3 var(--r2-font-sans)}
 .wkact{margin-left:auto;padding:8px 12px;border-radius:999px;background:var(--ink);color:var(--paper);font:700 13px/1 var(--r2-font-sans)}
 .wkrow.sky .wkact{background:var(--ink);color:var(--paper)}
-.wkadd{display:flex;align-items:center;justify-content:center;min-height:56px;margin:4px 0 12px;border-radius:999px;border:1.5px solid var(--slate);color:var(--paper);text-decoration:none;font:700 15px/1 var(--r2-font-sans)}
+.wkadd{display:flex;align-items:center;justify-content:center;min-height:56px;margin:4px 0 12px;border-radius:999px;border:1.5px solid var(--smoke);color:var(--paper);text-decoration:none;font:700 15px/1 var(--r2-font-sans)}
 .prow2{display:flex;align-items:center;gap:12px;min-height:76px;margin:0 0 10px;padding:14px 16px;border-radius:28px;background:var(--carbon);color:var(--paper);text-decoration:none}
 .prow2 b{display:block;font:700 16px/1.2 var(--r2-font-sans)}
 .prow2 small{display:block;color:var(--smoke);font:600 13px/1.3 var(--r2-font-sans)}
@@ -535,8 +539,8 @@ body.adminpage .checkfilt .chip.on,body.adminpage .checkfilt .chip-active{backgr
 .reqacts .btn-secondary{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
 .roleopt{display:flex;align-items:center;gap:12px;width:100%;min-height:72px;margin:0 0 8px;padding:12px 14px;border:0;border-radius:22px;background:var(--graphite);color:var(--paper);text-align:left}
 .roleopt small{display:block;color:var(--smoke);font:600 13px/1.3 var(--r2-font-sans)}
-.roleopt em{margin-left:auto;padding:6px 10px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 12px/1 var(--r2-font-sans);font-style:normal;border:1px solid var(--slate)}
-.roleopt.on{box-shadow:inset 0 0 0 1.5px var(--slate)}
+.roleopt em{margin-left:auto;padding:6px 10px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 12px/1 var(--r2-font-sans);font-style:normal;border:1px solid var(--smoke)}
+.roleopt.on{box-shadow:inset 0 0 0 1.5px var(--smoke)}
 .roleopt.on em{background:var(--lime);color:var(--ink);border-color:transparent}
 .coachmore{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .coachmore a{color:var(--paper);text-decoration:none;font:700 16px/1.2 var(--r2-font-sans)}
@@ -789,7 +793,7 @@ header.profilebar #profileEdit{display:none !important}
 .privgo{flex:none;color:var(--r2-smoke);font:700 14px/1.2 var(--r2-font-sans)}
 .r2switch{position:relative;width:52px;height:32px;flex:none}
 .r2switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0}
-.r2switch i{position:absolute;inset:0;border-radius:999px;background:var(--slate);pointer-events:none}
+.r2switch i{position:absolute;inset:0;border-radius:999px;background:var(--smoke);pointer-events:none}
 .r2switch i:before{content:"";position:absolute;width:26px;height:26px;left:3px;top:3px;border-radius:50%;background:var(--paper);transition:transform .15s ease}
 .r2switch input:checked+i{background:var(--r2-lime)}
 .r2switch input:checked+i:before{transform:translateX(20px)}
@@ -4855,8 +4859,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% for card in s.after %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
 {% endfor %}
 <a class=fullsched href="/practices?view=list">View full schedule ›</a>
-<p class=fullhint>Upcoming · Past · All</p>
-{% if preview_on %}<p class=previewstates>Preview states <a href="/practices">now</a> · <a href="/practices?home=soon">3h</a> · <a href="/practices?home=later">later</a> · <a href="/practices?home=out">not going</a> · <a href="/practices?home=coffee">coffee</a> · <a href="/practices?home=uncleared">not cleared</a> · <a href="/practices?home=empty">empty</a> · <a href="/practices?drawer=peek">peek</a></p>{% endif %}
+
 </div>
 </div>
 </div>
