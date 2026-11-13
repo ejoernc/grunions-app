@@ -1419,6 +1419,28 @@ dialog.botsheet.attachsheet::backdrop{background:rgba(11,11,12,.6)}
 dialog.botsheet.attachsheet .sheet{background:var(--r2-carbon);color:var(--r2-paper);border:0;border-radius:28px 28px 0 0;padding:10px 16px calc(28px + env(safe-area-inset-bottom));gap:14px}
 dialog.botsheet.attachsheet .grab{height:5px;margin:0;padding:0;background:transparent;position:relative}
 dialog.botsheet.attachsheet .grab::after{top:0;width:40px;height:5px;margin-left:-20px;background:var(--r2-smoke)}
+/* 2.0 / Sheet (Figma 02 Components · H · Sheets, pickers & selects): every slide-up uses this.
+   Carbon sheet, 28px top corners, 10/16/28 padding, 40x5 grabber, 22px title, graphite 20px groups, 52px rows. */
+dialog.botsheet::backdrop{background:rgba(11,11,12,.6)}
+dialog.botsheet .sheet{background:var(--carbon);color:var(--paper);border:0;border-radius:28px 28px 0 0;padding:10px 16px calc(28px + env(safe-area-inset-bottom))}
+dialog.botsheet .grab{background:var(--carbon);height:20px;margin:0 0 6px}
+dialog.botsheet .grab::after{top:0;width:40px;height:5px;margin-left:-20px;border-radius:3px;background:var(--smoke)}
+dialog.botsheet .sheet>h2,dialog.botsheet .sheet>form>h2,dialog.botsheet .sheet .newtitle,dialog.botsheet .sheet .attachhead h2{margin:0 0 4px;font:700 22px/1.1 var(--r2-font-display);letter-spacing:-.02em;color:var(--paper)}
+dialog.botsheet .sheet :is(.ty-muted,.attachsub,.t3){color:var(--smoke)}
+dialog.botsheet .sheet>form,dialog.botsheet form.sheet{display:grid;gap:14px}
+dialog.botsheet .newcard,dialog.botsheet .actgroup{background:var(--graphite);border-radius:20px;padding:0;margin:0 0 12px;gap:0;overflow:hidden}
+dialog.botsheet .newcard .newrow{height:auto}
+dialog.botsheet :is(.newrow,.actrow):focus{outline:none}dialog.botsheet :is(.newrow,.actrow):focus-visible{background:color-mix(in srgb,var(--paper) 8%,transparent)}
+dialog.botsheet .newcard .newrow,dialog.botsheet .actgroup .actrow{min-height:52px;padding:13px 16px;border-radius:0;border-bottom:0;background:transparent;color:var(--paper);font:600 16px/1.2 var(--r2-font-sans);justify-content:flex-start;gap:12px}
+dialog.botsheet .newcard .newrow small{font:500 13px/1.3 var(--r2-font-sans);color:var(--smoke)}
+dialog.botsheet :is(.newrow.actdanger,.actrow.danger),dialog.botsheet :is(.newrow.actdanger,.actrow.danger) :is(svg,b){color:var(--team-cherry)}
+dialog.botsheet .emogrid{background:var(--graphite);border-radius:26px;padding:6px 8px;margin:0 0 12px}
+dialog.botsheet .emogrid button{background:transparent;color:var(--paper);border:0}
+dialog.botsheet .attachopt{background:var(--graphite);color:var(--paper);border:0}
+dialog.botsheet :is(.sheet,.sheet>form,form.sheet)>:is(.btn,.rg-btn){width:100%;min-height:52px;border-radius:999px}
+dialog.botsheet :is(.sheet,.sheet>form,form.sheet)>:is(.btn-secondary,.rg-btn.secondary),dialog.botsheet .attachcancel{background:var(--graphite);color:var(--paper);border:0}
+dialog.botsheet .newcard,dialog.botsheet .newcard>*,dialog.botsheet .actgroup>*{flex-shrink:0}
+dialog.botsheet.profmenu .grab,dialog#chatActions .grab,dialog.msgactions .grab{margin-bottom:14px}
 @media (prefers-reduced-motion:reduce){dialog.botsheet::backdrop,dialog.botsheet .sheet{transition:none}}
 @media (min-width:768px){
  dialog.botsheet.newchat,dialog.botsheet.pickpeople{width:340px;height:auto;max-height:90dvh;inset:auto;margin:0}
