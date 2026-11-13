@@ -781,3 +781,8 @@ body.schedhome:has(.rg-mapmiss) .mappinchip{display:none}
 .rg-usawp form{display:grid;gap:var(--space-3)}
 .rg-usawp .rg-btn.secondary{background:transparent}
 .rg-usawp dialog .sheet{display:grid;gap:var(--space-3)}
+
+/* Practice / Lineup · Getting there (05.01): map, LOCATION info block, full-width Open in Maps. */
+.rg-getthere{display:grid;gap:var(--space-2)}
+.rg-getthere .rg-btn{width:100%}
+.rg-getthere>.homemap,.rg-getthere>[id]{border-radius:var(--radius-row);overflow:hidden}
