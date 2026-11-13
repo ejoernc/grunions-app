@@ -1070,3 +1070,16 @@ button.memrowbtn .rg-txt{flex:1;min-width:0}
 .rg-tilelist{display:grid;gap:8px}
 .rg-tilelist .rg-tile+.rg-tile{margin-top:0}
 button.rg-choice{width:100%;border:0;text-align:left;font:inherit;height:auto}
+
+/* Stat card bars (Nov 13): bottom-aligned, scoped away from the traffic chart's .rg-bar grid. */
+.rg-stat .rg-bars{height:auto;min-height:0;padding:16px 12px 12px;align-items:stretch}
+.rg-stat .rg-bar{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:10px;height:auto}
+.rg-stat .rg-bar i{flex:none;opacity:1;border-radius:4px 4px 0 0;background:var(--graphite)}
+.rg-stat .rg-bar i.hi{background:var(--lime)}
+.rg-stat .rg-bar small{font:700 11px/1 var(--font-sans);color:var(--smoke)}
+.rg-stat .rg-bars>.rg-bar{min-height:150px}
+/* Usage page rhythm */
+.rg-usage{display:flex;flex-direction:column;gap:16px;padding-bottom:calc(var(--nav-clear, 96px) + 24px)}
+.rg-usage>*{margin-top:0;margin-bottom:0}
+.rg-usage .rg-metrics{grid-template-columns:1fr 1fr;margin:0}
+.rg-usage .rg-srows{gap:8px}

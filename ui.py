@@ -6524,14 +6524,13 @@ T["approvals"] = """{% call admin_page('Events') %}<a class="rg-btn ghost pageac
 </form></div>{% endfor %}{% endif %}
 {% for g in groups %}<h2>{{ g.label }}</h2><div class=list>{% for item in g['items'] %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ item.title }}</span><span class="ty-muted ty-sm sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endfor %}
 {% if not groups and not queue %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
-T["usage"] = ADMIN_NAV + """<div class=rg-screen>
+T["usage"] = ADMIN_NAV + """<div class="rg-screen rg-usage">
 {{ rg_page_title('Usage', 'Map and traffic calls. Free tier resets ' ~ resets ~ '.') }}
 {{ rg_stat('MAPBOX CALLS TODAY', calls, delta, bars) }}
 <div class=rg-metrics>{{ rg_metric(month_calls, 'This month', 'lime') }}{{ rg_metric(pct ~ '%', 'Of ' ~ free_label ~ ' free', 'carbon') }}</div>
 {{ rg_label('What uses it') }}
 <div class=rg-srows>{% for label, n in uses %}{{ rg_settings_row(label, n) }}{% endfor %}</div>
-{% if not uses_tracked %}<p class="ty-muted ty-sm">The breakdown starts counting from today.</p>{% endif %}
-<p class="ty-muted ty-sm">If the daily limit ({{ cap }}) is hit, maps fall back to the venue address. Nothing breaks.</p>
+<p class="ty-muted ty-sm">{% if not uses_tracked %}The breakdown starts counting from today. {% endif %}If the daily limit ({{ cap }}) is hit, maps fall back to the venue address. Nothing breaks.</p>
 </div>"""
 T["manage"] = ADMIN_NAV + """<div class=managehome id=manageHome>
 {# 08.13 Manage home: search · Avg checked in · four hub tiles. Every piece is a component. #}

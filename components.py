@@ -273,7 +273,7 @@ def stat_card(label, value, delta="", bars=()):
     bars = list(bars)
     top = max([b[1] for b in bars] or [0])
     cols = "".join('<span class=rg-bar><i style="height:%dpx"%s></i><small>%s</small></span>' % (
-        max(24, int(88 * (v / top))) if top else 24, ' class=hi' if top and v == top else "", _e(lab)) for lab, v in bars)
+        (max(8, int(120 * (v / top))) if v else 4) if top else 4, ' class=hi' if top and v == top else "", _e(lab)) for lab, v in bars)
     return Markup('<div class=rg-stat><div class=rg-stattop><span>%s</span>%s</div><b class=rg-statval>%s</b>%s</div>' % (
         _e(label), ('<em>%s</em>' % _e(delta)) if delta else "", _e(value), ('<div class=rg-bars>%s</div>' % cols) if bars else ""))
 
