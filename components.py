@@ -393,8 +393,8 @@ def usawp_card(csrf_html, show_trial=True, trial_url="", action="/home"):
                  '</div></dialog>') % (_e(action), csrf_html, _e(trial_url))
     return Markup('<section class="rg-usawp numcard"><b>Enter your USAWP membership number</b>'
                   '<form method=post action="%s">%s<label class=rg-field><span>USAWP Membership #</span>'
-                  '<input name=usawp_number inputmode=numeric autocomplete=off pattern="[0-9]{4,10}" required></label>'
-                  '<button class="rg-btn primary">Save</button></form>%s</section>' % (_e(action), csrf_html, trial))
+                  '<input name=usawp_number inputmode=numeric autocomplete=off pattern="[0-9]{4,10}" required></label>%s'
+                  '<button class="rg-btn primary">Save</button></form>%s</section>' % (_e(action), csrf_html, membership_sex(), trial))
 
 
 def ride_row(name, sub, initials, tone="sky", right=""):
@@ -640,7 +640,26 @@ def divider(label="or"):
     return Markup('<div class=rg-divider><span>%s</span></div>' % _e(label))
 
 
+def dob_field(name="birth_date", value="", club="", min_age=18):
+    """2.0 / Field / Date of birth (02 H, 2328:139058): three typed boxes, no calendar. Age line when valid,
+    cherry error under the age floor. A hidden input carries YYYY-MM-DD for the form."""
+    y, m, d = (str(value or "")[:10].split("-") + ["", "", ""])[:3] if value else ("", "", "")
+    box = lambda key, label, ph, val, n: ('<label class=rg-dobbox><span>%s</span><input data-dob=%s inputmode=numeric pattern="[0-9]*" maxlength=%d placeholder="%s" value="%s" autocomplete=%s></label>'
+                                       % (label, key, n, ph, _e(val), {"m": "bday-month", "d": "bday-day", "y": "bday-year"}[key]))
+    return Markup('<div class=rg-dob data-min-age="%d" data-club="%s"><div class=rg-dobrow>%s%s%s</div>'
+                  '<input type=hidden name="%s" value="%s"><p class=rg-dobhelp>Type it — 2-digit month and day, 4-digit year.</p></div>' % (
+                      int(min_age), _e(club), box("m", "MONTH", "MM", m, 2), box("d", "DAY", "DD", d, 2), box("y", "YEAR", "YYYY", y, 4),
+                      _e(name), _e(value or "")))
+
+
+def membership_sex(current="", body="USA Water Polo", name="membership_sex"):
+    """Asked next to the membership number: the sex on their governing-body membership (insurance rosters, admins only)."""
+    opts = (("female", "Female"), ("male", "Male"), ("x", "X"))
+    return Markup('<div class=rg-field><span>SEX ON YOUR %s MEMBERSHIP</span>%s<small class=rg-fieldnote>Only admins see this. It matches the insurance roster.</small></div>' % (
+        _e(body.upper()), choice_chips(name, opts, current or "")))
+
+
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_notice=notice, rg_divider=divider, rg_info_block=info_block, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, event_tone=event_tone)

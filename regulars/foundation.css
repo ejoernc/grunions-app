@@ -1173,3 +1173,17 @@ button.rg-secact{border:0;background:transparent;padding:0;cursor:pointer;color:
 .rg-joincard p{margin:0;font:600 12px/1.35 var(--font-sans)}
 .rg-field .rg-chip{margin-left:6px;vertical-align:middle}
 body:has(.rg-authhead)>header{display:none}
+
+/* 2.0 / Field / Date of birth */
+.rg-dob{display:grid;gap:8px}
+.rg-dobrow{display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:8px}
+.rg-dobbox{display:grid;gap:4px;margin:0;padding:10px 14px;border-radius:16px;background:var(--graphite);box-shadow:inset 0 0 0 1.5px transparent;cursor:text}
+.rg-dobbox span{color:var(--smoke);font:700 10px/1 var(--font-sans);letter-spacing:.08em}
+.rg-dobbox input{width:100%;min-height:0;height:auto;padding:0;border:0;background:transparent;color:var(--paper);font:600 18px/1.2 var(--font-sans);box-shadow:none;outline:none}
+.rg-dobbox:focus-within{box-shadow:inset 0 0 0 1.5px var(--lime)}
+.rg-dob.bad .rg-dobbox{box-shadow:inset 0 0 0 1.5px var(--team-cherry)}
+.rg-dobhelp{margin:0;color:var(--smoke);font:600 12px/1.35 var(--font-sans)}
+.rg-dob.bad .rg-dobhelp{color:var(--team-cherry)}
+[data-theme="light"] .rg-dobbox{background:var(--carbon)}
+.rg-fieldnote{display:block;margin-top:2px;color:var(--smoke);font:600 12px/1.35 var(--font-sans);text-transform:none;letter-spacing:0}
+.rg-field .rg-chipset{margin:4px 0 0}

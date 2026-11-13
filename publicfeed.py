@@ -1411,6 +1411,7 @@ REGISTER_PAGE = """
 <input type=hidden name=action value=claim>
 <input type=hidden name=event value="{{ event }}">
 <label>USA Water Polo number<input name=usawp_number inputmode=numeric autocomplete=off></label>
+{{ rg_membership_sex('') }}
 <label>Trial starts<input type=date name=claim_start value="{{ today }}"></label>
 <label>Valid through<input type=date name=claim_until></label>
 <button class="btn btn-primary" type=submit>Submit for verification</button>

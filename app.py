@@ -1419,13 +1419,17 @@ def join():
             return send_link(email)
         cur = d.execute("INSERT INTO members(first,last,email,phone,is_admin,preferred_first,joined,birth_date) VALUES(?,?,?,?,?,?,1,?)",
                         (f["first"], f["last"], email, f["phone"], int(email in ADMIN_EMAILS), pref, birth.isoformat()))
+        gid = flows2.clean_choice(request.form.get("gender_identity"), flows2.GENDER_IDENTITIES)
+        if gid:
+            d.execute("UPDATE members SET gender_identity=?, gender_self=? WHERE id=?", (gid, (request.form.get("gender_self") or "").strip()[:40] if gid == "self" else None, cur.lastrowid))
         d.commit(); sync_practice_sheets(d)
         dest = auth_destination(cur.lastrowid)
         session["setup_next"] = dest
         dest = "/setup/week"
         flash(f"Welcome to the Grunions, {pref or f['first']}! Find a coach on deck to get checked in.")
         return redirect(dest)
-    return page(T["join"], tab="auth", join_card=_join_card())
+    t = today_pt()
+    return page(T["join"], tab="auth", join_card=_join_card(), dob_max="%04d-%02d-%02d" % (t.year - 18, t.month, min(t.day, 28)))
 
 def smtp_ready(): return all(SMTP.values())
 class MailError(Exception):
@@ -11427,6 +11431,23 @@ def run_notify_jobs():
         app.logger.exception("notification job failed")
     finally:
         d.close()
+@app.before_request
+def _save_membership_sex():
+    """Sex on the governing-body membership, asked next to the membership number (Nov 13).
+    Members set their own; admins can set it for the person they're editing."""
+    if request.method != "POST" or not request.form.get("membership_sex"):
+        return
+    val = flows2.clean_choice(request.form.get("membership_sex"), flows2.LEGAL_GENDERS)
+    m = me()
+    if not val or not m:
+        return
+    target = m["id"]
+    mid = request.form.get("member_id", type=int) or (request.view_args or {}).get("mid")
+    if mid and mid != m["id"]:
+        if not is_club_admin(m):
+            return
+        target = mid
+    db().execute("UPDATE members SET legal_gender=? WHERE id=?", (val, target)); db().commit()
 def start_scheduler():
     """One background scheduler per process. A DB lock keeps a second worker from sending the same notice."""
     global _scheduler

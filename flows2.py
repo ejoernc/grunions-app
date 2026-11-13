@@ -740,6 +740,7 @@ SIGNUP = """<div class="rg-page rg-task">
 {% set n = namespace(i=0) %}
 {% if 'number' in needs %}{% set n.i = n.i + 1 %}
 <label class=rg-field><span>{{ n.i }} · USA WATER POLO MEMBER #</span><input name=usawp_number inputmode=numeric pattern="[0-9]{4,10}" maxlength=10 placeholder="1002004" autocomplete=off></label>
+{{ rg_membership_sex(me().legal_gender if me() else '') }}
 <p class='ty-muted ty-sm'>A coach or admin checks it by hand. You can still go while it's pending.</p>
 {% endif %}
 {% if 'waiver' in needs %}{% set n.i = n.i + 1 %}

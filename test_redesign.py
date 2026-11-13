@@ -423,3 +423,15 @@ def test_email_builder_preview_send_and_tracking():
     u.get("/e/u/%s" % token)
     u.post("/e/u/%s" % token, data={"csrf": csrf(u, "/e/u/%s" % token)})
     assert sql("SELECT news_opt_out FROM members WHERE email=?", (sent[0][0],))[0][0] == 1
+
+
+def test_join_asks_gender_and_usawp_entry_asks_membership_sex():
+    c = A.app.test_client()
+    page = c.get("/join").get_data(as_text=True)
+    assert "rg-dob" in page and "data-dob=m" in page and "GENDER" in page and 'name="gender_identity"' in page
+    c.post("/join", data=dict(birth_date="1991-05-06", csrf=csrf(c, "/join"), first="Gia", last="Join", email="gia.join@example.com", phone="1", gender_identity="nonbinary"))
+    assert sql("SELECT gender_identity FROM members WHERE email='gia.join@example.com'")[0][0] == "nonbinary"
+    home = c.get("/home").get_data(as_text=True)
+    assert "SEX ON YOUR USA WATER POLO MEMBERSHIP" in home
+    c.post("/home", data=dict(csrf=csrf(c, "/home"), usawp_number="123456", membership_sex="female"))
+    assert sql("SELECT legal_gender FROM members WHERE email='gia.join@example.com'")[0][0] == "female"

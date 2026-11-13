@@ -479,11 +479,11 @@ body.editor .daypicks label{margin:0;text-transform:none;letter-spacing:0}
 body.editor .daypicks input{position:absolute;opacity:0;width:1px;height:1px}
 body.editor .daypicks span{display:inline-flex;align-items:center;height:40px;padding:0 14px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 14px/1 var(--r2-font-sans)}
 body.editor .daypicks input:checked+span{background:var(--team-sun);color:var(--ink)}
-#grunionsDateDlg .calday.today{background:var(--lime);color:var(--ink);border-radius:999px}
-#grunionsDateDlg .calday.on{box-shadow:inset 0 0 0 2px var(--lime);border-radius:999px;color:var(--paper)}
+#grunionsDateDlg .calday.today{box-shadow:inset 0 0 0 2px var(--lime);border-radius:999px}
+#grunionsDateDlg .calday.on{background:var(--lime);color:var(--ink)!important;border-radius:999px;box-shadow:none}
 #grunionsDateDlg .calday.has{color:var(--team-sun)}
 #grunionsDateDlg .callegend{display:flex;gap:16px;margin:8px 8px 4px;color:var(--smoke);font:600 12px/1 var(--r2-font-sans)}
-#grunionsDateDlg .callegend i{display:inline-block;width:8px;height:8px;margin-right:6px;border-radius:999px;background:var(--lime)}
+#grunionsDateDlg .callegend i{display:inline-block;width:8px;height:8px;margin-right:6px;border-radius:999px;box-shadow:inset 0 0 0 2px var(--lime)}
 #grunionsDateDlg .callegend .practicedot{background:var(--team-sun)}
 #grunionsDateDlg .matactions,#grunionsTimeDlg .matactions{display:flex;gap:10px}
 #grunionsDateDlg .matactions button,#grunionsTimeDlg .matactions button{flex:1;height:52px;border-radius:999px;background:var(--graphite);color:var(--paper)}
@@ -495,17 +495,22 @@ body.editor .daypicks input:checked+span{background:var(--team-sun);color:var(--
 #grunionsDateDlg .matpart span{height:40px;min-height:0;padding:0 4px;border-radius:999px;background:transparent;color:var(--smoke);font:700 14px/1 var(--r2-font-sans);text-transform:none;letter-spacing:0;white-space:nowrap}
 #grunionsDateDlg .matpart input:checked+span{background:var(--paper);color:var(--ink)}
 /* Compact date picker: whole month fits without scrolling (Nov 13). */
-#grunionsDateDlg .sheet{overflow:visible;padding:16px 12px 12px}
-#grunionsDateDlg .matkicker{margin:0 8px 2px}
-#grunionsDateDlg .matheadline{margin:0 8px 8px;font-size:1.5rem}
-#grunionsDateDlg .calhead{margin:0 0 4px}
+#grunionsDateDlg .sheet{overflow:visible;padding:16px 12px 12px;background:var(--carbon);border-color:var(--carbon)}
+#grunionsTimeDlg .sheet{background:var(--carbon);border-color:var(--carbon)}
+#grunionsDateDlg .matkicker{margin:0 8px 4px;color:var(--smoke);font:700 11px/1 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase}
+#grunionsDateDlg .matheadline{margin:0 8px 14px;font:700 28px/1.05 var(--r2-font-display);letter-spacing:-.03em}
+#grunionsDateDlg .calhead{margin:0 0 4px;display:flex;align-items:center;gap:6px}
+#grunionsDateDlg .calhead select.matmonth{width:auto;flex:none;min-width:0;height:36px;padding:0 18px 0 8px;border-radius:12px;background-color:transparent;background-position:right 2px center;background-size:12px;color:var(--paper);font:700 15px/1 var(--r2-font-sans);border:0;box-shadow:none}
+#grunionsDateDlg .calhead .calmonth{width:36px!important;height:36px!important;border-radius:50%!important;background:var(--graphite)!important;color:var(--paper)}
+#grunionsDateDlg #matDateCancel,#grunionsTimeDlg #timeCancel{background:var(--graphite)!important;color:var(--paper)!important}
+#grunionsDateDlg .calhead select.matyear{margin-right:auto}
 #grunionsDateDlg .calwd span{font-size:12px;line-height:28px}
 #grunionsDateDlg .calgrid{gap:2px 0}
 #grunionsDateDlg button.calday{height:40px!important;min-height:0!important;padding:0!important;margin:0;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1}
 #grunionsDateDlg button.calday::before{display:none}
 #grunionsDateDlg .calday.today,#grunionsDateDlg .calday.on{width:40px;justify-self:center}
 #grunionsDateDlg .matactions{margin:8px 0 0}
-#grunionsDateDlg .matactions button{height:44px;min-height:0}
+#grunionsDateDlg .matactions button{height:48px;min-height:0;font:700 15px/1 var(--r2-font-sans)}
 .mseg{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 4px}
 .mseg .chip{background:var(--graphite);color:var(--paper);border:0;border-radius:999px}
 .mseg .chip.on{background:var(--paper);color:var(--ink)}
@@ -2302,7 +2307,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {{ memhead(m) }}
 <div class=list>
 {{ cred_row('warn' if on_trial else expiry_kind(m)|trim, 'USAWP #' ~ (m.usawp_number or '—'), (trial_badge(tw)|striptags) if on_trial else expiry_text(m)|trim) }}
-{% if not locked %}<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">USAWP number<input form=profileForm id=usawpNumber name=usawp_number inputmode=numeric autocomplete=off value="{{ m.usawp_number or '' }}" data-original="{{ m.usawp_number or '' }}"></label></div>{% endif %}
+{% if not locked %}<div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">USAWP number<input form=profileForm id=usawpNumber name=usawp_number inputmode=numeric autocomplete=off value="{{ m.usawp_number or '' }}" data-original="{{ m.usawp_number or '' }}"></label></div>{% if not locked %}<div class="li prow editonly">{{ rg_membership_sex(m.legal_gender) }}</div>{% endif %}{% endif %}
 {% for it in cl.checks %}{% set sk = {'ok':'ok','no date':'warn'}.get(it.status,'bad') %}{% set side = (('expires ' ~ it.mr.expires_on) if it.mr and it.mr.expires_on else ('done ' ~ it.mr.completed_on) if it.mr and it.mr.completed_on else 'missing') if it.status != 'expired' else 'expired' %}{{ cred_row(sk, it.req.name, side) }}{% endfor %}
 {% if background_view(m) %}{% set bg = background_view(m) %}{{ cred_row(bg.kind, 'Background screening', ('expires ' ~ bg.date) if bg.date else 'missing') }}{% endif %}
 {% if cc %}{{ cred_row('ok' if cc.ok else 'bad', 'Coaching', 'cleared' if cc.ok else cc.text) }}{% elif coach_eligibility(m).text %}{% set ce = coach_eligibility(m) %}{{ cred_row('ok' if ce.eligible else 'bad', 'Coaching', ce.text) }}{% endif %}
@@ -2315,7 +2320,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% if ex.membership and not vr_pending %}
 <button type=button class="rg-btn primary full" id=reverifyOpen style="margin-top:14px">Reverify membership</button>
 <form id=reverifyForm hidden method=post action=/home style="margin-top:14px">{{csrf_field()}}
-<div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="{{m.usawp_number or ''}}" autocomplete=off></label>
+<div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="{{m.usawp_number or ''}}" autocomplete=off></label>{{ rg_membership_sex(m.legal_gender) }}
 <label style="margin:0">Background screening expires<input name=background_expires type=date value="{{ (background_view(m).date if background_view(m) else '') }}"></label>
 <button class="rg-btn primary" style="flex:0 0 auto">Send</button></div></form>
 <script>document.getElementById('reverifyOpen').onclick=function(){var f=document.getElementById('reverifyForm');f.hidden=false;this.hidden=true;f.querySelector('input[name=usawp_number]').focus()};</script>
@@ -3031,6 +3036,23 @@ document.addEventListener('DOMContentLoaded',function(){document.querySelectorAl
 // closing it in-page pops that entry. Never used for page navigation — back is always a link to the parent.
 function grunionsPopOverlay(){ history.back(); }
 // Tasks are sheets addressed by ?sheet=<name> so they're linkable.
+/* 2.0 / Field / Date of birth: typed boxes, auto-advance, age line, adults-only check. */
+(function(){
+ function upd(w){ var g=function(k){ return (w.querySelector('[data-dob='+k+']').value||'').replace(/[^0-9]/g,''); };
+  var m=g('m'), d=g('d'), y=g('y'), help=w.querySelector('.rg-dobhelp'), out=w.querySelector('input[type=hidden]'), min=+w.getAttribute('data-min-age')||0;
+  w.classList.remove('bad'); out.value='';
+  if(m.length&&d.length&&y.length===4){ var mm=+m, dd=+d, yy=+y, dt=new Date(yy, mm-1, dd);
+   if(mm<1||mm>12||dd<1||dd>31||dt.getMonth()!==mm-1){ w.classList.add('bad'); help.textContent="That date doesn't exist. Check the month and day."; return; }
+   var now=new Date(), age=now.getFullYear()-yy-((now.getMonth()<mm-1||(now.getMonth()===mm-1&&now.getDate()<dd))?1:0);
+   if(age<0||age>110){ w.classList.add('bad'); help.textContent='Check the year.'; return; }
+   if(min&&age<min){ w.classList.add('bad'); help.textContent=(w.getAttribute('data-club')||'This club')+' is adults-only ('+min+'+). We can point you to youth programs nearby.'; out.value=yy+'-'+(mm<10?'0':'')+mm+'-'+(dd<10?'0':'')+dd; return; }
+   out.value=yy+'-'+(mm<10?'0':'')+mm+'-'+(dd<10?'0':'')+dd; help.textContent=age+" · you're all set"; return; }
+  help.textContent='Type it — 2-digit month and day, 4-digit year.'; }
+ document.addEventListener('input', function(e){ var i=e.target; if(!i.matches||!i.matches('[data-dob]')) return; var w=i.closest('.rg-dob');
+  i.value=i.value.replace(/[^0-9]/g,''); if(i.value.length>=+i.maxLength){ var nx=i.closest('label').nextElementSibling; if(nx){ var n=nx.querySelector('input'); if(n) n.focus(); } } upd(w); });
+ document.addEventListener('keydown', function(e){ var i=e.target; if(!i.matches||!i.matches('[data-dob]')||e.key!=='Backspace'||i.value) return; var pv=i.closest('label').previousElementSibling; if(pv){ var p=pv.querySelector('input'); if(p){ e.preventDefault(); p.focus(); p.value=p.value.slice(0,-1); upd(i.closest('.rg-dob')); } } });
+ document.addEventListener('submit', function(e){ var w=e.target.querySelector&&e.target.querySelector('.rg-dob'); if(!w) return; upd(w); if(!w.querySelector('input[type=hidden]').value){ e.preventDefault(); w.classList.add('bad'); w.querySelector('.rg-dobhelp').textContent='Add your date of birth.'; w.querySelector('[data-dob=m]').focus(); } }, true);
+})();
 window.grunionsSavedToast=function(msg){ var t=document.createElement('div'); t.className='toast noprint'; t.setAttribute('role','status'); t.textContent=msg||'Saved'; document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 1800); };
 /* Forms marked data-autosave save on change (Figma 62: settings save themselves, no page Save). */
 document.addEventListener('change', function(e){
@@ -3689,7 +3711,7 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   if(dateDlg) return dateDlg;
   dateDlg=document.createElement('dialog');
   dateDlg.className='matpick'; dateDlg.id='grunionsDateDlg'; dateDlg.setAttribute('aria-label','Select date');
-  dateDlg.innerHTML='<div class=sheet><div class=matkicker id=matKicker>Select date</div><div class=matheadline id=matHeadline></div><div class=calhead id=matCalHead><select id=matMonth class=matmonth aria-label="Month and year"></select><button type=button class=calmonth id=matPrev aria-label="Previous month"></button><button type=button class=calmonth id=matNext aria-label="Next month"></button></div><div class=yearrow id=matYearRow hidden><button type=button class=calmonth id=yearPrev aria-label="Previous year"></button><button type=button class=yearbtn id=yearBtn aria-label="Choose year">2027</button><button type=button class=calmonth id=yearNext aria-label="Next year"></button></div><div class=yearlist id=yearList hidden role=listbox aria-label=Years></div><div class=calwd id=matWd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class=calgrid id=matGrid></div><div class=monthgrid id=matMonths hidden></div><div class="actseg matpart" id=matPart role=radiogroup aria-label="Part of the month" hidden><label><input type=radio name=mat_part value=all checked><span>All month</span></label><label><input type=radio name=mat_part value=early><span>Early</span></label><label><input type=radio name=mat_part value=mid><span>Mid</span></label><label><input type=radio name=mat_part value=late><span>Late</span></label></div><div class=callegend><span><i></i>Today</span><span><i class=practicedot></i>Has practice</span></div><div class=matactions><button type=button class=mattext id=matDateCancel>Cancel</button><button type=button class=mattext id=matDateOk>Done</button></div></div>';
+  dateDlg.innerHTML='<div class=sheet><div class=matkicker id=matKicker>Select date</div><div class=matheadline id=matHeadline></div><div class=calhead id=matCalHead><select id=matMon class=matmonth aria-label="Month"></select><select id=matYear class="matmonth matyear" aria-label="Year"></select><select id=matMonth hidden aria-hidden=true tabindex=-1></select><button type=button class=calmonth id=matPrev aria-label="Previous month"></button><button type=button class=calmonth id=matNext aria-label="Next month"></button></div><div class=yearrow id=matYearRow hidden><button type=button class=calmonth id=yearPrev aria-label="Previous year"></button><button type=button class=yearbtn id=yearBtn aria-label="Choose year">2027</button><button type=button class=calmonth id=yearNext aria-label="Next year"></button></div><div class=yearlist id=yearList hidden role=listbox aria-label=Years></div><div class=calwd id=matWd><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div class=calgrid id=matGrid></div><div class=monthgrid id=matMonths hidden></div><div class="actseg matpart" id=matPart role=radiogroup aria-label="Part of the month" hidden><label><input type=radio name=mat_part value=all checked><span>All month</span></label><label><input type=radio name=mat_part value=early><span>Early</span></label><label><input type=radio name=mat_part value=mid><span>Mid</span></label><label><input type=radio name=mat_part value=late><span>Late</span></label></div><div class=callegend><span><i></i>Today</span><span><i class=practicedot></i>Has practice</span></div><div class=matactions><button type=button class=mattext id=matDateCancel>Cancel</button><button type=button class=mattext id=matDateOk>Done</button></div></div>';
   document.body.appendChild(dateDlg);
   var prevSvg='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>';
   var nextSvg='<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>';
@@ -3712,6 +3734,10 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
    dateSt.iso=ym+'-01'; dateSt.ym=ym; paintMonth();
   });
   dateDlg.querySelector('#matMonth').addEventListener('change', function(){ if(!this.value) return; if(dateSt.monthOnly) dateSt.iso=this.value+'-01'; paintDate(this.value); });
+  /* Month and year are separate selects, so a birthday decades back is two taps, not forty. */
+  function pickMY(){ var y=dateDlg.querySelector('#matYear').value, m=dateDlg.querySelector('#matMon').value; if(!y||!m) return; paintDate(y+'-'+m); }
+  dateDlg.querySelector('#matMon').addEventListener('change', pickMY);
+  dateDlg.querySelector('#matYear').addEventListener('change', pickMY);
   dateDlg.querySelector('#matGrid').addEventListener('click', function(e){
    var b=e.target.closest&&e.target.closest('button.calday'); if(!b||dateSt.monthOnly) return;
    dateSt.iso=b.getAttribute('data-date'); paintDate(dateSt.iso.slice(0,7));
@@ -3723,7 +3749,7 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   });
   dateDlg.querySelector('#matDateCancel').onclick=function(){ dateDlg.close(); };
   dateDlg.querySelector('#matDateOk').onclick=function(){
-   if(dateSt&&dateSt.input){
+   if(dateSt&&dateSt.input&&dateSt.iso){
     dateSt.input.value=dateSt.monthOnly?(dateSt.iso||'').slice(0,7):(dateSt.iso||'');
     if(dateSt.monthOnly&&dateSt.input.form){
      var part=dateSt.input.form.querySelector('[data-monthpart]');
@@ -3802,10 +3828,15 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   var y=+ym.slice(0,4), m=+ym.slice(5,7), sel=dateDlg.querySelector('#matMonth');
   if(!sel.querySelector('option[value="'+ym+'"]')) fillDateMonths(sel, ym+'-01');
   sel.value=ym;
+  var ms=dateDlg.querySelector('#matMon'), ys=dateDlg.querySelector('#matYear');
+  if(!ms.options.length){ var mh=''; for(var mi=1;mi<=12;mi++) mh+='<option value="'+pad(mi)+'">'+months[mi-1]+'</option>'; ms.innerHTML=mh; }
+  var yr=dateSt.years||[y-5,y+10]; if(y<yr[0]) yr[0]=y; if(y>yr[1]) yr[1]=y; dateSt.years=yr;
+  if(+ys.getAttribute('data-lo')!==yr[0]||+ys.getAttribute('data-hi')!==yr[1]){ var yh=''; for(var yy=yr[1];yy>=yr[0];yy--) yh+='<option value="'+yy+'">'+yy+'</option>'; ys.innerHTML=yh; ys.setAttribute('data-lo',yr[0]); ys.setAttribute('data-hi',yr[1]); }
+  ms.value=pad(m); ys.value=String(y);
   var partBox=dateDlg.querySelector('#matPart'), kick=dateDlg.querySelector('#matKicker');
   if(partBox) partBox.hidden=true;
   if(kick) kick.textContent='Select date';
-  dateDlg.querySelector('#matHeadline').textContent=headline(dateSt.iso);
+  dateDlg.querySelector('#matHeadline').textContent=dateSt.iso?headline(dateSt.iso):'Pick a day';
   var blanks=new Date(y, m-1, 1).getDay(), last=new Date(y, m, 0).getDate(), html='', day, iso, today=todayISO();
   for(var i=0;i<blanks;i++) html+='<span class=calday></span>';
   for(day=1;day<=last;day++){
@@ -3873,15 +3904,21 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   makeDate();
   var raw=input.value||'';
   var iso=(input.type==='month' && /^\\d{4}-\\d{2}$/.test(raw))?raw+'-01':raw;
-  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(iso)) iso=todayISO();
+  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(iso)) iso='';
   var part='all', monthOnly=input.type==='month';
+  var bday=(input.getAttribute('autocomplete')||'')==='bday', nowY=new Date().getFullYear();
+  var view=iso||(bday?(nowY-30)+'-01-01':todayISO());
+  var years=bday?[nowY-100, nowY-18]:[Math.min(+view.slice(0,4), nowY)-5, Math.max(+view.slice(0,4), nowY)+10];
+  if(input.min&&/^[0-9]{4}/.test(input.min)) years[0]=+input.min.slice(0,4);
+  if(input.max&&/^[0-9]{4}/.test(input.max)) years[1]=+input.max.slice(0,4);
   if(monthOnly && input.form){
    var pel=input.form.querySelector('[data-monthpart]'), pv=pel?(pel.value||'').toLowerCase():'';
    if(pv==='early'||pv==='mid'||pv==='late'||pv==='all') part=pv;
   }
-  dateSt={input:input, iso:iso, ym:iso.slice(0,7), monthOnly:monthOnly, part:part, viewYear:+iso.slice(0,4), yearOpen:false};
+  if(monthOnly&&!iso) iso=todayISO();
+  dateSt={input:input, iso:iso, ym:(iso||view).slice(0,7), monthOnly:monthOnly, part:part, viewYear:+(iso||view).slice(0,4), yearOpen:false, years:years};
   dateDlg.querySelectorAll('input[name=mat_part]').forEach(function(r){ r.checked=r.value===part; });
-  fillDateMonths(dateDlg.querySelector('#matMonth'), iso);
+  fillDateMonths(dateDlg.querySelector('#matMonth'), iso||view);
   paintDate(dateSt.ym);
   if(!dateDlg.open){ dateDlg.showModal(); if(document.activeElement&&dateDlg.contains(document.activeElement)) document.activeElement.blur(); }
  };
@@ -4927,8 +4964,10 @@ T["join"] = """<div class=rg-auth>
 <label class=rg-field><span>LEGAL LAST NAME</span><input name=last required autocomplete=family-name></label>
 <label class=rg-field><span>EMAIL</span><input name=email type=email required autocomplete=email placeholder="The one on your USA Water Polo account"></label>
 <label class=rg-field><span>PHONE</span><input name=phone type=tel required autocomplete=tel></label>
-<label class=rg-field><span>DATE OF BIRTH {{ rg_chip('18+ only', 'neutral') }}</span><input name=birth_date type=date required autocomplete=bday></label>
-<p class=rg-note>Grunions is an adults club. If you're under 18 you can't join — we'll point you to youth programs nearby.</p>
+<div class=rg-field><span>DATE OF BIRTH {{ rg_chip('18+ only', 'neutral') }}</span>{{ rg_dob('birth_date', '', 'Grunions') }}</div>
+<div class=rg-field><span>GENDER</span>{{ rg_choice_chips('gender_identity', GENDER_IDENTITIES, '') }}<small class=rg-fieldnote>How you identify. It's never shown on your profile; it only unlocks women &amp; non-binary rides if you want them.</small></div>
+<label class=rg-field id=joinSelf hidden><span>IN YOUR WORDS</span><input name=gender_self maxlength=40 autocomplete=off></label>
+<script>document.addEventListener('change',function(e){ if(e.target.name==='gender_identity'){ var r=document.getElementById('joinSelf'); if(r) r.hidden=e.target.value!=='self'; } });</script>
 <button class="rg-btn primary">Create account</button></form>
 <p class=rg-authfoot>Already a member?<a href=/login>Log in</a></p>
 </div>"""
@@ -5243,6 +5282,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% if tab != 'practices' and not num %}<div class="card numcard"><div class=nxtitle>Enter your USAWP membership number</div>
 <form method=post action=/home style="margin-top:12px">{{csrf_field()}}
 <label>USAWP Membership #<input name=usawp_number inputmode=numeric value="" autocomplete=off></label>
+{{ rg_membership_sex(me().legal_gender if me() else '') }}
 <button class="rg-btn primary full">Save</button>
 {% if not tw %}<button type=button class="rg-btn secondary full" id=trialOpen style="margin-top:8px">2-week USAWP trial</button>{% endif %}</form>
 {% if not tw %}<dialog id=trialDialog class=modal><div class=sheet>
@@ -5437,6 +5477,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class="card numcard"><div class=nxtitle>Enter your USAWP membership number</div>
 <form method=post action=/home style="margin-top:12px">{{ csrf_field() }}
 <label>USAWP Membership #<input name=usawp_number inputmode=numeric value="" autocomplete=off></label>
+{{ rg_membership_sex(me().legal_gender if me() else '') }}
 <button class="rg-btn primary full">Save</button></form>
 <p class='ty-muted ty-sm'><a href=/notifications>Notification settings</a></p>
 </div>{% endif %}
@@ -5907,6 +5948,7 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 </div>
 {% if me().is_admin %}
 <div class="li editonly"><label class=prefedit style="width:100%;margin:0">USAWP number<input name=number inputmode=numeric autocomplete=off value="{{ m.usawp_number or '' }}"></label></div>
+<div class="li editonly">{{ rg_membership_sex(m.legal_gender) }}</div>
 <div class="li editonly"><label class=prefedit style="width:100%;margin:0">Status<select name=verified><option value=yes {{ 'selected' if m.usawp_status=='verified' }}>Verified</option><option value=no {{ 'selected' if m.usawp_status!='verified' }}>Not verified</option></select></label></div>
 <div class="li editonly"><label class=prefedit style="width:100%;margin:0">Membership type<input name=membership_type value="{{ m.membership_type or '' }}" placeholder="Individual Membership, Coach" autocomplete=off></label></div>
 <div class="li editonly">{{ date_field('Membership expires', 'valid_until', m.usawp_valid_until) }}</div>
@@ -7749,6 +7791,7 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="rg-btn ghost
 <p class=ty-caps data-fill=who></p><h2>Check insurance.</h2>
 <p class=ty-muted>Look them up on Sport:80, then enter their USA Water Polo membership here.</p>
 <label class=rg-field><span>USAWP MEMBER #</span><input name=number inputmode=numeric maxlength=20 autocomplete=off data-fill=num></label>
+{{ rg_membership_sex('') }}
 <label class=rg-field><span>VALID UNTIL</span><input type=date name=valid_until min="{{ today_iso }}"></label>
 <label class=checkline><input type=checkbox name=no_date value=1> No expiration date on Sport:80</label>
 <button class="rg-btn primary" name=action value=verify>Mark insured</button>
