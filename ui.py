@@ -1943,7 +1943,7 @@ dialog.memberedit .help a{color:var(--t1)}
   function showExclusive(forms, chosen, posted) {
     var choice = choiceOf(chosen);
     var selecting = posted !== "clear" && posted !== "social_leave";
-    var sweepThis = selecting && !reduce && chosen.hasAttribute("data-sweep") && (posted === "going" || posted === "social_join");
+    var sweepThis = false; // the sweep/fade-across-the-button animation is retired everywhere
     forms.forEach(function (f) {
       Array.prototype.forEach.call(f.querySelectorAll('button[name="action"]'), function (b) {
         if (b === chosen && sweepThis) return;
@@ -2227,6 +2227,8 @@ dialog.memberedit .help a{color:var(--t1)}
   document.addEventListener("click", function (event) {
     var button = event.target.closest && event.target.closest('button[name="action"]');
     if (!button || !button.form || !RSVP[button.value]) return;
+    // 2.0 social cards swap between condensed (Join) and expanded (Joined) — let the server re-render the card.
+    if (button.closest(".rg-social")) return;
     if (button.dataset.sweeping === "playing") {
       event.preventDefault();
       event.stopPropagation();
@@ -2238,7 +2240,7 @@ dialog.memberedit .help a{color:var(--t1)}
     }
     event.preventDefault();
     event.stopPropagation();
-    var sweep = !reduce && button.hasAttribute("data-sweep") && (button.value === "going" || button.value === "social_join");
+    var sweep = false; // the sweep/fade-across-the-button animation is retired everywhere
     button.form.dataset.rsvpBusy = "1";
     save(button, sweep);
   }, true);
