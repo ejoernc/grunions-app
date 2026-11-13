@@ -1196,3 +1196,4 @@ body:has(.rg-authhead)>header{display:none}
 .rg-auth .rg-field :is(input,select,textarea){background:var(--carbon)}
 .rg-auth .rg-dobbox{background:var(--carbon)}
 .rg-auth .rg-btn.secondary{background:var(--graphite)}
+.rg-chip{width:fit-content;max-width:100%;justify-self:start;align-self:flex-start;flex:none}
