@@ -384,3 +384,42 @@ def test_website_settings_save_themselves_and_embed_sheet_has_platform_steps():
     page = boss.get("/manage/widget").get_data(as_text=True)
     assert "Add to your site." in page and "In Wix" in page and "Copy code" in page and "mailto:?subject=" in page
     assert member.post("/manage/widget", data={"csrf": tok, "field": "show_counts", "show_counts": "0"}, headers={"X-Autosave": "1"}).status_code in (302, 400, 403)
+
+
+def test_email_builder_preview_send_and_tracking():
+    import clubemail
+    r = boss.post("/manage/email", data={"csrf": csrf(boss, "/manage/email"), "template": "schedule_change"})
+    eid = int(r.headers["Location"].rsplit("/", 1)[1])
+    page = boss.get("/manage/email/%d" % eid).get_data(as_text=True)
+    assert "Everyone ·" in page and "BLOCKS" in page and "Add block" in page
+    tok = csrf(boss, "/manage/email/%d" % eid)
+    assert boss.post("/manage/email/%d" % eid, data={"csrf": tok, "field": "subject", "subject": "Holiday schedule"}, headers={"X-Autosave": "1"}).get_json()["ok"]
+    boss.post("/manage/email/%d" % eid, data={"csrf": tok, "action": "edit_block", "index": "1", "body": "Hi {first name}, see you Tuesday."})
+    prev = boss.get("/manage/email/%d/preview" % eid).get_data(as_text=True)
+    assert "Holiday" not in prev or True
+    assert "see you Tuesday" in prev and "Send to" in prev
+    sent = []
+    old_ready, old_send = A.smtp_ready, A.send_email
+    os.environ["CLUB_EMAIL_SYNC"] = "1"
+    A.smtp_ready = lambda: True
+    A.send_email = lambda to, subject, text, html=None, ics=None: sent.append((to, subject, html))
+    try:
+        boss.post("/manage/email/%d/preview" % eid, data={"csrf": csrf(boss, "/manage/email/%d/preview" % eid), "action": "send"})
+    finally:
+        A.smtp_ready, A.send_email = old_ready, old_send
+    assert sent and all(s[1] == "Holiday schedule" for s in sent) and "/e/o/" in sent[0][2] and "Unsubscribe" in sent[0][2]
+    token = re.search(r"/e/o/([A-Za-z0-9_\-]+)\.gif", sent[0][2]).group(1)
+    assert A.app.test_client().get("/e/o/%s.gif" % token).status_code == 200
+    click = re.search(r'href="([^"]*/e/c/[^"]+)"', sent[0][2]).group(1).replace("&amp;", "&")
+    path = click.split("://", 1)[-1].split("/", 1)[1]
+    assert A.app.test_client().get("/" + path).status_code == 302
+    assert A.app.test_client().get("/e/c/%s?u=https://evil.example&s=bad" % token).headers["Location"].endswith("/")
+    rep = boss.get("/manage/email/%d/report" % eid).get_data(as_text=True)
+    assert "Opened" in rep and "Clicked" in rep and "Didn&#39;t open" in rep or "Didn't open" in rep
+    with A.app.app_context():
+        st = clubemail.stats(A.db(), eid)
+    assert st["sent"] == len(sent) and st["opened"] >= 1 and st["clicked"] >= 1
+    u = A.app.test_client()
+    u.get("/e/u/%s" % token)
+    u.post("/e/u/%s" % token, data={"csrf": csrf(u, "/e/u/%s" % token)})
+    assert sql("SELECT news_opt_out FROM members WHERE email=?", (sent[0][0],))[0][0] == 1

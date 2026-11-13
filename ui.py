@@ -7944,6 +7944,116 @@ T["website"] = ADMIN_NAV + """<div class="rg-screen rg-website">
  document.querySelectorAll('form[data-autosave]').forEach(function(f){ f.addEventListener('autosaved', function(ev){ var j=ev.detail||{}; if(j.reload) location.reload(); }); });
 })();
 </script>"""
+T["email_home"] = ADMIN_NAV + """<div class="rg-screen rg-email">
+{# Figma 62 · E2 Email ‹ Activities #}
+{{ rg_page_title('Email', 'Send news to members. See what went out.') }}
+<form method=post>{{ csrf_field() }}<button class="rg-btn primary" style="width:100%">New email</button></form>
+<div style="margin-top:12px">{{ rg_filters([('sent', 'Sent', '?f=sent'), ('scheduled', 'Scheduled · ' ~ counts.scheduled, '?f=scheduled'), ('drafts', 'Drafts · ' ~ counts.drafts, '?f=drafts')], f) }}</div>
+{{ rg_section_count({'sent': 'Sent', 'scheduled': 'Scheduled', 'drafts': 'Drafts'}[f], items|length) }}
+{% for it in items %}{{ rg_row(it.title, it.sub, it.href, rg_icon('tray'), 'sun', '', it.chip, 'going' if 'open' in it.chip else 'neutral') }}{% else %}<p class=rg-note>{% if f == 'sent' %}Nothing sent yet.{% elif f == 'scheduled' %}Nothing scheduled.{% else %}No drafts.{% endif %}</p>{% endfor %}
+{{ rg_section_count('Templates', templates|length) }}
+<div class=rg-stack8>
+{% for t in templates %}<form method=post>{{ csrf_field() }}<input type=hidden name=template value="{{ t[0] }}"><button type=submit class="rg-srow" style="width:100%"><span class=rg-srlabel>{{ t[1] }}</span><span class=rg-srvalue>Use</span>{{ rg_icon('chevron_right', 'sm') }}</button></form>{% endfor %}
+</div>
+<p class=rg-note>Automatic emails (sign-in links, reminders, receipts) aren't listed here — they send themselves.</p>
+</div>"""
+T["email_builder"] = """<div class="rg-screen rg-email rg-task">
+{# Figma 62 · E3 New email ✕ (builder). Saves as a draft as you go. #}
+{{ rg_page_title('New email' if row.status == 'draft' else 'Scheduled email', 'Pick who, start from a template, edit the blocks.') }}
+<form method=post data-autosave>{{ csrf_field() }}
+<h3 class=rg-day>TO</h3>
+{{ rg_choice_chips('audience', auds, row.audience) }}
+</form>
+{{ rg_settings_row('Template', template_name, '#', 'data-open-dialog=templateSheet') }}
+<form method=post data-autosave>{{ csrf_field() }}
+<label class=rg-field style="margin-top:12px"><span>SUBJECT</span><input name=subject value="{{ row.subject }}" maxlength=200 placeholder="Holiday schedule" autocomplete=off></label>
+</form>
+<h3 class=rg-day>BLOCKS — TAP TO EDIT</h3>
+{% for b in blocks %}{{ rg_block_row(b.label, b.summary, 'Edit', 'data-open-dialog=block' ~ b.i) }}{% endfor %}
+<button type=button class="rg-btn secondary" style="width:100%" data-open-dialog=addBlock>+ Add block</button>
+<div class=rg-btnrow style="margin-top:12px"><a class="rg-btn secondary" href="/manage/email/{{ row.id }}/preview">Preview</a><a class="rg-btn primary" href="/manage/email/{{ row.id }}/preview#send">Send…</a></div>
+<p class=rg-note>Saved as a draft as you go. ✕ keeps the draft.</p>
+<form method=post style="margin-top:8px">{{ csrf_field() }}<button class="rg-btn ghost" name=action value=discard style="width:100%">Delete draft</button></form>
+</div>
+<dialog id=templateSheet class="botsheet modal"><form method=post class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<input type=hidden name=action value=template>
+<h2>Template.</h2><p class=ty-muted>Starting from a template replaces the blocks. The audience stays.</p>
+{% for t in templates %}{{ rg_choice('template', t[0], t[1], t[4], row.template == t[0]) }}{% endfor %}
+{{ rg_choice('template', '', 'Blank', 'Header, a paragraph and the footer', row.template == '') }}
+<button class="rg-btn primary">Use this template</button>
+</form></dialog>
+<dialog id=addBlock class="botsheet modal"><form method=post class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<input type=hidden name=action value=add_block>
+<h2>Add a block.</h2>
+{% for k, label, desc in kinds %}{{ rg_choice('kind', k, label, desc, loop.first) }}{% endfor %}
+<button class="rg-btn primary">Add</button>
+</form></dialog>
+{% for b in blocks %}<dialog id="block{{ b.i }}" class="botsheet modal"><form method=post class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<input type=hidden name=index value="{{ b.i }}">
+<h2>{{ b.label }}.</h2>
+{% if b.kind == 'header' %}
+<label class=rg-field><span>KICKER</span><input name=kicker value="{{ b.b.kicker or '' }}" maxlength=40 placeholder="SCHEDULE CHANGE"></label>
+<label class=rg-field><span>BIG TEXT (OPTIONAL)</span><input name=big value="{{ b.b.big or '' }}" maxlength=12 placeholder="6:30"></label>
+<label class=rg-field><span>HEADLINE</span><input name=title value="{{ b.b.title or '' }}" maxlength=120 placeholder="The time has changed."></label>
+<h3 class=rg-day>COLOR</h3>
+<div class=rg-chipset role=radiogroup>{% for t in tones %}<label><input type=radio name=tone value="{{ t }}"{% if (b.b.tone or 'lime') == t %} checked{% endif %}><span>{{ t|capitalize }}</span></label>{% endfor %}</div>
+{% elif b.kind == 'text' %}
+<label class=rg-field><span>TEXT</span><textarea name=body rows=6 maxlength=2000>{{ b.b.body or '' }}</textarea></label>
+<p class=rg-note>Type {first name} and each person sees their own name.</p>
+{% elif b.kind == 'practice' %}
+<label class=rg-field><span>PRACTICE</span><select name=practice_id><option value="">Pick a practice</option>{% for pr in practices %}<option value="{{ pr.id }}"{% if b.b.practice_id == pr.id %} selected{% endif %}>{{ pr.label }}</option>{% endfor %}</select></label>
+{% elif b.kind == 'button' %}
+<label class=rg-field><span>LABEL</span><input name=label value="{{ b.b.label or '' }}" maxlength=40 placeholder="See the schedule"></label>
+<label class=rg-field><span>LINK</span><input name=url value="{{ b.b.url or '' }}" maxlength=500 placeholder="/practices or https://…"></label>
+{% else %}
+<p class=ty-muted>The footer shows the club name and an unsubscribe link. It's always there so people can opt out.</p>
+{% endif %}
+<button class="rg-btn primary" name=action value=edit_block>Save</button>
+<div class=rg-btnrow><button class="rg-btn secondary" name=action value=up>Move up</button><button class="rg-btn secondary" name=action value=down>Move down</button></div>
+{% if b.kind != 'footer' %}<button class="rg-btn ghost" name=action value=remove_block>Remove block</button>{% endif %}
+</form></dialog>{% endfor %}"""
+T["email_preview"] = ADMIN_NAV + """<div class="rg-screen rg-email">
+{# Figma 62 · E4 Preview ‹ New email #}
+{{ rg_page_title('Preview', 'Exactly what ' ~ n ~ ' ' ~ ('person' if n == 1 else 'people') ~ ' will get.') }}
+{{ rg_filters([('phone', 'Phone', '?mode=phone'), ('desktop', 'Desktop', '?mode=desktop'), ('light', 'Light mode', '?mode=light')], mode) }}
+<iframe class="rg-emailframe {{ 'phone' if mode != 'desktop' else '' }}" title="Email preview" srcdoc="{{ email_html|e }}" style="height:640px" onload="try{this.style.height=(this.contentDocument.documentElement.scrollHeight)+'px'}catch(e){}"></iframe>
+{% if not smtp %}<p class=rg-note>Email isn't set up on this server yet. You can preview, but sending is off.</p>{% endif %}
+<form method=post id=send style="margin-top:12px" class=rg-stack8>{{ csrf_field() }}
+<div class=rg-btnrow><button class="rg-btn secondary" name=action value=test{% if not smtp %} disabled{% endif %}>Send test to me</button><button type=button class="rg-btn secondary" data-open-dialog=scheduleSheet{% if not smtp %} disabled{% endif %}>Schedule</button></div>
+<button type=button class="rg-btn primary" style="width:100%" data-open-dialog=sendSheet{% if not smtp or not n %} disabled{% endif %}>Send to {{ n }} {{ 'person' if n == 1 else 'people' }}</button>
+</form>
+</div>
+<dialog id=sendSheet class="botsheet modal"><form method=post class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<h2>Send to {{ n }}?</h2><p class=ty-muted>{{ audience }} · “{{ row.subject }}”. Once it's sent it can't be unsent.</p>
+<div class=rg-btnrow><button type=button class="rg-btn secondary" onclick="this.closest('dialog').close()">Cancel</button><button class="rg-btn primary" name=action value=send>Send</button></div>
+</form></dialog>
+<dialog id=scheduleSheet class="botsheet modal"><form method=post class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<h2>Schedule.</h2><p class=ty-muted>It sends on its own at this time (Pacific).</p>
+<label class=rg-field><span>WHEN</span><input type=datetime-local name=when required data-native></label>
+<button class="rg-btn primary" name=action value=schedule>Schedule</button>
+</form></dialog>"""
+T["email_report"] = ADMIN_NAV + """<div class="rg-screen rg-email">
+{# Figma 62 · E5 Sent ‹ Email #}
+{{ rg_page_title('Sending' if sending else 'Sent', (row.subject or 'Untitled') ~ ' · ' ~ when ~ ' · ' ~ audience) }}
+<div class=rg-metrics3>{{ rg_metric(st.sent, 'Sent', 'carbon') }}{{ rg_metric(st.opened, 'Opened', 'lime') }}{{ rg_metric(st.clicked, 'Clicked', 'sky') }}</div>
+<div class=rg-stack8 style="margin-top:12px">
+{{ rg_settings_row("Didn't open", unopened|length ~ ' ' ~ ('person' if unopened|length == 1 else 'people'), '#' if unopened else '', 'data-open-dialog=unopenedSheet' if unopened else '') }}
+{{ rg_settings_row('Bounced', bounced|length|string, '#' if bounced else '', 'data-open-dialog=bouncedSheet' if bounced else '') }}
+</div>
+<div class=rg-emailthumb style="margin-top:12px"><iframe title="The email" srcdoc="{{ email_html|e }}" tabindex=-1></iframe></div>
+<form method=post class=rg-btnrow style="margin-top:12px">{{ csrf_field() }}<button class="rg-btn secondary" name=action value=duplicate>Duplicate</button><button class="rg-btn primary" name=action value=resend{% if not unopened %} disabled{% endif %}>Resend to {{ unopened|length }}</button></form>
+<p class=rg-note>Opens are counted when someone's email app loads images, so the real number is usually a bit higher.</p>
+</div>
+<dialog id=unopenedSheet class="botsheet modal"><div class=sheet><div class=grab aria-hidden=true></div><h2>Didn't open.</h2>
+<div class=rg-namelist>{% for r in unopened %}<div>{{ (r.preferred_first or r.first or '') ~ ' ' ~ (r.last or '') if r.first else r.address }}<small>{{ r.address }}</small></div>{% endfor %}</div></div></dialog>
+<dialog id=bouncedSheet class="botsheet modal"><div class=sheet><div class=grab aria-hidden=true></div><h2>Bounced.</h2>
+<div class=rg-namelist>{% for r in bounced %}<div>{{ r.address }}<small>{{ r.bounced }}</small></div>{% endfor %}</div></div></dialog>
+{% if sending %}<script>setTimeout(function(){ location.reload(); }, 4000);</script>{% endif %}"""
+T["email_unsub"] = """<div class=rg-screen style="padding-top:40px">
+{% if done %}{{ rg_page_title('Unsubscribed', "You won't get club news by email. Practice and account emails still come through.") }}
+{% else %}{{ rg_page_title('Unsubscribe', 'Stop getting club news by email?') }}
+<form method=post>{{ csrf_field() }}<button class="rg-btn primary" style="width:100%">Unsubscribe</button></form>{% endif %}
+</div>"""
 T["qr_page"] = ADMIN_NAV + """<div class=rg-screen>
 {{ rg_page_title('QR codes', 'Print or share. Each code opens one thing.') }}
 <div class=rg-qrgrid>

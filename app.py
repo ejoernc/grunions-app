@@ -11,6 +11,7 @@ import mailhtml
 import publicfeed
 import sportspay
 import flows2
+import clubemail
 import nav
 import components
 import routing
@@ -7667,6 +7668,265 @@ def manage_widget():
     return page(ui.T["website"], tab="admin", w=w, events=events, host=host, changed=_changed_label(d),
         chip_choices=publicfeed.CHIPS, tabs_label=_tabs_label(w), opens_label=dict(publicfeed.CHIPS).get(w.get("default_chip"), "All"),
         embed=publicfeed.embed_snippet(), platforms=WIDGET_PLATFORMS, platform_steps=WIDGET_STEPS, share_url=public_schedule_url())
+# ---- Email (Figma 62 · E1–E5) -------------------------------------------------------------
+def _email_practices(d):
+    rows = d.execute("SELECT * FROM practices WHERE date>=? AND COALESCE(cancelled,0)=0 ORDER BY date, start LIMIT 30", (today_pt().isoformat(),)).fetchall()
+    return [{"id": r["id"], "label": "%s · %s · %s" % (fmt_d(r["date"]), fmt_t(r["start"]), r["location"] or ""), "row": r} for r in rows]
+def _email_practice_lookup(d):
+    cache = {}
+    def look(pid):
+        if not pid: return None
+        if pid not in cache:
+            r = d.execute("SELECT * FROM practices WHERE id=?", (int(pid),)).fetchone()
+            cache[pid] = None if not r else {"when": "%s · %s" % (fmt_long(r["date"]), fmt_span(r["start"], r["end"])),
+                                             "where": r["location"] or "", "status": "Cancelled" if r["cancelled"] else ""}
+        return cache[pid]
+    return look
+def _email_audiences(d):
+    import clubadmin
+    clubadmin.ensure(d)
+    today = today_pt().isoformat()
+    nxt = d.execute("SELECT * FROM practices WHERE date>=? AND COALESCE(cancelled,0)=0 ORDER BY date, start LIMIT 1", (today,)).fetchone()
+    nxt_info = {"id": nxt["id"], "label": dt.date.fromisoformat(nxt["date"]).strftime("%a")} if nxt else None
+    return clubemail.audiences(d, lambda m: clearance(d, m)["ok"], club_sports(d), nxt_info,
+                               lambda m: clubadmin.payment_view(d, m["id"], today)["paying"])
+def _email_people(d, key):
+    for k, label, people in _email_audiences(d):
+        if k == key: return label, people
+    return "Everyone", []
+def _email_render(d, row, first="Eli", dark=True, link=None, pixel="", unsub=""):
+    return clubemail.render(clubemail.blocks_of(row), first=first, practice_lookup=_email_practice_lookup(d),
+                            link=link or (lambda u: u if u.startswith("http") else app_base() + u), pixel=pixel, unsub=unsub,
+                            club=org_name(), address=(os.environ.get("CLUB_ADDRESS") or "").strip(), dark=dark)
+def _email_sig(token, url):
+    import hmac, hashlib
+    return hmac.new((app.secret_key or "x").encode() if isinstance(app.secret_key, str) else (app.secret_key or b"x"), ("%s|%s" % (token, url)).encode(), hashlib.sha256).hexdigest()[:20]
+def _email_send_one(d, row, rcpt, member, base=None):
+    base = base or app_base()
+    tok = rcpt["token"]
+    def link(u):
+        full = u if u.startswith("http") else base + u
+        return "%s/e/c/%s?u=%s&s=%s" % (base, tok, urllib.parse.quote(full, safe=""), _email_sig(tok, full))
+    first = display_first(member) if member else ""
+    html = _email_render(d, row, first=first, link=link, pixel="%s/e/o/%s.gif" % (base, tok), unsub="%s/e/u/%s" % (base, tok))
+    text = clubemail.plain_text(clubemail.blocks_of(row), first, _email_practice_lookup(d)) + "\n\nUnsubscribe: %s/e/u/%s" % (base, tok)
+    send_email(rcpt["address"], row["subject"] or "News from %s" % org_name(), text, html)
+def _email_deliver(eid, only_ids=None, base=None):
+    """Send to everyone staged and not yet sent. Runs off the request so a big list doesn't time out."""
+    d = open_db()
+    try:
+        clubemail.ensure(d)
+        row = clubemail.get(d, eid)
+        q = "SELECT * FROM club_email_recipients WHERE email_id=? AND sent_at IS NULL AND bounced=''"
+        for rcpt in d.execute(q, (eid,)).fetchall():
+            if only_ids is not None and rcpt["id"] not in only_ids: continue
+            member = d.execute("SELECT * FROM members WHERE id=?", (rcpt["member_id"],)).fetchone() if rcpt["member_id"] else None
+            try:
+                _email_send_one(d, row, rcpt, member, base)
+                d.execute("UPDATE club_email_recipients SET sent_at=? WHERE id=?", (clubemail._now(), rcpt["id"]))
+            except Exception as exc:
+                d.execute("UPDATE club_email_recipients SET bounced=? WHERE id=?", (str(exc)[:120] or "failed", rcpt["id"]))
+            d.commit()
+        n = d.execute("SELECT COUNT(*) FROM club_email_recipients WHERE email_id=? AND sent_at IS NOT NULL", (eid,)).fetchone()[0]
+        d.execute("UPDATE club_emails SET status='sent', sent_at=COALESCE(sent_at, ?), sent_count=? WHERE id=?", (clubemail._now(), n, eid))
+        d.commit()
+    except Exception:
+        app.logger.exception("club email send failed")
+    finally:
+        d.close()
+def _email_start(eid):
+    base = app_base()
+    if os.environ.get("CLUB_EMAIL_SYNC") == "1" or app.testing:
+        _email_deliver(eid, base=base); return
+    import threading
+    threading.Thread(target=_email_deliver, args=(eid,), kwargs={"base": base}, daemon=True).start()
+def run_scheduled_emails(d):
+    clubemail.ensure(d)
+    now = clubemail._now()
+    for row in d.execute("SELECT * FROM club_emails WHERE status='scheduled' AND scheduled_for IS NOT NULL AND scheduled_for<=?", (now,)).fetchall():
+        label, people = _email_people(d, row["audience"])
+        clubemail.stage_recipients(d, row["id"], people)
+        d.execute("UPDATE club_emails SET status='sending' WHERE id=?", (row["id"],)); d.commit()
+        _email_deliver(row["id"])
+def _email_date(raw):
+    try:
+        w = dt.datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        if w.tzinfo is None: w = w.replace(tzinfo=dt.timezone.utc)
+        w = w.astimezone(PT)
+        clock = "%d:%02d %s" % ((w.hour - 1) % 12 + 1, w.minute, "AM" if w.hour < 12 else "PM")
+        return "%s %d" % (w.strftime("%b"), w.day), "%s %d, %s" % (w.strftime("%b"), w.day, clock)
+    except Exception:
+        return "", ""
+@app.route("/manage/email", methods=["GET", "POST"])
+@admin_required
+def email_home():
+    d = db(); clubemail.ensure(d)
+    if request.method == "POST":
+        eid = clubemail.create(d, me()["id"], (request.form.get("template") or "").strip())
+        d.commit()
+        return redirect("/manage/email/%d" % eid)
+    f = request.args.get("f") or "sent"
+    if f not in ("sent", "scheduled", "drafts"): f = "sent"
+    status = {"sent": ("sent", "sending"), "scheduled": ("scheduled",), "drafts": ("draft",)}[f]
+    rows = d.execute("SELECT * FROM club_emails WHERE status IN (%s) ORDER BY COALESCE(sent_at, scheduled_for, updated_at) DESC, id DESC" % ",".join("?" * len(status)), status).fetchall()
+    counts = {k: d.execute("SELECT COUNT(*) FROM club_emails WHERE status IN (%s)" % ",".join("?" * len(v)), v).fetchone()[0]
+              for k, v in (("sent", ("sent", "sending")), ("scheduled", ("scheduled",)), ("drafts", ("draft",)))}
+    labels = {k: l for k, l, _p in _email_audiences(d)}
+    items = []
+    for r in rows:
+        day, _full = _email_date(r["sent_at"] or r["scheduled_for"] or r["updated_at"])
+        st = clubemail.stats(d, r["id"])
+        href = "/manage/email/%d/report" % r["id"] if r["status"] in ("sent", "sending") else "/manage/email/%d" % r["id"]
+        chip = ("%d%% open" % st["rate"]) if r["status"] in ("sent", "sending") else ("Scheduled" if r["status"] == "scheduled" else "Draft")
+        items.append({"href": href, "title": r["subject"] or "Untitled", "sub": "%s · %s" % (labels.get(r["audience"], "Everyone"), day), "chip": chip})
+    return page(T["email_home"], tab="admin", items=items, f=f, counts=counts, templates=clubemail.TEMPLATES)
+@app.route("/manage/email/<int:eid>", methods=["GET", "POST"])
+@admin_required
+def email_builder(eid):
+    d = db(); clubemail.ensure(d)
+    row = clubemail.get(d, eid)
+    if not row: abort(404)
+    if row["status"] in ("sent", "sending"): return redirect("/manage/email/%d/report" % eid)
+    if request.method == "POST":
+        action = request.form.get("action") or request.form.get("field") or ""
+        blocks = clubemail.blocks_of(row)
+        if action in ("audience", "subject"):
+            clubemail.save(d, eid, **{action: (request.form.get(action) or "").strip()[:200]})
+        elif action == "template":
+            name, fresh = clubemail.template_blocks(request.form.get("template") or "")
+            clubemail.save(d, eid, template=request.form.get("template") or "", blocks=json.dumps(fresh), subject=row["subject"] or name)
+        elif action == "add_block":
+            kind = request.form.get("kind") or "text"
+            if kind in dict((k, l) for k, l, _d in clubemail.BLOCK_KINDS):
+                new = {"kind": kind}
+                if kind == "header": new.update(tone="lime", kicker="NEWS", big="", title=row["subject"] or "News from the club.")
+                at = len(blocks) - 1 if blocks and blocks[-1].get("kind") == "footer" and kind != "footer" else len(blocks)
+                blocks.insert(at, new)
+                clubemail.save(d, eid, blocks=json.dumps(blocks))
+        elif action in ("edit_block", "remove_block", "up", "down"):
+            i = request.form.get("index", type=int)
+            if i is not None and 0 <= i < len(blocks):
+                if action == "remove_block": blocks.pop(i)
+                elif action == "up" and i > 0: blocks[i - 1], blocks[i] = blocks[i], blocks[i - 1]
+                elif action == "down" and i < len(blocks) - 1: blocks[i + 1], blocks[i] = blocks[i], blocks[i + 1]
+                elif action == "edit_block":
+                    b = blocks[i]
+                    for key in ("kicker", "big", "title", "body", "label", "url", "tone"):
+                        if key in request.form: b[key] = (request.form.get(key) or "")[:2000]
+                    if "practice_id" in request.form: b["practice_id"] = request.form.get("practice_id", type=int)
+                clubemail.save(d, eid, blocks=json.dumps(blocks))
+        elif action == "discard":
+            d.execute("DELETE FROM club_emails WHERE id=? AND status='draft'", (eid,)); d.commit()
+            flash("Draft deleted", "toast"); return redirect("/manage/email?f=drafts")
+        d.commit()
+        if request.headers.get("X-Autosave") == "1":
+            return jsonify(ok=True, toast="Draft saved")
+        return redirect("/manage/email/%d" % eid)
+    auds = [(k, "%s · %d" % (l, len(p))) for k, l, p in _email_audiences(d)]
+    look = _email_practice_lookup(d)
+    blocks = [{"i": i, "kind": b.get("kind"), "label": dict((k, l) for k, l, _d in clubemail.BLOCK_KINDS).get(b.get("kind"), "Block"),
+               "summary": clubemail.block_summary(b, look), "b": b} for i, b in enumerate(clubemail.blocks_of(row))]
+    tname = dict((t[0], t[1]) for t in clubemail.TEMPLATES).get(row["template"], "Blank")
+    return page(T["email_builder"], tab="flow", row=row, auds=auds, blocks=blocks, template_name=tname, templates=clubemail.TEMPLATES,
+                kinds=clubemail.BLOCK_KINDS, practices=_email_practices(d), tones=list(clubemail.TONES.keys()))
+@app.route("/manage/email/<int:eid>/preview", methods=["GET", "POST"])
+@admin_required
+def email_preview(eid):
+    d = db(); clubemail.ensure(d)
+    row = clubemail.get(d, eid)
+    if not row: abort(404)
+    label, people = _email_people(d, row["audience"])
+    if request.method == "POST":
+        action = request.form.get("action") or ""
+        if not smtp_ready():
+            flash("Email isn't set up on this server yet, so nothing was sent."); return redirect("/manage/email/%d/preview" % eid)
+        if not (row["subject"] or "").strip():
+            flash("Add a subject first."); return redirect("/manage/email/%d" % eid)
+        if action == "test":
+            try:
+                send_email(me()["email"], "[Test] " + row["subject"], clubemail.plain_text(clubemail.blocks_of(row), display_first(me()), _email_practice_lookup(d)),
+                           _email_render(d, row, first=display_first(me())))
+                flash("Test sent to %s" % me()["email"], "toast")
+            except Exception:
+                app.logger.exception("test email failed"); flash("The test didn't send. Check the email settings.")
+            return redirect("/manage/email/%d/preview" % eid)
+        if row["status"] in ("sent", "sending"): return redirect("/manage/email/%d/report" % eid)
+        if action == "schedule":
+            raw = (request.form.get("when") or "").strip()
+            try:
+                local = dt.datetime.fromisoformat(raw).replace(tzinfo=PT)
+            except ValueError:
+                flash("Pick a date and time."); return redirect("/manage/email/%d/preview" % eid)
+            if local <= dt.datetime.now(PT):
+                flash("Pick a time in the future."); return redirect("/manage/email/%d/preview" % eid)
+            clubemail.save(d, eid, status="scheduled", scheduled_for=local.astimezone(dt.timezone.utc).isoformat(timespec="seconds"))
+            d.commit(); flash("Scheduled", "toast"); return redirect("/manage/email?f=scheduled")
+        if action == "send":
+            if not people:
+                flash("No one is in that audience."); return redirect("/manage/email/%d" % eid)
+            clubemail.stage_recipients(d, eid, people)
+            clubemail.save(d, eid, status="sending"); d.commit()
+            _email_start(eid)
+            flash("Sending to %d %s" % (len(people), "person" if len(people) == 1 else "people"), "toast")
+            return redirect("/manage/email/%d/report" % eid)
+    mode = request.args.get("mode") or "phone"
+    html = _email_render(d, row, first=display_first(me()), dark=(mode != "light"))
+    return page(T["email_preview"], tab="admin", row=row, n=len(people), audience=label, mode=mode, email_html=html, smtp=smtp_ready())
+@app.route("/manage/email/<int:eid>/report", methods=["GET", "POST"])
+@admin_required
+def email_report(eid):
+    d = db(); clubemail.ensure(d)
+    row = clubemail.get(d, eid)
+    if not row: abort(404)
+    if request.method == "POST":
+        if request.form.get("action") == "duplicate":
+            new = clubemail.duplicate(d, eid, me()["id"]); d.commit(); return redirect("/manage/email/%d" % new)
+        if request.form.get("action") == "resend":
+            if not smtp_ready():
+                flash("Email isn't set up on this server yet, so nothing was sent."); return redirect("/manage/email/%d/report" % eid)
+            quiet = d.execute("SELECT member_id FROM club_email_recipients WHERE email_id=? AND sent_at IS NOT NULL AND opened_at IS NULL", (eid,)).fetchall()
+            ids = [r[0] for r in quiet if r[0]]
+            if not ids:
+                flash("Everyone opened it."); return redirect("/manage/email/%d/report" % eid)
+            new = clubemail.duplicate(d, eid, me()["id"])
+            people = d.execute("SELECT * FROM members WHERE id IN (%s)" % ",".join("?" * len(ids)), ids).fetchall()
+            clubemail.stage_recipients(d, new, people)
+            clubemail.save(d, new, status="sending", audience=row["audience"]); d.commit()
+            _email_start(new)
+            flash("Resending to %d" % len(ids), "toast"); return redirect("/manage/email/%d/report" % new)
+    st = clubemail.stats(d, eid)
+    label, _p = _email_people(d, row["audience"])
+    _day, full = _email_date(row["sent_at"] or row["updated_at"])
+    def names(q):
+        return [r for r in d.execute("""SELECT r.address, r.bounced, m.first, m.preferred_first, m.last FROM club_email_recipients r
+            LEFT JOIN members m ON m.id=r.member_id WHERE r.email_id=? AND %s ORDER BY m.last, m.first""" % q, (eid,)).fetchall()]
+    unopened = names("r.sent_at IS NOT NULL AND r.opened_at IS NULL")
+    bounced = names("r.bounced!=''")
+    return page(T["email_report"], tab="admin", row=row, st=st, audience=label, when=full, unopened=unopened, bounced=bounced,
+                email_html=_email_render(d, row, first=display_first(me())), sending=row["status"] == "sending")
+_PIXEL = base64.b64decode("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
+@app.route("/e/o/<token>.gif")
+def email_open(token):
+    d = db(); clubemail.ensure(d)
+    clubemail.mark(d, token, "open"); d.commit()
+    resp = Response(_PIXEL, mimetype="image/gif"); resp.headers["Cache-Control"] = "no-store"; return resp
+@app.route("/e/c/<token>")
+def email_click(token):
+    url = request.args.get("u") or ""
+    if not url or request.args.get("s") != _email_sig(token, url) or not url.startswith(("http://", "https://")):
+        return redirect("/")
+    d = db(); clubemail.ensure(d)
+    clubemail.mark(d, token, "click"); d.commit()
+    return redirect(url)
+@app.route("/e/u/<token>", methods=["GET", "POST"])
+def email_unsub(token):
+    d = db(); clubemail.ensure(d)
+    row = d.execute("SELECT * FROM club_email_recipients WHERE token=?", (token,)).fetchone()
+    if not row: abort(404)
+    if request.method == "POST" and row["member_id"]:
+        d.execute("UPDATE members SET news_opt_out=1 WHERE id=?", (row["member_id"],)); d.commit()
+        return page(T["email_unsub"], tab="", done=True, token=token)
+    return page(T["email_unsub"], tab="", done=False, token=token)
 @app.route("/lineup", methods=["GET", "POST"])
 @login_required
 def lineup():
@@ -8280,6 +8540,7 @@ def _manage_catalog(d):
         add("activities", "Bulletin", "Team announcements in chat", "/chat", "tray", "announcement message bulletin chat")
         add("activities", "Requests", "Member-submitted events", "/manage/requests", "tray", "approval pending request")
     if admin:
+        add("activities", "Email", "Send news to members. See what went out.", "/manage/email", "tray", "email newsletter news announcement send")
         add("people", "People", "Participants, members, coaches, admins, and referees", "/manage/area/people", "people", "participant member coach admin referee roster compliance membership certification expiring", expiring_people_count(d), "warn")
         # Nov 13: Compliance is covered per sport, so it's folded into Sports (its route stays for old links).
         add("club", "Sports", "Club supported sports, sports insurance and requirements", "/manage/club/programs", "cal",
@@ -8296,7 +8557,7 @@ def _manage_catalog(d):
         add("tools", "Usage", "Mapbox calls today", "/manage/tools/usage", "rules", "mapbox usage", mapbox_calls_today())
     return rows
 _AREA_COPY = {
-    "activities": ("Activities", "Schedule, Lineup, Bulletin, and requests"),
+    "activities": ("Activities", "Schedule, Lineup, Bulletin, requests and email"),
     "people": ("People", "Participants, members, coaches, admins, and referees"),
     "club": ("Club", "Sports, plans, and sharing"),
     "tools": ("Tools", "QR codes, data transfer, and usage"),
@@ -11129,7 +11390,7 @@ def run_notify_jobs():
     d = open_db()
     try:
         if not claim_job(d, "notify_scan", 90): return
-        run_practice_reminders(d); run_expiry_notices(d); nudge_stale_requests(d); run_auto_rsvp_asks(d); run_leave_alerts(d)
+        run_practice_reminders(d); run_expiry_notices(d); nudge_stale_requests(d); run_auto_rsvp_asks(d); run_leave_alerts(d); run_scheduled_emails(d)
     except Exception:
         app.logger.exception("notification job failed")
     finally:

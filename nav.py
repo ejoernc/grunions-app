@@ -169,6 +169,13 @@ route("club_reminders", "Reminders", ("manage_area", {"area": "club"}), "manage"
 route("manage_widget", "Website & sharing", ("manage_area", {"area": "club"}), "manage")
 # Tools pages keep their current URLs until the Figma 61 · M4 rebuild moves them under /manage/tools/.
 route("qr_page", "QR codes", "tools_qr", "manage", "redirect")
+route("email_home", "Email", ("manage_area", {"area": "activities"}), "manage")
+route("email_builder", "New email", "email_home", "manage", "sheet")
+route("email_preview", "Preview", "email_builder", "manage")
+route("email_report", "Sent", "email_home", "manage")
+route("email_open", "Email", None, "public", "asset")
+route("email_click", "Email", None, "public", "asset")
+route("email_unsub", "Unsubscribe", None, "public", "root")
 route("tools_qr", "QR codes", ("manage_area", {"area": "tools"}), "manage")
 route("transfer_page", "Data transfer", "tools_transfer", "manage", "redirect")
 route("tools_transfer", "Data transfer", ("manage_area", {"area": "tools"}), "manage")
