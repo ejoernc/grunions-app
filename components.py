@@ -266,6 +266,23 @@ def hub_tile(href, count, title, desc, tone="sun"):
                   '<span class=rg-hubtxt><b>%s</b><small>%s</small></span></a>' % (_tone(tone, "sun"), _e(href), int(count or 0), _e(title), _e(desc)))
 
 
+def stack_tile(href, title, sub, count, tone="sun"):
+    """2.0 / People / List stack tile (08 · 2015:10275): colored tile, display title, one line, big two-digit count.
+    Tiles in an .rg-tilestack overlap like a deck."""
+    right = ('<b class=rg-tilen>%02d</b>' % int(count)) if count is not None else '<b class="rg-tilen arrow" aria-hidden=true>→</b>'
+    return Markup('<a class="rg-tile tone-%s" href="%s"><span class=rg-txt><b>%s</b><small>%s</small></span>%s</a>'
+                  % (_tone(tone, "sun"), _e(href), _e(title), _e(sub), right))
+
+
+DECK_TONES = ("sun", "sky", "tangerine", "lavender", "lime", "aqua", "mango", "bubblegum", "cobalt", "grape")
+
+
+def count_chips(items):
+    """Count chips row (2.0 / Participants: TOTAL · VERIFIED · PENDING · EXPIRED · UNKNOWN). items = [(n, label, tone)]."""
+    return Markup('<div class=rg-counts>%s</div>' % "".join(
+        '<span class="rg-cnt tone-%s"><b>%02d</b><small>%s</small></span>' % (_tone(t, "graphite"), int(n or 0), _e(l)) for n, l, t in items))
+
+
 def callout(title, sub="", cta="", href="", tone="graphite", onclick=""):
     """Tinted one-line action card ("Need a ride?  Ask →", "Requires USA Water Polo + club waiver  Once")."""
     inner = '<span class=rg-txt><b>%s</b>%s</span>%s' % (_e(title), ('<small>%s</small>' % _e(sub)) if sub else "",
@@ -306,4 +323,4 @@ def checklist(title, steps, done_label=""):
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_hub=hub_tile, rg_event_cancelled=event_cancelled, rg_checklist=checklist, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, event_tone=event_tone)

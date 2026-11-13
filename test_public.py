@@ -275,9 +275,9 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     assert "Schedule &amp; pricing" not in club
     people = admin.get("/manage/area/people").get_data(as_text=True)
     assert "<h1>People</h1>" in people and "Participants, members, coaches, admins, and referees" in people
-    assert "class=mtitle>Participants" in people and "class=mtitle>Members" in people and "class=mtitle>Coaches" in people and "class=mtitle>Admins" in people
-    assert "class=mtitle>Referees" in people and "class=mtitle>Compliance" in people and "class=mtitle>Membership" not in people
-    assert people.index("class=mtitle>Participants") < people.index("class=mtitle>Members")
+    assert "<b>Participants</b>" in people and "<b>Members</b>" in people and "<b>Coaches</b>" in people and "<b>Admins</b>" in people
+    assert "<b>Referees</b>" in people and "<b>Compliance</b>" in people and "<b>Membership</b>" not in people
+    assert people.index("<b>Participants</b>") < people.index("<b>Members</b>")
     assert 'href="/members?view=coaches"' in people and 'href="/members?view=compliance"' in people and 'href="/members?view=membership"' in people
     assert "class=hubback href=/manage" in people and "class=hubback href=/manage/area/" not in people
     tools = admin.get("/manage/area/tools").get_data(as_text=True)

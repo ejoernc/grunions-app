@@ -525,7 +525,7 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
         assert shown.count("Monthly Membership") == 1 and "Water Polo 2-Week Free Trial" in shown and "Drop-in" in shown
         assert "Swimming drop-in" not in shown
     page = admin.get("/manage/area/club").get_data(as_text=True)
-    assert 'href="/manage/club/programs"' in page and ">Sports</span>" in page
+    assert 'href="/manage/club/programs"' in page and "<b>Sports</b>" in page
     sports = admin.get("/manage/club/programs").get_data(as_text=True)
     assert "Water Polo" in sports and "<b>Swimming</b>" in sports and "Open Water Swimming" in sports and "Pool Swimming" not in sports
     assert "Inactive" in sports and "USA Water Polo" in sports and "Add sport" in sports
@@ -547,7 +547,7 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
     assert "SafeSport" in athletes and "On" in athletes
     assert "Background screening" in coaches and "Off" in coaches
     club = admin.get("/manage/area/club").get_data(as_text=True)
-    assert "Leadership" in club and "class=mtitle>Permissions" in club
+    assert "Leadership" in club and "<b>Permissions</b>" in club
     assert "Who can manage the club, sports and schedule" in club and 'href="/manage/club/permissions"' in club
     assert "Compliance" in admin.get("/manage/area/club").get_data(as_text=True) and "Venues" in admin.get("/manage/area/club").get_data(as_text=True)
     assert "Specific events" not in polo
@@ -624,7 +624,7 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
         plan = d.execute("SELECT id FROM payment_plans WHERE kind='monthly'").fetchone()["id"]
         before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
     page = admin.get("/manage/area/people").get_data(as_text=True)
-    assert "<h1>People</h1>" in page and "class=mtitle>Participants" in page and "class=mtitle>Members" in page and "class=mtitle>Compliance" in page and "class=mtitle>Membership" not in page
+    assert "<h1>People</h1>" in page and "<b>Participants</b>" in page and "<b>Members</b>" in page and "<b>Compliance</b>" in page and "<b>Membership</b>" not in page
     roster = admin.get("/members").get_data(as_text=True)
     assert "Unpaid" in roster and ">Paying</a>" not in roster and ">Not paying</a>" not in roster and 'data-seg' in roster
     passes = admin.get("/manage/club/plans").get_data(as_text=True)

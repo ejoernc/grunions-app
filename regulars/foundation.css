@@ -468,3 +468,26 @@
 .rg-hubtop{display:flex;justify-content:space-between;align-items:flex-start}
 .rg-hubtop b{font:700 44px/.95 var(--font-display);letter-spacing:-.05em}.rg-hubtop i{font:700 22px/1 var(--font-display);font-style:normal}
 .rg-hubtxt{display:grid;gap:4px}.rg-hubtxt b{font:700 26px/.95 var(--font-display);letter-spacing:-.03em}.rg-hubtxt small{font:600 15px/1.25 var(--font-sans)}
+.rg-tilestack{display:flex;flex-direction:column;padding-bottom:calc(var(--nav-clear) + 24px)}
+.rg-tile{position:relative;display:flex;align-items:center;gap:12px;min-height:84px;padding:14px 22px;border-radius:32px;background:var(--tone);color:var(--fixed-ink);text-decoration:none;box-sizing:border-box}
+.rg-tile+.rg-tile{margin-top:-11px}
+.rg-tile .rg-txt b{font:700 24px/1.05 var(--font-display);letter-spacing:-.03em;white-space:normal}
+.rg-tile .rg-txt small{font:600 12px/1.3 var(--font-sans);opacity:1}
+.rg-tilen{flex:none;font:700 52px/.9 var(--font-display);letter-spacing:-.06em}
+.rg-tilen.arrow{font-size:40px;letter-spacing:0}
+/* 08 Manage sub-pages: header = back disc, 80px display title, smoke subtitle (2.0 / Top bar + title). */
+body.adminpage header.homehead a.hubback{width:44px;height:44px;margin-left:0;border-radius:999px;background:var(--graphite);color:var(--paper)}
+body.adminpage main .pagehead h1,body.adminpage .pagehead .pagerow h1{font:700 clamp(56px,18vw,80px)/.86 var(--font-display);letter-spacing:-.05em}
+body.adminpage .pagehead .pagesub,body.adminpage .pagesub{color:var(--smoke);font:500 15px/1.4 var(--font-sans)}
+/* Participants list (2.0 / Participants / All): search field, filters, person cards, status chips */
+.peoplebar form input[name=q]{height:56px;border:0;border-radius:999px;background:var(--graphite);padding:0 20px;color:var(--paper);font:500 16px/1 var(--font-sans)}
+.peoplebar .fchips .chip{min-height:32px;padding:0 14px;border:0;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 13px/32px var(--font-sans)}
+.peoplebar .fchips .chip.on{background:var(--paper);color:var(--ink)}
+.pageact.btn.quiet{border-radius:999px;background:var(--graphite);color:var(--paper);padding:0 16px;height:40px}
+.rg-counts{display:flex;gap:6px;overflow-x:auto;margin:4px 0 8px}
+.rg-cnt{flex:1 0 64px;display:grid;justify-items:center;gap:4px;padding:10px 6px;border-radius:20px;background:var(--tone);color:var(--fixed-ink)}
+.rg-cnt.tone-graphite{color:var(--paper)}
+.rg-cnt b{font:700 28px/.9 var(--font-display);letter-spacing:-.04em}.rg-cnt small{font:700 9px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase}
+.personrow .avatar,.personrow .ciav{background:var(--team-sun);color:var(--fixed-ink)}
+body.adminpage .pagehead .pagerow{flex-direction:column;align-items:flex-start;gap:14px}
+body.adminpage .pagehead .pagerow h1{overflow-wrap:normal;word-break:keep-all}

@@ -8667,23 +8667,23 @@ def manage_area(area):
         clubadmin.ensure(d)
         today = today_pt().isoformat()
         paying_n = sum(1 for person in sets["rows"] if clubadmin.has_monthly_membership(d, person["id"], today))
-        packed = [
-            _manage_row("Participants", _n(len(sets["rows"]), "participant", "participants"), "/members", "people"),
-            _manage_row("Members", "%d paying" % paying_n, "/members?view=membership", "seal"),
-            _manage_row("Coaches", _n(len(sets["coaches"]), "coach", "coaches"), "/members?view=coaches", "user"),
-            _manage_row("Admins", _n(len(sets["admins"]), "admin", "admins"), "/members?view=admins", "seal"),
-            _manage_row("Referees", _n(len(sets["refs"]), "referee", "referees"), "/members?view=referees", "flag"),
-            _manage_row("Compliance", _n(expiring_n, "expiring", "expiring"), "/members?view=compliance", "shield"),
+        tiles = [
+            ("/members", "Participants", _n(len(sets["rows"]), "participant", "participants"), len(sets["rows"]), "sun"),
+            ("/members?view=membership", "Members", "%d paying" % paying_n, paying_n, "sky"),
+            ("/members?view=coaches", "Coaches", _n(len(sets["coaches"]), "coach", "coaches"), len(sets["coaches"]), "tangerine"),
+            ("/members?view=admins", "Admins", _n(len(sets["admins"]), "admin", "admins"), len(sets["admins"]), "lavender"),
+            ("/members?view=referees", "Referees", _n(len(sets["refs"]), "referee", "referees"), len(sets["refs"]), "lime"),
+            ("/members?view=compliance", "Compliance", _n(expiring_n, "expiring", "expiring"), expiring_n, "aqua"),
         ]
         return page(T["manage_area"], tab="admin", admin_back="/manage", title="People",
-            subtitle="Participants, members, coaches, admins, and referees", rows=packed)
+            subtitle="Participants, members, coaches, admins, and referees", rows=[], tiles=tiles)
     rows = [row for row in _manage_catalog(db()) if row["area"] == area]
     if not rows: abort(403)
     title, subtitle = _AREA_COPY[area]
-    packed = []
-    for row in rows:
-        packed.append(_manage_row(row["title"], row["desc"], row["href"], row["icon"], row["count"], row["tone"]))
-    return page(T["manage_area"], tab="admin", title=title, subtitle=subtitle, rows=packed)
+    # 08 · Activities / Club / Tools lists: the same tile deck as People. A count when there is one, else an arrow.
+    tiles = [(row["href"], row["title"], row["desc"], (row["count"] or None), components.DECK_TONES[i % len(components.DECK_TONES)])
+             for i, row in enumerate(rows)]
+    return page(T["manage_area"], tab="admin", admin_back="/manage", title=title, subtitle=subtitle, rows=[], tiles=tiles)
 @app.route("/manage/schedule")
 @login_required
 def manage_schedule():

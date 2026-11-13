@@ -497,7 +497,7 @@ body.editor .daypicks input:checked+span{background:var(--team-sun);color:var(--
 .stchip.tang{background:var(--team-tangerine);color:var(--ink)}
 .stchip.lime{background:var(--lime);color:var(--ink)}
 .stchip.ink{background:var(--graphite);color:var(--paper)}
-a.mrow.mtile{min-height:96px;margin:0 0 10px;border:0;border-radius:28px;padding:18px 20px;color:var(--ink)}
+a.mrow.mtile{min-height:96px;margin:0 0 10px;border:0;border-radius:28px;padding:18px 20px;color:var(--fixed-ink)}
 a.mrow.mtile.sun{background:var(--team-sun)}a.mrow.mtile.sky{background:var(--team-sky)}a.mrow.mtile.tangerine{background:var(--team-tangerine)}a.mrow.mtile.lavender{background:var(--team-lavender)}a.mrow.mtile.lime{background:var(--lime)}a.mrow.mtile.aqua{background:var(--team-aqua)}a.mrow.mtile.mango{background:var(--team-mango)}a.mrow.mtile.bubblegum{background:var(--team-bubblegum)}a.mrow.mtile.carbon{background:var(--graphite);color:var(--paper)}
 a.mrow.mtile .mico{display:none}
 a.mrow.mtile .mtitle{font:700 26px/1.05 var(--r2-font-display);letter-spacing:-.03em;color:inherit}
@@ -6491,6 +6491,7 @@ T["manage"] = ADMIN_NAV + """<div class=managehome id=manageHome>
 })();
 </script>"""
 T["manage_area"] = ADMIN_NAV + """{{ admin_page(title, subtitle) }}
+{% if tiles %}<div class=rg-tilestack>{% for href, t, sub, n, tone in tiles %}{{ rg_stack_tile(href, t, sub, n, tone) }}{% endfor %}</div>{% endif %}
 <div class=mlist style="margin-bottom:120px">{% for row in rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone, row.tile, row.num) }}{% endfor %}</div>"""
 T["manage_schedule"] = ADMIN_NAV + """{{ admin_page('Schedule', 'Practices, scrimmages, and games.') }}
 {% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
@@ -7506,7 +7507,7 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pa
 <a href="/members?{% if view != 'members' %}view={{ view }}&amp;{% endif %}filt=expiring{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if filt=='expiring' }}">Expiring</a>
 <a href="/members?{% if view != 'members' %}view={{ view }}&amp;{% endif %}filt=uncleared{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if filt=='uncleared' }}">Not cleared</a>
 </div>
-<p class="t2 sm peoplesum">{{ rows|length }} total · {% for s,v in c.items() %}{{v}} {{s}}{{' · ' if not loop.last}}{% endfor %}</p>
+{{ rg_counts([(rows|length, 'Total', 'graphite'), (c.verified, 'Verified', 'lime'), (c.pending, 'Pending', 'sun'), (c.expired, 'Expired', 'cherry'), (c.unknown, 'Unknown', 'tangerine')]) }}
 </div>
 {% macro prow(r, kind) %}<div class="li personrow">{% call person_link(r) %}{% for tag in person_tags(r) %}<span class=sporttag>{{ tag }}</span>{% endfor %}<span class=sporttag>{{ pay_label(r) }}</span>{% endcall %}
 <span class=more><button type=button class=morebtn aria-label="Actions for {{display_first(r)}} {{r.last}}" aria-haspopup=menu aria-expanded=false><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></button>
