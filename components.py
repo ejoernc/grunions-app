@@ -354,6 +354,19 @@ def ride_pick(pid, req_id, csrf_html, label="Pick up"):
                   % (int(pid), csrf_html, int(req_id), _e(label)))
 
 
+def week_grid(blocks, label="Your week"):
+    """09.06 / 09.07 week grid: Mon–Sun columns, 6a–11p rows. blocks = [{col, top, h, cls, title}] (percent geometry).
+    Each block keeps a text title for screen readers and hover; the list beside the grid is the table view."""
+    hours = "".join('<span style="top:%.2f%%">%s</span>' % ((h - 6) / 17 * 100, lab)
+                    for h, lab in ((6, "6a"), (9, "9a"), (12, "12p"), (15, "3p"), (18, "6p"), (21, "9p")))
+    cols = "".join('<b>%s</b>' % x for x in ("M", "T", "W", "T", "F", "S", "S"))
+    marks = "".join('<i class="%s" style="--c:%d;top:%.2f%%;height:%.2f%%" title="%s"></i>' % (
+        _e(b.get("cls", "free")), int(b["col"]), b["top"], b["h"], _e(b.get("title", ""))) for b in blocks)
+    return Markup('<figure class=rg-week role=img aria-label="%s"><div class=rg-weekhead>%s</div>'
+                  '<div class=rg-weekbody><div class=rg-weekhours>%s</div><div class=rg-weekcols>%s</div></div></figure>'
+                  % (_e(label), cols, hours, marks))
+
+
 def metric(value, label, tone="carbon"):
     """2.0 / Metric."""
     return Markup('<div class="rg-metric tone-%s"><b>%s</b><span>%s</span></div>' % (_tone(tone, "carbon"), _e(value), _e(label)))
@@ -432,6 +445,6 @@ def plus_button(href, label="Add"):
 
 
 def jinja_globals():
-    return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_filters=filters, rg_day=day, rg_label=label,
+    return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
                 rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, event_tone=event_tone)

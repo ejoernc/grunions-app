@@ -135,3 +135,44 @@ def test_leave_by_api_window_and_no_origin_stored():
     r = member.post("/api/leave-by", json=dict(id=pid, lat=33.8, lng=-118.1), headers={"X-CSRF": csrf(member, "/rides/settings")})
     assert r.get_json() == {"ok": False, "error": "window"}
     assert "Leave by" in member.get("/practices/%d/leave-by" % pid).get_data(as_text=True)
+
+
+def test_availability_windows_fit_conflicts_and_away():
+    av = join("Ava", "Week", "ava@example.com")
+    t = csrf(av, "/availability")
+    bad = av.post("/availability", data=dict(csrf=t, action="add", weekday="1", start="21:00", end="19:00"), follow_redirects=True)
+    assert "end time after the start" in bad.get_data(as_text=True)
+    today = A.today_pt(); monday = today - dt.timedelta(days=today.weekday())
+    day = monday + dt.timedelta(days=6)  # Sunday this week
+    av.post("/availability", data=dict(csrf=t, action="add", weekday="6", start="18:00", end="21:00"))
+    aid = sql("SELECT id FROM members WHERE email='ava@example.com'")[0][0]
+    assert sql("SELECT weekday,start,end FROM avail_windows WHERE member_id=?", (aid,)) == [(6, "18:00", "21:00")]
+    assert sql("SELECT avail_days FROM members WHERE id=?", (aid,))[0][0] == "Sun"
+    sql("INSERT INTO practices(date,start,end,location,sport,title) VALUES(?,?,?,?,?,?)", (day.isoformat(), "19:00", "20:30", "Fit Pool", "Water Polo", "Fits practice"))
+    sql("INSERT INTO practices(date,start,end,location,sport,title) VALUES(?,?,?,?,?,?)", (day.isoformat(), "07:00", "08:00", "Fit Pool AM", "Water Polo", "Early conflict"))
+    page = av.get("/availability/fit").get_data(as_text=True)
+    assert "Early conflict" in page and "outside your windows" in page and "Mark Not going" in page
+    assert "Fits practice — " not in page
+    av.post("/availability/away", data=dict(csrf=csrf(av, "/availability/away"), action="add", start_date=day.isoformat(), end_date=day.isoformat(), note="Trip"))
+    assert "you're away that day" in av.get("/availability/fit").get_data(as_text=True).replace("&#39;", "'")
+    assert av.get("/calendar?when=availability").headers["Location"].endswith("/availability")
+
+
+def test_auto_rsvp_asks_once_and_never_rsvps():
+    au = join("Auto", "Asker", "auto@example.com")
+    aid = sql("SELECT id FROM members WHERE email='auto@example.com'")[0][0]
+    tomorrow = A.today_pt() + dt.timedelta(days=1)
+    sql("INSERT INTO practices(date,start,end,location,sport,title) VALUES(?,?,?,?,?,?)", (tomorrow.isoformat(), "19:00", "20:30", "Auto Pool", "Water Polo", "Auto practice"))
+    sql("INSERT INTO avail_windows(member_id,weekday,start,end) VALUES(?,?,?,?)", (aid, tomorrow.weekday(), "18:00", "22:00"))
+    sql("UPDATE members SET auto_rsvp=1 WHERE id=?", (aid,))
+    pushed = []
+    saved = A.push_member
+    A.push_member = lambda d, m, kind, title, body, url: pushed.append((m["id"], title))
+    try:
+        con = A.open_db()
+        now = dt.datetime.combine(A.today_pt(), dt.time(19, 30))
+        A.run_auto_rsvp_asks(con, now); A.run_auto_rsvp_asks(con, now); con.commit(); con.close()
+    finally:
+        A.push_member = saved
+    assert pushed.count((aid, "Going tomorrow?")) == 1
+    assert not sql("SELECT 1 FROM rsvps r JOIN practices p ON p.id=r.practice_id WHERE p.title='Auto practice'")

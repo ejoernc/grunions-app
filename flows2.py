@@ -35,10 +35,15 @@ def ensure_schema(d):
         created TEXT NOT NULL, UNIQUE(practice_id, driver_id))""")
     d.execute("""CREATE TABLE IF NOT EXISTS practice_wraps(
         practice_id INTEGER PRIMARY KEY, admin_note TEXT, recap TEXT, closed_by INTEGER, closed_at TEXT)""")
+    d.execute("""CREATE TABLE IF NOT EXISTS avail_windows(
+        id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL, weekday INTEGER NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL)""")
+    d.execute("CREATE INDEX IF NOT EXISTS avail_windows_member ON avail_windows(member_id, weekday)")
+    d.execute("""CREATE TABLE IF NOT EXISTS away_dates(
+        id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL, start_date TEXT NOT NULL, end_date TEXT NOT NULL, note TEXT)""")
     have = _cols(d, "members")
     for col, ddl in (("birth_date", "TEXT"), ("avail_days", "TEXT"), ("setup_dismissed", "INTEGER DEFAULT 0"),
                      ("ride_offer", "INTEGER DEFAULT 0"), ("ride_area", "TEXT"), ("ride_seats", "INTEGER DEFAULT 2"),
-                     ("leave_buffer", "INTEGER DEFAULT 5")):
+                     ("leave_buffer", "INTEGER DEFAULT 5"), ("auto_rsvp", "INTEGER DEFAULT 0")):
         if col not in have:
             d.execute("ALTER TABLE members ADD COLUMN %s %s" % (col, ddl))
 
@@ -221,6 +226,96 @@ def leave_plan(start, buffer_min, forecast_fn, step=10, span=60):
             "estimated": any(b["estimated"] for b in bars)}
 
 
+# ---------- availability (09.06–09.09, 09.16) ----------
+def _hm(raw):
+    try:
+        h, m = str(raw or "").split(":")[:2]
+        h, m = int(h), int(m)
+        return h * 60 + m if 0 <= h <= 23 and 0 <= m <= 59 else None
+    except (ValueError, TypeError):
+        return None
+
+
+def clean_window(weekday, start, end):
+    """(weekday 0–6, 'HH:MM', 'HH:MM') or None. End after start, same day."""
+    try:
+        wd = int(weekday)
+    except (TypeError, ValueError):
+        return None
+    a, b = _hm(start), _hm(end)
+    if not (0 <= wd <= 6) or a is None or b is None or b <= a:
+        return None
+    return wd, "%02d:%02d" % divmod(a, 60), "%02d:%02d" % divmod(b, 60)
+
+
+def windows(d, member_id):
+    return d.execute("SELECT * FROM avail_windows WHERE member_id=? ORDER BY weekday, start", (member_id,)).fetchall()
+
+
+def sync_days(d, member_id):
+    """Keep members.avail_days (Finish setup, Your week) in step with the windows."""
+    days = sorted({w["weekday"] for w in windows(d, member_id)})
+    if days:
+        d.execute("UPDATE members SET avail_days=? WHERE id=?", (",".join(DAYS[i] for i in days), member_id))
+
+
+def away(d, member_id, today=None):
+    q = "SELECT * FROM away_dates WHERE member_id=?" + (" AND end_date>=?" if today else "") + " ORDER BY start_date"
+    return d.execute(q, (member_id, today) if today else (member_id,)).fetchall()
+
+
+def is_away(aways, day):
+    return any(a["start_date"] <= day <= a["end_date"] for a in aways)
+
+
+def fits(practice, wins):
+    """A session fits when one window on its weekday covers its whole start–end."""
+    try:
+        day = dt.date.fromisoformat(str(practice["date"])[:10])
+    except ValueError:
+        return False
+    a, b = _hm(practice["start"] or "19:00"), _hm(practice["end"] or practice["start"] or "20:30")
+    if a is None or b is None:
+        return False
+    return any(w["weekday"] == day.weekday() and _hm(w["start"]) <= a and b <= _hm(w["end"]) for w in wins)
+
+
+def week_fit(d, member_id, practices):
+    """09.07: which of this week's sessions fit your windows and away dates. Conflicts carry the fix to offer."""
+    wins = windows(d, member_id); aways = away(d, member_id)
+    rows, fit = [], 0
+    for p in practices:
+        day = str(p["date"])[:10]
+        if p["cancelled"]:
+            continue
+        gone = is_away(aways, day)
+        ok = (not gone) and fits(p, wins)
+        fit += 1 if ok else 0
+        rows.append({"p": p, "fits": ok, "away": gone})
+    return {"rows": rows, "fit": fit, "total": len(rows), "conflicts": [r for r in rows if not r["fits"]]}
+
+
+def grid_blocks(items, first=6 * 60, last=23 * 60):
+    """Week-grid geometry (top/height in %) for windows or sessions: [{'col':0-6,'top':..,'h':..}]."""
+    span = last - first
+    out = []
+    for wd, a, b, extra in items:
+        a, b = max(first, a), min(last, b)
+        if b <= a:
+            continue
+        out.append(dict(extra, col=wd, top=round((a - first) / span * 100, 2), h=round((b - a) / span * 100, 2)))
+    return out
+
+
+def clock_range(start, end):
+    def f(v, keep_ampm):
+        m = _hm(v); h, mi = divmod(m, 60)
+        s = "%d%s" % ((h - 1) % 12 + 1, (":%02d" % mi) if mi else "")
+        return s + ((" AM" if h < 12 else " PM") if keep_ampm else "")
+    same = (_hm(start) < 720) == (_hm(end) < 720)
+    return "%s – %s" % (f(start, not same), f(end, True))
+
+
 # ---------- usual week + finish setup ----------
 def parse_days(values):
     return ",".join(x for x in DAYS if x in set(values or []))
@@ -380,6 +475,57 @@ LEAVE_BY = """<div class="rg-page rg-rides rg-leaveby" data-practice="{{ p.id }}
  }, function(){ fail('Location is off, so we can\u2019t plan the drive. Open the venue in Maps.'); }, {timeout:8000, maximumAge:300000});
 })();
 </script>
+</div>"""
+
+AVAIL_WEEK = """<div class="rg-page rg-rides rg-avail">
+<p class=ty-caps>Me · Availability</p>
+<h1 class=ty-display-l>When can you play?</h1>
+<p class=ty-muted>Your regular week. Teams you're on can see "available" without the details.</p>
+{{ rg_week_grid(blocks, 'Your available windows') }}
+<h2 class=ty-title>Windows</h2>
+{% for w in wins %}<details class=rg-window><summary><b class=ty-heading-l>{{ DAYS[w.weekday]|upper }}</b><span>{{ clock_range(w.start, w.end) }}</span><em>Edit</em></summary>
+<form method=post action=/availability class=rg-winform>{{ csrf_field() }}<input type=hidden name=id value="{{ w.id }}">
+<div class=rg-wingrid><label class=rg-field><span>FROM</span><input type=time name=start value="{{ w.start }}" required></label><label class=rg-field><span>TO</span><input type=time name=end value="{{ w.end }}" required></label></div>
+<input type=hidden name=weekday value="{{ w.weekday }}">
+<div class=rg-ridebtns><button class="rg-btn primary" name=action value=save>Save</button><button class="rg-btn secondary" name=action value=delete formnovalidate>Remove</button></div></form></details>
+{% else %}<p class=ty-muted>No windows yet. Add the times you can usually play.</p>{% endfor %}
+<button type=button class="rg-btn secondary" data-open-dialog=winAdd>+ Add a window</button>
+<a class="rg-btn primary" href=/availability/fit>How your teams fit →</a>
+<a class=rg-calink href=/availability/away>Away dates{% if away_n %} · {{ away_n }}{% endif %}</a>
+<dialog id=winAdd class="botsheet modal"><form method=post action=/availability class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<h2>Add a window.</h2>
+<label class=rg-field><span>DAY</span><select name=weekday>{% for x in DAYS %}<option value="{{ loop.index0 }}">{{ x }}</option>{% endfor %}</select></label>
+<div class=rg-wingrid><label class=rg-field><span>FROM</span><input type=time name=start value="18:00" required></label><label class=rg-field><span>TO</span><input type=time name=end value="21:00" required></label></div>
+<button class="rg-btn primary" name=action value=add>Add window</button></form></dialog>
+</div>"""
+
+AVAIL_FIT = """<div class="rg-page rg-rides rg-avail rg-avail-fit">
+<a class=rg-backlink href=/availability>← My week</a>
+<h1 class=ty-display-l>How your teams fit.</h1>
+<div class=rg-fithero><b class=ty-display-ml>{{ fit.fit }}/{{ fit.total }}</b><span><b>Sessions fit</b><small>this week{% if org %} · {{ org }}{% endif %}</small></span></div>
+{{ rg_week_grid(blocks, "Your windows and this week's sessions") }}
+<div class=rg-chartlegend><span><i class=free></i>You're free</span><span><i class=session></i>Session</span><span><i class=conflict></i>Conflict</span></div>
+{% for r in fit.conflicts %}<section class="rg-calloutcard tone-tangerine"><span class=ty-caps>{{ 'Away' if r.away else 'Conflict' }}</span>
+<b>{{ weekday_name(r.p.date) }} {{ fmt_clock(r.p.start) }} · {{ practice_title(r.p) }} — {{ "you're away that day" if r.away else "outside your windows" }}.</b>
+<div class=rg-fitacts><form method=post action=/practices>{{ csrf_field() }}<input type=hidden name=pid value="{{ r.p.id }}"><input type=hidden name=back value=/availability/fit><button class="rg-btn ink" name=action value=notgoing>Mark Not going</button></form>
+{% if not r.away %}<form method=post action=/availability>{{ csrf_field() }}<input type=hidden name=weekday value="{{ r.wd }}"><input type=hidden name=start value="{{ r.p.start }}"><input type=hidden name=end value="{{ r.p.end or r.p.start }}"><input type=hidden name=next value=/availability/fit><button class="rg-btn ink" name=action value=add>Add {{ DAYS[r.wd] }} {{ fmt_clock(r.p.start) }}</button></form>{% endif %}</div></section>
+{% endfor %}
+{% if not fit.total %}<p class=ty-muted>No sessions on the team schedule this week.</p>{% endif %}
+<form method=post action=/availability/auto>{{ csrf_field() }}
+<label class=rg-toggle><span><b>Auto-RSVP</b><small>The night before a session that fits, we'll ask you to confirm Going.</small></span><input type=checkbox name=auto_rsvp value=1 {% if me().auto_rsvp %}checked{% endif %} onchange="this.form.requestSubmit()"><i aria-hidden=true></i></label>
+<noscript><button class="rg-btn secondary">Save</button></noscript></form>
+</div>"""
+
+AVAIL_AWAY = """<div class="rg-page rg-rides rg-avail">
+<a class=rg-backlink href=/availability>← My week</a>
+<h1 class=ty-display-l>Away dates.</h1>
+<p class=ty-muted>Sessions on these days count as conflicts, and Auto-RSVP skips them.</p>
+{% for a in aways %}<form method=post class=rg-awayrow>{{ csrf_field() }}<input type=hidden name=id value="{{ a.id }}"><span><b>{{ fmt_d(a.start_date) }}{% if a.end_date != a.start_date %} – {{ fmt_d(a.end_date) }}{% endif %}</b>{% if a.note %}<small>{{ a.note }}</small>{% endif %}</span><button class="rg-btn secondary" name=action value=delete>Remove</button></form>
+{% else %}<p class=ty-muted>No away dates.</p>{% endfor %}
+<form method=post class=fxsheet>{{ csrf_field() }}
+<div class=rg-wingrid><label class=rg-field><span>FROM</span><input type=date name=start_date required></label><label class=rg-field><span>TO</span><input type=date name=end_date></label></div>
+<label class=rg-field><span>NOTE (OPTIONAL)</span><input name=note maxlength=60 placeholder="Trip, work, family"></label>
+<button class="rg-btn primary" name=action value=add>Add away dates</button></form>
 </div>"""
 
 RIDE_SETTINGS = """<div class="rg-page rg-rides">

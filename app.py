@@ -410,7 +410,7 @@ def nav_context():
         place = forced
     elif path in ("/discover", "/find", "/home") or path.startswith("/inbox"):
         place = "everything"
-    elif path.startswith("/calendar") or path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy") or path.startswith("/appearance") or path.startswith("/rides"):
+    elif path.startswith("/calendar") or path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy") or path.startswith("/appearance") or path.startswith("/rides") or path.startswith("/availability"):
         # Me is Calendar, Chat, Profile. The older Schedule · Settings · Lineup brief is not used.
         place = "me"
     else:
@@ -440,7 +440,7 @@ def nav_context():
         # Calendar, Chat, Profile. Calendar is the first tab and the default.
         on_personal = (path.startswith("/inbox") and forced == "me") or (path.startswith("/chat") and forced == "me")
         tabs = [
-            ("calendar", "Calendar", "/calendar", path.startswith("/calendar")),
+            ("calendar", "Calendar", "/calendar", path.startswith("/calendar") or path.startswith("/availability")),
             ("chat", "Chat", "/inbox?place=me", on_personal),
             ("profile", "Profile", "/profile", path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy") or path.startswith("/appearance") or path.startswith("/rides")),
         ]
@@ -1282,6 +1282,7 @@ def calendar():
     kind_items = [(v, l, "/calendar?when=%s&kind=%s" % (show, v)) for v, l in (("all", "All"), ("practices", "Practices"), ("scrimmages", "Scrimmages"), ("games", "Games"), ("lineup", "Lineup"))]
     out = [components.seg(when_items, show)]
     if show == "availability":
+        return redirect("/availability")
         picked = [x for x in (m["avail_days"] or "").split(",") if x]
         out.append(components.info("YOUR USUAL WEEK", ", ".join(picked) if picked else "Not set yet"))
         out.append(components.callout("Set the days you can usually play", "We mark practices that fit your week", "Edit →", "/setup/week", "lime"))
@@ -5820,6 +5821,7 @@ def redirect_practice(pid, action):
     if action == "delete" or not pid: return redirect("/practices")
     if request.form.get("back") == "home": return redirect("/practices")
     if request.form.get("back") == "page": return redirect("/practices/%s" % pid)
+    if (request.form.get("back") or "").startswith("/availability"): return redirect("/availability/fit")
     return redirect("/practices#p%s" % pid)
 def rsvp_seq_fresh(key):
     """True when this RSVP is the newest tap for that practice or event.
@@ -10662,7 +10664,7 @@ def run_notify_jobs():
     d = open_db()
     try:
         if not claim_job(d, "notify_scan", 90): return
-        run_practice_reminders(d); run_expiry_notices(d); nudge_stale_requests(d)
+        run_practice_reminders(d); run_expiry_notices(d); nudge_stale_requests(d); run_auto_rsvp_asks(d)
     except Exception:
         app.logger.exception("notification job failed")
     finally:
@@ -10896,7 +10898,7 @@ def practice_rides(pid):
         mine = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, m["id"])).fetchone()
         going = bool(mine and mine["going"] == 1)
         rides = flows2.rides_for(d, pid, m["id"])
-        return page(flows2.RIDE_BOARD, tab="", p=p, board=flows2.ride_board(d, pid), going=going, rd=rides,
+        return page(flows2.RIDE_BOARD, tab="flow", p=p, board=flows2.ride_board(d, pid), going=going, rd=rides,
                     seats_left=flows2.seats_left(d, rides["offer"]) if rides["offer"] else 0,
                     defaults=flows2.ride_defaults(m), last_area=_last_ride_area(d, m), when=fmt_d(p["date"]) + " · " + fmt_clock(p["start"]))
     back_to = "/practices/%d/rides" % pid if request.form.get("next") == "board" else ("/practices" if request.form.get("next") == "home" else "/practices/%d" % pid)
@@ -10966,7 +10968,7 @@ def leave_by_page(pid):
     if not p or p["cancelled"]: abort(404)
     start, _end = practice_span(p)
     buf = int(m["leave_buffer"]) if "leave_buffer" in m.keys() and m["leave_buffer"] is not None else 5
-    return page(flows2.LEAVE_BY, tab="", p=p, buffer=buf, arrive_label=_clock_short(start - dt.timedelta(minutes=buf)),
+    return page(flows2.LEAVE_BY, tab="flow", p=p, buffer=buf, arrive_label=_clock_short(start - dt.timedelta(minutes=buf)),
                 when=fmt_d(p["date"]) + " · " + fmt_clock(p["start"]), dest=p["address"] or p["location"] or "")
 
 @app.route("/api/leave-by", methods=["POST"])
@@ -11005,6 +11007,99 @@ def leave_by_settings():
     d = db(); d.execute("UPDATE members SET leave_buffer=? WHERE id=?", (5 if request.form.get("buffer") else 0, me()["id"])); d.commit()
     nxt = request.form.get("next") or "/practices"
     return redirect(nxt if safe_return_path(urllib.parse.urlparse(nxt).path) else "/practices")
+
+def _week_bounds(today=None):
+    today = today or today_pt()
+    start = today - dt.timedelta(days=today.weekday())
+    return start, start + dt.timedelta(days=6)
+
+def _avail_blocks(wins, sessions=None, fitmap=None):
+    items = [(w["weekday"], flows2._hm(w["start"]), flows2._hm(w["end"]),
+              {"cls": "free", "title": "Free %s %s" % (flows2.DAYS[w["weekday"]], flows2.clock_range(w["start"], w["end"]))}) for w in wins]
+    for r in sessions or []:
+        p = r["p"]; day = dt.date.fromisoformat(str(p["date"])[:10])
+        a = flows2._hm(p["start"] or "19:00"); b = flows2._hm(p["end"] or p["start"] or "20:30")
+        if a is None or b is None: continue
+        items.append((day.weekday(), a, b, {"cls": "session" if r["fits"] else "conflict",
+                      "title": "%s %s · %s%s" % (flows2.DAYS[day.weekday()], fmt_clock(p["start"]), practice_title(p), "" if r["fits"] else " · conflict")}))
+    return flows2.grid_blocks(items)
+
+@app.route("/availability", methods=["GET", "POST"])
+@login_required
+def availability():
+    """09.06 My week + 09.08 edit a day. Windows per weekday; saving keeps Your week (avail_days) in step."""
+    d = db(); m = me()
+    if request.method == "POST":
+        a = request.form.get("action")
+        nxt = request.form.get("next") or "/availability"
+        if not safe_return_path(urllib.parse.urlparse(nxt).path): nxt = "/availability"
+        if a == "delete":
+            d.execute("DELETE FROM avail_windows WHERE id=? AND member_id=?", (request.form.get("id", type=int), m["id"]))
+        else:
+            w = flows2.clean_window(request.form.get("weekday"), request.form.get("start"), request.form.get("end"))
+            if not w:
+                flash("Pick a day and an end time after the start."); return redirect(nxt)
+            if a == "save" and request.form.get("id"):
+                d.execute("UPDATE avail_windows SET weekday=?, start=?, end=? WHERE id=? AND member_id=?", w + (request.form.get("id", type=int), m["id"]))
+            else:
+                d.execute("INSERT INTO avail_windows(member_id, weekday, start, end) VALUES(?,?,?,?)", (m["id"],) + w)
+        flows2.sync_days(d, m["id"]); d.commit(); flash("Saved", "toast")
+        return redirect(nxt)
+    wins = flows2.windows(d, m["id"])
+    return page(flows2.AVAIL_WEEK, tab="availability", wins=wins, blocks=_avail_blocks(wins), DAYS=flows2.DAYS,
+                clock_range=flows2.clock_range, away_n=len(flows2.away(d, m["id"], today_pt().isoformat())))
+
+@app.route("/availability/fit")
+@login_required
+def availability_fit():
+    """09.07 How your teams fit: this week's team sessions against your windows and away dates."""
+    d = db(); m = me()
+    a, b = _week_bounds()
+    ps = d.execute("SELECT * FROM practices WHERE date BETWEEN ? AND ? ORDER BY date, start", (a.isoformat(), b.isoformat())).fetchall()
+    fit = flows2.week_fit(d, m["id"], ps)
+    for r in fit["rows"]:
+        r["wd"] = dt.date.fromisoformat(str(r["p"]["date"])[:10]).weekday()
+    wins = flows2.windows(d, m["id"])
+    return page(flows2.AVAIL_FIT, tab="availability", fit=fit, blocks=_avail_blocks(wins, fit["rows"]), DAYS=flows2.DAYS, org=org_name())
+
+@app.route("/availability/away", methods=["GET", "POST"])
+@login_required
+def availability_away():
+    """09.09 Away dates."""
+    d = db(); m = me()
+    if request.method == "POST":
+        if request.form.get("action") == "delete":
+            d.execute("DELETE FROM away_dates WHERE id=? AND member_id=?", (request.form.get("id", type=int), m["id"]))
+        else:
+            s0, e0 = parse_date(request.form.get("start_date")), parse_date(request.form.get("end_date")) or parse_date(request.form.get("start_date"))
+            if not s0 or not e0 or e0 < s0:
+                flash("Pick a start date, and an end on or after it."); return redirect("/availability/away")
+            d.execute("INSERT INTO away_dates(member_id, start_date, end_date, note) VALUES(?,?,?,?)",
+                      (m["id"], s0.isoformat(), e0.isoformat(), " ".join((request.form.get("note") or "").split())[:60]))
+        d.commit(); flash("Saved", "toast"); return redirect("/availability/away")
+    return page(flows2.AVAIL_AWAY, tab="availability", aways=flows2.away(d, m["id"], today_pt().isoformat()))
+
+@app.route("/availability/auto", methods=["POST"])
+@login_required
+def availability_auto():
+    d = db(); d.execute("UPDATE members SET auto_rsvp=? WHERE id=?", (1 if request.form.get("auto_rsvp") else 0, me()["id"])); d.commit()
+    return redirect("/availability/fit")
+
+def run_auto_rsvp_asks(d, now=None):
+    """Auto-RSVP (09.07): from 7 PM the night before, ask members whose windows fit a session to confirm Going.
+    Asks once per member per session, never RSVPs for them, skips away dates and anyone who already answered."""
+    now = now or wall_pt()
+    if now.hour < 19: return 0
+    tomorrow = (now.date() + dt.timedelta(days=1)).isoformat()
+    sent = 0
+    for p in d.execute("SELECT * FROM practices WHERE date=? AND COALESCE(cancelled,0)=0", (tomorrow,)).fetchall():
+        for mem in d.execute("""SELECT m.* FROM members m WHERE COALESCE(m.auto_rsvp,0)=1
+                AND NOT EXISTS(SELECT 1 FROM rsvps r WHERE r.practice_id=? AND r.member_id=m.id)""", (p["id"],)).fetchall():
+            if flows2.is_away(flows2.away(d, mem["id"]), tomorrow) or not flows2.fits(p, flows2.windows(d, mem["id"])): continue
+            if not claim_notice(d, mem["id"], "autorsvp:%d" % p["id"]): continue
+            push_member(d, mem, "practice", "Going tomorrow?", "%s %s fits your week. Tap to confirm." % (practice_title(p), fmt_clock(p["start"])), "/practices/%d" % p["id"])
+            sent += 1
+    return sent
 
 @app.route("/rides/settings", methods=["GET", "POST"])
 @login_required
