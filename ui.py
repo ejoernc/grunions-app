@@ -188,20 +188,26 @@ body.homefull .schedfeed{position:relative;z-index:2;pointer-events:auto}
 body.schedhome{overflow:hidden;height:100dvh;--drawer-h:52dvh}
 body.schedhome header.homehead{height:0;min-height:0;padding:0;overflow:hidden;background:transparent}
 body.schedhome main{overflow:hidden;height:100dvh;max-height:100dvh;padding-bottom:0}
-body.schedhome .weekhi{--titlefade:0;position:fixed;z-index:4;top:calc(16px + var(--titlefade) * 12px);left:16px;right:72px;pointer-events:none;color:var(--paper)}
-body.schedhome .weekeye{display:block;font:600 12px/1 var(--r2-font-sans);letter-spacing:.04em;color:var(--paper);opacity:calc(1 - var(--titlefade));max-height:calc((1 - var(--titlefade)) * 20px);overflow:hidden}
+body.schedhome .weekhi{--titlefade:0;position:fixed;z-index:4;top:16px;left:16px;right:72px;pointer-events:none;color:var(--paper)}
+/* 04.01: as the sheet rises, Hi → Upcoming crossfade in place at the same size, the map fades to the page color,
+   and the cards slide up behind a solid header. --mapfade is the same 0→1 progress, set on body. */
+body.schedhome .weekhi::before{content:"";position:fixed;z-index:-1;left:0;right:0;top:0;height:calc(80px + env(safe-area-inset-top));background:var(--ink);opacity:var(--titlefade);pointer-events:none}
+body.schedhome .homemap,body.schedhome .mapcontrols{opacity:calc(1 - var(--mapfade, 0))}
+body.schedhome .weekdrawer{background:color-mix(in srgb, var(--ink) calc(var(--mapfade, 0) * 100%), var(--carbon))}
+body.schedhome .weekeye{display:block;min-height:12px;font:600 12px/1 var(--r2-font-sans);letter-spacing:.04em;color:var(--paper);opacity:calc(1 - var(--titlefade))}
 body.schedhome .weekhi .titlecross{display:grid;align-items:end}
 body.schedhome .weekhi .titlecross>h1{grid-area:1/1;margin:4px 0 0}
 body.schedhome .weekhi h1{font:700 40px/1.05 var(--r2-font-display);letter-spacing:-.04em;white-space:nowrap}
-body.schedhome .weekhi .hititle{opacity:calc(1 - var(--titlefade));transform:scale(calc(1 - var(--titlefade) * .32));transform-origin:left center}
-body.schedhome .weekhi h1.schedtitle{opacity:var(--titlefade);font:700 28px/1.05 var(--r2-font-display);letter-spacing:-.03em;transform:none}
+body.schedhome .weekhi .hititle{opacity:calc(1 - var(--titlefade))}
+body.schedhome .weekhi h1.schedtitle{opacity:var(--titlefade);transform:none}
 body.schedhome .weekhi .maplegend{position:static;display:flex;gap:10px;margin-top:calc((1 - var(--titlefade)) * 10px);width:auto;opacity:calc(1 - var(--titlefade));max-height:calc((1 - var(--titlefade)) * 24px);overflow:hidden}
 .weekdrawer{position:fixed;z-index:3;left:0;right:0;bottom:0;height:var(--drawer-h);pointer-events:auto;display:flex;flex-direction:column;gap:8px;margin:0;padding:8px 16px 0;overflow:hidden;color:var(--paper);background:var(--carbon);border-radius:32px 32px 0 0}
 .weekdrawer.peek .weekthis>*:not(.r2-drive){display:none}
 .weekthis{display:flex;flex-direction:column;gap:12px;min-height:0}
 .weekdrawer.full{border-radius:0}
-.weekdrawer.full .weekbody{padding-top:40px}
-body.schedhome:has(.weekdrawer.full) .weekhi{top:0;left:0;right:0;padding:calc(18px + env(safe-area-inset-top)) 16px 12px;background:var(--carbon)}
+.weekdrawer.full .weekbody{padding-top:64px}
+.weekdrawer.full .sheetgrab{opacity:0}
+
 body.schedhome:has(.weekdrawer.full) .homemap{opacity:0}
 @media (max-width:767px){
  body.schedhome .weekdrawer:not(.full){touch-action:none}
@@ -4832,8 +4838,8 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <div class="weekdrawer {{ 'peek' if preview_drawer == 'peek' else 'half' }}" id=schedSheet data-start="{{ preview_drawer or 'half' }}">
 <button type=button class=sheetgrab id=sheetGrab aria-label="Drag the week"></button>
 {% if not_cleared %}<div class=clearbanner><b>NOT CLEARED YET</b><strong>Add your USAWP number to go to practice.</strong><p>Takes 2 minutes. Coaches can see you once it’s verified.</p><a href=/profile#membership>Add USAWP number</a></div>{% endif %}
-<div class=weekhead><h2>This week{% if week_n %} <span>({{ '%02d'|format(week_n) }})</span>{% endif %}</h2><a href="/practices?view=list">See all ›</a></div>
 <div class=weekbody id=weekBody>
+<div class=weekhead><h2>This week{% if week_n %} <span>({{ '%02d'|format(week_n) }})</span>{% endif %}</h2><a href="/practices?view=list">See all ›</a></div>
 <div class=weekthis>
 {% if show_drive %}{{ r2_drive_card(drive_num or '18', drive_note or drive_detail, drive_chip, drive_placeholder, drive_kicker or 'YOUR DRIVE · 7.4 MI') }}{% endif %}
 {% if show_rides %}<div class=ridebtns><button type=button id=needRide>{{ ride_label }}</button><button type=button id=offerRide>Offer a ride</button></div>{% endif %}
@@ -4901,6 +4907,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   var hi=document.querySelector('.weekhi');
   if(hi){
    hi.style.setProperty('--titlefade', morph.toFixed(3));
+   document.body.style.setProperty('--mapfade', morph.toFixed(3));
    var big=hi.querySelector('.hititle'), small=hi.querySelector('.schedtitle');
    if(big) big.setAttribute('aria-hidden', morph>=0.5?'true':'false');
    if(small) small.setAttribute('aria-hidden', morph>=0.5?'false':'true');
@@ -4942,6 +4949,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   document.body.style.removeProperty('--drawer-h');
   document.body.classList.remove('mapcovered','sheetdrag');
   var hi=document.querySelector('.weekhi'); if(hi) hi.style.setProperty('--titlefade','0');
+  document.body.style.removeProperty('--mapfade');
  }
  function blocked(el){
   if(!el||!el.closest) return true;
