@@ -176,3 +176,35 @@ def test_auto_rsvp_asks_once_and_never_rsvps():
         A.push_member = saved
     assert pushed.count((aid, "Going tomorrow?")) == 1
     assert not sql("SELECT 1 FROM rsvps r JOIN practices p ON p.id=r.practice_id WHERE p.title='Auto practice'")
+
+
+def test_volunteer_shifts_capacity_one_per_event_and_hours():
+    import flows2
+    vol = join("Vic", "Volunteer", "vic@example.com"); other = join("Oz", "Other", "oz@example.com")
+    sql("UPDATE members SET is_admin=1 WHERE email='boss@example.com'")
+    past = (A.today_pt() - dt.timedelta(days=10)).isoformat(); soon = (A.today_pt() + dt.timedelta(days=10)).isoformat()
+    for title, day in (("Past cleanup", past), ("Beach cleanup", soon)):
+        sql("INSERT INTO lineup_events(kind,title,date,city,venue,start,status) VALUES('Volunteer',?,?,'Bolsa Chica','Lot 2','08:00','published')", (title, day))
+    eid = sql("SELECT id FROM lineup_events WHERE title='Beach cleanup'")[0][0]
+    peid = sql("SELECT id FROM lineup_events WHERE title='Past cleanup'")[0][0]
+    t = csrf(boss, "/lineup/%d/shifts" % eid)
+    boss.post("/lineup/%d/shifts" % eid, data=dict(csrf=t, action="add", title="Setup", start="08:00", end="10:00", capacity="1"))
+    boss.post("/lineup/%d/shifts" % eid, data=dict(csrf=t, action="add", title="Cleanup crew", start="10:00", end="12:00", capacity="5"))
+    boss.post("/lineup/%d/shifts" % eid, data=dict(csrf=t, action="goal", goal="10"))
+    assert vol.post("/lineup/%d/shifts" % eid, data=dict(csrf=t, action="add", title="x", start="08:00", end="09:00", capacity="1")).status_code in (400, 403)
+    s1, s2 = [r[0] for r in sql("SELECT id FROM lineup_shifts WHERE event_id=? ORDER BY start", (eid,))]
+    tv = csrf(vol, "/lineup/%d/shifts" % eid)
+    r = vol.post("/lineup/%d/shifts" % eid, data=dict(csrf=tv, action="signup", shift=s1))
+    assert r.headers["Location"].endswith("/lineup/%d/shifts/%d" % (eid, s1))
+    full = other.post("/lineup/%d/shifts" % eid, data=dict(csrf=csrf(other, "/lineup/%d/shifts" % eid), action="signup", shift=s1), follow_redirects=True)
+    assert "That shift is full." in full.get_data(as_text=True)
+    vol.post("/lineup/%d/shifts" % eid, data=dict(csrf=tv, action="signup", shift=s2))  # moves, one per event
+    vid = sql("SELECT id FROM members WHERE email='vic@example.com'")[0][0]
+    assert sql("SELECT shift_id FROM shift_signups WHERE member_id=?", (vid,)) == [(s2,)]
+    sql("INSERT INTO lineup_shifts(event_id,start,end,title,capacity) VALUES(?,?,?,?,?)", (peid, "09:00", "12:00", "Timing", 3))
+    ps = sql("SELECT id FROM lineup_shifts WHERE event_id=?", (peid,))[0][0]
+    sql("INSERT INTO shift_signups(shift_id,member_id,at) VALUES(?,?,?)", (ps, vid, "x"))
+    done = vol.get("/lineup/%d/shifts/%d" % (eid, s2)).get_data(as_text=True)
+    assert "Your service hours" in done and "of 10 hrs" in done and ">03<" in done and "Past cleanup" in done
+    assert "BEGIN:VEVENT" in vol.get("/lineup/%d/shifts/%d.ics" % (eid, s2)).get_data(as_text=True)
+    assert "Pick a shift" in vol.get("/lineup/%d" % eid).get_data(as_text=True) or "Your shift" in vol.get("/lineup/%d" % eid).get_data(as_text=True)

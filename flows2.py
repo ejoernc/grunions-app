@@ -40,6 +40,13 @@ def ensure_schema(d):
     d.execute("CREATE INDEX IF NOT EXISTS avail_windows_member ON avail_windows(member_id, weekday)")
     d.execute("""CREATE TABLE IF NOT EXISTS away_dates(
         id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL, start_date TEXT NOT NULL, end_date TEXT NOT NULL, note TEXT)""")
+    d.execute("""CREATE TABLE IF NOT EXISTS lineup_shifts(
+        id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL, title TEXT NOT NULL,
+        capacity INTEGER NOT NULL DEFAULT 1, created TEXT)""")
+    d.execute("CREATE INDEX IF NOT EXISTS lineup_shifts_event ON lineup_shifts(event_id, start)")
+    d.execute("""CREATE TABLE IF NOT EXISTS shift_signups(
+        shift_id INTEGER NOT NULL, member_id INTEGER NOT NULL, at TEXT NOT NULL, PRIMARY KEY(shift_id, member_id))""")
+    d.execute("CREATE TABLE IF NOT EXISTS club_prefs(key TEXT PRIMARY KEY, value TEXT)")
     have = _cols(d, "members")
     for col, ddl in (("birth_date", "TEXT"), ("avail_days", "TEXT"), ("setup_dismissed", "INTEGER DEFAULT 0"),
                      ("ride_offer", "INTEGER DEFAULT 0"), ("ride_area", "TEXT"), ("ride_seats", "INTEGER DEFAULT 2"),
@@ -316,6 +323,59 @@ def clock_range(start, end):
     return "%s – %s" % (f(start, not same), f(end, True))
 
 
+# ---------- Lineup volunteer shifts (07.15–07.17) ----------
+def pref(d, key, default=""):
+    row = d.execute("SELECT value FROM club_prefs WHERE key=?", (key,)).fetchone()
+    return row["value"] if row and row["value"] is not None else default
+
+
+def set_pref(d, key, value):
+    d.execute("INSERT INTO club_prefs(key, value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, str(value)))
+
+
+def shift_hours(shift):
+    a, b = _hm(shift["start"]), _hm(shift["end"])
+    return round(max(0, (b or 0) - (a or 0)) / 60, 1)
+
+
+def shifts_for(d, event_id, member_id):
+    rows = d.execute("""SELECT s.*, (SELECT COUNT(*) FROM shift_signups x WHERE x.shift_id=s.id) AS taken,
+        EXISTS(SELECT 1 FROM shift_signups x WHERE x.shift_id=s.id AND x.member_id=?) AS mine
+        FROM lineup_shifts s WHERE s.event_id=? ORDER BY s.start""", (member_id, event_id)).fetchall()
+    out = []
+    for r in rows:
+        x = dict(r); x["open"] = max(0, (r["capacity"] or 0) - (r["taken"] or 0)); x["hours"] = shift_hours(r)
+        x["pct"] = int(round(100 * (r["taken"] or 0) / max(1, r["capacity"] or 1)))
+        out.append(x)
+    return out
+
+
+def sign_up_shift(d, shift_id, member_id):
+    """One shift per event per member; never over capacity. Returns '' or the reason it can't."""
+    s = d.execute("SELECT * FROM lineup_shifts WHERE id=?", (shift_id,)).fetchone()
+    if not s:
+        return "That shift is gone."
+    taken = d.execute("SELECT COUNT(*) FROM shift_signups WHERE shift_id=?", (shift_id,)).fetchone()[0]
+    if d.execute("SELECT 1 FROM shift_signups WHERE shift_id=? AND member_id=?", (shift_id, member_id)).fetchone():
+        return ""
+    if taken >= (s["capacity"] or 0):
+        return "That shift is full."
+    d.execute("DELETE FROM shift_signups WHERE member_id=? AND shift_id IN (SELECT id FROM lineup_shifts WHERE event_id=?)", (member_id, s["event_id"]))
+    d.execute("INSERT INTO shift_signups(shift_id, member_id, at) VALUES(?,?,?)", (shift_id, member_id, _now()))
+    return ""
+
+
+def service_hours(d, member_id, today):
+    """Hours from shifts on events that have happened, newest first. Season = since Sep 1."""
+    season = dt.date(today.year if today.month >= 9 else today.year - 1, 9, 1).isoformat()
+    rows = d.execute("""SELECT s.*, e.title AS etitle, e.date AS edate, COALESCE(e.venue, e.city, '') AS where_
+        FROM shift_signups x JOIN lineup_shifts s ON s.id=x.shift_id JOIN lineup_events e ON e.id=s.event_id
+        WHERE x.member_id=? AND e.date>=? ORDER BY e.date DESC""", (member_id, season)).fetchall()
+    done = [dict(r, hours=shift_hours(r)) for r in rows if (r["edate"] or "") < today.isoformat()]
+    ahead = [dict(r, hours=shift_hours(r)) for r in rows if (r["edate"] or "") >= today.isoformat()]
+    return {"done": done, "hours": round(sum(r["hours"] for r in done), 1), "ahead": round(sum(r["hours"] for r in ahead), 1)}
+
+
 # ---------- usual week + finish setup ----------
 def parse_days(values):
     return ",".join(x for x in DAYS if x in set(values or []))
@@ -526,6 +586,39 @@ AVAIL_AWAY = """<div class="rg-page rg-rides rg-avail">
 <div class=rg-wingrid><label class=rg-field><span>FROM</span><input type=date name=start_date required></label><label class=rg-field><span>TO</span><input type=date name=end_date></label></div>
 <label class=rg-field><span>NOTE (OPTIONAL)</span><input name=note maxlength=60 placeholder="Trip, work, family"></label>
 <button class="rg-btn primary" name=action value=add>Add away dates</button></form>
+</div>"""
+
+SHIFTS = """<div class="rg-page rg-rides rg-shifts">
+<a class=rg-backlink href="/lineup/{{ e.id }}">← {{ e.title }}</a>
+<section class="rg-shifthero tone-bubblegum"><div class=rg-fitacts><span class=rg-pillk>Volunteer</span>{% if goal %}<span class=rg-pillk>Counts as service hours</span>{% endif %}</div>
+<b class=ty-heading>{{ e.title }}</b><div class=rg-shiftdate><b class=ty-hero>{{ day }}</b><small>{{ dow }} · {{ mon }}<br>{{ where }}</small></div></section>
+<h2 class=ty-title>Pick a shift</h2>
+{% for s in shifts %}<form method=post class="rg-shift{% if s.mine %} mine{% elif not s.open %} full{% endif %}">{{ csrf_field() }}<input type=hidden name=shift value="{{ s.id }}">
+<div class=rg-shifttop><span class=rg-shifttime><b class=ty-display-s>{{ s.nums }}</b><small>{{ s.ampm }}</small></span><span class=rg-chipk>{% if s.mine %}You're on it{% elif s.open %}{{ s.open }} open{% else %}Full{% endif %}</span></div>
+<span class=ty-body-strong>{{ s.title }}</span>
+<div class=rg-progress role=progressbar aria-valuemin=0 aria-valuemax="{{ s.capacity }}" aria-valuenow="{{ s.taken }}"><i style="width:{{ s.pct }}%"></i></div><small class=rg-shiftn>{{ s.taken }}/{{ s.capacity }}</small>
+{% if s.mine %}<button class="rg-btn secondary" name=action value=leave>Leave this shift</button>{% elif s.open %}<button class="rg-btn primary" name=action value=signup aria-label="Sign up for {{ s.range }} {{ s.title }}">Sign up</button>{% endif %}
+</form>{% else %}<p class=ty-muted>No shifts posted yet.</p>{% endfor %}
+{% if e.description %}{{ rg_info('WHAT TO BRING', e.description) }}{% endif %}
+{% if can_edit %}<details class=rg-window><summary><b class=ty-label-l>Manage shifts</b></summary>
+<form method=post class=rg-winform>{{ csrf_field() }}<label class=rg-field><span>WHAT</span><input name=title required maxlength=60 placeholder="Setup · tents + sign-in"></label>
+<div class=rg-wingrid><label class=rg-field><span>FROM</span><input type=time name=start required value="08:00"></label><label class=rg-field><span>TO</span><input type=time name=end required value="10:00"></label></div>
+<label class=rg-field><span>PEOPLE</span><input type=number name=capacity min=1 max=200 value=4 required></label>
+<button class="rg-btn primary" name=action value=add>Add shift</button></form>
+{% for s in shifts %}<form method=post class=rg-awayrow>{{ csrf_field() }}<input type=hidden name=shift value="{{ s.id }}"><span><b>{{ s.range }} · {{ s.title }}</b><small>{{ s.taken }}/{{ s.capacity }} signed up</small></span><button class="rg-btn secondary" name=action value=delete>Remove</button></form>{% endfor %}
+<form method=post class=rg-winform>{{ csrf_field() }}<label class=rg-field><span>SERVICE HOURS GOAL PER SEASON (0 = OFF)</span><input type=number name=goal min=0 max=200 value="{{ goal }}"></label><button class="rg-btn secondary" name=action value=goal>Save goal</button></form>
+</details>{% endif %}
+</div>"""
+
+SHIFT_DONE = """<div class="rg-page rg-rides rg-shifts">
+<a class=rg-backlink href="/lineup/{{ e.id }}/shifts">← Shifts</a>
+<section class=rg-lbhero><span class=ty-caps>{{ e.title }} · {{ when }}</span><b class="ty-display-80 rg-donetime">{{ s.nums }}<small>{{ s.ampm }}</small></b><small>You're on {{ s.title|lower }}.</small></section>
+<div class=rg-ridebtns><a class="rg-btn secondary" href="/lineup/{{ e.id }}/shifts/{{ s.id }}.ics">Add to calendar</a><button type=button class="rg-btn secondary" data-share="{{ share_url }}" onclick="var u=this.dataset.share;if(navigator.share){navigator.share({title:'{{ e.title|e }}',url:u}).catch(function(){})}else if(navigator.clipboard){navigator.clipboard.writeText(u);this.textContent='Link copied'}">Invite a friend</button></div>
+{% if goal %}<h2 class=ty-title>Your service hours</h2>
+<section class=rg-hours><div><b class=ty-display-88>{{ '%02d'|format(hours.hours|int) }}</b><span><b>of {{ goal }} hrs</b><small>{% if hours.ahead %}+{{ hours.ahead|round(1)|string|replace('.0','') }} after {{ e.title }}{% endif %}</small></span></div>
+<div class=rg-progress><i style="width:{{ [100, (hours.hours / goal * 100)|int]|min }}%"></i></div>
+<small class=ty-muted>{{ org }} asks members for {{ goal }} service hours a season.{% if hours.hours + hours.ahead >= goal %} You're there.{% endif %}</small></section>
+{% for r in hours.done %}{{ rg_row(r.etitle, fmt_d(r.edate) ~ ((' · ' ~ r.where_) if r.where_ else ''), '', '', '', ((r.hours|string)[:-2] if (r.hours|string).endswith('.0') else (r.hours|string)) ~ 'h') }}{% endfor %}{% endif %}
 </div>"""
 
 RIDE_SETTINGS = """<div class="rg-page rg-rides">

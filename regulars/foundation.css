@@ -877,3 +877,27 @@ a.drivecard:focus-visible{outline:2px solid var(--color-focus);outline-offset:2p
 .rg-awayrow span{flex:1;display:grid}.rg-awayrow small{color:var(--smoke)}
 .rg-toggle,.rg-toggle b{color:var(--paper)}
 .rg-page.rg-rides{padding-top:var(--space-6)}
+
+/* Lineup volunteer shifts (07.16 / 07.17) */
+.rg-shifthero{display:grid;gap:var(--space-3);padding:var(--space-6);border-radius:var(--radius-hero);background:var(--tone);color:var(--fixed-ink)}
+.rg-pillk,.rg-chipk{display:inline-flex;align-items:center;min-height:26px;padding:0 var(--space-3);border-radius:var(--radius-full);background:var(--fixed-ink);color:var(--fixed-paper);font:var(--type-caption-strong)}
+.rg-shiftdate{display:flex;align-items:flex-end;gap:var(--space-3)}.rg-shiftdate small{font:var(--type-label);padding-bottom:var(--space-3)}
+.rg-shifthero .ty-hero{font-size:clamp(64px, 24vw, 104px)}
+.rg-shift{display:grid;gap:var(--space-2);padding:var(--space-5);border-radius:var(--radius-row);background:var(--carbon);border:2px solid var(--team-sky);color:var(--paper)}
+.rg-shift.mine{background:var(--lime);border-color:var(--lime);color:var(--fixed-ink)}
+.rg-shift.full{border-color:var(--graphite);opacity:.7}
+.rg-shifttop{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)}
+.rg-shift .rg-chipk{background:var(--team-sky);color:var(--fixed-ink)}.rg-shift.mine .rg-chipk{background:var(--fixed-ink);color:var(--fixed-paper)}
+.rg-progress{height:10px;border-radius:var(--radius-full);background:var(--graphite);overflow:hidden}
+.rg-progress i{display:block;height:100%;border-radius:inherit;background:var(--team-sky)}
+.rg-shift.mine .rg-progress{background:color-mix(in srgb,var(--fixed-ink) 18%,transparent)}.rg-shift.mine .rg-progress i{background:var(--fixed-ink)}
+.rg-shiftn{justify-self:end;font:var(--type-caption-strong)}
+.rg-hours{display:grid;gap:var(--space-3);padding:var(--space-5);border-radius:var(--radius-row);background:var(--carbon)}
+.rg-hours>div:first-child{display:flex;align-items:flex-end;gap:var(--space-3)}.rg-hours .ty-display-88{color:var(--accent-text)}
+.rg-hours span{display:grid;padding-bottom:var(--space-3)}.rg-hours span small{color:var(--smoke)}
+.rg-hours .rg-progress i{background:var(--lime)}
+.rg-shifttime{display:flex;align-items:flex-end;gap:var(--space-1-5)}.rg-shifttime small{font:var(--type-label);padding-bottom:4px}
+.rg-chipk,.rg-pillk{white-space:nowrap}
+.rg-donetime{display:flex;align-items:flex-end;gap:var(--space-2);font-size:clamp(56px, 20vw, 80px)}.rg-donetime small{font:var(--type-heading-l);padding-bottom:.35em}
+.rg-shifts .rg-ridebtns .rg-btn{padding:0 var(--space-3);font:var(--type-label-l)}
+.rg-shifttop{flex-wrap:wrap}.rg-shifttime{white-space:nowrap}

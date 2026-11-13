@@ -6354,6 +6354,9 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {{ rsvp_btn('Maybe', e.mine == 'interested', 'interested') }}</div>
 {% if e.mine == 'notgoing' %}<button class=rg-cant name=action value=clear>You said you can't make it · Undo</button>{% else %}<button class=rg-cant name=action value=notgoing>Can't make it</button>{% endif %}</form>{% endif %}
 <p class=rg-evcount>{{ e.going_n }} going · {{ e.interested_n }} maybe{% if e.capacity %} · {{ e.capacity }} spots{% endif %}</p>
+{% if e.shift_mine %}{{ rg_callout("You're volunteering", e.shift_mine.title, 'Your shift →', '/lineup/' ~ e.id ~ '/shifts/' ~ e.shift_mine.id, 'bubblegum') }}
+{% elif e.shifts_n %}{{ rg_callout('Volunteer shifts', (e.shifts_open ~ ' spot' ~ ('' if e.shifts_open == 1 else 's') ~ ' open') if e.shifts_open else 'All shifts are full', 'Pick a shift →', '/lineup/' ~ e.id ~ '/shifts', 'bubblegum') }}
+{% elif e.can_edit %}<a class=rg-calink href="/lineup/{{ e.id }}/shifts">Add volunteer shifts</a>{% endif %}
 <div class=seclabel>Details</div>
 <div class="list rg-evdetails">
 {% if e.description %}<div class="li evdescrow"><div class=clamp id=evdesc>{{ e.description }}</div><button type=button class=textlink id=evmore hidden>More</button></div>{% endif %}

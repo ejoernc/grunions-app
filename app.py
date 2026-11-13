@@ -7545,7 +7545,85 @@ def lineup_detail(eid):
         d.commit(); return redirect("/lineup/%d" % eid)
     row = ensure_lineup_coords(d, row)
     packed = lineup_pack(d, [row])[0]
+    sh = flows2.shifts_for(d, eid, me()["id"])
+    packed["shifts_open"] = sum(x["open"] for x in sh); packed["shifts_n"] = len(sh); packed["shift_mine"] = next((x for x in sh if x["mine"]), None)
     return page(T["lineup_event"], tab="lineup_event", e=packed, from_admin=request.args.get("from") == "admin", admin_date=(request.args.get("date") or row["date"] or "")[:10])
+def _shift_range(s):
+    """'10–12' + 'AM' (07.16): the numbers carry the card; the meridiem is small. Mixed ranges keep both."""
+    def f(v):
+        h, mi = divmod(flows2._hm(v), 60); return "%d%s" % ((h - 1) % 12 + 1, (":%02d" % mi) if mi else "")
+    a, b = flows2._hm(s["start"]), flows2._hm(s["end"])
+    same = (a < 720) == (b <= 720 or b < 720)
+    if same:
+        return "%s–%s" % (f(s["start"]), f(s["end"])), ("AM" if b <= 720 else "PM")
+    return "%s %s–%s" % (f(s["start"]), "AM" if a < 720 else "PM", f(s["end"])), ("PM" if b > 720 else "AM")
+
+@app.route("/lineup/<int:eid>/shifts", methods=["GET", "POST"])
+@login_required
+def lineup_shifts(eid):
+    """07.16 Pick a shift (members) + Manage shifts (whoever can edit the event)."""
+    d = db(); m = me()
+    row = lineup_event_row(d, eid)
+    if not row or not lineup_seen(row, m): abort(404)
+    can_edit = bool(lineup_pack(d, [row])[0].get("can_edit"))
+    if request.method == "POST":
+        a = request.form.get("action"); sid = request.form.get("shift", type=int)
+        if a in ("add", "delete", "goal") and not can_edit: abort(403)
+        if a == "signup":
+            why = flows2.sign_up_shift(d, sid, m["id"])
+            if why: flash(why); return redirect("/lineup/%d/shifts" % eid)
+            d.commit(); return redirect("/lineup/%d/shifts/%d" % (eid, sid))
+        if a == "leave":
+            d.execute("DELETE FROM shift_signups WHERE shift_id=? AND member_id=?", (sid, m["id"]))
+        elif a == "add":
+            w = flows2.clean_window(0, request.form.get("start"), request.form.get("end"))
+            title = " ".join((request.form.get("title") or "").split())[:60]
+            cap = max(1, min(200, request.form.get("capacity", type=int) or 1))
+            if not w or not title: flash("Add what the shift is, and an end after the start."); return redirect("/lineup/%d/shifts" % eid)
+            d.execute("INSERT INTO lineup_shifts(event_id, start, end, title, capacity, created) VALUES(?,?,?,?,?,?)", (eid, w[1], w[2], title, cap, flows2._now()))
+        elif a == "delete":
+            d.execute("DELETE FROM shift_signups WHERE shift_id=?", (sid,))
+            d.execute("DELETE FROM lineup_shifts WHERE id=? AND event_id=?", (sid, eid))
+        elif a == "goal":
+            flows2.set_pref(d, "service_hours_goal", max(0, min(200, request.form.get("goal", type=int) or 0)))
+        d.commit(); return redirect("/lineup/%d/shifts" % eid)
+    shifts = flows2.shifts_for(d, eid, m["id"])
+    for s in shifts: s["nums"], s["ampm"] = _shift_range(s); s["range"] = s["nums"] + " " + s["ampm"]
+    day = dt.date.fromisoformat(str(row["date"])[:10]) if row["date"] else today_pt()
+    return page(flows2.SHIFTS, tab="flow", e=row, shifts=shifts, can_edit=can_edit, day=day.day, dow=day.strftime("%a").upper(),
+                mon=day.strftime("%b").upper(), where=row["venue"] or row["city"] or "", goal=int(flows2.pref(d, "service_hours_goal", "0") or 0))
+
+@app.route("/lineup/<int:eid>/shifts/<int:sid>")
+@login_required
+def lineup_shift_done(eid, sid):
+    """07.17 Confirmed + your service hours."""
+    d = db(); m = me()
+    row = lineup_event_row(d, eid)
+    s = d.execute("SELECT * FROM lineup_shifts WHERE id=? AND event_id=?", (sid, eid)).fetchone()
+    if not row or not s or not lineup_seen(row, m): abort(404)
+    if not d.execute("SELECT 1 FROM shift_signups WHERE shift_id=? AND member_id=?", (sid, m["id"])).fetchone():
+        return redirect("/lineup/%d/shifts" % eid)
+    s = dict(s); s["nums"], s["ampm"] = _shift_range(s); s["range"] = s["nums"] + " " + s["ampm"]
+    return page(flows2.SHIFT_DONE, tab="flow", e=row, s=s, when=fmt_d(row["date"]), share_url=request.url_root.rstrip("/") + "/lineup/%d" % eid,
+                goal=int(flows2.pref(d, "service_hours_goal", "0") or 0), hours=flows2.service_hours(d, m["id"], today_pt()), org=org_name())
+
+@app.route("/lineup/<int:eid>/shifts/<int:sid>.ics")
+@login_required
+def lineup_shift_ics(eid, sid):
+    d = db(); row = lineup_event_row(d, eid)
+    s = d.execute("SELECT * FROM lineup_shifts WHERE id=? AND event_id=?", (sid, eid)).fetchone()
+    if not row or not s or not row["date"] or not lineup_seen(row, me()): abort(404)
+    day = str(row["date"])[:10].replace("-", "")
+    ics = "\r\n".join(["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Regulars//Grunions//EN", "BEGIN:VEVENT",
+        "UID:shift-%d@regulars" % sid, "DTSTAMP:%sT000000Z" % day,
+        "DTSTART;TZID=America/Los_Angeles:%sT%s00" % (day, s["start"].replace(":", "")),
+        "DTEND;TZID=America/Los_Angeles:%sT%s00" % (day, s["end"].replace(":", "")),
+        "SUMMARY:%s · %s" % ((row["title"] or "Volunteer").replace(",", "\\,"), s["title"].replace(",", "\\,")),
+        "LOCATION:%s" % (row["venue"] or row["city"] or "").replace(",", "\\,"), "END:VEVENT", "END:VCALENDAR", ""])
+    resp = Response(ics, mimetype="text/calendar; charset=utf-8")
+    resp.headers["Content-Disposition"] = "attachment; filename=shift.ics"
+    return resp
+
 @app.route("/lineup/<int:eid>/edit", methods=["GET", "POST"])
 @login_required
 def lineup_edit(eid):
