@@ -287,7 +287,8 @@ def test_schedule_is_not_the_old_home_and_profile_sheets_open():
     home = member.get("/practices").get_data(as_text=True)
     head = home.split("<main>", 1)[0]
     assert ">Schedule</h1>" in head and "Hi, Nia" not in head and "Enter your USAWP membership number" not in home and "Allow notifications" not in home and "This week" in home and "View full schedule" in home and "id=schedSheet" in home
-    assert ">Hi, Nia.</h1>" in home and "class=hititle" in home and ">Upcoming</h1>" in home and "id=schedFull" not in home and 'class="schedfeed weeklist"' not in home and home.index("mapcontrols") < home.index("id=schedSheet")
+    # Nov 13: while setup is open the drawer starts pinned and the small title keeps the greeting; otherwise it reads Upcoming.
+    assert ">Hi, Nia.</h1>" in home and "class=hititle" in home and "class=schedtitle" in home and 'data-start="full"' in home and "id=schedFull" not in home and 'class="schedfeed weeklist"' not in home and home.index("mapcontrols") < home.index("id=schedSheet")
     assert "body.schedopen header.homehead:has(.displayhead){background:var(--color-bg)" in home and "body.schedhome .weekhi::before{" in home and "--mapfade" in home  # 04.01: Hi → Upcoming in place, map fades to ink
     assert "data-r2=\"lineup-card\"" not in home and ".lcard .lctitle{margin:0;font:700 34px/.95" in home and "main:has(.lineupfilt){padding-bottom:calc(var(--nav-clear) + 80px" in home
     schedule = member.get("/practices?view=list").get_data(as_text=True)
