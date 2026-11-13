@@ -4881,26 +4881,24 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 </div>
 </div>
 </div>
-<dialog id=rideAsk class="botsheet"><div class=sheet>
+{% if ride_pid %}<dialog id=rideAsk class="botsheet modal"><form method=post action="/practices/{{ ride_pid }}/rides" class=sheet>{{ csrf_field() }}<input type=hidden name=next value=home>
 <div class=grab aria-hidden=true></div>
 <h2>Ask for a ride.</h2>
-<p class=ridek>PICKUP</p>
-<p class=ridearea>Home · Belmont Shore</p>
-<div class=ridechips>
-<button type=button class=on data-n=3>5 mi · 3 drivers</button>
-<button type=button data-n=7>10 mi · 7</button>
-<button type=button data-n=0>Anyone</button>
-</div>
-<label class=rideback><span>Ride back too<small>Practice ends {{ fmt_clock(nextp.end) if nextp else '8:30' }}</small></span><b class=rideon>On</b><input type=checkbox checked></label>
-<button type=button class="btn btn-primary full" id=rideAskGo>Ask 3 drivers</button>
-<p class=t3>Preview only. This does not message anyone, and the pickup is an area, not a home address.</p>
-</div></dialog>
-<dialog id=rideOffer class="botsheet"><div class=sheet>
+<label class=rg-field><span>PICKUP AREA</span><input name=area required maxlength=60 placeholder="Neighborhood or city" value="{{ ride_area }}"></label>
+<p class=ty-muted>Drivers going today see this area, never your address.</p>
+<label class=checkline><input type=checkbox name=back value=1 checked> Ride back too{% if nextp %} · practice ends {{ fmt_clock(nextp.end) }}{% endif %}</label>
+<button class="rg-btn primary" name=action value=ask id=rideAskGo>Ask drivers</button>
+<a class=rg-calink href="/practices/{{ ride_pid }}/rides">See the ride board</a>
+</form></dialog>
+<dialog id=rideOffer class="botsheet modal"><form method=post action="/practices/{{ ride_pid }}/rides" class=sheet>{{ csrf_field() }}<input type=hidden name=next value=home>
 <div class=grab aria-hidden=true></div>
 <h2>Offer a ride.</h2>
-<p>Ride settings aren’t in this pass. Nothing is shared.</p>
-<button type=button class="btn btn-secondary full" id=rideOfferClose>Close</button>
-</div></dialog>
+<label class=rg-field><span>LEAVING FROM (AREA)</span><input name=area required maxlength=60 placeholder="Neighborhood or city" value="{{ ride_area }}"></label>
+<label class=rg-field><span>SEATS</span><select name=seats>{% for n in range(1,7) %}<option{% if n == ride_seats %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+<label class=checkline><input type=checkbox name=back value=1 checked> I can drive people back</label>
+<button class="rg-btn primary" name=action value=offer>Offer seats</button>
+<a class=rg-calink href=/rides/settings>Ride settings</a>
+</form></dialog>{% endif %}
 <script>
 (function(){
  var sheet=document.getElementById('schedSheet'); if(!sheet) return;
@@ -5092,10 +5090,8 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
  var ask=document.getElementById('rideAsk'), offer=document.getElementById('rideOffer');
  var need=document.getElementById('needRide'); if(need) need.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(ask); else ask.showModal(); };
  var off=document.getElementById('offerRide'); if(off) off.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(offer); else offer.showModal(); };
- var close=document.getElementById('rideOfferClose'); if(close) close.onclick=function(){ offer.close(); };
- var go=document.getElementById('rideAskGo');
- ask.addEventListener('click', function(e){ var b=e.target.closest('[data-n]'); if(!b) return; ask.querySelectorAll('[data-n]').forEach(function(x){ x.classList.toggle('on', x===b); }); var n=b.getAttribute('data-n'); go.textContent=n==='0'?'Ask everyone going':'Ask '+n+' drivers'; });
- if(go) go.onclick=function(){ ask.close(); };
+
+
  var map=document.getElementById('homeMap');
  document.querySelectorAll('.mapcontrols button').forEach(function(b){
   b.onclick=function(){ var g=map&&map._gmap; if(g&&g.zoomIn){ if(b.getAttribute('data-zoom')==='1') g.zoomIn(); else g.zoomOut(); } };
@@ -5330,6 +5326,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 {{ rg_row('Privacy', 'Who sees your email and phone', '/privacy') }}
 {{ rg_row('Appearance', {'system':'System','light':'Light','dark':'Dark'}[ui_theme or 'dark'], '/appearance') }}
 {{ rg_row('Your week', (m.avail_days or 'Not set')|replace(',', ' · '), '/setup/week') }}
+{{ rg_row('Rides', ('Offering from ' ~ m.ride_area) if (m.ride_offer and m.ride_area) else 'Offer rides, your area, seats', '/rides/settings') }}
 <a class="btn btn-secondary full ghostpill" href=/logout>Log out</a>
 {% else %}
 {% if prof_upcoming or prof_past %}

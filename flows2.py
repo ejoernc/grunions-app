@@ -36,7 +36,8 @@ def ensure_schema(d):
     d.execute("""CREATE TABLE IF NOT EXISTS practice_wraps(
         practice_id INTEGER PRIMARY KEY, admin_note TEXT, recap TEXT, closed_by INTEGER, closed_at TEXT)""")
     have = _cols(d, "members")
-    for col, ddl in (("birth_date", "TEXT"), ("avail_days", "TEXT"), ("setup_dismissed", "INTEGER DEFAULT 0")):
+    for col, ddl in (("birth_date", "TEXT"), ("avail_days", "TEXT"), ("setup_dismissed", "INTEGER DEFAULT 0"),
+                     ("ride_offer", "INTEGER DEFAULT 0"), ("ride_area", "TEXT"), ("ride_seats", "INTEGER DEFAULT 2")):
         if col not in have:
             d.execute("ALTER TABLE members ADD COLUMN %s %s" % (col, ddl))
 
@@ -157,6 +158,34 @@ def seats_left(d, offer):
     return max(0, (offer["seats"] or 1) - used)
 
 
+def ride_board(d, practice_id):
+    """04.18 practice ride board: who's offering (area, seats left) and who's asking (area). Areas only, never addresses."""
+    offers = d.execute("SELECT o.*, m.first, m.preferred_first, m.last FROM ride_offers o JOIN members m ON m.id=o.driver_id "
+                       "WHERE o.practice_id=? AND o.status='open' ORDER BY o.id", (practice_id,)).fetchall()
+    asking = d.execute("SELECT r.*, m.first, m.preferred_first, m.last FROM ride_requests r JOIN members m ON m.id=r.rider_id "
+                       "WHERE r.practice_id=? AND r.status='open' ORDER BY r.id", (practice_id,)).fetchall()
+    rows = [dict(o, seats_left=seats_left(d, o)) for o in offers]
+    return {"offers": rows, "asking": asking, "seats_open": sum(r["seats_left"] for r in rows),
+            "need": len(asking), "cars": len(rows)}
+
+
+def ride_defaults(member):
+    keys = member.keys() if hasattr(member, "keys") else []
+    return {"offer": bool(member["ride_offer"]) if "ride_offer" in keys else False,
+            "area": (member["ride_area"] or "") if "ride_area" in keys else "",
+            "seats": int(member["ride_seats"] or 2) if "ride_seats" in keys else 2}
+
+
+def auto_offer(d, practice_id, member):
+    """Ride settings · Offer rides (04.19): tapping Going opens an offer from your saved area. Never overwrites one you changed."""
+    rd = ride_defaults(member)
+    if not (rd["offer"] and rd["area"]):
+        return False
+    cur = d.execute("""INSERT INTO ride_offers(practice_id, driver_id, area, seats, back, created) VALUES(?,?,?,?,1,?)
+        ON CONFLICT(practice_id, driver_id) DO NOTHING""", (practice_id, member["id"], rd["area"], rd["seats"], _now()))
+    return cur.rowcount == 1
+
+
 # ---------- usual week + finish setup ----------
 def parse_days(values):
     return ",".join(x for x in DAYS if x in set(values or []))
@@ -220,15 +249,65 @@ PRACTICE_PANEL = """
 <dialog id=fxOffer class=botsheet><form method=post action="/practices/{{ p.id }}/rides" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
 <h2>Offer a ride.</h2>
 <label class=rg-field><span>LEAVING FROM (AREA)</span><input name=area required maxlength=60 placeholder="Neighborhood or city" value="{{ fx.last_area }}"></label>
-<label class=rg-field><span>SEATS</span><select name=seats>{% for n in range(1,7) %}<option{% if n == 2 %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+<label class=rg-field><span>SEATS</span><select name=seats>{% for n in range(1,7) %}<option{% if n == fx.seats_default %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
 <label class=checkline><input type=checkbox name=back value=1 checked> I can drive people back</label>
 <button class="btn btn-primary full" name=action value=offer>Offer seats</button>
 <p class=t3>Riders only see your area. Your exact location is never shared.</p>
 </form></dialog>
 {% endif %}
+{% if fx.going %}<a class=rg-calink href="/practices/{{ p.id }}/rides">Ride board →</a>{% endif %}
 {% if fx.can_wrap %}{{ rg_callout('Wrap up' if not fx.closed else 'Wrap-up · closed', 'Attendance, private note, recap', 'Open →', '/practices/' ~ p.id ~ '/wrap', 'tangerine' if not fx.closed else 'graphite') }}{% endif %}
 {% endif %}
 """
+
+RIDE_BOARD = """<div class="rg-page rg-rides">
+<a class=rg-backlink href="/practices/{{ p.id }}">← Practice · {{ when }}</a>
+<h1 class=ty-display-l>Rides.</h1>
+<div class=rg-metrics>{{ rg_metric('%02d'|format(board.seats_open), 'Seats open', 'lime') }}{{ rg_metric('%02d'|format(board.need), 'Need a ride', 'sun') }}{{ rg_metric('%02d'|format(board.cars), 'Cars', 'carbon') }}</div>
+{% if rd.mine and rd.mine.status == 'matched' %}{{ rg_callout(((rd.mine.dpref or rd.mine.dfirst) ~ ' is driving you'), 'Pickup area · ' ~ rd.mine.area, 'Practice →', '/practices/' ~ p.id, 'aqua') }}
+{% elif rd.mine %}{{ rg_callout('You asked for a ride', "From " ~ rd.mine.area ~ " · we'll tell you when a driver picks you up", 'Practice →', '/practices/' ~ p.id, 'graphite') }}{% endif %}
+{{ rg_label('Offering') }}
+{% for o in board.offers %}{{ rg_ride_row((o.preferred_first or o.first) ~ ' ' ~ (o.last or '')[:1] ~ '.', 'From ' ~ o.area ~ (' · back too' if o.back else ''), ((o.preferred_first or o.first)[:1] ~ (o.last or '')[:1])|upper, 'sky', '<span class=rg-seats><b>' ~ o.seats_left ~ '</b><small>seat' ~ ('' if o.seats_left == 1 else 's') ~ '</small></span>') }}
+{% else %}<p class=ty-muted>No one is offering yet.</p>{% endfor %}
+{{ rg_label('Asking') }}
+{% for r in board.asking %}{% set btn = rg_ride_pick(p.id, r.id, csrf_field()) if (rd.offer and seats_left and r.rider_id != me().id) else '' %}
+{{ rg_ride_row((r.preferred_first or r.first) ~ ' ' ~ (r.last or '')[:1] ~ '.', r.area ~ (' · back too' if r.back else ''), ((r.preferred_first or r.first)[:1] ~ (r.last or '')[:1])|upper, 'sun', btn) }}
+{% else %}<p class=ty-muted>No one needs a ride.</p>{% endfor %}
+{% if going %}
+<div class=rg-ridebtns>
+{% if not rd.offer %}<button type=button class="rg-btn primary" data-open-dialog=rbOffer>Offer seats</button>{% else %}<form method=post action="/practices/{{ p.id }}/rides">{{ csrf_field() }}<input type=hidden name=next value=board><button class="rg-btn secondary" name=action value=unoffer>Stop offering</button></form>{% endif %}
+{% if not rd.mine %}<button type=button class="rg-btn secondary" data-open-dialog=rbAsk>Need a ride</button>{% else %}<form method=post action="/practices/{{ p.id }}/rides">{{ csrf_field() }}<input type=hidden name=next value=board><button class="rg-btn secondary" name=action value=cancel>Cancel my request</button></form>{% endif %}
+</div>
+<a class=rg-calink href=/rides/settings>Ride settings</a>
+<dialog id=rbAsk class="botsheet modal"><form method=post action="/practices/{{ p.id }}/rides" class=sheet>{{ csrf_field() }}<input type=hidden name=next value=board><div class=grab aria-hidden=true></div>
+<h2>Ask for a ride.</h2>
+<label class=rg-field><span>PICKUP AREA</span><input name=area required maxlength=60 placeholder="Neighborhood or city" value="{{ last_area }}"></label>
+<p class=ty-muted>Drivers see this area, never your address.</p>
+<label class=checkline><input type=checkbox name=back value=1 checked> Ride back too</label>
+<button class="rg-btn primary" name=action value=ask>Ask {{ board.cars }} driver{{ '' if board.cars == 1 else 's' }}</button>
+</form></dialog>
+<dialog id=rbOffer class="botsheet modal"><form method=post action="/practices/{{ p.id }}/rides" class=sheet>{{ csrf_field() }}<input type=hidden name=next value=board><div class=grab aria-hidden=true></div>
+<h2>Offer a ride.</h2>
+<label class=rg-field><span>LEAVING FROM (AREA)</span><input name=area required maxlength=60 placeholder="Neighborhood or city" value="{{ last_area }}"></label>
+<label class=rg-field><span>SEATS</span><select name=seats>{% for n in range(1,7) %}<option{% if n == defaults.seats %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+<label class=checkline><input type=checkbox name=back value=1 checked> I can drive people back</label>
+<button class="rg-btn primary" name=action value=offer>Offer seats</button>
+</form></dialog>
+{% else %}{{ rg_callout('Tap Going to ride together', 'Rides are for teammates going to this practice', 'Practice →', '/practices/' ~ p.id, 'graphite') }}{% endif %}
+</div>"""
+
+RIDE_SETTINGS = """<div class="rg-page rg-rides">
+<a class=rg-backlink href=/profile>← Profile</a>
+<p class=ty-caps>Me · Rides</p>
+<h1 class=ty-display-l>Ride settings.</h1>
+<form method=post class=fxsheet>{{ csrf_field() }}
+<label class="rg-toggle"><span><b>Offer rides</b><small>When you tap Going, teammates going to the same session can ask you</small></span><input type=checkbox name=ride_offer value=1 {% if rs.offer %}checked{% endif %}><i aria-hidden=true></i></label>
+<label class=rg-field><span>I DRIVE FROM (AREA)</span><input name=ride_area maxlength=60 value="{{ rs.area }}" placeholder="Neighborhood or city, e.g. Fountain Valley"></label>
+<label class=rg-field><span>SEATS IN MY CAR</span><select name=ride_seats>{% for n in range(1,7) %}<option{% if n == rs.seats %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+<div class="rg-toggle locked"><span><b>Show my area, not my address</b><small>Always on. An exact pickup spot goes only to a matched rider, 3 hours before practice.</small></span><i aria-hidden=true class=on></i></div>
+<button class="rg-btn primary">Save</button>
+</form>
+</div>"""
 
 SIGNUP = """<div class=rg-page>
 <a class=rg-back href="/practices/{{ p.id }}">← Practice</a>

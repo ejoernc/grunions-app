@@ -311,7 +311,8 @@ def test_schedule_is_not_the_old_home_and_profile_sheets_open():
         assert "NOT CLEARED" in banner and "Add USAWP number" in banner
         later = member.get("/practices?home=later").get_data(as_text=True)
         assert "Need a ride?" in later and "YOUR DRIVE" not in later
-        assert "Home · Belmont Shore" in later and "Ride to coffee?" in member.get("/practices?home=coffee").get_data(as_text=True)
+        # Nov 13: the Schedule-home ride sheets post to the real rides endpoint (no mock pickup area).
+        assert 'name=action value=ask' in later and "/rides" in later and "Home · Belmont Shore" not in later and "Ride to coffee?" in member.get("/practices?home=coffee").get_data(as_text=True)
     finally:
         os.environ.pop("IS_PULL_REQUEST", None)
         clear_preview_rows()

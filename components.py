@@ -339,6 +339,21 @@ def usawp_card(csrf_html, show_trial=True, trial_url="", action="/home"):
                   '<button class="rg-btn primary">Save</button></form>%s</section>' % (_e(action), csrf_html, trial))
 
 
+def ride_row(name, sub, initials, tone="sky", right=""):
+    """04.18 ride board row: avatar, name, area line, and a right slot (seats count or an Offer / Pick up button).
+    `right` is trusted Markup built by the caller."""
+    return Markup('<div class="rg-row rg-person rg-ride tone-%s"><span class="rg-lead tone-%s">%s</span>'
+                  '<span class=rg-txt><b>%s</b><small>%s</small></span>%s</div>' % (
+                      _tone(tone, "sky"), _tone(tone, "sky"), _e(initials), _e(name), _e(sub), right or ""))
+
+
+def ride_pick(pid, req_id, csrf_html, label="Pick up"):
+    """Ride board: the driver's one-tap Pick up for an open request (posts action=pick, returns to the board)."""
+    return Markup('<form method=post action="/practices/%d/rides">%s<input type=hidden name=next value=board>'
+                  '<input type=hidden name=req_id value="%d"><button class="rg-btn ink" name=action value=pick>%s</button></form>'
+                  % (int(pid), csrf_html, int(req_id), _e(label)))
+
+
 def metric(value, label, tone="carbon"):
     """2.0 / Metric."""
     return Markup('<div class="rg-metric tone-%s"><b>%s</b><span>%s</span></div>' % (_tone(tone, "carbon"), _e(value), _e(label)))
@@ -417,6 +432,6 @@ def plus_button(href, label="Add"):
 
 
 def jinja_globals():
-    return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_filters=filters, rg_day=day, rg_label=label,
+    return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
                 rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, event_tone=event_tone)

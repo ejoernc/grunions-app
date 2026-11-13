@@ -410,7 +410,7 @@ def nav_context():
         place = forced
     elif path in ("/discover", "/find", "/home") or path.startswith("/inbox"):
         place = "everything"
-    elif path.startswith("/calendar") or path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy") or path.startswith("/appearance"):
+    elif path.startswith("/calendar") or path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy") or path.startswith("/appearance") or path.startswith("/rides"):
         # Me is Calendar, Chat, Profile. The older Schedule · Settings · Lineup brief is not used.
         place = "me"
     else:
@@ -442,7 +442,7 @@ def nav_context():
         tabs = [
             ("calendar", "Calendar", "/calendar", path.startswith("/calendar")),
             ("chat", "Chat", "/inbox?place=me", on_personal),
-            ("profile", "Profile", "/profile", path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy") or path.startswith("/appearance")),
+            ("profile", "Profile", "/profile", path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy") or path.startswith("/appearance") or path.startswith("/rides")),
         ]
         crest = initials(m)
         switch = (("%s %s" % (display_first(m), m["last"] or "")).strip(), "Calendar · chat · profile")
@@ -5859,6 +5859,7 @@ def handle_practice_post(d):
         else: d.execute("INSERT INTO rsvps(practice_id,member_id,going) VALUES(?,?,?) ON CONFLICT DO UPDATE SET going=excluded.going, at=CURRENT_TIMESTAMP", (pid, me()["id"], int(a == "going")))
         if a == "going":
             join_practice_chat(d, pid, me()["id"])
+            flows2.auto_offer(d, pid, me())
         if a == "going" and not was_going:
             practice = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
             if practice:
@@ -6461,7 +6462,8 @@ def combined_view(entry):
     return page(T["home"], tab="practices" if entry == "practices" else "home",
         sched_home=sched_home, sched_list=sched_list, sched_when=sched_when or "upcoming", sched_rows=sched_rows,
         home_rows=home_rows, week_n=week_n, kind_n=kind_n, social_cards=[],
-        week_sessions=week_sessions, show_rides=show_rides, ride_label=ride_label, drive_detail=drive_detail, not_cleared=not_cleared,
+        week_sessions=week_sessions, show_rides=show_rides, ride_label=ride_label,
+        ride_pid=(going_today["p"]["id"] if going_today else (nextp["id"] if (show_rides and nextp) else None)), ride_area=_last_ride_area(d, m), ride_seats=flows2.ride_defaults(m)["seats"], drive_detail=drive_detail, not_cleared=not_cleared,
         show_drive=show_drive, drive_placeholder=drive_placeholder, drive_num=drive_num, drive_note=drive_note, drive_kicker=drive_kicker,
         home_out=home_out, preview_on=preview_on, preview_drawer=preview_drawer, pin_label=pin_label, week_strip=week_strip,
         m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices,
@@ -10831,9 +10833,8 @@ def practice_flows(d, p):
         parts = (["USA Water Polo"] if "number" in needs else []) + (["club waiver"] if "waiver" in needs else [])
         hint = "Requires " + " + ".join(parts)
     rides = flows2.rides_for(d, p["id"], m["id"]) if going else None
-    last = d.execute("SELECT area FROM ride_requests WHERE rider_id=? UNION ALL SELECT area FROM ride_offers WHERE driver_id=? LIMIT 1", (m["id"], m["id"])).fetchone()
     wr = flows2.wrap(d, p["id"])
-    return {"going": going, "gate_hint": hint, "rides": rides, "last_area": last["area"] if last else "",
+    return {"going": going, "gate_hint": hint, "rides": rides, "last_area": _last_ride_area(d, m), "seats_default": flows2.ride_defaults(m)["seats"],
             "seats_left": flows2.seats_left(d, rides["offer"]) if rides and rides["offer"] else 0,
             "in_window": flows2.ride_window(p, wall_pt()),
             "can_wrap": can_host_practice() and p["date"] <= today_pt().isoformat(), "closed": bool(wr and wr["closed_at"])}
@@ -10883,20 +10884,29 @@ def practice_signup(pid):
     when = "%s · %s" % (fmt_d(p["date"]), fmt_span(p["start"], p["end"]))
     return page(flows2.SIGNUP, tab="", p=p, needs=needs, w=flows2.waiver(d), when=when, org=org_name(), trial_offer=trial_offer)
 
-@app.route("/practices/<int:pid>/rides", methods=["POST"])
+@app.route("/practices/<int:pid>/rides", methods=["GET", "POST"])
 @login_required
 def practice_rides(pid):
-    """04.23 / 04.25. Areas only. An exact pickup spot is shared by the driver with a matched rider, in the pickup window."""
+    """04.18 ride board (GET) and 04.23 / 04.25 actions (POST). Areas only. An exact pickup spot is shared by the driver
+    with a matched rider, in the pickup window."""
     d = db(); m = me()
     p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
     if not p: abort(404)
+    if request.method == "GET":
+        mine = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, m["id"])).fetchone()
+        going = bool(mine and mine["going"] == 1)
+        rides = flows2.rides_for(d, pid, m["id"])
+        return page(flows2.RIDE_BOARD, tab="", p=p, board=flows2.ride_board(d, pid), going=going, rd=rides,
+                    seats_left=flows2.seats_left(d, rides["offer"]) if rides["offer"] else 0,
+                    defaults=flows2.ride_defaults(m), last_area=_last_ride_area(d, m), when=fmt_d(p["date"]) + " · " + fmt_clock(p["start"]))
+    back_to = "/practices/%d/rides" % pid if request.form.get("next") == "board" else ("/practices" if request.form.get("next") == "home" else "/practices/%d" % pid)
     going = d.execute("SELECT 1 FROM rsvps WHERE practice_id=? AND member_id=? AND going=1", (pid, m["id"])).fetchone()
-    if not going: flash("Tap Going first to ask for or offer a ride."); return redirect("/practices/%d" % pid)
+    if not going: flash("Tap Going first to ask for or offer a ride."); return redirect(back_to)
     a = request.form.get("action"); now = dt.datetime.now().isoformat(timespec="seconds")
     if a in ("ask", "offer"):
         area = flows2.clean_area(request.form.get("area"))
         if not area:
-            flash("Use a neighborhood or city, not a street address."); return redirect("/practices/%d" % pid)
+            flash("Use a neighborhood or city, not a street address."); return redirect(back_to)
         back = 1 if request.form.get("back") else 0
         if a == "ask":
             d.execute("UPDATE ride_requests SET status='cancelled' WHERE practice_id=? AND rider_id=? AND status='open'", (pid, m["id"]))
@@ -10912,7 +10922,7 @@ def practice_rides(pid):
     elif a == "pick":
         offer = d.execute("SELECT * FROM ride_offers WHERE practice_id=? AND driver_id=? AND status='open'", (pid, m["id"])).fetchone()
         rid = request.form.get("req_id", type=int)
-        if not offer or flows2.seats_left(d, offer) < 1: flash("No seats left."); return redirect("/practices/%d" % pid)
+        if not offer or flows2.seats_left(d, offer) < 1: flash("No seats left."); return redirect(back_to)
         d.execute("UPDATE ride_requests SET status='matched', driver_id=?, matched_at=? WHERE id=? AND practice_id=? AND status='open'", (m["id"], now, rid, pid))
         if d.execute("SELECT changes()").fetchone()[0]:
             rider = d.execute("SELECT m.* FROM ride_requests r JOIN members m ON m.id=r.rider_id WHERE r.id=?", (rid,)).fetchone()
@@ -10937,7 +10947,30 @@ def practice_rides(pid):
             if wants_push(r, "ride"): push_member(d, r, "ride", "Your driver can't make it", "Your ride request is open again", "/practices/%d" % pid)
         d.execute("UPDATE ride_requests SET status='open', driver_id=NULL, pickup_note=NULL, matched_at=NULL WHERE practice_id=? AND driver_id=? AND status='matched'", (pid, m["id"]))
     d.commit()
-    return redirect("/practices/%d" % pid)
+    return redirect(back_to)
+def _last_ride_area(d, m):
+    saved = flows2.ride_defaults(m)["area"]
+    if saved: return saved
+    last = d.execute("SELECT area FROM ride_requests WHERE rider_id=? UNION ALL SELECT area FROM ride_offers WHERE driver_id=? LIMIT 1", (m["id"], m["id"])).fetchone()
+    return last["area"] if last else ""
+
+@app.route("/rides/settings", methods=["GET", "POST"])
+@login_required
+def ride_settings():
+    """04.19 Me · Rides. Real settings only: offer by default, your area, seats. Areas are never street addresses."""
+    d = db(); m = me()
+    if request.method == "POST":
+        area = flows2.clean_area(request.form.get("ride_area"))
+        if (request.form.get("ride_area") or "").strip() and not area:
+            flash("Use a neighborhood or city, not a street address."); return redirect("/rides/settings")
+        seats = max(1, min(6, request.form.get("ride_seats", type=int) or 2))
+        offer = 1 if request.form.get("ride_offer") else 0
+        if offer and not area:
+            flash("Add the area you drive from to offer rides."); return redirect("/rides/settings")
+        d.execute("UPDATE members SET ride_offer=?, ride_area=?, ride_seats=? WHERE id=?", (offer, area, seats, m["id"]))
+        d.commit(); flash("Saved", "toast"); return redirect("/rides/settings")
+    return page(flows2.RIDE_SETTINGS, tab="rides", rs=flows2.ride_defaults(m))
+
 def _cancel_rides_when_not_going(d, pid, mid):
     d.execute("UPDATE ride_requests SET status='cancelled' WHERE practice_id=? AND rider_id=? AND status IN ('open','matched')", (pid, mid))
     d.execute("UPDATE ride_requests SET status='open', driver_id=NULL, pickup_note=NULL WHERE practice_id=? AND driver_id=? AND status='matched'", (pid, mid))
