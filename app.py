@@ -3166,10 +3166,8 @@ def team_chat_html(d, m):
         if len(names) == 2:
             break
     sub = ("%d unread" % dm_n + ((" · " + ", ".join(names)) if names else "") + " · opens your personal chat") if dm_n else "Opens your personal chat"
-    personal = ('<a class=chatrow href="/inbox?place=me"><span class="mark sky">%s</span>'
-                '<span class=grow><b>Personal messages</b><small>%s</small></span>'
-                '<span class=chatside><span class=chatgo aria-hidden=true>→</span>%s</span></a>'
-                % (_ENVELOPE, escape(sub), '<span class=unread>%d</span>' % dm_n if dm_n else ""))
+    personal = str(components.row("Personal messages", sub, "/inbox?place=me", lead=Markup(_ENVELOPE), lead_tone="sky",
+                                  kind="chat", trail="→", badge=(dm_n or "")))
     nxt = d.execute("""SELECT p.id, p.date, p.start, p.title, p.sport, p.location FROM practices p
         JOIN rsvps r ON r.practice_id=p.id AND r.member_id=? AND r.going=1
         WHERE COALESCE(p.cancelled,0)=0 AND COALESCE(p.skipped,0)=0 AND p.date>=?
@@ -3344,15 +3342,21 @@ def practice_switcher(d, m, current):
     if locked and upcoming and upcoming[0]["id"] != pid:
         back = '<p><a href="/chat?c=practice:%d">Back to tonight</a></p>' % upcoming[0]["id"]
     live = upcoming[0]["id"] == pid if upcoming else False
-    back_link = '<a href="/chat?view=list">← Practice chat</a>'
+    back_link = '<a class=rg-pcback href="/chat?view=list">← Practice chat</a>'
     if not live and upcoming:
-        back_link = '<a href="/chat?c=practice:%d">← Back to tonight</a>' % upcoming[0]["id"]
+        back_link = '<a class=rg-pcback href="/chat?c=practice:%d">← Back to tonight</a>' % upcoming[0]["id"]
     where = (row["location"] or row["title"] or "Practice").strip()
     when = "Tonight · %s" % where if str(row["date"])[:10] == today_pt().isoformat() else "%s · %s" % (_chip_date(row["date"]), where)
     going = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (pid,)).fetchone()[0]
-    hero = '<div class=pchathero><span class=pchatclock>%s</span><span><b>%s</b><small>%d going</small></span></div>' % (escape(_clock_face(row["start"])), escape(when), going)
-    return ('<div class=pchatbar>%s<a class=datechip href="/chat?view=practices&amp;sheet=1">%s ▾</a></div>%s%s%s'
-            % (back_link, escape(_chip_date(row["date"])), hero, note, back))
+    # 2.0 / Practice chat header (06.10): one sun card — back, date switcher, big clock, where + who.
+    coaches = d.execute("""SELECT COUNT(*) FROM rsvps r JOIN members mm ON mm.id=r.member_id
+        WHERE r.practice_id=? AND r.going=1 AND COALESCE(mm.role,'') IN ('coach','admin')""", (pid,)).fetchone()[0]
+    who = "%d going" % going + (" · %d coach%s" % (coaches, "" if coaches == 1 else "es") if coaches else "")
+    tone = "graphite" if row["cancelled"] else "sun"
+    card = ('<div class="rg-pchat tone-%s"><div class=rg-pctop>%s<a class=rg-pcdate href="/chat?view=practices&amp;sheet=1">%s ▾</a></div>'
+            '<div class=rg-pcmain><b class=rg-pcclock>%s</b><span class=rg-pcmeta><b>%s</b><small>%s</small></span></div></div>'
+            % (tone, back_link, escape(_chip_date(row["date"])), escape(_clock_face(row["start"])), escape(when), escape(who)))
+    return card + note + back
 @app.route("/chat")
 @login_required
 def chat():
@@ -3617,7 +3621,8 @@ def _inbox_role_sections(d, m):
     ask = []
     if not is_board(m):
         if (m["role"] or "") == "coach":
-            ask.append('<a class=chatrow href="/chat?view=list" data-open-request data-to=board data-lock=board data-about=other><span class="mark grape">B</span><span class=grow><b>Request the board</b><small>Private to board members</small></span></a>')
+            ask.append(str(components.row("Request the board", "Private to board members", "/chat?view=list", lead="B", lead_tone="grape",
+                                          kind="chat", extra=" data-open-request data-to=board data-lock=board data-about=other")))
         else:
             _n, sub, badge = _requests_inbox_meta(d, m)
             ask.append(_chat_row("/chat?c=requests", "R", "Requests", sub, "", badge, "sun", False))

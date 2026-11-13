@@ -528,3 +528,26 @@ header.homehead .headmain:has(.rg-plus){display:flex;align-items:flex-end;justif
 header.homehead .headmain .rg-plus{margin-left:auto;align-self:center}
 a.rg-back{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:999px;background:var(--graphite);color:var(--paper);margin:0 0 20px;text-decoration:none}
 .rg-subhead{margin:0 0 16px}.rg-subhead h1{margin:6px 0 0}
+/* Chat list: member count chip sits beside the name without clipping */
+.rg-row .rg-txt b:has(.count){display:flex;align-items:center;gap:10px;overflow:visible}
+.rg-row .rg-txt b .count{display:inline-flex;align-items:center;height:22px;padding:0 9px;line-height:1;flex:none;box-sizing:border-box}
+/* Chat thread: messages fade out under the header instead of a hard cut (2.0 / Chat header) */
+body:has(.chead) #chat{-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 28px);mask-image:linear-gradient(180deg,transparent 0,#000 28px)}
+/* 2.0 / Chat bubble (353:650): theirs graphite, mine lime with ink text, 26px corners, 8px tail */
+#chat .m .txt{background:var(--graphite);color:var(--paper);border-radius:26px 26px 26px 8px;padding:14px 18px;font:600 15px/1.4 var(--font-sans)}
+#chat .m.mine .txt{background:var(--lime);color:var(--fixed-ink);border-radius:26px 26px 8px 26px}
+#chat .m.mine .txt a.msglink{color:var(--fixed-ink);text-decoration:underline}
+#chat .m.ann .txt,#chat .m.mine.ann .txt{background:var(--team-lavender);color:var(--fixed-ink);border:0;border-radius:26px}
+#chat .m .txt.deleted{background:transparent;padding:0;color:var(--smoke);font:italic 500 12px/1.3 var(--font-sans)}
+#chat .m .who{font:700 11px/1.2 var(--font-sans);color:var(--smoke)}
+/* 2.0 / Practice chat header (06.10) */
+.rg-pchat{display:flex;flex-direction:column;gap:14px;padding:18px 20px 22px;border-radius:34px;background:var(--tone,var(--team-sun));color:var(--fixed-ink);margin:0 0 12px}
+.rg-pchat.tone-graphite{color:var(--paper)}
+.rg-pctop{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.rg-pcback{font:700 14px/1.2 var(--font-sans);color:inherit;text-decoration:none}
+.rg-pcdate{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:999px;background:var(--fixed-ink);color:var(--tone,var(--team-sun));font:700 12px/1 var(--font-sans);text-decoration:none;white-space:nowrap}
+.rg-pcmain{display:flex;align-items:center;gap:14px;min-width:0}
+.rg-pcclock{font:700 64px/.86 var(--font-display);letter-spacing:-.05em;white-space:nowrap}
+.rg-pcmeta{display:flex;flex-direction:column;gap:3px;min-width:0}
+.rg-pcmeta b{font:700 14px/1.25 var(--font-sans)}
+.rg-pcmeta small{font:600 12px/1.3 var(--font-sans)}
