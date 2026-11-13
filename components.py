@@ -85,6 +85,15 @@ def seg_choice(name, items, value, autosubmit=False):
     return Markup('<div class="rg-seg rg-segform" role=radiogroup>%s</div>' % opts)
 
 
+def map_unavailable(line="We can't show the map right now.", sub="Your week is below. Open a practice for directions.",
+                    href="/practices?view=list", link="See the schedule"):
+    """2.0 / Map unavailable (359:1185): big ghost "No map." over the map area, one line, one link."""
+    return Markup('<section class=rg-mapmiss data-r2="map-unavailable" role=status>'
+                  '<span class=rg-mapmiss-big aria-hidden=true>No<br>map.</span>'
+                  '<b>%s</b><small>%s</small>%s</section>' % (
+                      _e(line), _e(sub), ('<a href="%s">%s</a>' % (_e(href), _e(link))) if href else ""))
+
+
 def filters(items, current):
     """Type filters. items = [(key, label, href)]; selected is lime."""
     return Markup('<nav class=rg-filters aria-label=Filter>%s</nav>' % "".join(
@@ -210,9 +219,11 @@ def social_card(card, csrf_html, back="home", clock_label=""):
     if not card.get("joined"):
         n = len(card.get("people") or [])
         kicker = when + ((" · " + clock_label.upper()) if clock_label else "")
+        # Condensed (Nov 13 redesign): the kicker gets the full width, the title wraps instead of truncating,
+        # and "N going" + Join share their own row, so nothing collides at 320px.
         return Markup('<div class="rg-social cond" data-when="%s"><span class=rg-socicon aria-hidden=true>%s</span>'
-                      '<span class=rg-txt><span class=rg-sk>%s</span><b>%s</b><small>%d going</small></span>%s'
-                      '<button class=rg-outline name=action value=social_join>Join</button></form></div>'
+                      '<span class=rg-txt><span class=rg-sk>%s</span><b>%s</b>'
+                      '<span class=rg-someta><small>%d going</small>%s<button class=rg-outline name=action value=social_join>Join</button></form></span></span></div>'
                       % (_e(card.get("when")), _social_icon(title), _e(kicker), _e(title + (" · " + place if place else "")), n, form))
     live = card.get("live")
     kicker = when + (" · HAPPENING NOW" if live else ((" · " + clock_label.upper()) if clock_label else ""))
@@ -299,6 +310,35 @@ def callout(title, sub="", cta="", href="", tone="graphite", onclick=""):
     return Markup('<button type=button class="%s"%s>%s</button>' % (klass, (' onclick="%s"' % _e(onclick)) if onclick else "", inner))
 
 
+def callout_card(title, body="", cta="", cta_id="", link="", link_href="", tone="lavender", card_id="", extra="", hidden=False):
+    """2.0 / Callout (Audit PROPOSED 2376:91): tinted block with a title, body, one ink CTA and an optional link.
+    Tone lavender for an ask, graphite for a blocked / informational state. `extra` is trusted Markup (hints the JS toggles)."""
+    return Markup('<section class="rg-calloutcard tone-%s"%s%s><b>%s</b>%s%s%s%s</section>' % (
+        _tone(tone, "lavender"), (' id="%s"' % _e(card_id)) if card_id else "", " hidden" if hidden else "", _e(title),
+        ('<p>%s</p>' % _e(body)) if body else "", extra or "",
+        ('<button type=button class=rg-cta%s>%s</button>' % ((' id="%s"' % _e(cta_id)) if cta_id else "", _e(cta))) if cta else "",
+        ('<a class=rg-calink href="%s">%s</a>' % (_e(link_href), _e(link))) if link else ""))
+
+
+def usawp_card(csrf_html, show_trial=True, trial_url="", action="/home"):
+    """/home USAWP card (Audit 03, AFTER): title, number field, Save, and the 2-week trial with its confirm sheet.
+    Posts to /home exactly like the v1 card (usawp_number, action=trial)."""
+    trial = ""
+    if show_trial:
+        trial = ('<button type=button class="rg-btn secondary" data-open-dialog=trialDialog>2-week USAWP trial</button>'
+                 '<dialog id=trialDialog class=modal><div class=sheet>'
+                 '<p>I will complete the USA Water Polo 2-week trial membership before I get in the pool. I understand I need to '
+                 'get a full USAWP membership soon, otherwise I will not be able to practice.</p>'
+                 '<form method=post action="%s">%s<input type=hidden name=action value=trial>'
+                 '<button class="rg-btn primary">I confirm</button></form>'
+                 '<a class="rg-btn secondary" href="%s" target=_blank rel=noopener>Get USAWP trial membership</a>'
+                 '</div></dialog>') % (_e(action), csrf_html, _e(trial_url))
+    return Markup('<section class="rg-usawp numcard"><b>Enter your USAWP membership number</b>'
+                  '<form method=post action="%s">%s<label class=rg-field><span>USAWP Membership #</span>'
+                  '<input name=usawp_number inputmode=numeric autocomplete=off pattern="[0-9]{4,10}" required></label>'
+                  '<button class="rg-btn primary">Save</button></form>%s</section>' % (_e(action), csrf_html, trial))
+
+
 def metric(value, label, tone="carbon"):
     """2.0 / Metric."""
     return Markup('<div class="rg-metric tone-%s"><b>%s</b><span>%s</span></div>' % (_tone(tone, "carbon"), _e(value), _e(label)))
@@ -377,6 +417,6 @@ def plus_button(href, label="Add"):
 
 
 def jinja_globals():
-    return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_filters=filters, rg_day=day, rg_label=label,
+    return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
                 rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, event_tone=event_tone)

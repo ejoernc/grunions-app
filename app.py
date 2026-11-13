@@ -6292,11 +6292,19 @@ def combined_view(entry):
     social_after = next_kind == "practice" and bool(nextp) and social_after_window(nextp)
     social_mins = int(nextp["social_drive_min"]) if nextp and "social_drive_min" in nextp.keys() and nextp["social_drive_min"] else None
     sched_list = entry == "practices" and request.args.get("view") == "list"
-    sched_home = entry == "practices" and not sched_list
+    # /home (place = Everything) uses the Schedule home shell too: map + week drawer (Nov 13 direction).
+    sched_home = entry in ("practices", "home") and not sched_list
     sched_when = (request.args.get("when") or "upcoming") if sched_list else ""
     if sched_when not in ("", "upcoming", "past", "all"):
         sched_when = "upcoming"
     sched_rows = schedule_rows(d, sched_when or "upcoming") if (sched_list or sched_home) else []
+    if sched_list and sched_when != "past":
+        # Before/after socials sit with their practice in the list too, same cards as the week drawer (Nov 13).
+        for row in sched_rows:
+            if isinstance(row, dict) and not row["p"]["cancelled"]:
+                cards = [_decorate_social(d, card, m["id"]) for card in schedule_social_cards(row["p"])]
+                row["before"] = [c for c in cards if c["when"] == "before"]
+                row["after"] = [c for c in cards if c["when"] != "before"]
     home_rows = schedule_home_rows(d) if sched_home else []
     today = today_pt()
     week_end = (today + dt.timedelta(days=(6 - today.weekday()))).isoformat()

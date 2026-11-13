@@ -188,7 +188,7 @@ body.homefull .schedfeed{position:relative;z-index:2;pointer-events:auto}
 body.schedhome{overflow:hidden;height:100dvh;--drawer-h:52dvh}
 body.schedhome header.homehead{height:0;min-height:0;padding:0;overflow:hidden;background:transparent}
 body.schedhome main{overflow:hidden;height:100dvh;max-height:100dvh;padding-bottom:0}
-body.schedhome .weekhi{--titlefade:0;position:fixed;z-index:4;top:16px;left:16px;right:72px;pointer-events:none;color:var(--paper)}
+body.schedhome .weekhi{--titlefade:0;position:fixed;z-index:4;top:16px;left:calc(var(--rail-w, 0px) + 16px);right:72px;pointer-events:none;color:var(--paper)}
 /* 04.01: as the sheet rises, Hi → Upcoming crossfade in place at the same size, the map fades to the page color,
    and the cards slide up behind a solid header. --mapfade is the same 0→1 progress, set on body. */
 body.schedhome .weekhi::before{content:"";position:fixed;z-index:-1;left:0;right:0;top:0;height:calc(80px + env(safe-area-inset-top));background:var(--ink);opacity:var(--mapdone, 0);pointer-events:none}
@@ -698,8 +698,6 @@ body.homefull .homedock .nextcard:not(.cancelled){background:var(--r2-sun);color
 body.homefull .homedock .nextcard:not(.cancelled) .nxtitle,body.homefull .homedock .nextcard:not(.cancelled) .nxrow,body.homefull .homedock .nextcard:not(.cancelled) .cardtitle,body.homefull .homedock .nextcard:not(.cancelled) .datetile{color:var(--r2-fixed-ink)}
 body.homefull .homealerts .card:not(#pushCard){background:var(--r2-lavender);color:var(--r2-fixed-ink);border-radius:32px;padding:20px 22px}
 body.homefull .homealerts .card:not(#pushCard) .t3,body.homefull .homealerts .card:not(#pushCard) p{color:var(--r2-fixed-ink)}
-#pushCard{background:var(--r2-carbon);color:var(--r2-paper);border-radius:32px;padding:22px}
-#pushCard p{color:var(--r2-smoke)}
 .drivechipbtn,.drivechiptext{background:var(--r2-lime);color:var(--r2-fixed-ink);border-color:transparent}
 .drivechiptext .driveage{color:var(--r2-fixed-ink)}
 main:has(.lineupfilt) .seclabel{color:var(--r2-smoke);font:700 28px/.95 var(--r2-font-display);letter-spacing:-.03em;text-transform:none}
@@ -2372,9 +2370,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro r2_legend(pin) -%}
 <div class="r2-legend maplegend" data-r2="traffic-legend" data-traffic="placeholder" aria-hidden=true><span><i class=legclear></i>Clear</span><span><i class=legslow></i>Slow</span><span><i class=legjam></i>Jammed</span>{% if pin %}<b>{{ pin }}</b>{% endif %}</div>
 {%- endmacro %}
-{% macro r2_map_unavailable() -%}
-<p class="r2-mapmiss mapmiss" data-r2="map-unavailable">Map unavailable. <a href="/practices?view=list">See the schedule</a></p>
-{%- endmacro %}
+{% macro r2_map_unavailable() -%}{{ rg_map_unavailable() }}{%- endmacro %}
 {% macro r2_cover(src) -%}
 <div class="r2-cover p5cover" data-r2="cover-image"><img src="{{ src }}" alt=""></div>
 {%- endmacro %}
@@ -2542,14 +2538,7 @@ dialog.memberedit .help a{color:var(--t1)}
 </header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{% if editing or plan_editing %}Edit practice{% else %}Practice{% endif %}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() and tab == 'chat' %}{% elif me() %}{% call app_header(tab == 'home' or tab == 'practices', ('schedule' if tab == 'practices' else 'home') if (tab == 'home' or tab == 'practices') else '', '/lineup/new' if tab == 'lineup' else ('/events/new?lane=schedule' if (can_host_practice() and tab == 'practices' and sched_list) else ''), ('Add to Lineup' if can_host_practice() else 'Suggest an event') if tab == 'lineup' else 'Add to the schedule') %}{% if tab == 'practices' %}{% if sched_list %}<div class=displayhead><h1>Schedule</h1></div>{% else %}<div class=displayhead><h1>Schedule</h1></div>{% endif %}{% elif tab == 'home' %}<div class=displayhead><div class=displayeye>{{ hi_membership() }}</div><h1>Hi, {{ display_first(me()) }}</h1></div>{% elif tab == 'discover' %}<h1>Discover.</h1>{% elif tab == 'calendar' %}<div class=displayhead><p class=displayeye>{{ display_first(me()) }} {{ me().last }}</p><h1>Calendar</h1></div>{% elif tab == 'manage' %}<div class=displayhead><h1>Manage</h1></div>{% elif tab == 'admin' %}<a class=hubback href={{ admin_back|default('/manage') }} aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% elif tab == 'lineup' %}<div class=displayhead><h1>Lineup</h1></div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}{% endcall %}{% else %}<header><a class=brand href=/ aria-label=Regulars><img src="/static/icons/icon-192.png?v=119" alt=""></a></header>{% endif %}<main>
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
-{% macro push_card() %}<div class=card id=pushCard hidden>
-<div style="font-weight:600">Notifications</div>
-<p class="t2 sm" id=iosPushHint hidden>On iPhone or iPad, add Regulars to your Home Screen to get notifications. Tap Share, then Add to Home Screen, and open the app from there (iOS 16.4 or later).</p>
-<p class="t2 sm">Allow notifications for chat, practice reminders, and membership expiry. This works on Android, and on iPhone once Regulars is on your Home Screen (iOS 16.4 or later).</p>
-<p class="t2 sm" id=pushDenied hidden>Notifications are blocked in this browser. Allow them in the site settings, then come back.</p>
-<button type=button class="btn btn-primary full" id=allowPush>Allow notifications</button>
-<p class="t3 sm" style="margin:10px 0 0"><a href=/notifications>Notification settings</a></p>
-</div>{% endmacro %}"""
+{% macro push_card() %}{{ rg_callout_card('Notifications', 'Allow notifications for chat, practice reminders, and membership expiry. This works on Android, and on iPhone once Regulars is on your Home Screen (iOS 16.4 or later).', 'Allow notifications', 'allowPush', 'Notification settings', '/notifications', 'lavender', 'pushCard', '<p id=iosPushHint hidden>On iPhone or iPad, add Regulars to your Home Screen to get notifications. Tap Share, then Add to Home Screen, and open the app from there (iOS 16.4 or later).</p><p id=pushDenied hidden>Notifications are blocked in this browser. Allow them in the site settings, then come back.</p>', True) }}{% endmacro %}"""
 
 ICONS = {
  "home": '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M219.31,108.68l-80-80a16,16,0,0,0-22.62,0l-80,80A15.87,15.87,0,0,0,32,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V160h32v56a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A15.87,15.87,0,0,0,219.31,108.68ZM208,208H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48V120l80-80,80,80Z"/></svg>',
@@ -2967,6 +2956,11 @@ return fetch('/api/push/subscribe',{method:'POST',headers:{'Content-Type':'appli
 }).then(function(){card.hidden=true;});}).catch(function(){btn.disabled=false;});};
 }
 grunionsPushCard();
+// Shared: any [data-open-dialog=id] opens that dialog; tapping the backdrop closes it.
+if(!window.grunionsDialogs){window.grunionsDialogs=1;
+document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-open-dialog]');
+ if(t){var d=document.getElementById(t.getAttribute('data-open-dialog')); if(d&&d.showModal){e.preventDefault(); d.showModal();} return;}
+ if(e.target.tagName==='DIALOG'&&e.target.open&&e.target.classList.contains('modal')) e.target.close();});}
 function grunionsAppBadge(n){try{if(!navigator.setAppBadge)return;if((n|0)>0)navigator.setAppBadge(n|0);else if(navigator.clearAppBadge)navigator.clearAppBadge();}catch(e){}}
 function grunionsBadges(u){if(!u)return;grunionsAppBadge(u.total);
  document.querySelectorAll('[data-badge]').forEach(function(el){var n=u[el.getAttribute('data-badge')]|0;var b=el.querySelector('.badge');
@@ -4828,7 +4822,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 })();
 </script>
 {% endif %}
-{% if tab != 'practices' %}<div class=homealerts>{{ push_card() }}
+{% if tab != 'practices' and not sched_home %}<div class=homealerts>{{ push_card() }}
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
 {% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}</div>{% endif %}
 {% macro schedule_feed(when, rows, note) %}
@@ -4840,6 +4834,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <div class=daygroup><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class=daycards>
 {% endif %}
 {% set ended = practice_ended(p) or when == 'past' %}
+{% if not ended and not p.cancelled %}{% for card in x.before or [] %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}{% endif %}
 {% if p.cancelled %}
 {{ r2_event_row('/practices/' ~ p.id, 'cancelled', tile.wd ~ ' · ' ~ month_abbr(p.date) ~ ' ' ~ tile.dn ~ ' · ' ~ (p.sport or 'Water Polo')|upper, practice_title(p), p.cancel_reason, 0) }}
 {% elif ns.featured and when != 'past' %}{% set ns.featured = false %}{% set clk = fmt_clock(p.start).split(' ') %}
@@ -4847,30 +4842,35 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% else %}
 {{ r2_event_row('/practices/' ~ p.id, 'stack', weekday_name(p.date), practice_title(p), fmt_clock(p.start) ~ ' · ' ~ short_place(p.location), x.going|length, (p.sport or 'Water Polo')|upper, ended) }}
 {% endif %}
+{% if not ended and not p.cancelled %}{% for card in x.after or [] %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}{% endif %}
 {% endfor %}{% if ns.open %}</div></div>{% endif %}
 {% if not rows %}<p class="t3">Nothing coming up.</p>{% endif %}
 {% endmacro %}
 {% if sched_home %}
-<div class=weekhi><span class=weekeye>{% if not_cleared %}NOT CLEARED{% elif me().usawp_number %}USAWP #{{ me().usawp_number }}{% endif %}</span><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}.</h1><h1 class=schedtitle aria-hidden=true>Upcoming</h1></div>{{ r2_legend('') }}</div>
+{% set _setup = setup_card() %}{% set _start = preview_drawer or ('full' if (not_cleared or (_setup and _setup.show) or (tab == 'home' and not (me().usawp_number or '')|trim)) else 'half') %}
+<div class=weekhi><span class=weekeye>{% if not_cleared %}NOT CLEARED{% elif me().usawp_number %}USAWP #{{ me().usawp_number }}{% endif %}</span><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}.</h1><h1 class=schedtitle aria-hidden=true>{% if _start == 'full' %}Hi, {{ display_first(me()) }}.{% else %}Upcoming{% endif %}</h1></div>{{ r2_legend('') }}</div>
 {% if pin_label %}<b class=mappinchip>{{ pin_label }}</b>{% endif %}
 <div class=mapcontrols><button type=button data-zoom=1 aria-label="Zoom in">+</button><button type=button data-zoom=-1 aria-label="Zoom out">−</button></div>
 {% if not pins %}{{ r2_map_unavailable() }}{% endif %}
-<div class="weekdrawer {{ 'peek' if preview_drawer == 'peek' else 'half' }}" id=schedSheet data-start="{{ preview_drawer or 'half' }}">
+<div class="weekdrawer {{ 'peek' if _start == 'peek' else ('full' if _start == 'full' else 'half') }}" id=schedSheet data-start="{{ _start }}">
 <button type=button class=sheetgrab id=sheetGrab aria-label="Drag the week"></button>
 {% if not_cleared %}<div class=clearbanner><b>NOT CLEARED YET</b><strong>Add your USAWP number to go to practice.</strong><p>Takes 2 minutes. Coaches can see you once it’s verified.</p><a href=/profile#membership>Add USAWP number</a></div>{% endif %}
 <div class=weekbody id=weekBody>
 <div class=weekhead><h2>This week{% if week_n %} <span>({{ '%02d'|format(week_n) }})</span>{% endif %}</h2><a href="/practices?view=list">See all ›</a></div>
 <div class=weekthis>
+{% if tab == 'home' %}<div class=homealerts>{{ push_card() }}{% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}</div>
+{% if not (me().usawp_number or '')|trim %}{{ rg_usawp_card(csrf_field(), not trial_window(me()), TRIAL_JOIN_URL) }}{% endif %}{% endif %}
 {% if show_drive %}{{ r2_drive_card(drive_num or '18', drive_note or drive_detail, drive_chip, drive_placeholder, drive_kicker or 'YOUR DRIVE · 7.4 MI') }}{% endif %}
 {% if show_rides %}<div class=ridebtns><button type=button id=needRide>{{ ride_label }}</button><button type=button id=offerRide>Offer a ride</button></div>{% endif %}
 {% if ann %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(ann)|upper }}</b><p>{{ ann.body }}</p></div>{% endif %}
 {% if not week_sessions %}<div class=weekempty><span>THIS WEEK</span><b>Nothing scheduled this week.</b><p>Your team hasn’t posted anything yet. Check Lineup for events or look at the full schedule.</p><a href=/lineup>See Lineup</a></div>{% endif %}
-{% for s in week_sessions %}
+{% set wk = namespace(day='', open=false) %}{% for s in week_sessions %}{% set tile = practice_tile(s.p) %}{% set key = tile.wd ~ tile.dn %}
+{% if key != wk.day %}{% if wk.open %}</div></div>{% endif %}{% set wk.day = key %}{% set wk.open = true %}<div class=daygroup><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class=daycards>{% endif %}
 {% for card in s.before %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
 {% if s.cancelled %}{{ r2_event_row('/practices/' ~ s.p.id, 'cancelled', (s.p.sport or 'Water Polo')|upper, practice_title(s.p), s.p.cancel_reason or 'Cancelled', s.going|length) }}
 {% else %}{% set clk = fmt_clock(s.p.start).split(' ') %}{{ r2_event_card('/practices/' ~ s.p.id, (s.p.sport or 'Water Polo')|upper, practice_title(s.p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(s.p.start, s.p.end), short_place(s.p.location), s.going, '' if s.mine == 1 and not home_out else day_chip(s.p.date), s.mine == 1 and not home_out, event_tone(s.kind or 'practice'), practice_ended(s.p)) }}{% endif %}
 {% for card in s.after %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
-{% endfor %}
+{% endfor %}{% if wk.open %}</div></div>{% endif %}
 <a class=fullsched href="/practices?view=list">View full schedule ›</a>
 
 </div>
@@ -5080,7 +5080,10 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   wheelT=setTimeout(function(){ var started=wheelFull; wheelT=0; settle(0, started); }, 160);
  }, {passive:false, signal:ac.signal});
  window.addEventListener('resize', function(){ if(!live()) return; if(wide()) resetWide(); else apply(sheet.classList.contains('full')?metrics().full:(h||metrics().half)); }, {signal:ac.signal});
- if(wide()) resetWide(); else apply(sheet.getAttribute('data-start')==='peek'?metrics().peek:metrics().half);
+ // Setup still open (Finish setup, USAWP # or not cleared): the week opens pinned to the top and covers the map.
+ // Once those are done it opens at half height and the map shows. (Direction, Nov 13.)
+ var start=sheet.getAttribute('data-start');
+ if(wide()) resetWide(); else apply(start==='full'?metrics().full:(start==='peek'?metrics().peek:metrics().half));
  var ask=document.getElementById('rideAsk'), offer=document.getElementById('rideOffer');
  var need=document.getElementById('needRide'); if(need) need.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(ask); else ask.showModal(); };
  var off=document.getElementById('offerRide'); if(off) off.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(offer); else offer.showModal(); };
