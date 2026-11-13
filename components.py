@@ -620,7 +620,27 @@ def block_row(title, sub="", action="Edit", attrs="", handle=True):
         ('<small>%s</small>' % _e(sub)) if sub else "", _e(action)))
 
 
+def auth_head(title, sub=""):
+    """Pre-auth header (Figma 10.02 / 10.07): small regulars lockup, then the giant display title."""
+    t = _e(title)
+    if t and not t.endswith((".", "?", "!")):
+        t = t + "."
+    return Markup('<div class=rg-authhead><img class=rg-authlogo src="/static/regulars-lockup.svg" alt="Regulars" width="150" height="29">'
+                  '<h1 class=rg-authtitle>%s</h1>%s</div>' % (t, ('<p class=rg-authsub>%s</p>' % _e(sub)) if sub else ""))
+
+
+def notice(title, body="", tone="lime", icon_name="check", dismiss=True):
+    """2.0 / Notice (Figma 10.03 Link sent): colored banner, round ink icon, title + body, ✕ to dismiss. body may hold safe HTML."""
+    return Markup('<div class="rg-notice tone-%s" role=status><span class=rg-noticeic>%s</span><span class=rg-txt><b>%s</b>%s</span>%s</div>' % (
+        _tone(tone, "lime"), _CHECK if icon_name == "check" else icon(icon_name, "sm"), _e(title), ('<small>%s</small>' % body) if body else "",
+        '<button type=button class=rg-noticex aria-label="Dismiss" onclick="this.parentNode.remove()">%s</button>' % icon("close", "sm") if dismiss else ""))
+
+
+def divider(label="or"):
+    return Markup('<div class=rg-divider><span>%s</span></div>' % _e(label))
+
+
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_info_block=info_block, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_notice=notice, rg_divider=divider, rg_info_block=info_block, event_tone=event_tone)

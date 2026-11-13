@@ -30,7 +30,7 @@ DATA_DIR = os.environ.get("DATA_DIR") or os.path.dirname(os.path.abspath(__file_
 os.makedirs(DATA_DIR, exist_ok=True)
 DB = os.environ.get("GRUNIONS_DB", os.path.join(DATA_DIR, "grunions.db"))
 PUBLIC_URL = os.environ.get("PUBLIC_URL")
-ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAIL", "").split(",") if e.strip()}  # bootstrap admins (comma-separated)
+ADMIN_EMAILS = {e.strip().lower() for e in (os.environ.get("ADMIN_EMAIL", "") + "," + os.environ.get("ADMIN_EMAIL_EXTRA", "")).split(",") if e.strip()}  # bootstrap admins (comma-separated); ADMIN_EMAIL_EXTRA adds more without touching ADMIN_EMAIL
 def org_name():
     """Club name filled into the generic mail templates at send time."""
     return (os.environ.get("ORG_NAME") or "Grunions Water Polo").strip() or "Grunions Water Polo"
@@ -1370,6 +1370,38 @@ def find_team():
     """Find or join opens Everything. The live push sends this to Map with the button off."""
     return redirect("/discover" if SHOW_FIND_TEAM else "/home")
 
+def _short_venue(name):
+    return re.sub(r"\s+High School\b", " HS", (name or "").strip())
+def _join_card():
+    """The club's regular week + monthly price, for the Join card and the Log in line (Figma 10.02 / 10.07)."""
+    try:
+        data = publicfeed.load(db())
+    except Exception:
+        return {}
+    sched = data.get("schedule") or {}
+    slots = [sl for sl in (sched.get("slots") or []) if sl.get("days")]
+    if not slots:
+        return {}
+    days, line_bits, time = [], [], ""
+    for sl in slots:
+        place = _short_venue(sl.get("venue") or sched.get("venue") or "")
+        for dnum in sl.get("days") or []:
+            days.append((publicfeed.DAY_SHORT[dnum].upper(), place))
+            line_bits.append("%ss at %s" % (publicfeed.DAYS[dnum], place) if place else "%ss" % publicfeed.DAYS[dnum])
+        time = time or publicfeed._span(sl)
+    monthly = ((data.get("pricing") or {}).get("monthly") or "").strip()
+    price = publicfeed.money(monthly) if monthly else ""
+    note = ""
+    try:
+        import clubadmin
+        bodies = {r["governing_body"] for r in clubadmin.programs(db()) if r["active"]}
+        if "usawp" in bodies: note = "A current USA Water Polo membership is required."
+        elif "usms" in bodies: note = "A current US Masters Swimming membership is required."
+    except Exception:
+        pass
+    kicker = " · ".join(x for x in ((sched.get("name") or "").strip(), (os.environ.get("CLUB_CITY") or "").strip()) if x) or org_name()
+    return {"kicker": kicker, "days": days[:4], "price": price, "per": "/mo" if price else "", "time": time.replace(" PM", " PM"), "note": note,
+            "line": ". ".join(line_bits) + (". %s." % time if time else "")}
 @app.route("/join", methods=["GET", "POST"])
 def join():
     if request.method == "POST":
@@ -1393,7 +1425,7 @@ def join():
         dest = "/setup/week"
         flash(f"Welcome to the Grunions, {pref or f['first']}! Find a coach on deck to get checked in.")
         return redirect(dest)
-    return page(T["join"])
+    return page(T["join"], tab="auth", join_card=_join_card())
 
 def smtp_ready(): return all(SMTP.values())
 class MailError(Exception):
@@ -1476,7 +1508,7 @@ def login():
         if nxt:
             session["next"] = nxt
     if request.method == "POST": return send_link((request.form.get("email") or "").strip().lower())
-    return page(T["login"])
+    return page(T["login"], tab="auth", schedule_line=_join_card().get("line", "") if _join_card() else "")
 
 @app.route("/auth/<tok>")
 def auth(tok):

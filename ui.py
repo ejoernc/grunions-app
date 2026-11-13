@@ -2587,7 +2587,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <a class=newrow href="/events/new?lane=lineup"><span class=grow><b>Lineup event</b><small>Tournaments, camps, trips and socials</small></span><span class=chatgo>›</span></a>
 </div>
 </div></dialog>{% endif %}
-{% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
+{% if tab != 'auth' %}{% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}{% endif %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}{{ rg_callout_card('Notifications', 'Allow notifications for chat, practice reminders, and membership expiry. This works on Android, and on iPhone once Regulars is on your Home Screen (iOS 16.4 or later).', 'Allow notifications', 'allowPush', 'Notification settings', '/notifications', 'lavender', 'pushCard', '<p id=iosPushHint hidden>On iPhone or iPad, add Regulars to your Home Screen to get notifications. Tap Share, then Add to Home Screen, and open the app from there (iOS 16.4 or later).</p><p id=pushDenied hidden>Notifications are blocked in this browser. Allow them in the site settings, then come back.</p>', True) }}{% endmacro %}"""
 
@@ -4911,26 +4911,39 @@ APPEARANCE_PAGE = """
 """
 
 T = {}
-T["join"] = """<h1>Join the Grunions</h1>
-<p class=ty-body>Tuesdays at Marina High School and Fridays at Westminster High School, 7–8:30 PM. Membership is $45/mo starting in November; a current USA Water Polo membership is required.</p>
+T["auth_notices"] = """{% for cat, msg in get_flashed_messages(with_categories=true) %}{% set m = msg|string %}{% if 'login link is on its way' in m %}{{ rg_notice('Check your email', m.replace('If that email is on the team, a login link is on its way (valid 15 minutes). If it does not arrive, try again in a few minutes.', "If that email is on the team, a login link is on its way. It's valid for 15 minutes.")|safe, 'lime', 'check') }}{% elif 'invalid or expired' in m %}{{ rg_notice('That link expired', 'That login link is invalid or expired. Login links work once and last 15 minutes, so send yourself a new one below.', 'sun', 'close') }}{% elif 'Google sign-in' in m or 'Google account' in m %}{{ rg_notice("Google didn't work", m|safe, 'tangerine', 'close') }}{% elif 'already have an account' in m %}{{ rg_notice("You're already on the team", 'We sent a login link to that email instead.', 'lime', 'check') }}{% elif cat == 'toast' %}{{ rg_notice(m, '', 'lime', 'check') }}{% else %}{{ rg_notice('Check this', m|safe, 'sun', 'close') }}{% endif %}{% endfor %}"""
+T["join"] = """<div class=rg-auth>
+{{ rg_auth_head('Join the Grunions') }}
+""" + T["auth_notices"] + """
+{% if join_card %}<section class=rg-joincard aria-label="Practice times and price">
+<span class=ek>{{ join_card.kicker }}</span>
+{% if join_card.days %}<div class=rg-joindays>{% for dname, place in join_card.days %}<div><b>{{ dname }}</b><small>{{ place }}</small></div>{% endfor %}</div>{% endif %}
+<div class=rg-joinprice>{% if join_card.price %}<b>{{ join_card.price }}</b><span>{{ join_card.per }}</span>{% endif %}<em>{{ join_card.time }}</em></div>
+{% if join_card.note %}<p>{{ join_card.note }}</p>{% endif %}
+</section>{% endif %}
 <form method=post>{{csrf_field()}}
-<label>Legal first name<input name=first required autocomplete=given-name></label>
-<label>Preferred first name (optional)<input name=preferred_first autocomplete=off placeholder="Leave blank to use your legal first name"></label>
-<label>Legal last name<input name=last required autocomplete=family-name></label>
-<label>Email<input name=email type=email required autocomplete=email placeholder="The one on your USA Water Polo account"></label>
-<label>Phone<input name=phone type=tel required autocomplete=tel></label>
-<label>Date of birth <span class=r2-chip>18+ only</span><input name=birth_date type=date required autocomplete=bday></label>
-<p class="ty-muted ty-sm sm">Grunions is an adults club. If you're under 18 you can't join. We'll point you to youth programs nearby.</p>
-<button class="rg-btn primary full">Create account</button></form>
-<p class="ty-muted ty-sm sm" style="text-align:center;margin-top:20px">Already a member? <a href=/login>Log in</a></p>"""
+<label class=rg-field><span>LEGAL FIRST NAME</span><input name=first required autocomplete=given-name></label>
+<label class=rg-field><span>PREFERRED FIRST NAME (OPTIONAL)</span><input name=preferred_first autocomplete=off placeholder="Leave blank to use your legal first name"></label>
+<label class=rg-field><span>LEGAL LAST NAME</span><input name=last required autocomplete=family-name></label>
+<label class=rg-field><span>EMAIL</span><input name=email type=email required autocomplete=email placeholder="The one on your USA Water Polo account"></label>
+<label class=rg-field><span>PHONE</span><input name=phone type=tel required autocomplete=tel></label>
+<label class=rg-field><span>DATE OF BIRTH {{ rg_chip('18+ only', 'neutral') }}</span><input name=birth_date type=date required autocomplete=bday></label>
+<p class=rg-note>Grunions is an adults club. If you're under 18 you can't join — we'll point you to youth programs nearby.</p>
+<button class="rg-btn primary">Create account</button></form>
+<p class=rg-authfoot>Already a member?<a href=/login>Log in</a></p>
+</div>"""
 
-T["login"] = """<img class=loginlock src="/static/regulars-lockup.svg" alt="Regulars" width="1338" height="261">
-<h1>Log in</h1>
-{% if google_enabled() %}<a class="rg-btn secondary full" href=/auth/google style="background:var(--surface2);color:var(--t1);border:1px solid var(--line)"><svg width=18 height=18 viewBox="0 0 48 48" aria-hidden=true><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</a>
-<p class="ty-muted ty-sm sm" style="text-align:center;margin:16px 0 4px">or</p>{% endif %}<p class=ty-body>We'll email you a one-time login link.</p>
-<form method=post>{{csrf_field()}}<label>Email<input name=email type=email required autocomplete=email></label>
-<button class="rg-btn primary full">Send login link</button></form>
-<p class="ty-muted ty-sm sm" style="text-align:center;margin-top:20px">New here? <a href=/join>Join the team</a></p>"""
+T["login"] = """<div class=rg-auth>
+{{ rg_auth_head('Log in', schedule_line) }}
+""" + T["auth_notices"] + """
+{% if google_enabled() %}<a class="rg-btn secondary" href=/auth/google><svg width=18 height=18 viewBox="0 0 48 48" aria-hidden=true><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg><span>Sign in with Google</span></a>
+{{ rg_divider('or') }}{% endif %}
+<form method=post>{{csrf_field()}}
+<p class=rg-note style="margin:0">We'll email you a one-time login link.</p>
+<label class=rg-field><span>EMAIL</span><input name=email type=email required autocomplete=email placeholder="you@club.com"></label>
+<button class="rg-btn primary">Send login link</button></form>
+<p class=rg-authfoot>New here?<a href=/join>Join the team</a></p>
+</div>"""
 
 T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <section class=homemap id=homeMap aria-label="Practice map"></section>

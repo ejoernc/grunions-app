@@ -214,7 +214,7 @@ ok(jane.post("/api/messages", json={"body": "x"}).status_code == 400, "chat POST
 ok("$45/mo" in jane.get("/home").get_data(as_text=True), "announcement shown on member home")
 # admin import + checkin
 with open("sample_sport80_export.csv", "rb") as f:
-    t = eli.post("/import", data=dict(csrf=csrf(eli, "/transfer"), file=(f, "x.csv")), content_type="multipart/form-data").get_data(as_text=True)
+    t = eli.post("/import", data=dict(csrf=csrf(eli, "/manage/tools/transfer"), file=(f, "x.csv")), content_type="multipart/form-data").get_data(as_text=True)
 ok("updated 2 members" in t, "Sport:80 import")
 eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date="2026-10-27")); eli.post("/admin", data=dict(csrf=tok_e, member_id=2, date="2026-10-23"))
 h = x.get("/home").get_data(as_text=True)
@@ -1470,10 +1470,10 @@ answer(True, member_number="424242")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "manual", "a verification with no membership type leaves the coaching list alone")
 import io
 athlete = ("First Name,Last Name,Email,Status,Valid Until,Membership Type\nRiley,Quinn,riley@example.com,Current,2027-08-31,Athlete\n").encode()
-eli.post("/import", data=dict(csrf=csrf(eli, "/transfer"), file=(io.BytesIO(athlete), "t.csv")), content_type="multipart/form-data")
+eli.post("/import", data=dict(csrf=csrf(eli, "/manage/tools/transfer"), file=(io.BytesIO(athlete), "t.csv")), content_type="multipart/form-data")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "manual" and D.execute("SELECT membership_type FROM members WHERE id=?", (riley_id,)).fetchone()[0] == "Athlete", "an athlete import does not remove a manual coaching-list row")
 coach_csv = ("First Name,Last Name,Email,Status,Valid Until,Member Type\nRiley,Quinn,riley@example.com,Current,2027-08-31,Head Coach\n").encode()
-eli.post("/import", data=dict(csrf=csrf(eli, "/transfer"), file=(io.BytesIO(coach_csv), "t.csv")), content_type="multipart/form-data")
+eli.post("/import", data=dict(csrf=csrf(eli, "/manage/tools/transfer"), file=(io.BytesIO(coach_csv), "t.csv")), content_type="multipart/form-data")
 ok(D.execute("SELECT source FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone()[0] == "usawp" and D.execute("SELECT membership_type FROM members WHERE id=?", (riley_id,)).fetchone()[0] == "Head Coach" and '>Coaching</span><span class=v>Coach eligible</span>' in riley.get("/profile").get_data(as_text=True), "a coach membership import adds the USAWP coaching-list row and the badge")
 list_act(riley_id, "remove_coaching")
 ok(not D.execute("SELECT 1 FROM coaching_list WHERE member_id=?", (riley_id,)).fetchone() and ('name=coach value="%d"' % riley_id) not in eli.get("/practices/%d" % pid).get_data(as_text=True), "an admin can remove a USAWP coach from the coaching list")
@@ -1557,7 +1557,7 @@ try:
     page = eli.get("/transfer").get_data(as_text=True)
     ok(wrote is True and book.by["Practices"].cleared == 1 and book.by["Practices"].values[0] == A.PRACTICE_CSV_HEADER and book.by["Attendance"].title == "Attendance" and "Sync to Google Sheet now" in page and "Not synced yet" in page, "gspread creates a missing Attendance tab and the admin sync card appears")
     A.run_sheet_sync = lambda: A.save_sheet_status(True, "Synced")
-    done = eli.post("/export/sheet", data=dict(csrf=csrf(eli, "/transfer")), follow_redirects=True).get_data(as_text=True)
+    done = eli.post("/export/sheet", data=dict(csrf=csrf(eli, "/manage/tools/transfer")), follow_redirects=True).get_data(as_text=True)
     ok('class="toast noprint" role=status>Google Sheet synced.' in done and "Last sync" in done and "Synced" in done, "Sync to Google Sheet now records the time and status")
 finally:
     A.open_spreadsheet = real_open
