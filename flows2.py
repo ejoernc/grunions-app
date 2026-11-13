@@ -59,7 +59,7 @@ def ensure_schema(d):
                      # Last location: rounded to ~100 m, saved only when the member's own device shares it, never shown to anyone.
                      ("save_location", "INTEGER DEFAULT 1"), ("last_lat", "REAL"), ("last_lng", "REAL"), ("last_loc_at", "TEXT"),
                      ("max_travel", "INTEGER DEFAULT 0"),
-                     # Legal gender is for governing bodies / insurance rosters (admins only). Identity is the member's own words.
+                     # legal_gender = sex on the member's sport (governing-body) membership, for insurance rosters (admins only). We never ask what they are legally. Identity is the member's own words.
                      ("legal_gender", "TEXT"), ("gender_identity", "TEXT"), ("gender_self", "TEXT"), ("ride_wnb", "INTEGER DEFAULT 0")):
         if col not in have:
             d.execute("ALTER TABLE members ADD COLUMN %s %s" % (col, ddl))

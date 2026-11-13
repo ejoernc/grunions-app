@@ -210,7 +210,7 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
         clear_preview_rows()
     assert "Personal messages" in html and "everyone" in html and "No practice chat right now" in html and "Requests" in html and "Ask the club" in html
     # Nov 13: the + on Chat is for coaches and admins only; members get + only on Lineup.
-    assert 'class=chatplus' not in html and 'class=chatplus' in coach and 'data-scope="team"' in coach and "<h1>Team</h1>" not in html
+    assert 'Ask the board' in html and 'class=chatplus' in coach and 'data-scope="team"' in coach and "<h1>Team</h1>" not in html
     assert "New chat" in html and "Message someone" in html and "New group" in html and "Ask the club" in html
     roster = html.split("id=pickList", 1)[1].split("id=pickEmpty", 1)[0]
     assert "Adele Voss" in roster and "Player · Water polo" in roster and "Mira Solano" in roster and "Coach · Water polo" in roster
@@ -538,13 +538,13 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
     assert "Inactive" in sports and "USA Water Polo" in sports and "Add sport" in sports
     assert 'href="/manage/area/club"' in sports
     detail = admin.get("/manage/club/programs/pool-swimming").get_data(as_text=True)
-    assert "Compliance requirements" in detail and "Regular schedule" not in detail and 'href="/manage/club/programs"' in detail
+    assert "Who needs what" in detail and "Regular schedule" not in detail and 'href="/manage/club/programs"' in detail
     assert "Active" in detail and "does not add sessions" not in detail
     assert "Needs a sport" not in sports
     polo = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
     assert "SafeSport" in polo and "Coaches" in polo and "Referees" in polo
     assert "Background screening" in polo and "Referee certification" in polo
-    assert "Divisions" in polo and "4 configured" in polo
+    assert "Divisions" in polo and "Beginner, Developing" in polo
     assert "Regular schedule" not in polo and "Add day" not in polo and "<h2>Leadership</h2>" not in polo and "<h2>Venues</h2>" not in polo
     divs = admin.get("/manage/club/programs/water-polo/divisions").get_data(as_text=True)
     assert "Beginner" in divs and "New to the sport or learning the basics." in divs
@@ -727,7 +727,7 @@ def test_regular_schedule_stores_each_day_with_its_own_times():
         assert clubadmin.schedule_phrase(clubadmin.schedule_days(d, open_water["id"])) == "Tue & Sun 9 to 11 AM"
     page = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
     assert "Add day" not in page and "Regular schedule" not in page and "Schedule venue" not in page
-    assert "Compliance requirements" in page
+    assert "Who needs what" in page
     editor = admin.get("/manage/club/programs/water-polo/schedule/new").get_data(as_text=True)
     assert "name=weekday" in editor and 'type=time name=start' in editor and ">Remove</button>" not in editor
     bad = admin.post("/manage/club/programs/water-polo/schedule/new", data={
@@ -1114,3 +1114,37 @@ def test_boot_never_deletes_a_waiver_requirement():
         d.execute("INSERT INTO requirements(name, applies_to, keywords, expires) VALUES('Club waiver', 'all', 'waiver', 0)"); d.commit()
     with A.app.app_context():
         assert A.db().execute("SELECT 1 FROM requirements WHERE name='Club waiver'").fetchone()
+
+
+def test_sport_page_governing_body_picker_toggle_and_add_body():
+    """Figma M5: one control per setting; toggle and picker save on their own; adding a body makes requirement templates."""
+    admin = client()
+    join(admin, "Gia", "Body", "gia.body@example.com")
+    with A.app.app_context():
+        d = A.db(); d.execute("UPDATE members SET is_admin=1 WHERE email='gia.body@example.com'"); d.commit()
+    url = "/manage/club/programs/pool-swimming"
+    html = admin.get(url).get_data(as_text=True)
+    assert "Who needs what" in html and "Skill levels" in html and "id=bodySheet" in html and "id=bodyAdd" in html
+    assert "<label>Governing body<select" not in html and ">Save</button>" not in html.split("id=bodySheet")[0]
+    tok = csrf(admin, url)
+    admin.post(url, data={"csrf": tok, "action": "active", "active": ["0", "1"]})
+    with A.app.app_context():
+        assert clubadmin.program_by_slug(A.db(), "pool-swimming")["active"] == 1
+    admin.post(url, data={"csrf": tok, "action": "body", "governing_body": "self"})
+    with A.app.app_context():
+        p = clubadmin.program_by_slug(A.db(), "pool-swimming")
+        assert p["governing_body"] == "self" and p["active"] == 1
+    assert "Club covers it" in admin.get(url).get_data(as_text=True)
+    admin.post(url, data={"csrf": tok, "action": "body", "governing_body": "none"})
+    assert "Nothing checked unless you add it." in admin.get(url).get_data(as_text=True)
+    r = admin.post(url, data={"csrf": tok, "action": "add_body", "name": "International Gay & Lesbian Aquatics", "short": "IGLA",
+                              "gives_number": "1", "gives_insurance": "1", "gives_expiry": "1"})
+    assert r.status_code == 302 and "/roles/athlete" in r.headers["Location"]
+    with A.app.app_context():
+        d = A.db()
+        p = clubadmin.program_by_slug(d, "pool-swimming")
+        assert p["governing_body"].startswith("gb") and clubadmin.body_label(d, p["governing_body"]) == "International Gay & Lesbian Aquatics"
+        assert d.execute("SELECT expires FROM requirements WHERE name='IGLA insurance'").fetchone()[0] == 1
+        assert d.execute("SELECT 1 FROM requirements WHERE name='IGLA membership number'").fetchone()
+        d.execute("UPDATE programs SET active=0, governing_body='none' WHERE slug='pool-swimming'"); d.commit()
+    admin.post(url, data={"csrf": tok, "action": "active", "active": "0"})

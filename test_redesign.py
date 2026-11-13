@@ -189,8 +189,8 @@ def test_gender_saves_legal_is_admin_only_and_wnb_rides_filter():
     ident(mo, "moe@example.com", "man", "bogus")
     assert sql("SELECT gender_identity, legal_gender FROM members WHERE id=?", (wid,))[0] == ("nonbinary", "female")
     assert sql("SELECT gender_identity, legal_gender FROM members WHERE email='moe@example.com'")[0] == ("man", None)
-    assert "Legal gender" in boss.get("/profile/%d" % wid).get_data(as_text=True)
-    assert "Legal gender" not in mo.get("/profile/%d" % wid).get_data(as_text=True)
+    assert "Sex on sport membership" in boss.get("/profile/%d" % wid).get_data(as_text=True)
+    assert "Sex on sport membership" not in mo.get("/profile/%d" % wid).get_data(as_text=True)
     # Moe can't turn the filter on; Wren can.
     mo.post("/rides/settings", data=dict(csrf=csrf(mo, "/rides/settings"), ride_wnb="1", ride_seats="2"))
     assert sql("SELECT ride_wnb FROM members WHERE email='moe@example.com'")[0][0] == 0
@@ -357,3 +357,14 @@ def test_availability_lives_on_calendar_with_day_and_away_sheets():
     page = member.get("/calendar?when=availability").get_data(as_text=True)
     assert "Upcoming" in page and "Past" in page and "When can you play?" in page
     assert 'data-sheet-name=day' in page and 'data-sheet-name=away' in page and "data-day-sheet" in page
+
+
+def test_members_get_chat_plus_with_ask_coaches_and_board_and_export_has_legal_gender():
+    t = member.get("/chat?view=list").get_data(as_text=True)
+    assert "chatplus" in t and "Message someone" in t and "Ask the coaches" in t and "Ask the board" in t
+    assert "data-to=coaches" in t and "data-lock=board" in t and "id=requestSheet" in t
+    sql("UPDATE members SET legal_gender='female' WHERE id=?", (RAE,))
+    import csv, io
+    rows = list(csv.reader(io.StringIO(boss.get("/members.csv").get_data(as_text=True).lstrip("﻿"))))
+    i = rows[0].index("Sex on sport membership")
+    assert [r[i] for r in rows if r[3] == "rae@example.com"] == ["Female"]

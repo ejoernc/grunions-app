@@ -1515,7 +1515,7 @@ ok(sheet["Practice Coaches"][0] == A.PRACTICE_COACHES_HEADER and detail == [["20
 mrow = next(r for r in sheet["Members"][1:] if r[3] == "exa.export@example.com")
 eli_sheet = next(r for r in sheet["Members"][1:] if r[3] == "eli@example.com")
 john_sheet = next(r for r in sheet["Members"][1:] if r[3] == "john@example.com")
-ok(sheet["Members"][0] == A.MEMBERS_CSV_HEADER and mrow[11] == "2028-01-15" and mrow[-1] == "Background screening expires 2028-01-15" and eli_sheet[-1] == "Background screening missing" and john_sheet[-1] == "Background screening expires 2027-03-01", "Members sheet includes a coach's background screening line, and an active coach with no date shows missing")
+ok(sheet["Members"][0] == A.MEMBERS_CSV_HEADER and mrow[12] == "2028-01-15" and mrow[-1] == "Background screening expires 2028-01-15" and eli_sheet[-1] == "Background screening missing" and john_sheet[-1] == "Background screening expires 2027-03-01", "Members sheet includes a coach's background screening line, and an active coach with no date shows missing")
 att = next(r for r in sheet["Attendance"][1:] if r[0] == "2028-01-12" and r[2] == "Export Pool" and r[4] == "Ex Export")
 ok(sheet["Attendance"][0] == A.ATTENDANCE_CSV_HEADER and att[6] == "going" and att[7] == "yes", "Attendance sheet is one row per member per practice")
 export_edit([str(john_id)])

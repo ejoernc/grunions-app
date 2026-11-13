@@ -555,7 +555,25 @@ def qr_card(title, sub, img_src="", url="", filename="qr.svg", note=""):
                       _e(img_src), _e(title), _e(title), _e(sub), _e(url), _e(img_src), _e(filename), _e(url)))
 
 
+def toggle(name, label, sub="", checked=False, value="1", attrs=""):
+    """2.0 / Toggle row (02): carbon row, bold label, caption, lime switch."""
+    return Markup('<label class=rg-toggle><span><b>%s</b>%s</span><input type=checkbox name="%s" value="%s"%s%s><i aria-hidden=true></i></label>' % (
+        _e(label), ('<small>%s</small>' % _e(sub)) if sub else "", _e(name), _e(value), " checked" if checked else "", (" " + attrs) if attrs else ""))
+
+
+def choice(name, value, title, sub="", checked=False, type="radio", attrs=""):
+    """2.0 / Choice row (Figma M5.2 picker, M5.3 checkboxes): title + caption, lime ring when chosen."""
+    return Markup('<label class="rg-choice %s"><input type=%s name="%s" value="%s"%s%s><span class=rg-txt><b>%s</b>%s</span><i aria-hidden=true></i></label>' % (
+        _e(type), "checkbox" if type == "checkbox" else "radio", _e(name), _e(value), " checked" if checked else "", (" " + attrs) if attrs else "",
+        _e(title), ('<small>%s</small>' % _e(sub)) if sub else ""))
+
+
+def info_block(kicker, title, sub=""):
+    """2.0 / Info block (Figma M5.4): caps kicker, bold line, caption, on carbon."""
+    return Markup('<div class=rg-infoblock><span class=ty-caps>%s</span><b>%s</b>%s</div>' % (_e(kicker), _e(title), ('<small>%s</small>' % _e(sub)) if sub else ""))
+
+
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_info_block=info_block, event_tone=event_tone)

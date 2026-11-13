@@ -47,6 +47,10 @@ def ensure(d):
         id INTEGER PRIMARY KEY, kind TEXT NOT NULL, ref_id INTEGER NOT NULL, reason TEXT NOT NULL,
         resolved INTEGER NOT NULL DEFAULT 0)""")
     d.execute("""CREATE TABLE IF NOT EXISTS club_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)""")
+    d.execute("""CREATE TABLE IF NOT EXISTS governing_bodies(
+        id INTEGER PRIMARY KEY, name TEXT NOT NULL, short TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '',
+        gives_number INTEGER NOT NULL DEFAULT 0, gives_insurance INTEGER NOT NULL DEFAULT 0, gives_expiry INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
     d.execute("""CREATE TABLE IF NOT EXISTS program_divisions(
         id INTEGER PRIMARY KEY, program_id INTEGER NOT NULL, slug TEXT NOT NULL,
         name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
@@ -297,7 +301,7 @@ def save_overview(d, slug, form):
     if not activities:
         raise ValueError("Choose at least one activity.")
     body = (form.get("governing_body") or "none").strip()
-    if body not in ("usawp", "usms", "none"):
+    if not valid_body(d, body):
         raise ValueError("Choose a governing body.")
     d.execute("""UPDATE programs SET governing_body=?, activities=?, venue=?, notes=? WHERE id=?""", (
         body, ",".join(activities), (form.get("venue") or "")[:200], (form.get("notes") or "")[:500], program["id"]))
@@ -643,7 +647,7 @@ def save_sport_identity(d, slug, form):
     if not program:
         raise ValueError("Choose a program.")
     body = (form.get("governing_body") or program["governing_body"] or "none").strip()
-    if body not in ("usawp", "usms", "none"):
+    if not valid_body(d, body):
         raise ValueError("Choose a governing body.")
     d.execute("UPDATE programs SET governing_body=? WHERE id=?", (body, program["id"]))
 
@@ -1003,7 +1007,7 @@ def create_program(d, form):
             raise ValueError("Choose a sport family.")
         family_id = row["id"]
     body = (form.get("governing_body") or "none").strip()
-    if body not in ("usawp", "usms", "none"):
+    if not valid_body(d, body):
         raise ValueError("Choose a governing body.")
     activities = [a for a in ("practice", "scrimmage", "game") if form.get("activity_%s" % a)]
     if not activities:
@@ -1193,7 +1197,7 @@ def programs_html(d):
     bits = ['<div class=mlist>']
     for program in programs(d):
         state = "Active" if program["active"] else "Inactive"
-        body = {"usawp": "USA Water Polo", "usms": "US Masters Swimming", "none": "No governing body"}.get(program["governing_body"], program["governing_body"])
+        body = body_label(d, program["governing_body"], "No governing body")
         count = d.execute("SELECT COUNT(*) FROM program_rules WHERE program_id=?", (program["id"],)).fetchone()[0]
         noun = "requirement" if count == 1 else "requirements"
         bits.append(_row("/manage/club/programs/%s" % program["slug"], program["name"], "%s · %s · %d %s" % (body, state, count, noun)))
@@ -1201,44 +1205,166 @@ def programs_html(d):
     return "".join(bits)
 
 
+# Governing bodies (Figma M5): known bodies first, then Self-insured / None, then the club's own.
+BUILTIN_BODIES = (("usawp", "USA Water Polo", "Membership + insurance"),
+                  ("usms", "US Masters Swimming", "Membership + insurance"),
+                  ("usas", "USA Swimming", "Membership"))
+SPECIAL_BODIES = (("self", "Self-insured", "Club covers insurance"), ("none", "None", "Club requirements only"))
+
+
+def custom_bodies(d):
+    try:
+        return d.execute("SELECT * FROM governing_bodies ORDER BY name").fetchall()
+    except Exception:
+        return []
+
+
+def valid_body(d, code):
+    code = (code or "").strip()
+    if code in [c for c, _n, _s in BUILTIN_BODIES] or code in [c for c, _n, _s in SPECIAL_BODIES]:
+        return True
+    if code.startswith("gb") and code[2:].isdigit():
+        return bool(d.execute("SELECT 1 FROM governing_bodies WHERE id=?", (int(code[2:]),)).fetchone())
+    return False
+
+
+def body_label(d, code, none_label="None"):
+    for c, name, _s in BUILTIN_BODIES + SPECIAL_BODIES:
+        if c == code:
+            return none_label if c == "none" else name
+    if code and code.startswith("gb") and code[2:].isdigit():
+        row = d.execute("SELECT name FROM governing_bodies WHERE id=?", (int(code[2:]),)).fetchone()
+        if row:
+            return row["name"]
+    return none_label
+
+
+def _body_gives(row):
+    bits = [w for w, on in (("Membership", row["gives_number"]), ("insurance", row["gives_insurance"])) if on]
+    return " + ".join(bits) if bits else "Club-defined"
+
+
+def save_body(d, slug, form):
+    program = program_by_slug(d, slug)
+    if not program:
+        raise ValueError("Choose a program.")
+    body = (form.get("governing_body") or "").strip()
+    if not valid_body(d, body):
+        raise ValueError("Choose a governing body.")
+    d.execute("UPDATE programs SET governing_body=? WHERE id=?", (body, program["id"]))
+
+
+def add_body(d, slug, form):
+    """Add a governing body for the whole club and use it for this sport. What members get from it becomes
+    requirement templates (not yet assigned to a role), so the next step picks who needs them."""
+    program = program_by_slug(d, slug)
+    if not program:
+        raise ValueError("Choose a program.")
+    name = (form.get("name") or "").strip()[:120]
+    short = (form.get("short") or "").strip()[:24]
+    url = (form.get("url") or "").strip()[:200]
+    if not name:
+        raise ValueError("Give the governing body a name.")
+    found = d.execute("SELECT id FROM governing_bodies WHERE lower(name)=?", (name.casefold(),)).fetchone()
+    flags = tuple(1 if form.get(k) else 0 for k in ("gives_number", "gives_insurance", "gives_expiry"))
+    if found:
+        bid = found["id"]
+    else:
+        bid = d.execute("""INSERT INTO governing_bodies(name, short, url, gives_number, gives_insurance, gives_expiry)
+            VALUES(?,?,?,?,?,?)""", (name, short, url) + flags).lastrowid
+    label = short or name
+    made = []
+    for key, req in (("gives_number", "%s membership number"), ("gives_insurance", "%s insurance")):
+        if not form.get(key):
+            continue
+        rname = req % label
+        row = d.execute("SELECT id FROM requirements WHERE lower(name)=?", (rname.casefold(),)).fetchone()
+        if not row:
+            d.execute("INSERT INTO requirements(name, applies_to, keywords, expires, active) VALUES(?,?,?,?,1)",
+                      (rname, "all", label.lower(), 1 if form.get("gives_expiry") else 0))
+        made.append(rname)
+    d.execute("UPDATE programs SET governing_body=? WHERE id=?", ("gb%d" % bid, program["id"]))
+    return made
+
+
+def _divisions_line(d, program):
+    rows = d.execute("SELECT name FROM program_divisions WHERE program_id=? AND archived=0 ORDER BY sort, id", (program["id"],)).fetchall()
+    return ", ".join(r["name"] for r in rows) if rows else "None yet"
+
+
 def program_detail_html(d, program, csrf):
-    body_name = {"usawp": "USA Water Polo", "usms": "US Masters Swimming", "none": "None"}.get(program["governing_body"], program["governing_body"])
-    state = "Active" if program["active"] else "Inactive"
-    role_rows = []
-    blurbs = {
-        "athlete": "Insurance, training, and waivers",
-        "coach": "Screening and certifications",
-        "referee": "Officiating credentials",
-    }
-    for code, label in REQ_GROUPS:
-        rows = rules_for(d, program["id"], code)
-        blurb = ", ".join(row["name"] for row in rows[:3]) if rows else blurbs[code]
-        role_rows.append(_row("/manage/club/programs/%s/roles/%s" % (program["slug"], code), label, blurb))
-    div_count = d.execute("SELECT COUNT(*) FROM program_divisions WHERE program_id=? AND archived=0", (program["id"],)).fetchone()[0]
-    div_desc = "%d configured" % div_count if div_count else "None yet"
-    options = []
-    for value, label in (("usawp", "USA Water Polo"), ("usms", "US Masters Swimming"), ("none", "None")):
-        options.append('<option value="%s"%s>%s</option>' % (value, " selected" if program["governing_body"] == value else "", label))
-    return """<div style="padding-bottom:120px">
-<form method=post class=clubform>
+    """Figma M5.1 / M5.4 / M5.5: one control per setting, each change saves with a toast."""
+    import components as C
+    slug = program["slug"]
+    code = program["governing_body"] or "none"
+    name = program["name"]
+    blurbs = {"athlete": "Insurance, training, and waivers", "coach": "Screening and certifications", "referee": "Officiating credentials"}
+    tones = {"athlete": "sun", "coach": "sky", "referee": "lavender"}
+    tiles = []
+    for role, label in REQ_GROUPS:
+        rows = rules_for(d, program["id"], role)
+        sub = ", ".join(r["name"] for r in rows[:4]) if rows else blurbs[role]
+        tiles.append(str(C.stack_tile("/manage/club/programs/%s/roles/%s" % (slug, role), label, sub, None, tones[role])))
+    if code == "self":
+        note = "Your club covers insurance. No outside membership is checked."
+        block = str(C.info_block("Insurance", "Club covers it", "Add a waiver or proof under Athletes."))
+    elif code == "none":
+        note = "No governing body. Only your club's own requirements apply."
+        block = str(C.info_block("Insurance", "Not set", "Nothing checked unless you add it."))
+    else:
+        note = "Decides which memberships and insurance count. Picking one doesn't add requirements."
+        block = ""
+    # Picker sheet (M5.2)
+    known = "".join(str(C.choice("governing_body", c, n, sub, code == c)) for c, n, sub in BUILTIN_BODIES)
+    known += "".join(str(C.choice("governing_body", "gb%d" % r["id"], r["name"], _body_gives(r), code == "gb%d" % r["id"])) for r in custom_bodies(d))
+    special = "".join(str(C.choice("governing_body", c, n, sub, code == c)) for c, n, sub in SPECIAL_BODIES)
+    picker = """<dialog id=bodySheet class="botsheet modal" data-sheet-name=body><form method=post class=sheet>%s<div class=grab aria-hidden=true></div>
+<input type=hidden name=action value=body>
+<h2>Governing body.</h2><p class=ty-muted>Who sets %s's memberships and insurance.</p>
+%s<div class=rg-orlabel>OR</div>%s
+<button type=button class="rg-choice add" data-swap-sheet=bodyAdd><span class=rg-txt><b>+ Add a governing body</b><small>Not listed? Define it once for the club.</small></span></button>
+<button class="rg-btn primary" type=submit>Done</button>
+</form></dialog>""" % (csrf, escape(name), known, special)
+    adder = """<dialog id=bodyAdd class="botsheet modal" data-sheet-name=add-body><form method=post class=sheet>%s<div class=grab aria-hidden=true></div>
+<input type=hidden name=action value=add_body>
+<h2>Add a governing body.</h2><p class=ty-muted>Saved for the whole club. Use it on any sport.</p>
+<label class=rg-field><span>NAME</span><input name=name required maxlength=120 placeholder="International Gay &amp; Lesbian Aquatics" autocomplete=off></label>
+<label class=rg-field><span>SHORT NAME</span><input name=short maxlength=24 placeholder="IGLA" autocomplete=off></label>
+<label class=rg-field><span>WEBSITE (OPTIONAL)</span><input name=url maxlength=200 placeholder="igla.org" autocomplete=off inputmode=url></label>
+<div class=rg-orlabel>WHAT MEMBERS GET FROM THEM</div>
+%s%s%s
+<p class="ty-muted ty-sm">Next: pick which roles need it (Athletes, Coaches, Referees).</p>
+<button class="rg-btn primary" type=submit>Add and use for %s</button>
+</form></dialog>""" % (csrf, C.choice("gives_number", "1", "Membership number", "Members enter an ID you can check", True, "checkbox"),
+                        C.choice("gives_insurance", "1", "Insurance", "Their membership includes insurance", True, "checkbox"),
+                        C.choice("gives_expiry", "1", "Expiration date", "Remind members before it lapses", True, "checkbox"), escape(name))
+    return """<div class=rg-sport>
+<form method=post data-autosave>%s<input type=hidden name=action value=active><input type=hidden name=active value=0>
+%s</form>
 %s
-<input type=hidden name=action value=identity>
-<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px"><p class="ty-muted ty-sm sm" style="margin:0">Governing body: %s</p><span class="mbadge info">%s</span></div>
-<label>Governing body<select name=governing_body>%s</select></label>
-<label class=checkline><input type=checkbox name=active value=1%s> Active</label>
-<p class="ty-muted ty-sm sm">While this is off, its requirements are not applied. Choosing a governing body does not add requirements.</p>
-<button class="rg-btn secondary" type=submit>Save</button>
-</form>
-<h2>Compliance requirements</h2>
-<p class="ty-muted ty-sm sm">Requirements for people in this sport.</p>
-<div class=mlist>%s</div>
-<h2>Divisions</h2>
-<div class=mlist>%s</div>
-</div>""" % (
-        csrf, escape(body_name), escape(state), "".join(options),
-        " checked" if program["active"] else "",
-        "".join(role_rows),
-        _row("/manage/club/programs/%s/divisions" % program["slug"], "Divisions", div_desc))
+<p class=rg-note>%s</p>
+%s
+<h2 class=rg-h2>Who needs what</h2>
+<div class=rg-tilelist>%s</div>
+<h2 class=rg-h2>Skill levels</h2>
+<div class=rg-tilelist>%s</div>
+<p class=rg-note>Changes save as you make them.</p>
+</div>
+%s%s
+<script>
+(function(){
+ document.querySelectorAll('form[data-autosave] input[type=checkbox]').forEach(function(i){ i.addEventListener('change', function(){ i.form.requestSubmit ? i.form.requestSubmit() : i.form.submit(); }); });
+ document.querySelectorAll('[data-swap-sheet]').forEach(function(b){ b.addEventListener('click', function(){
+  var cur=b.closest('dialog'), next=document.getElementById(b.getAttribute('data-swap-sheet'));
+  if(cur) cur.close(); if(next){ if(window.grunionsOpenSheet) grunionsOpenSheet(next); else next.showModal(); var f=next.querySelector('input[name=name]'); if(f) setTimeout(function(){f.focus()},250); }
+ }); });
+})();
+</script>""" % (
+        csrf, C.toggle("active", "Active", "Requirements apply to everyone in %s." % name, bool(program["active"])),
+        C.settings_row("Governing body", body_label(d, code), "#", 'data-open-dialog=bodySheet'),
+        escape(note), block, "".join(tiles),
+        C.stack_tile("/manage/club/programs/%s/divisions" % slug, "Divisions", _divisions_line(d, program), None, "lime"),
+        picker, adder)
 
 
 def _req_role(scope):

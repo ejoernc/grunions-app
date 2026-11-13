@@ -2927,9 +2927,7 @@ def _joined_people(d, mid):
           AND COALESCE(show_in_picker,1)=1
         ORDER BY first, last""", (mid,)).fetchall()
 def _chat_title(mode):
-    # Nov 13: the + is for coaches and admins; members message someone from their profile.
-    if not can_host_practice():
-        return '<div class=chathead><h1 class=chatdisplay>Chat.</h1></div>'
+    # Nov 13: everyone gets the +. Members: message someone on their teams, ask the coaches, ask the board.
     return ('<div class=chathead><h1 class=chatdisplay>Chat.</h1>'
             '<button type=button class=chatplus data-scope="%s" aria-label="New chat">+</button></div>') % mode
 def _person_tone(n):
@@ -2993,9 +2991,10 @@ def _new_chat_sheet(d, m, team):
             rows = ('<button type=button class=newrow data-open-request data-to=board data-lock=board data-about=other><span class="mark grape" aria-hidden=true>B</span>'
                     '<span class=grow><b>Ask the club</b><small>Request the board. You already see coach requests.</small></span><span class=chatgo>›</span></button>')
         else:
-            rows = ('<button type=button class=newrow data-open-request><span class="mark sun" aria-hidden=true>'
-                    '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M8 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm8 0a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16 11ZM8 12.5C5.2 12.5 3 14 3 15.8V17h8v-1.2c0-.7.3-1.4.8-2A7 7 0 0 0 8 12.5Zm8 .5a3.4 3.4 0 0 0-1.4.3 3.4 3.4 0 0 1 1.4 2.8V17h5v-.8c0-1.7-2.2-3.2-5-3.2Z"/></svg></span>'
-                    '<span class=grow><b>Ask the club</b><small>A request for one sport\'s coaches, or the board</small></span><span class=chatgo>›</span></button>')
+            rows = ('<button type=button class=newrow data-open-request data-to=coaches><span class="mark sun" aria-hidden=true>C</span>'
+                    '<span class=grow><b>Ask the coaches</b><small>A request to one sport\'s coaches</small></span><span class=chatgo>›</span></button>'
+                    '<button type=button class=newrow data-open-request data-to=board data-lock=board data-about=other><span class="mark grape" aria-hidden=true>B</span>'
+                    '<span class=grow><b>Ask the board</b><small>Membership, waivers, anything club-wide</small></span><span class=chatgo>›</span></button>')
         if is_board():
             rows += ('<a class=newrow href="/chat?c=board"><span class="mark grape" aria-hidden=true>'
                      '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3.5 13.6 8H18l-3.6 2.6 1.4 4.4L12 12.4 8.2 15l1.4-4.4L6 8h4.4Z"/></svg></span>'
@@ -8489,8 +8488,21 @@ def club_program(slug):
         try:
             before = d.execute("SELECT COUNT(*) FROM practices").fetchone()[0]
             rsvps = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
-            clubadmin.set_active(d, slug, request.form.get("active") == "1")
-            if request.form.get("activity_practice") or request.form.get("activity_scrimmage") or request.form.get("activity_game"):
+            action = request.form.get("action") or ""
+            if action == "active":
+                clubadmin.set_active(d, slug, request.form.getlist("active")[-1:] == ["1"])
+            elif action == "body":
+                clubadmin.save_body(d, slug, request.form)
+            elif action == "add_body":
+                made = clubadmin.add_body(d, slug, request.form)
+                d.commit()
+                flash(("Added. Now pick who needs " + " and ".join(made) + ".") if made else "Governing body added", "toast")
+                return redirect("/manage/club/programs/%s/roles/athlete" % slug if made else "/manage/club/programs/" + slug)
+            else:
+                clubadmin.set_active(d, slug, request.form.get("active") == "1")
+            if action in ("active", "body"):
+                pass
+            elif request.form.get("activity_practice") or request.form.get("activity_scrimmage") or request.form.get("activity_game"):
                 clubadmin.save_overview(d, slug, request.form)
                 clubadmin.save_schedule(d, slug, request.form)
             else:
@@ -8502,7 +8514,7 @@ def club_program(slug):
         except ValueError as exc:
             flash(str(exc))
         return redirect("/manage/club/programs/" + slug)
-    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Compliance and divisions.') }}{{ club_body|safe }}",
+    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Who needs what, and skill divisions.') }}{{ club_body|safe }}",
         tab="admin", admin_back="/manage/club/programs", title=program["name"], club_body=clubadmin.program_detail_html(d, program, csrf_field()))
 @app.route("/manage/club/programs/<slug>/requirements/new", methods=["GET", "POST"])
 @admin_required
@@ -10133,7 +10145,13 @@ def requirement_expiries(d):
                 prev = out.get((mid, key))
                 if not prev or str(exp) > prev: out[(mid, key)] = str(exp)[:10]
     return out
-MEMBERS_CSV_HEADER = ["Legal first", "Legal last", "Preferred first", "Email", "Phone", "Role", "Admin", "USAWP #", "Status",
+def _gender_identity_text(m):
+    keys = m.keys()
+    gid = m["gender_identity"] if "gender_identity" in keys else ""
+    if gid == "self":
+        return (m["gender_self"] if "gender_self" in keys else "") or ""
+    return dict(flows2.GENDER_IDENTITIES).get(gid or "", "")
+MEMBERS_CSV_HEADER = ["Legal first", "Legal last", "Preferred first", "Email", "Phone", "Sex on sport membership", "Gender identity", "Role", "Admin", "USAWP #", "Status",
                       "Membership expires", "SafeSport expires", "Background screening expires", "Trial start", "Trial end",
                       "Verified date", "Joined date", "Total attendance", "Coach eligible", "Referee eligible", "Background screening"]
 @app.route("/members.csv")
@@ -10217,7 +10235,8 @@ def member_sheet_rows(d):
         trial_start, trial_end = trial_dates(m)
         verified = str(m["usawp_verified_at"] or "")[:10]
         rows.append([m["first"], m["last"], m["preferred_first"] or "", m["email"], (m["phone"] or "").strip(),
-                     role_label(m), "yes" if m["is_admin"] else "no", m["usawp_number"] or "", export_status(d, m, pending),
+                     dict(flows2.LEGAL_GENDERS).get(m["legal_gender"] if "legal_gender" in m.keys() else "", ""),
+                     _gender_identity_text(m), role_label(m), "yes" if m["is_admin"] else "no", m["usawp_number"] or "", export_status(d, m, pending),
                      m["usawp_valid_until"] or "", expiries.get((m["id"], "safesport"), ""), expiries.get((m["id"], "background"), ""),
                      trial_start, trial_end, verified, utc_to_pt(m["created"]), m["visits"], coach_eligibility(d, m)["text"],
                      referee_eligibility(d, m)["text"], (background_view(d, m) or {}).get("text", "")])
