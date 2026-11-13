@@ -1176,7 +1176,19 @@ def auth_destination(mid):
 _MACRO_AT = ui.BASE.find("{% macro")
 _BODY_AT = ui.BASE.find("<body")
 _BODY_END = ui.BASE.find(">", _BODY_AT) + 1
-_NAV_DOC = ("<!doctype html><html lang=en><head><meta charset=utf-8><title>Regulars</title></head>"
+def _build_id():
+    """Changes whenever page CSS/templates change. In-app navigation swaps only <main>, so a tab opened before a
+    deploy would keep the old inline CSS; the client reloads fully when this differs."""
+    import hashlib
+    h = hashlib.sha1()
+    for mod in (ui, flows2, components):
+        try: h.update(open(mod.__file__, "rb").read())
+        except OSError: pass
+    h.update(ui.FOUNDATION.encode())
+    return h.hexdigest()[:12]
+BUILD_ID = _build_id()
+app.jinja_env.globals.update(build_id=BUILD_ID)
+_NAV_DOC = ("<!doctype html><html lang=en><head><meta charset=utf-8><meta name=grunions-build content=\"{{ build_id }}\"><title>Regulars</title></head>"
             + ui.BASE[_BODY_AT:_BODY_END] + ui.BASE[_MACRO_AT:])
 _TABS_NAV = ui.TABS[:ui.TABS.find("<script>")]
 APPEARANCES = ("system", "light", "dark")

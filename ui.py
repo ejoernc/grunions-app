@@ -7,7 +7,7 @@ _FOUNDATION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reg
 with open(_FOUNDATION_PATH, encoding="utf-8") as _foundation_file:
     FOUNDATION = _foundation_file.read()
 BASE = """<!doctype html><html lang=en data-theme="{{ ui_theme or 'dark' }}" style="background:var(--ink)"><head>
-<meta charset=utf-8><meta name=color-scheme content="{{ 'light dark' if ui_theme == 'system' else (ui_theme or 'dark') }}"><meta name=theme-color content="#0B0B0C">
+<meta charset=utf-8><meta name=grunions-build content="{{ build_id }}"><meta name=color-scheme content="{{ 'light dark' if ui_theme == 'system' else (ui_theme or 'dark') }}"><meta name=theme-color content="#0B0B0C">
 <meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name=apple-mobile-web-app-capable content=yes><meta name=apple-mobile-web-app-title content=Regulars>
 <link rel=manifest href=/manifest.webmanifest?v=118>
@@ -1244,7 +1244,7 @@ button.switchrow{width:100%;border:0;background:transparent;text-align:left;curs
  .nav3-slide{border-radius:22px}
  nav.nav3::before{content:none}
  .nav3-tabs a,.nav3-tabs a.on,nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a,nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a.on{width:76px;flex-basis:auto;min-width:0;height:auto;flex:none;flex-direction:column;gap:4px;padding:10px 6px;border-radius:22px;background:transparent;color:var(--r2-smoke);font:700 11px/normal var(--r2-font-sans)}
- .nav3-tabs a.on{padding:10px 6px;background:transparent;color:var(--r2-fixed-ink)}
+ .nav3-tabs a.on{padding:10px 6px;background:transparent;color:var(--r2-fixed-ink)}nav.nav3 .nav3-tabs a.on,nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a.on{color:var(--r2-fixed-ink)}
  body:has(nav.nav3) .composer,body:has(nav.nav3).homefull .homemap{left:var(--r2-rail)}
  dialog.crestmenu{top:24px;left:108px;bottom:auto;width:340px}
 }
@@ -1272,6 +1272,7 @@ button.switchrow{width:100%;border:0;background:transparent;text-align:left;curs
  .nav3-dot{display:block;width:14px;height:14px;box-sizing:border-box;border:2px solid var(--r2-smoke);border-radius:var(--r2-radius-pill);flex:none}
  .nav3-tabs a.on{background:transparent;color:var(--r2-fixed-ink)}
  .nav3-tabs a.on .nav3-dot{border-color:var(--r2-fixed-ink)}
+ nav.nav3 .nav3-tabs a.on,nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a.on{color:var(--r2-fixed-ink)}
  body:has(nav.nav3) .composer,body:has(nav.nav3).homefull .homemap{left:260px}
  dialog.crestmenu{top:84px;left:16px;width:340px}
 }
@@ -3390,6 +3391,9 @@ function grunionsApply(html,url,pop,replace,quiet){
  var doc=new DOMParser().parseFromString(html,'text/html');
  var newMain=doc.querySelector('main'), newNav=doc.querySelector('nav.tabs');
  if(!newMain){location.href=url; return;}
+ // A deploy changed the CSS/templates: this tab's inline CSS is stale, so load the page in full.
+ var nb=doc.querySelector('meta[name=grunions-build]'), cb=document.querySelector('meta[name=grunions-build]');
+ if(nb&&cb&&nb.content&&nb.content!==cb.content){location.href=url; return;}
  grunionsClearPage();
  document.querySelectorAll('body>.menu.floating').forEach(function(m){ m.remove(); });
  var scripts=[].slice.call(newMain.querySelectorAll('script'));
