@@ -2359,8 +2359,8 @@ dialog.memberedit .help a{color:var(--t1)}
 {%- else -%}{{ rg_event_line(href, kicker ~ ' · ' ~ title, meta ~ ((' · ' ~ count ~ ' going') if count else ''), 'graphite' if variant == 'off' else event_tone(kind)) }}{%- endif -%}
 {%- endmacro %}
 {% macro r2_social_card(card, variant='home') -%}{{ rg_social_card(card, csrf_field(), 'page' if variant == 'row' else 'home', fmt_clock(card.clock) if card.clock else '') }}{%- endmacro %}
-{% macro r2_drive_card(minutes, detail, leave, placeholder=false, kicker='YOUR DRIVE') -%}
-<div class="r2-drive drivecard" data-r2="drive-card" {% if placeholder %}data-placeholder=1{% endif %}><div class=drivetop><span>{{ kicker }}</span>{% if leave %}<b>{{ leave }}</b>{% endif %}</div><div class=drivemain><strong>{{ minutes }}</strong><small><i>MIN</i>{{ detail }}</small><span class=drivego aria-hidden=true>›</span></div></div>
+{% macro r2_drive_card(minutes, detail, leave, placeholder=false, kicker='YOUR DRIVE', href='') -%}
+<{{ 'a' if href else 'div' }} class="r2-drive drivecard" data-r2="drive-card"{% if href %} href="{{ href }}" aria-label="Plan when to leave"{% endif %} {% if placeholder %}data-placeholder=1{% endif %}><div class=drivetop><span>{{ kicker }}</span>{% if leave %}<b>{{ leave }}</b>{% endif %}</div><div class=drivemain><strong>{{ minutes }}</strong><small><i>MIN</i>{{ detail }}</small><span class=drivego aria-hidden=true>›</span></div></{{ 'a' if href else 'div' }}>
 {%- endmacro %}
 {% macro r2_metric(value, label, tone='ink') -%}{{ rg_metric(value, label, {'ink':'carbon','lime':'lime'}.get(tone, tone)) }}{%- endmacro %}
 {% macro r2_info(kicker, body) -%}{{ rg_info(kicker, body) }}{%- endmacro %}
@@ -4865,7 +4865,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <div class=weekthis>
 {% if tab == 'home' %}<div class=homealerts>{{ push_card() }}{% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}</div>
 {% if not (me().usawp_number or '')|trim %}{{ rg_usawp_card(csrf_field(), not trial_window(me()), TRIAL_JOIN_URL) }}{% endif %}{% endif %}
-{% if show_drive %}{{ r2_drive_card(drive_num or '18', drive_note or drive_detail, drive_chip, drive_placeholder, drive_kicker or 'YOUR DRIVE · 7.4 MI') }}{% endif %}
+{% if show_drive %}{{ r2_drive_card(drive_num or '18', drive_note or drive_detail, drive_chip, drive_placeholder, drive_kicker or 'YOUR DRIVE · 7.4 MI', ('/practices/' ~ nextp.id ~ '/leave-by') if nextp else '') }}{% endif %}
 {% if show_rides %}<div class=ridebtns><button type=button id=needRide>{{ ride_label }}</button><button type=button id=offerRide>Offer a ride</button></div>{% endif %}
 {% if ann %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(ann)|upper }}</b><p>{{ ann.body }}</p></div>{% endif %}
 {% if not week_sessions %}<div class=weekempty><span>THIS WEEK</span><b>Nothing scheduled this week.</b><p>Your team hasn’t posted anything yet. Check Lineup for events or look at the full schedule.</p><a href=/lineup>See Lineup</a></div>{% endif %}

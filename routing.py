@@ -71,7 +71,7 @@ class MapboxProvider:
         self.token = token
         self.opener = opener or urllib.request.urlopen
 
-    def _directions(self, origin, dest, profile, geometry, annotate=False):
+    def _directions(self, origin, dest, profile, geometry, annotate=False, depart_at=None):
         olng, olat = origin[1], origin[0]
         dlng, dlat = dest[1], dest[0]
         coords = "%s,%s;%s,%s" % (olng, olat, dlng, dlat)
@@ -82,6 +82,9 @@ class MapboxProvider:
             "alternatives": "false",
         }
         if annotate: query["annotations"] = "congestion"
+        if depart_at and profile == "driving-traffic":
+            # Predicted traffic for a future departure (local wall time, minute precision).
+            query["depart_at"] = depart_at.strftime("%Y-%m-%dT%H:%M")
         query = urllib.parse.urlencode(query)
         url = "https://api.mapbox.com/directions/v5/mapbox/%s/%s?%s" % (profile, coords, query)
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
@@ -112,8 +115,8 @@ class MapboxProvider:
         if not annotate: return minutes, points
         return minutes, points, congestion_levels(routes[0], len(points))
 
-    def route(self, origin, dest, profile):
-        return self._directions(origin, dest, profile, False)
+    def route(self, origin, dest, profile, depart_at=None):
+        return self._directions(origin, dest, profile, False, depart_at=depart_at)
 
     def route_line(self, origin, dest):
         """Plain driving geometry. No traffic and no turn-by-turn steps."""
@@ -154,6 +157,27 @@ class RoutingService:
     def traffic_line(self, origin, dest, now):
         """One traffic-aware road line. None when it cannot be fetched. Not stored."""
         return self._line(origin, dest, now, "traffic_line")
+
+    def forecast(self, origin, dest, departures, now, profile="driving-traffic"):
+        """Leave-by planner (04.10): predicted minutes for each departure. One provider call per departure, each
+        counted against the daily cap; any miss falls back to the straight-line estimate, marked estimated."""
+        out = []
+        for when in departures:
+            if self.provider is None or self.auth_failed or (self.cap is not None and not self.cap.try_take(now)):
+                out.append(Route(estimate_minutes(origin, dest), estimated=True)); continue
+            try:
+                minutes = self.provider.route(origin, dest, profile, depart_at=when)
+            except AuthError:
+                self.auth_failed = True; minutes = None
+            except (RouteError, TypeError):
+                minutes = None
+            out.append(Route(minutes, traffic=profile == "driving-traffic", estimated=False) if minutes else
+                       Route(estimate_minutes(origin, dest), estimated=True))
+        return out
+
+    def once(self, origin, dest, profile, now):
+        """One plain route in another profile (cycling). Estimated when the provider can't answer."""
+        return self._fetch(origin, dest, profile, False, now)
 
     def _line(self, origin, dest, now, method):
         if self.provider is None or self.auth_failed or not hasattr(self.provider, method):

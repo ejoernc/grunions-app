@@ -10954,6 +10954,58 @@ def _last_ride_area(d, m):
     last = d.execute("SELECT area FROM ride_requests WHERE rider_id=? UNION ALL SELECT area FROM ride_offers WHERE driver_id=? LIMIT 1", (m["id"], m["id"])).fetchone()
     return last["area"] if last else ""
 
+def _clock_short(t):
+    return "%d:%02d" % ((t.hour - 1) % 12 + 1, t.minute)
+
+@app.route("/practices/<int:pid>/leave-by")
+@login_required
+def leave_by_page(pid):
+    """04.10 Leave-by planner. Your location is asked on the device and sent once to /api/leave-by; never stored."""
+    d = db(); m = me()
+    p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+    if not p or p["cancelled"]: abort(404)
+    start, _end = practice_span(p)
+    buf = int(m["leave_buffer"]) if "leave_buffer" in m.keys() and m["leave_buffer"] is not None else 5
+    return page(flows2.LEAVE_BY, tab="", p=p, buffer=buf, arrive_label=_clock_short(start - dt.timedelta(minutes=buf)),
+                when=fmt_d(p["date"]) + " · " + fmt_clock(p["start"]), dest=p["address"] or p["location"] or "")
+
+@app.route("/api/leave-by", methods=["POST"])
+@login_required
+def api_leave_by():
+    """Forecast for 04.10. Only on the practice day, only for a practice you can drive to. The origin is not stored or logged."""
+    body = request.get_json(silent=True) or {}
+    try:
+        pid = int(body.get("id")); lat, lng = float(body.get("lat")), float(body.get("lng"))
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="input"), 400
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180): return jsonify(ok=False, error="input"), 400
+    d = db(); m = me()
+    p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+    if not p: return jsonify(ok=False, error="practice"), 404
+    p = ensure_map_coords(d, p)
+    if p["lat"] is None or p["lng"] is None: return jsonify(ok=False, error="location")
+    start, _end = practice_span(p)
+    now = now_pt().replace(tzinfo=None)
+    if not (now <= start <= now + dt.timedelta(hours=24)): return jsonify(ok=False, error="window")
+    buf = int(m["leave_buffer"]) if "leave_buffer" in m.keys() and m["leave_buffer"] is not None else 5
+    origin, dest = (lat, lng), (p["lat"], p["lng"])
+    plan = flows2.leave_plan(start, buf, lambda deps: drive_service.forecast(origin, dest, deps, now_pt()))
+    bike = drive_service.once(origin, dest, "cycling", now_pt())
+    bike_min = bike.minutes if not bike.estimated else max(1, int(round(routing.haversine_km(origin, dest) * 1.3 / 16 * 60)))
+    resp = jsonify(ok=True, leave_by=_clock_short(plan["leave_by"]), arrive_by=_clock_short(plan["arrive_by"]), buffer=buf,
+                   minutes=plan["minutes"], miles=round(routing.haversine_km(origin, dest) * 1.3 * 0.621, 1), estimated=plan["estimated"],
+                   late_delta=plan["late_delta"], late_at=_clock_short(plan["late_at"]), bike_minutes=bike_min, bike_estimated=bike.estimated,
+                   bars=[{"at": _clock_short(b["at"]), "minutes": b["minutes"], "level": b["level"], "pick": b["pick"]} for b in plan["bars"]])
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+@app.route("/leave-by/settings", methods=["POST"])
+@login_required
+def leave_by_settings():
+    d = db(); d.execute("UPDATE members SET leave_buffer=? WHERE id=?", (5 if request.form.get("buffer") else 0, me()["id"])); d.commit()
+    nxt = request.form.get("next") or "/practices"
+    return redirect(nxt if safe_return_path(urllib.parse.urlparse(nxt).path) else "/practices")
+
 @app.route("/rides/settings", methods=["GET", "POST"])
 @login_required
 def ride_settings():

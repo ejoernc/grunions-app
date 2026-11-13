@@ -115,3 +115,23 @@ def test_ride_board_shows_offers_and_asks_and_driver_picks_from_it():
 def test_schedule_home_ride_sheets_post_for_real():
     page = member.get("/practices").get_data(as_text=True)
     assert "Preview only" not in page and "Ride settings aren" not in page
+
+
+def test_leave_by_plan_picks_the_latest_departure_that_arrives_on_time():
+    import flows2, routing
+    start = dt.datetime(2030, 1, 8, 19, 0)
+    mins = iter([17, 17, 18, 18, 18, 23, 27])  # 17:55 → 18:55, every 10 min
+    plan = flows2.leave_plan(start, 5, lambda deps: [routing.Route(next(mins)) for _ in deps])
+    assert plan["arrive_by"] == dt.datetime(2030, 1, 8, 18, 55)
+    assert [b["minutes"] for b in plan["bars"]][-1] == 27 and plan["late_delta"] > 0
+    assert plan["leave_by"] + dt.timedelta(minutes=plan["minutes"]) <= plan["arrive_by"]
+    assert {b["level"] for b in plan["bars"]} >= {"clear", "jammed"}
+
+
+def test_leave_by_api_window_and_no_origin_stored():
+    day = (A.today_pt() + dt.timedelta(days=5)).isoformat()
+    sql("INSERT INTO practices(date,start,end,location,sport,title,lat,lng) VALUES(?,?,?,?,?,?,?,?)", (day, "19:00", "20:30", "Far Pool", "Water Polo", "Far practice", 33.7, -118.0))
+    pid = sql("SELECT id FROM practices WHERE title='Far practice'")[0][0]
+    r = member.post("/api/leave-by", json=dict(id=pid, lat=33.8, lng=-118.1), headers={"X-CSRF": csrf(member, "/rides/settings")})
+    assert r.get_json() == {"ok": False, "error": "window"}
+    assert "Leave by" in member.get("/practices/%d/leave-by" % pid).get_data(as_text=True)

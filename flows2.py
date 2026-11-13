@@ -37,7 +37,8 @@ def ensure_schema(d):
         practice_id INTEGER PRIMARY KEY, admin_note TEXT, recap TEXT, closed_by INTEGER, closed_at TEXT)""")
     have = _cols(d, "members")
     for col, ddl in (("birth_date", "TEXT"), ("avail_days", "TEXT"), ("setup_dismissed", "INTEGER DEFAULT 0"),
-                     ("ride_offer", "INTEGER DEFAULT 0"), ("ride_area", "TEXT"), ("ride_seats", "INTEGER DEFAULT 2")):
+                     ("ride_offer", "INTEGER DEFAULT 0"), ("ride_area", "TEXT"), ("ride_seats", "INTEGER DEFAULT 2"),
+                     ("leave_buffer", "INTEGER DEFAULT 5")):
         if col not in have:
             d.execute("ALTER TABLE members ADD COLUMN %s %s" % (col, ddl))
 
@@ -186,6 +187,40 @@ def auto_offer(d, practice_id, member):
     return cur.rowcount == 1
 
 
+def traffic_level(minutes, best):
+    """Clear / Slow / Jammed for one forecast bar, against the best departure in the same window."""
+    if not best or minutes <= best * 1.15:
+        return "clear"
+    return "slow" if minutes <= best * 1.4 else "jammed"
+
+
+def leave_plan(start, buffer_min, forecast_fn, step=10, span=60):
+    """04.10 Leave-by planner. `start` is the practice start (naive local). Departures run every `step` minutes from
+    `span` before the arrive-by time to the arrive-by time; forecast_fn(departures) returns [Route]. Returns the latest
+    departure that still arrives by start - buffer, the bars, and what leaving at the last slot costs."""
+    arrive_by = start - dt.timedelta(minutes=int(buffer_min or 0))
+    first = arrive_by - dt.timedelta(minutes=span)
+    first = first.replace(minute=(first.minute // step) * step, second=0, microsecond=0)
+    departures = []
+    t = first
+    while t <= arrive_by:
+        departures.append(t); t += dt.timedelta(minutes=step)
+    routes = forecast_fn(departures)
+    best = min((r.minutes for r in routes), default=0)
+    bars = [{"at": d, "minutes": r.minutes, "level": traffic_level(r.minutes, best), "estimated": r.estimated}
+            for d, r in zip(departures, routes)]
+    ok = [b for b in bars if b["at"] + dt.timedelta(minutes=b["minutes"]) <= arrive_by]
+    pick = ok[-1] if ok else bars[0]
+    # Exact leave-by inside the chosen slot: arrive_by minus that slot's drive time, never later than arriving on time.
+    leave_by = min(arrive_by - dt.timedelta(minutes=pick["minutes"]), pick["at"] + dt.timedelta(minutes=step - 1))
+    for b in bars:
+        b["pick"] = b is pick
+    last = bars[-1]
+    return {"leave_by": leave_by, "arrive_by": arrive_by, "minutes": pick["minutes"], "bars": bars,
+            "late_delta": max(0, last["minutes"] - pick["minutes"]), "late_at": last["at"],
+            "estimated": any(b["estimated"] for b in bars)}
+
+
 # ---------- usual week + finish setup ----------
 def parse_days(values):
     return ",".join(x for x in DAYS if x in set(values or []))
@@ -294,6 +329,57 @@ RIDE_BOARD = """<div class="rg-page rg-rides">
 <button class="rg-btn primary" name=action value=offer>Offer seats</button>
 </form></dialog>
 {% else %}{{ rg_callout('Tap Going to ride together', 'Rides are for teammates going to this practice', 'Practice →', '/practices/' ~ p.id, 'graphite') }}{% endif %}
+</div>"""
+
+LEAVE_BY = """<div class="rg-page rg-rides rg-leaveby" data-practice="{{ p.id }}">
+<a class=rg-backlink href="/practices/{{ p.id }}">← Practice · {{ when }}</a>
+<div class="rg-lbhero" id=lbHero><span class=ty-caps>Leave by</span><b class=ty-display-xl id=lbTime>–:––</b>
+<small id=lbSub>Arrive {{ arrive_label }} · {{ buffer }} min deck buffer</small></div>
+<p class=ty-muted id=lbStatus role=status>Finding your location to plan the drive. It stays on your phone; it isn't saved.</p>
+<section id=lbForecast hidden>
+<h2 class=ty-title>Traffic forecast</h2><p class=ty-muted>Drive time if you leave at…</p>
+<figure class=rg-bars id=lbBars role=img aria-label="Drive minutes by departure time"></figure>
+<div class=rg-chartlegend><span><i class=clear></i>Clear</span><span><i class=slow></i>Slow</span><span><i class=jammed></i>Jammed</span></div>
+<details class=rg-tableview><summary>Show as a table</summary><table id=lbTable><thead><tr><th>Leave at</th><th>Minutes</th><th>Traffic</th></tr></thead><tbody></tbody></table></details>
+<div class="rg-latecard" id=lbLate hidden><b id=lbLateN></b><span id=lbLateText></span></div>
+</section>
+{{ rg_label('Getting there') }}
+<div class=rg-modes role=tablist><button type=button class=on data-mode=drive>Drive</button><a href="/practices/{{ p.id }}/rides">Carpool</a><button type=button data-mode=bike>Bike</button></div>
+<p class=ty-muted id=lbBike hidden></p>
+<form method=post action=/leave-by/settings class=fxsheet>{{ csrf_field() }}<input type=hidden name=next value="/practices/{{ p.id }}/leave-by">
+<label class=rg-toggle><span><b>Arrive {{ buffer or 5 }} min early for the deck</b><small>Leave-by counts back from {{ arrive_label }}</small></span><input type=checkbox name=buffer value=1 {% if buffer %}checked{% endif %} onchange="this.form.requestSubmit()"><i aria-hidden=true></i></label>
+</form>
+<a class="rg-btn secondary" href="https://www.google.com/maps/dir/?api=1&amp;destination={{ dest|urlencode }}" target=_blank rel=noopener>Open in Maps</a>
+<script>
+(function(){
+ var pid={{ p.id }}, st=document.getElementById('lbStatus');
+ function fail(t){ st.textContent=t; }
+ if(!navigator.geolocation){ fail('Location is off, so we can\u2019t plan the drive. Open the venue in Maps.'); return; }
+ navigator.geolocation.getCurrentPosition(function(pos){
+  fetch('/api/leave-by',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':window.PUSH_CSRF||''},
+   body:JSON.stringify({id:pid,lat:pos.coords.latitude,lng:pos.coords.longitude})}).then(function(r){return r.json()}).then(function(j){
+   if(!j.ok){ fail(j.error==='window'?'The planner opens on the day of practice.':'Couldn\u2019t plan this drive. Open the venue in Maps.'); return; }
+   document.getElementById('lbTime').textContent=j.leave_by;
+   document.getElementById('lbSub').textContent='Arrive '+j.arrive_by+' · '+j.buffer+' min deck buffer · '+j.miles+' mi';
+   st.textContent=j.estimated?'Estimated without live traffic.':'Predicted traffic for each departure.';
+   var bars=document.getElementById('lbBars'), tb=document.querySelector('#lbTable tbody'), max=Math.max.apply(null,j.bars.map(function(b){return b.minutes}));
+   bars.innerHTML=''; tb.innerHTML='';
+   j.bars.forEach(function(b){
+    var c=document.createElement('div'); c.className='rg-bar '+b.level+(b.pick?' pick':''); c.tabIndex=0;
+    c.title='Leave '+b.at+' · '+b.minutes+' min · '+b.level; c.setAttribute('aria-label',c.title);
+    c.innerHTML='<span class=v>'+b.minutes+'</span><i style="height:'+Math.max(8,Math.round(b.minutes/max*100))+'%"></i><span class=t>'+b.at+'</span>';
+    bars.appendChild(c);
+    var tr=document.createElement('tr'); tr.innerHTML='<td>'+b.at+'</td><td>'+b.minutes+'</td><td>'+b.level+'</td>'; tb.appendChild(tr);
+   });
+   document.getElementById('lbForecast').hidden=false;
+   if(j.late_delta>0){ var l=document.getElementById('lbLate'); l.hidden=false; document.getElementById('lbLateN').textContent='+'+j.late_delta;
+    document.getElementById('lbLateText').textContent='min if you leave at '+j.late_at+'.'; }
+   var bk=document.getElementById('lbBike'); if(j.bike_minutes){ bk.textContent='About '+j.bike_minutes+' min by bike'+(j.bike_estimated?' (estimate)':'')+'.'; }
+   document.querySelector('[data-mode=bike]').onclick=function(){ bk.hidden=!bk.hidden; this.classList.toggle('on',!bk.hidden); };
+  }).catch(function(){ fail('Couldn\u2019t plan this drive. Open the venue in Maps.'); });
+ }, function(){ fail('Location is off, so we can\u2019t plan the drive. Open the venue in Maps.'); }, {timeout:8000, maximumAge:300000});
+})();
+</script>
 </div>"""
 
 RIDE_SETTINGS = """<div class="rg-page rg-rides">
