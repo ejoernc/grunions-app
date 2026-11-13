@@ -191,9 +191,11 @@ body.schedhome main{overflow:hidden;height:100dvh;max-height:100dvh;padding-bott
 body.schedhome .weekhi{--titlefade:0;position:fixed;z-index:4;top:16px;left:16px;right:72px;pointer-events:none;color:var(--paper)}
 /* 04.01: as the sheet rises, Hi → Upcoming crossfade in place at the same size, the map fades to the page color,
    and the cards slide up behind a solid header. --mapfade is the same 0→1 progress, set on body. */
-body.schedhome .weekhi::before{content:"";position:fixed;z-index:-1;left:0;right:0;top:0;height:calc(80px + env(safe-area-inset-top));background:var(--ink);opacity:var(--titlefade);pointer-events:none}
+body.schedhome .weekhi::before{content:"";position:fixed;z-index:-1;left:0;right:0;top:0;height:calc(80px + env(safe-area-inset-top));background:var(--ink);opacity:var(--mapdone, 0);pointer-events:none}
 body.schedhome .homemap,body.schedhome .mapcontrols{opacity:calc(1 - var(--mapfade, 0))}
-body.schedhome .weekdrawer{background:color-mix(in srgb, var(--ink) calc(var(--mapfade, 0) * 100%), var(--carbon))}
+body.schedhome .weekdrawer{background:color-mix(in srgb, var(--ink) calc(var(--mapfade, 0) * 100%), var(--carbon));border-radius:calc(32px * (1 - var(--sheetp, 0))) calc(32px * (1 - var(--sheetp, 0))) 0 0}
+body.schedhome .weekbody{padding-top:calc(var(--sheetp, 0) * 64px)}
+body.schedhome .sheetgrab{opacity:calc(1 - var(--sheetp, 0))}
 body.schedhome .weekeye{display:block;min-height:12px;font:600 12px/1 var(--r2-font-sans);letter-spacing:.04em;color:var(--paper);opacity:calc(1 - var(--titlefade))}
 body.schedhome .weekhi .titlecross{display:grid;align-items:end}
 body.schedhome .weekhi .titlecross>h1{grid-area:1/1;margin:4px 0 0}
@@ -205,8 +207,7 @@ body.schedhome .weekhi .maplegend{position:static;display:flex;gap:10px;margin-t
 .weekdrawer.peek .weekthis>*:not(.r2-drive){display:none}
 .weekthis{display:flex;flex-direction:column;gap:12px;min-height:0}
 .weekdrawer.full{border-radius:0}
-.weekdrawer.full .weekbody{padding-top:64px}
-.weekdrawer.full .sheetgrab{opacity:0}
+
 
 body.schedhome:has(.weekdrawer.full) .homemap{opacity:0}
 @media (max-width:767px){
@@ -4907,7 +4908,11 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   var hi=document.querySelector('.weekhi');
   if(hi){
    hi.style.setProperty('--titlefade', morph.toFixed(3));
-   document.body.style.setProperty('--mapfade', morph.toFixed(3));
+   // The map is gone in the first ~40% of the pull; padding and corners follow the whole pull, so nothing snaps.
+   var mf=Math.min(1, morph*2.5);
+   document.body.style.setProperty('--mapfade', mf.toFixed(3));
+   document.body.style.setProperty('--mapdone', mf>=0.999?'1':'0');
+   document.body.style.setProperty('--sheetp', morph.toFixed(3));
    var big=hi.querySelector('.hititle'), small=hi.querySelector('.schedtitle');
    if(big) big.setAttribute('aria-hidden', morph>=0.5?'true':'false');
    if(small) small.setAttribute('aria-hidden', morph>=0.5?'false':'true');
@@ -4949,7 +4954,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   document.body.style.removeProperty('--drawer-h');
   document.body.classList.remove('mapcovered','sheetdrag');
   var hi=document.querySelector('.weekhi'); if(hi) hi.style.setProperty('--titlefade','0');
-  document.body.style.removeProperty('--mapfade');
+  ['--mapfade','--mapdone','--sheetp'].forEach(function(k){ document.body.style.removeProperty(k); });
  }
  function blocked(el){
   if(!el||!el.closest) return true;
