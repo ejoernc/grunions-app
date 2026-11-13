@@ -768,7 +768,7 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
                 "title": practice_title(row),
                 "tile": _tile(row["date"]),
                 "time": _span({"start": row["start"], "end": row["end"]}),
-                "when": "%s · %s" % (_short_day(row["date"]), _span({"start": row["start"], "end": row["end"]})),
+                "when": " · ".join(x for x in (_short_day(row["date"]), _span({"start": row["start"], "end": row["end"]})) if x),
                 "place": row["location"] or "",
                 "detail": _words(row["note"], 280),
                 "cancelled": bool(row["cancelled"]),
@@ -801,7 +801,7 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
                 "trial_line": "",
                 "tile": _tile(row["date"]),
                 "time": _span({"start": row["start_time"], "end": row["end_time"]}),
-                "when": "%s · %s" % (_short_day(row["date"]), _span({"start": row["start_time"], "end": row["end_time"]})),
+                "when": " · ".join(x for x in (_short_day(row["date"]), _span({"start": row["start_time"], "end": row["end_time"]})) if x),
                 "place": place,
                 "detail": _words(row["description"], 280),
                 "cancelled": False,
@@ -1062,57 +1062,55 @@ def widget_document(payload, theme=None, preview=False):
             "when": item.get("when") or "",
         }
 
+    tones = {"practice": "sun", "scrimmage": "aqua", "game": "tangerine", "hybrid": "sky", "schedule": "sun",
+             "competitions": "lavender", "camps": "sky", "trips": "aqua", "community": "mango"}
+
     def cards():
+        """2.0 / Event row: sport kicker, display title, meta with price, big going count."""
         rows = []
         for item in payload.get("events") or []:
             hidden = "" if active == "all" or item.get("chip") == active else " hidden"
-            tile = item.get("tile") or {}
             title = e(item.get("title") or "Event")
             if item.get("cancelled"):
                 title = "<s>%s</s>" % title
             signup = "/register?event=%s" % e(item["id"]) if item.get("signup") else ""
-            bits = ['<article class="card tripcard" role=button tabindex=0 data-id="%s" data-chip="%s" data-signup="%s"%s>' % (
-                e(item.get("id") or ""), e(item.get("chip") or "community"), signup, hidden)]
-            bits.append('<div class=nxmain><div class=datetile><span class=wd>%s</span><span class=dn>%s</span><span class=mo>%s</span></div>' % (e(tile.get("wd") or ""), e(tile.get("dn") or ""), e(tile.get("mo") or "")))
-            bits.append('<div class="grow schedrows"><h2 class=nxtitle>%s</h2>' % title)
-            if item.get("time"):
-                bits.append('<div class=nxrow>%s<span>%s</span></div>' % (_CLOCK, e(item["time"])))
-            if item.get("place"):
-                bits.append('<div class=nxrow>%s<span>%s</span></div>' % (_PIN, e(item["place"])))
-            if item.get("count") is not None:
-                bits.append('<div class=nxrow>%s<span>%s going</span></div>' % (_PEOPLE, e(str(item["count"]))))
-            bits.append("</div></div>")
+            kind = (item.get("activity") or "").lower()
+            tone = "graphite" if item.get("cancelled") else tones.get(kind) or tones.get(item.get("chip") or "", "sun")
+            kicker = item.get("sport") or item.get("category") or "Event"
+            if item.get("sport") and item.get("chip") != "schedule":
+                kicker = item.get("category")
+            meta = " · ".join(x for x in (item.get("when") or item.get("date"), item.get("place"), item.get("price")) if x)
             if item.get("cancelled"):
-                bits.append('<p class=reason>Cancelled%s</p>' % ((" · " + e(item["reason"])) if item.get("reason") else ""))
-            if item.get("detail"):
-                bits.append('<p class=detail>%s</p>' % e(item["detail"]))
-            bits.append("</article>")
-            rows.append("".join(bits))
+                meta = "Cancelled" + ((" · " + item["reason"]) if item.get("reason") else "")
+            count = item.get("count")
+            right = ('<span class=ercount><i aria-hidden=true>›</i><b>%s</b><small>GOING</small></span>' % e(str(count))) if count is not None \
+                else '<span class=ercount><i aria-hidden=true>›</i></span>'
+            rows.append('<article class="card erow tone-%s" role=button tabindex=0 data-id="%s" data-chip="%s" data-signup="%s"%s>'
+                        '<span class=ertxt><span class=ek>%s</span><h2 class=nxtitle>%s</h2><small>%s</small>%s</span>%s</article>' % (
+                            tone, e(item.get("id") or ""), e(item.get("chip") or "community"), signup, hidden,
+                            e(kicker), title, e(meta), ('<span class=detail hidden>%s</span>' % e(item["detail"])) if item.get("detail") else "", right))
         return "".join(rows)
 
     event_blob = json.dumps([public_event(item) for item in (payload.get("events") or [])], ensure_ascii=True).replace("<", "\\u003c")
 
     banner_info = ((payload.get("trial") or {}).get("banner")) or {}
     offer_bits = []
-    if payload.get("overview") or payload.get("prices") or banner_info:
-        offer_bits.append('<section class="card offer">')
-        if payload.get("overview"):
-            for line in payload["overview"]:
-                text = e(line.get("when") or "")
-                if line.get("place"):
-                    text += " · " + e(line["place"])
-                offer_bits.append("<p class=usual>%s</p>" % text)
+    if banner_info:
+        offer_bits.append('<section class="offer callout"><h2>%s</h2>%s%s</section>' % (
+            e(banner_info.get("title") or ""), ('<p>%s</p>' % e(banner_info["body"])) if banner_info.get("body") else "",
+            ('<a href="%s" target=_blank rel=noopener>%s</a>' % (e(banner_info["href"]), e(banner_info.get("link") or "Learn more"))) if banner_info.get("href") else ""))
+    if payload.get("overview") or payload.get("prices"):
+        offer_bits.append('<section class=usualbox>')
+        for line in payload.get("overview") or []:
+            text = e(line.get("when") or "")
+            if line.get("place"):
+                text += " · " + e(line["place"])
+            offer_bits.append("<p class=usual>%s</p>" % text)
         if payload.get("prices"):
-            offer_bits.append('<div class=tags>')
-            for price in payload["prices"]:
-                offer_bits.append('<span class=chip-info>%s</span>' % e(price.get("line") or price_line(price.get("label"), price.get("price"))))
-            offer_bits.append("</div>")
-        if banner_info:
-            offer_bits.append('<div class=callout><h2>%s</h2><p>%s</p>' % (e(banner_info.get("title") or ""), e(banner_info.get("body") or "")))
-            if banner_info.get("href"):
-                offer_bits.append('<a href="%s" target=_blank rel=noopener>%s</a>' % (e(banner_info["href"]), e(banner_info.get("link") or "Learn more")))
-            offer_bits.append("</div>")
+            offer_bits.append('<div class=tags>%s</div>' % "".join(
+                '<span class=chip-info>%s</span>' % e(price.get("line") or price_line(price.get("label"), price.get("price"))) for price in payload["prices"]))
         offer_bits.append("</section>")
+    join_href = payload.get("join_url") or "/join"
     html = """<!doctype html><html lang=en class="%s"><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>%s</title>
@@ -1122,94 +1120,99 @@ def widget_document(payload, theme=None, preview=False):
 @font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:400;font-display:swap;src:url("/static/fonts/plus-jakarta-sans-400.woff2") format("woff2")}
 @font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:500;font-display:swap;src:url("/static/fonts/plus-jakarta-sans-500.woff2") format("woff2")}
 @font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:600;font-display:swap;src:url("/static/fonts/plus-jakarta-sans-600.woff2") format("woff2")}
-:root{color-scheme:dark;--font-display:"Space Grotesk","Plus Jakarta Sans",system-ui,sans-serif;--font-sans:"Plus Jakarta Sans",system-ui,sans-serif;--color-bg:#0B0B0C;--color-surface:#17181A;--color-surface-2:#24262A;--color-border:#24262A;--color-control:#6A6E73;--color-text:#F6F4EF;--color-text-secondary:#8B8F93;--color-lime:#C8FF3C;--color-on-selected:#0B0B0C;--color-chip:#24262A;--radius-card:20px;--radius-control:16px;--radius-chip:999px;--size-chip:36px}
-@media (prefers-color-scheme: light){:root{color-scheme:light;--color-bg:#F6F4EF;--color-surface:#FFFFFF;--color-surface-2:#E6E2D9;--color-border:#E6E2D9;--color-control:#6A6E73;--color-text:#0B0B0C;--color-text-secondary:#6A6E73;--color-on-selected:#0B0B0C;--color-chip:#E6E2D9}}
+:root{color-scheme:dark;--font-display:"Space Grotesk","Plus Jakarta Sans",system-ui,sans-serif;--font-sans:"Plus Jakarta Sans",system-ui,sans-serif;--ink:#0B0B0C;--carbon:#17181A;--graphite:#24262A;--smoke:#8B8F93;--paper:#F6F4EF;--lime:#C8FF3C;--fixed-ink:#0B0B0C;--fixed-paper:#F6F4EF;--color-bg:var(--ink);--color-surface:var(--carbon);--color-surface-2:var(--graphite);--color-border:var(--graphite);--color-control:var(--smoke);--color-text:var(--paper);--color-text-secondary:var(--smoke);--color-lime:var(--lime);--color-on-selected:var(--fixed-ink);--color-chip:var(--graphite)}
+@media (prefers-color-scheme: light){:root{color-scheme:light;--ink:#F3F1EB;--carbon:#FFFFFF;--graphite:#E6E2D9;--smoke:#6A6E73;--paper:#0B0B0C}}
+.tone-sun{--tone:#FFC61A}.tone-sky{--tone:#7CC8F4}.tone-tangerine{--tone:#FF5A1F}.tone-lime{--tone:#C8FF3C}.tone-aqua{--tone:#2EE6C8}.tone-lavender{--tone:#A89CFF}.tone-mango{--tone:#FF9F1C}.tone-graphite{--tone:var(--graphite)}
 *{box-sizing:border-box}html,body{margin:0;background:var(--color-bg);color:var(--color-text)}
 html.preview,html.preview body{overflow:hidden}
 body{font:400 16px/1.5 var(--font-sans);padding:0 0 16px}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 20px 4px}
+#browse{padding:20px 20px 4px}
+header.brandbar{display:flex;align-items:center;gap:14px;margin:0 0 14px}
+.brand img{width:44px;height:44px;border-radius:12px;flex:none}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
-.brand img{width:36px;height:36px;border-radius:10px;flex:none}
-.brand p{margin:0;color:var(--color-text-secondary);font-size:12px;font-weight:600;letter-spacing:.04em}
-h1,.nxtitle,.datetile .dn{font-family:var(--font-display)}
-h1{margin:0;font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.02em}
+.brand p{margin:0;color:var(--smoke);font:700 11px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase}
+h1,.nxtitle{font-family:var(--font-display)}
+.brand h1{margin:2px 0 0;font-size:24px;line-height:1.05;font-weight:700;letter-spacing:-.03em}
 button{font:inherit;color:inherit}
-.theme{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:999px;border:1px solid var(--color-control);background:var(--color-surface-2);cursor:pointer}
-.chipbar{position:relative;margin-top:8px}
-.chipbar:before,.chipbar:after{content:"";position:absolute;top:0;bottom:0;width:28px;z-index:1;pointer-events:none}
-.chipbar:before{left:0;background:linear-gradient(90deg,var(--color-bg),transparent)}
-.chipbar:after{right:0;background:linear-gradient(270deg,var(--color-bg),transparent)}
-.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 20px 12px;scrollbar-width:none}
-.chips::-webkit-scrollbar{display:none}
-.chip{position:relative;display:inline-flex;align-items:center;justify-content:center;height:var(--size-chip);padding:0 14px;border-radius:var(--radius-chip);border:1px solid var(--color-control);background:transparent;color:var(--color-text);font-size:14px;font-weight:500;line-height:1;white-space:nowrap;flex:none;cursor:pointer}
-.chip.on{background:var(--color-lime);color:var(--color-on-selected);border-color:var(--color-lime)}
-main{padding:4px 20px 0;width:100%%}
-#cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;width:100%%}
-#cards .card{margin:0}
-.signup{display:inline-flex;align-items:center;height:36px;margin-top:16px;padding:0 14px;border-radius:999px;background:var(--color-lime);color:#0B0B0C;font-weight:600;text-decoration:none}
-.card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-card);padding:16px;margin:0 0 12px;text-align:left;font:inherit;color:inherit}
-article.card{cursor:pointer;display:block;width:100%%}
-.offer .usual{margin:0 0 8px;color:var(--color-text-secondary)}
-.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.chip-info{display:inline-flex;align-items:center;height:28px;padding:0 8px;border-radius:var(--radius-chip);border:1px solid var(--color-border);background:var(--color-chip);color:var(--color-text);font-size:12px;font-weight:500;line-height:1}
-.chip-info.cost{background:color-mix(in srgb,var(--color-lime) 22%%,var(--color-surface));border-color:color-mix(in srgb,var(--color-lime) 55%%,var(--color-border))}
-.callout{margin:12px 0 0;padding:12px 14px;border-radius:16px;background:color-mix(in srgb,var(--color-lime) 18%%,transparent);border:1px solid color-mix(in srgb,var(--color-lime) 50%%,transparent);font-weight:500}
-.nxmain{display:flex;align-items:center;gap:12px}
-.datetile{width:56px;height:56px;border-radius:var(--radius-control);background:var(--color-surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
-.datetile .wd,.datetile .mo{font-size:10px;font-weight:700;letter-spacing:.6px;color:var(--color-text-secondary);line-height:1}
-.datetile .dn{font-size:18px;font-weight:600;line-height:1.1;margin-top:2px}
-.grow{min-width:0;flex:1}
-.nxtitle{margin:0 0 2px;font-size:16px;line-height:24px;font-weight:600}
-.nxrow{display:flex;align-items:flex-start;gap:8px;margin-top:2px;color:var(--color-text-secondary);font-size:14px;line-height:1.35}
-.nxglyph{flex:none;margin-top:2px}
-.detail,.reason{margin:12px 0 0;color:var(--color-text-secondary)}
-.state{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:8px 4px 20px;color:var(--color-text-secondary)}
-.state[hidden],article[hidden],#browse[hidden],#sheet[hidden]{display:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.chip{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;border:0;background:var(--graphite);color:var(--paper);font:700 13px/1 var(--font-sans);white-space:nowrap;cursor:pointer}
+.chip:before{content:"";width:6px;height:6px;border-radius:50%%;background:currentColor}
+.chip.on{background:var(--lime);color:var(--fixed-ink)}
+main{width:100%%}
+.callout{margin:0 0 12px;padding:16px 20px;border-radius:24px;background:var(--lime);color:var(--fixed-ink)}
+.callout h2{margin:0;font:700 16px/1.3 var(--font-sans)}
+.callout p{margin:4px 0 0;font:500 13px/1.35 var(--font-sans)}
+.callout a{display:inline-block;margin-top:6px;font:700 13px/1 var(--font-sans);text-decoration:underline}
+.usualbox{margin:0 0 12px}
+.usual{margin:0 0 4px;color:var(--smoke);font:600 13px/1.35 var(--font-sans)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip-info{display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 12px/1 var(--font-sans)}
+#cards{display:grid;grid-template-columns:1fr;gap:10px;width:100%%}
+@media (min-width:500px){#cards{grid-template-columns:1fr 1fr}}
+.card{margin:0;text-align:left;font:inherit;color:inherit}
+article.erow{display:flex;justify-content:space-between;gap:12px;min-height:118px;padding:18px 18px 16px 22px;border-radius:28px;background:var(--tone);color:var(--fixed-ink);cursor:pointer}
+article.erow.tone-graphite{color:var(--paper)}
+.ertxt{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ek{font:700 10px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase}
+.nxtitle{margin:0;font-size:22px;line-height:.98;font-weight:700;letter-spacing:-.03em}
+.ertxt small{margin-top:auto;font:600 12px/1.3 var(--font-sans)}
+.ercount{display:grid;justify-items:end;align-content:space-between;flex:none}
+.ercount i{font:700 20px/1 var(--font-sans);font-style:normal}
+.ercount b{font:700 48px/.85 var(--font-display);letter-spacing:-.06em}
+.ercount small{font:700 10px/1.2 var(--font-sans);letter-spacing:.08em}
+.joinbtn{display:flex;align-items:center;justify-content:center;height:52px;margin:14px 0 0;border-radius:999px;background:var(--lime);color:var(--fixed-ink);font:700 15px/1 var(--font-sans);text-decoration:none}
+.foot{margin:14px 0 0;color:var(--smoke);font:500 12px/1.4 var(--font-sans)}
+.detail,.reason{margin:12px 0 0;color:var(--smoke)}
+.state{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:8px 4px 20px;color:var(--smoke)}
+.state[hidden],article[hidden],#browse[hidden],#sheet[hidden],.detail[hidden]{display:none}
 #sheet{padding:0 0 24px}
-.seclabel{margin:20px 20px 8px;font-size:13px;font-weight:650;color:var(--color-text-secondary)}
-.list{margin:0 20px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:16px;overflow:hidden}
-.li{padding:14px 16px;border-top:1px solid var(--color-border)}
-.li:first-child{border-top:0}
+.seclabel{margin:20px 20px 8px;color:var(--smoke);font:700 11px/1 var(--font-sans);letter-spacing:.08em;text-transform:uppercase}
+.list{margin:0 20px;display:grid;gap:8px}
+.li{padding:16px 20px;border-radius:24px;background:var(--carbon)}
 .prow{display:flex;justify-content:space-between;gap:12px}
-.prow .k{color:var(--color-text-secondary)}
+.prow .k{color:var(--smoke)}
 .prow .v{text-align:right}
 a{color:inherit;text-decoration:none}
-header.profilebar{display:grid;grid-template-columns:72px 1fr 72px;align-items:center;min-height:44px;padding:8px 6px 0;background:var(--color-bg)}
-header.profilebar h1{margin:0;text-align:center;font-family:var(--font-display);font-size:20px;line-height:44px;font-weight:650}
-header.profilebar .left,header.profilebar .right{display:flex;align-items:center;height:44px}
-header.profilebar .profileback{background:none;border:0;color:inherit;height:44px;min-width:44px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
-.profilehero{display:flex;flex-direction:column;align-items:center;padding:12px 20px 4px}
-.profilename{margin:14px 0 4px;font-family:var(--font-display);font-size:24px;font-weight:650;letter-spacing:-.3px;text-align:center}
-.pracemeta{color:var(--color-text-secondary);text-align:center;margin:0;font-size:15px}
+header.profilebar{display:flex;align-items:center;gap:12px;min-height:56px;padding:12px 16px 0}
+header.profilebar h1{margin:0;font:700 20px/1 var(--font-display);letter-spacing:-.02em}
+header.profilebar .profileback{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border:0;border-radius:50%%;background:var(--graphite);color:var(--paper);cursor:pointer}
+header.profilebar .right{display:none}
+.profilehero{display:flex;flex-direction:column;align-items:flex-start;padding:16px 20px 4px}
+.profilename{margin:0 0 8px;font:700 40px/.95 var(--font-display);letter-spacing:-.04em}
+.pracemeta{color:var(--smoke);margin:0;font-size:15px}
 .pracemeta+.pracemeta{margin-top:2px}
-.profilehero .nxrow{margin-top:8px;color:var(--color-text-secondary);font-size:15px}
+.profilehero .nxrow{margin-top:8px;color:var(--smoke);font-size:15px}
 .pracestatus{margin:10px 0 2px}
-.st{display:inline-flex;align-items:center;gap:8px;min-height:28px;color:var(--color-text-secondary);font-size:15px}
+.st{display:inline-flex;align-items:center;gap:8px;min-height:28px;color:var(--smoke);font-size:15px}
 .st svg{flex:none;color:#2EE6C8}
 .st-bad svg{color:#FF5A1F}
 .pills{display:flex;gap:8px;margin:16px 20px 0}
 .pills .btn{flex:1;margin:0}
-.btn{display:flex;align-items:center;justify-content:center;height:48px;border:0;border-radius:999px;font-weight:650;text-decoration:none;cursor:pointer}
-.btn-primary{background:var(--color-lime);color:#0B0B0C}
-.btn-secondary{height:40px;width:auto;margin:0;padding:0 14px;background:transparent;color:inherit;border:1px solid var(--color-control);flex:none}
+.btn{display:flex;align-items:center;justify-content:center;height:52px;border:0;border-radius:999px;font:700 15px/1 var(--font-sans);text-decoration:none;cursor:pointer}
+.btn-primary{background:var(--lime);color:var(--fixed-ink)}
+.btn-secondary{height:40px;width:auto;margin:0;padding:0 16px;background:var(--graphite);color:var(--paper);flex:none}
 .locrow{display:flex;align-items:center;gap:12px}
-.locrow .grow{font-weight:500}
+.locrow .grow{font-weight:600}
+.grow{min-width:0;flex:1}
+.nxrow{display:flex;gap:8px}
 #sheet [hidden]{display:none !important}
-.state h2{margin:0;font-family:var(--font-display);font-size:20px;color:var(--color-text)}
+.state h2{margin:0;font-family:var(--font-display);font-size:20px;color:var(--paper)}
 .state p{margin:0}
-.spin{width:22px;height:22px;border:2px solid var(--color-border);border-top-color:var(--color-lime);border-radius:50%%;animation:spin .7s linear infinite}
+.spin{width:22px;height:22px;border:2px solid var(--graphite);border-top-color:var(--lime);border-radius:50%%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-#retry{height:40px;padding:0 14px;border-radius:12px;border:1px solid var(--color-control);background:var(--color-surface-2);cursor:pointer}
-:focus-visible{outline:2px solid var(--color-lime);outline-offset:2px}
+#retry{height:40px;padding:0 16px;border-radius:999px;border:0;background:var(--graphite);cursor:pointer}
+:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
 </style></head><body>
 <div id=browse>
-<header><div class=brand><img src="/static/icons/icon-192.png?v=119" alt="" width="36" height="36"><div><p>Regulars</p><h1>%s</h1></div></div></header>
-<div class=chipbar><div class=chips role=tablist aria-label="Categories">%s</div></div>
+<header class=brandbar><div class=brand><img src="/static/icons/icon-192.png?v=119" alt="" width="44" height="44"><div>%s<h1>%s</h1></div></div></header>
+<div class=chips role=tablist aria-label="Categories">%s</div>
 <main>%s
 <div id=loading class=state role=status><span class=spin aria-hidden=true></span><p>Loading the schedule</p></div>
 <div id=empty class=state hidden><h2>Nothing coming up</h2><p>Published practices and events will show here.</p></div>
 <div id=error class=state hidden><h2>Couldn't load the schedule</h2><p>Check the connection and try again.</p><button type=button id=retry>Try again</button></div>
 <div id=cards>%s</div>
+<a class=joinbtn href="%s" target=_top>%s</a>
+<p class=foot>Tap any event to see details and sign up · Powered by Regulars</p>
 </main>
 </div>
 <div id=sheet hidden>
@@ -1314,7 +1317,8 @@ header.profilebar .profileback{background:none;border:0;color:inherit;height:44p
   window.addEventListener("resize", report);
 })();
 </script></body></html>""" % (
-        "preview" if preview else "", e(org), e(org), chip_buttons(), "".join(offer_bits), cards(), event_blob,
+        "preview" if preview else "", e(org), ("<p>%s</p>" % e(payload["kicker"])) if payload.get("kicker") and payload.get("kicker") != (payload.get("club_title") or org) else "", e(payload.get("club_title") or org), chip_buttons(), "".join(offer_bits), cards(),
+        e(join_href), e(payload.get("join_label") or "Join the club"), event_blob,
     )
     return html.replace("CLOCK", _CLOCK).replace("PIN", _PIN).replace("PEOPLE", _PEOPLE)
 

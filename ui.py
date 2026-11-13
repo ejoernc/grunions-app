@@ -3031,6 +3031,19 @@ document.addEventListener('DOMContentLoaded',function(){document.querySelectorAl
 // closing it in-page pops that entry. Never used for page navigation — back is always a link to the parent.
 function grunionsPopOverlay(){ history.back(); }
 // Tasks are sheets addressed by ?sheet=<name> so they're linkable.
+window.grunionsSavedToast=function(msg){ var t=document.createElement('div'); t.className='toast noprint'; t.setAttribute('role','status'); t.textContent=msg||'Saved'; document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 1800); };
+/* Forms marked data-autosave save on change (Figma 62: settings save themselves, no page Save). */
+document.addEventListener('change', function(e){
+ var f=e.target.closest&&e.target.closest('form[data-autosave]'); if(!f) return;
+ var fd=new FormData(f); if(e.target.name&&e.target.type==='checkbox'&&!e.target.checked) fd.set(e.target.name, '0');
+ fd.set('field', e.target.name||'');
+ fetch(f.getAttribute('action')||location.pathname, {method:'POST', body:fd, credentials:'same-origin', headers:{'X-Autosave':'1'}}).then(function(r){ return r.ok?r.json():Promise.reject(r); }).then(function(j){
+  grunionsSavedToast(j&&j.toast||'Saved');
+  if(j&&j.set) Object.keys(j.set).forEach(function(k){ document.querySelectorAll('[data-live="'+k+'"]').forEach(function(el){ el.textContent=j.set[k]; }); });
+  if(j&&j.dim) Object.keys(j.dim).forEach(function(k){ document.querySelectorAll('[data-dim="'+k+'"]').forEach(function(el){ el.classList.toggle('rg-dim', !!j.dim[k]); }); });
+  f.dispatchEvent(new CustomEvent('autosaved', {detail:j}));
+ }).catch(function(){ grunionsSavedToast("Couldn't save. Try again."); });
+});
 window.grunionsSheetFromUrl=function(){ try{ var n=new URLSearchParams(location.search).get('sheet'); if(!n) return; var d=document.querySelector('dialog[data-sheet-name="'+n+'"]'); if(d&&d.showModal&&!d.open){ if(window.grunionsOpenSheet) grunionsOpenSheet(d); else d.showModal(); } }catch(e){} };
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(grunionsSheetFromUrl,0); }); else setTimeout(grunionsSheetFromUrl,0);
 // Shared: any [data-open-dialog=id] opens that dialog; tapping the backdrop closes it.
@@ -7867,6 +7880,70 @@ T["requirements_page"] = ADMIN_NAV + """{{ admin_page('Rules', 'Cleared to play 
 <div class=row><label>Applies to<select name=applies_to><option>all</option><option>athlete</option><option>coach</option></select></label><label>Keywords<input name=keywords placeholder="cpr,firstaid"></label></div>
 <label><input type=checkbox name=expires checked>Has an expiration date</label><button class="rg-btn secondary full" name=action value=add>Add</button></form></details>"""
 
+T["website"] = ADMIN_NAV + """<div class="rg-screen rg-website">
+{# Figma 62 · W1 Website & sharing: status first, small preview, settings that save themselves, code in a sheet. #}
+{{ rg_page_title('Website', 'Your public schedule, on your site.') }}
+<form method=post action="/manage/widget" data-autosave>{{ csrf_field() }}
+{{ rg_status_toggle('widget_on', w.enabled, host, ('Published · last change ' ~ changed) if w.enabled else 'Not published · visitors see nothing yet') }}
+</form>
+{{ rg_section_count('Preview', events|length) }}
+<div class=rg-miniprev>
+{% for ev in events[:2] %}{{ rg_event_row('', ev.kicker, ev.title, ev.meta, ev.count, 'GOING', ev.tone) }}{% else %}<p class=rg-note>Nothing coming up yet. Published practices and Lineup events show here.</p>{% endfor %}
+<a class="rg-btn secondary" href="/widget?preview=1" target=_blank rel=noopener>Open full preview</a>
+</div>
+{{ rg_section_count('What visitors see', 6) }}
+<div class=rg-stack8>
+{{ rg_settings_row('Tabs', tabs_label, '#', 'data-open-dialog=tabsSheet', 'tabs') }}
+{{ rg_settings_row('Opens on', opens_label, '#', 'data-open-dialog=opensSheet', 'opens') }}
+<form method=post action="/manage/widget" data-autosave class=rg-stack8>{{ csrf_field() }}
+{{ rg_toggle('include_schedule', 'Regular schedule', '', w.include_schedule) }}
+{{ rg_toggle('show_pricing', 'Prices', 'Only ones you filled in', w.show_pricing) }}
+{{ rg_toggle('show_trial', 'Free-trial message', '', w.show_trial) }}
+{{ rg_toggle('show_counts', 'How many are going', 'Numbers only — never names or photos', w.show_counts) }}
+</form>
+</div>
+{{ rg_section_count('Add to your site', 2) }}
+<div class=rg-stack8>
+{{ rg_settings_row('Embed code', 'Copy', '#', 'data-open-dialog=embedSheet') }}
+{% if share_url %}{{ rg_settings_row('Share link', 'Share', '#', 'data-share-url="' ~ share_url ~ '" data-share-title="Schedule"') }}{% else %}{{ rg_settings_row('Share link', 'Publish first') }}{% endif %}
+</div>
+<p class=rg-note>Changes save as you make them. Your embed updates on its own — paste it once.</p>
+</div>
+<dialog id=tabsSheet class="botsheet modal"><form method=post action="/manage/widget" data-autosave class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<input type=hidden name=chips_present value=1>
+<h2>Tabs.</h2><p class=ty-muted>Which tabs visitors can switch between. All is always there.</p>
+{{ rg_choice_chips('chips', chip_choices, w.chips, true) }}
+<button type=button class="rg-btn primary" data-sheet-close onclick="this.closest('dialog').close()">Done</button>
+</form></dialog>
+<dialog id=opensSheet class="botsheet modal"><form method=post action="/manage/widget" data-autosave class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<h2>Opens on.</h2><p class=ty-muted>The tab visitors see first.</p>
+{% for slug, label in chip_choices if slug in w.chips %}{{ rg_choice('default_chip', slug, label, '', w.default_chip == slug) }}{% endfor %}
+<button type=button class="rg-btn primary" onclick="this.closest('dialog').close()">Done</button>
+</form></dialog>
+<dialog id=embedSheet class="botsheet modal" data-sheet-name=embed><div class=sheet><div class=grab aria-hidden=true></div>
+<h2>Add to your site.</h2><p class=ty-muted>Paste it once. Schedule changes show up on their own.</p>
+{{ rg_choice_chips('platform', platforms, 'squarespace', false, 'id=platformPick') }}
+{{ rg_code(embed, 'embedCode') }}
+{% for key, label, lines in platform_steps %}<div data-platform="{{ key }}"{% if key != 'squarespace' %} hidden{% endif %}>{{ rg_steps(lines) }}</div>{% endfor %}
+<div class=rg-btnrow>
+<a class="rg-btn secondary" id=embedEmail href="mailto:?subject={{ ('Our schedule for the website')|urlencode }}&body={{ ('Hi! Please paste this into our website where the schedule should go. It updates on its own.\n\n' ~ embed)|urlencode }}">Email it</a>
+<button type=button class="rg-btn primary" id=copyEmbed>Copy code</button>
+</div>
+</div></dialog>
+<template id=embedText>{{ embed }}</template>
+<script>
+(function(){
+ var pick=document.getElementById('platformPick');
+ if(pick) pick.addEventListener('change', function(e){ document.querySelectorAll('[data-platform]').forEach(function(el){ el.hidden=el.getAttribute('data-platform')!==e.target.value; }); });
+ var copy=document.getElementById('copyEmbed');
+ if(copy) copy.onclick=function(){ var t=document.getElementById('embedText').innerHTML.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#34;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,'&');
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ grunionsSavedToast('Copied'); }, function(){ grunionsSavedToast('Select the code and copy it'); }); };
+ document.addEventListener('click', function(e){ var b=e.target.closest&&e.target.closest('[data-share-url]'); if(!b) return; e.preventDefault();
+  var u=b.getAttribute('data-share-url'); if(navigator.share){ navigator.share({title:b.getAttribute('data-share-title')||'', url:u}).catch(function(){}); }
+  else if(navigator.clipboard){ navigator.clipboard.writeText(u).then(function(){ grunionsSavedToast('Link copied'); }); } });
+ document.querySelectorAll('form[data-autosave]').forEach(function(f){ f.addEventListener('autosaved', function(ev){ var j=ev.detail||{}; if(j.reload) location.reload(); }); });
+})();
+</script>"""
 T["qr_page"] = ADMIN_NAV + """<div class=rg-screen>
 {{ rg_page_title('QR codes', 'Print or share. Each code opens one thing.') }}
 <div class=rg-qrgrid>

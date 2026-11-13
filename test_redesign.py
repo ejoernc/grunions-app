@@ -368,3 +368,19 @@ def test_members_get_chat_plus_with_ask_coaches_and_board_and_export_has_legal_g
     rows = list(csv.reader(io.StringIO(boss.get("/members.csv").get_data(as_text=True).lstrip("﻿"))))
     i = rows[0].index("Sex on sport membership")
     assert [r[i] for r in rows if r[3] == "rae@example.com"] == ["Female"]
+
+
+def test_website_settings_save_themselves_and_embed_sheet_has_platform_steps():
+    tok = csrf(boss, "/manage/widget")
+    r = boss.post("/manage/widget", data={"csrf": tok, "field": "show_counts", "show_counts": "1"}, headers={"X-Autosave": "1"})
+    assert r.status_code == 200 and r.get_json()["ok"]
+    import publicfeed
+    with A.app.app_context():
+        assert publicfeed.load(A.db())["widget"]["show_counts"] is True
+    r = boss.post("/manage/widget", data={"csrf": tok, "field": "chips", "chips_present": "1", "chips": ["schedule", "trips"]}, headers={"X-Autosave": "1"})
+    assert r.get_json()["set"]["tabs"].startswith("All, Schedule")
+    r = boss.post("/manage/widget", data={"csrf": tok, "field": "default_chip", "default_chip": "camps"}, headers={"X-Autosave": "1"})
+    assert r.get_json()["set"]["opens"] == "All"
+    page = boss.get("/manage/widget").get_data(as_text=True)
+    assert "Add to your site." in page and "In Wix" in page and "Copy code" in page and "mailto:?subject=" in page
+    assert member.post("/manage/widget", data={"csrf": tok, "field": "show_counts", "show_counts": "0"}, headers={"X-Autosave": "1"}).status_code in (302, 400, 403)

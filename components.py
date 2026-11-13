@@ -71,6 +71,16 @@ def section(title, action_label="", action_href=""):
     return Markup('<div class=rg-sec><h2>%s</h2>%s</div>' % (_e(title), act))
 
 
+def section_count(title, count=None, action_label="", action_href="", action_attrs=""):
+    """2.0 / Section header with the small (04) count, Figma 62 style. Action is an Edit / + Add link or button."""
+    sup = ('<sup>(%s)</sup>' % (("%02d" % count) if isinstance(count, int) and count < 10 and count >= 0 else _e(count))) if count is not None else ""
+    act = ""
+    if action_label:
+        act = ('<a class=rg-secact href="%s"%s>%s</a>' % (_e(action_href), (" " + action_attrs) if action_attrs else "", _e(action_label))) if action_href \
+            else '<button type=button class=rg-secact%s>%s</button>' % ((" " + action_attrs) if action_attrs else "", _e(action_label))
+    return Markup('<div class=rg-sec><h2>%s%s</h2>%s</div>' % (_e(title), sup, act))
+
+
 def seg(items, current):
     """2.0 / Segmented control. items = [(key, label, href)]; selected is paper."""
     return Markup('<nav class=rg-seg data-seg aria-label=View>%s</nav>' % "".join(
@@ -530,9 +540,10 @@ def button(label, type="primary", href="", name="", value="", icon_name="", disa
         cls, "submit" if submit else "button", nv, " disabled" if disabled else "", (" " + attrs) if attrs else "", ic, _e(label)))
 
 
-def settings_row(label, value="", href="", attrs=""):
-    """2.0 / List row · Type=Settings (02, 350:849): carbon pill, bold label, smoke value, chevron."""
-    inner = '<span class=rg-srlabel>%s</span>%s%s' % (_e(label), ('<span class=rg-srvalue>%s</span>' % _e(value)) if value else "",
+def settings_row(label, value="", href="", attrs="", live=""):
+    """2.0 / List row · Type=Settings (02, 350:849): carbon pill, bold label, smoke value, chevron.
+    live names the value so an autosave can update it in place."""
+    inner = '<span class=rg-srlabel>%s</span>%s%s' % (_e(label), ('<span class=rg-srvalue%s>%s</span>' % ((' data-live="%s"' % _e(live)) if live else "", _e(value))) if value else "",
                                                      icon("chevron_right", "sm") if href else "")
     return Markup(_tag(href, "rg-srow", inner, (" " + attrs) if attrs else "") if href else '<div class=rg-srow%s>%s</div>' % ((" " + attrs) if attrs else "", inner))
 
@@ -576,7 +587,33 @@ def info_block(kicker, title, sub=""):
     return Markup('<div class=rg-infoblock><span class=ty-caps>%s</span><b>%s</b>%s</div>' % (_e(kicker), _e(title), ('<small>%s</small>' % _e(sub)) if sub else ""))
 
 
+def status_toggle(name, live, title, sub="", live_label="Live", off_label="Off", attrs=""):
+    """2.0 / Status (Figma 62 W1): Live/Off chip over a bold line and caption, with the lime switch."""
+    return Markup('<label class="rg-toggle rg-status"><span>%s<b>%s</b>%s</span><input type=checkbox name="%s" value=1%s%s><i aria-hidden=true></i></label>' % (
+        str(chip(live_label if live else off_label, "going" if live else "neutral")), _e(title), ('<small>%s</small>' % _e(sub)) if sub else "",
+        _e(name), " checked" if live else "", (" " + attrs) if attrs else ""))
+
+
+def choice_chips(name, items, selected=(), multi=False, attrs=""):
+    """Chip set as form inputs (Figma 62: platform, tabs, audience, timing). Lime when picked. items = [(value, label)]."""
+    sel = set(selected if isinstance(selected, (list, tuple, set)) else [selected])
+    kind = "checkbox" if multi else "radio"
+    return Markup('<div class=rg-chipset role=%s%s>%s</div>' % ("group" if multi else "radiogroup", (" " + attrs) if attrs else "", "".join(
+        '<label><input type=%s name="%s" value="%s"%s><span>%s</span></label>' % (kind, _e(name), _e(v), " checked" if v in sel else "", _e(l))
+        for v, l in items)))
+
+
+def code_block(text, block_id=""):
+    """Short code preview (Figma 62 W2): ink box, lime mono text, a few lines."""
+    return Markup('<pre class=rg-code%s><code>%s</code></pre>' % ((' id="%s"' % _e(block_id)) if block_id else "", _e(text)))
+
+
+def steps(items):
+    """Numbered steps (Figma 62 W2)."""
+    return Markup('<ol class=rg-steps>%s</ol>' % "".join('<li>%s</li>' % _e(t) for t in items))
+
+
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_info_block=info_block, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_info_block=info_block, event_tone=event_tone)

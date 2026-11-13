@@ -7441,7 +7441,12 @@ def participate(pid):
         body = "<h1>Payment Verification Needed</h1><p>Once your payment is confirmed, you can complete your registration.</p>" + body
     return page(body, tab="")
 def _widget_payload(d, event_limit=None):
-    return publicfeed.build_feed(d, publicfeed.load(d), practice_title, wall_pt(), org_name(), event_limit=event_limit)
+    payload = publicfeed.build_feed(d, publicfeed.load(d), practice_title, wall_pt(), org_name(), event_limit=event_limit)
+    payload["kicker"] = org_name()
+    payload["club_title"] = club_display_name() if "club_display_name" in globals() else org_name()
+    payload["join_url"] = signup_url()
+    payload["join_label"] = "Join the club"
+    return payload
 @app.route("/api/public/feed")
 def public_feed_api():
     """Read-only public cards. Unpublished widgets, names, and photos stay out."""
@@ -7573,11 +7578,68 @@ def register_for_event():
     return page(publicfeed.REGISTER_PAGE, tab="", title=practice_title(practice), when=when, place=practice["location"] or "",
         state=state, reason=found.get("reason") or "", label=found.get("label") or "", start=found.get("start") or "",
         end=found.get("end") or "", balance=balance, event=raw, today=today.isoformat(), trial_url=TRIAL_JOIN_URL)
+WIDGET_PLATFORMS = (("squarespace", "Squarespace"), ("wix", "Wix"), ("wordpress", "WordPress"), ("other", "Other site"))
+WIDGET_STEPS = (
+    ("squarespace", "Squarespace", ("In Squarespace, add a Code block where the schedule goes.", "Paste, then save the page.", "Done. You never need to paste it again.")),
+    ("wix", "Wix", ("In Wix, add Embed Code › Embed HTML where the schedule goes.", "Paste the code and click Update.", "Publish. You never need to paste it again.")),
+    ("wordpress", "WordPress", ("In WordPress, add a Custom HTML block where the schedule goes.", "Paste, then update the page.", "Done. You never need to paste it again.")),
+    ("other", "Other site", ("Open the page where the schedule goes, in HTML or code view.", "Paste the code and save.", "Done. You never need to paste it again.")),
+)
+_WIDGET_TOGGLES = ("widget_on", "include_schedule", "show_pricing", "show_trial", "show_counts")
+
+
+def _widget_autosave(d):
+    """One setting at a time (Figma 62 W1). Returns JSON for the autosave fetch."""
+    data = publicfeed.load(d)
+    w = dict(data.get("widget") or publicfeed.widget_blank())
+    field = request.form.get("field") or ""
+    if field in _WIDGET_TOGGLES:
+        key = "enabled" if field == "widget_on" else field
+        w[key] = request.form.get(field) == "1"
+    elif field == "chips" or request.form.get("chips_present"):
+        chosen = [slug for slug, _l in publicfeed.CHIPS if slug in request.form.getlist("chips")]
+        if "all" not in chosen:
+            chosen.insert(0, "all")
+        w["chips"] = chosen
+        if w.get("default_chip") not in chosen:
+            w["default_chip"] = "all"
+    elif field == "default_chip":
+        pick = request.form.get("default_chip") or "all"
+        w["default_chip"] = pick if pick in (w.get("chips") or ["all"]) else "all"
+    else:
+        return jsonify(ok=False), 400
+    publicfeed.save_sections(d, widget=w)
+    d.commit()
+    labels = dict(publicfeed.CHIPS)
+    return jsonify(ok=True, toast=("Published" if field == "widget_on" and w["enabled"] else "Unpublished" if field == "widget_on" else "Saved"),
+                   reload=field == "widget_on", set={"tabs": _tabs_label(w), "opens": labels.get(w.get("default_chip"), "All")})
+
+
+def _tabs_label(w):
+    labels = [label for slug, label in publicfeed.CHIPS if slug in (w.get("chips") or ["all"])]
+    return ", ".join(labels[:2]) + (" +%d" % (len(labels) - 2) if len(labels) > 2 else "")
+
+
+def _changed_label(d):
+    try:
+        row = d.execute("SELECT updated_at FROM org_settings WHERE id=1").fetchone()
+        raw = (row["updated_at"] if row else "") or ""
+        when = dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=dt.timezone.utc)
+        local = when.astimezone(PT)
+        return "%s %d" % (local.strftime("%b"), local.day)
+    except Exception:
+        return "today"
+
+
 @app.route("/manage/widget", methods=["GET", "POST"])
 @admin_required
 def manage_widget():
     d = db()
     if request.method == "POST":
+        if request.headers.get("X-Autosave") == "1":
+            return _widget_autosave(d)
         try:
             parsed = publicfeed.parse_widget(request.form)
             old = (publicfeed.load(d).get("widget") or {})
@@ -7591,9 +7653,20 @@ def manage_widget():
             return redirect("/manage/widget")
         except ValueError as exc:
             flash(str(exc))
-    base = (PUBLIC_URL or request.host_url or "").rstrip("/")
-    return page(ui.ADMIN_NAV + publicfeed.WIDGET_ADMIN, tab="admin", w=publicfeed.load(d)["widget"],
-        chip_choices=publicfeed.CHIPS, embed=publicfeed.embed_snippet(base or ""))
+    w = publicfeed.load(d)["widget"]
+    payload = _widget_payload(d, 4)
+    tones = {"practice": "sun", "scrimmage": "aqua", "game": "tangerine", "competitions": "lavender", "camps": "sky", "trips": "aqua", "community": "mango"}
+    events = []
+    for item in payload.get("events") or []:
+        kind = (item.get("activity") or "").lower()
+        events.append({"kicker": item.get("sport") if item.get("chip") == "schedule" else item.get("category"),
+                       "title": item.get("title"), "count": item.get("count"),
+                       "meta": " · ".join(x for x in (item.get("when"), item.get("place"), item.get("price")) if x),
+                       "tone": "graphite" if item.get("cancelled") else tones.get(kind) or tones.get(item.get("chip"), "sun")})
+    host = (urllib.parse.urlparse(publicfeed.WIDGET_URL).netloc or "").strip() or "your website"
+    return page(ui.T["website"], tab="admin", w=w, events=events, host=host, changed=_changed_label(d),
+        chip_choices=publicfeed.CHIPS, tabs_label=_tabs_label(w), opens_label=dict(publicfeed.CHIPS).get(w.get("default_chip"), "All"),
+        embed=publicfeed.embed_snippet(), platforms=WIDGET_PLATFORMS, platform_steps=WIDGET_STEPS, share_url=public_schedule_url())
 @app.route("/lineup", methods=["GET", "POST"])
 @login_required
 def lineup():

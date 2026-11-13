@@ -145,9 +145,9 @@ def test_widget_is_off_until_an_admin_publishes_it():
     page = admin.get("/manage/widget")
     html = page.get_data(as_text=True)
     assert page.status_code == 200
-    assert "Website widget" in html and "Visitors can switch" not in html
+    assert "Website." in html and "Visitors can switch" not in html and "data-autosave" in html
     assert ">All<" in html and ">Schedule<" in html and ">Competitions<" in html and ">Camps<" in html and ">Trips<" in html and ">Community<" in html
-    assert 'src="/widget?preview=1"' in html and "https://grunions.regulars.team/widget" in html and "<iframe" in html
+    assert 'href="/widget?preview=1"' in html and "https://grunions.regulars.team/widget" in html and "&lt;iframe" in html and "id=embedSheet" in html
     preview = admin.get("/widget?preview=1")
     assert preview.status_code == 200 and "prefers-color-scheme" in preview.get_data(as_text=True) and "id=theme" not in preview.get_data(as_text=True)
     assert "id=theme" not in admin.get("/widget?preview=1&theme=day").get_data(as_text=True)
@@ -185,13 +185,13 @@ def test_widget_is_off_until_an_admin_publishes_it():
     assert "Bring a dark cap" in body and "Harbor Cup" in body and '"count":null' in body
     frame = member.get("/widget").get_data(as_text=True)
     assert "All" in frame and "Schedule" in frame and "Competitions" in frame and "Camps" in frame and "Trips" in frame and "Community" in frame
-    assert "Space Grotesk" in frame and "datetile" in frame and "class=callout" in frame and "id=theme" not in frame and "prefers-color-scheme" in frame
+    assert "Space Grotesk" in frame and "erow" in frame and "callout" in frame and "id=theme" not in frame and "prefers-color-scheme" in frame
     assert frame.count("<h2>Try Water Polo Free for 2 Weeks</h2>") == 1 and "Get 2 Free Practices" not in frame
     assert "A valid USA Water Polo trial membership is required" in frame
     assert "https://usawp.sport80.com/public/widget/1" in frame
     assert '"/register?event=p-' in frame and "Harbor Cup" in frame and 'id=sheetSignup' in frame and "Sign up" in frame
     assert "Loading the schedule" in frame and "Nothing coming up" in frame and "Couldn't load the schedule" in frame
-    assert "Drop-in $15" in frame and "grid-template-columns:repeat(auto-fill,minmax(320px,1fr))" in frame
+    assert "Drop-in $15" in frame and "@media (min-width:500px){#cards{grid-template-columns:1fr 1fr}}" in frame
     assert "Mia" not in frame and "secret drill" not in frame
     admin.post("/manage/widget", data={
         "csrf": csrf(admin, "/manage/widget"),
@@ -205,16 +205,16 @@ def test_widget_is_off_until_an_admin_publishes_it():
     assert practice["count"] == 1 and "Mia" not in str(counted) and practice["chip"] == "schedule"
     counted_page = member.get("/widget").get_data(as_text=True)
     articles = counted_page.split('id=cards>', 1)[1].split("</main>", 1)[0]
-    assert "chip-info" not in articles and ">Schedule</span>" not in articles and "1 going" in articles
+    assert "chip-info" not in articles and ">Schedule</span>" not in articles and "<b>1</b><small>GOING</small>" in articles
     assert counted["theme"] == "day" and counted["default_chip"] == "schedule"
     with A.app.app_context():
         assert A.db().execute("SELECT COUNT(*) FROM practices").fetchone()[0] == before + 1
     admin_page = admin.get("/manage/widget").get_data(as_text=True)
     assert "Events in preview" not in admin_page and "Hide events that already ended" not in admin_page
-    assert "showing the next 4 events" in admin_page and "Show the free-trial message" in admin_page and "Show how many are going" in admin_page
-    assert "scrolling=no" in admin_page and "id=prevMobile" not in admin_page and "id=prevDesk" not in admin_page
-    assert "embedrow" in admin_page and "https://grunions.regulars.team/widget" in admin_page
-    assert "height:1px" in admin_page and "width:100%" in admin_page
+    assert "Preview<sup>(" in admin_page and "Free-trial message" in admin_page and "How many are going" in admin_page
+    assert "Open full preview" in admin_page and "id=prevMobile" not in admin_page and "id=prevDesk" not in admin_page
+    assert "Copy code" in admin_page and "Email it" in admin_page and "https://grunions.regulars.team/widget" in admin_page
+    assert ">Squarespace<" in admin_page and ">WordPress<" in admin_page
     with A.app.app_context():
         d = A.db()
         for offset, place in enumerate(("Pool A", "Pool B", "Pool C", "Pool D"), start=7):
@@ -250,7 +250,7 @@ def test_widget_is_off_until_an_admin_publishes_it():
     })
     quiet_public = member.get("/widget").get_data(as_text=True)
     quiet_preview = admin.get("/widget?preview=1").get_data(as_text=True)
-    assert "class=callout" not in quiet_public and "class=callout" not in quiet_preview
+    assert "offer callout" not in quiet_public and "offer callout" not in quiet_preview
     assert "Fridays" in quiet_public and "Fridays" in quiet_preview
     assert quiet_preview.count("<article") == 4 and quiet_public.count("<article") > 4
 
