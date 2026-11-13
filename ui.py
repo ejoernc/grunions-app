@@ -202,7 +202,7 @@ body.schedhome .weekhi .titlecross>h1{grid-area:1/1;margin:4px 0 0}
 body.schedhome .weekhi h1{font:700 40px/1.05 var(--r2-font-display);letter-spacing:-.04em;white-space:nowrap}
 body.schedhome .weekhi .hititle{opacity:calc(1 - var(--titlefade))}
 body.schedhome .weekhi h1.schedtitle{opacity:var(--titlefade);transform:none}
-body.schedhome .weekhi .maplegend{position:static;display:flex;gap:10px;margin-top:calc((1 - var(--titlefade)) * 10px);width:auto;opacity:calc(1 - var(--titlefade));max-height:calc((1 - var(--titlefade)) * 24px);overflow:hidden}
+body.schedhome .weekhi .maplegend{position:static;display:flex;gap:10px;margin-top:10px;width:auto;opacity:calc(1 - var(--titlefade));max-height:24px;overflow:hidden}
 .weekdrawer{position:fixed;z-index:3;left:0;right:0;bottom:0;height:var(--drawer-h);pointer-events:auto;display:flex;flex-direction:column;gap:8px;margin:0;padding:8px 16px 0;overflow:hidden;color:var(--paper);background:var(--carbon);border-radius:32px 32px 0 0}
 .weekdrawer.peek .weekthis>*:not(.r2-drive){display:none}
 .weekthis{display:flex;flex-direction:column;gap:12px;min-height:0}
@@ -555,6 +555,7 @@ body.schedopen header.homehead{background:var(--color-bg)}
 body.homefull .homemap{opacity:0}
 body.homefull .homemap.mapready{opacity:1}
 body.homefull .homemap.mapready.mapin{transition:opacity .3s ease}
+body.homefull.schedhome .homemap.mapready,body.homefull.schedhome .homemap.mapready.mapin{opacity:calc(1 - var(--mapfade, 0));transition:none}
 body.schedopen .homemap,body.schedopen .homemap.mapready,body.schedopen .homemap.mapready.mapin{opacity:0;transition:none}
 #schedule{scroll-margin-top:calc(var(--homehead, 88px) + 8px)}
 @media (prefers-reduced-motion:reduce){body.homefull .homemap,body.homefull .homemap.mapready.mapin{transition:none}}
