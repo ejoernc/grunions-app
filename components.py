@@ -420,8 +420,11 @@ def metric(value, label, tone="carbon"):
     return Markup('<div class="rg-metric tone-%s"><b>%s</b><span>%s</span></div>' % (_tone(tone, "carbon"), _e(value), _e(label)))
 
 
-def info(kicker, body):
-    """2.0 / Info block."""
+def info(kicker, body, href="", attrs=""):
+    """2.0 / Info block. With href the whole block is the link (e.g. tap a location to open Maps)."""
+    if href:
+        return Markup('<a class="rg-info link" href="%s"%s><span>%s</span><b>%s</b>%s</a>' % (
+            _e(href), (" " + attrs) if attrs else "", _e(kicker), _e(body), icon("chevron_right", "sm")))
     return Markup('<div class=rg-info><span>%s</span><b>%s</b></div>' % (_e(kicker), _e(body)))
 
 

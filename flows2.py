@@ -573,7 +573,6 @@ LEAVE_BY = """<div class="rg-page rg-rides rg-leaveby" data-practice="{{ p.id }}
 <form method=post action=/leave-by/settings class=fxsheet>{{ csrf_field() }}<input type=hidden name=next value="/practices/{{ p.id }}/leave-by">
 <label class=rg-toggle><span><b>Arrive {{ buffer or 5 }} min early for the deck</b><small>Leave-by counts back from {{ arrive_label }}</small></span><input type=checkbox name=buffer value=1 {% if buffer %}checked{% endif %} onchange="this.form.requestSubmit()"><i aria-hidden=true></i></label>
 </form>
-<a class="rg-btn secondary" href="https://www.google.com/maps/dir/?api=1&amp;destination={{ dest|urlencode }}" target=_blank rel=noopener>Open in Maps</a>
 <script>
 (function(){
  var pid={{ p.id }}, st=document.getElementById('lbStatus');
