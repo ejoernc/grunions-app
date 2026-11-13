@@ -5380,7 +5380,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
 <div class=profilerow><span class=rolechip>{{ role_label(m)|capitalize }}</span><p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p></div>
 <div class=metrics><div class="metric sun"><b>{{ '%02d'|format(hist|length) }}</b><span>Attended</span></div><div class="metric sky"><b>{{ '%02d'|format(nmonth or 0) }}</b><span>This month</span></div></div>
-<nav class="rg-filters filt profswitch chiprow" data-seg aria-label="Profile"><a {% if ptab == 'general' %}class=on aria-current=true{% endif %} href="/profile?tab=general">General</a><a {% if ptab == 'lineup' %}class=on aria-current=true{% endif %} href="/profile?tab=lineup">My Lineup</a>{% if hosts %}<a {% if ptab == 'hosting' %}class=on aria-current=true{% endif %} href="/profile?tab=hosting">Hosting</a>{% endif %}</nav>
+
 </div>
 </form>
 {% if ptab == 'general' %}

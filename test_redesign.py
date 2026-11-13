@@ -229,7 +229,7 @@ def test_share_trip_uses_preferred_names_and_no_server_send():
 
 def test_availability_windows_fit_conflicts_and_away():
     av = join("Ava", "Week", "ava@example.com")
-    t = csrf(av, "/availability")
+    t = csrf(av, "/calendar?when=availability")
     bad = av.post("/availability", data=dict(csrf=t, action="add", weekday="1", start="21:00", end="19:00"), follow_redirects=True)
     assert "end time after the start" in bad.get_data(as_text=True)
     today = A.today_pt(); monday = today - dt.timedelta(days=today.weekday())
@@ -243,9 +243,9 @@ def test_availability_windows_fit_conflicts_and_away():
     page = av.get("/availability/fit").get_data(as_text=True)
     assert "Early conflict" in page and "outside your windows" in page and "Mark Not going" in page
     assert "Fits practice — " not in page
-    av.post("/availability/away", data=dict(csrf=csrf(av, "/availability/away"), action="add", start_date=day.isoformat(), end_date=day.isoformat(), note="Trip"))
+    av.post("/availability/away", data=dict(csrf=csrf(av, "/calendar?when=availability"), action="add", start_date=day.isoformat(), end_date=day.isoformat(), note="Trip"))
     assert "you're away that day" in av.get("/availability/fit").get_data(as_text=True).replace("&#39;", "'")
-    assert av.get("/calendar?when=availability").headers["Location"].endswith("/availability")
+    assert av.get("/availability").headers["Location"].endswith("/calendar?when=availability")
     # Max travel: a saved location far from the pool marks the session Too far.
     sql("UPDATE away_dates SET end_date='2000-01-01', start_date='2000-01-01' WHERE member_id=?", (aid,))
     sql("UPDATE practices SET lat=33.7, lng=-118.0 WHERE title='Fits practice'")
@@ -351,6 +351,9 @@ def test_manage_chart_card_two_views_real_data():
     assert len(weeks) == 8 and (weeks[-1][1] - weeks[-2][1]).days == 7
 
 
-def test_availability_keeps_the_calendar_control():
-    page = member.get("/availability").get_data(as_text=True)
-    assert "Upcoming" in page and "Past" in page and 'href="/availability"' in page and "When can you play?" in page
+def test_availability_lives_on_calendar_with_day_and_away_sheets():
+    assert member.get("/availability").headers["Location"].endswith("/calendar?when=availability")
+    assert member.get("/availability/away").headers["Location"].endswith("/calendar?when=availability&sheet=away")
+    page = member.get("/calendar?when=availability").get_data(as_text=True)
+    assert "Upcoming" in page and "Past" in page and "When can you play?" in page
+    assert 'data-sheet-name=day' in page and 'data-sheet-name=away' in page and "data-day-sheet" in page

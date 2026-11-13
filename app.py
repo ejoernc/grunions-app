@@ -1275,7 +1275,7 @@ def inbox():
 def calendar_when_items(kind="all"):
     """Calendar segmented control. Availability is its own page (09.06) but keeps the same control."""
     return [("upcoming", "Upcoming", "/calendar?when=upcoming&kind=%s" % kind), ("past", "Past", "/calendar?when=past&kind=%s" % kind),
-            ("availability", "Availability", "/availability")]
+            ("availability", "Availability", "/calendar?when=availability&kind=%s" % kind)]
 @app.route("/calendar")
 @login_required
 def calendar():
@@ -1288,7 +1288,7 @@ def calendar():
     if show not in ("upcoming", "past", "availability"):
         show = "upcoming"
     kind = request.args.get("kind") or "all"
-    if kind not in ("all", "practices", "lineup", "scrimmages", "games"):
+    if kind not in ("all", "practices", "lineup", "scrimmages", "games", "hosting"):
         kind = "all"
     items = []
     op, order = (">=", "") if show == "upcoming" else ("<", " DESC")
@@ -1310,6 +1310,11 @@ def calendar():
             title = (row["title"] or k.capitalize()).strip()
             items.append((row["date"], row["start"] or "", "/practices/%d" % row["id"], ("%s · %s" % (clock, title)) if clock else title,
                           "%s · %s" % (org_short(), state), components.event_tone("coaching" if row["coaching"] else k)))
+    if show != "availability" and kind == "hosting":
+        for event in d.execute("""SELECT e.id, e.date, e.title, e.event_type FROM lineup_events e
+                WHERE (e.created_by=? OR e.host_id=?) AND e.date%s? ORDER BY e.date%s""" % (op, order), (m["id"], m["id"], today)).fetchall():
+            items.append((event["date"], "", "/lineup/%d" % event["id"], event["title"] or "Lineup", "Lineup · you're hosting",
+                          components.event_tone(event["event_type"] or "lineup")))
     if show != "availability" and kind in ("all", "lineup"):
         try:
             events = d.execute("""SELECT e.id, e.date, e.title, e.event_type,
@@ -1326,10 +1331,16 @@ def calendar():
                           "Lineup · %s" % ("registered" if state == "going" else state), components.event_tone(event["event_type"] or "lineup")))
     items.sort(key=lambda item: (item[0] or "", item[1]), reverse=(show == "past"))
     when_items = calendar_when_items(kind)
-    kind_items = [(v, l, "/calendar?when=%s&kind=%s" % (show, v)) for v, l in (("all", "All"), ("practices", "Practices"), ("scrimmages", "Scrimmages"), ("games", "Games"), ("lineup", "Lineup"))]
+    kinds = [("all", "All"), ("practices", "Practices"), ("scrimmages", "Scrimmages"), ("games", "Games"), ("lineup", "Lineup")]
+    if kind == "hosting" or d.execute("SELECT 1 FROM lineup_events WHERE created_by=? OR host_id=? LIMIT 1", (m["id"], m["id"])).fetchone():
+        kinds.append(("hosting", "Hosting"))
+    kind_items = [(v, l, "/calendar?when=%s&kind=%s" % (show, v)) for v, l in kinds]
     out = [components.seg(when_items, show)]
     if show == "availability":
-        return redirect("/availability")
+        wins = flows2.windows(d, m["id"])
+        aways = flows2.away(d, m["id"], today_pt().isoformat())
+        return page(flows2.AVAIL_WEEK, tab="calendar", seg=components.seg(calendar_when_items(kind), "availability"), wins=wins,
+                    blocks=_avail_blocks(wins), DAYS=flows2.DAYS, clock_range=flows2.clock_range, away_n=len(aways), aways=aways)
         picked = [x for x in (m["avail_days"] or "").split(",") if x]
         out.append(components.info("YOUR USUAL WEEK", ", ".join(picked) if picked else "Not set yet"))
         out.append(components.callout("Set the days you can usually play", "We mark practices that fit your week", "Edit →", "/setup/week", "lime"))
@@ -1668,6 +1679,9 @@ def profile():
     hist = d.execute("SELECT practice_date FROM checkins WHERE member_id=?", (m["id"],)).fetchall()
     month = today_pt().strftime("%Y-%m")
     vr_pending = d.execute("SELECT 1 FROM verify_requests WHERE member_id=? AND status='pending'", (m["id"],)).fetchone() is not None
+    raw_tab = (request.args.get("tab") or "").strip()
+    if raw_tab in ("lineup", "interested"): return redirect("/calendar?kind=lineup", 301)   # Figma 60: Lineup is a Calendar filter
+    if raw_tab in ("hosting", "mine"): return redirect("/calendar?kind=hosting", 301)
     ptab = {"interested": "lineup", "mine": "hosting"}.get((request.args.get("tab") or "general").strip(), (request.args.get("tab") or "general").strip())
     if ptab not in ("general", "lineup", "hosting"): ptab = "general"
     hosts = d.execute("SELECT 1 FROM lineup_events WHERE created_by=? OR host_id=? LIMIT 1", (m["id"], m["id"])).fetchone() is not None
@@ -3422,10 +3436,11 @@ def practice_picker_html(d, m, query="", sheet=False):
     return ('<div class=chathead><h1 class=chatdisplay>%s</h1></div>'
             '<p class="ty-muted ty-sm">%s</p>'
             '<p class="rg-day">Up next</p><div class="chatlist histlist">%s</div>'
-            '<p class="rg-day">Earlier</p><div class="chatlist histlist">%s</div>'
-            '<form method=get action=/chat class=searchpill><input type=hidden name=view value=practices>'
-            '<input name=q value="%s" placeholder="Search all practice chats" aria-label="Search all practice chats"></form>'
-            ) % (title, sub, up_html, early_html, escape(query or ""))
+            '<p class="rg-day">Earlier</p><div class="chatlist histlist">%s</div>%s'
+            ) % (title, sub, up_html, early_html,
+                 ('<form method=get action=/chat class=searchpill><input type=hidden name=view value=practices>'
+                  '<input name=q value="%s" placeholder="Search all practice chats" aria-label="Search all practice chats"></form>' % escape(query or ""))
+                 if (early_bits or query) else "")
 def practice_switcher(d, m, current):
     """Date chip on the one practice chat. It opens the picker instead of listing sessions in the inbox."""
     if not current.startswith("practice:"):
@@ -4220,11 +4235,13 @@ def requests_list_html(d, m):
             '<p class="ty-muted ty-sm">%s</p>'
             '<p class="rg-day">Open · %d</p><div class="chatlist histlist">%s</div>'
             '<p class="rg-day">Resolved</p><div class="chatlist histlist">%s</div>'
-            '<form method=get action=/chat class=searchpill><input type=hidden name=c value=requests>%s'
-            '<input name=q value="%s" placeholder="Search all requests" aria-label="Search all requests"></form>') % (
+            '%s') % (
                 plus, blurb, len(open_rows), open_html,
                 "".join(one(row) for row in done) or '<p class="ty-muted ty-sm">Nothing resolved yet.</p>',
-                hidden, escape(q))
+                # Search only when there's something to search (or a search is already running).
+                ('<form method=get action=/chat class=searchpill><input type=hidden name=c value=requests>%s'
+                 '<input name=q value="%s" placeholder="Search all requests" aria-label="Search all requests"></form>' % (hidden, escape(q)))
+                if (open_rows or done or q) else "")
 def _request_list_href(row):
     if not row:
         return "/chat?c=requests"
@@ -8419,8 +8436,10 @@ def club_programs():
     d = db()
     clubadmin.ensure(d)
     body = clubadmin.programs_html(d) + '<p style="margin-top:16px"><a class="rg-btn primary full" href="/manage/club/programs/new">Add sport</a></p>'
-    return page(ui.ADMIN_NAV + "{{ admin_page('Sports', 'Compliance and divisions for each sport.') }}{{ club_body|safe }}",
-        tab="admin", admin_back="/manage/area/club", club_body=body)
+    # The Compliance page is retired into here: shared requirement definitions, defined once, applied per sport.
+    body += '<section id=requirements><h3 class=rg-day>Club requirements</h3>' + clubadmin.compliance_html(d) + '</section>'
+    return page(ui.ADMIN_NAV + "{{ admin_page('Sports', 'Club supported sports, sports insurance and requirements.') }}{{ club_body|safe }}",
+        tab="admin", club_body=body)
 @app.route("/manage/club/programs/<slug>", methods=["GET", "POST"])
 @admin_required
 def club_program(slug):
@@ -8545,11 +8564,8 @@ def sport_divisions(slug):
 @app.route("/manage/club/compliance", methods=["GET"])
 @admin_required
 def club_compliance():
-    import clubadmin
-    d = db()
-    clubadmin.ensure(d)
-    return page(ui.ADMIN_NAV + "{{ admin_page('Compliance', 'Shared requirements. A pass does not clear one.') }}<div style=\"padding-bottom:120px\">{{ club_body|safe }}</div>",
-        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.compliance_html(d))
+    """Retired (Nov 13): covered by Sports. Shared definitions are listed on the Sports page."""
+    return redirect("/manage/club/programs#requirements", 301)
 @app.route("/manage/club/compliance/new", methods=["GET", "POST"])
 @admin_required
 def club_compliance_new():
@@ -8881,8 +8897,10 @@ def club_plans():
     import clubadmin
     d = db()
     clubadmin.ensure(d)
-    return page(ui.ADMIN_NAV + "{{ admin_page('Plans & passes', 'A pass grants access. It does not clear a sport requirement.') }}{{ club_body|safe }}",
-        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.plans_html(d))
+    # Integrations folds in here as "How members pay" (Figma 61 · Club › Plans & payments).
+    return page(ui.ADMIN_NAV + "{{ admin_page('Plans & payments', 'A pass grants access. It does not clear a sport requirement.') }}{{ club_body|safe }}"
+                "<section id=pay>{{ rg_label('How members pay') }}<p class=ty-muted>External registration links. Stripe stays off.</p>{{ pay_body|safe }}</section>",
+        tab="admin", club_body=clubadmin.plans_html(d), pay_body=clubadmin.integrations_html(d))
 @app.route("/manage/club/plans/new", methods=["GET", "POST"])
 @admin_required
 def club_plan_new():
@@ -8931,7 +8949,7 @@ def club_requirement_new():
 @app.route("/manage/club/requirements", methods=["GET"])
 @admin_required
 def club_requirements():
-    return redirect("/manage/club/programs")
+    return redirect("/manage/club/programs#requirements", 301)
 @app.route("/manage/club/requirements/<int:req_id>", methods=["GET", "POST"])
 @admin_required
 def club_requirement(req_id):
@@ -8957,11 +8975,8 @@ def club_requirement(req_id):
 @app.route("/manage/club/integrations", methods=["GET"])
 @admin_required
 def club_integrations():
-    import clubadmin
-    d = db()
-    clubadmin.ensure(d)
-    return page(ui.ADMIN_NAV + "{{ admin_page('Integrations', 'External registration links. Stripe stays off.') }}{{ club_body|safe }}",
-        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.integrations_html(d))
+    """Retired: folded into Plans & payments › How members pay."""
+    return redirect("/manage/club/plans#pay", 301)
 @app.route("/manage/area/<area>")
 @login_required
 def manage_area(area):
@@ -9565,7 +9580,10 @@ def expiring():
 @app.route("/requirements", methods=["GET", "POST"])
 @admin_required
 def requirements_page():
+    """Retired list (Nov 13): requirements are managed per sport. POSTs still work for old forms."""
     d = db()
+    if request.method == "GET":
+        return redirect("/manage/club/programs", 301)
     if request.method == "POST":
         a = request.form.get("action")
         if a == "add" and request.form.get("name", "").strip():
@@ -11287,8 +11305,8 @@ def availability():
     d = db(); m = me()
     if request.method == "POST":
         a = request.form.get("action")
-        nxt = request.form.get("next") or "/availability"
-        if not safe_return_path(urllib.parse.urlparse(nxt).path): nxt = "/availability"
+        nxt = request.form.get("next") or "/calendar?when=availability"
+        if not safe_return_path(urllib.parse.urlparse(nxt).path): nxt = "/calendar?when=availability"
         if a == "delete":
             d.execute("DELETE FROM avail_windows WHERE id=? AND member_id=?", (request.form.get("id", type=int), m["id"]))
         else:
@@ -11301,9 +11319,7 @@ def availability():
                 d.execute("INSERT INTO avail_windows(member_id, weekday, start, end) VALUES(?,?,?,?)", (m["id"],) + w)
         flows2.sync_days(d, m["id"]); d.commit(); flash("Saved", "toast")
         return redirect(nxt)
-    wins = flows2.windows(d, m["id"])
-    return page(flows2.AVAIL_WEEK, tab="calendar", seg=components.seg(calendar_when_items(), "availability"), wins=wins, blocks=_avail_blocks(wins), DAYS=flows2.DAYS,
-                clock_range=flows2.clock_range, away_n=len(flows2.away(d, m["id"], today_pt().isoformat())))
+    return redirect("/calendar?when=availability", 301)
 
 @app.route("/availability/fit")
 @login_required
@@ -11335,19 +11351,20 @@ def availability_travel():
 @app.route("/availability/away", methods=["GET", "POST"])
 @login_required
 def availability_away():
-    """09.09 Away dates."""
+    """09.09 Away dates: a sheet over Calendar › Availability. GET redirects there with the sheet open."""
     d = db(); m = me()
+    if request.method == "GET":
+        return redirect("/calendar?when=availability&sheet=away", 301)
     if request.method == "POST":
         if request.form.get("action") == "delete":
             d.execute("DELETE FROM away_dates WHERE id=? AND member_id=?", (request.form.get("id", type=int), m["id"]))
         else:
             s0, e0 = parse_date(request.form.get("start_date")), parse_date(request.form.get("end_date")) or parse_date(request.form.get("start_date"))
             if not s0 or not e0 or e0 < s0:
-                flash("Pick a start date, and an end on or after it."); return redirect("/availability/away")
+                flash("Pick a start date, and an end on or after it."); return redirect("/calendar?when=availability&sheet=away")
             d.execute("INSERT INTO away_dates(member_id, start_date, end_date, note) VALUES(?,?,?,?)",
                       (m["id"], s0.isoformat(), e0.isoformat(), " ".join((request.form.get("note") or "").split())[:60]))
-        d.commit(); flash("Saved", "toast"); return redirect("/availability/away")
-    return page(flows2.AVAIL_AWAY, tab="availability", aways=flows2.away(d, m["id"], today_pt().isoformat()))
+        d.commit(); flash("Saved", "toast"); return redirect("/calendar?when=availability")
 
 @app.route("/availability/auto", methods=["POST"])
 @login_required

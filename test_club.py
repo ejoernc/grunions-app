@@ -223,8 +223,12 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     ask = html.split("Ask the club", 1)[1].split("<dialog", 1)[0]
     assert "Message the board" not in ask and "Create channel" not in html
     picker = member.get("/chat?view=practices").get_data(as_text=True)
-    assert "Practice chats." in picker and "Up next" in picker and "Earlier" in picker and "Search all practice chats" in picker
-    assert picker.find("Earlier") < picker.find("Search all practice chats")
+    assert "Practice chats." in picker and "Up next" in picker and "Earlier" in picker
+    # Search shows only when there's history to search (Nov 13).
+    if "No earlier practices yet." in picker:
+        assert "Search all practice chats" not in picker
+    else:
+        assert picker.find("Earlier") < picker.find("Search all practice chats")
     sheet = member.get("/chat?view=practices&sheet=1").get_data(as_text=True)
     assert "Your practice chats." in sheet and "Practices you went to or are going to." in sheet
     with A.app.app_context():

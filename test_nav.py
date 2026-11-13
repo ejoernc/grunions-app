@@ -65,3 +65,32 @@ def test_no_history_back_referrer_or_hand_rolled_back_links():
             if "rg-backlink" in line or "hubback" in line:
                 bad.append((name, i, "hand-rolled back"))
     assert not bad, bad
+
+
+def test_retired_urls_redirect_to_their_new_home():
+    c = A.app.test_client()
+    c.post("/join", data=dict(birth_date="1990-03-04", csrf=re.search(r'name=csrf value="([^"]+)"', c.get("/join").get_data(as_text=True)).group(1),
+                              first="Nav", last="Tester", email="navtester@example.com", phone="1"))
+    import sqlite3
+    con = sqlite3.connect(A.DB); con.execute("UPDATE members SET is_admin=1 WHERE email='navtester@example.com'"); con.commit(); con.close()
+    retired = {
+        "/availability": "/calendar?when=availability",
+        "/availability/away": "/calendar?when=availability&sheet=away",
+        "/profile?tab=lineup": "/calendar?kind=lineup",
+        "/profile?tab=hosting": "/calendar?kind=hosting",
+        "/requirements": "/manage/club/programs",
+        "/manage/club/compliance": "/manage/club/programs#requirements",
+        "/manage/club/requirements": "/manage/club/programs#requirements",
+        "/manage/club/integrations": "/manage/club/plans#pay",
+        "/admins": "/members?view=admins",
+        "/export": "/transfer",
+        "/import": "/transfer",
+        "/calendar?when=availability": None,  # renders in place
+    }
+    for old, new in retired.items():
+        r = c.get(old)
+        if new is None:
+            assert r.status_code == 200, old
+            continue
+        assert r.status_code in (301, 302, 308), (old, r.status_code)
+        assert r.headers["Location"].endswith(new), (old, r.headers["Location"])

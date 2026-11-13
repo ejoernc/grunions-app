@@ -609,21 +609,50 @@ AVAIL_WEEK = """<div class="rg-screen rg-avail">
 <h2 class=ty-title>When can you play?</h2>
 <p class=ty-muted>Your regular week. Teams you're on can see "available" without the details.</p>
 {{ rg_week_grid(blocks, 'Your available windows') }}
-<h2 class=ty-title>Windows</h2>
-{% for w in wins %}<details class=rg-window><summary><b class=ty-heading-l>{{ DAYS[w.weekday]|upper }}</b><span>{{ clock_range(w.start, w.end) }}</span><em>Edit</em></summary>
-<form method=post action=/availability class=rg-winform>{{ csrf_field() }}<input type=hidden name=id value="{{ w.id }}">
-<div class=rg-wingrid><label class=rg-field><span>FROM</span><input type=time name=start value="{{ w.start }}" required></label><label class=rg-field><span>TO</span><input type=time name=end value="{{ w.end }}" required></label></div>
-<input type=hidden name=weekday value="{{ w.weekday }}">
-<div class=rg-ridebtns><button class="rg-btn primary" name=action value=save>Save</button><button class="rg-btn secondary" name=action value=delete formnovalidate>Remove</button></div></form></details>
+{{ rg_label('Windows') }}
+<div class=rg-srows>
+{% for w in wins %}<button type=button class=rg-srow data-day-sheet data-id="{{ w.id }}" data-weekday="{{ w.weekday }}" data-start="{{ w.start }}" data-end="{{ w.end }}"><span class=rg-srlabel>{{ DAYS[w.weekday] }}</span><span class=rg-srvalue>{{ clock_range(w.start, w.end) }}</span>{{ rg_icon('chevron_right', 'sm') }}</button>
 {% else %}<p class=ty-muted>No windows yet. Add the times you can usually play.</p>{% endfor %}
-<button type=button class="rg-btn secondary" data-open-dialog=winAdd>+ Add a window</button>
-<a class="rg-btn primary" href=/availability/fit>How your teams fit →</a>
-<a class=rg-calink href=/availability/away>Away dates{% if away_n %} · {{ away_n }}{% endif %}</a>
-<dialog id=winAdd class="botsheet modal"><form method=post action=/availability class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
-<h2>Add a window.</h2>
-<label class=rg-field><span>DAY</span><select name=weekday>{% for x in DAYS %}<option value="{{ loop.index0 }}">{{ x }}</option>{% endfor %}</select></label>
-<div class=rg-wingrid><label class=rg-field><span>FROM</span><input type=time name=start value="18:00" required></label><label class=rg-field><span>TO</span><input type=time name=end value="21:00" required></label></div>
-<button class="rg-btn primary" name=action value=add>Add window</button></form></dialog>
+<button type=button class=rg-srow data-day-sheet data-id="" data-weekday="1" data-start="18:00" data-end="21:00"><span class=rg-srlabel>Add a window</span>{{ rg_icon('plus', 'sm') }}</button>
+<button type=button class=rg-srow data-open-dialog=awaySheet><span class=rg-srlabel>Away dates</span><span class=rg-srvalue>{{ away_n or 'None' }}</span>{{ rg_icon('chevron_right', 'sm') }}</button>
+</div>
+{{ rg_button('How your teams fit', 'primary', '/availability/fit') }}
+<dialog id=daySheet class="botsheet modal" data-sheet-name=day><form method=post action=/availability class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<input type=hidden name=id id=dayId><input type=hidden name=next value="/calendar?when=availability">
+<h2 id=dayTitle>Edit a day.</h2>
+<label class=rg-field><span>DAY</span><select name=weekday id=dayWeekday>{% for x in DAYS %}<option value="{{ loop.index0 }}">{{ x }}</option>{% endfor %}</select></label>
+<div class=rg-wingrid><label class=rg-field><span>FROM</span><input type=time name=start id=dayStart required></label><label class=rg-field><span>TO</span><input type=time name=end id=dayEnd required></label></div>
+<button class="rg-btn primary" name=action value=save id=daySave>Save</button>
+<button class="rg-btn secondary" name=action value=delete formnovalidate id=dayDelete>Remove this window</button>
+</form></dialog>
+<dialog id=awaySheet class="botsheet modal" data-sheet-name=away><div class=sheet><div class=grab aria-hidden=true></div>
+<h2>Away dates.</h2>
+<p class=ty-muted>Sessions on these days count as conflicts, and Auto-RSVP skips them.</p>
+{% for a in aways %}<form method=post action=/availability/away class=rg-awayrow>{{ csrf_field() }}<input type=hidden name=id value="{{ a.id }}"><span><b>{{ fmt_d(a.start_date) }}{% if a.end_date != a.start_date %} – {{ fmt_d(a.end_date) }}{% endif %}</b>{% if a.note %}<small>{{ a.note }}</small>{% endif %}</span><button class="rg-btn secondary" name=action value=delete>Remove</button></form>
+{% endfor %}
+<form method=post action=/availability/away class=fxsheet>{{ csrf_field() }}
+<div class=rg-wingrid><label class=rg-field><span>FROM</span><input type=date name=start_date required></label><label class=rg-field><span>TO</span><input type=date name=end_date></label></div>
+<label class=rg-field><span>NOTE (OPTIONAL)</span><input name=note maxlength=60 placeholder="Trip, work, family"></label>
+<button class="rg-btn primary" name=action value=add>Add away dates</button></form>
+</div></dialog>
+<script>
+(function(){
+ if(window.grunionsDaySheet) return; window.grunionsDaySheet=1;
+ document.addEventListener('click',function(e){
+  var b=e.target.closest&&e.target.closest('[data-day-sheet]'); if(!b) return;
+  var d=document.getElementById('daySheet'); if(!d) return;
+  var id=b.getAttribute('data-id');
+  document.getElementById('dayId').value=id;
+  document.getElementById('dayWeekday').value=b.getAttribute('data-weekday');
+  document.getElementById('dayStart').value=b.getAttribute('data-start');
+  document.getElementById('dayEnd').value=b.getAttribute('data-end');
+  document.getElementById('dayTitle').textContent=id?'Edit a day.':'Add a window.';
+  document.getElementById('daySave').value=id?'save':'add';
+  document.getElementById('dayDelete').hidden=!id;
+  if(window.grunionsOpenSheet) grunionsOpenSheet(d); else d.showModal();
+ });
+})();
+</script>
 </div>"""
 
 AVAIL_FIT = """<div class="rg-page rg-rides rg-avail rg-avail-fit">

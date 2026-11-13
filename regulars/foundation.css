@@ -1014,3 +1014,9 @@ dialog.botsheet[open]{pointer-events:auto}
 .rg-page.rg-task{padding-top:8px;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
 .rg-task h1{margin:4px 0 0;font:700 clamp(32px,9vw,44px)/1 var(--font-display);letter-spacing:-.04em}
 .rg-task form>.rg-btn.primary:last-of-type{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom));z-index:2;box-shadow:0 -12px 24px var(--ink)}
+button.rg-srow{width:100%;border:0;text-align:left;font:inherit;cursor:pointer}
+/* List row subtext: two lines max, then an ellipsis (chat previews, channel unread summaries). */
+.rg-row .rg-txt small,.chatrow small{display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+/* A condensed social card sits under the practice card that follows it (16px overlap: 10 stack + 6 own).
+   Pad its bottom by that much so its Join button shows whole above the next card's edge. */
+.rg-social.cond[data-when=before]{padding-bottom:calc(var(--space-3) + 16px)}
