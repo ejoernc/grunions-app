@@ -1546,6 +1546,7 @@ div.card.tap.tripcard{padding:18px;overflow:visible}div.card.tap.tripcard .nxcar
 .fldlab{display:block;margin:0 0 var(--space-2);padding:0;font-size:var(--type-b3-size);font-weight:var(--type-b3-weight);line-height:var(--type-b3-line);color:var(--t2);text-align:left}
 .actseg.hostseg{flex-wrap:nowrap}
 .actseg.hostseg span{white-space:nowrap;height:44px;min-height:44px;padding:0 10px}
+@media (max-width:359px){body .actseg.hostseg span{white-space:normal;height:auto;min-height:44px;padding:6px 10px;text-align:center;line-height:1.15}}
 .hostblock{margin:0 0 var(--space-4)}
 .hostadd{display:flex;gap:8px;align-items:center}
 .hostadd input{flex:1;width:auto;min-width:0;margin:0;height:var(--size-button);box-sizing:border-box}
