@@ -7868,9 +7868,7 @@ T["qr_page"] = ADMIN_NAV + """<div class=rg-screen>
 {{ rg_page_title('QR codes', 'Print or share. Each code opens one thing.') }}
 <div class=rg-qrgrid>
 {{ rg_qr_card('Join the club', 'Opens the join page with the team picked.', '/qr.svg?for=join' if join_url else '', join_url, 'join-qr.svg', 'The join link is not ready yet.') }}
-{{ rg_qr_card('Public schedule', 'Opens the website schedule. No login.', '/qr.svg?for=schedule' if schedule_url else '', schedule_url, 'schedule-qr.svg', "Publish the schedule in <a href='/manage/widget'>Website &amp; sharing</a> first.") }}
 </div>
-<p class="ty-muted ty-sm">Codes don't expire. Changing a practice time doesn't change its code.</p>
 </div>"""
 
 def _ds_nav(label, keys):

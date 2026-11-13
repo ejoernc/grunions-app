@@ -7896,7 +7896,7 @@ def manage_home_groups(d):
         club.append(_manage_row("Usage", "Mapbox calls today", "/manage/tools/usage", "rules"))
         club.append(_manage_row("Data transfer", "Import & export", "/manage/tools/transfer", "swap"))
         club.append(_manage_row("Rules", "Policies & requirements", "/requirements", "rules"))
-        club.append(_manage_row("QR codes", "Join and schedule", "/manage/tools/qr", "qr"))
+        club.append(_manage_row("QR codes", "Join the club", "/manage/tools/qr", "qr"))
     groups = []
     if activities: groups.append({"label": "Activities", "rows": activities})
     if people: groups.append({"label": "People", "rows": people})
@@ -8218,7 +8218,7 @@ def _manage_catalog(d):
         add("club", "Roles & permissions", "Club roles, who holds them, and who can manage what", "/manage/club/permissions", "key", "permission admin admin lite sport admin who can manage leadership president treasurer board role")
         add("club", "Website & sharing", "Public schedule and the website widget", "/manage/widget", "widget", "embed website widget preview")
         add("club", "Reminders", "Emails and notifications before a practice. Off until you turn them on.", "/manage/club/reminders", "tray", "practice reminder email hours before")
-        add("tools", "QR codes", "Join and schedule", "/manage/tools/qr", "qr", "qr code join check-in")
+        add("tools", "QR codes", "Join the club", "/manage/tools/qr", "qr", "qr code join check-in")
         add("tools", "Data transfer", "Import and export", "/manage/tools/transfer", "swap", "csv import export export csv")
         add("tools", "Usage", "Mapbox calls today", "/manage/tools/usage", "rules", "mapbox usage", mapbox_calls_today())
     return rows

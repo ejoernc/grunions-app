@@ -110,7 +110,7 @@ def test_tools_pages_render_real_data():
     usage = c.get("/manage/tools/usage").get_data(as_text=True)
     assert "Usage." in usage and "MAPBOX CALLS TODAY" in usage and ">7<" in usage and "Leave-by times" in usage
     qr = c.get("/manage/tools/qr").get_data(as_text=True)
-    assert "QR codes." in qr and "Join the club" in qr and "/qr.svg?for=join" in qr and "Public schedule" in qr
+    assert "QR codes." in qr and "Join the club" in qr and "/qr.svg?for=join" in qr and "Public schedule" not in qr
     tr = c.get("/manage/tools/transfer").get_data(as_text=True)
     assert "Data transfer." in tr and "/export/payments.csv" in tr and "/export/all.zip" in tr and "data-sheet-name=import" in tr
     z = c.get("/export/all.zip")
