@@ -488,6 +488,12 @@ body.editor .daypicks input:checked+span{background:var(--team-sun);color:var(--
 #grunionsDateDlg .matactions,#grunionsTimeDlg .matactions{display:flex;gap:10px}
 #grunionsDateDlg .matactions button,#grunionsTimeDlg .matactions button{flex:1;height:52px;border-radius:999px;background:var(--graphite);color:var(--paper)}
 #grunionsDateDlg #matDateOk,#grunionsTimeDlg #timeOk{background:var(--lime);color:var(--ink)}
+/* Month mode (Nov 13): 2.0 segmented control for part of month; no day legend. */
+#grunionsDateDlg:has(#matMonths:not([hidden])) .callegend,#grunionsDateDlg:not(:has(#matGrid .has)) .callegend{display:none}
+#grunionsDateDlg .matpart{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:12px 0 4px;padding:4px;border-radius:999px;background:var(--carbon);flex-wrap:nowrap}
+#grunionsDateDlg .matpart label{margin:0;min-width:0;text-transform:none;letter-spacing:0;font:inherit}
+#grunionsDateDlg .matpart span{height:40px;min-height:0;padding:0 4px;border-radius:999px;background:transparent;color:var(--smoke);font:700 14px/1 var(--r2-font-sans);text-transform:none;letter-spacing:0;white-space:nowrap}
+#grunionsDateDlg .matpart input:checked+span{background:var(--paper);color:var(--ink)}
 /* Compact date picker: whole month fits without scrolling (Nov 13). */
 #grunionsDateDlg .sheet{overflow:visible;padding:16px 12px 12px}
 #grunionsDateDlg .matkicker{margin:0 8px 2px}
@@ -3866,7 +3872,7 @@ document.addEventListener('change',function(e){var t=e.target; if(t&&t.matches&&
   dateDlg.querySelectorAll('input[name=mat_part]').forEach(function(r){ r.checked=r.value===part; });
   fillDateMonths(dateDlg.querySelector('#matMonth'), iso);
   paintDate(dateSt.ym);
-  if(!dateDlg.open) dateDlg.showModal();
+  if(!dateDlg.open){ dateDlg.showModal(); if(document.activeElement&&dateDlg.contains(document.activeElement)) document.activeElement.blur(); }
  };
  window.grunionsOpenTime=function(input){
   if(!input) return;
