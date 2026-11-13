@@ -5512,7 +5512,7 @@ def admin_day_events(d, date):
             "start": start, "when": fmt_span(start, end), "pill": fmt_clock(start),
             "type_label": sports.ACTIVITY_NAME.get(kind, "Practice"), "place": p["location"] or "",
             "map_href": lineup_map_href("", p["location"] or ""),
-            "who": "",
+            "who": "", "tone": components.event_tone(kind),
             "detail": "/practices/%d?from=admin" % p["id"]})
     for e in d.execute("""SELECT e.*, c.chip AS cat_chip, h.first AS host_first, h.last AS host_last, h.preferred_first AS host_preferred
         FROM lineup_events e LEFT JOIN lineup_categories c ON c.id=e.category_id
@@ -5524,7 +5524,7 @@ def admin_day_events(d, date):
         events.append({"key": "l-%d" % e["id"], "kind": "lineup", "id": e["id"], "title": e["title"],
             "start": start, "when": when, "pill": fmt_clock(start), "type_label": e["cat_chip"] or "Event",
             "place": lineup_where(e["city"] or "", e["venue"] or ""),
-            "map_href": lineup_map_href(e["city"] or "", e["venue"] or ""), "who": who,
+            "map_href": lineup_map_href(e["city"] or "", e["venue"] or ""), "who": who, "tone": "lavender",
             "detail": "/lineup/%d?from=admin&date=%s" % (e["id"], date)})
     events.sort(key=lambda ev: (ev["start"], 0 if ev["kind"] == "practice" else 1, ev["id"]))
     return events
@@ -10713,6 +10713,24 @@ def hold_reason(r):
         return "Waiver not signed yet"
     return ""
 app.jinja_env.globals.update(hold_reason=hold_reason)
+def checkin_info(r, pid=None):
+    """08.70 Check-in row: the status line and what they picked when they tapped Going (drop-in, pass, trial)."""
+    hr = hold_reason(r)
+    if hr: return {"sub": hr, "hold": hr, "pick": ""}
+    d = db(); pick = ""
+    if pid:
+        row = d.execute("""SELECT pl.name, pl.kind FROM payment_checks c LEFT JOIN payment_plans pl ON pl.id=c.plan_id
+            WHERE c.member_id=? AND c.practice_id=? ORDER BY c.id DESC LIMIT 1""", (r["id"], pid)).fetchone()
+        if row and row["name"]: pick = row["name"]
+    if pick:
+        return {"sub": "Picked %s when going · board checks payment" % pick, "hold": "", "pick": pick}
+    try:
+        import clubadmin
+        paying = clubadmin.has_monthly_membership(d, r["id"], today_pt().isoformat())
+    except Exception:
+        paying = False
+    return {"sub": "Cleared · Paying member" if paying else "Cleared", "hold": "", "pick": ""}
+app.jinja_env.globals.update(checkin_info=checkin_info)
 def _write_going(d, pid, mid):
     prev = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, mid)).fetchone()
     d.execute("INSERT INTO rsvps(practice_id,member_id,going) VALUES(?,?,1) ON CONFLICT DO UPDATE SET going=1, at=CURRENT_TIMESTAMP", (pid, mid))

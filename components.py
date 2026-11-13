@@ -317,7 +317,35 @@ def checklist(title, steps, done_label=""):
         _e(title), chip("%d of %d" % (done, len(steps)), "neutral"), rows))
 
 
+def checkin_hero(n, total, title="", when="", tone="sun", href=""):
+    """2.0 / R5 Check-in hero (08.09): event-tone card, big n/total, 'checked in', the event underneath."""
+    tone = tone if tone in TONES else "sun"
+    tag = "a" if href else "div"
+    sub = " · ".join(x for x in (title, when) if x)
+    return Markup('<%s class="rg-cihero tone-%s"%s><b class=rg-cinum>%s/%s</b><span class=rg-cilbl><b>checked in</b>%s</span></%s>' % (
+        tag, tone, (' href="%s"' % _e(href)) if href else "", _e(n), _e(total),
+        ('<small>%s</small>' % _e(sub)) if sub else "", tag))
+
+
+def checkin_row(name, href, sub, fields, checked=False, hold="", pick=""):
+    """2.0 / R5 Check-in row (08.09, 08.70). One row per athlete; the pill on the right is the action.
+    checked: 'In' pill (tap to undo). hold: graphite row + 'Hold' pill that confirms first.
+    pick: sun-outlined row + sun pill with what they picked (Drop-in, Pass, Trial). Otherwise a lime 'Check in' pill.
+    fields: the hidden inputs (csrf, member id, date...) for the form."""
+    if checked:
+        cls, btn = "", '<button class="rg-cipill in" name=action value=undo title="Undo check-in" aria-label="Checked in. Tap to undo">%s<span>In</span></button>' % _CHECK
+    elif hold:
+        cls, btn = " hold", '<button class="rg-cipill hold" data-confirm="%s. Check in anyway?">Hold</button>' % _e(hold)
+    elif pick:
+        cls, btn = " pick", '<button class="rg-cipill pick" title="Check in">%s</button>' % _e(pick)
+    else:
+        cls, btn = "", '<button class="rg-cipill go">Check in</button>'
+    nm = ('<a href="%s">%s</a>' % (_e(href), _e(name))) if href else _e(name)
+    return Markup('<div class="rg-cirow%s"><div class=rg-citext><b>%s</b><small>%s</small></div><form method=post>%s%s</form></div>' % (
+        cls, nm, _e(sub), fields, btn))
+
+
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, event_tone=event_tone)
