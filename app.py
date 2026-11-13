@@ -469,6 +469,7 @@ def nav_context():
             "show_find": SHOW_FIND_TEAM}
 app.jinja_env.globals.update(components.jinja_globals())
 app.jinja_env.globals.update(display_first=display_first, initials=initials, fmt_phone=fmt_phone, nav_context=nav_context, nav_icon=ui.nav_icon)
+app.jinja_env.globals.update(GENDER_IDENTITIES=flows2.GENDER_IDENTITIES, LEGAL_GENDERS=flows2.LEGAL_GENDERS)
 # applies_to: all | athlete | coach. keywords: normalized substrings to find this item's columns in a Sport:80 export.
 DEFAULT_REQS = [("SafeSport training", "all", "safesport", 1), ("Background screening", "coach", "background", 1)]
 def drop_club_waiver(d):
@@ -1573,6 +1574,11 @@ def profile():
             return redirect("/profile")
         d.execute("UPDATE members SET first=?, last=?, preferred_first=?, pronouns=?, email=?, phone=? WHERE id=?",
                   (first, last, clean_preferred(request.form.get("preferred_first")), (request.form.get("pronouns") or "").strip()[:40], email, phone, m["id"]))
+        gid = flows2.clean_choice(request.form.get("gender_identity"), flows2.GENDER_IDENTITIES)
+        gself = " ".join((request.form.get("gender_self") or "").split())[:40] if gid == "self" else None
+        d.execute("UPDATE members SET gender_identity=?, gender_self=?, legal_gender=? WHERE id=?",
+                  (gid, gself, flows2.clean_choice(request.form.get("legal_gender"), flows2.LEGAL_GENDERS), m["id"]))
+        if gid not in ("woman", "nonbinary", "self"): d.execute("UPDATE members SET ride_wnb=0 WHERE id=?", (m["id"],))
         d.commit()
         flash("Saved", "toast")
         return redirect("/profile")
@@ -1638,7 +1644,20 @@ def _privacy_prefs(m):
         "messages_outside": flag("messages_outside", False),
         "show_in_picker": flag("show_in_picker", True),
         "share_exact_location": flag("share_exact_location", True),
+        "save_location": flag("save_location", True),
+        "loc_at": _loc_saved_label(m),
     }
+def _loc_saved_label(m):
+    if not m or "last_loc_at" not in m.keys() or not m["last_loc_at"]: return ""
+    try: at = dt.datetime.fromisoformat(m["last_loc_at"])
+    except ValueError: return ""
+    return "%s %s" % (fmt_d(at.date().isoformat()), fmt_t(at.strftime("%H:%M")))
+@app.route("/privacy/location/forget", methods=["POST"])
+@login_required
+def forget_location():
+    d = db(); d.execute("UPDATE members SET last_lat=NULL, last_lng=NULL, last_loc_at=NULL WHERE id=?", (me()["id"],))
+    d.execute("DELETE FROM leave_alerts WHERE member_id=?", (me()["id"],)); d.commit()
+    flash("Location forgotten", "toast"); return redirect("/privacy")
 @app.route("/privacy", methods=["GET", "POST"])
 @login_required
 def privacy():
@@ -1648,6 +1667,9 @@ def privacy():
                   (1 if request.form.get("show_attendance") else 0, 1 if request.form.get("show_pronouns") else 0,
                    1 if request.form.get("messages_outside") else 0, 1 if request.form.get("show_in_picker") else 0,
                    1 if request.form.get("share_exact_location") else 0, m["id"]))
+        keep = 1 if request.form.get("save_location") else 0
+        d.execute("UPDATE members SET save_location=? WHERE id=?", (keep, m["id"]))
+        if not keep: d.execute("UPDATE members SET last_lat=NULL, last_lng=NULL, last_loc_at=NULL WHERE id=?", (m["id"],))
         d.commit()
         flash("Saved", "toast")
         return redirect("/privacy")
@@ -4464,10 +4486,17 @@ def api_messages():
                          (after, ch, deleted_cutoff(), limit)).fetchall()
     return messages_json(with_seen(d, ch, _own_board(list(reversed(rows)), ch), info), info)
 
+def save_last_location(d, m, lat, lng):
+    """Keep the member's last location, rounded to ~100 m, for leave-by alerts and travel time. Never shown to anyone."""
+    if not m or ("save_location" in m.keys() and not m["save_location"]): return
+    a, b = flows2.round_loc(lat, lng)
+    d.execute("UPDATE members SET last_lat=?, last_lng=?, last_loc_at=? WHERE id=?", (a, b, wall_pt().replace(tzinfo=None).isoformat(timespec="seconds"), m["id"]))
+    d.commit()
+
 @app.route("/api/drive", methods=["POST"])
 @login_required
 def api_drive():
-    """Minutes from the caller's device to an event. The origin is not stored or logged."""
+    """Minutes from the caller's device to an event. The origin is saved as the member's last location (~100 m) unless they turned that off."""
     body = request.get_json(silent=True) or {}
     try:
         eid = int(body.get("id"))
@@ -4492,6 +4521,7 @@ def api_drive():
         return jsonify(error="location"), 400
     if not (-90 <= lat <= 90 and -180 <= lng <= 180):
         return jsonify(error="location"), 400
+    save_last_location(d, me(), lat, lng)
     now = now_pt()
     start, _end = practice_span(p)
     arrive = start.replace(tzinfo=PT)
@@ -10256,6 +10286,7 @@ NOTIFY_PUSH = (
     ("verification_result", "Verification result", "all"),
     ("practice_cancelled", "Practice cancelled", "all"),
     ("ride", "Rides: requests, pickups, and changes", "all"),
+    ("leave_by", "Leave-by: 3 hours out, and when traffic moves it 5+ min", "all"),
     ("expiry", "Trial, membership, SafeSport, and background screening expiring or expired", "all"),
     ("verify_request", "New verification requests", "admin"),
 )
@@ -10742,7 +10773,7 @@ def run_notify_jobs():
     d = open_db()
     try:
         if not claim_job(d, "notify_scan", 90): return
-        run_practice_reminders(d); run_expiry_notices(d); nudge_stale_requests(d); run_auto_rsvp_asks(d)
+        run_practice_reminders(d); run_expiry_notices(d); nudge_stale_requests(d); run_auto_rsvp_asks(d); run_leave_alerts(d)
     except Exception:
         app.logger.exception("notification job failed")
     finally:
@@ -10976,7 +11007,7 @@ def practice_rides(pid):
         mine = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, m["id"])).fetchone()
         going = bool(mine and mine["going"] == 1)
         rides = flows2.rides_for(d, pid, m["id"])
-        return page(flows2.RIDE_BOARD, tab="flow", p=p, board=flows2.ride_board(d, pid), going=going, rd=rides,
+        return page(flows2.RIDE_BOARD, tab="flow", p=p, board=flows2.ride_board(d, pid, m), going=going, rd=rides,
                     seats_left=flows2.seats_left(d, rides["offer"]) if rides["offer"] else 0,
                     defaults=flows2.ride_defaults(m), last_area=_last_ride_area(d, m), when=fmt_d(p["date"]) + " · " + fmt_clock(p["start"]))
     back_to = "/practices/%d/rides" % pid if request.form.get("next") == "board" else ("/practices" if request.form.get("next") == "home" else "/practices/%d" % pid)
@@ -10992,7 +11023,7 @@ def practice_rides(pid):
             d.execute("UPDATE ride_requests SET status='cancelled' WHERE practice_id=? AND rider_id=? AND status='open'", (pid, m["id"]))
             d.execute("INSERT INTO ride_requests(practice_id, rider_id, area, back, created) VALUES(?,?,?,?,?)", (pid, m["id"], area, back, now))
             for o in d.execute("SELECT m.* FROM ride_offers o JOIN members m ON m.id=o.driver_id WHERE o.practice_id=? AND o.status='open' AND o.driver_id!=?", (pid, m["id"])).fetchall():
-                if wants_push(o, "ride"): push_member(d, o, "ride", "%s needs a ride" % display_first(m), "%s · %s" % (area, fmt_d(p["date"])), "/practices/%d" % pid)
+                if flows2.ride_visible(o, m) and wants_push(o, "ride"): push_member(d, o, "ride", "%s needs a ride" % display_first(m), "%s · %s" % (area, fmt_d(p["date"])), "/practices/%d" % pid)
             flash("Asked. We'll tell you when a driver picks you up.", "toast")
         else:
             seats = max(1, min(6, request.form.get("seats", type=int) or 1))
@@ -11003,6 +11034,8 @@ def practice_rides(pid):
         offer = d.execute("SELECT * FROM ride_offers WHERE practice_id=? AND driver_id=? AND status='open'", (pid, m["id"])).fetchone()
         rid = request.form.get("req_id", type=int)
         if not offer or flows2.seats_left(d, offer) < 1: flash("No seats left."); return redirect(back_to)
+        asker = d.execute("SELECT m.* FROM ride_requests r JOIN members m ON m.id=r.rider_id WHERE r.id=? AND r.practice_id=?", (rid, pid)).fetchone()
+        if not asker or not flows2.ride_visible(m, asker): flash("That request isn't open to you."); return redirect(back_to)
         d.execute("UPDATE ride_requests SET status='matched', driver_id=?, matched_at=? WHERE id=? AND practice_id=? AND status='open'", (m["id"], now, rid, pid))
         if d.execute("SELECT changes()").fetchone()[0]:
             rider = d.execute("SELECT m.* FROM ride_requests r JOIN members m ON m.id=r.rider_id WHERE r.id=?", (rid,)).fetchone()
@@ -11040,7 +11073,7 @@ def _clock_short(t):
 @app.route("/practices/<int:pid>/leave-by")
 @login_required
 def leave_by_page(pid):
-    """04.10 Leave-by planner. Your location is asked on the device and sent once to /api/leave-by; never stored."""
+    """04.10 Leave-by planner. Your location is asked on the device and sent to /api/leave-by, which keeps it as your last location."""
     d = db(); m = me()
     p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
     if not p or p["cancelled"]: abort(404)
@@ -11052,7 +11085,7 @@ def leave_by_page(pid):
 @app.route("/api/leave-by", methods=["POST"])
 @login_required
 def api_leave_by():
-    """Forecast for 04.10. Only on the practice day, only for a practice you can drive to. The origin is not stored or logged."""
+    """Forecast for 04.10. Only within 24h of the start. The origin becomes the member's last location (~100 m) unless turned off."""
     body = request.get_json(silent=True) or {}
     try:
         pid = int(body.get("id")); lat, lng = float(body.get("lat")), float(body.get("lng"))
@@ -11060,6 +11093,7 @@ def api_leave_by():
         return jsonify(ok=False, error="input"), 400
     if not (-90 <= lat <= 90 and -180 <= lng <= 180): return jsonify(ok=False, error="input"), 400
     d = db(); m = me()
+    save_last_location(d, m, lat, lng)
     p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
     if not p: return jsonify(ok=False, error="practice"), 404
     p = ensure_map_coords(d, p)
@@ -11134,11 +11168,25 @@ def availability_fit():
     d = db(); m = me()
     a, b = _week_bounds()
     ps = d.execute("SELECT * FROM practices WHERE date BETWEEN ? AND ? ORDER BY date, start", (a.isoformat(), b.isoformat())).fetchall()
-    fit = flows2.week_fit(d, m["id"], ps)
+    origin = flows2.last_location(m, wall_pt(), max_age_h=None)
+    def travel(p):
+        if not origin: return None
+        p = ensure_map_coords(d, p)
+        return routing.estimate_minutes(origin, (p["lat"], p["lng"])) if p["lat"] is not None and p["lng"] is not None else None
+    max_travel = int(m["max_travel"] or 0)
+    fit = flows2.week_fit(d, m["id"], ps, travel, max_travel)
     for r in fit["rows"]:
         r["wd"] = dt.date.fromisoformat(str(r["p"]["date"])[:10]).weekday()
     wins = flows2.windows(d, m["id"])
-    return page(flows2.AVAIL_FIT, tab="availability", fit=fit, blocks=_avail_blocks(wins, fit["rows"]), DAYS=flows2.DAYS, org=org_name())
+    return page(flows2.AVAIL_FIT, tab="availability", fit=fit, blocks=_avail_blocks(wins, fit["rows"]), DAYS=flows2.DAYS, org=org_name(),
+                max_travel=max_travel, travel_choices=flows2.TRAVEL_CHOICES, has_loc=bool(origin))
+
+@app.route("/availability/travel", methods=["POST"])
+@login_required
+def availability_travel():
+    n = request.form.get("max_travel", type=int) or 0
+    d = db(); d.execute("UPDATE members SET max_travel=? WHERE id=?", (n if n in flows2.TRAVEL_CHOICES else 0, me()["id"])); d.commit()
+    return redirect("/availability/fit")
 
 @app.route("/availability/away", methods=["GET", "POST"])
 @login_required
@@ -11163,6 +11211,49 @@ def availability_auto():
     d = db(); d.execute("UPDATE members SET auto_rsvp=? WHERE id=?", (1 if request.form.get("auto_rsvp") else 0, me()["id"])); d.commit()
     return redirect("/availability/fit")
 
+def run_leave_alerts(d, now=None, recheck_min=14, nudge_min=5):
+    """04.09 + 04.10 nudge. For going members with a recent saved location: when a practice enters its last 3 hours,
+    push the leave-by time; re-check traffic about every 15 minutes and push again only if leave-by moves 5+ min.
+    One routed call per member per check, inside the daily Mapbox cap; estimates never trigger a push."""
+    now = wall_pt(now)
+    sent = 0
+    for p in d.execute("SELECT * FROM practices WHERE date=? AND COALESCE(cancelled,0)=0", (now.date().isoformat(),)).fetchall():
+        start, _end = practice_span(p)
+        if not (now < start <= now + dt.timedelta(hours=3)): continue
+        p = ensure_map_coords(d, p)
+        if p["lat"] is None or p["lng"] is None: continue
+        for mem in d.execute("SELECT m.* FROM members m JOIN rsvps r ON r.member_id=m.id WHERE r.practice_id=? AND r.going=1", (p["id"],)).fetchall():
+            origin = flows2.last_location(mem, now)
+            if not origin or not wants_push(mem, "leave_by"): continue
+            row = d.execute("SELECT * FROM leave_alerts WHERE member_id=? AND practice_id=?", (mem["id"], p["id"])).fetchone()
+            if row and row["checked"] and now - dt.datetime.fromisoformat(row["checked"]) < dt.timedelta(minutes=recheck_min): continue
+            route = drive_service.once(origin, (p["lat"], p["lng"]), "driving-traffic", as_pt(now))
+            stamp = now.isoformat(timespec="seconds")
+            if route.estimated:
+                d.execute("""INSERT INTO leave_alerts(member_id, practice_id, leave_by, checked) VALUES(?,?,?,?)
+                    ON CONFLICT(member_id, practice_id) DO UPDATE SET checked=excluded.checked""", (mem["id"], p["id"], row["leave_by"] if row else None, stamp))
+                continue
+            buf = int(mem["leave_buffer"]) if mem["leave_buffer"] is not None else 5
+            leave = start - dt.timedelta(minutes=buf + route.minutes)
+            hm = leave.strftime("%H:%M")
+            title = None
+            if not row or not row["leave_by"]:
+                title, body = "Leave by %s" % fmt_t(hm), "%s %s · about %d min with traffic" % (practice_title(p), fmt_clock(p["start"]), route.minutes)
+            else:
+                old = dt.datetime.combine(start.date(), dt.time(*map(int, row["leave_by"].split(":"))))
+                if abs((leave - old).total_seconds()) >= nudge_min * 60:
+                    title = "Leave by moved to %s" % fmt_t(hm)
+                    body = "Traffic changed: %s now, was %s. %s %s." % ("earlier" if leave < old else "later", fmt_t(row["leave_by"]), practice_title(p), fmt_clock(p["start"]))
+                else:
+                    hm = row["leave_by"]
+            d.execute("""INSERT INTO leave_alerts(member_id, practice_id, leave_by, checked) VALUES(?,?,?,?)
+                ON CONFLICT(member_id, practice_id) DO UPDATE SET leave_by=excluded.leave_by, checked=excluded.checked""", (mem["id"], p["id"], hm, stamp))
+            d.commit()
+            if title:
+                push_member(d, mem, "leave_by", title, body, "/practices/%d/leave-by" % p["id"]); sent += 1
+    d.commit()
+    return sent
+
 def run_auto_rsvp_asks(d, now=None):
     """Auto-RSVP (09.07): from 7 PM the night before, ask members whose windows fit a session to confirm Going.
     Asks once per member per session, never RSVPs for them, skips away dates and anyone who already answered."""
@@ -11174,6 +11265,10 @@ def run_auto_rsvp_asks(d, now=None):
         for mem in d.execute("""SELECT m.* FROM members m WHERE COALESCE(m.auto_rsvp,0)=1
                 AND NOT EXISTS(SELECT 1 FROM rsvps r WHERE r.practice_id=? AND r.member_id=m.id)""", (p["id"],)).fetchall():
             if flows2.is_away(flows2.away(d, mem["id"]), tomorrow) or not flows2.fits(p, flows2.windows(d, mem["id"])): continue
+            origin = flows2.last_location(mem, now, max_age_h=None)
+            if origin and mem["max_travel"]:
+                pp = ensure_map_coords(d, p)
+                if pp["lat"] is not None and routing.estimate_minutes(origin, (pp["lat"], pp["lng"])) > int(mem["max_travel"]): continue
             if not claim_notice(d, mem["id"], "autorsvp:%d" % p["id"]): continue
             push_member(d, mem, "practice", "Going tomorrow?", "%s %s fits your week. Tap to confirm." % (practice_title(p), fmt_clock(p["start"])), "/practices/%d" % p["id"])
             sent += 1
@@ -11192,7 +11287,8 @@ def ride_settings():
         offer = 1 if request.form.get("ride_offer") else 0
         if offer and not area:
             flash("Add the area you drive from to offer rides."); return redirect("/rides/settings")
-        d.execute("UPDATE members SET ride_offer=?, ride_area=?, ride_seats=? WHERE id=?", (offer, area, seats, m["id"]))
+        wnb = 1 if (request.form.get("ride_wnb") and flows2.wnb_eligible(m)) else 0
+        d.execute("UPDATE members SET ride_offer=?, ride_area=?, ride_seats=?, ride_wnb=? WHERE id=?", (offer, area, seats, wnb, m["id"]))
         d.commit(); flash("Saved", "toast"); return redirect("/rides/settings")
     return page(flows2.RIDE_SETTINGS, tab="rides", rs=flows2.ride_defaults(m))
 

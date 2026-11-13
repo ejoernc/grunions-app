@@ -2966,6 +2966,14 @@ grunionsPushCard();
 if(!window.grunionsDialogs){window.grunionsDialogs=1;
 document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-open-dialog]');
  if(t){var d=document.getElementById(t.getAttribute('data-open-dialog')); if(d&&d.showModal){e.preventDefault(); d.showModal();} return;}
+ var sh=e.target.closest&&e.target.closest('[data-share-text]');
+ if(sh){e.preventDefault(); var txt=sh.getAttribute('data-share-text'), note=sh.parentNode.querySelector('[data-share-note]');
+  // Share trip (04.19): the member's own share sheet or clipboard. The club never sends the text.
+  if(navigator.share){navigator.share({text:txt}).catch(function(){}); return;}
+  var done=function(){ if(note){note.hidden=false; note.textContent='Copied. Paste it to anyone you like.';} };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, function(){ if(note){note.hidden=false; note.textContent=txt;} });
+  else if(note){note.hidden=false; note.textContent=txt;}
+  return;}
  if(e.target.tagName==='DIALOG'&&e.target.open&&e.target.classList.contains('modal')) e.target.close();});}
 function grunionsAppBadge(n){try{if(!navigator.setAppBadge)return;if((n|0)>0)navigator.setAppBadge(n|0);else if(navigator.clearAppBadge)navigator.clearAppBadge();}catch(e){}}
 function grunionsBadges(u){if(!u)return;grunionsAppBadge(u.total);
@@ -5354,6 +5362,10 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <label>Last name<input name=last value="{{ m.last }}" required autocomplete=off></label>
 <label>Preferred name<input name=preferred_first value="{{ m.preferred_first or '' }}" autocomplete=off></label>
 <label>Pronouns<input name=pronouns value="{{ m.pronouns or '' }}" placeholder="she/her" autocomplete=off></label>
+<label>Gender<select name=gender_identity id=genderId><option value="">Not set</option>{% for k, v in GENDER_IDENTITIES %}<option value="{{ k }}"{% if m.gender_identity == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+<label id=genderSelfRow{% if m.gender_identity != 'self' %} hidden{% endif %}>In your words<input name=gender_self maxlength=40 value="{{ m.gender_self or '' }}" autocomplete=off></label>
+<label>Legal gender<select name=legal_gender><option value="">Not set</option>{% for k, v in LEGAL_GENDERS %}<option value="{{ k }}"{% if m.legal_gender == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+<p class=t3>Gender is never shown on your profile. It's only used for women &amp; non-binary rides if you turn them on. Legal gender is only for governing-body and insurance rosters (like USA Water Polo) and only admins see it.</p>
 <label>Email<input name=email type=email value="{{ m.email }}" required autocomplete=email></label>
 <label>Phone<input name=phone type=tel inputmode=numeric value="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}" required autocomplete=tel></label>
 <p class=t3>Your legal name is only shown to club admins. Changing your email changes how you sign in.</p>
@@ -5408,6 +5420,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
  function placeMenu(el){ if(!el||window.innerWidth<768){ if(el){el.style.left='';el.style.top='';el.classList.remove('popover');} return; } el.classList.add('popover'); var w=el.classList.contains('privacy')?400:340; var r=more.getBoundingClientRect(); var left=Math.max(16, Math.min(window.innerWidth-16-w, r.right-w)); var top=r.bottom+8; el.style.left=left+'px'; el.style.top=top+'px'; el.style.margin='0'; }
  if(more&&selfMenu) more.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(selfMenu); else selfMenu.showModal(); requestAnimationFrame(function(){ placeMenu(selfMenu); }); };
  function openNamed(id){ var el=document.getElementById(id); if(!el) return; if(window.grunionsOpenSheet) grunionsOpenSheet(el); else el.showModal(); placeMenu(el); }
+ (function(){ var g=document.getElementById('genderId'), r=document.getElementById('genderSelfRow'); if(g&&r) g.addEventListener('change', function(){ r.hidden = g.value!=='self'; }); if(/[?&]edit=identity(&|$)/.test(location.search) && document.getElementById('editSheet')) setTimeout(function(){ openNamed('editSheet'); }, 0); })();
  if(selfMenu) selfMenu.addEventListener('click', function(e){ var b=e.target.closest&&e.target.closest('[data-menu]'); if(!b) return; var kind=b.getAttribute('data-menu'); if(window.grunionsCloseSheet) grunionsCloseSheet(selfMenu); else selfMenu.close(); if(kind==='photo') openPhoto(); else if(kind==='edit') openNamed('editSheet'); else if(kind==='delete') openNamed('deleteSheet'); });
  var delBox=document.getElementById('deleteWord'); if(delBox) delBox.addEventListener('input', function(){ var go=document.getElementById('deleteGo'); if(go) go.disabled=delBox.value!=='DELETE'; });
  if(/[?&]edit=1/.test(location.search)) enter();
@@ -5572,9 +5585,15 @@ T["privacy"] = """<form method=post action=/privacy class=privacyform>{{ csrf_fi
 <div class=privcard>
 <label class=privrow><span class=grow><b>Share my exact location</b><small>Only with a driver who agreed to pick you up. Everyone else sees an area.</small></span><span class=r2switch><input type=checkbox name=share_exact_location value=1 {% if prefs.share_exact_location %}checked{% endif %}><i></i></span></label>
 </div>
+<p class="r2caps">Location</p>
+<div class=privcard>
+<label class=privrow><span class=grow><b>Save my last location</b><small>{% if prefs.loc_at %}Last saved {{ prefs.loc_at }}, to about 100 m. {% endif %}Used for leave-by alerts and travel time. Only you see it.</small></span><span class=r2switch><input type=checkbox name=save_location value=1 {% if prefs.save_location %}checked{% endif %}><i></i></span></label>
+{% if prefs.loc_at %}<div class=privrow><span class=grow><b>Forget my location</b><small>Deletes the saved spot now</small></span><button class="rg-btn ink" form=forgetLoc>Forget</button></div>{% endif %}
+</div>
 <p class=t3>Public (people not on your teams): first name + last initial and your club only. No stats, no About, no Message.</p>
 <button class="btn btn-primary full">Save</button>
-</form>"""
+</form>
+<form id=forgetLoc method=post action=/privacy/location/forget>{{ csrf_field() }}</form>"""
 
 T["person"] = """<div class=profilehero>
 <div class=avatarwrap><span class="avatar hero">{% if m.photo %}<img src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="" width="112" height="112">{% else %}{{ initials(m) }}{% endif %}</span></div>
@@ -5588,6 +5607,8 @@ T["person"] = """<div class=profilehero>
 <div class="li prow"><span class=k>Clearance</span><span class="stchip {{ 'tang' if not cleared else 'lime' }}">{% if cleared %}Cleared{% else %}Not cleared{% endif %}</span></div>
 </div>
 <p class=fldlab>Theirs · view only</p>
+{% if me().is_admin %}<div class=list><div class="li prow"><span class=k>Legal gender</span><span class=v>{{ dict(LEGAL_GENDERS).get(m.legal_gender or '', 'Not set') }}</span></div></div>
+<p class=t3>For governing-body and insurance rosters. Admins only.</p>{% endif %}
 {% endif %}
 {% if staff and needs %}<div class=needcard><p class=needkicker>Needs attention</p><b>{{ display_first(m) }}'s {{ needs }}.</b><p>Once you've checked USAWP and SafeSport, mark them in ⋯ › Update compliance.</p></div>{% endif %}
 <div class=metrics><div class="metric sun"><b>{{ '%02d'|format(0 if attendance_private else hist|length) }}</b><span>Attended</span></div><div class="metric sky"><b>{{ '%02d'|format(0 if attendance_private else (nmonth or 0)) }}</b><span>This month</span></div></div>

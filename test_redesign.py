@@ -128,13 +128,103 @@ def test_leave_by_plan_picks_the_latest_departure_that_arrives_on_time():
     assert {b["level"] for b in plan["bars"]} >= {"clear", "jammed"}
 
 
-def test_leave_by_api_window_and_no_origin_stored():
+def test_leave_by_api_window_and_last_location_saved_rounded():
     day = (A.today_pt() + dt.timedelta(days=5)).isoformat()
     sql("INSERT INTO practices(date,start,end,location,sport,title,lat,lng) VALUES(?,?,?,?,?,?,?,?)", (day, "19:00", "20:30", "Far Pool", "Water Polo", "Far practice", 33.7, -118.0))
     pid = sql("SELECT id FROM practices WHERE title='Far practice'")[0][0]
-    r = member.post("/api/leave-by", json=dict(id=pid, lat=33.8, lng=-118.1), headers={"X-CSRF": csrf(member, "/rides/settings")})
+    r = member.post("/api/leave-by", json=dict(id=pid, lat=33.81234, lng=-118.16789), headers={"X-CSRF": csrf(member, "/rides/settings")})
     assert r.get_json() == {"ok": False, "error": "window"}
+    assert sql("SELECT last_lat, last_lng FROM members WHERE id=?", (RAE,))[0] == (33.812, -118.168)
     assert "Leave by" in member.get("/practices/%d/leave-by" % pid).get_data(as_text=True)
+    priv = member.get("/privacy").get_data(as_text=True)
+    assert "Save my last location" in priv and "Last saved" in priv and "Forget my location" in priv
+    member.post("/privacy/location/forget", data=dict(csrf=csrf(member, "/privacy")))
+    assert sql("SELECT last_lat, last_loc_at FROM members WHERE id=?", (RAE,))[0] == (None, None)
+    # Turning saving off stops it; turning it back on lets the next device fix save.
+    member.post("/privacy", data=dict(csrf=csrf(member, "/privacy"), show_attendance="1"))
+    member.post("/api/leave-by", json=dict(id=pid, lat=33.8, lng=-118.1), headers={"X-CSRF": csrf(member, "/rides/settings")})
+    assert sql("SELECT save_location, last_lat FROM members WHERE id=?", (RAE,))[0] == (0, None)
+    member.post("/privacy", data=dict(csrf=csrf(member, "/privacy"), show_attendance="1", save_location="1"))
+
+
+def test_leave_alerts_push_at_3h_then_only_when_leave_by_moves_5_min():
+    import routing
+    la = join("Lee", "Alert", "lee@example.com")
+    lid = sql("SELECT id FROM members WHERE email='lee@example.com'")[0][0]
+    today = A.today_pt().isoformat()
+    sql("INSERT INTO practices(date,start,end,location,sport,title,lat,lng) VALUES(?,?,?,?,?,?,?,?)", (today, "19:00", "20:30", "Alert Pool", "Water Polo", "Alert practice", 33.7, -118.0))
+    pid = sql("SELECT id FROM practices WHERE title='Alert practice'")[0][0]
+    _going(la, pid)
+    base = dt.datetime.combine(A.today_pt(), dt.time(16, 30))
+    sql("UPDATE members SET last_lat=33.8, last_lng=-118.1, last_loc_at=?, leave_buffer=5 WHERE id=?", (base.isoformat(), lid))
+    minutes = iter([20, 22, 27, 28])
+    pushed, saved_push, saved_once = [], A.push_member, A.drive_service.once
+    A.push_member = lambda d, m, kind, title, body, url: pushed.append((m["id"], kind, title))
+    A.drive_service.once = lambda o, dd, prof, now: routing.Route(next(minutes))
+    try:
+        con = A.open_db()
+        A.run_leave_alerts(con, base)                                  # 18:35 → first push
+        A.run_leave_alerts(con, base + dt.timedelta(minutes=5))        # too soon, no call
+        A.run_leave_alerts(con, base + dt.timedelta(minutes=15))       # 22 min: moved 2, no push
+        A.run_leave_alerts(con, base + dt.timedelta(minutes=30))       # 27 min: moved 7 → push
+        A.run_leave_alerts(con, base + dt.timedelta(minutes=45))       # 28 min: moved 1 from 27 → none
+        A.drive_service.once = lambda o, dd, prof, now: routing.Route(60, estimated=True)
+        A.run_leave_alerts(con, base + dt.timedelta(minutes=60))       # estimate never pushes
+        con.close()
+    finally:
+        A.push_member, A.drive_service.once = saved_push, saved_once
+    mine = [t for (m, k, t) in pushed if m == lid]
+    assert mine == ["Leave by 6:35pm", "Leave by moved to 6:28pm"]
+    assert all(k == "leave_by" for (m, k, t) in pushed if m == lid)
+
+
+def test_gender_saves_legal_is_admin_only_and_wnb_rides_filter():
+    wa = join("Wren", "Ally", "wren@example.com"); mo = join("Moe", "Man", "moe@example.com")
+    wid = sql("SELECT id FROM members WHERE email='wren@example.com'")[0][0]
+    def ident(c, mid_email, gid, legal, extra=None):
+        row = sql("SELECT first,last,email,phone FROM members WHERE email=?", (mid_email,))[0]
+        data = dict(csrf=csrf(c, "/profile"), action="identity", first=row[0], last=row[1], email=row[2], phone="5555550100", gender_identity=gid, legal_gender=legal)
+        data.update(extra or {}); return c.post("/profile", data=data)
+    ident(wa, "wren@example.com", "nonbinary", "female")
+    ident(mo, "moe@example.com", "man", "bogus")
+    assert sql("SELECT gender_identity, legal_gender FROM members WHERE id=?", (wid,))[0] == ("nonbinary", "female")
+    assert sql("SELECT gender_identity, legal_gender FROM members WHERE email='moe@example.com'")[0] == ("man", None)
+    assert "Legal gender" in boss.get("/profile/%d" % wid).get_data(as_text=True)
+    assert "Legal gender" not in mo.get("/profile/%d" % wid).get_data(as_text=True)
+    # Moe can't turn the filter on; Wren can.
+    mo.post("/rides/settings", data=dict(csrf=csrf(mo, "/rides/settings"), ride_wnb="1", ride_seats="2"))
+    assert sql("SELECT ride_wnb FROM members WHERE email='moe@example.com'")[0][0] == 0
+    assert "Women &amp; non-binary only" in wa.get("/rides/settings").get_data(as_text=True)
+    wa.post("/rides/settings", data=dict(csrf=csrf(wa, "/rides/settings"), ride_wnb="1", ride_seats="2"))
+    assert sql("SELECT ride_wnb FROM members WHERE id=?", (wid,))[0][0] == 1
+    pid = _practice("WNB practice")
+    _going(wa, pid); _going(mo, pid)
+    mo.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(mo, "/practices/%d/rides" % pid), action="offer", area="Long Beach", seats="2", next="board"))
+    wa.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(wa, "/practices/%d/rides" % pid), action="ask", area="Lakewood", next="board"))
+    assert "Lakewood" not in mo.get("/practices/%d/rides" % pid).get_data(as_text=True)
+    assert "Long Beach" not in wa.get("/practices/%d/rides" % pid).get_data(as_text=True)
+    req = sql("SELECT id FROM ride_requests WHERE practice_id=? AND status='open'", (pid,))[0][0]
+    mo.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(mo, "/practices/%d/rides" % pid), action="pick", req_id=req, next="board"))
+    assert sql("SELECT status FROM ride_requests WHERE id=?", (req,))[0][0] == "open"
+    # Changing identity away from an eligible one turns the filter off.
+    ident(wa, "wren@example.com", "prefer_not", "female")
+    assert sql("SELECT ride_wnb FROM members WHERE id=?", (wid,))[0][0] == 0
+
+
+def test_share_trip_uses_preferred_names_and_no_server_send():
+    dr = join("Drew", "Legalname", "drew@example.com"); ri = join("Rita", "Rider", "rita@example.com")
+    sql("UPDATE members SET preferred_first='Dre' WHERE email='drew@example.com'")
+    sql("UPDATE members SET preferred_first='Ree' WHERE email='rita@example.com'")
+    pid = _practice("Share practice")
+    _going(dr, pid); _going(ri, pid)
+    dr.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(dr, "/practices/%d/rides" % pid), action="offer", area="Belmont Shore", seats="2", next="board"))
+    ri.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(ri, "/practices/%d/rides" % pid), action="ask", area="Seal Beach", next="board"))
+    req = sql("SELECT id FROM ride_requests WHERE practice_id=? AND status='open'", (pid,))[0][0]
+    dr.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(dr, "/practices/%d/rides" % pid), action="pick", req_id=req, next="board"))
+    rider_page = ri.get("/practices/%d/rides" % pid).get_data(as_text=True)
+    driver_page = dr.get("/practices/%d/rides" % pid).get_data(as_text=True)
+    assert "Share trip" in rider_page and "Riding with Dre" in rider_page
+    assert "Share trip" in driver_page and "Driving Ree" in driver_page and "Rita" not in driver_page.split("Driving ")[1][:40]
 
 
 def test_availability_windows_fit_conflicts_and_away():
@@ -156,6 +246,14 @@ def test_availability_windows_fit_conflicts_and_away():
     av.post("/availability/away", data=dict(csrf=csrf(av, "/availability/away"), action="add", start_date=day.isoformat(), end_date=day.isoformat(), note="Trip"))
     assert "you're away that day" in av.get("/availability/fit").get_data(as_text=True).replace("&#39;", "'")
     assert av.get("/calendar?when=availability").headers["Location"].endswith("/availability")
+    # Max travel: a saved location far from the pool marks the session Too far.
+    sql("UPDATE away_dates SET end_date='2000-01-01', start_date='2000-01-01' WHERE member_id=?", (aid,))
+    sql("UPDATE practices SET lat=33.7, lng=-118.0 WHERE title='Fits practice'")
+    sql("UPDATE members SET last_lat=34.4, last_lng=-119.7, last_loc_at=? WHERE id=?", (dt.datetime.now().isoformat(), aid))
+    av.post("/availability/travel", data=dict(csrf=csrf(av, "/availability/fit"), max_travel="30"))
+    assert sql("SELECT max_travel FROM members WHERE id=?", (aid,))[0][0] == 30
+    page = av.get("/availability/fit").get_data(as_text=True)
+    assert "Too far" in page and "past your 30 min limit" in page
 
 
 def test_auto_rsvp_asks_once_and_never_rsvps():

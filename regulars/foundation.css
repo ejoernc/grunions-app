@@ -920,3 +920,9 @@ body.profilepage:not(.profile-edit) .infogrid .prow .v{max-width:100%;overflow:h
 /* Below 360 a date input can't show mm/dd/yyyy in half the width: stack From/To. */
 @media (max-width:359px){.rg-wingrid{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:419px){.rg-wingrid:has(input[type=date]){grid-template-columns:minmax(0,1fr)}}
+.rg-sharetrip{display:grid;gap:var(--space-2);margin:var(--space-2) 0 var(--space-4)}
+/* Fields on the page sit on graphite so they read as fields; inside a sheet they sit on the page color. */
+.rg-field :is(input,select,textarea){background:var(--graphite)}
+[data-theme="light"] .rg-field :is(input,select,textarea){background:var(--carbon)}
+@media (prefers-color-scheme: light){[data-theme="system"] .rg-field :is(input,select,textarea){background:var(--carbon)}}
+.botsheet .rg-field :is(input,select,textarea),.rg-calloutcard .rg-field :is(input,select,textarea){background:var(--ink)}

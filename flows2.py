@@ -47,12 +47,66 @@ def ensure_schema(d):
     d.execute("""CREATE TABLE IF NOT EXISTS shift_signups(
         shift_id INTEGER NOT NULL, member_id INTEGER NOT NULL, at TEXT NOT NULL, PRIMARY KEY(shift_id, member_id))""")
     d.execute("CREATE TABLE IF NOT EXISTS club_prefs(key TEXT PRIMARY KEY, value TEXT)")
+    # 04.09 leave-by alert per member per practice: the last leave-by we told them, and when we last checked traffic.
+    d.execute("""CREATE TABLE IF NOT EXISTS leave_alerts(
+        member_id INTEGER NOT NULL, practice_id INTEGER NOT NULL, leave_by TEXT, checked TEXT, PRIMARY KEY(member_id, practice_id))""")
     have = _cols(d, "members")
     for col, ddl in (("birth_date", "TEXT"), ("avail_days", "TEXT"), ("setup_dismissed", "INTEGER DEFAULT 0"),
                      ("ride_offer", "INTEGER DEFAULT 0"), ("ride_area", "TEXT"), ("ride_seats", "INTEGER DEFAULT 2"),
-                     ("leave_buffer", "INTEGER DEFAULT 5"), ("auto_rsvp", "INTEGER DEFAULT 0")):
+                     ("leave_buffer", "INTEGER DEFAULT 5"), ("auto_rsvp", "INTEGER DEFAULT 0"),
+                     # Last location: rounded to ~100 m, saved only when the member's own device shares it, never shown to anyone.
+                     ("save_location", "INTEGER DEFAULT 1"), ("last_lat", "REAL"), ("last_lng", "REAL"), ("last_loc_at", "TEXT"),
+                     ("max_travel", "INTEGER DEFAULT 0"),
+                     # Legal gender is for governing bodies / insurance rosters (admins only). Identity is the member's own words.
+                     ("legal_gender", "TEXT"), ("gender_identity", "TEXT"), ("gender_self", "TEXT"), ("ride_wnb", "INTEGER DEFAULT 0")):
         if col not in have:
             d.execute("ALTER TABLE members ADD COLUMN %s %s" % (col, ddl))
+
+
+LEGAL_GENDERS = (("female", "Female"), ("male", "Male"), ("x", "X"))
+GENDER_IDENTITIES = (("woman", "Woman"), ("man", "Man"), ("nonbinary", "Non-binary"), ("self", "Self-describe"), ("prefer_not", "Prefer not to say"))
+TRAVEL_CHOICES = (0, 15, 30, 45, 60)
+
+
+def clean_choice(value, choices):
+    v = (value or "").strip().lower()
+    return v if v in dict(choices) else None
+
+
+def wnb_eligible(member):
+    """Women & non-binary rides (04.19): open to members who identify as a woman, non-binary, or self-describe."""
+    keys = member.keys() if hasattr(member, "keys") else []
+    return ("gender_identity" in keys) and (member["gender_identity"] or "") in ("woman", "nonbinary", "self")
+
+
+def wnb_on(member):
+    keys = member.keys() if hasattr(member, "keys") else []
+    return bool("ride_wnb" in keys and member["ride_wnb"]) and wnb_eligible(member)
+
+
+def ride_visible(viewer, owner):
+    """Either side's women & non-binary setting hides the pair unless the other side is eligible."""
+    return (not wnb_on(owner) or wnb_eligible(viewer)) and (not wnb_on(viewer) or wnb_eligible(owner))
+
+
+def round_loc(lat, lng):
+    return round(float(lat), 3), round(float(lng), 3)
+
+
+def last_location(member, now, max_age_h=12):
+    """(lat, lng) if the member saved one recently enough to plan a drive from, else None."""
+    keys = member.keys() if hasattr(member, "keys") else []
+    if "last_lat" not in keys or member["last_lat"] is None or member["last_lng"] is None or not member["last_loc_at"]:
+        return None
+    if "save_location" in keys and not member["save_location"]:
+        return None
+    try:
+        at = dt.datetime.fromisoformat(member["last_loc_at"])
+    except ValueError:
+        return None
+    if max_age_h is not None and now - at > dt.timedelta(hours=max_age_h):
+        return None
+    return (member["last_lat"], member["last_lng"])
 
 
 def _now():
@@ -154,12 +208,16 @@ def rides_for(d, practice_id, member_id):
                        "ORDER BY r.id DESC LIMIT 1", (practice_id, member_id)).fetchone()
     my_offer = d.execute("SELECT * FROM ride_offers WHERE practice_id=? AND driver_id=? AND status='open'",
                          (practice_id, member_id)).fetchone()
-    open_reqs = d.execute("SELECT r.*, m.first, m.preferred_first, m.last FROM ride_requests r JOIN members m ON m.id=r.rider_id "
+    open_reqs = d.execute("SELECT r.*, m.first, m.preferred_first, m.last, m.gender_identity, m.ride_wnb FROM ride_requests r JOIN members m ON m.id=r.rider_id "
                           "WHERE r.practice_id=? AND r.status='open' AND r.rider_id!=? ORDER BY r.id", (practice_id, member_id)).fetchall()
+    viewer = d.execute("SELECT * FROM members WHERE id=?", (member_id,)).fetchone()
+    if viewer is not None:
+        open_reqs = [r for r in open_reqs if ride_visible(viewer, r)]
     my_riders = d.execute("SELECT r.*, m.first, m.preferred_first, m.last FROM ride_requests r JOIN members m ON m.id=r.rider_id "
                           "WHERE r.practice_id=? AND r.driver_id=? AND r.status='matched' ORDER BY r.id", (practice_id, member_id)).fetchall()
-    drivers = d.execute("SELECT COUNT(*) FROM ride_offers WHERE practice_id=? AND status='open' AND driver_id!=?",
-                        (practice_id, member_id)).fetchone()[0]
+    drivers = sum(1 for o in d.execute("SELECT m.gender_identity, m.ride_wnb FROM ride_offers o JOIN members m ON m.id=o.driver_id "
+                                       "WHERE o.practice_id=? AND o.status='open' AND o.driver_id!=?", (practice_id, member_id)).fetchall()
+                  if viewer is None or ride_visible(viewer, o))
     return {"mine": my_req, "offer": my_offer, "open": open_reqs, "riders": my_riders, "drivers": drivers}
 
 
@@ -171,12 +229,17 @@ def seats_left(d, offer):
     return max(0, (offer["seats"] or 1) - used)
 
 
-def ride_board(d, practice_id):
-    """04.18 practice ride board: who's offering (area, seats left) and who's asking (area). Areas only, never addresses."""
-    offers = d.execute("SELECT o.*, m.first, m.preferred_first, m.last FROM ride_offers o JOIN members m ON m.id=o.driver_id "
-                       "WHERE o.practice_id=? AND o.status='open' ORDER BY o.id", (practice_id,)).fetchall()
-    asking = d.execute("SELECT r.*, m.first, m.preferred_first, m.last FROM ride_requests r JOIN members m ON m.id=r.rider_id "
-                       "WHERE r.practice_id=? AND r.status='open' ORDER BY r.id", (practice_id,)).fetchall()
+def ride_board(d, practice_id, viewer=None):
+    """04.18 practice ride board: who's offering (area, seats left) and who's asking (area). Areas only, never addresses.
+    With a viewer, rows hidden by either side's women & non-binary setting are left out."""
+    who = "m.first, m.preferred_first, m.last, m.gender_identity, m.ride_wnb"
+    offers = d.execute("SELECT o.*, %s FROM ride_offers o JOIN members m ON m.id=o.driver_id "
+                       "WHERE o.practice_id=? AND o.status='open' ORDER BY o.id" % who, (practice_id,)).fetchall()
+    asking = d.execute("SELECT r.*, %s FROM ride_requests r JOIN members m ON m.id=r.rider_id "
+                       "WHERE r.practice_id=? AND r.status='open' ORDER BY r.id" % who, (practice_id,)).fetchall()
+    if viewer is not None:
+        offers = [o for o in offers if o["driver_id"] == viewer["id"] or ride_visible(viewer, o)]
+        asking = [r for r in asking if r["rider_id"] == viewer["id"] or ride_visible(viewer, r)]
     rows = [dict(o, seats_left=seats_left(d, o)) for o in offers]
     return {"offers": rows, "asking": asking, "seats_open": sum(r["seats_left"] for r in rows),
             "need": len(asking), "cars": len(rows)}
@@ -186,7 +249,8 @@ def ride_defaults(member):
     keys = member.keys() if hasattr(member, "keys") else []
     return {"offer": bool(member["ride_offer"]) if "ride_offer" in keys else False,
             "area": (member["ride_area"] or "") if "ride_area" in keys else "",
-            "seats": int(member["ride_seats"] or 2) if "ride_seats" in keys else 2}
+            "seats": int(member["ride_seats"] or 2) if "ride_seats" in keys else 2,
+            "wnb": bool(member["ride_wnb"]) if "ride_wnb" in keys else False, "wnb_ok": wnb_eligible(member)}
 
 
 def auto_offer(d, practice_id, member):
@@ -287,8 +351,9 @@ def fits(practice, wins):
     return any(w["weekday"] == day.weekday() and _hm(w["start"]) <= a and b <= _hm(w["end"]) for w in wins)
 
 
-def week_fit(d, member_id, practices):
-    """09.07: which of this week's sessions fit your windows and away dates. Conflicts carry the fix to offer."""
+def week_fit(d, member_id, practices, travel=None, max_travel=0):
+    """09.07: which of this week's sessions fit your windows, away dates and max travel. Conflicts carry the fix to offer.
+    travel(p) returns estimated drive minutes from the member's saved location, or None when unknown."""
     wins = windows(d, member_id); aways = away(d, member_id)
     rows, fit = [], 0
     for p in practices:
@@ -296,9 +361,11 @@ def week_fit(d, member_id, practices):
         if p["cancelled"]:
             continue
         gone = is_away(aways, day)
-        ok = (not gone) and fits(p, wins)
+        mins = travel(p) if travel else None
+        far = bool(max_travel and mins is not None and mins > max_travel)
+        ok = (not gone) and (not far) and fits(p, wins)
         fit += 1 if ok else 0
-        rows.append({"p": p, "fits": ok, "away": gone})
+        rows.append({"p": p, "fits": ok, "away": gone, "far": far, "minutes": mins})
     return {"rows": rows, "fit": fit, "total": len(rows), "conflicts": [r for r in rows if not r["fits"]]}
 
 
@@ -455,7 +522,9 @@ RIDE_BOARD = """<div class="rg-page rg-rides">
 <h1 class=ty-display-l>Rides.</h1>
 <div class=rg-metrics>{{ rg_metric('%02d'|format(board.seats_open), 'Seats open', 'lime') }}{{ rg_metric('%02d'|format(board.need), 'Need a ride', 'sun') }}{{ rg_metric('%02d'|format(board.cars), 'Cars', 'carbon') }}</div>
 {% if rd.mine and rd.mine.status == 'matched' %}{{ rg_callout(((rd.mine.dpref or rd.mine.dfirst) ~ ' is driving you'), 'Pickup area · ' ~ rd.mine.area, 'Practice →', '/practices/' ~ p.id, 'aqua') }}
+<div class=rg-sharetrip><button type=button class="rg-btn secondary" data-share-text="{{ 'Riding with %s to %s, %s at %s. Pickup area: %s. Shared from Regulars.'|format(rd.mine.dpref or rd.mine.dfirst, practice_title(p), when, p.location or 'the pool', rd.mine.area) }}">Share trip</button><small class=ty-muted data-share-note hidden></small></div>
 {% elif rd.mine %}{{ rg_callout('You asked for a ride', "From " ~ rd.mine.area ~ " · we'll tell you when a driver picks you up", 'Practice →', '/practices/' ~ p.id, 'graphite') }}{% endif %}
+{% if rd.riders %}{% set ns = namespace(names=[]) %}{% for r in rd.riders %}{% set ns.names = ns.names + [r.preferred_first or r.first] %}{% endfor %}<div class=rg-sharetrip><button type=button class="rg-btn secondary" data-share-text="{{ 'Driving %s to %s, %s at %s. Shared from Regulars.'|format(ns.names|join(', '), practice_title(p), when, p.location or 'the pool') }}">Share trip</button><small class=ty-muted data-share-note hidden></small></div>{% endif %}
 {{ rg_label('Offering') }}
 {% for o in board.offers %}{{ rg_ride_row((o.preferred_first or o.first) ~ ' ' ~ (o.last or '')[:1] ~ '.', 'From ' ~ o.area ~ (' · back too' if o.back else ''), ((o.preferred_first or o.first)[:1] ~ (o.last or '')[:1])|upper, 'sky', '<span class=rg-seats><b>' ~ o.seats_left ~ '</b><small>seat' ~ ('' if o.seats_left == 1 else 's') ~ '</small></span>') }}
 {% else %}<p class=ty-muted>No one is offering yet.</p>{% endfor %}
@@ -490,7 +559,7 @@ LEAVE_BY = """<div class="rg-page rg-rides rg-leaveby" data-practice="{{ p.id }}
 <a class=rg-backlink href="/practices/{{ p.id }}">← Practice · {{ when }}</a>
 <div class="rg-lbhero" id=lbHero><span class=ty-caps>Leave by</span><b class=ty-display-xl id=lbTime>–:––</b>
 <small id=lbSub>Arrive {{ arrive_label }} · {{ buffer }} min deck buffer</small></div>
-<p class=ty-muted id=lbStatus role=status>Finding your location to plan the drive. It stays on your phone; it isn't saved.</p>
+<p class=ty-muted id=lbStatus role=status>Finding your location to plan the drive. We keep your last spot (to about 100 m) so we can tell you if leave-by moves. Only you see it; turn it off in <a href=/privacy>Privacy</a>.</p>
 <section id=lbForecast hidden>
 <h2 class=ty-title>Traffic forecast</h2><p class=ty-muted>Drive time if you leave at…</p>
 <figure class=rg-bars id=lbBars role=img aria-label="Drive minutes by departure time"></figure>
@@ -565,12 +634,16 @@ AVAIL_FIT = """<div class="rg-page rg-rides rg-avail rg-avail-fit">
 <div class=rg-fithero><b class=ty-display-ml>{{ fit.fit }}/{{ fit.total }}</b><span><b>Sessions fit</b><small>this week{% if org %} · {{ org }}{% endif %}</small></span></div>
 {{ rg_week_grid(blocks, "Your windows and this week's sessions") }}
 <div class=rg-chartlegend><span><i class=free></i>You're free</span><span><i class=session></i>Session</span><span><i class=conflict></i>Conflict</span></div>
-{% for r in fit.conflicts %}<section class="rg-calloutcard tone-tangerine"><span class=ty-caps>{{ 'Away' if r.away else 'Conflict' }}</span>
-<b>{{ weekday_name(r.p.date) }} {{ fmt_clock(r.p.start) }} · {{ practice_title(r.p) }} — {{ "you're away that day" if r.away else "outside your windows" }}.</b>
+{% for r in fit.conflicts %}<section class="rg-calloutcard tone-tangerine"><span class=ty-caps>{{ 'Away' if r.away else ('Too far' if r.far else 'Conflict') }}</span>
+<b>{{ weekday_name(r.p.date) }} {{ fmt_clock(r.p.start) }} · {{ practice_title(r.p) }} — {{ "you're away that day" if r.away else (("about %d min away, past your %d min limit"|format(r.minutes, max_travel)) if r.far else "outside your windows") }}.</b>
 <div class=rg-fitacts><form method=post action=/practices>{{ csrf_field() }}<input type=hidden name=pid value="{{ r.p.id }}"><input type=hidden name=back value=/availability/fit><button class="rg-btn ink" name=action value=notgoing>Mark Not going</button></form>
-{% if not r.away %}<form method=post action=/availability>{{ csrf_field() }}<input type=hidden name=weekday value="{{ r.wd }}"><input type=hidden name=start value="{{ r.p.start }}"><input type=hidden name=end value="{{ r.p.end or r.p.start }}"><input type=hidden name=next value=/availability/fit><button class="rg-btn ink" name=action value=add>Add {{ DAYS[r.wd] }} {{ fmt_clock(r.p.start) }}</button></form>{% endif %}</div></section>
+{% if not r.away and not r.far %}<form method=post action=/availability>{{ csrf_field() }}<input type=hidden name=weekday value="{{ r.wd }}"><input type=hidden name=start value="{{ r.p.start }}"><input type=hidden name=end value="{{ r.p.end or r.p.start }}"><input type=hidden name=next value=/availability/fit><button class="rg-btn ink" name=action value=add>Add {{ DAYS[r.wd] }} {{ fmt_clock(r.p.start) }}</button></form>{% endif %}</div></section>
 {% endfor %}
 {% if not fit.total %}<p class=ty-muted>No sessions on the team schedule this week.</p>{% endif %}
+<form method=post action=/availability/travel class=fxsheet>{{ csrf_field() }}
+<label class=rg-field><span>MAX TRAVEL</span><select name=max_travel onchange="this.form.requestSubmit()">{% for n in travel_choices %}<option value="{{ n }}"{% if n == max_travel %} selected{% endif %}>{{ 'No limit' if not n else ('%d min drive'|format(n)) }}</option>{% endfor %}</select></label>
+<p class=ty-muted>{% if has_loc %}From your last saved location, estimated without traffic.{% else %}Needs your location: open a practice's Leave-by once, or turn on saving in <a href=/privacy>Privacy</a>.{% endif %}</p>
+<noscript><button class="rg-btn secondary">Save</button></noscript></form>
 <form method=post action=/availability/auto>{{ csrf_field() }}
 <label class=rg-toggle><span><b>Auto-RSVP</b><small>The night before a session that fits, we'll ask you to confirm Going.</small></span><input type=checkbox name=auto_rsvp value=1 {% if me().auto_rsvp %}checked{% endif %} onchange="this.form.requestSubmit()"><i aria-hidden=true></i></label>
 <noscript><button class="rg-btn secondary">Save</button></noscript></form>
@@ -629,6 +702,8 @@ RIDE_SETTINGS = """<div class="rg-page rg-rides">
 <label class="rg-toggle"><span><b>Offer rides</b><small>When you tap Going, teammates going to the same session can ask you</small></span><input type=checkbox name=ride_offer value=1 {% if rs.offer %}checked{% endif %}><i aria-hidden=true></i></label>
 <label class=rg-field><span>I DRIVE FROM (AREA)</span><input name=ride_area maxlength=60 value="{{ rs.area }}" placeholder="Neighborhood or city, e.g. Fountain Valley"></label>
 <label class=rg-field><span>SEATS IN MY CAR</span><select name=ride_seats>{% for n in range(1,7) %}<option{% if n == rs.seats %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+{% if rs.wnb_ok %}<label class="rg-toggle"><span><b>Women &amp; non-binary only</b><small>Your offers and asks are only seen by, and matched with, teammates who identify as a woman or non-binary</small></span><input type=checkbox name=ride_wnb value=1 {% if rs.wnb %}checked{% endif %}><i aria-hidden=true></i></label>
+{% else %}<p class=ty-muted>Women &amp; non-binary rides: add your gender in <a href="/profile?edit=identity">Edit profile</a> to turn this on.</p>{% endif %}
 <div class="rg-toggle locked"><span><b>Show my area, not my address</b><small>Always on. An exact pickup spot goes only to a matched rider, 3 hours before practice.</small></span><i aria-hidden=true class=on></i></div>
 <button class="rg-btn primary">Save</button>
 </form>
