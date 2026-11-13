@@ -5520,7 +5520,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <label>Last name<input name=last value="{{ m.last }}" required autocomplete=off></label>
 <label>Preferred name<input name=preferred_first value="{{ m.preferred_first or '' }}" autocomplete=off></label>
 <label>Pronouns<input name=pronouns value="{{ m.pronouns or '' }}" placeholder="she/her" autocomplete=off></label>
-<label>Sex on your sport membership<select name=legal_gender><option value="">Not set</option>{% for k, v in LEGAL_GENDERS %}<option value="{{ k }}"{% if m.legal_gender == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+<label>Sex on your sport membership<select name=legal_gender><option value="">Not set</option>{% for k, v in membership_sexes() %}<option value="{{ k }}"{% if m.legal_gender == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
 <label>Gender identity<select name=gender_identity id=genderId><option value="">Not set</option>{% for k, v in GENDER_IDENTITIES %}<option value="{{ k }}"{% if m.gender_identity == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
 <label id=genderSelfRow{% if m.gender_identity != 'self' %} hidden{% endif %}>In your words<input name=gender_self maxlength=40 value="{{ m.gender_self or '' }}" autocomplete=off></label>
 <p class='ty-muted ty-sm'>Sex on your sport membership is whatever your governing body (like USA Water Polo) has on file. Only admins see it, for insurance rosters. Gender identity is how you identify. It's never shown on your profile and is only used for women &amp; non-binary rides if you turn them on.</p>
@@ -5780,7 +5780,7 @@ T["person"] = """<div class=profilehero>
 <div class="li prow"><span class=k>Clearance</span><span class="stchip {{ 'tang' if not cleared else 'lime' }}">{% if cleared %}Cleared{% else %}Not cleared{% endif %}</span></div>
 </div>
 <p class=rg-day>Theirs · view only</p>
-{% if me().is_admin %}<div class=list><div class="li prow"><span class=k>Sex on sport membership</span><span class=v>{{ dict(LEGAL_GENDERS).get(m.legal_gender or '', 'Not set') }}</span></div></div>
+{% if me().is_admin %}<div class=list><div class="li prow"><span class=k>Sex on sport membership</span><span class=v>{{ membership_sex_label(m.legal_gender) or 'Not set' }}</span></div></div>
 <p class='ty-muted ty-sm'>For governing-body and insurance rosters. Admins only.</p>{% endif %}
 {% endif %}
 {% if staff and needs %}<div class=needcard><p class=needkicker>Needs attention</p><b>{{ display_first(m) }}'s {{ needs }}.</b><p>Once you've checked USAWP and SafeSport, mark them in ⋯ › Update compliance.</p></div>{% endif %}

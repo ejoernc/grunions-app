@@ -661,9 +661,10 @@ def dob_field(name="birth_date", value="", club="", min_age=18):
                       _e(name), _e(value or "")))
 
 
-def membership_sex(current="", body="USA Water Polo", name="membership_sex"):
-    """Asked next to the membership number: the sex on their governing-body membership (insurance rosters, admins only)."""
-    opts = (("female", "Female"), ("male", "Male"), ("x", "X"))
+def membership_sex(current="", body="USA Water Polo", name="membership_sex", options=None):
+    """Asked next to the membership number: the sex on their governing-body membership (insurance rosters, admins only).
+    The choices come from the sport (Club › Sports › Sex on a membership)."""
+    opts = options or (("male", "Male"), ("female", "Female"), ("prefer_not_to_say", "Prefer not to say"))
     return Markup('<div class=rg-field><span>SEX ON YOUR %s MEMBERSHIP</span>%s<small class=rg-fieldnote>Only admins see this. It matches the insurance roster.</small></div>' % (
         _e(body.upper()), choice_chips(name, opts, current or "")))
 

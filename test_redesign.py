@@ -435,3 +435,11 @@ def test_join_asks_gender_and_usawp_entry_asks_membership_sex():
     assert "SEX ON YOUR USA WATER POLO MEMBERSHIP" in home
     c.post("/home", data=dict(csrf=csrf(c, "/home"), usawp_number="123456", membership_sex="female"))
     assert sql("SELECT legal_gender FROM members WHERE email='gia.join@example.com'")[0][0] == "female"
+    assert ">Prefer not to say<" in home and ">Intersex<" not in home
+    tok = csrf(boss, "/manage/club/programs/water-polo")
+    assert "Sex on a membership" in boss.get("/manage/club/programs/water-polo").get_data(as_text=True)
+    boss.post("/manage/club/programs/water-polo", data={"csrf": tok, "action": "sex_options", "sex_options": "Male\nFemale\nX\nPrefer not to say"})
+    gid = sql("SELECT id FROM members WHERE email='gia.join@example.com'")[0][0]
+    assert ">X<" in boss.get("/admin/member/%d" % gid).get_data(as_text=True)
+    boss.post("/admin/member/%d" % gid, data=dict(csrf=csrf(boss, "/admin/member/%d" % gid), action="noop", membership_sex="x"))
+    assert sql("SELECT legal_gender FROM members WHERE email='gia.join@example.com'")[0][0] == "x"

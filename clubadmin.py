@@ -47,6 +47,8 @@ def ensure(d):
         id INTEGER PRIMARY KEY, kind TEXT NOT NULL, ref_id INTEGER NOT NULL, reason TEXT NOT NULL,
         resolved INTEGER NOT NULL DEFAULT 0)""")
     d.execute("""CREATE TABLE IF NOT EXISTS club_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)""")
+    if "sex_options" not in [r[1] for r in d.execute("PRAGMA table_info(programs)")]:
+        d.execute("ALTER TABLE programs ADD COLUMN sex_options TEXT NOT NULL DEFAULT ''")
     d.execute("""CREATE TABLE IF NOT EXISTS governing_bodies(
         id INTEGER PRIMARY KEY, name TEXT NOT NULL, short TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '',
         gives_number INTEGER NOT NULL DEFAULT 0, gives_insurance INTEGER NOT NULL DEFAULT 0, gives_expiry INTEGER NOT NULL DEFAULT 0,
@@ -1212,6 +1214,28 @@ BUILTIN_BODIES = (("usawp", "USA Water Polo", "Membership + insurance"),
 SPECIAL_BODIES = (("self", "Self-insured", "Club covers insurance"), ("none", "None", "Club requirements only"))
 
 
+DEFAULT_SEXES = ("Male", "Female", "Prefer not to say")
+
+
+def sex_slug(label):
+    return "_".join(str(label or "").strip().lower().split())[:30]
+
+
+def sex_options(program):
+    """The sexes a sport's governing body records on a membership, as [(slug, label)]. Set per sport."""
+    raw = (program["sex_options"] if program is not None and "sex_options" in program.keys() else "") or ""
+    labels = [x.strip() for x in raw.split("\n") if x.strip()] or list(DEFAULT_SEXES)
+    return [(sex_slug(x), x) for x in labels]
+
+
+def membership_program(d):
+    """The sport whose membership members enter a number for: the first active sport with a governing body."""
+    for p in programs(d):
+        if p["active"] and (p["governing_body"] or "none") not in ("none", "self"):
+            return p
+    return None
+
+
 def custom_bodies(d):
     try:
         return d.execute("SELECT * FROM governing_bodies ORDER BY name").fetchall()
@@ -1242,6 +1266,20 @@ def body_label(d, code, none_label="None"):
 def _body_gives(row):
     bits = [w for w, on in (("Membership", row["gives_number"]), ("insurance", row["gives_insurance"])) if on]
     return " + ".join(bits) if bits else "Club-defined"
+
+
+def save_sex_options(d, slug, form):
+    program = program_by_slug(d, slug)
+    if not program:
+        raise ValueError("Choose a program.")
+    labels = []
+    for line in (form.get("sex_options") or "").splitlines():
+        line = " ".join(line.split())[:30]
+        if line and sex_slug(line) not in [sex_slug(x) for x in labels]:
+            labels.append(line)
+    if len(labels) < 2:
+        raise ValueError("Add at least two choices.")
+    d.execute("UPDATE programs SET sex_options=? WHERE id=?", ("\n".join(labels[:8]), program["id"]))
 
 
 def save_body(d, slug, form):
@@ -1361,10 +1399,17 @@ def program_detail_html(d, program, csrf):
 })();
 </script>""" % (
         csrf, C.toggle("active", "Active", "Requirements apply to everyone in %s." % name, bool(program["active"])),
-        C.settings_row("Governing body", body_label(d, code), "#", 'data-open-dialog=bodySheet'),
+        C.settings_row("Governing body", body_label(d, code), "#", 'data-open-dialog=bodySheet') + (
+            C.settings_row("Sex on a membership", ", ".join(l for _s, l in sex_options(program)[:2]) + (" +%d" % (len(sex_options(program)) - 2) if len(sex_options(program)) > 2 else ""), "#", 'data-open-dialog=sexSheet')
+            if code not in ("none", "self") else Markup("")),
         escape(note), block, "".join(tiles),
         C.stack_tile("/manage/club/programs/%s/divisions" % slug, "Divisions", _divisions_line(d, program), None, "lime"),
-        picker, adder)
+        picker + """<dialog id=sexSheet class="botsheet modal"><form method=post class=sheet>%s<div class=grab aria-hidden=true></div>
+<input type=hidden name=action value=sex_options>
+<h2>Sex on a membership.</h2><p class=ty-muted>The choices %s records. Members pick one next to their membership number; only admins see it. One per line.</p>
+<label class=rg-field><span>CHOICES</span><textarea name=sex_options rows=5>%s</textarea></label>
+<button class="rg-btn primary" type=submit>Save</button>
+</form></dialog>""" % (csrf, escape(body_label(d, code)), escape("\n".join(l for _s, l in sex_options(program)))), adder)
 
 
 def _req_role(scope):

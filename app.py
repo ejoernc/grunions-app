@@ -475,6 +475,27 @@ def nav_context():
             "everything_sub": "Discover · map · chat" if SHOW_DISCOVER else "Map · chat",
             "show_find": SHOW_FIND_TEAM}
 app.jinja_env.globals.update(components.jinja_globals())
+def membership_sexes():
+    """[(slug, label)] for the sex on a governing-body membership, defined on the sport (Club › Sports)."""
+    import clubadmin
+    try:
+        d = db(); clubadmin.ensure(d)
+        return clubadmin.sex_options(clubadmin.membership_program(d))
+    except Exception:
+        return [(clubadmin.sex_slug(x), x) for x in clubadmin.DEFAULT_SEXES]
+def membership_sex_label(slug):
+    old = dict(flows2.LEGAL_GENDERS)
+    return dict(membership_sexes()).get(slug or "", old.get(slug or "", ""))
+def _membership_body_name():
+    import clubadmin
+    try:
+        p = clubadmin.membership_program(db())
+        return clubadmin.body_label(db(), p["governing_body"]) if p else "sport"
+    except Exception:
+        return "sport"
+def _rg_membership_sex(current="", body=None, name="membership_sex"):
+    return components.membership_sex(current, body or _membership_body_name(), name, membership_sexes())
+app.jinja_env.globals.update(rg_membership_sex=_rg_membership_sex, membership_sexes=membership_sexes, membership_sex_label=membership_sex_label)
 app.jinja_env.globals.update(display_first=display_first, initials=initials, fmt_phone=fmt_phone, nav_context=nav_context, nav_icon=ui.nav_icon)
 app.jinja_env.globals.update(GENDER_IDENTITIES=flows2.GENDER_IDENTITIES, LEGAL_GENDERS=flows2.LEGAL_GENDERS)
 # applies_to: all | athlete | coach. keywords: normalized substrings to find this item's columns in a Sport:80 export.
@@ -1681,7 +1702,7 @@ def profile():
         gid = flows2.clean_choice(request.form.get("gender_identity"), flows2.GENDER_IDENTITIES)
         gself = " ".join((request.form.get("gender_self") or "").split())[:40] if gid == "self" else None
         d.execute("UPDATE members SET gender_identity=?, gender_self=?, legal_gender=? WHERE id=?",
-                  (gid, gself, flows2.clean_choice(request.form.get("legal_gender"), flows2.LEGAL_GENDERS), m["id"]))
+                  (gid, gself, flows2.clean_choice(request.form.get("legal_gender"), membership_sexes()), m["id"]))
         if gid not in ("woman", "nonbinary", "self"): d.execute("UPDATE members SET ride_wnb=0 WHERE id=?", (m["id"],))
         d.commit()
         flash("Saved", "toast")
@@ -8873,6 +8894,8 @@ def club_program(slug):
                 clubadmin.set_active(d, slug, request.form.getlist("active")[-1:] == ["1"])
             elif action == "body":
                 clubadmin.save_body(d, slug, request.form)
+            elif action == "sex_options":
+                clubadmin.save_sex_options(d, slug, request.form)
             elif action == "add_body":
                 made = clubadmin.add_body(d, slug, request.form)
                 d.commit()
@@ -8880,7 +8903,7 @@ def club_program(slug):
                 return redirect("/manage/club/programs/%s/roles/athlete" % slug if made else "/manage/club/programs/" + slug)
             else:
                 clubadmin.set_active(d, slug, request.form.get("active") == "1")
-            if action in ("active", "body"):
+            if action in ("active", "body", "sex_options"):
                 pass
             elif request.form.get("activity_practice") or request.form.get("activity_scrimmage") or request.form.get("activity_game"):
                 clubadmin.save_overview(d, slug, request.form)
@@ -10614,7 +10637,7 @@ def member_sheet_rows(d):
         trial_start, trial_end = trial_dates(m)
         verified = str(m["usawp_verified_at"] or "")[:10]
         rows.append([m["first"], m["last"], m["preferred_first"] or "", m["email"], (m["phone"] or "").strip(),
-                     dict(flows2.LEGAL_GENDERS).get(m["legal_gender"] if "legal_gender" in m.keys() else "", ""),
+                     membership_sex_label(m["legal_gender"] if "legal_gender" in m.keys() else ""),
                      _gender_identity_text(m), role_label(m), "yes" if m["is_admin"] else "no", m["usawp_number"] or "", export_status(d, m, pending),
                      m["usawp_valid_until"] or "", expiries.get((m["id"], "safesport"), ""), expiries.get((m["id"], "background"), ""),
                      trial_start, trial_end, verified, utc_to_pt(m["created"]), m["visits"], coach_eligibility(d, m)["text"],
@@ -11447,7 +11470,7 @@ def _save_membership_sex():
     Members set their own; admins can set it for the person they're editing."""
     if request.method != "POST" or not request.form.get("membership_sex"):
         return
-    val = flows2.clean_choice(request.form.get("membership_sex"), flows2.LEGAL_GENDERS)
+    val = flows2.clean_choice(request.form.get("membership_sex"), membership_sexes())
     m = me()
     if not val or not m:
         return
