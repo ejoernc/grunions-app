@@ -211,9 +211,8 @@ body.schedhome .weekhi .maplegend{position:static;display:flex;gap:10px;margin-t
 
 body.schedhome:has(.weekdrawer.full) .homemap{opacity:0}
 @media (max-width:767px){
- body.schedhome .weekdrawer:not(.full){touch-action:none}
+ body.schedhome .weekdrawer,body.schedhome .weekdrawer .weekbody{touch-action:none}
  body.schedhome .weekdrawer:not(.full) .weekbody{overflow:hidden}
- body.schedhome .weekdrawer.full .weekbody{touch-action:pan-y}
 }
 body.schedhome.sheetdrag{user-select:none}
 .weekbody{flex:1;min-height:0;overflow-y:auto;overflow-anchor:none;display:flex;flex-direction:column;gap:12px;padding-bottom:0;-webkit-overflow-scrolling:touch}
@@ -5013,15 +5012,14 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   touch.vy=dy/((now-touch.t)||16); touch.y=y; touch.t=now;
   if(!touch.moved && Math.abs(dy)<8) return;
   var full=sheet.classList.contains('full');
-  var more=scroller && scroller.scrollTop+scroller.clientHeight<scroller.scrollHeight-2;
-  var above=scroller && scroller.scrollTop>2;
-  if(!touch.moved && full && dy<0 && more) return;
-  if(!touch.moved && full && dy>0 && above) return;
+  var more=scroller && scroller.scrollTop+scroller.clientHeight<scroller.scrollHeight-1;
+  var above=scroller && scroller.scrollTop>0;
   if(e.cancelable) e.preventDefault();
   touch.moved=true;
-  // One continuous gesture: once this touch is driving the sheet, the browser won't scroll natively for
-  // the rest of it, so we carry on scrolling the list ourselves when the sheet is full.
-  if(full && scroller && ((dy<0 && more) || (dy>0 && above))){ scroller.scrollTop-=dy; touch.scrolled=true; return; }
+  // The sheet and the list are one surface: we drive both, so the same swipe grows the sheet and then
+  // keeps scrolling the cards up under the header like a normal page (no native hand-off that can stall).
+  if(full && scroller && dy<0){ if(more){ scroller.scrollTop-=dy; touch.scrolled=true; } return; }
+  if(full && scroller && dy>0 && (above || touch.scrolled)){ scroller.scrollTop-=dy; touch.scrolled=true; return; }
   apply(h-dy);
  }, {passive:false, signal:ac.signal});
  function glide(v){
@@ -5041,7 +5039,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   var moved=touch.moved, vy=touch.vy||0, fromFull=touch.fromFull, scrolled=touch.scrolled;
   touch=null;
   if(!moved) return;
-  if(sheet.classList.contains('full') && scrolled){ glide(vy); return; }
+  if(sheet.classList.contains('full') && (scrolled || vy<0)){ glide(vy); return; }
   settle(vy, fromFull);
  }, {signal:ac.signal});
  document.addEventListener('pointerup', endDrag, {signal:ac.signal});
@@ -5067,7 +5065,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   clearTimeout(wheelT);
   wheelT=setTimeout(function(){ var started=wheelFull; wheelT=0; settle(0, started); }, 160);
  }, {passive:false, signal:ac.signal});
- window.addEventListener('resize', function(){ if(!live()) return; if(wide()) resetWide(); else apply(h||metrics().half); }, {signal:ac.signal});
+ window.addEventListener('resize', function(){ if(!live()) return; if(wide()) resetWide(); else apply(sheet.classList.contains('full')?metrics().full:(h||metrics().half)); }, {signal:ac.signal});
  if(wide()) resetWide(); else apply(sheet.getAttribute('data-start')==='peek'?metrics().peek:metrics().half);
  var ask=document.getElementById('rideAsk'), offer=document.getElementById('rideOffer');
  var need=document.getElementById('needRide'); if(need) need.onclick=function(){ if(window.grunionsOpenSheet) grunionsOpenSheet(ask); else ask.showModal(); };
@@ -7259,7 +7257,7 @@ T["practice"] = """{% set p = x.p %}
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class="pills p5rsvp">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>{{ rsvp_base('p' ~ p.id) }}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>
-{{ r2_practice_actions('/chat?c=practice:' ~ p.id ~ ('&peek=1' if x.mine != 1 else ''), 'Chat' if x.mine == 1 else 'Peek', x.going|length) }}
+{{ r2_practice_actions('/chat?c=practice:' ~ p.id ~ ('&peek=1' if x.mine != 1 else ''), 'Practice Chat' if x.mine == 1 else 'Peek', x.going|length) }}
 {% endif %}
 {% for card in social_cards %}{{ r2_social_card(card, 'row') }}{% endfor %}
 {{ r2_section("Who's going") }}

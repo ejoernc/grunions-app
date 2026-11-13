@@ -231,15 +231,12 @@ def event_cancelled(href, kicker, title, reason=""):
                                                        ('<small class=rg-reason>%s</small>' % _e(reason)) if reason else ""))
 
 
-def practice_actions(href, label="Chat", count=0, more_href=""):
-    """2.0 / Practice actions (02 H, 2143:155580): split Chat button under Going / Not going.
-    Main part opens this practice's chat with a lime count; the ▾ part opens the menu (practice chat, ask the coaches)."""
+def practice_actions(href, label="Practice Chat", count=0, more_href=""):
+    """2.0 / Practice actions (02 H, 2143:155580): full-width Practice Chat button under Going / Not going.
+    The split menu (the down-arrow half) is parked until it has real options; more_href is kept for callers."""
     badge = ('<span class=rg-pabadge>%s</span>' % _e(count)) if count else ""
-    more = more_href or href
-    return Markup('<div class=rg-pactions><a class=rg-pamain href="%s">%s<span>%s</span>%s</a>'
-                  '<a class=rg-pamore href="%s" aria-label="More">%s</a></div>' % (
-                      _e(href), icon("chat"), _e(label), badge, _e(more),
-                      '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 8L10 13L15 8" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>'))
+    return Markup('<div class=rg-pactions><a class=rg-pamain href="%s">%s<span>%s</span>%s</a></div>' % (
+        _e(href), icon("chat"), _e(label), badge))
 
 
 def search_field(input_id, placeholder, action_href="", action_icon="settings", clear_id=""):
