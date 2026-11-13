@@ -6327,26 +6327,15 @@ T["lineup"] = """{% macro lineup_months(groups, mode, past=false) %}{% for g in 
 {{ lineup_months(upcoming, 'tall' if group else 'compact') }}
 {% if past %}<details class=lineuppast open><summary>{% if group %}Past{% else %}Past{% endif %} <span class=pastn>{{ past_n }}</span></summary>{{ lineup_months(past, 'tall' if group else 'compact', true) }}</details>{% endif %}"""
 T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
-<div class=profilehero>
-<div class="profilename{% if e.status == 'canceled' %} cancelled{% endif %}">{{ e.title }}</div>
-{% if e.when %}<p class=pracemeta>{{ e.when }}</p>{% endif %}
-{% if e.venue %}<p class=pracemeta>{{ e.venue }}</p>{% endif %}
-{% if e.city %}<p class=pracemeta>{{ e.city }}</p>{% endif %}
-{% if e.tag %}<p class="pracemeta eventtag">{{ e.tag }}</p>{% endif %}
-<div class=pracestatus>{{ st(e.status_kind, e.status_text) }}</div>
-<div class="stats trio">
-<div class=stattile><b>{{ e.going_n }}</b><span>Going</span></div>
-<div class=stattile><b>{{ e.interested_n }}</b><span>Interested</span></div>
-{% if e.capacity %}<div class=stattile><b>{{ e.capacity }}</b><span>Spots</span></div>{% else %}<div class=stattile><b>{{ e.days }}</b><span>Days</span></div>{% endif %}
-</div>
-</div>
-{% if e.status == 'published' %}<form method=post action="/lineup/{{ e.id }}" class="pills rsvprow">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>{{ rsvp_base('e' ~ e.id) }}
+{{ rg_event_hero(e.event_type or 'Event', e.title, [e.when, e.venue, e.city]|select|join(' · '), 'graphite' if e.status == 'canceled' else event_tone(e.event_type), e.status_text if e.status != 'published' else (e.tag or '')) }}
+{% if e.status == 'published' %}<form method=post action="/lineup/{{ e.id }}" class="rg-rsvp2 rsvprow">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>{{ rsvp_base('e' ~ e.id) }}
 {% set going_label = 'Join waitlist' if e.full and e.mine != 'going' and e.mine != 'waitlist' else ('Waitlist' if e.mine == 'waitlist' else 'Going') %}
-{{ rsvp_btn('Interested', e.mine == 'interested', 'interested') }}
-{{ rsvp_btn(going_label, e.mine == 'going' or e.mine == 'waitlist', 'going') }}
-{{ rsvp_btn('Not going', e.mine == 'notgoing', 'notgoing') }}</form>{% endif %}
+<div class=rg-rsvp2main>{{ rsvp_btn(going_label, e.mine == 'going' or e.mine == 'waitlist', 'going') }}
+{{ rsvp_btn('Maybe', e.mine == 'interested', 'interested') }}</div>
+{% if e.mine == 'notgoing' %}<button class=rg-cant name=action value=clear>You said you can't make it · Undo</button>{% else %}<button class=rg-cant name=action value=notgoing>Can't make it</button>{% endif %}</form>{% endif %}
+<p class=rg-evcount>{{ e.going_n }} going · {{ e.interested_n }} maybe{% if e.capacity %} · {{ e.capacity }} spots{% endif %}</p>
 <div class=seclabel>Details</div>
-<div class=list>
+<div class="list rg-evdetails">
 {% if e.description %}<div class="li evdescrow"><div class=clamp id=evdesc>{{ e.description }}</div><button type=button class=textlink id=evmore hidden>More</button></div>{% endif %}
 {% if e.host_org %}<div class="li prow"><span class=k>Host organization</span><span class=v>{{ e.host_org }}</span></div>{% endif %}
 {% if e.cohosts %}<div class="li prow"><span class=k>Co-host organizations</span><span class=v>{{ e.cohosts|join(', ') }}</span></div>{% endif %}

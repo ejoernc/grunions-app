@@ -353,6 +353,15 @@ def back_button(href, label="Back"):
     return Markup('<a class=rg-back href="%s" aria-label="%s">%s</a>' % (_e(href), _e(label), _BACK))
 
 
+def event_hero(kind, title, line="", tone="lavender", status=""):
+    """2.0 / Lineup event hero (07.18, 07.07): tone card, ink type chip, display title with a period, when · where."""
+    t = str(title or "").strip()
+    t = t if t.endswith((".", "!", "?")) else t + "."
+    return Markup('<div class="rg-evhero tone-%s"><div class=rg-evtop><span class=rg-evkind>%s</span>%s</div><h1 class=rg-evtitle>%s</h1>%s</div>' % (
+        _tone(tone, "lavender"), _e(kind or "Event"), ('<span class=rg-evstatus>%s</span>' % _e(status)) if status else "", _e(t),
+        ('<p class=rg-evline>%s</p>' % _e(line)) if line else ""))
+
+
 def plus_button(href, label="Add"):
     """Header plus (06 Chat list): lime 52px circle, top right of a display title. Chat, Schedule, Lineup."""
     return Markup('<a class="chatplus rg-plus" href="%s" aria-label="%s" title="%s"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></a>' % (_e(href), _e(label), _e(label)))
@@ -361,4 +370,4 @@ def plus_button(href, label="Add"):
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_back=back_button, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, event_tone=event_tone)
