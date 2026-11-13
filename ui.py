@@ -285,6 +285,7 @@ body.schedhome .schedsheet.up .sheetexpanded{display:flex;flex-direction:column;
 .maplegend .legclear{background:var(--lime)}.maplegend .legslow{background:var(--team-sun)}.maplegend .legjam{background:var(--team-tangerine)}
 .maplegend b,.mappinchip{margin-left:auto;padding:6px 10px;border-radius:999px;background:var(--carbon);font:600 12px/1 var(--r2-font-sans)}
 .mappinchip{position:fixed;z-index:2;top:16px;right:16px;margin:0;color:var(--paper);pointer-events:none}
+body.schedhome .mappinchip{opacity:calc(1 - var(--mapfade, 0))}
 .mapmiss{position:relative;z-index:3;margin:24px 16px 0;color:var(--paper);pointer-events:auto}
 .mapmiss a{color:var(--lime)}
 .socialcard{border-radius:32px;background:var(--team-bubblegum);color:var(--ink);padding:18px 18px 16px}
@@ -4908,15 +4909,15 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   if(morph<0) morph=0; if(morph>1) morph=1;
   var hi=document.querySelector('.weekhi');
   if(hi){
-   hi.style.setProperty('--titlefade', morph.toFixed(3));
+   hi.style.setProperty('--titlefade', Math.min(1, morph*2.5).toFixed(3));  // same curve as the map: done when the map is gone
    // The map is gone in the first ~40% of the pull; padding and corners follow the whole pull, so nothing snaps.
    var mf=Math.min(1, morph*2.5);
    document.body.style.setProperty('--mapfade', mf.toFixed(3));
    document.body.style.setProperty('--mapdone', mf>=0.999?'1':'0');
    document.body.style.setProperty('--sheetp', morph.toFixed(3));
    var big=hi.querySelector('.hititle'), small=hi.querySelector('.schedtitle');
-   if(big) big.setAttribute('aria-hidden', morph>=0.5?'true':'false');
-   if(small) small.setAttribute('aria-hidden', morph>=0.5?'false':'true');
+   if(big) big.setAttribute('aria-hidden', morph*2.5>=0.5?'true':'false');
+   if(small) small.setAttribute('aria-hidden', morph*2.5>=0.5?'false':'true');
   }
   document.body.classList.toggle('mapcovered', !wide() && (m.vh-h)<120);
   if(scroller && !atFull && scroller.scrollTop) scroller.scrollTop=0;
