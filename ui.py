@@ -5015,17 +5015,34 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   var full=sheet.classList.contains('full');
   var more=scroller && scroller.scrollTop+scroller.clientHeight<scroller.scrollHeight-2;
   var above=scroller && scroller.scrollTop>2;
-  if(full && dy<0 && more) return;
-  if(full && dy>0 && above) return;
+  if(!touch.moved && full && dy<0 && more) return;
+  if(!touch.moved && full && dy>0 && above) return;
   if(e.cancelable) e.preventDefault();
   touch.moved=true;
+  // One continuous gesture: once this touch is driving the sheet, the browser won't scroll natively for
+  // the rest of it, so we carry on scrolling the list ourselves when the sheet is full.
+  if(full && scroller && ((dy<0 && more) || (dy>0 && above))){ scroller.scrollTop-=dy; touch.scrolled=true; return; }
   apply(h-dy);
  }, {passive:false, signal:ac.signal});
+ function glide(v){
+  // Momentum after a hand-driven scroll (px per ms), easing out.
+  if(!scroller) return;
+  var last=performance.now();
+  (function step(now){
+   var dt=now-last; last=now; v*=Math.pow(0.996, dt);
+   if(Math.abs(v)<0.02 || !sheet.classList.contains('full')) return;
+   var before=scroller.scrollTop; scroller.scrollTop-=v*dt;
+   if(scroller.scrollTop===before) return;
+   requestAnimationFrame(step);
+  })(last);
+ }
  document.addEventListener('touchend', function(){
   if(!touch) return;
-  var moved=touch.moved, vy=touch.vy||0, fromFull=touch.fromFull;
+  var moved=touch.moved, vy=touch.vy||0, fromFull=touch.fromFull, scrolled=touch.scrolled;
   touch=null;
-  if(moved) settle(vy, fromFull);
+  if(!moved) return;
+  if(sheet.classList.contains('full') && scrolled){ glide(vy); return; }
+  settle(vy, fromFull);
  }, {signal:ac.signal});
  document.addEventListener('pointerup', endDrag, {signal:ac.signal});
  document.addEventListener('pointercancel', endDrag, {signal:ac.signal});
