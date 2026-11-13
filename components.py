@@ -76,6 +76,15 @@ def seg(items, current):
         '<a href="%s"%s>%s</a>' % (_e(h), ' class=on aria-current=page' if k == current else "", _e(l)) for k, l, h in items))
 
 
+def seg_choice(name, items, value, autosubmit=False):
+    """2.0 / Segmented control as a form field. items = [(value, label)]. Radios, so it works without JS
+    and is keyboard-accessible; autosubmit saves on change (settings rows)."""
+    opts = "".join('<label><input type=radio name="%s" value="%s"%s%s><span>%s</span></label>' % (
+        _e(name), _e(v), " checked" if v == value else "", " onchange=this.form.requestSubmit()" if autosubmit else "", _e(l))
+        for v, l in items)
+    return Markup('<div class="rg-seg rg-segform" role=radiogroup>%s</div>' % opts)
+
+
 def filters(items, current):
     """Type filters. items = [(key, label, href)]; selected is lime."""
     return Markup('<nav class=rg-filters aria-label=Filter>%s</nav>' % "".join(
@@ -368,6 +377,6 @@ def plus_button(href, label="Add"):
 
 
 def jinja_globals():
-    return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_filters=filters, rg_day=day, rg_label=label,
+    return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
                 rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, event_tone=event_tone)

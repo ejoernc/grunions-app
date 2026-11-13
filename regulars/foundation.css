@@ -260,6 +260,92 @@
   --r2-sidebar: 248px;
 }
 
+/* Figma 2.0 variables + text styles (Regulars 2.0 collection, synced 2026-11-13).
+   Spacing and radius names match the Figma variable names: space/1-5 -> --space-1-5, radius/sheet -> --radius-sheet. */
+:root {
+  --space-1-5: 6px;
+  --space-2-5: 10px;
+  --space-3-5: 14px;
+  --space-4-5: 18px;
+  --space-7: 28px;
+  --space-18: 72px;
+  --space-inset-top: 56px;
+  --space-nav-clear: 120px;
+  --space-cover-band: 256px;
+  --radius-full: 999px;
+  --radius-sheet: 28px;
+  --radius-row: 32px;
+  --radius-hero: 40px;
+
+  /* Text styles: font shorthand + tracking. Use the .ty-* classes below, or font:var(--type-*) in a component. */
+  --type-display-xxl: 700 160px/.8 var(--font-display);  --track-display-xxl: -.08em;
+  --type-display-xl: 700 120px/.86 var(--font-display);  --track-display-xl: -.05em;
+  --type-hero: 700 104px/.8 var(--font-display);         --track-hero: -.07em;
+  --type-display-96: 700 96px/.8 var(--font-display);    --track-display-96: -.07em;
+  --type-display-88: 700 88px/.82 var(--font-display);   --track-display-88: -.06em;
+  --type-display-80: 700 80px/.8 var(--font-display);    --track-display-80: -.07em;
+  --type-display-l: 700 64px/.9 var(--font-display);     --track-display-l: -.05em;
+  --type-display-ml: 700 56px/.85 var(--font-display);   --track-display-ml: -.06em;
+  --type-display-48: 700 48px/.92 var(--font-display);   --track-display-48: -.04em;
+  --type-display-44: 700 44px/.95 var(--font-display);   --track-display-44: -.04em;
+  --type-display-m: 700 40px/.95 var(--font-display);    --track-display-m: -.05em;
+  --type-display-s: 700 36px/.95 var(--font-display);    --track-display-s: -.03em;
+  --type-title-l: 700 30px/1 var(--font-display);        --track-title-l: -.03em;
+  --type-title: 700 28px/1 var(--font-display);          --track-title: -.03em;
+  --type-heading-l: 700 24px/.95 var(--font-display);    --track-heading-l: -.03em;
+  --type-heading: 700 22px/.95 var(--font-display);      --track-heading: -.03em;
+  --type-heading-s: 700 18px/1.2 var(--font-display);
+  --type-numeral-s: 700 14px/1.2 var(--font-display);
+  --type-numeral-xs: 700 11px/1.2 var(--font-display);
+  --type-stat-l: 600 28px/1.2 var(--font-sans);
+  --type-stat: 500 24px/1.2 var(--font-sans);
+  --type-lead: 600 20px/1.3 var(--font-sans);
+  --type-body-l: 600 17px/1.45 var(--font-sans);
+  --type-body: 500 15px/1.45 var(--font-sans);
+  --type-body-semi: 600 15px/1.3 var(--font-sans);
+  --type-body-strong: 700 15px/1.3 var(--font-sans);
+  --type-body-compact: 500 15px/1.3 var(--font-sans);
+  --type-body-strong-l: 700 16px/1.3 var(--font-sans);
+  --type-button: 600 16px/1.2 var(--font-sans);
+  --type-label-l: 700 14px/1.25 var(--font-sans);
+  --type-label: 700 13px/1.25 var(--font-sans);
+  --type-label-semi: 600 13px/1.25 var(--font-sans);
+  --type-label-medium: 500 13px/1.25 var(--font-sans);
+  --type-caption: 500 12px/1.3 var(--font-sans);
+  --type-caption-semi: 600 12px/1.3 var(--font-sans);
+  --type-caption-strong: 700 12px/1.3 var(--font-sans);
+  --type-small: 700 11px/1.25 var(--font-sans);
+  --type-caps-m: 700 12px/1.2 var(--font-sans);          --track-caps-m: .04em;
+  --type-caps: 700 11px/1.2 var(--font-sans);            --track-caps: .08em;
+  --type-caps-s: 700 10px/1.2 var(--font-sans);          --track-caps-s: .08em;
+}
+.ty-display-xxl{font:var(--type-display-xxl);letter-spacing:var(--track-display-xxl)}
+.ty-display-xl{font:var(--type-display-xl);letter-spacing:var(--track-display-xl)}
+.ty-hero{font:var(--type-hero);letter-spacing:var(--track-hero)}
+.ty-display-96{font:var(--type-display-96);letter-spacing:var(--track-display-96)}
+.ty-display-88{font:var(--type-display-88);letter-spacing:var(--track-display-88)}
+.ty-display-80{font:var(--type-display-80);letter-spacing:var(--track-display-80)}
+.ty-display-l{font:var(--type-display-l);letter-spacing:var(--track-display-l)}
+.ty-display-ml{font:var(--type-display-ml);letter-spacing:var(--track-display-ml)}
+.ty-display-48{font:var(--type-display-48);letter-spacing:var(--track-display-48)}
+.ty-display-44{font:var(--type-display-44);letter-spacing:var(--track-display-44)}
+.ty-display-m{font:var(--type-display-m);letter-spacing:var(--track-display-m)}
+.ty-display-s{font:var(--type-display-s);letter-spacing:var(--track-display-s)}
+.ty-title-l{font:var(--type-title-l);letter-spacing:var(--track-title-l)}
+.ty-title{font:var(--type-title);letter-spacing:var(--track-title)}
+.ty-heading-l{font:var(--type-heading-l);letter-spacing:var(--track-heading-l)}
+.ty-heading{font:var(--type-heading);letter-spacing:var(--track-heading)}
+.ty-heading-s{font:var(--type-heading-s)}.ty-numeral-s{font:var(--type-numeral-s)}.ty-numeral-xs{font:var(--type-numeral-xs)}
+.ty-stat-l{font:var(--type-stat-l)}.ty-stat{font:var(--type-stat)}.ty-lead{font:var(--type-lead)}
+.ty-body-l{font:var(--type-body-l)}.ty-body{font:var(--type-body)}.ty-body-semi{font:var(--type-body-semi)}.ty-body-strong{font:var(--type-body-strong)}
+.ty-body-compact{font:var(--type-body-compact)}.ty-body-strong-l{font:var(--type-body-strong-l)}.ty-button{font:var(--type-button)}
+.ty-label-l{font:var(--type-label-l)}.ty-label{font:var(--type-label)}.ty-label-semi{font:var(--type-label-semi)}.ty-label-medium{font:var(--type-label-medium)}
+.ty-caption{font:var(--type-caption)}.ty-caption-semi{font:var(--type-caption-semi)}.ty-caption-strong{font:var(--type-caption-strong)}.ty-small{font:var(--type-small)}
+.ty-caps-m{font:var(--type-caps-m);letter-spacing:var(--track-caps-m);text-transform:uppercase}
+.ty-caps{font:var(--type-caps);letter-spacing:var(--track-caps);text-transform:uppercase}
+.ty-caps-s{font:var(--type-caps-s);letter-spacing:var(--track-caps-s);text-transform:uppercase}
+.ty-muted{color:var(--color-text-secondary)}
+
 [data-theme="light"] {
   color-scheme: light;
   /* Figma 01 Foundations, light column. Only the neutrals change; team colors stay. */
@@ -278,6 +364,27 @@
   --nav-item-line: rgba(11, 11, 12, 0.06);
   --nav-item-glass-hover: rgba(11, 11, 12, 0.1);
 }
+@media (prefers-color-scheme: light){
+[data-theme="system"] {
+  color-scheme: light;
+  /* Figma 01 Foundations, light column. Only the neutrals change; team colors stay. */
+  --ink: #F3F1EB;
+  --carbon: #FFFFFF;
+  --graphite: #E6E2D9;
+  --smoke: #6A6E73;
+  --paper: #0B0B0C;
+  --tide: #CFE4EE;
+  --accent-text: #4A6A00;
+  --color-scrim: rgba(243, 241, 235, .78);
+  --nav-glass-bg: rgba(255, 255, 255, 0.82);
+  --r2-nav-translucent: rgba(255, 255, 255, 0.82);
+  --nav-item-glass: rgba(11, 11, 12, 0.06);
+  --nav-glass-line: rgba(11, 11, 12, 0.08);
+  --nav-item-line: rgba(11, 11, 12, 0.06);
+  --nav-item-glass-hover: rgba(11, 11, 12, 0.1);
+}
+}
+
 
 /* Regulars 2.0 flows (flows2.py) */
 .fxcard.fxgate{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;margin:12px 0}
@@ -338,6 +445,11 @@
 .rg-seg a{display:inline-flex;align-items:center;min-height:32px;padding:0 16px;border-radius:999px;background:transparent;color:var(--smoke);font:700 13px/1 var(--font-sans);text-decoration:none}
 .rg-filters a{display:inline-flex;align-items:center;min-height:32px;padding:0 14px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 13px/1 var(--font-sans);text-decoration:none}
 .rg-seg a.on{background:var(--paper);color:var(--ink)}
+.rg-segform label{position:relative;display:inline-flex}
+.rg-segform input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.rg-segform span{display:inline-flex;align-items:center;min-height:32px;padding:0 var(--space-4);border-radius:var(--radius-full);color:var(--smoke);font:var(--type-label)}
+.rg-segform input:checked+span{background:var(--paper);color:var(--ink)}
+.rg-segform input:focus-visible+span{outline:2px solid var(--color-focus);outline-offset:2px}
 .rg-filters a.on{background:var(--lime);color:var(--fixed-ink)}
 .rg-day{margin:18px 0 10px;font:700 11px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--smoke);text-align:left}
 .rg-event,.rg-callout{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;margin:0 0 10px;padding:14px 16px;border:0;border-radius:var(--event-radius);background:var(--tone,var(--team-sun));color:var(--fixed-ink);text-decoration:none;text-align:left;font:inherit;cursor:pointer}

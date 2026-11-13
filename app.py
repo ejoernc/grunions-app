@@ -259,7 +259,8 @@ def migrate_members(d):
                  ("board_member", "INTEGER DEFAULT 0"),
                  ("show_attendance", "INTEGER DEFAULT 1"), ("show_pronouns", "INTEGER DEFAULT 1"),
                  ("messages_outside", "INTEGER DEFAULT 0"), ("show_in_picker", "INTEGER DEFAULT 1"),
-                 ("share_exact_location", "INTEGER DEFAULT 1"), ("pronouns", "TEXT"), ("other_clubs", "TEXT")):
+                 ("share_exact_location", "INTEGER DEFAULT 1"), ("pronouns", "TEXT"), ("other_clubs", "TEXT"),
+                 ("appearance", "TEXT DEFAULT 'dark'")):
         if c not in cols: d.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
     # /join always stores a phone. Existing registrations keep Google sign-in; a blank phone is not one.
     cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
@@ -409,7 +410,7 @@ def nav_context():
         place = forced
     elif path in ("/discover", "/find", "/home") or path.startswith("/inbox"):
         place = "everything"
-    elif path.startswith("/calendar") or path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy"):
+    elif path.startswith("/calendar") or path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy") or path.startswith("/appearance"):
         # Me is Calendar, Chat, Profile. The older Schedule · Settings · Lineup brief is not used.
         place = "me"
     else:
@@ -441,7 +442,7 @@ def nav_context():
         tabs = [
             ("calendar", "Calendar", "/calendar", path.startswith("/calendar")),
             ("chat", "Chat", "/inbox?place=me", on_personal),
-            ("profile", "Profile", "/profile", path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy")),
+            ("profile", "Profile", "/profile", path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy") or path.startswith("/appearance")),
         ]
         crest = initials(m)
         switch = (("%s %s" % (display_first(m), m["last"] or "")).strip(), "Calendar · chat · profile")
@@ -1180,11 +1181,22 @@ _BODY_END = ui.BASE.find(">", _BODY_AT) + 1
 _NAV_DOC = ("<!doctype html><html lang=en><head><meta charset=utf-8><title>Regulars</title></head>"
             + ui.BASE[_BODY_AT:_BODY_END] + ui.BASE[_MACRO_AT:])
 _TABS_NAV = ui.TABS[:ui.TABS.find("<script>")]
+APPEARANCES = ("system", "light", "dark")
+def ui_theme():
+    """Me › Settings › Appearance (09.17). The app paints dark unless the member picks Light or System."""
+    try:
+        m = me()
+        v = (m["appearance"] if m and "appearance" in m.keys() else None) or "dark"
+    except Exception:
+        v = "dark"
+    return v if v in APPEARANCES else "dark"
+
 def page(body, tab="", **kw):
     """Full documents carry the shell. In-app navigation asks for the page only.
     Both are private and uncached so RSVP, chat, and profile data stay fresh."""
     partial = request.headers.get("X-Grunions-Nav") == "1"
     template = (_NAV_DOC + body + _TABS_NAV) if partial else (ui.BASE + body + ui.TABS)
+    kw.setdefault("ui_theme", ui_theme())
     html = render_template_string(template, tab=tab, **kw)
     resp = Response(html, mimetype="text/html; charset=utf-8")
     resp.headers["Cache-Control"] = "private, no-store"
@@ -1640,6 +1652,18 @@ def privacy():
         return redirect("/privacy")
     hist = d.execute("SELECT practice_date FROM checkins WHERE member_id=?", (m["id"],)).fetchall()
     return page(T["privacy"], tab="privacy", prefs=_privacy_prefs(m), hist=hist)
+@app.route("/appearance", methods=["GET", "POST"])
+@login_required
+def appearance():
+    """Me › Settings › Appearance (09.17): System, Light or Dark, saved per member."""
+    m = me()
+    if request.method == "POST":
+        v = request.form.get("appearance", "")
+        if v in APPEARANCES:
+            d = db(); d.execute("UPDATE members SET appearance=? WHERE id=?", (v, m["id"])); d.commit()
+            flash("Saved", "toast")
+        return redirect("/appearance")
+    return page(ui.APPEARANCE_PAGE, tab="appearance")
 @app.route("/profile/delete", methods=["POST"])
 @login_required
 def delete_own_account():

@@ -6,8 +6,8 @@ import os
 _FOUNDATION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "regulars", "foundation.css")
 with open(_FOUNDATION_PATH, encoding="utf-8") as _foundation_file:
     FOUNDATION = _foundation_file.read()
-BASE = """<!doctype html><html lang=en style="background:var(--ink);color-scheme:dark"><head>
-<meta charset=utf-8><meta name=color-scheme content=dark><meta name=theme-color content="#0B0B0C">
+BASE = """<!doctype html><html lang=en data-theme="{{ ui_theme or 'dark' }}" style="background:var(--ink)"><head>
+<meta charset=utf-8><meta name=color-scheme content="{{ 'light dark' if ui_theme == 'system' else (ui_theme or 'dark') }}"><meta name=theme-color content="#0B0B0C">
 <meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name=apple-mobile-web-app-capable content=yes><meta name=apple-mobile-web-app-title content=Regulars>
 <link rel=manifest href=/manifest.webmanifest?v=118>
@@ -25,7 +25,7 @@ BASE = """<!doctype html><html lang=en style="background:var(--ink);color-scheme
 <link rel=apple-touch-startup-image href=/static/splash/splash-1320x2868.png?v=118 media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
 <title>Regulars</title>
 <style>{{ foundation_css|safe }}
-html,body{background:var(--color-bg);color:var(--color-text)}html{color-scheme:dark}
+html,body{background:var(--color-bg);color:var(--color-text)}html{color-scheme:dark}html[data-theme=light]{color-scheme:light}@media (prefers-color-scheme: light){html[data-theme=system]{color-scheme:light}}
 html:has(#chat),body:has(#chat){height:100dvh;overflow:hidden}
 body:has(#chat){display:flex;flex-direction:column}
 body:has(#chat) main{flex:1;min-width:0;width:100%;max-width:640px;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:8px var(--space-5) 0}
@@ -4781,6 +4781,18 @@ window.grunionsRefreshMap=function(el, force){
 def map_script(mapbox_json):
     return "<script>\nwindow.GRUNIONS_MAPBOX=" + mapbox_json + ";\n" + MAP_JS + "</script>\n"
 
+APPEARANCE_PAGE = """
+<div class=fxpage>
+<a class=fxback href=/profile>‹ Profile</a>
+<h1 class=ty-display-m>Appearance</h1>
+<p class=ty-muted>System follows your phone or computer. Team colors stay the same in both.</p>
+<form method=post>{{ csrf_field() }}
+{{ rg_seg_choice('appearance', [('system','System'),('light','Light'),('dark','Dark')], ui_theme or 'dark', True) }}
+<noscript><button class="btn btn-primary">Save</button></noscript>
+</form>
+</div>
+"""
+
 T = {}
 T["join"] = """<h1>Join the Grunions</h1>
 <p class=t2>Tuesdays at Marina High School and Fridays at Westminster High School, 7–8:30 PM. Membership is $45/mo starting in November; a current USA Water Polo membership is required.</p>
@@ -5308,6 +5320,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 {{ rg_row('Teams & roles', 'Grunions · ' ~ role_label(m)|capitalize) }}
 {{ rg_row('Notifications', 'Leave-by · changes · @mentions', '/notifications') }}
 {{ rg_row('Privacy', 'Who sees your email and phone', '/privacy') }}
+{{ rg_row('Appearance', {'system':'System','light':'Light','dark':'Dark'}[ui_theme or 'dark'], '/appearance') }}
 {{ rg_row('Your week', (m.avail_days or 'Not set')|replace(',', ' · '), '/setup/week') }}
 <a class="btn btn-secondary full ghostpill" href=/logout>Log out</a>
 {% else %}
