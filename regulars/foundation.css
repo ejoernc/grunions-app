@@ -965,3 +965,52 @@ body.profilepage:not(.profile-edit) .infogrid .prow .v{max-width:100%;overflow:h
 .rg-cctip{margin:0;min-height:1.3em;color:var(--smoke);font-size:13px}
 .rg-srtable{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 .rg-ccstack.zero{height:2px!important;background:var(--smoke);border-radius:1px}
+/* 2.0 / Top bar (02, 353:648). Compact: 12/16 padding, 44px graphite discs, 22px title. Large adds eyebrow + 56px title. */
+.rg-topbar{position:sticky;top:0;z-index:8;display:grid;gap:20px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:var(--ink);color:var(--paper)}
+.rg-topbar{grid-template-columns:minmax(0,1fr);justify-items:stretch}
+.rg-tbrow{display:flex;align-items:center;gap:8px;min-width:0;width:100%}
+.rg-tbspace{flex:1}
+.rg-tbdisc{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:999px;background:var(--graphite);color:var(--paper);text-decoration:none;border:0;cursor:pointer}
+.rg-tbdisc:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
+.rg-topbar.compact .rg-tbtitle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 22px/1 var(--font-display);letter-spacing:-.02em;color:var(--paper);text-decoration:none}
+.rg-tbavatar{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:999px;background:var(--team-sun);color:var(--fixed-ink);font:700 14px/1 var(--font-display);overflow:hidden}
+.rg-tbhead{display:grid;gap:4px;padding-left:4px}
+.rg-tbeyebrow{margin:0;font:700 11px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--smoke)}
+.rg-topbar.large .rg-tbtitle{margin:0;font:700 clamp(40px,14vw,56px)/.9 var(--font-display);letter-spacing:-.06em}
+@media (min-width:768px){.rg-topbar{padding-left:calc(var(--rail-w, 0px) + 24px);padding-right:24px}}
+/* 2.0 / List row · Settings (02, 350:849): carbon pill, 18/16/18/20 padding. */
+.rg-srow{display:flex;align-items:center;gap:12px;min-height:56px;padding:18px 16px 18px 20px;border-radius:999px;background:var(--carbon);color:var(--paper);text-decoration:none;box-sizing:border-box}
+.rg-srlabel{flex:1;min-width:0;font:700 16px/1.25 var(--font-sans)}
+.rg-srvalue{color:var(--smoke);font:600 15px/1.25 var(--font-sans)}
+.rg-srow .rg-ic{color:var(--smoke)}
+.rg-srows{display:grid;gap:8px}
+/* Small muted text (replaces the old .t3). */
+.ty-sm{font-size:13px;line-height:1.4}
+.ty-sm.sm,.ty-sm.xs{font-size:12px}
+/* 2.0 / Button sizes used by older screens: full width and compact. */
+.rg-btn.full{width:100%}
+.rg-btn.compact,.rg-btn.sm{min-height:40px;padding:0 var(--space-4);font-size:14px}
+.rg-btn.ghost{background:transparent;color:var(--paper)}
+.rg-btn.danger{background:transparent;color:var(--team-cherry);box-shadow:inset 0 0 0 1.5px var(--team-cherry)}
+.rg-btn.sun{background:var(--team-sun);color:var(--fixed-ink)}
+.rg-btn[disabled],.rg-btn.disabled{opacity:.4;pointer-events:none}
+/* Page title under the compact Top bar. */
+.rg-pagetitle{display:grid;gap:8px;margin:4px 0 20px;min-width:0}
+.rg-pt{margin:0;font:700 clamp(40px,13vw,72px)/.9 var(--font-display);letter-spacing:-.05em;color:var(--paper);overflow-wrap:normal}
+.rg-ptsub{margin:0;color:var(--smoke);font:500 15px/1.4 var(--font-sans)}
+.rg-ptacts{display:flex;flex-wrap:wrap;gap:8px}
+.rg-ptacts .rg-btn{min-height:44px}
+/* Older grouped lists take the 2.0 group style (graphite, 20px corners, 52px rows, hairline dividers)
+   until each screen moves to the List row component. */
+.list{background:var(--graphite);border-radius:20px;margin:0 0 12px;overflow:hidden}
+.list>.li,.list .li{min-height:52px;padding:13px 16px;border-top:1px solid color-mix(in srgb,var(--paper) 8%,transparent);background:transparent;color:var(--paper)}
+.list>.li:first-child{border-top:0}
+/* Schedule drawer: the + sits right of the Upcoming title once the drawer is full. */
+.weekhi .weekplus{position:absolute;right:-56px;top:8px;opacity:0;pointer-events:none;transition:opacity .2s}
+.weekhi .weekplus.on{opacity:1;pointer-events:auto}
+dialog.botsheet[open]{pointer-events:auto}
+/* Task pages (sheet kind): ✕ header, no nav, one primary action pinned to the bottom. */
+.rg-sheethead .rg-tbtitle{flex:1}
+.rg-page.rg-task{padding-top:8px;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+.rg-task h1{margin:4px 0 0;font:700 clamp(32px,9vw,44px)/1 var(--font-display);letter-spacing:-.04em}
+.rg-task form>.rg-btn.primary:last-of-type{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom));z-index:2;box-shadow:0 -12px 24px var(--ink)}

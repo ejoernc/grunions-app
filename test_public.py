@@ -274,25 +274,25 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     assert 'href="/manage/club/programs"' in club and "Plans &amp; passes" in club and ">Requirements</span>" not in club
     assert "Schedule &amp; pricing" not in club
     people = admin.get("/manage/area/people").get_data(as_text=True)
-    assert "<h1>People</h1>" in people and "Participants, members, coaches, admins, and referees" in people
+    assert "<h1 class=rg-pt>People.</h1>" in people and "Participants, members, coaches, admins, and referees" in people
     assert "<b>Participants</b>" in people and "<b>Members</b>" in people and "<b>Coaches</b>" in people and "<b>Admins</b>" in people
     assert "<b>Referees</b>" in people and "<b>Compliance</b>" in people and "<b>Membership</b>" not in people
     assert people.index("<b>Participants</b>") < people.index("<b>Members</b>")
     assert 'href="/members?view=coaches"' in people and 'href="/members?view=compliance"' in people and 'href="/members?view=membership"' in people
-    assert "class=hubback href=/manage" in people and "class=hubback href=/manage/area/" not in people
+    assert 'class=rg-tbdisc href="/manage" aria-label="Back to Manage"' in people and 'class=rg-tbdisc href="/manage/area/' not in people
     tools = admin.get("/manage/area/tools").get_data(as_text=True)
     assert "QR codes" in tools and "Data transfer" in tools and ">Usage<" in tools
     roster = admin.get("/members").get_data(as_text=True)
     assert "aria-label=\"Role\"" not in roster and ">Expiring</a>" in roster and ">Paying</a>" not in roster and "Export CSV" in roster
     assert admin.get("/members?pay=paying").status_code == 200 and ">Paying</a>" not in admin.get("/members?pay=paying").get_data(as_text=True)
-    assert "class=hubback href=/manage/area/people" in roster and ".people{padding-bottom:48px}" in roster
+    assert 'class=rg-tbdisc href="/manage/area/people"' in roster and ".people{padding-bottom:48px}" in roster
     coaches = admin.get("/members?view=coaches").get_data(as_text=True)
     admins = admin.get("/members?view=admins").get_data(as_text=True)
-    assert "<h1>Coaches</h1>" in coaches and "aria-label=\"Role\"" not in coaches and "Search people..." in coaches
-    assert "<h1>Admins</h1>" in admins and admin.get("/members?view=all").headers.get("Location", "").endswith("/members")
+    assert "<h1 class=rg-pt>Coaches.</h1>" in coaches and "aria-label=\"Role\"" not in coaches and "Search people..." in coaches
+    assert "<h1 class=rg-pt>Admins.</h1>" in admins and admin.get("/members?view=all").headers.get("Location", "").endswith("/members")
     paying = admin.get("/members?view=membership").get_data(as_text=True)
-    assert "<h1>Members</h1>" in paying and "Export CSV" in paying and "Search people..." in paying and 'aria-label="Payment"' not in paying
-    assert "<h1>Participants</h1>" in roster
+    assert "<h1 class=rg-pt>Members.</h1>" in paying and "Export CSV" in paying and "Search people..." in paying and 'aria-label="Payment"' not in paying
+    assert "<h1 class=rg-pt>Participants.</h1>" in roster
     assert 'id="manageClear"' in page and "/manage/search?q=" in page and "No matches for" in page
     assert "min-height:72px;padding:16px 12px 16px 10px" in page
     assert "div.growthcard{position:relative;background:transparent;border:0;border-radius:0;padding:0;margin:0 0 16px}" in page

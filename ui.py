@@ -518,7 +518,6 @@ a.mrow.mtile .tnum{margin-left:auto;font:700 40px/.9 var(--r2-font-display)}
 a.mrow.mtile .mbadge{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
 a.mrow.mtile .mchev{margin-left:auto;color:inherit}
 body.adminpage .pagehead h1{font:700 clamp(48px,14vw,72px)/.9 var(--r2-font-display);letter-spacing:-.04em}
-body.adminpage .pagehead h1::after{content:"."}
 body.adminpage .evcard{background:var(--team-sun);color:var(--ink);border-radius:32px;padding:18px 20px 16px}
 body.adminpage .evcard .nxtitle,body.adminpage .evcard .t2,body.adminpage .evcard .t3{color:var(--ink)}
 body.adminpage .chkhero{display:flex;align-items:flex-end;gap:10px;margin-top:8px}
@@ -840,7 +839,6 @@ body.adminpage .pagehead h1{font:700 clamp(36px,8vw,56px)/.9 var(--r2-font-displ
 .mbadge.warn{background:var(--color-badge-warn);color:var(--color-badge-warn-text);border-color:transparent}
 .mchev{color:var(--t3);display:flex;flex:none}
 .mchev svg{display:block}
-header.homehead a.hubback{flex:none;width:44px;height:44px;margin-left:-10px;display:inline-flex;align-items:center;justify-content:center;color:var(--color-text)}
 .pagerow{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);min-width:0}
 .pagehead h1{margin:0;min-width:0;font-size:var(--type-t1-size);line-height:var(--type-t1-line);font-weight:var(--type-t1-weight);letter-spacing:var(--type-title-1-tracking)}
 .pagesub{margin:0;color:var(--color-text-secondary);font-size:var(--type-b2-size);line-height:var(--type-b2-line);font-weight:var(--type-b2-weight)}
@@ -1910,8 +1908,8 @@ dialog.memberedit .help a{color:var(--t1)}
   }
   function deselect(btn) {
     var choice = choiceOf(btn);
-    btn.classList.remove("btn-primary", "primary", "is-sweeping");
-    btn.classList.add("btn-secondary");
+    btn.classList.remove("primary", "primary", "is-sweeping");
+    btn.classList.add("secondary");
     if (choice === "going") {
       var goingLabel = textOf(btn);
       if (goingLabel === "Waitlist") goingLabel = "Join waitlist";
@@ -1927,8 +1925,8 @@ dialog.memberedit .help a{color:var(--t1)}
   }
   function selectVisual(btn) {
     var choice = choiceOf(btn);
-    btn.classList.remove("btn-secondary", "primary", "is-sweeping");
-    btn.classList.add("btn-primary");
+    btn.classList.remove("secondary", "primary", "is-sweeping");
+    btn.classList.add("primary");
     btn.removeAttribute("data-sweep");
     btn.value = choice === "social" ? "social_leave" : "clear";
     var current = textOf(btn);
@@ -2052,7 +2050,7 @@ dialog.memberedit .help a{color:var(--t1)}
     }
     if (!social && location.pathname.indexOf("/lineup/") === 0) {
       function rosterList(root, label) {
-        var labels = root.querySelectorAll(".seclabel");
+        var labels = root.querySelectorAll(".rg-day");
         for (var i = 0; i < labels.length; i++) {
           if (labels[i].textContent.trim() === label) {
             var list = labels[i].nextElementSibling;
@@ -2124,7 +2122,7 @@ dialog.memberedit .help a{color:var(--t1)}
     }
   }
   function lockRow(form, button) {
-    Array.prototype.forEach.call(form.querySelectorAll(":scope > button.btn"), function (el) {
+    Array.prototype.forEach.call(form.querySelectorAll(":scope > button.rg-btn"), function (el) {
       var w = el.getBoundingClientRect().width;
       el.style.flex = "0 0 " + w + "px";
       el.style.width = w + "px";
@@ -2139,7 +2137,7 @@ dialog.memberedit .help a{color:var(--t1)}
     var held = lockRow(form, button);
     if (button.value === "social_join" || button.value === "social_leave") held = Math.max(held, 136);
     button.classList.add("primary");
-    button.classList.remove("btn-secondary");
+    button.classList.remove("secondary");
     button.dataset.sweeping = "playing";
     button.classList.add("is-sweeping");
     if (!button.querySelector(".sweep-label")) {
@@ -2279,7 +2277,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro expiry_kind(m) %}{% set left = days_left(m.usawp_valid_until) %}{% if not m.usawp_valid_until %}bad{% elif left < 0 %}bad{% elif left <= EXPIRING_DAYS %}warn{% else %}ok{% endif %}{% endmacro %}
 {% macro expiry_text(m) %}{% if not m.usawp_valid_until %}missing{% else %}expires {{ m.usawp_valid_until }}{% endif %}{% endmacro %}
 {% macro titledot(kind, title) %}<span class=rowtitle><span class="dot{% if kind %} {{ kind }}{% endif %}" aria-hidden=true></span>{{ title }}</span>{% endmacro %}
-{% macro memhead(m) %}<div class=sechead id=membership><div class=seclabel>Compliance</div><span hidden>Water Polo Membership</span>{% if m.usawp_verified_at %}<div class=verifiedwhen>Verified {{ m.usawp_verified_at[:10] }}</div>{% endif %}</div>{% endmacro %}
+{% macro memhead(m) %}<div class=sechead id=membership><div class=rg-day>Compliance</div><span hidden>Water Polo Membership</span>{% if m.usawp_verified_at %}<div class=verifiedwhen>Verified {{ m.usawp_verified_at[:10] }}</div>{% endif %}</div>{% endmacro %}
 {# Credential line on the list-row component: ok = Cleared (lime), warn = Expiring (sun), anything else = Not cleared (tangerine). #}
 {% macro cred_row(kind, title, side) -%}{{ rg_row(title, side, '', '', '', '', {'ok':'Cleared','warn':'Expiring'}.get(kind|trim, 'Not cleared'), {'ok':'going','warn':'expiring'}.get(kind|trim, 'notcleared')) }}{%- endmacro %}
 {% macro membership_section(m, vr_pending) %}{% if can_see_member_status(m) %}{% set cl = clearance(m) %}{% set dl = days_left(m.usawp_valid_until) %}{% set tw = trial_window(m) %}{% set ex = expiry_notes(m, cl) %}{% set cc = coach_clearance(m) %}{% set left = days_left(m.usawp_valid_until) %}{% set locked = m.usawp_status == 'verified' and not (left is not none and left < 0) %}{% set on_trial = tw and tw.active and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}
@@ -2293,23 +2291,23 @@ dialog.memberedit .help a{color:var(--t1)}
 </div>
 {% if tw and tw.expired and not ex.membership and m.usawp_status != 'verified' and not vr_pending %}<p class="sm" style="margin:8px 0 0">Trial ended {{tw.ends}}</p>{% endif %}
 {% if not cl.ok %}{% if not vr_pending %}{% for line in ex.lines %}<p class="sm" style="margin:8px 0 0">{{line}}</p>{% endfor %}{% elif ex.safesport %}<p class="sm" style="margin:8px 0 0">SafeSport expired {{ex.safesport}}</p>{% endif %}
-{% if ex.rest %}<p class="t2 sm" style="margin:8px 0 0">Needs: {{ex.rest|join(', ')}}</p>{% endif %}{% endif %}
+{% if ex.rest %}<p class="ty-body sm" style="margin:8px 0 0">Needs: {{ex.rest|join(', ')}}</p>{% endif %}{% endif %}
 {% if m.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %}<p class="sm" style="margin:8px 0 0"><span class="st st-warn"></span> Your membership expires in <b>{{dl}} days</b> ({{m.usawp_valid_until}}). <a href=https://usawp.sport80.com>Renew</a></p>{% endif %}
-{% if m.usawp_status != 'verified' %}<p class="t2 sm" style="margin:8px 0 0">Register or renew at <a href=https://usawp.sport80.com>usawp.sport80.com</a> with {{m.email}} and choose Grunions as your club.</p>{% endif %}
+{% if m.usawp_status != 'verified' %}<p class="ty-body sm" style="margin:8px 0 0">Register or renew at <a href=https://usawp.sport80.com>usawp.sport80.com</a> with {{m.email}} and choose Grunions as your club.</p>{% endif %}
 {% if ex.membership and not vr_pending %}
-<button type=button class="btn btn-primary full" id=reverifyOpen style="margin-top:14px">Reverify membership</button>
+<button type=button class="rg-btn primary full" id=reverifyOpen style="margin-top:14px">Reverify membership</button>
 <form id=reverifyForm hidden method=post action=/home style="margin-top:14px">{{csrf_field()}}
 <div class=row style="align-items:flex-end"><label style="margin:0">USAWP Membership #<input name=usawp_number inputmode=numeric value="{{m.usawp_number or ''}}" autocomplete=off></label>
 <label style="margin:0">Background screening expires<input name=background_expires type=date value="{{ (background_view(m).date if background_view(m) else '') }}"></label>
-<button class="btn btn-primary" style="flex:0 0 auto">Send</button></div></form>
+<button class="rg-btn primary" style="flex:0 0 auto">Send</button></div></form>
 <script>document.getElementById('reverifyOpen').onclick=function(){var f=document.getElementById('reverifyForm');f.hidden=false;this.hidden=true;f.querySelector('input[name=usawp_number]').focus()};</script>
 {% elif m.usawp_status == 'verified' %}
 {% set bg = background_view(m) %}{% if bg and bg.required and bg.kind == 'bad' and not vr_pending %}
 <form method=post action=/home style="margin-top:14px">{{csrf_field()}}<input type=hidden name=action value=reverify_background>
-<button class="btn btn-primary full">Reverify background screening</button></form>{% endif %}
+<button class="rg-btn primary full">Reverify background screening</button></form>{% endif %}
 {% endif %}
 {% endif %}{% endmacro %}
-{% macro expiry_slot(m) %}{% if can_see_member_status(m) %}{% set left = days_left(m.usawp_valid_until) %}{% if left is not none and left >= 0 and left <= EXPIRING_DAYS %}<span class="t3 xs">{% if left == 0 %} · expires today{% elif left == 1 %} · expires in 1 day{% else %} · expires in {{ left }} days{% endif %}</span>{% endif %}{% endif %}{% endmacro %}
+{% macro expiry_slot(m) %}{% if can_see_member_status(m) %}{% set left = days_left(m.usawp_valid_until) %}{% if left is not none and left >= 0 and left <= EXPIRING_DAYS %}<span class="ty-muted ty-sm xs">{% if left == 0 %} · expires today{% elif left == 1 %} · expires in 1 day{% else %} · expires in {{ left }} days{% endif %}</span>{% endif %}{% endif %}{% endmacro %}
 {% macro hi_membership() %}{% set num = (me().usawp_number or '')|trim %}{% set tw = trial_window(me()) %}{% set on_trial = tw and tw.active and (me().usawp_status or '') != 'verified' %}{% if num %}{% set cl = clearance(me()) %}{% set dl = days_left(me().usawp_valid_until) %}{% set ns = namespace(tone='ok') %}{% if vr_pending or on_trial %}{% set ns.tone = 'warn' %}{% elif not cl.ok %}{% set ns.tone = 'bad' %}{% elif dl is not none and dl <= EXPIRING_DAYS %}{% set ns.tone = 'warn' %}{% else %}{% for it in cl.checks %}{% if it.days_left is not none and it.days_left >= 0 and it.days_left <= EXPIRING_DAYS %}{% set ns.tone = 'warn' %}{% endif %}{% endfor %}{% endif %}<a class="usawpchip{% if ns.tone != 'ok' %} {{ ns.tone }}{% endif %}" href="/profile#membership">{% if ns.tone == 'ok' %}<svg class="usawpok" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg>{% else %}<span class="dot {{ ns.tone }}" aria-hidden=true></span>{% endif %}USAWP #{{ num }}</a>{% elif on_trial and not vr_pending %}<a class="usawpchip warn" href="/profile#membership"><span class="dot warn" aria-hidden=true></span>Trial</a>{% endif %}{% endmacro %}
 {% macro roster_status(r) %}{% if can_see_member_status(r) %}{% set cl = clearance(r) %}{% set dl = days_left(r.usawp_valid_until) %}{% set tw = trial_window(r) %}{% set ex = expiry_notes(r, cl) %}{% set ns = namespace(tone='ok', text='Cleared', when='') %}
 {% if dl is not none and dl >= 0 and dl <= EXPIRING_DAYS %}{% if dl == 0 %}{% set ns.when = 'expires today' %}{% elif dl == 1 %}{% set ns.when = 'expires in 1 day' %}{% else %}{% set ns.when = 'expires in ' ~ dl ~ ' days' %}{% endif %}{% endif %}
@@ -2337,12 +2335,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% elif dl is not none and dl >= 0 and dl <= EXPIRING_DAYS %}{% set ns.tone = 'warn' %}{% endif %}
 <span class="psub st-{{ ns.tone }} coachmark" aria-hidden="true"></span>{% endif %}{% endmacro %}
 {% macro person_link(r) %}<a class=ci-name href="/admin/member/{{ r.id }}">{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span>{{ person_sub(r) }}{{ caller() }}</span></a>{% endmacro %}
-{% macro admin_page(title, subtitle='') %}
-<div class=pagehead>
-<div class=pagerow><h1>{{ title }}</h1>{% if caller is defined %}{{ caller() }}{% endif %}</div>
-{% if subtitle %}<p class=pagesub>{{ subtitle }}</p>{% endif %}
-</div>
-{% endmacro %}
+{% macro admin_page(title, subtitle='') %}{{ rg_page_title(title, subtitle, caller() if caller is defined else '') }}{% endmacro %}
 {% macro manage_row(href, title, desc, icon, count=0, tone='info', tile='carbon', num=false) %}{{ rg_manage_tile(href, title, desc, icon, count, tone, tile, num) }}{% endmacro %}
 {% macro type_select(types, selected='') %}<select name=event_type id=lineType>{% for glabel, options in lineup_type_groups(types) %}<optgroup label="{{ glabel }}">{% for name, label in options %}<option value="{{ name }}" {% if selected == name %}selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>{% endfor %}</select>{% endmacro %}
 {% macro event_chooser(staff) %}
@@ -2350,7 +2343,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=planlane>
 {% if staff %}<div class=card>
 <h2>Team schedule</h2>
-<p class="t3 sm">Practice, scrimmage, and game. Shows on Home.</p>
+<p class="ty-muted ty-sm sm">Practice, scrimmage, and game. Shows on Home.</p>
 <div class=planlinks>
 <a class=chip href="/events/new?type=practice">Practice</a>
 <a class=chip href="/events/new?type=scrimmage">Scrimmage</a>
@@ -2359,9 +2352,9 @@ dialog.memberedit .help a{color:var(--t1)}
 </div>{% endif %}
 <div class=card>
 <h2>Lineup event</h2>
-<p class="t3 sm">Tournaments, camps, trips, and community events. Shows on Lineup.</p>
+<p class="ty-muted ty-sm sm">Tournaments, camps, trips, and community events. Shows on Lineup.</p>
 {% for glabel, options in lineup_type_groups(EVENT_TYPE_LABELS if staff else MEMBER_TYPE_LABELS) %}
-<div class="t3 xs" style="margin:8px 0 4px">{{ glabel }}</div>
+<div class="ty-muted ty-sm xs" style="margin:8px 0 4px">{{ glabel }}</div>
 <div class=planlinks>
 {% for name, label in options %}<a class=chip href="/lineup/new?mode={{ 'create' if staff else 'suggest' }}&amp;event_type={{ name }}">{{ label }}</a>{% endfor %}
 </div>
@@ -2370,7 +2363,7 @@ dialog.memberedit .help a{color:var(--t1)}
 </div>
 {% endmacro %}
 {% macro detail_hiddens(r) %}{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value="{{date}}"><input type=hidden name=q value="{{q}}">{% if view is defined %}<input type=hidden name=list_view value="{{ view }}">{% endif %}{% if coach_filter is defined %}<input type=hidden name=list_coach value="{{'eligible' if coach_filter else ''}}"><input type=hidden name=list_referee value="{{'eligible' if referee_filter else ''}}">{% endif %}{% endmacro %}
-{% macro cred_side(iso) %}{% if iso %}<span class=cred><span class="dot {{ date_dot(iso) }}" aria-hidden=true></span>{{ fmt_long(iso) }}</span>{% else %}<span class=t3>Not on file</span>{% endif %}{% endmacro %}
+{% macro cred_side(iso) %}{% if iso %}<span class=cred><span class="dot {{ date_dot(iso) }}" aria-hidden=true></span>{{ fmt_long(iso) }}</span>{% else %}<span class='ty-muted ty-sm'>Not on file</span>{% endif %}{% endmacro %}
 {% macro date_field(label, name, value) %}<label class="datefield{% if not value %} empty{% endif %}">{{ label }}<input type=date name={{ name }} value="{{ value or '' }}" placeholder="Not on file"><span class=dateph>Not on file</span></label>{% endmacro %}
 {# Event cards and rows: thin wrappers so existing call sites render the one component in components.py. #}
 {% macro r2_event_card(href, sport, title, clock, meridiem, duration, venue, people, extra, you=false, tone='', went=false) -%}
@@ -2419,7 +2412,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {%- endmacro %}
 {% macro social_icon() %}<span class=nxicon aria-hidden=true><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M237.66,45.66A8,8,0,0,0,232,32H24a8,8,0,0,0-5.66,13.66L120,147.31V208H88a8,8,0,0,0,0,16h80a8,8,0,0,0,0-16H136V147.31ZM43.31,48H212.69l-16,16H59.31ZM128,132.69,75.31,80H180.69Z"/></svg></span>{% endmacro %}
 {% macro social_fields(p) %}
-<div class="t3 xs">Type</div>
+<div class="ty-muted ty-sm xs">Type</div>
 <div class=checks role=group aria-label="Type"><input type=hidden name=social_kind value="">
 {% for kind in SOCIAL_KINDS %}<label><input type=checkbox name=social_kind value="{{ kind }}" {% if kind in (p.social_kind or '').split(',') %}checked{% endif %}>{{ kind }}</label>{% endfor %}
 </div>
@@ -2430,26 +2423,26 @@ dialog.memberedit .help a{color:var(--t1)}
 {% endmacro %}
 {% macro message_fields(p) %}
 <label>Coach message<textarea class=planfield name=message maxlength=280 rows=4>{{ p.coach_note or '' }}</textarea></label>
-<p class="t3 sm">Leave blank to clear it.{% if p.coach_note_by %} Last set by {{ p.coach_note_by }}{% if p.coach_note_at %} · {{ fmt_stamp(p.coach_note_at) }}{% endif %}.{% endif %}</p>
+<p class="ty-muted ty-sm sm">Leave blank to clear it.{% if p.coach_note_by %} Last set by {{ p.coach_note_by }}{% if p.coach_note_at %} · {{ fmt_stamp(p.coach_note_at) }}{% endif %}.{% endif %}</p>
 {% endmacro %}
 {% macro practice_extra_dialogs(p, back) %}
 <dialog class=modal id=social{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">After-practice social</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 {{ social_fields(p) }}
-<button class="btn btn-primary full" name=action value=social>Save</button></form></div></dialog>
+<button class="rg-btn primary full" name=action value=social>Save</button></form></div></dialog>
 <dialog class=modal id=message{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Coach message</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 {{ message_fields(p) }}
-<button class="btn btn-primary full" name=action value=message>Save</button></form></div></dialog>
+<button class="rg-btn primary full" name=action value=message>Save</button></form></div></dialog>
 <dialog class=modal id=image{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Practice image</h2>
 <form method=post action="/practices/{{ p.id }}" enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 {{ upload_field('image', src=('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', clear_name='image_clear') }}
-<p class="t3 sm">Shown on the Home card only. Leave the file empty to keep the current picture.</p>
-<button class="btn btn-primary full" name=action value=image>Save</button></form></div></dialog>
+<p class="ty-muted ty-sm sm">Shown on the Home card only. Leave the file empty to keep the current picture.</p>
+<button class="rg-btn primary full" name=action value=image>Save</button></form></div></dialog>
 <dialog class=modal id=notes{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Notes</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 <label>Notes<textarea class=planfield name=note rows=4>{{ p.note or '' }}</textarea></label>
-<button class="btn btn-primary full" name=action value=note>Save</button></form></div></dialog>
+<button class="rg-btn primary full" name=action value=note>Save</button></form></div></dialog>
 {% endmacro %}
 {% macro practice_host_more(p, back) %}
 <span class=more><button type=button class=morebtn aria-label="More for {{ fmt_d(p.date) }}" aria-haspopup=menu aria-expanded=false><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></button>
@@ -2479,24 +2472,24 @@ dialog.memberedit .help a{color:var(--t1)}
 <dialog class=modal id=assign{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Assign coaches</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 <div class=checks role=group aria-label="Coaches">{% for c in coach_choices %}<label><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
-{% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
-<div class=row><button class="btn btn-primary" name=action value=assign>Save</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
+{% else %}<p class="ty-muted ty-sm sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
+<div class=row><button class="rg-btn primary" name=action value=assign>Save</button><button type=button class="rg-btn secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% if not practice_ended(p) %}
 <dialog class=modal id=cancel{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Send cancellation</h2>
-<p class="t2 sm">Members get an email and a push that include this reason.</p>
+<p class="ty-body sm">Members get an email and a push that include this reason.</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
 <label>Reason<textarea class=planfield name=reason rows=4 required></textarea></label>
-<button class="btn btn-danger full" name=action value=cancel>Confirm</button></form></div></dialog>
+<button class="rg-btn danger full" name=action value=cancel>Confirm</button></form></div></dialog>
 <dialog class=modal id=delete{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Delete this practice?</h2>
-<p class="t2 sm">{% if practice_is_month(p) %}{{ practice_when(p) }} at {{ p.location }}.{% else %}{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.{% endif %}</p>
+<p class="ty-body sm">{% if practice_is_month(p) %}{{ practice_when(p) }} at {{ p.location }}.{% else %}{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.{% endif %}</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
-<div class=row><button class="btn btn-danger" name=action value=delete>Delete practice</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
+<div class=row><button class="rg-btn danger" name=action value=delete>Delete practice</button><button type=button class="rg-btn secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% endif %}
 {% endmacro %}
 {% macro mount_map(id, pins, mode, href='', route=None) %}{% if pins %}{{ map_boot() }}{% endif %}<section class="homemap cardmap {{ 'banner' if mode == 'card' else ('still tappable' if mode == 'tap' else 'still') }}" id="{{ id }}" {% if mode == 'tap' and pins %}data-map-open data-directions="{{ pins[0].lat }},{{ pins[0].lng }}" data-map-href="{{ href }}" data-map-label="{{ pins[0].label or 'Location' }}" role=button tabindex=0 aria-label="Map of {{ pins[0].label or 'the location' }}"{% elif mode == 'still' %}aria-hidden=true{% else %}aria-label="Map"{% endif %}></section>
 <script>(function(){var pins={{ pins|tojson }};var route={{ route|tojson if route else '[]' }};function start(){var el=document.getElementById({{ id|tojson }});if(el&&window.grunionsMountMap)grunionsMountMap(el,{pins:pins,mode:'{{ 'still' if mode == 'tap' else mode }}',route:route});}if(window.grunionsMountMap)start();else document.addEventListener('DOMContentLoaded',start);})();</script>{% endmacro %}
 {% macro event_hero(id, pins, banner_src, label, route=None) %}{% if banner_src %}<div class=evhero><img src="{{ banner_src }}" alt=""></div>{% else %}{{ mount_map(id, pins, 'card', '', route) }}{% endif %}{% endmacro %}
-{% macro whos_going(people, kind="going") %}<div class=seclabel>{% if kind == "interested" %}Who's interested{% else %}Who's going{% endif %}</div><div class=list>{% for r in people %}<div class=li>{% if me().is_admin or is_staff() %}<a class=ci-name href="/admin/member/{{ r.id }}">{% else %}<span class=ci-name>{% endif %}{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span></span>{% if kind == 'going' and r.id != me().id %}{% set lo = me().id if me().id < r.id else r.id %}{% set hi = r.id if me().id < r.id else me().id %}<a href="/chat?c=dm:{{ lo }}:{{ hi }}&place=me">Message</a>{% endif %}{% if me().is_admin or is_staff() %}</a>{% else %}</span>{% endif %}</div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>{% endmacro %}
+{% macro whos_going(people, kind="going") %}<div class=rg-day>{% if kind == "interested" %}Who's interested{% else %}Who's going{% endif %}</div><div class=list>{% for r in people %}<div class=li>{% if me().is_admin or is_staff() %}<a class=ci-name href="/admin/member/{{ r.id }}">{% else %}<span class=ci-name>{% endif %}{% if r.photo %}<span class="avatar ciav"><img src="/avatar/{{ r.id }}?v={{ r.photo }}" alt="" width="40" height="40"></span>{% else %}<span class="avatar ciav">{{ initials(r) }}</span>{% endif %}<span class=grow style="min-width:0"><span class=ell style="display:block;font-weight:500">{{ display_first(r) }} {{ r.last }}</span></span>{% if kind == 'going' and r.id != me().id %}{% set lo = me().id if me().id < r.id else r.id %}{% set hi = r.id if me().id < r.id else me().id %}<a href="/chat?c=dm:{{ lo }}:{{ hi }}&place=me">Message</a>{% endif %}{% if me().is_admin or is_staff() %}</a>{% else %}</span>{% endif %}</div>{% else %}<div class=li><span class='ty-muted ty-sm'>No one yet.</span></div>{% endfor %}</div>{% endmacro %}
 {% macro event_location(id, pins, name, sub, href, route=None, route_min=None, social_name='', social_sub='', social_href='', social_dest='') %}<div class="rg-getthere">{% if pins %}{{ mount_map(id, pins, 'tap', href, route) }}{% endif %}
 {{ rg_info('LOCATION', name ~ ((' · ' ~ sub) if sub and sub != name else '')) }}
 {% if social_name %}{{ rg_info('SOCIAL' ~ ((' · ' ~ route_min ~ ' MIN DRIVE') if route_min else ''), social_name ~ ((' · ' ~ social_sub) if social_sub and social_sub != social_name else '')) }}{% elif route_min %}{{ rg_info('DRIVE', route_min ~ ' min') }}{% endif %}
@@ -2547,8 +2540,8 @@ dialog.memberedit .help a{color:var(--t1)}
 {% if not past %}<div class=lcfoot><span class=lctrack><i style="width:{{ ns.bar }}%"></i></span><span>{{ ns.foot }}</span></div>{% else %}<div class=lcfoot><span>{{ e.going_n }} went</span></div>{% endif %}
 </a>{% endif %}
 {% endmacro %}
-{% macro app_header(fade, entry, plus_href, plus_label='Add') %}<header class="homehead apphead{% if fade %} homefade{% endif %}"{% if entry %} data-entry="{{ entry }}"{% endif %}><div class=headmain>{{ caller() }}{% if plus_href %}{{ rg_plus(plus_href, plus_label) }}{% endif %}</div></header>{% endmacro %}
-{% if tab == 'profile' and me() %}<header class=profilebar>
+{% macro app_header(fade, entry, plus_href, plus_label='Add') %}<header class="homehead apphead{% if fade %} homefade{% endif %}"{% if entry %} data-entry="{{ entry }}"{% endif %}><div class=headmain>{{ caller() }}{% if plus_href %}{{ rg_plus(plus_href, plus_label, 'createSheet' if plus_href == '/events/new' else '') }}{% endif %}</div></header>{% endmacro %}
+{% set _tbact %}{% if tab == 'practice' and (me().is_admin or is_staff()) %}<a class=rg-tbdisc href="/practices/{{ x.p.id }}?edit=1" aria-label="Edit practice">{{ rg_icon('edit') }}</a>{% elif tab == 'lineup_event' and e and e.can_edit %}<a class=rg-tbdisc href="/lineup/{{ e.id }}/edit" aria-label="Edit event">{{ rg_icon('edit') }}</a>{% elif tab == 'person' %}<button type=button class="rg-tbdisc morebtn" id=profileMore aria-label="Profile menu">{{ rg_icon('more') }}</button>{% elif tab == 'member' and me().is_admin %}<button type=button class="rg-tbdisc viewonly" id=profileEdit aria-label="Edit member">{{ rg_icon('edit') }}</button><button type=submit class="rg-btn primary editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}{% endset %}{% if nav_kind == 'sheet' and me() and tab in ('flow', 'settings_sheet') %}{{ rg_sheet_head(nav_title, nav_back_href) }}{% elif nav_topbar and me() and not (editing or plan_editing) %}{{ rg_top_bar('compact', nav_back_title, back_href=nav_back_href, back_label=nav_back_title, action_html=_tbact) }}{% elif tab == 'profile' and me() %}<header class=profilebar>
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
 <h1>Profile</h1>
 <div class=right><button type=button class="profileact viewonly morebtn" id=profileMore aria-label="Profile menu">•••</button><button type=button id=profileEdit hidden>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=profileForm>Save</button></div>
@@ -2564,7 +2557,20 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{% if editing or plan_editing %}Edit practice{% else %}Practice{% endif %}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() and tab == 'chat' %}{% elif me() %}{% call app_header(tab == 'home' or tab == 'practices', ('schedule' if tab == 'practices' else 'home') if (tab == 'home' or tab == 'practices') else '', '/lineup/new' if tab == 'lineup' else ('/events/new?lane=schedule' if (can_host_practice() and tab == 'practices' and sched_list) else ''), ('Add to Lineup' if can_host_practice() else 'Suggest an event') if tab == 'lineup' else 'Add to the schedule') %}{% if tab == 'practices' %}{% if sched_list %}<div class=displayhead><h1>Schedule</h1></div>{% else %}<div class=displayhead><h1>Schedule</h1></div>{% endif %}{% elif tab == 'home' %}<div class=displayhead><div class=displayeye>{{ hi_membership() }}</div><h1>Hi, {{ display_first(me()) }}</h1></div>{% elif tab == 'discover' %}<h1>Discover.</h1>{% elif tab == 'calendar' %}<div class=displayhead><p class=displayeye>{{ display_first(me()) }} {{ me().last }}</p><h1>Calendar</h1></div>{% elif tab == 'manage' %}<div class=displayhead><h1>Manage</h1></div>{% elif tab == 'admin' %}<a class=hubback href={{ admin_back|default('/manage') }} aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% elif tab == 'lineup' %}<div class=displayhead><h1>Lineup</h1></div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% elif tab in ('appearance', 'rides', 'availability', 'flow') %}{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}{% endcall %}{% else %}<header><a class=brand href=/ aria-label=Regulars><img src="/static/icons/icon-192.png?v=119" alt=""></a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{% if editing or plan_editing %}Edit practice{% else %}Practice{% endif %}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() and tab == 'chat' %}{% elif me() %}{% call app_header(tab == 'home' or tab == 'practices', ('schedule' if tab == 'practices' else 'home') if (tab == 'home' or tab == 'practices') else '', ('/events/new' if can_host_practice() and (tab == 'lineup' or (tab == 'practices' and not sched_home)) else ('/lineup/new' if tab == 'lineup' else '')), 'Create' if can_host_practice() else 'Suggest an event') %}{% if tab == 'practices' %}{% if sched_list %}<div class=displayhead><h1>Schedule</h1></div>{% else %}<div class=displayhead><h1>Schedule</h1></div>{% endif %}{% elif tab == 'home' %}<div class=displayhead><div class=displayeye>{{ hi_membership() }}</div><h1>Hi, {{ display_first(me()) }}</h1></div>{% elif tab == 'discover' %}<h1>Discover.</h1>{% elif tab == 'calendar' %}<div class=displayhead><p class=displayeye>{{ display_first(me()) }} {{ me().last }}</p><h1>Calendar</h1></div>{% elif tab == 'manage' %}<div class=displayhead><h1>Manage</h1></div>{% elif tab == 'admin' %}{% elif tab == 'lineup' %}<div class=displayhead><h1>Lineup</h1></div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% elif tab in ('appearance', 'rides', 'availability', 'flow') %}{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}{% endcall %}{% else %}<header><a class=brand href=/ aria-label=Regulars><img src="/static/icons/icon-192.png?v=119" alt=""></a></header>{% endif %}<main>
+{% if me() and can_host_practice() %}<dialog id=createSheet class="botsheet profmenu modal" data-sheet-name=create><div class=sheet><div class=grab aria-hidden=true></div>
+<h2 class=newtitle>Create.</h2><p class=ty-muted>What are you planning?</p>
+{{ rg_label('Team schedule') }}
+<div class=newcard>
+<a class=newrow href="/events/new?lane=schedule&amp;type=practice"><span class=grow><b>Practice</b><small>Shows on Schedule · members tap Going</small></span><span class=chatgo>›</span></a>
+<a class=newrow href="/events/new?lane=schedule&amp;type=scrimmage"><span class=grow><b>Scrimmage</b><small>Against another team</small></span><span class=chatgo>›</span></a>
+<a class=newrow href="/events/new?lane=schedule&amp;type=game"><span class=grow><b>Game</b><small>League or tournament game</small></span><span class=chatgo>›</span></a>
+</div>
+{{ rg_label('Lineup') }}
+<div class=newcard>
+<a class=newrow href="/events/new?lane=lineup"><span class=grow><b>Lineup event</b><small>Tournaments, camps, trips and socials</small></span><span class=chatgo>›</span></a>
+</div>
+</div></dialog>{% endif %}
 {% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}{{ rg_callout_card('Notifications', 'Allow notifications for chat, practice reminders, and membership expiry. This works on Android, and on iPhone once Regulars is on your Home Screen (iOS 16.4 or later).', 'Allow notifications', 'allowPush', 'Notification settings', '/notifications', 'lavender', 'pushCard', '<p id=iosPushHint hidden>On iPhone or iPad, add Regulars to your Home Screen to get notifications. Tap Share, then Add to Home Screen, and open the app from there (iOS 16.4 or later).</p><p id=pushDenied hidden>Notifications are blocked in this browser. Allow them in the site settings, then come back.</p>', True) }}{% endmacro %}"""
@@ -2606,6 +2612,12 @@ def _glyph(paths):
         '<path d="%s" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>' % d for d in paths) + "</svg>"
 
 _NAV3_GLYPHS = {
+    "chevron_left": ("M12.5 4.5L7 10L12.5 15.5",),
+    "chevron_right": ("M7.5 4.5L13 10L7.5 15.5",),
+    "plus": ("M10 4V16M4 10H16",),
+    "edit": ("M4 16L4.5 13L13.5 4L16 6.5L7 15.5L4 16Z", "M12 5.5L14.5 8"),
+    "more": ("M5 10H5.01M10 10H10.01M15 10H15.01",),
+    "close": ("M5 5L15 15M15 5L5 15",),
     "search": ("M14.25 9C14.25 11.8995 11.8995 14.25 9 14.25C6.10051 14.25 3.75 11.8995 3.75 9C3.75 6.10051 6.10051 3.75 9 3.75C11.8995 3.75 14.25 6.10051 14.25 9Z", "M13.2 13.2L16.5 16.5"),
     "calendar": ("M5.5 5H14.5C15.6046 5 16.5 5.89543 16.5 7V15C16.5 16.1046 15.6046 17 14.5 17H5.5C4.39543 17 3.5 16.1046 3.5 15V7C3.5 5.89543 4.39543 5 5.5 5Z", "M3.5 8.5H16.5M7 3.5V6.5M13 3.5V6.5"),
     "pin": ("M10 17.5C10 17.5 15.5 12.3 15.5 8.5C15.5 7.04131 14.9205 5.64236 13.8891 4.61091C12.8576 3.57946 11.4587 3 10 3C8.54131 3 7.14236 3.57946 6.11091 4.61091C5.07946 5.64236 4.5 7.04131 4.5 8.5C4.5 12.3 10 17.5 10 17.5Z", "M11.75 8.5C11.75 9.4665 10.9665 10.25 10 10.25C9.0335 10.25 8.25 9.4665 8.25 8.5C8.25 7.5335 9.0335 6.75 10 6.75C10.9665 6.75 11.75 7.5335 11.75 8.5Z"),
@@ -2624,7 +2636,7 @@ def nav_icon(key):
 
 _HOME_ON = "tab=='home' or tab=='practices' or tab=='practice' or tab=='series_edit'"
 _LINEUP_ON = "tab=='lineup' or tab=='lineup_edit' or tab=='lineup_event'"
-TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and tab != 'event_new' and tab != 'lineup_edit' and tab != 'series_edit' and not (tab=='practice' and editing) %}<nav class="nav3 noprint" data-place="{{ nav.place }}" aria-label="Places">
+TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and not (nav_kind == 'sheet' and tab == 'flow') and tab != 'event_new' and tab != 'lineup_edit' and tab != 'series_edit' and not (tab=='practice' and editing) %}<nav class="nav3 noprint" data-place="{{ nav.place }}" aria-label="Places">
 <button type="button" class="nav3-crest" aria-expanded="false" aria-controls="crestMenu" aria-label="Open places"><span class="nav3-crest-face"><img class="nav3-logo lg lime" src="/static/nav/mark-lime.svg" width="32" height="13" alt=""><img class="nav3-logo lg ink" src="/static/nav/mark-ink.svg" width="32" height="13" alt=""><img class="nav3-logo sm ink" src="/static/nav/mark-ink.svg" width="26" height="10" alt="">{% if nav.place == 'me' and me().photo %}<img class="nav3-photo" src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="">{% endif %}<span class="nav3-initials">{{ nav.crest }}</span></span><span class="nav3-more" aria-hidden="true">⋯</span><span class="nav3-switch-copy"><b>{{ nav.switch_title }}</b><small>{{ nav.switch_sub }}</small></span><span class="nav3-chevron" aria-hidden="true"></span></button>
 <p class="nav3-menu-label">Menu</p>
 <span class="nav3-rule"></span>
@@ -2999,10 +3011,16 @@ window.grunionsChartShow=function(card,key){ if(!card) return; var hit=false;
  if(!hit){var first=card.querySelector('.rg-ccview'); if(first){first.hidden=false; key=first.getAttribute('data-cc');}}
  card.querySelectorAll('.rg-ccdot').forEach(function(d){d.setAttribute('aria-selected', d.getAttribute('data-cc')===key?'true':'false')});};
 document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('[data-chartcard]').forEach(function(card){var k=null; try{k=localStorage.getItem('grunionsChart:'+card.id)}catch(err){} if(k) grunionsChartShow(card,k);});});}
+// The one history pop in the app: an overlay (sheet/menu) pushed its own entry so Android back closes it;
+// closing it in-page pops that entry. Never used for page navigation — back is always a link to the parent.
+function grunionsPopOverlay(){ history.back(); }
+// Tasks are sheets addressed by ?sheet=<name> so they're linkable.
+window.grunionsSheetFromUrl=function(){ try{ var n=new URLSearchParams(location.search).get('sheet'); if(!n) return; var d=document.querySelector('dialog[data-sheet-name="'+n+'"]'); if(d&&d.showModal&&!d.open){ if(window.grunionsOpenSheet) grunionsOpenSheet(d); else d.showModal(); } }catch(e){} };
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(grunionsSheetFromUrl,0); }); else setTimeout(grunionsSheetFromUrl,0);
 // Shared: any [data-open-dialog=id] opens that dialog; tapping the backdrop closes it.
 if(!window.grunionsDialogs){window.grunionsDialogs=1;
 document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-open-dialog]');
- if(t){var d=document.getElementById(t.getAttribute('data-open-dialog')); if(d&&d.showModal){e.preventDefault(); d.showModal();} return;}
+ if(t){var d=document.getElementById(t.getAttribute('data-open-dialog')); if(d&&d.showModal){e.preventDefault(); if(window.grunionsOpenSheet&&d.classList.contains('botsheet')) grunionsOpenSheet(d); else d.showModal();} return;}
  var sh=e.target.closest&&e.target.closest('[data-share-text]');
  if(sh){e.preventDefault(); var txt=sh.getAttribute('data-share-text'), note=sh.parentNode.querySelector('[data-share-note]');
   // Share trip (04.19): the member's own share sheet or clipboard. The club never sends the text.
@@ -3386,7 +3404,7 @@ function grunionsTakeBack(url){
  if(!flag||flag!==id) return null;
  try{var map=JSON.parse(sessionStorage.getItem('grunionsScroll')||'{}')||{}; var y=+map[id]; return y>0?y:0}catch(e){return 0}
 }
-function grunionsIsBackLink(a){return !!(a&&(a.classList.contains('hubback')||a.classList.contains('profileback')||a.getAttribute('aria-label')==='Back'))}
+function grunionsIsBackLink(a){var l=a&&(a.getAttribute('aria-label')||'');return !!(a&&(a.classList.contains('profileback')||l==='Back'||l.indexOf('Back to ')===0))}
 function grunionsParkHomeMap(){
  var live=document.getElementById('homeMap');
  if(!live||!live._gmap) return;
@@ -3517,16 +3535,6 @@ if(document.querySelector('nav.nav3, nav.tabs')){
   if(a.target&&a.target!=='_self') return;
   var abs; try{abs=new URL(a.href,location.href);}catch(err){return;}
   if(abs.origin!==location.origin) return;
-  if(grunionsIsBackLink(a)){
-   var opened='';
-   try{ opened=sessionStorage.getItem('grunionsOpenedFrom')||sessionStorage.getItem('grunionsAreaFrom')||''; }catch(err){}
-   var openedPath=opened.split('?')[0].split('#')[0];
-   if(openedPath && openedPath!==location.pathname && history.length>1){
-    e.preventDefault();
-    history.back();
-    return;
-   }
-  }
   try{ if(abs.pathname!==location.pathname) sessionStorage.setItem('grunionsOpenedFrom', location.pathname+location.search); }catch(err){}
   grunionsSaveScroll();
   if(grunionsIsBackLink(a)) grunionsMarkBack(abs.href);
@@ -4142,7 +4150,7 @@ grunionsPinHead();
 window.addEventListener('resize', grunionsPinHead);
 </script>
 <script>var PUSH_CSRF="{{csrf_token()}}",VAPID_PUBLIC="{{vapid_public_key()}}";</script>
-<dialog class=botsheet id=mapSheet><div class=sheet><div class=grab></div><h2 id=mapSheetTitle>Location</h2><a class="btn btn-primary mapgo" id=mapSheetGo href="https://www.google.com/maps/dir/?api=1&destination=">Open in Maps</a></div></dialog>
+<dialog class=botsheet id=mapSheet><div class=sheet><div class=grab></div><h2 id=mapSheetTitle>Location</h2><a class="rg-btn primary mapgo" id=mapSheetGo href="https://www.google.com/maps/dir/?api=1&destination=">Open in Maps</a></div></dialog>
 </body></html>""")
 
 ADMIN_NAV = """{% for n in admin_notices() %}<div class=note>{{n.body}}</div>{% endfor %}"""
@@ -4861,14 +4869,14 @@ APPEARANCE_PAGE = """
 <p class=ty-muted>System follows your phone or computer. Team colors stay the same in both.</p>
 <form method=post>{{ csrf_field() }}
 {{ rg_seg_choice('appearance', [('system','System'),('light','Light'),('dark','Dark')], ui_theme or 'dark', True) }}
-<noscript><button class="btn btn-primary">Save</button></noscript>
+<noscript><button class="rg-btn primary">Save</button></noscript>
 </form>
 </div>
 """
 
 T = {}
 T["join"] = """<h1>Join the Grunions</h1>
-<p class=t2>Tuesdays at Marina High School and Fridays at Westminster High School, 7–8:30 PM. Membership is $45/mo starting in November; a current USA Water Polo membership is required.</p>
+<p class=ty-body>Tuesdays at Marina High School and Fridays at Westminster High School, 7–8:30 PM. Membership is $45/mo starting in November; a current USA Water Polo membership is required.</p>
 <form method=post>{{csrf_field()}}
 <label>Legal first name<input name=first required autocomplete=given-name></label>
 <label>Preferred first name (optional)<input name=preferred_first autocomplete=off placeholder="Leave blank to use your legal first name"></label>
@@ -4876,17 +4884,17 @@ T["join"] = """<h1>Join the Grunions</h1>
 <label>Email<input name=email type=email required autocomplete=email placeholder="The one on your USA Water Polo account"></label>
 <label>Phone<input name=phone type=tel required autocomplete=tel></label>
 <label>Date of birth <span class=r2-chip>18+ only</span><input name=birth_date type=date required autocomplete=bday></label>
-<p class="t3 sm">Grunions is an adults club. If you're under 18 you can't join. We'll point you to youth programs nearby.</p>
-<button class="btn btn-primary full">Create account</button></form>
-<p class="t3 sm" style="text-align:center;margin-top:20px">Already a member? <a href=/login>Log in</a></p>"""
+<p class="ty-muted ty-sm sm">Grunions is an adults club. If you're under 18 you can't join. We'll point you to youth programs nearby.</p>
+<button class="rg-btn primary full">Create account</button></form>
+<p class="ty-muted ty-sm sm" style="text-align:center;margin-top:20px">Already a member? <a href=/login>Log in</a></p>"""
 
 T["login"] = """<img class=loginlock src="/static/regulars-lockup.svg" alt="Regulars" width="1338" height="261">
 <h1>Log in</h1>
-{% if google_enabled() %}<a class="btn full" href=/auth/google style="background:var(--surface2);color:var(--t1);border:1px solid var(--line)"><svg width=18 height=18 viewBox="0 0 48 48" aria-hidden=true><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</a>
-<p class="t3 sm" style="text-align:center;margin:16px 0 4px">or</p>{% endif %}<p class=t2>We'll email you a one-time login link.</p>
+{% if google_enabled() %}<a class="rg-btn secondary full" href=/auth/google style="background:var(--surface2);color:var(--t1);border:1px solid var(--line)"><svg width=18 height=18 viewBox="0 0 48 48" aria-hidden=true><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</a>
+<p class="ty-muted ty-sm sm" style="text-align:center;margin:16px 0 4px">or</p>{% endif %}<p class=ty-body>We'll email you a one-time login link.</p>
 <form method=post>{{csrf_field()}}<label>Email<input name=email type=email required autocomplete=email></label>
-<button class="btn btn-primary full">Send login link</button></form>
-<p class="t3 sm" style="text-align:center;margin-top:20px">New here? <a href=/join>Join the team</a></p>"""
+<button class="rg-btn primary full">Send login link</button></form>
+<p class="ty-muted ty-sm sm" style="text-align:center;margin-top:20px">New here? <a href=/join>Join the team</a></p>"""
 
 T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <section class=homemap id=homeMap aria-label="Practice map"></section>
@@ -4903,7 +4911,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% endif %}
 {% if tab != 'practices' and not sched_home %}<div class=homealerts>{{ push_card() }}
 {% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}
-{% if ann %}<div class=card><div class="t3 xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}</div>{% endif %}
+{% if ann %}<div class=card><div class="ty-muted ty-sm xs">ANNOUNCEMENT · {{display_first(ann)|upper}}</div><p style="margin:6px 0 0">{{ann.body}}</p></div>{% endif %}</div>{% endif %}
 {% macro schedule_feed(when, rows, note) %}
 {{ rg_seg([('upcoming','Upcoming','/practices?view=list&when=upcoming'),('past','Past','/practices?view=list&when=past'),('all','All','/practices?view=list&when=all')], when) }}
 {% if note %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(note)|upper }}</b><p>{{ note.body }}</p></div>{% endif %}
@@ -4923,11 +4931,11 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% endif %}
 {% if not ended and not p.cancelled %}{% for card in x.after or [] %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}{% endif %}
 {% endfor %}{% if ns.open %}</div></div>{% endif %}
-{% if not rows %}<p class="t3">Nothing coming up.</p>{% endif %}
+{% if not rows %}<p class="ty-muted ty-sm">Nothing coming up.</p>{% endif %}
 {% endmacro %}
 {% if sched_home %}
 {% set _setup = setup_card() %}{% set _start = preview_drawer or ('full' if (not_cleared or (_setup and _setup.show) or (tab == 'home' and not (me().usawp_number or '')|trim)) else 'half') %}
-<div class=weekhi><span class=weekeye>{% if not_cleared %}NOT CLEARED{% elif me().usawp_number %}USAWP #{{ me().usawp_number }}{% endif %}</span><div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}.</h1><h1 class=schedtitle aria-hidden=true>{% if _start == 'full' %}Hi, {{ display_first(me()) }}.{% else %}Upcoming{% endif %}</h1></div>{{ r2_legend('') }}</div>
+<div class=weekhi><span class=weekeye>{% if not_cleared %}NOT CLEARED{% elif me().usawp_number %}USAWP #{{ me().usawp_number }}{% endif %}</span>{% if can_host_practice() %}<span class=weekplus>{{ rg_plus('/events/new', 'Create', 'createSheet') }}</span>{% endif %}<div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}.</h1><h1 class=schedtitle aria-hidden=true>{% if _start == 'full' %}Hi, {{ display_first(me()) }}.{% else %}Upcoming{% endif %}</h1></div>{{ r2_legend('') }}</div>
 {% if pin_label %}<b class=mappinchip>{{ pin_label }}</b>{% endif %}
 <div class=mapcontrols><button type=button data-zoom=1 aria-label="Zoom in">+</button><button type=button data-zoom=-1 aria-label="Zoom out">−</button></div>
 {% if not pins %}{{ r2_map_unavailable() }}{% endif %}
@@ -5011,6 +5019,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
    var big=hi.querySelector('.hititle'), small=hi.querySelector('.schedtitle');
    if(big) big.setAttribute('aria-hidden', morph*2.5>=0.5?'true':'false');
    if(small) small.setAttribute('aria-hidden', morph*2.5>=0.5?'false':'true');
+   var wp=hi.querySelector('.weekplus'); if(wp) wp.classList.toggle('on', morph*2.5>=0.5);
   }
   document.body.classList.toggle('mapcovered', !wide() && (m.vh-h)<120);
   if(scroller && !atFull && scroller.scrollTop) scroller.scrollTop=0;
@@ -5185,13 +5194,13 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% if tab != 'practices' and not num %}<div class="card numcard"><div class=nxtitle>Enter your USAWP membership number</div>
 <form method=post action=/home style="margin-top:12px">{{csrf_field()}}
 <label>USAWP Membership #<input name=usawp_number inputmode=numeric value="" autocomplete=off></label>
-<button class="btn btn-primary full">Save</button>
-{% if not tw %}<button type=button class="btn btn-secondary full" id=trialOpen style="margin-top:8px">2-week USAWP trial</button>{% endif %}</form>
+<button class="rg-btn primary full">Save</button>
+{% if not tw %}<button type=button class="rg-btn secondary full" id=trialOpen style="margin-top:8px">2-week USAWP trial</button>{% endif %}</form>
 {% if not tw %}<dialog id=trialDialog class=modal><div class=sheet>
 <p>I will complete the USA Water Polo 2-week trial membership before I get in the pool. I understand I need to get a full USAWP membership soon, otherwise I will not be able to practice.</p>
 <form method=post action=/home>{{csrf_field()}}<input type=hidden name=action value=trial>
-<button class="btn btn-primary full">I confirm</button></form>
-<a class="btn full" style="margin-top:10px" href="{{TRIAL_JOIN_URL}}" target=_blank rel=noopener>Get USAWP trial membership</a>
+<button class="rg-btn primary full">I confirm</button></form>
+<a class="rg-btn secondary full" style="margin-top:10px" href="{{TRIAL_JOIN_URL}}" target=_blank rel=noopener>Get USAWP trial membership</a>
 </div></dialog>
 <script>document.getElementById('trialOpen').onclick=function(){document.getElementById('trialDialog').showModal()};
 document.getElementById('trialDialog').addEventListener('click',function(e){if(e.target===this)this.close()});</script>{% endif %}
@@ -5221,12 +5230,12 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 {{ rsvp_btn('Going', nextp_mine==1, 'going') }}
 {{ rsvp_btn('Not going', nextp_mine==0, 'notgoing') }}</form>
 {% if sh %}<div class=nxdiv></div><div class=nxsocial><a class=cardlink href="/practices/{{nextp.id}}" style="display:flex;align-items:center;gap:12px">{{ social_icon() }}
-<div class=grow><div class=nxtitle>{{ sh.title }}</div><div class="t2 sm">{{ sh.place }}</div></div></a>
+<div class=grow><div class=nxtitle>{{ sh.title }}</div><div class="ty-body sm">{{ sh.place }}</div></div></a>
 <form method=post action=/practices>{{csrf_field()}}<input type=hidden name=pid value={{nextp.id}}>{{ rsvp_base('ps' ~ nextp.id) }}
 <button class="btn {{ 'btn-primary' if next_joined else 'btn-secondary' }}"{% if not next_joined %} data-sweep{% endif %} name=action value="{{ 'social_leave' if next_joined else 'social_join' }}">{% if next_joined %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ 'Joined' if next_joined else 'Join' }}</button></form></div>{% endif %}
 </div></div>{% endif %}
 </div>
-{% if sport_filter_names() %}<div class="rolechips chiprow" id=sportFilters role=group aria-label="Sport">{% for name in [""] + sport_filter_names() %}<button type=button class="chip{{ ' on' if not name }}" data-sport="{{ name }}">{{ name or 'All' }}</button>{% endfor %}</div>{% endif %}
+{% if sport_filter_names() %}<div class="rolechips chiprow" id=sportFilters role=group aria-label="Sport">{% for name in [""] + sport_filter_names() %}<button type=button {% if not name %}class=on aria-current=true{% endif %} data-sport="{{ name }}">{{ name or 'All' }}</button>{% endfor %}</div>{% endif %}
 <div class=schedlist id=schedule>
 {% for x in data %}{% set p = x.p %}{% set tile = practice_tile(p) %}<div class="schedrow{% if nextp and p.id == nextp.id %} schedsame{% endif %}"><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class="card tap{% if nextp and p.id == nextp.id %} schedsame{% endif %}{% if p.cancelled %} cancelled{% endif %}" id=p{{p.id}} data-pid={{p.id}} data-sport="{{ p.sport or 'Water Polo' }}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">
@@ -5236,7 +5245,7 @@ document.getElementById('trialDialog').addEventListener('click',function(e){if(e
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{% if practice_is_month(p) %}{{ practice_when(p) }}{% else %}{{ fmt_span(p.start, p.end) }}{% endif %}</span></div>
 <div class=nxrow>{{ glyph_pin() }}<span>{{ p.location }}</span></div>
 <div class=nxrow>{{ glyph_people() }}<span>{{ practice_going_line(x.going|length, p) }}</span></div></div></div>
-{% if p.cancelled %}{{ st('bad','Cancelled') }}{% if p.cancel_reason %}<div class="t3 sm">{{ p.cancel_reason }}</div>{% endif %}{% endif %}
+{% if p.cancelled %}{{ st('bad','Cancelled') }}{% if p.cancel_reason %}<div class="ty-muted ty-sm sm">{{ p.cancel_reason }}</div>{% endif %}{% endif %}
 {% if p.note %}<div class=nxnote>{{p.note}}</div>{% endif %}
 {% if p.coach_note %}<div class=nxnote>{{ p.coach_note }} · {{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</div>{% endif %}</a>
 {% if not p.cancelled %}<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{p.id}}>{{ rsvp_base('p' ~ p.id) }}
@@ -5359,19 +5368,19 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <button type=button class=dropempty id=photoPick><span class=droplink>Drop a photo here</span><span class=drophint>or Select photo</span></button>
 </div>
 </div>
-<button type=button class="btn btn-danger full" id=photoRemove {% if not m.photo %}hidden{% endif %}>Remove photo</button>
+<button type=button class="rg-btn danger full" id=photoRemove {% if not m.photo %}hidden{% endif %}>Remove photo</button>
 <div id=photoCrop hidden>
 <div class=cropstage id=cropStage><img id=cropImg alt=""></div>
 <label class=croprange>Zoom<input type=range id=cropZoom min=1 max=4 step=0.01 value=1></label>
-<div class=row><button type=button class="btn btn-secondary" id=cropCancel>Cancel</button><button type=button class="btn btn-primary" id=cropUse>Use photo</button></div>
-<button type=button class="btn quiet full" id=cropOther>Choose a different photo</button>
+<div class=row><button type=button class="rg-btn secondary" id=cropCancel>Cancel</button><button type=button class="rg-btn primary" id=cropUse>Use photo</button></div>
+<button type=button class="rg-btn ghost full" id=cropOther>Choose a different photo</button>
 </div>
 </div></dialog>
 <div id=photoDragCard class=dropcard hidden><div class="attachdrop over"><span class=attachico><img src="/static/nav/attach-upload.svg" width="24" height="24" alt=""></span><b>Drop to add</b><p class=attachcount id=photoDragCount>1 image</p></div></div>
 <div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
 <div class=profilerow><span class=rolechip>{{ role_label(m)|capitalize }}</span><p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p></div>
 <div class=metrics><div class="metric sun"><b>{{ '%02d'|format(hist|length) }}</b><span>Attended</span></div><div class="metric sky"><b>{{ '%02d'|format(nmonth or 0) }}</b><span>This month</span></div></div>
-<nav class="filt profswitch chiprow" data-seg aria-label="Profile"><a class="chip{{ ' chip-active on' if ptab == 'general' }}" href="/profile?tab=general">General</a><a class="chip{{ ' chip-active on' if ptab == 'lineup' }}" href="/profile?tab=lineup">My Lineup</a>{% if hosts %}<a class="chip{{ ' chip-active on' if ptab == 'hosting' }}" href="/profile?tab=hosting">Hosting</a>{% endif %}</nav>
+<nav class="rg-filters filt profswitch chiprow" data-seg aria-label="Profile"><a {% if ptab == 'general' %}class=on aria-current=true{% endif %} href="/profile?tab=general">General</a><a {% if ptab == 'lineup' %}class=on aria-current=true{% endif %} href="/profile?tab=lineup">My Lineup</a>{% if hosts %}<a {% if ptab == 'hosting' %}class=on aria-current=true{% endif %} href="/profile?tab=hosting">Hosting</a>{% endif %}</nav>
 </div>
 </form>
 {% if ptab == 'general' %}
@@ -5379,13 +5388,13 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class="card numcard"><div class=nxtitle>Enter your USAWP membership number</div>
 <form method=post action=/home style="margin-top:12px">{{ csrf_field() }}
 <label>USAWP Membership #<input name=usawp_number inputmode=numeric value="" autocomplete=off></label>
-<button class="btn btn-primary full">Save</button></form>
-<p class=t3><a href=/notifications>Notification settings</a></p>
+<button class="rg-btn primary full">Save</button></form>
+<p class='ty-muted ty-sm'><a href=/notifications>Notification settings</a></p>
 </div>{% endif %}
 {% set mine_clear = clearance(m) %}{{ rg_label('Cleared sports') }}
 {{ rg_row('Water polo', 'Grunions' ~ (' · Admin' if (m.is_admin or m.board_member) else (' · Coach' if m.role == 'coach' else '')), '', '', '', '', 'Cleared' if mine_clear.ok else 'Pending', 'going' if mine_clear.ok else 'expiring') }}
 {{ membership_section(m, vr_pending) }}
-<div class=seclabel>Personal</div>
+<div class=rg-day>Personal</div>
 <div class="list infogrid">
 <div class="li prow"><span class=k>Legal name</span><span class=v>{{ m.first }} {{ m.last }}</span></div>
 <div class="li prow viewonly"><span class=k>Preferred name</span><span class=v>{{ m.preferred_first or '—' }}</span></div>
@@ -5395,17 +5404,11 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class="li prow editonly"><label class=prefedit style="width:100%;margin:0">Phone<input form=profileForm name=phone id=phoneInput type=tel inputmode=numeric autocomplete=tel value="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}" data-original="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}"></label></div>
 </div>
 {{ rg_label('Account') }}
-{{ rg_row('Teams & roles', 'Grunions · ' ~ role_label(m)|capitalize) }}
-{{ rg_row('Notifications', 'Leave-by · changes · @mentions', '/notifications') }}
-{{ rg_row('Privacy', 'Who sees your email and phone', '/privacy') }}
-{{ rg_row('Appearance', {'system':'System','light':'Light','dark':'Dark'}[ui_theme or 'dark'], '/appearance') }}
-{{ rg_row('Your week', (m.avail_days or 'Not set')|replace(',', ' · '), '/setup/week') }}
-{{ rg_row('Rides', ('Offering from ' ~ m.ride_area) if (m.ride_offer and m.ride_area) else 'Offer rides, your area, seats', '/rides/settings') }}
-<a class="btn btn-secondary full ghostpill" href=/logout>Log out</a>
+<div class=rg-srows>{{ rg_settings_row('Settings', '', '/settings') }}</div>
 {% else %}
 {% if prof_upcoming or prof_past %}
-{% for g in prof_upcoming %}<div class=seclabel>{{ g.label }}</div>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}
-{% if prof_past %}<details class=lineuppast><summary>Past <span class=pastn>{{ prof_past_n }}</span></summary>{% for g in prof_past %}<div class=seclabel>{{ g.label }}</div>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}</details>{% endif %}
+{% for g in prof_upcoming %}<div class=rg-day>{{ g.label }}</div>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}
+{% if prof_past %}<details class=lineuppast><summary>Past <span class=pastn>{{ prof_past_n }}</span></summary>{% for g in prof_past %}<div class=rg-day>{{ g.label }}</div>{% for e in g.events %}{{ lineup_card(e, prof_back) }}{% endfor %}{% endfor %}</details>{% endif %}
 {% else %}<p class=emptyfind>Nothing yet.</p>{% endif %}
 {% endif %}
 <dialog id=selfMenu class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
@@ -5418,7 +5421,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <div class=newcard>
 <button type=button class="newrow actdanger" data-menu=delete><span class=grow><b>Delete account</b><small>Leaves every club. Can't be undone.</small></span></button>
 </div>
-<p class=t3>Delete account lives here and in Settings › Account. It's yours alone — admins can only remove you from their club.</p>
+<p class='ty-muted ty-sm'>Delete account lives here and in Settings › Account. It's yours alone — admins can only remove you from their club.</p>
 </div></dialog>
 <dialog id=editSheet class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
 <form method=post action=/profile>{{ csrf_field() }}<input type=hidden name=action value=identity>
@@ -5430,24 +5433,24 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <label>Gender<select name=gender_identity id=genderId><option value="">Not set</option>{% for k, v in GENDER_IDENTITIES %}<option value="{{ k }}"{% if m.gender_identity == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
 <label id=genderSelfRow{% if m.gender_identity != 'self' %} hidden{% endif %}>In your words<input name=gender_self maxlength=40 value="{{ m.gender_self or '' }}" autocomplete=off></label>
 <label>Legal gender<select name=legal_gender><option value="">Not set</option>{% for k, v in LEGAL_GENDERS %}<option value="{{ k }}"{% if m.legal_gender == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
-<p class=t3>Gender is never shown on your profile. It's only used for women &amp; non-binary rides if you turn them on. Legal gender is only for governing-body and insurance rosters (like USA Water Polo) and only admins see it.</p>
+<p class='ty-muted ty-sm'>Gender is never shown on your profile. It's only used for women &amp; non-binary rides if you turn them on. Legal gender is only for governing-body and insurance rosters (like USA Water Polo) and only admins see it.</p>
 <label>Email<input name=email type=email value="{{ m.email }}" required autocomplete=email></label>
 <label>Phone<input name=phone type=tel inputmode=numeric value="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}" required autocomplete=tel></label>
-<p class=t3>Your legal name is only shown to club admins. Changing your email changes how you sign in.</p>
-<button class="btn btn-primary full">Save</button>
+<p class='ty-muted ty-sm'>Your legal name is only shown to club admins. Changing your email changes how you sign in.</p>
+<button class="rg-btn primary full">Save</button>
 </form></div></dialog>
 <dialog id=deleteSheet class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
 <form method=post action=/profile/delete>{{ csrf_field() }}
 <h2 class=newtitle>Delete your account?</h2>
-<p class=t3>This can't be undone.</p>
+<p class='ty-muted ty-sm'>This can't be undone.</p>
 <p><b>You'll leave</b><br>Grunions and every other club.</p>
 <p><b>Deleted</b><br>Profile, photo, compliance records, direct chats.</p>
 <p><b>Stays</b><br>Team chat messages show as “Former member”.</p>
 <label>Type DELETE to confirm<input id=deleteWord name=confirm autocomplete=off></label>
-<button class="btn btn-tangerine full" id=deleteGo disabled>Delete account</button>
+<button class="rg-btn secondary btn-tangerine full" id=deleteGo disabled>Delete account</button>
 </form>
-<button type=button class="btn btn-secondary full" onclick="this.closest('dialog').close()">Cancel</button>
-<p class=t3>Want a break instead? Leave a single club from its page.</p>
+<button type=button class="rg-btn secondary full" onclick="this.closest('dialog').close()">Cancel</button>
+<p class='ty-muted ty-sm'>Want a break instead? Leave a single club from its page.</p>
 </div></dialog>
 <script>
 (function(){
@@ -5635,30 +5638,45 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 </script>"""
 
 T["privacy"] = """<form method=post action=/privacy class=privacyform>{{ csrf_field() }}
-<p class="r2caps">Who sees your profile</p>
+<p class="rg-day">Who sees your profile</p>
 <div class=privcard>
 <div class=privrow><span class=grow><b>Profile visible to</b><small>Your teams · coaches &amp; admins always see clearance</small></span><span class=privgo>My teams ›</span></div>
 <label class=privrow><span class=grow><b>Show practices attended</b><small>Teammates see your count (e.g. {{ hist|length }} this season)</small></span><span class=r2switch><input type=checkbox name=show_attendance value=1 {% if prefs.show_attendance %}checked{% endif %}><i></i></span></label>
 <label class=privrow><span class=grow><b>Show pronouns</b><small>she/her</small></span><span class=r2switch><input type=checkbox name=show_pronouns value=1 {% if prefs.show_pronouns %}checked{% endif %}><i></i></span></label>
 </div>
-<p class="r2caps">Messages</p>
+<p class="rg-day">Messages</p>
 <div class=privcard>
 <label class=privrow><span class=grow><b>Messages from outside my teams</b><small>Off: only people on your teams can message you. Coaches &amp; admins always can.</small></span><span class=r2switch><input type=checkbox name=messages_outside value=1 {% if prefs.messages_outside %}checked{% endif %}><i></i></span></label>
 <label class=privrow><span class=grow><b>Show me in 'Message someone'</b><small>Teammates can find you when starting a chat</small></span><span class=r2switch><input type=checkbox name=show_in_picker value=1 {% if prefs.show_in_picker %}checked{% endif %}><i></i></span></label>
 </div>
-<p class="r2caps">Rides</p>
+<p class="rg-day">Rides</p>
 <div class=privcard>
 <label class=privrow><span class=grow><b>Share my exact location</b><small>Only with a driver who agreed to pick you up. Everyone else sees an area.</small></span><span class=r2switch><input type=checkbox name=share_exact_location value=1 {% if prefs.share_exact_location %}checked{% endif %}><i></i></span></label>
 </div>
-<p class="r2caps">Location</p>
+<p class="rg-day">Location</p>
 <div class=privcard>
 <label class=privrow><span class=grow><b>Save my last location</b><small>{% if prefs.loc_at %}Last saved {{ prefs.loc_at }}, to about 100 m. {% endif %}Used for leave-by alerts and travel time. Only you see it.</small></span><span class=r2switch><input type=checkbox name=save_location value=1 {% if prefs.save_location %}checked{% endif %}><i></i></span></label>
 {% if prefs.loc_at %}<div class=privrow><span class=grow><b>Forget my location</b><small>Deletes the saved spot now</small></span><button class="rg-btn ink" form=forgetLoc>Forget</button></div>{% endif %}
 </div>
-<p class=t3>Public (people not on your teams): first name + last initial and your club only. No stats, no About, no Message.</p>
-<button class="btn btn-primary full">Save</button>
+<p class='ty-muted ty-sm'>Public (people not on your teams): first name + last initial and your club only. No stats, no About, no Message.</p>
+<button class="rg-btn primary full">Save</button>
 </form>
 <form id=forgetLoc method=post action=/privacy/location/forget>{{ csrf_field() }}</form>"""
+
+T["settings"] = """<div class="rg-screen rg-settings">
+<h1 class=ty-display-l>Settings.</h1>
+{{ rg_label('Teams & roles') }}
+<div class=rg-srows>{% for org, role in my_roles %}{{ rg_settings_row(org, role) }}{% endfor %}</div>
+{{ rg_label('Account') }}
+<div class=rg-srows>
+{{ rg_settings_row('Notifications', 'On' if push_on else 'Off', '/notifications') }}
+{{ rg_settings_row('Privacy', '', '/privacy') }}
+{{ rg_settings_row('Appearance', {'system':'System','light':'Light','dark':'Dark'}[ui_theme or 'dark'], '/appearance') }}
+{{ rg_settings_row('Your week', (me().avail_days or 'Not set')|replace(',', ' · '), '/calendar?when=availability') }}
+{{ rg_settings_row('Rides', 'Offering' if me().ride_offer else 'Off', '/rides/settings') }}
+</div>
+{{ rg_button('Log out', 'secondary', '/logout') }}
+</div>"""
 
 T["person"] = """<div class=profilehero>
 <div class=avatarwrap><span class="avatar hero">{% if m.photo %}<img src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="" width="112" height="112">{% else %}{{ initials(m) }}{% endif %}</span></div>
@@ -5666,29 +5684,29 @@ T["person"] = """<div class=profilehero>
 <p class=profilesub>{% if attendance_private %}Practices attended are private{% else %}{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% endif %}</p>
 <a class=msgpill href="{{ message_href }}">Message {{ display_first(m) }}</a>
 {% if staff %}
-<p class=fldlab style="color:var(--team-tangerine)">Club fields · you can edit</p>
+<p class=rg-day style="color:var(--team-tangerine)">Club fields · you can edit</p>
 <div class=list>
 <button type=button class="li prow" data-open=roleSheet><span class=k>Role</span><span class=v>{% if m.is_admin %}Admin{% elif m.role == 'coach' %}Coach{% else %}Member{% endif %} · Change</span></button>
 <div class="li prow"><span class=k>Clearance</span><span class="stchip {{ 'tang' if not cleared else 'lime' }}">{% if cleared %}Cleared{% else %}Not cleared{% endif %}</span></div>
 </div>
-<p class=fldlab>Theirs · view only</p>
+<p class=rg-day>Theirs · view only</p>
 {% if me().is_admin %}<div class=list><div class="li prow"><span class=k>Legal gender</span><span class=v>{{ dict(LEGAL_GENDERS).get(m.legal_gender or '', 'Not set') }}</span></div></div>
-<p class=t3>For governing-body and insurance rosters. Admins only.</p>{% endif %}
+<p class='ty-muted ty-sm'>For governing-body and insurance rosters. Admins only.</p>{% endif %}
 {% endif %}
 {% if staff and needs %}<div class=needcard><p class=needkicker>Needs attention</p><b>{{ display_first(m) }}'s {{ needs }}.</b><p>Once you've checked USAWP and SafeSport, mark them in ⋯ › Update compliance.</p></div>{% endif %}
 <div class=metrics><div class="metric sun"><b>{{ '%02d'|format(0 if attendance_private else hist|length) }}</b><span>Attended</span></div><div class="metric sky"><b>{{ '%02d'|format(0 if attendance_private else (nmonth or 0)) }}</b><span>This month</span></div></div>
-<div class=seclabel>Cleared sports</div>
+<div class=rg-day>Cleared sports</div>
 <div class=sporthead><b>Grunions</b></div>
 {% if staff %}
 <div class=sportline><span>Water polo</span><span class="st {{ 'st-ok' if cleared else 'st-warn' }}">{{ 'Cleared' if cleared else 'Pending' }}</span></div>
-{% if not cleared %}<p class=t3>Not cleared for any sports yet</p>{% endif %}
-<div class=seclabel>Compliance</div>
+{% if not cleared %}<p class='ty-muted ty-sm'>Not cleared for any sports yet</p>{% endif %}
+<div class=rg-day>Compliance</div>
 <div class=list>
 <div class="li prow"><span class=rowtitle><span class="dot {{ 'ok' if m.usawp_status=='verified' else 'warn' }}" aria-hidden=true></span>Water polo membership</span><span class=v>{% if m.usawp_number %}USAWP #{{ m.usawp_number }}{% else %}Not on file{% endif %}</span></div>
 <div class="li prow"><span class=rowtitle><span class="dot {{ 'ok' if safesport else 'bad' }}" aria-hidden=true></span>SafeSport training</span><span class=v>{% if safesport %}expires {{ safesport }}{% else %}Missing{% endif %}</span></div>
 <div class="li prow"><span class=rowtitle><span class="dot {{ 'ok' if background else 'warn' }}" aria-hidden=true></span>Background screening</span><span class=v>{% if background %}expires {{ background }}{% else %}Not on file{% endif %}</span></div>
 </div>
-<div class=seclabel>Personal</div>
+<div class=rg-day>Personal</div>
 <div class="list infogrid">
 <div class="li prow"><span class=k>Legal name</span><span class=v>{{ m.first }} {{ m.last }}</span></div>
 <div class="li prow"><span class=k>Preferred name</span><span class=v>{{ m.preferred_first or '—' }}</span></div>
@@ -5696,7 +5714,7 @@ T["person"] = """<div class=profilehero>
 <div class="li prow"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
 </div>
 {% else %}
-<p class=t3>Not cleared for any sports yet</p>
+<p class='ty-muted ty-sm'>Not cleared for any sports yet</p>
 {% endif %}
 </div>
 <dialog id=personMenu class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
@@ -5712,14 +5730,14 @@ T["person"] = """<div class=profilehero>
 <div class=newcard>
 <button type=button class="newrow actdanger" data-open=removeSheet><span class=grow><b>Remove from Grunions</b><small>{{ display_first(m) }}'s account and other clubs stay</small></span></button>
 </div>
-<p class=t3>Only Grunions admins see these. Nothing here changes {{ display_first(m) }}'s other clubs.</p>
+<p class='ty-muted ty-sm'>Only Grunions admins see these. Nothing here changes {{ display_first(m) }}'s other clubs.</p>
 {% else %}
 <div class=newcard>
 <a class=newrow href="{{ message_href }}"><span class=grow><b>Message {{ display_first(m) }}</b><small>Opens a direct chat</small></span><span class=chatgo>›</span></a>
 <form method=post action="/profile/{{ m.id }}/report">{{ csrf_field() }}<button class=newrow><span class=grow><b>Report</b><small>Tell the Grunions admins</small></span></button></form>
 <form method=post action=/chat/block>{{ csrf_field() }}<input type=hidden name=c value="{{ dm }}"><button class="newrow actdanger"><span class=grow><b>Block</b><small>{{ display_first(m) }} can't message you</small></span></button></form>
 </div>
-<p class=t3>Members don't see compliance, contact info or roles.</p>
+<p class='ty-muted ty-sm'>Members don't see compliance, contact info or roles.</p>
 {% endif %}
 </div></dialog>
 {% if staff %}
@@ -5730,7 +5748,7 @@ T["person"] = """<div class=profilehero>
 <button class="roleopt{% if cur == 'member' %} on{% endif %}" name=role value=member><span class=grow><b>Member</b><small>RSVP, chat, Lineup</small></span><em>{% if cur == 'member' %}Current{% else %}Choose{% endif %}</em></button>
 <button class="roleopt{% if cur == 'coach' %} on{% endif %}" name=role value=coach><span class=grow><b>Coach</b><small>Manage: schedule + roster</small></span><em>{% if cur == 'coach' %}Current{% else %}Choose{% endif %}</em></button>
 <button class="roleopt{% if cur == 'admin' %} on{% endif %}" name=role value=admin><span class=grow><b>Admin</b><small>Everything in Manage</small></span><em>{% if cur == 'admin' %}Current{% else %}Choose{% endif %}</em></button>
-<p class="t3 sm">Roles are per team. {{ display_first(m) }} stays a member on any other team they're on. Board is not a role on this sheet.</p>
+<p class="ty-muted ty-sm sm">Roles are per team. {{ display_first(m) }} stays a member on any other team they're on. Board is not a role on this sheet.</p>
 </form></div></dialog>
 <dialog id=editDetails class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
 <form method=post action="/profile/{{ m.id }}/details">{{ csrf_field() }}
@@ -5740,8 +5758,8 @@ T["person"] = """<div class=profilehero>
 <label>Preferred name<input name=preferred_first value="{{ m.preferred_first or '' }}"></label>
 <label>Email<input name=email type=email value="{{ m.email }}" required></label>
 <label>Phone<input name=phone value="{{ '' if fmt_phone(m.phone) == '—' else fmt_phone(m.phone) }}" required></label>
-<p class=t3>{{ display_first(m) }} gets an email about any change. USAWP and SafeSport numbers are {{ display_first(m) }}'s to edit — you can only mark their status. The preview does not send that email.</p>
-<button class="btn btn-primary full">Save</button>
+<p class='ty-muted ty-sm'>{{ display_first(m) }} gets an email about any change. USAWP and SafeSport numbers are {{ display_first(m) }}'s to edit — you can only mark their status. The preview does not send that email.</p>
+<button class="rg-btn primary full">Save</button>
 </form></div></dialog>
 <dialog id=removeSheet class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
 <form method=post action="/profile/{{ m.id }}/remove">{{ csrf_field() }}
@@ -5750,10 +5768,10 @@ T["person"] = """<div class=profilehero>
 <p><b>Leaves</b><br>Grunions chats, schedule and lineup.</p>
 <p><b>Kept</b><br>Attendance history in your club records.</p>
 <p><b>Not affected</b><br>{{ display_first(m) }}'s other clubs and login.</p>
-<button class="btn btn-tangerine full">Remove from Grunions</button>
+<button class="rg-btn secondary btn-tangerine full">Remove from Grunions</button>
 </form>
-<button type=button class="btn btn-secondary full" onclick="this.closest('dialog').close()">Cancel</button>
-<p class=t3>{{ display_first(m) }} gets an email. You can add {{ display_first(m) }} back from Manage › People. The preview does not send that email.</p>
+<button type=button class="rg-btn secondary full" onclick="this.closest('dialog').close()">Cancel</button>
+<p class='ty-muted ty-sm'>{{ display_first(m) }} gets an email. You can add {{ display_first(m) }} back from Manage › People. The preview does not send that email.</p>
 </div></dialog>
 <dialog id=mergeSheet class="botsheet profmenu"><div class=sheet><div class=grab aria-hidden=true></div>
 <form method=post action="/profile/{{ m.id }}/merge" id=mergeForm>{{ csrf_field() }}
@@ -5761,27 +5779,27 @@ T["person"] = """<div class=profilehero>
 <input type=hidden name=step id=mergeStep value=merge>
 <h2 class=newtitle id=mergeTitle>Merge duplicate.</h2>
 <div id=mergeFind>
-<p class=t3>Which account is also {{ display_first(m) }} {{ m.last }}? We look for the same email, phone or name in Grunions.</p>
-<p class=r2caps>Likely matches</p>
+<p class='ty-muted ty-sm'>Which account is also {{ display_first(m) }} {{ m.last }}? We look for the same email, phone or name in Grunions.</p>
+<p class=rg-day>Likely matches</p>
 <div id=mergeMatches></div>
 <label>Search<input id=mergeSearch placeholder="Search name, email or phone" autocomplete=off></label>
-<button type=button class="btn btn-primary full" id=mergeContinue disabled>Continue</button>
+<button type=button class="rg-btn primary full" id=mergeContinue disabled>Continue</button>
 </div>
 <div id=mergeKeep hidden>
-<p class=t3>Keep which details? Pick one for each. Everything else is combined.</p>
+<p class='ty-muted ty-sm'>Keep which details? Pick one for each. Everything else is combined.</p>
 <div id=mergeFields></div>
-<p class=r2caps>Combined automatically</p>
-<p class=t3>Attendance counts add. Compliance keeps the newest valid record. Role in Grunions keeps the higher of the two. Chats and history move into one inbox.</p>
-<button type=button class="btn btn-primary full" id=mergeReview>Review merge</button>
+<p class=rg-day>Combined automatically</p>
+<p class='ty-muted ty-sm'>Attendance counts add. Compliance keeps the newest valid record. Role in Grunions keeps the higher of the two. Chats and history move into one inbox.</p>
+<button type=button class="rg-btn primary full" id=mergeReview>Review merge</button>
 </div>
 <div id=mergeConfirm hidden>
 <p id=mergeConfirmCopy></p>
-<button class="btn btn-primary full" id=mergeGo>Merge accounts</button>
+<button class="rg-btn primary full" id=mergeGo>Merge accounts</button>
 </div>
 <div id=mergeAsk hidden>
 <p id=mergeAskCopy></p>
-<p class=t3>Not affected until they confirm. Until then, both accounts stay as they are.</p>
-<button class="btn btn-primary full" id=mergeAskGo>Send request</button>
+<p class='ty-muted ty-sm'>Not affected until they confirm. Until then, both accounts stay as they are.</p>
+<button class="rg-btn primary full" id=mergeAskGo>Send request</button>
 </div>
 <div id=mergeDone hidden>
 <h2 class=newtitle>Merged.</h2>
@@ -5805,7 +5823,7 @@ T["person"] = """<div class=profilehero>
  function paint(){
   var q=(document.getElementById('mergeSearch').value||'').trim().toLowerCase();
   var list=people.filter(function(p){ if(!q) return p.likely; return (p.name+' '+p.email+' '+p.phone).toLowerCase().indexOf(q)>=0; });
-  document.getElementById('mergeMatches').innerHTML=list.map(function(p){ return '<button type=button class="newrow'+(picked&&picked.id===p.id?' on':'')+'" data-pick="'+p.id+'"><span class=grow><b>'+p.name+'</b><small>'+(p.chips||'Search result')+'</small></span></button>'; }).join('')||'<p class=t3>No matches.</p>';
+  document.getElementById('mergeMatches').innerHTML=list.map(function(p){ return '<button type=button class="newrow'+(picked&&picked.id===p.id?' on':'')+'" data-pick="'+p.id+'"><span class=grow><b>'+p.name+'</b><small>'+(p.chips||'Search result')+'</small></span></button>'; }).join('')||'<p class='ty-muted ty-sm'>No matches.</p>';
   document.getElementById('mergeContinue').disabled=!picked;
  }
  document.getElementById('mergeSearch').addEventListener('input', function(){ picked=null; paint(); });
@@ -5848,8 +5866,8 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 {% endif %}
 </div>
 {% if not on_trial and ps.reason %}<p class="sm viewonly" style="margin:8px 0 0">{{ ps.reason }}</p>{% endif %}
-{% if not cl.ok or m.usawp_status != 'verified' %}<p class="t3 sm viewonly" style="margin:8px 0 0"><a target=_blank rel=noopener href="https://usawp.sport80.com/">Open Sport:80</a> if you want to look it up yourself.</p>{% endif %}
-<div class=seclabel>Personal</div>
+{% if not cl.ok or m.usawp_status != 'verified' %}<p class="ty-muted ty-sm sm viewonly" style="margin:8px 0 0"><a target=_blank rel=noopener href="https://usawp.sport80.com/">Open Sport:80</a> if you want to look it up yourself.</p>{% endif %}
+<div class=rg-day>Personal</div>
 <div class=list>
 <div class="li prow viewonly"><span class=k>Legal name</span><span class=v>{{ m.first }} {{ m.last }}</span></div>
 {% if me().is_admin %}
@@ -5862,35 +5880,35 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 <div class="li prow"><span class=k>Phone</span><span class=v>{{ fmt_phone(m.phone) }}</span></div>
 </div>
 {% if me().is_admin %}
-<div class=seclabel>Role</div>
+<div class=rg-day>Role</div>
 <div class=list>
-<div class="li prow viewonly"><span class=k>Roles</span><span class=v>{% if m.is_admin %}<span class="chip-info" style="margin:0 6px 0 0">Admin</span>{% endif %}{% if m.role=='coach' %}<span class="chip-info" style="margin:0 6px 0 0">Coach</span>{% endif %}{% if on_referees %}<span class="chip-info" style="margin:0">Referee</span>{% endif %}{% if not m.is_admin and m.role!='coach' and not on_referees %}<span class=t3>Member</span>{% endif %}</span></div>
+<div class="li prow viewonly"><span class=k>Roles</span><span class=v>{% if m.is_admin %}<span class="chip-info" style="margin:0 6px 0 0">Admin</span>{% endif %}{% if m.role=='coach' %}<span class="chip-info" style="margin:0 6px 0 0">Coach</span>{% endif %}{% if on_referees %}<span class="chip-info" style="margin:0">Referee</span>{% endif %}{% if not m.is_admin and m.role!='coach' and not on_referees %}<span class='ty-muted ty-sm'>Member</span>{% endif %}</span></div>
 <div class="li editonly"><input type=hidden name=roles_present value=1 form=memberForm><label style="margin:0"><input type=checkbox name=is_admin value=1 form=memberForm {% if m.is_admin %}checked{% endif %}> Admin</label></div>
 <div class="li editonly"><label style="margin:0"><input type=checkbox name=is_coach value=1 form=memberForm {% if m.role=='coach' %}checked{% endif %}> Active coach</label></div>
 <div class="li editonly"><label style="margin:0"><input type=checkbox name=is_referee value=1 form=memberForm {% if on_referees %}checked{% endif %}> Referee</label></div>
 </div>
 {% endif %}
-{% for a in audits %}<p class="t3 sm viewonly" style="margin:8px 0 0">{{ a.actor }} changed {{ a.old_name }} → {{ a.new_name }} · {{ fmt_when(a.at) }}</p>{% endfor %}
+{% for a in audits %}<p class="ty-muted ty-sm sm viewonly" style="margin:8px 0 0">{{ a.actor }} changed {{ a.old_name }} → {{ a.new_name }} · {{ fmt_when(a.at) }}</p>{% endfor %}
 </form>
 {% if me().is_admin %}
 {% if program_eligibility is defined and program_eligibility %}{{ program_eligibility|safe }}{% endif %}
-<div class=seclabel id=paid>Paid membership</div>
-<p class="t3 sm">Separate from clearance. Paying does not satisfy USA Water Polo or USMS. This does not change an RSVP and does not charge a card.</p>
+<div class=rg-day id=paid>Paid membership</div>
+<p class="ty-muted ty-sm sm">Separate from clearance. Paying does not satisfy USA Water Polo or USMS. This does not change an RSVP and does not charge a card.</p>
 {% for ent in paid_details %}
 <form method=post action="/admin/member/{{ m.id }}#paid" class=card>{{ csrf_field() }}
 <input type=hidden name=action value=paid><input type=hidden name=entitlement_id value="{{ ent.id }}">
 <p><b>{{ ent.plan }}</b> · {{ ent.status }}</p>
-<p class="t3 sm">Programs: {{ ent.programs|join(', ') if ent.programs else 'None selected' }}</p>
-<p class="t3 sm">Source: {{ ent.source or 'manual' }}{% if ent.url %} · {{ ent.url }}{% endif %}</p>
+<p class="ty-muted ty-sm sm">Programs: {{ ent.programs|join(', ') if ent.programs else 'None selected' }}</p>
+<p class="ty-muted ty-sm sm">Source: {{ ent.source or 'manual' }}{% if ent.url %} · {{ ent.url }}{% endif %}</p>
 <label>Plan<select name=plan_id>{% for plan in paid_plans if plan.active or plan.id==ent.plan_id %}<option value="{{ plan.id }}" {% if plan.id==ent.plan_id %}selected{% endif %}>{{ plan.name }}</option>{% endfor %}</select></label>
 <label>Status<select name=paid_status>{% for name in paid_statuses %}<option value="{{ name }}" {% if name==ent.status %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
 <label>Valid from<input type=date name=valid_from value="{{ ent.start }}"></label>
 <label>Paid through<input type=date name=paid_through value="{{ ent.end }}"></label>
 <label>Notes<textarea class=planfield name=paid_notes rows=2>{{ ent.notes }}</textarea></label>
-<button class="btn btn-primary" name=paid_action value=edit>Save</button>
-<button class="btn btn-secondary" name=paid_action value=end>End</button>
+<button class="rg-btn primary" name=paid_action value=edit>Save</button>
+<button class="rg-btn secondary" name=paid_action value=end>End</button>
 </form>
-{% else %}<p class="t3 sm">No paid membership yet.</p>{% endfor %}
+{% else %}<p class="ty-muted ty-sm sm">No paid membership yet.</p>{% endfor %}
 <form method=post action="/admin/member/{{ m.id }}#paid">
 {{ csrf_field() }}
 <input type=hidden name=action value=paid>
@@ -5899,14 +5917,14 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 <label>Valid from<input type=date name=valid_from></label>
 <label>Paid through<input type=date name=paid_through></label>
 <label>Notes<textarea class=planfield name=paid_notes rows=3></textarea></label>
-<button class="btn btn-primary" name=paid_action value=save>Save</button>
-<button class="btn btn-secondary" name=paid_action value=active>Mark active</button>
+<button class="rg-btn primary" name=paid_action value=save>Save</button>
+<button class="rg-btn secondary" name=paid_action value=active>Mark active</button>
 </form>
-<div class=seclabel>Paid membership audit</div>
-{% for row in paid_audits %}<p class="t3 sm">{{ row.at[:16] }} · {{ row.actor }} · {{ row.detail }}</p>{% else %}<p class="t3 sm">No paid-membership changes yet.</p>{% endfor %}
-<div class=seclabel>Actions</div>
-{% if m.vr_status == 'pending' %}<p class="t2 sm viewonly" style="margin:0 0 10px">Waiting on an admin to check Sport:80</p>{% endif %}
-<button type=button class="btn btn-secondary full viewonly" id=memberManual style="margin-top:10px">Manual Entry</button>
+<div class=rg-day>Paid membership audit</div>
+{% for row in paid_audits %}<p class="ty-muted ty-sm sm">{{ row.at[:16] }} · {{ row.actor }} · {{ row.detail }}</p>{% else %}<p class="ty-muted ty-sm sm">No paid-membership changes yet.</p>{% endfor %}
+<div class=rg-day>Actions</div>
+{% if m.vr_status == 'pending' %}<p class="ty-body sm viewonly" style="margin:0 0 10px">Waiting on an admin to check Sport:80</p>{% endif %}
+<button type=button class="rg-btn secondary full viewonly" id=memberManual style="margin-top:10px">Manual Entry</button>
 {% set chk = list_row_status(m, 'members') %}
 
 {% endif %}
@@ -5922,23 +5940,20 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 })();
 </script>"""
 
-T["notifications"] = """
+T["notifications"] = """<div class=rg-screen>
+{{ rg_page_title('Notifications', 'Pushes go to this device once you allow them.') }}
 {{ push_card() }}
-<form method=post action=/notifications>{{csrf_field()}}
-<div class=list>{% for key, label in types %}
-<label class=li><input type=checkbox name=push value="{{key}}" {% if prefs.get(key, True) %}checked{% endif %}>{{label}}</label>
-{% endfor %}</div>
-<fieldset style="border:0;margin:16px 0 0;padding:0">
-<legend class=seclabel>Practice reminders</legend>
-<label class=checkline><input type=radio name=practice_reminder value=both {% if practice_reminder == 'both' %}checked{% endif %}> Both</label>
-<label class=checkline><input type=radio name=practice_reminder value=email {% if practice_reminder == 'email' %}checked{% endif %}> Email</label>
-<label class=checkline><input type=radio name=practice_reminder value=inapp {% if practice_reminder == 'inapp' %}checked{% endif %}> In-app</label>
-<label class=checkline><input type=radio name=practice_reminder value=off {% if practice_reminder == 'off' %}checked{% endif %}> Off</label>
-</fieldset>
-<p class="t3 sm">In-app uses the same notification you allow above. Emails include a link to turn practice reminder emails off.</p>
-<label style="margin-top:16px"><input type=checkbox name=email_reminders value=1 {% if email_on %}checked{% endif %}>Email reminders for membership, SafeSport, and the 2-week trial</label>
-<p class="t3 sm">These emails go out 7 days before, 1 day before, and on the day it expires. Practice cancellation emails always send.</p>
-<button class="btn btn-primary full">Save</button></form>"""
+<form method=post action=/notifications class=fxsheet>{{csrf_field()}}
+{{ rg_label('Push') }}
+{% for key, label in types %}<label class=rg-toggle><span><b>{{ label }}</b></span><input type=checkbox name=push value="{{key}}" {% if prefs.get(key, True) %}checked{% endif %}><i aria-hidden=true></i></label>
+{% endfor %}
+{{ rg_label('Practice reminders') }}
+{{ rg_seg_choice('practice_reminder', [('both','Both'),('email','Email'),('inapp','In-app'),('off','Off')], practice_reminder) }}
+<p class="ty-muted ty-sm">In-app uses the push you allow above. Emails include a link to turn practice reminder emails off.</p>
+{{ rg_label('Email') }}
+<label class=rg-toggle><span><b>Membership, SafeSport and trial reminders</b><small>7 days before, 1 day before, and on the day it expires. Practice cancellation emails always send.</small></span><input type=checkbox name=email_reminders value=1 {% if email_on %}checked{% endif %}><i aria-hidden=true></i></label>
+{{ rg_button('Save', 'primary') }}
+</form></div>"""
 
 T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template><div class=chat id=chat><div class=chatin><button type=button id=earlier class=earlier hidden>Load earlier messages</button></div></div><div class=chatpad></div>
 {% if chat_locked %}<p class=chatlock>read-only · this practice ended.</p>{% endif %}<div class="composer noprint"><div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=thumbs id=prev hidden></div>
@@ -5989,7 +6004,7 @@ T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template><div class
 <div class=grab aria-hidden=true></div>
 <h2 style="margin:0 0 8px">Seen by</h2>
 <div class=seenlist id=seenPeople></div>
-<button type=button class="btn btn-secondary full" id=seenClose style="margin-top:12px">Close</button>
+<button type=button class="rg-btn secondary full" id=seenClose style="margin-top:12px">Close</button>
 </div></dialog>
 <script>
 const CSRF="{{csrf_token()}}",CH="{{ch}}",EMO={{REACTIONS|tojson}},PAGE=50;let last=0,oldest=0,more=false,loadingOlder=false;const box=document.getElementById('chat'),msgs={};
@@ -6225,7 +6240,7 @@ function paintSeen(list){
  requestAnimationFrame(function(){ anchoring=false; if(!follow) stick=nearBottom(); });
 }
 function openSeen(info){
- document.getElementById('seenPeople').innerHTML=(info.seen||[]).map(personRow).join('')||'<p class="t3 sm">No one has seen this yet.</p>';
+ document.getElementById('seenPeople').innerHTML=(info.seen||[]).map(personRow).join('')||'<p class="ty-muted ty-sm sm">No one has seen this yet.</p>';
  grunionsOpenSheet(document.getElementById('seenSheet'))}
 const sheet=document.getElementById('actSheet'),actEdit=document.getElementById('actEdit'),actDelete=document.getElementById('actDelete'),actConfirm=document.getElementById('actConfirm'),actOwn=document.getElementById('actOwn'),actCopyGroup=document.getElementById('actCopyGroup'),emojiMore=document.getElementById('emojiMore'),quoteBar=document.getElementById('quoteBar'),editBar=document.getElementById('editBar');
 const MORE=["😀","😁","😊","😉","😍","😘","😎","🤔","😭","😡","🤯","🤗","🫡","🤝","👏","🙌","💪","✌️","👋","✅","⭐","💧","🏊","🤽","🏆","📣","📸","🧡","💛","💚","💙","💜","🖤","🤍","💔","🤣","😅","😴","🎉"];
@@ -6260,7 +6275,7 @@ function clearCompose(){const field=document.getElementById('body');field.value=
 function startReply(id){const m=msgs[id];if(!m||m.deleted)return;editId=null;editBar.hidden=true;replyTo=id;document.getElementById('quoteWho').textContent=m.who;document.getElementById('quoteTxt').textContent=(m.body||'Photo').slice(0,140);quoteBar.hidden=false;document.getElementById('body').focus()}
 function startEdit(id){const m=msgs[id];if(!m||m.deleted||!m.mine)return;replyTo=null;quoteBar.hidden=true;editId=id;const field=document.getElementById('body');field.value=m.body||'';grow();document.getElementById('editHint').textContent=(m.body||'Photo').slice(0,80);editBar.hidden=false;field.focus()}
 async function reactWith(id,emoji){pollGen++;await fetch('/api/messages/'+id+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:emoji})});closeSheet();poll()}
-async function showWho(pill){const r=await fetch('/api/messages/'+pill.dataset.m+'/reactors?emoji='+encodeURIComponent(pill.dataset.e));const j=await r.json().catch(()=>({}));document.getElementById('whoTitle').textContent=pill.dataset.e||'';document.getElementById('whoList').innerHTML=(j.people||[]).map(personRow).join('')||'<p class="t3 sm">No one</p>';grunionsOpenSheet(document.getElementById('whoSheet'))}
+async function showWho(pill){const r=await fetch('/api/messages/'+pill.dataset.m+'/reactors?emoji='+encodeURIComponent(pill.dataset.e));const j=await r.json().catch(()=>({}));document.getElementById('whoTitle').textContent=pill.dataset.e||'';document.getElementById('whoList').innerHTML=(j.people||[]).map(personRow).join('')||'<p class="ty-muted ty-sm sm">No one</p>';grunionsOpenSheet(document.getElementById('whoSheet'))}
 function toast(msg, ms){const el=document.createElement('div');el.className='toast noprint';el.setAttribute('role','status');el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),ms||2000)}
 function photoKind(f){
  var name=(f.name||'').toLowerCase(), type=(f.type||'').toLowerCase();
@@ -6322,7 +6337,7 @@ box.addEventListener('click',async e=>{
  if(skip&&skip.dataset.suppress){ e.preventDefault(); delete skip.dataset.suppress; return; }
  const b=e.target.closest('button,a.img');if(!b||b.dataset.save!=null||b.hasAttribute('data-cancel'))return;
  if(b.classList.contains('seenline')){if(seenInfo)openSeen(seenInfo);return}
- if(b.matches('a.img')){e.preventDefault();const lb=document.createElement('div');lb.className='lightbox';const full=b.dataset.full;lb.innerHTML=`<img src="${full}" alt=""><button type=button class="btn btn-secondary savephoto">Save photo</button>`;lb.querySelector('.savephoto').onclick=function(ev){ev.stopPropagation();savePhoto(full)};lb.addEventListener('click',function(ev){if(ev.target===lb||ev.target.tagName==='IMG')lb.remove()});document.body.appendChild(lb);return}
+ if(b.matches('a.img')){e.preventDefault();const lb=document.createElement('div');lb.className='lightbox';const full=b.dataset.full;lb.innerHTML=`<img src="${full}" alt=""><button type=button class="rg-btn secondary savephoto">Save photo</button>`;lb.querySelector('.savephoto').onclick=function(ev){ev.stopPropagation();savePhoto(full)};lb.addEventListener('click',function(ev){if(ev.target===lb||ev.target.tagName==='IMG')lb.remove()});document.body.appendChild(lb);return}
  if(b.dataset.act){openSheet(+b.dataset.act);return}
  if(b.dataset.e){if(b.dataset.held){delete b.dataset.held;return}pollGen++;await fetch('/api/messages/'+b.dataset.m+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:b.dataset.e})});poll()}});
 const ta=document.getElementById('body'),file=document.getElementById('file'),prev=document.getElementById('prev');
@@ -6425,7 +6440,7 @@ _PRACTICE_JS = """<script>
 </script>"""
 
 T["lineup"] = """{% macro lineup_months(groups, mode, past=false) %}{% for g in groups %}<div class=lmonth>{% if mode == 'tall' %}{{ g.label }}{% if past %} · Past{% endif %}{% else %}{{ g.label.split(' ')[0] }}{% endif %}</div>{% for e in g.events %}{{ lineup_card(e, '/lineup' ~ ('?group=' ~ group if group else ''), mode, past) }}{% endfor %}{% endfor %}{% endmacro %}
-<div class="filt lineupfilt chiprow" data-seg role=group aria-label="Type"><a class="chip{{ ' chip-active on' if not group }}" href=/lineup>All</a>{% for slug, label in filter_groups %}<a class="chip{{ ' chip-active on' if group == slug }}" href="/lineup?group={{ slug }}">{{ label }}</a>{% endfor %}</div>
+<div class="rg-filters filt lineupfilt chiprow" data-seg role=group aria-label="Type"><a {% if not group %}class=on aria-current=true{% endif %} href=/lineup>All</a>{% for slug, label in filter_groups %}<a {% if group == slug %}class=on aria-current=true{% endif %} href="/lineup?group={{ slug }}">{{ label }}</a>{% endfor %}</div>
 {% if not group %}<div class=lmetrics><div class="lmetric hrs"><b>{{ '%02d'|format(lineup_hours) }}</b><span>SERVICE HRS</span></div><div class="lmetric reg"><b>{{ '%02d'|format(lineup_registered) }}</b><span>REGISTERED</span></div><div class="lmetric dec"><b>{{ '%02d'|format(lineup_decide) }}</b><span>TO DECIDE</span></div></div>{% endif %}
 {% if featured %}<div class=lmonth>Pinned</div>{% for e in featured %}{{ lineup_card(e, '/lineup?group=' ~ group, 'tall') }}{% endfor %}{% endif %}
 {% if empty_public %}<p class=emptyfind>Nothing on the Lineup yet.</p>{% endif %}
@@ -6442,7 +6457,7 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.shift_mine %}{{ rg_callout("You're volunteering", e.shift_mine.title, 'Your shift →', '/lineup/' ~ e.id ~ '/shifts/' ~ e.shift_mine.id, 'bubblegum') }}
 {% elif e.shifts_n %}{{ rg_callout('Volunteer shifts', (e.shifts_open ~ ' spot' ~ ('' if e.shifts_open == 1 else 's') ~ ' open') if e.shifts_open else 'All shifts are full', 'Pick a shift →', '/lineup/' ~ e.id ~ '/shifts', 'bubblegum') }}
 {% elif e.can_edit %}<a class=rg-calink href="/lineup/{{ e.id }}/shifts">Add volunteer shifts</a>{% endif %}
-<div class=seclabel>Details</div>
+<div class=rg-day>Details</div>
 <div class="list rg-evdetails">
 {% if e.description %}<div class="li evdescrow"><div class=clamp id=evdesc>{{ e.description }}</div><button type=button class=textlink id=evmore hidden>More</button></div>{% endif %}
 {% if e.host_org %}<div class="li prow"><span class=k>Host organization</span><span class=v>{{ e.host_org }}</span></div>{% endif %}
@@ -6459,28 +6474,28 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.review_note and e.status in ('changes_requested', 'declined') %}<div class=note>{{ e.review_note }}</div>{% endif %}
 {{ whos_going(e.interested, "interested") }}
 {{ whos_going(e.people) }}
-{% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="btn btn-primary full" name=action value=official>Make official</button></form>{% endif %}
+{% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="rg-btn primary full" name=action value=official>Make official</button></form>{% endif %}
 {% if e.venue or e.city %}{{ event_location('lineLoc', e.pins, e.venue or e.city, e.city if e.venue else '', e.dir_href) }}{% endif %}
 <script>(function(){var el=document.getElementById('evdesc'),btn=document.getElementById('evmore');if(!el||!btn)return;if(el.scrollHeight>el.clientHeight+2)btn.hidden=false;btn.onclick=function(){var open=el.classList.toggle('open');btn.textContent=open?'Less':'More';};})();</script>"""
-T["approvals"] = """{% call admin_page('Events') %}<a class="btn quiet pageact" href="/events/new">Create event</a>{% endcall %}
+T["approvals"] = """{% call admin_page('Events') %}<a class="rg-btn ghost pageact" href="/events/new">Create event</a>{% endcall %}
 {% if queue %}<h2>Needs review ({{ queue|length }})</h2>
 {% for e in queue %}<div class=card>
 <div class=nxtitle>{{ e.title }}</div>
-<div class="t3 sm">{{ e.status_text or e.status_label }}{% if e.tag %} · {{ e.tag }}{% endif %}</div>
+<div class="ty-muted ty-sm sm">{{ e.status_text or e.status_label }}{% if e.tag %} · {{ e.tag }}{% endif %}</div>
 <div class=nxrow>{{ glyph_clock() }}<span>{{ e.when }}</span></div>
 {% if e.where %}<div class=nxrow>{{ glyph_pin() }}<span>{{ e.where }}</span></div>{% endif %}
 {% if e.description %}<div class=evnote>{{ e.description }}</div>{% endif %}
 {% if e.review_note %}<div class=note>{{ e.review_note }}</div>{% endif %}
 <form method=post action=/admin/approvals style="margin-top:12px">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>
-<button class="btn btn-primary full" name=action value=approve>Approve &amp; Publish</button>
+<button class="rg-btn primary full" name=action value=approve>Approve &amp; Publish</button>
 <label style="margin-top:12px">Note<textarea class=planfield name=note rows=4 placeholder="Needed for changes or a decline"></textarea></label>
-<div class=row><button class="btn btn-secondary" name=action value=changes>Request Changes</button><button class="btn btn-danger" name=action value=decline>Decline</button></div>
+<div class=row><button class="rg-btn secondary" name=action value=changes>Request Changes</button><button class="rg-btn danger" name=action value=decline>Decline</button></div>
 </form></div>{% endfor %}{% endif %}
-{% for g in groups %}<h2>{{ g.label }}</h2><div class=list>{% for item in g['items'] %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endfor %}
+{% for g in groups %}<h2>{{ g.label }}</h2><div class=list>{% for item in g['items'] %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ item.title }}</span><span class="ty-muted ty-sm sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endfor %}
 {% if not groups and not queue %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
 T["usage"] = ADMIN_NAV + """{{ admin_page('Usage', 'Mapbox calls today for driving routes and place search. One typing session counts as one call.') }}
 <div class=card><h2 style="margin:0 0 8px">Today</h2>
-<p class="t2 sm" style="margin:0">{{ calls }} of {{ cap }}</p></div>"""
+<p class="ty-body sm" style="margin:0">{{ calls }} of {{ cap }}</p></div>"""
 T["manage"] = ADMIN_NAV + """<div class=managehome id=manageHome>
 {# 08.13 Manage home: search · Avg checked in · four hub tiles. Every piece is a component. #}
 <div id=manageSearchWrap>{{ rg_search('manageSearch', 'Search settings, people, tools…', '/manage/area/club' if club_admin else '', 'settings', 'manageClear') }}</div>
@@ -6624,30 +6639,30 @@ T["manage_area"] = ADMIN_NAV + """{{ admin_page(title, subtitle) }}
 {% if tiles %}<div class=rg-tilestack>{% for href, t, sub, n, tone in tiles %}{{ rg_stack_tile(href, t, sub, n, tone) }}{% endfor %}</div>{% endif %}
 <div class=mlist style="margin-bottom:120px">{% for row in rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone, row.tile, row.num) }}{% endfor %}</div>"""
 T["manage_schedule"] = ADMIN_NAV + """{{ admin_page('Schedule', 'Practices, scrimmages, and games.') }}
-{% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
+{% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="ty-muted ty-sm sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
 T["manage_lineup"] = ADMIN_NAV + """{{ admin_page('Lineup', 'Events, tournaments, camps, and socials.') }}
-{% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}
+{% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="ty-muted ty-sm sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}
 <a class=wkadd href="/events/new?lane=lineup">+ New lineup event</a>"""
 T["manage_requests"] = ADMIN_NAV + """{{ admin_page('Requests', 'Member-submitted events.') }}
-<div class="filt chiprow" data-seg role=group aria-label="Status"><a class="chip{{ ' chip-active on' if view=='pending' }}" href="/manage/requests?view=pending">Pending</a><a class="chip{{ ' chip-active on' if view=='approved' }}" href="/manage/requests?view=approved">Approved</a><a class="chip{{ ' chip-active on' if view=='declined' }}" href="/manage/requests?view=declined">Declined</a></div>
+<div class="rg-filters filt chiprow" data-seg role=group aria-label="Status"><a {% if view=='pending' %}class=on aria-current=true{% endif %} href="/manage/requests?view=pending">Pending</a><a {% if view=='approved' %}class=on aria-current=true{% endif %} href="/manage/requests?view=approved">Approved</a><a {% if view=='declined' %}class=on aria-current=true{% endif %} href="/manage/requests?view=declined">Declined</a></div>
 {% if rows %}{% for e in rows %}<article class="reqcard{% if view != 'pending' %} carbon{% endif %}">
 <a href="/manage/requests/{{ e.id }}"><span class=reqpill>{{ e.status_text }}</span><b>{{ e.title }}</b>
 <p>{{ e.category }}{% if e.submitter %} · {{ e.submitter }}{% endif %}{% if e.when %} · {{ e.when }}{% endif %}</p></a>
 {% if e.status in ('pending', 'changes_requested') %}<div class=reqacts>
-<form method=post action=/admin/approvals>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><button class="btn btn-primary" name=action value=approve>Approve</button></form>
-<a class="btn btn-secondary" href="/manage/requests/{{ e.id }}">Decline</a>
+<form method=post action=/admin/approvals>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><button class="rg-btn primary" name=action value=approve>Approve</button></form>
+<a class="rg-btn secondary" href="/manage/requests/{{ e.id }}">Decline</a>
 </div>{% endif %}
 </article>{% endfor %}{% else %}<p class=emptyfind>Nothing here.</p>{% endif %}"""
 T["manage_request"] = ADMIN_NAV + """{{ admin_page(e.title) }}
-<p class="t2 sm" style="margin-top:0">{{ e.category }}{% if e.submitter %} · {{ e.submitter }}{% endif %}{% if e.when %} · {{ e.when }}{% endif %}</p>
+<p class="ty-body sm" style="margin-top:0">{{ e.category }}{% if e.submitter %} · {{ e.submitter }}{% endif %}{% if e.when %} · {{ e.when }}{% endif %}</p>
 <p>{{ st(e.status_kind, e.status_text) }}</p>
 {% if e.description %}<p>{{ e.description }}</p>{% endif %}
 {% if e.review_note %}<div class=note>{{ e.review_note }}</div>{% endif %}
 {% if e.status in ('pending', 'changes_requested') %}<form method=post action=/admin/approvals>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>
-<button class="btn btn-primary full" name=action value=approve>Approve &amp; Publish</button>
+<button class="rg-btn primary full" name=action value=approve>Approve &amp; Publish</button>
 <label style="margin-top:12px">Note<textarea class=planfield name=note rows=4 placeholder="Needed for changes or a decline"></textarea></label>
-<div class=row><button class="btn btn-secondary" name=action value=changes>Request Changes</button><button class="btn btn-danger" name=action value=decline>Decline</button></div>
-</form>{% elif e.status == 'published' %}<p style="margin-top:16px"><a class="btn btn-secondary" href="/lineup/{{ e.id }}">View on Lineup</a></p>{% endif %}"""
+<div class=row><button class="rg-btn secondary" name=action value=changes>Request Changes</button><button class="rg-btn danger" name=action value=decline>Decline</button></div>
+</form>{% elif e.status == 'published' %}<p style="margin-top:16px"><a class="rg-btn secondary" href="/lineup/{{ e.id }}">View on Lineup</a></p>{% endif %}"""
 _CHEV = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
 T["event_new"] = """<form id=planForm method=post action=/events/new enctype=multipart/form-data data-editorform data-practicedays='{{ practice_days|tojson }}'>{{ csrf_field() }}
 <h1 class=newevent id=newEventTitle>{% if lane == 'lineup' %}New lineup event.{% else %}New event.{% endif %}</h1>
@@ -6666,7 +6681,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label><input type=radio name=activity_type value=scrimmage {% if activity == 'scrimmage' %}checked{% endif %}><span>Scrimmage</span></label>
 <label><input type=radio name=activity_type value=game {% if activity == 'game' %}checked{% endif %}><span>Game</span></label>
 </div>
-<div class=fldlab>Team color</div>
+<div class=rg-day>Team color</div>
 <div class=colordots role=radiogroup aria-label="Team color">
 <button type=button class="cdot on" style="--c:var(--team-sun)" aria-label="Sun"></button>
 <button type=button class=cdot style="--c:var(--team-sky)" aria-label="Sky"></button>
@@ -6678,9 +6693,9 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button class=cdot style="--c:var(--team-cherry)" aria-label="Coral"></button>
 </div>
 <label>Sport<select name=sport id=sportSel><option{% if not dup or dup.sport == 'Water Polo' %} selected{% endif %}>Water Polo</option><option{% if dup and dup.sport == 'Swimming' %} selected{% endif %}>Swimming</option>{% if dup and dup.sport not in ('Water Polo', 'Swimming') %}<option selected>{{ dup.sport }}</option>{% endif %}</select></label>
-<div class=fldlab>Display name</div>
-<div class=livetitle><strong id=liveTitle>{% if dup and dup.title %}{{ dup.title }}{% else %}Water Polo Practice{% endif %}</strong><button type=button class="btn quiet" id=customize>Customize</button></div>
-<label id=titleField {% if not dup or not dup.title %}hidden{% endif %}>Event name<input name=title id=titleInput value="{{ dup.title if dup else '' }}" autocomplete=off><button type=button class="btn quiet" id=titleReset>Reset to automatic</button></label>
+<div class=rg-day>Display name</div>
+<div class=livetitle><strong id=liveTitle>{% if dup and dup.title %}{{ dup.title }}{% else %}Water Polo Practice{% endif %}</strong><button type=button class="rg-btn ghost" id=customize>Customize</button></div>
+<label id=titleField {% if not dup or not dup.title %}hidden{% endif %}>Event name<input name=title id=titleInput value="{{ dup.title if dup else '' }}" autocomplete=off><button type=button class="rg-btn ghost" id=titleReset>Reset to automatic</button></label>
 </div>{% endif %}
 <div id=lineBlock {% if staff and lane != 'lineup' %}hidden{% endif %}>
 <label>Type{{ type_select(line_types) }}</label>
@@ -6690,7 +6705,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button data-type=Trip>Trip</button>
 <button type=button data-type=Social>Social</button>
 </div>{% endif %}
-<div class=fldlab>Who's hosting?</div>
+<div class=rg-day>Who's hosting?</div>
 <div class="actseg hostseg" id=whoHost role=radiogroup aria-label="Who's hosting?">
 <label><input type=radio name=hosting value=Hosting checked><span>Our organization</span></label>
 <label><input type=radio name=hosting value=Attending><span>Another organization</span></label>
@@ -6698,12 +6713,12 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label class=switchrow>Co-hosted?<span class=switch><input type=checkbox name=cohosted id=coHosted value=1><span></span></span></label>
 <label id=lineOrg hidden>Host organization<input name=host_org id=hostOrg autocomplete=off placeholder="West Hollywood Aquatics"></label>
 <div id=lineCo hidden class=hostblock>
-<div class=fldlab>Co-host organizations</div>
-<div class=hostadd><input id=hostAdd autocomplete=off placeholder="Santa Monica" aria-label="Co-host organization"><button type=button class="btn btn-secondary" id=hostAddBtn>Add</button></div>
+<div class=rg-day>Co-host organizations</div>
+<div class=hostadd><input id=hostAdd autocomplete=off placeholder="Santa Monica" aria-label="Co-host organization"><button type=button class="rg-btn secondary" id=hostAddBtn>Add</button></div>
 <div id=hostChips class=hostchips></div>
 </div>
 {% if staff %}
-<div id=orgPlanLabel class=fldlab hidden>What are our organization's plans?</div>
+<div id=orgPlanLabel class=rg-day hidden>What are our organization's plans?</div>
 <div class=plancards id=orgPlans hidden role=radiogroup aria-label="What are our organization's plans?">
 <label class=plancard><input type=radio name=team_plan value=considering checked disabled><span class=planmark aria-hidden=true><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span class=plantxt><b>Gauging interest</b><span>See who wants to participate before committing.</span></span></label>
 <label class=plancard><input type=radio name=team_plan value=committed disabled><span class=planmark aria-hidden=true><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span class=plantxt><b>We're attending</b><span>Our organization has decided to participate.</span></span></label>
@@ -6712,7 +6727,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label>Event name<input name=line_title id=lineTitle autocomplete=off placeholder="IGLA 2027"></label>
 <label>Short description<textarea class=planfield name=description id=lineDesc rows=4 placeholder="What should people know?"></textarea></label>
 </div>
-<div class=fldlab>When</div>
+<div class=rg-day>When</div>
 {% if staff %}<div class=actseg id=whenPrec role=radiogroup aria-label=Dates>
 <label data-prec=exact><input type=radio name=date_precision value=exact checked><span>Exact dates</span></label>
 <label data-prec=recur {% if lane == 'lineup' %}hidden{% endif %}><input type=radio name=date_precision value=recur {% if lane == 'lineup' %}disabled{% endif %}><span>Recurring</span></label>
@@ -6732,7 +6747,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <input type=hidden name=date_part id=datePart data-monthpart value=all>
 </div>
 <label>Location<span id=locOk class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location id=locInput data-places value="{{ dup.location if dup else '' }}" autocomplete=off placeholder="Pool or address"></label>
-<div class=seclabel>Additional settings</div>
+<div class=rg-day>Additional settings</div>
 {% if staff %}<div id=schedSets {% if lane == 'lineup' %}hidden{% endif %}>
 <div class=formsec><h2>Practice details</h2><div class=list>
 <button type=button class="li selfield" data-open=sheetLevels><span class=selfieldk>Skill levels</span><span class="selfieldv ell" data-for=levels>Not set</span>""" + _CHEV + """</button>
@@ -6751,8 +6766,8 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button class="li setrow" id=regRow data-open=setReg><span class=grow>Registration<span class=sum id=regSum> Not set</span></span>""" + _CHEV + """</button>
 </div>
 <div id=signupBlock {% if not staff or lane != 'lineup' %}hidden{% endif %}>
-<div class=fldlab>Who can sign up</div>
-<p class="t3 sm">For this event. Club default is set in Manage · Club.</p>
+<div class=rg-day>Who can sign up</div>
+<p class="ty-muted ty-sm sm">For this event. Club default is set in Manage · Club.</p>
 <div class=signupopts role=radiogroup aria-label="Who can sign up">
 <label class=sigopt><input type=radio name=signup_scope value=anyone><span><b>Anyone</b><small>Open to people outside Grunions. They can see it on the public schedule.</small></span></label>
 <label class=sigopt><input type=radio name=signup_scope value=network><span><b>Our network</b><small>Grunions plus partner clubs you've linked.</small></span></label>
@@ -6761,7 +6776,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>
 <div class=createfoot>
 <p class=pagesub id=destHint>{% if not staff %}Sent to admins for review{% elif lane == 'lineup' %}Appears on Lineup by default{% else %}Appears on Home by default{% endif %}</p>
-<button class="btn btn-primary full" name=action value=preview>{% if dup %}Save{% elif not staff %}Submit{% else %}Create event{% endif %}</button>
+<button class="rg-btn primary full" name=action value=preview>{% if dup %}Save{% elif not staff %}Submit{% else %}Create event{% endif %}</button>
 </div>
 <input class=pickhold type=date name=date id=dateInput value="{{ dup.date if dup else '' }}">
 <input class=pickhold type=time name=start id=startInput value="{{ dup.start if dup else '19:00' }}">
@@ -6779,13 +6794,13 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label class=sheetopt data-label=Sat><input type=checkbox name=weekday value=5><span><b>Saturday</b></span></label>
 <label class=sheetopt data-label=Sun><input type=checkbox name=weekday value=6><span><b>Sunday</b></span></label>
 </div>
-<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetFreq><div class=sheet><div class=grab></div><h2>Frequency</h2>
 <div class=sheetlist>
 <label class=sheetopt data-label=Weekly><input type=radio name=recur_interval value=1 checked><span><b>Weekly</b></span></label>
 <label class=sheetopt data-label="Every 2 weeks"><input type=radio name=recur_interval value=2><span><b>Every 2 weeks</b></span></label>
 </div>
-<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetEnds><div class=sheet><div class=grab></div><h2>Ends</h2>
 <div class=sheetlist>
 <label class=sheetopt data-label=Never><input type=radio name=recur_end value=never checked><span><b>Never</b><small>Keeps about six months on the schedule</small></span></label>
@@ -6794,40 +6809,40 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>
 <button type=button class="li setrow" id=endDateRow data-matfor=untilInput hidden><span class=grow>End date<span class=sum id=untilSum> Add a date</span></span>""" + _CHEV + """</button>
 <label id=recurCountField hidden>Times<input type=number name=recur_count id=recurCount min=1 max=104 value=8 inputmode=numeric></label>
-<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetSkips><div class=sheet><div class=grab></div><h2>Skip dates</h2>
-<p class="t3 sm">These dates have no practice.</p>
+<p class="ty-muted ty-sm sm">These dates have no practice.</p>
 <button type=button class="li setrow" data-matfor=skipPick><span class=grow>Add a date</span>""" + _CHEV + """</button>
 <div id=skipChips class=skipchips></div>
 <input type=hidden name=skip_dates_present value=1>
-<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetLevels><div class=sheet><div class=grab></div><h2>Skill levels</h2>
 <div class=sheetlist data-sum=levels data-empty="Not set">
 <label class=sheetopt data-label="All levels"><input type=checkbox id=allLevels {% if dup and dup.all_levels %}checked{% endif %}><span><b>All levels</b><small>Every skill level</small></span></label>
 {% for pid, name, short, full in level_catalog(dup.sport if dup else 'Water Polo', (dup.levels|join(',')) if dup else '') %}<label class=sheetopt data-label="{{ name }}"><input type=checkbox name=level value="{{ pid }}" {% if dup and pid in dup.levels %}checked{% endif %}><span><b>{{ name }}</b><small>{{ short }}</small></span></label>{% endfor %}
 </div>
-<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetDivision><div class=sheet><div class=grab></div><h2>Division</h2>
 <div class=sheetlist data-sum=division data-empty="Not set">
 <label class=sheetopt data-label="Not set"><input type=radio name=division value="" {% if not dup or not dup.division %}checked{% endif %}><span><b>Not set</b></span></label>
 {% for pid, name in SPORTS.DIVISIONS %}<label class=sheetopt data-label="{{ name }}"><input type=radio name=division value="{{ pid }}" {% if dup and dup.division == pid %}checked{% endif %}><span><b>{{ name }}</b></span></label>{% endfor %}
 </div>
 <label id=divCustom {% if not dup or dup.division != 'custom' %}hidden{% endif %}>Custom label<input name=division_custom value="{{ dup.division_custom if dup else '' }}" autocomplete=off></label>
-<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetCoaches><div class=sheet><div class=grab></div><h2>Coaches</h2>
 <input class=sheetsearch placeholder="Search coaches" autocomplete=off data-sheetsearch>
 <div class=sheetlist data-sum=coaches data-empty=None>
 {% for c in coaches %}<label class=coachrow data-search="{{ display_first(c) }} {{ c.last }}" data-label="{{ display_first(c) }} {{ c.last }}"><span class=avatar>{{ initials(c) }}</span><span class=grow><b>{{ display_first(c) }} {{ c.last }}</b></span><input type=checkbox name=coach value="{{ c.id }}"{% if dup and c.id in dup.coaches %} checked{% endif %} data-name="{{ display_first(c) }} {{ c.last }}"></label>
-{% else %}<p class=t3>No coaches on the list yet.</p>{% endfor %}
+{% else %}<p class='ty-muted ty-sm'>No coaches on the list yet.</p>{% endfor %}
 </div>
-<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetLead><div class=sheet><div class=grab></div><h2>Head coach</h2>
 <div class=sheetlist data-sum=lead data-empty="No head coach">
 <label class=sheetopt data-lead="" data-label="No head coach"><input type=radio name=lead value="" {% if not dup or not dup.lead %}checked{% endif %}><span><b>No head coach</b></span></label>
 {% for c in coaches %}<label class=sheetopt data-lead="{{ c.id }}" data-label="{{ display_first(c) }} {{ c.last }}" {% if not dup or c.id not in dup.coaches %}hidden{% endif %}><input type=radio name=lead value="{{ c.id }}" {% if dup and dup.lead == c.id %}checked{% endif %}><span><b>{{ display_first(c) }} {{ c.last }}</b></span></label>{% endfor %}
 </div>
-<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
-<dialog class=botsheet id=focusSheet><div class=sheet><div class=grab></div><h2 id=focusTitle>Coach</h2><div id=focusSlot></div><button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class=botsheet id=focusSheet><div class=sheet><div class=grab></div><h2 id=focusTitle>Coach</h2><div id=focusSlot></div><button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <div id=focusHome hidden>{% for c in coaches %}<label data-coach="{{ c.id }}">Focus group<input name="focus-{{ c.id }}" data-groups="Beginners,Intermediate,Advanced,Goalies" value="{{ dup.focuses.get(c.id, '') if dup else '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>{% endfor %}</div>
 <dialog class=botsheet id=setSocial><div class=sheet><div class=grab></div><h2>After-practice social</h2>
 <div class=sheetlist data-sum=social data-empty="Not added">
@@ -6838,18 +6853,18 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label>Place name<input name=social_place value="{{ dup.social_place if dup else '' }}" autocomplete=off placeholder="Name of the place"></label>
 <label>Time (optional)<input data-native type=time name=social_time min="{{ (dup.end if dup else '20:30')[:5] }}" value="{{ (dup.social_time or dup.end) if dup else '20:30' }}"></label>
 <label>Note<textarea class=planfield name=social_note rows=4>{{ dup.social_note if dup else '' }}</textarea></label>
-<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=setNotes><div class=sheet><div class=grab></div><h2>Notes &amp; media</h2>
 <label>Notes<textarea class=planfield name=note id=noteInput rows=4>{{ dup.note if dup else '' }}</textarea></label>
 {{ upload_field('image', src=(dup.image_src if dup else ''), clear_name=('image_clear' if dup and dup.image else '')) }}
-<button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
+<button type=button class="rg-btn primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
 <dialog class=botsheet id=setReg><div class=sheet><div class=grab></div><h2>Registration</h2>
 <label>Format<select name=comp_format><option value="">Not set</option>{% for pid, name, blurb in SPORTS.FORMATS %}<option value="{{ pid }}">{{ name }}</option>{% endfor %}</select></label>
 <label>Link<input name=link inputmode=url placeholder="https://"></label>
 <label>Estimated cost<input name=cost autocomplete=off></label>
 <label>Capacity<input name=capacity inputmode=numeric></label>
 <label>Register by<input type=date name=reg_deadline></label>
-<button type=button class="btn btn-primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
+<button type=button class="rg-btn primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
 </form>
 <script>
 (function(){
@@ -7051,11 +7066,11 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <input type=hidden name=mode value="{{ values.mode or mode }}">
 <button type=submit name=action value=save style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" tabindex=-1>{{ save_label or 'Save' }}</button>
 <div class=bannerpick>
-<div class="t3 xs">Banner image</div>
+<div class="ty-muted ty-sm xs">Banner image</div>
 {{ upload_field('banner', src=('/lineup-image/' ~ event_id ~ '?v=' ~ banner) if banner and event_id else '', clear_name='banner_clear') }}
 </div>
 <label>Type{{ type_select(event_types, values.event_type) }}</label>
-<div class=fldlab>Who's hosting?</div>
+<div class=rg-day>Who's hosting?</div>
 <div class="actseg hostseg" id=whoHost role=radiogroup aria-label="Who's hosting?">
 <label><input type=radio name=hosting value=Hosting {% if values.hosting != 'Attending' %}checked{% endif %}><span>Our organization</span></label>
 <label><input type=radio name=hosting value=Attending {% if values.hosting == 'Attending' %}checked{% endif %}><span>Another organization</span></label>
@@ -7063,19 +7078,19 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <label class=switchrow>Co-hosted?<span class=switch><input type=checkbox name=cohosted id=coHosted value=1 {% if values.cohosted == '1' %}checked{% endif %}><span></span></span></label>
 <label id=lineOrg {% if values.hosting != 'Attending' %}hidden{% endif %}>Host organization<input name=host_org id=hostOrg value="{{ values.host_org }}" autocomplete=off placeholder="West Hollywood Aquatics" {% if values.hosting != 'Attending' %}disabled{% endif %}></label>
 <div id=lineCo class=hostblock {% if values.cohosted != '1' %}hidden{% endif %}>
-<div class=fldlab>Co-host organizations</div>
-<div class=hostadd><input id=hostAdd autocomplete=off placeholder="Santa Monica" aria-label="Co-host organization" {% if values.cohosted != '1' %}disabled{% endif %}><button type=button class="btn btn-secondary" id=hostAddBtn {% if values.cohosted != '1' %}disabled{% endif %}>Add</button></div>
+<div class=rg-day>Co-host organizations</div>
+<div class=hostadd><input id=hostAdd autocomplete=off placeholder="Santa Monica" aria-label="Co-host organization" {% if values.cohosted != '1' %}disabled{% endif %}><button type=button class="rg-btn secondary" id=hostAddBtn {% if values.cohosted != '1' %}disabled{% endif %}>Add</button></div>
 <div id=hostChips class=hostchips>{% for name in values.cohost_orgs %}<span class=skipchip><span>{{ name }}</span><button type=button aria-label="Remove {{ name }}">×</button><input type=hidden name=cohost_org value="{{ name }}" {% if values.cohosted != '1' %}disabled{% endif %}></span>{% endfor %}</div>
 </div>
 {% if organizer %}
-<div id=orgPlanLabel class=fldlab {% if values.hosting != 'Attending' %}hidden{% endif %}>What are our organization's plans?</div>
+<div id=orgPlanLabel class=rg-day {% if values.hosting != 'Attending' %}hidden{% endif %}>What are our organization's plans?</div>
 <div class=plancards id=orgPlans {% if values.hosting != 'Attending' %}hidden{% endif %} role=radiogroup aria-label="What are our organization's plans?">
 <label class=plancard><input type=radio name=team_plan value=considering {% if values.team_plan != 'committed' %}checked{% endif %} {% if values.hosting != 'Attending' %}disabled{% endif %}><span class=planmark aria-hidden=true><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span class=plantxt><b>Gauging interest</b><span>See who wants to participate before committing.</span></span></label>
 <label class=plancard><input type=radio name=team_plan value=committed {% if values.team_plan == 'committed' %}checked{% endif %} {% if values.hosting != 'Attending' %}disabled{% endif %}><span class=planmark aria-hidden=true><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span class=plantxt><b>We're attending</b><span>Our organization has decided to participate.</span></span></label>
 </div>
 {% endif %}
 <label>Event name<input name=title value="{{ values.title }}" required autocomplete=off></label>
-<div class="t3 xs">Dates</div>
+<div class="ty-muted ty-sm xs">Dates</div>
 {% if organizer %}<div class=actseg role=radiogroup aria-label=Dates>
 <label><input type=radio name=date_precision value=exact {% if values.date_precision != 'month' %}checked{% endif %}><span>Exact dates</span></label>
 <label><input type=radio name=date_precision value=month {% if values.date_precision == 'month' %}checked{% endif %}><span>Month only</span></label>
@@ -7100,11 +7115,11 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <label>Extra details<textarea class=planfield name=details rows=4>{{ values.details }}</textarea></label>
 {% if me().is_admin %}<input type=hidden name=pin_present value=1><label><input type=checkbox name=featured value=1 {% if values.featured == '1' %}checked{% endif %}> Pin</label>{% endif %}
 </details>
-{% if organizer and not event_id %}<button class="btn btn-secondary full" name=action value=draft>Save draft</button>{% endif %}
-{% if event_id %}<button class="btn btn-primary full" name=action value=save>Save event</button>{% endif %}
+{% if organizer and not event_id %}<button class="rg-btn secondary full" name=action value=draft>Save draft</button>{% endif %}
+{% if event_id %}<button class="rg-btn primary full" name=action value=save>Save event</button>{% endif %}
 {% if show_cancel or show_delete %}<div class=eventacts>
-{% if show_cancel %}<button class="btn btn-secondary" name=action value=cancel formnovalidate onclick="return confirm('Cancel this event?')">Cancel event</button>{% endif %}
-{% if show_delete %}<button class="btn btn-secondary" name=action value=delete formnovalidate onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
+{% if show_cancel %}<button class="rg-btn secondary" name=action value=cancel formnovalidate onclick="return confirm('Cancel this event?')">Cancel event</button>{% endif %}
+{% if show_delete %}<button class="rg-btn secondary" name=action value=delete formnovalidate onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
 </div>{% endif %}
 </form>
 <script>(function(){
@@ -7141,15 +7156,15 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 })();</script>"""
 T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ csrf_field() }}
 <h1 class=newevent>Add day.</h1>
-<p class=t3>One weekday and its times. Saving does not add a session.</p>
+<p class='ty-muted ty-sm'>One weekday and its times. Saving does not add a session.</p>
 {{ sports_editor(series) }}
-<div class="t3 xs">Day</div>
+<div class="ty-muted ty-sm xs">Day</div>
 <div class="checks daypicks" role=group aria-label="Weekdays">
 {% for value, label in values.labels %}<label><input type=checkbox name=weekday value="{{ value }}" {% if value in values.weekdays %}checked{% endif %}><span>{{ label[:3] }}</span></label>{% endfor %}</div>
 <div class=row><label>Start<input type=time name=start value="{{ values.start }}" required></label><label>End<input type=time name=end value="{{ values.end }}" required></label></div>
 <label>Location<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location value="{{ values.location }}" data-places required autocomplete=off></label>
 <div class=row><label>Starts<input type=date name=start_date value="{{ values.start_date }}" required></label></div>
-<div class="t3 xs">Ends</div>
+<div class="ty-muted ty-sm xs">Ends</div>
 <div class=actseg role=radiogroup aria-label="Series end">
 <label><input type=radio name=recur_end value=never {% if values.end_mode == 'never' %}checked{% endif %}><span>Never</span></label>
 <label><input type=radio name=recur_end value=date {% if values.end_mode == 'date' %}checked{% endif %}><span>On a date</span></label>
@@ -7157,17 +7172,17 @@ T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ c
 </div>
 <label id=seriesUntil {% if values.end_mode != 'date' %}hidden{% endif %}>End date<input type=date name=end_date value="{{ values.end_date }}"></label>
 <label id=seriesCount {% if values.end_mode != 'count' %}hidden{% endif %}>Times<input type=number name=recur_count min=1 max=104 value="{{ values.end_count or 8 }}"></label>
-<p class="t3 sm">Never keeps about six months on the schedule and adds later dates as time moves forward.</p>
-<div class="t3 xs">Skip dates</div>
+<p class="ty-muted ty-sm sm">Never keeps about six months on the schedule and adds later dates as time moves forward.</p>
+<div class="ty-muted ty-sm xs">Skip dates</div>
 <div id=skipChips class=skipchips>{% for day in future_skips %}<span class=skipchip><span>{{ fmt_d(day) }}</span><button type=button aria-label="Remove {{ fmt_d(day) }}">×</button><input type=hidden name=skip_date value="{{ day }}"></span>{% endfor %}</div>
 <label>Add a skip date<input type=date id=seriesSkipPick></label>
 <input type=hidden name=skip_dates_present value=1>
-<div class=checks role=group aria-label="Coaches"><div class="t3 xs">Coaches</div>
+<div class=checks role=group aria-label="Coaches"><div class="ty-muted ty-sm xs">Coaches</div>
 <label style="margin:0 0 8px"><input type=radio name=lead value="" {% if not values.lead %}checked{% endif %}>No head coach</label>
 {% for c in coach_choices %}<div style="padding:8px 0;border-top:1px solid var(--line)">
 <label style="margin:0"><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in values.coaches %}checked{% endif %}>{{ display_first(c) }} {{ c.last }}</label>
 <label style="margin:8px 0 0"><input type=radio name=lead value="{{ c.id }}" {% if values.lead == c.id|string %}checked{% endif %}>Head coach</label>
-</div>{% else %}<p class="t3 sm">No coaches on the coaching list yet.</p>{% endfor %}</div>
+</div>{% else %}<p class="ty-muted ty-sm sm">No coaches on the coaching list yet.</p>{% endfor %}</div>
 </form>
 <script>(function(){
  function ends(){
@@ -7192,16 +7207,16 @@ T["series_edit"] = """<form id=seriesForm method=post action="{{ action }}">{{ c
   chip.appendChild(label); chip.appendChild(btn); chip.appendChild(hidden); drop(chip); box.appendChild(chip);
  });
 })();</script>
-{% if occurrences %}<div class=seclabel id=manage>Manage series</div>
+{% if occurrences %}<div class=rg-day id=manage>Manage series</div>
 <form method=post action="{{ action }}">{{ csrf_field() }}
 <div class=list>{% for p in occurrences %}<label class="li sheetopt"><input type=checkbox name=pick value="{{ p.id }}"><span class=grow><b>{{ fmt_d(p.date) }}</b><small>{{ fmt_span(p.start, p.end) }} · {{ p.location }}{% if p.cancelled %} · Canceled{% endif %}</small></span></label>{% endfor %}</div>
 <div class=row><label>Start<input type=time name=pick_start></label><label>End<input type=time name=pick_end></label></div>
 <label>Location<input name=pick_location autocomplete=off placeholder="Leave blank to keep it"></label>
 <label>Reason<textarea class=planfield name=reason rows=3 placeholder="Needed when canceling"></textarea></label>
-<div class=row><button class="btn btn-secondary" name=action value=edit_selected>Edit selected</button><button class="btn btn-secondary" name=action value=cancel_selected>Cancel selected</button><button class="btn btn-danger" name=action value=delete_selected>Delete selected</button></div>
+<div class=row><button class="rg-btn secondary" name=action value=edit_selected>Edit selected</button><button class="rg-btn secondary" name=action value=cancel_selected>Cancel selected</button><button class="rg-btn danger" name=action value=delete_selected>Delete selected</button></div>
 </form>{% endif %}
-{% if skips %}<div class=seclabel>Skipped dates</div><div class=list>{% for day in skips %}<form method=post action="{{ action }}" class=li>{{ csrf_field() }}<input type=hidden name=action value=unskip><input type=hidden name=date value="{{ day }}"><span class=grow>{{ fmt_d(day) }}</span><button class="btn btn-secondary" type=submit>Undo skip</button></form>{% endfor %}</div>{% endif %}"""
-T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp;·&nbsp; Fri · Westminster HS &nbsp;·&nbsp; 7–8:30 PM</p>
+{% if skips %}<div class=rg-day>Skipped dates</div><div class=list>{% for day in skips %}<form method=post action="{{ action }}" class=li>{{ csrf_field() }}<input type=hidden name=action value=unskip><input type=hidden name=date value="{{ day }}"><span class=grow>{{ fmt_d(day) }}</span><button class="rg-btn secondary" type=submit>Undo skip</button></form>{% endfor %}</div>{% endif %}"""
+T["practices"] = """<p class="ty-body sm" style="margin-top:0">Tue · Marina HS &nbsp;·&nbsp; Fri · Westminster HS &nbsp;·&nbsp; 7–8:30 PM</p>
 {% for x in data %}{% set p = x.p %}<div class="card tap{% if p.cancelled %} cancelled{% endif %}" id=p{{p.id}} data-pid={{p.id}} onclick="if(event.target.closest('button,a,form,input,select,textarea,label,dialog'))return;location.href='/practices/{{p.id}}'">
 <a class=cardlink href="/practices/{{p.id}}">
 <div class=nxcardhead><div class="nxtitle cardtitle">{{ practice_title(p) }}</div></div>
@@ -7210,7 +7225,7 @@ T["practices"] = """<p class="t2 sm" style="margin-top:0">Tue · Marina HS &nbsp
 <div class="grow schedrows"><div class=nxrow>{{ glyph_clock() }}<span>{% if practice_is_month(p) %}{{ practice_when(p) }}{% else %}{{ fmt_span(p.start, p.end) }}{% endif %}</span></div>
 <div class=nxrow>{{ glyph_pin() }}<span>{{ p.location }}</span></div>
 <div class=nxrow>{{ glyph_people() }}<span>{{ practice_going_line(x.going|length, p) }}</span></div></div></div>
-{% if p.cancelled %}{{ st('bad','Cancelled') }}{% if p.cancel_reason %}<div class="t3 sm">{{ p.cancel_reason }}</div>{% endif %}{% endif %}
+{% if p.cancelled %}{{ st('bad','Cancelled') }}{% if p.cancel_reason %}<div class="ty-muted ty-sm sm">{{ p.cancel_reason }}</div>{% endif %}{% endif %}
 {% if p.note %}<div class=nxnote>{{p.note}}</div>{% endif %}
 {% if p.coach_note %}<div class=nxnote>{{ p.coach_note }} · {{ p.coach_note_by }} · {{ fmt_stamp(p.coach_note_at) }}</div>{% endif %}</a>
 {% if not p.cancelled %}<form method=post action=/practices class=pills>{{csrf_field()}}<input type=hidden name=pid value={{p.id}}>{{ rsvp_base('p' ~ p.id) }}
@@ -7223,16 +7238,16 @@ T["practice"] = """{% set p = x.p %}
 {{ event_hero('practiceMap', pins if not p.image else [], ('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', p.location or 'Practice', social_route_points(p)) }}
 {% if not editing %}<div class=profilehero>
 <div class="profilename{% if p.cancelled %} cancelled{% endif %}">{{ practice_title(p) }}</div>
-{% if practice_sports_line(p) %}<p class="t3 sm sportline">{{ practice_sports_line(p) }}</p>{% endif %}
-{% if p.activity_type == 'hybrid' %}{% for seg in SPORTS.parse_segments(p.segments) %}<p class="t3 sm">{{ SPORTS.ACTIVITY_NAME.get(seg.type, seg.type) }} · {{ fmt_span(seg.start, seg.end) }}</p>{% endfor %}{% endif %}
+{% if practice_sports_line(p) %}<p class="ty-muted ty-sm sm sportline">{{ practice_sports_line(p) }}</p>{% endif %}
+{% if p.activity_type == 'hybrid' %}{% for seg in SPORTS.parse_segments(p.segments) %}<p class="ty-muted ty-sm sm">{{ SPORTS.ACTIVITY_NAME.get(seg.type, seg.type) }} · {{ fmt_span(seg.start, seg.end) }}</p>{% endfor %}{% endif %}
 {% if p.opponent and p.activity_type == 'game' %}<p class=pracemeta>{% if p.home_away == 'home' %}Home{% elif p.home_away == 'away' %}Away{% endif %}{% if p.home_away %} · {% endif %}vs. {{ p.opponent }}</p>{% endif %}
 <p class=pracemeta>{% if practice_is_month(p) %}{{ practice_when(p) }}{% else %}{{ fmt_card_date(p.date) }} · {{ fmt_clock(p.start) }} – {{ fmt_clock(p.end) }}{% endif %}</p>
 {% if p.location %}<p class=pracemeta>{{ p.location }}</p>{% endif %}
 <div class=pracestatus>{% if p.cancelled %}{{ st('bad','Cancelled') }}{% else %}{{ st('ok','Scheduled') }}{% endif %}</div>
-{% if p.cancelled and p.cancel_reason %}<p class="t3 sm" style="margin:6px 0 0">{{ p.cancel_reason }}</p>{% endif %}
-{% if me().is_admin and p.cancelled and not editing and p.skipped %}<div class=eventacts><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=unskip>Undo skip</button></form>{% if not practice_ended(p) %}<button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button>{% endif %}</div>
-{% elif me().is_admin and p.cancelled and not editing %}<div class=eventacts><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=restore>Undo cancel</button></form>{% if not practice_ended(p) %}<button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button>{% endif %}</div>{% endif %}
-{% if me().is_admin and p.series_id and not p.cancelled %}<div style="display:flex;gap:10px;margin-top:12px"><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="btn btn-secondary" name=action value=skip onclick="return confirm('Skip this date?')">Skip this date</button></form><a class="btn btn-secondary" href="/practices/series/{{ p.series_id }}">Edit series</a><a class="btn btn-secondary" href="/practices/series/{{ p.series_id }}#manage">Manage series</a></div>{% endif %}
+{% if p.cancelled and p.cancel_reason %}<p class="ty-muted ty-sm sm" style="margin:6px 0 0">{{ p.cancel_reason }}</p>{% endif %}
+{% if me().is_admin and p.cancelled and not editing and p.skipped %}<div class=eventacts><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="rg-btn secondary" name=action value=unskip>Undo skip</button></form>{% if not practice_ended(p) %}<button type=button class="rg-btn secondary" data-open="delete{{ p.id }}">Delete event</button>{% endif %}</div>
+{% elif me().is_admin and p.cancelled and not editing %}<div class=eventacts><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="rg-btn secondary" name=action value=restore>Undo cancel</button></form>{% if not practice_ended(p) %}<button type=button class="rg-btn secondary" data-open="delete{{ p.id }}">Delete event</button>{% endif %}</div>{% endif %}
+{% if me().is_admin and p.series_id and not p.cancelled %}<div style="display:flex;gap:10px;margin-top:12px"><form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="rg-btn secondary" name=action value=skip onclick="return confirm('Skip this date?')">Skip this date</button></form><a class="rg-btn secondary" href="/practices/series/{{ p.series_id }}">Edit series</a><a class="rg-btn secondary" href="/practices/series/{{ p.series_id }}#manage">Manage series</a></div>{% endif %}
 <div class="stats trio">
 <div class=stattile><b>{{ x.going|length }}</b><span>Going</span></div>
 <div class=stattile><b>{{ x.coaches|length }}</b><span>Coaches</span></div>
@@ -7262,7 +7277,7 @@ T["practice"] = """{% set p = x.p %}
 </div>
 <div class=formsec><h2>Schedule &amp; location</h2>
 <label>Date<input type=date name=date value="{{ p.date }}" required></label>
-{% if p.series_id %}<div class=checks role=radiogroup aria-label="Apply changes to"><div class="t3 xs">Recurrence</div>
+{% if p.series_id %}<div class=checks role=radiogroup aria-label="Apply changes to"><div class="ty-muted ty-sm xs">Recurrence</div>
 <label><input type=radio name=series_scope value=once checked> This event</label>
 <label><input type=radio name=series_scope value=following> This and following</label>
 <label><input type=radio name=series_scope value=all> All events</label>
@@ -7280,16 +7295,16 @@ T["practice"] = """{% set p = x.p %}
 <input class=sheetsearch name=coachq placeholder="Search coaches" autocomplete=off data-sheetsearch>
 <div class=sheetlist data-sum=coaches data-empty=None>
 {% for c in coach_choices %}<label class=coachrow data-search="{{ display_first(c) }} {{ c.last }}" data-label="{{ display_first(c) }} {{ c.last }}"><span class=avatar>{{ initials(c) }}</span><span class=grow><b>{{ display_first(c) }} {{ c.last }}</b> {{ coach_tag(c) }}</span><input type=checkbox name=coach value="{{ c.id }}" data-name="{{ display_first(c) }} {{ c.last }}" {% if c.id in x.coach_ids %}checked{% endif %}></label>
-{% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}
+{% else %}<p class="ty-muted ty-sm sm">No coaches yet. Add someone on People.</p>{% endfor %}
 </div>
-<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetLead><div class=sheet><div class=grab></div><h2>Head coach</h2>
 <div class=sheetlist data-sum=lead data-empty="No head coach">
 <label class=sheetopt data-lead="" data-label="No head coach"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}><span><b>No head coach</b></span></label>
 {% for c in coach_choices %}<label class=sheetopt data-lead="{{ c.id }}" data-label="{{ display_first(c) }} {{ c.last }}" {% if c.id not in x.coach_ids %}hidden{% endif %}><input type=radio name=lead value="{{ c.id }}" {% if c.id == x.lead_id %}checked{% endif %}><span><b>{{ display_first(c) }} {{ c.last }}</b></span></label>{% endfor %}
 </div>
-<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
-<dialog class=botsheet id=focusSheet><div class=sheet><div class=grab></div><h2 id=focusTitle>Coach</h2><div id=focusSlot></div><button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class=botsheet id=focusSheet><div class=sheet><div class=grab></div><h2 id=focusTitle>Coach</h2><div id=focusSlot></div><button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <div id=focusHome hidden>{% for c in coach_choices %}<label data-coach="{{ c.id }}">Focus group<input name="focus-{{ c.id }}" data-groups="Beginners,Intermediate,Advanced,Goalies" value="{{ x.focuses.get(c.id, '') }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>{% endfor %}</div>
 <label>Practice plan<textarea class=planfield name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label>
 </div>
@@ -7310,18 +7325,18 @@ T["practice"] = """{% set p = x.p %}
 {% for kind in SOCIAL_KINDS %}<label class=sheetopt data-label="{{ kind }}"><input type=radio name=social_kind value="{{ kind }}" {% if ns.kind == kind %}checked{% endif %}><span><b>{{ kind }}</b></span></label>{% endfor %}
 </div>
 <label id=socialCustom {% if ns.kind != 'Other' %}hidden{% endif %}>Label<input name=social_custom value="{{ ns.custom }}" autocomplete=off></label>
-<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <label>Address<span class=locok {% if not p.social_address %}hidden{% endif %}><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address value="{{ p.social_address or '' }}" data-places data-place-name=social_place{{ place_proximity(p.lat, p.lng) }} autocomplete=off placeholder="Search for an address"></label>
 <label>Place name<input name=social_place value="{{ p.social_place or '' }}" autocomplete=off placeholder="Name of the place"></label>
 <label>Time (optional)<input data-native type=time name=social_time min="{{ (p.end or '20:30')[:5] }}" value="{{ p.social_time or (p.end or '20:30')[:5] }}"></label>
 <label>Notes (optional)<textarea class=planfield name=social_note rows=4>{{ p.social_note or '' }}</textarea></label>
-<button type=button class="btn btn-danger full" id=socialRemove>Remove social</button>
+<button type=button class="rg-btn danger full" id=socialRemove>Remove social</button>
 <input type=hidden name=social_kind value="" id=socialClear {% if ns.kind %}disabled{% endif %}>
 </div>
 </div>
 <input type=hidden name=plan_fields value=1>
 </form>
-{% if me().is_admin %}<div class=seclabel>Manage</div><div class=list>
+{% if me().is_admin %}<div class=rg-day>Manage</div><div class=list>
 <button type=button class="li rowbtn" data-open="assign{{ p.id }}">Assign coaches</button>
 <a class="li rowbtn" href="/admin?date={{ p.date }}">Check in</a>
 {% if p.cancelled %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="li rowbtn" name=action value=restore>Undo cancel</button></form>
@@ -7330,8 +7345,8 @@ T["practice"] = """{% set p = x.p %}
 <button type=button class="li rowbtn" data-copy="{{ app_base() }}/practices/{{ p.id }}">Copy link</button>
 </div>
 {% if not practice_ended(p) %}<div class=eventacts>
-{% if not p.cancelled %}<button type=button class="btn btn-tangerine full" data-open="cancel{{ p.id }}">Cancel this practice</button>{% endif %}
-<button type=button class="btn btn-secondary" data-open="delete{{ p.id }}">Delete event</button>
+{% if not p.cancelled %}<button type=button class="rg-btn secondary btn-tangerine full" data-open="cancel{{ p.id }}">Cancel this practice</button>{% endif %}
+<button type=button class="rg-btn secondary" data-open="delete{{ p.id }}">Delete event</button>
 </div>{% endif %}
 {% endif %}
 {% else %}
@@ -7354,7 +7369,7 @@ T["practice"] = """{% set p = x.p %}
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class="pills p5rsvp">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>{{ rsvp_base('p' ~ p.id) }}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>
-{{ r2_practice_actions('/chat?c=practice:' ~ p.id ~ ('&peek=1' if x.mine != 1 else ''), 'Practice Chat' if x.mine == 1 else 'Peek', x.going|length) }}
+{{ r2_practice_actions('/chat?c=practice:' ~ p.id ~ ('&peek=1' if x.mine != 1 else ''), 'Practice Chat', x.going|length) }}
 {% endif %}
 {% for card in social_cards %}{{ r2_social_card(card, 'row') }}{% endfor %}
 {{ r2_section("Who's going") }}
@@ -7365,14 +7380,14 @@ T["practice"] = """{% set p = x.p %}
 {{ r2_info('DETAILS', p.note if p.note else 'No notes yet.') }}
 {% if not social_cards %}{{ r2_info('AFTER-PRACTICE SOCIAL', 'None yet.') }}{% endif %}
 {{ r2_info('COACHES', x.coaches|map(attribute='first')|join(', ') if x.coaches else 'No coaches assigned.') }}
-<div class=heldsocial hidden><div class=seclabel>After-practice social</div>
+<div class=heldsocial hidden><div class=rg-day>After-practice social</div>
 <div class=list><div class=li>{% if social_line(p) %}{{ social_icon() }}{% endif %}<div class=grow>
 {% if social_line(p) %}<div>{{ social_line(p) }}{% if p.social_time %} · {{ fmt_t(p.social_time) }}{% endif %}</div>
-<div class="t3 sm">{{ x.social_n }} joining</div>
-{% if p.social_note %}<div class="t2 sm" style="white-space:pre-wrap">{{ p.social_note }}</div>{% endif %}
-{% else %}<span class=t3>None yet.</span>{% endif %}
-</div>{% if me().is_admin or is_staff() %}<button type=button class="btn btn-secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div></div>
-<div class=seclabel>Coaches</div>
+<div class="ty-muted ty-sm sm">{{ x.social_n }} joining</div>
+{% if p.social_note %}<div class="ty-body sm" style="white-space:pre-wrap">{{ p.social_note }}</div>{% endif %}
+{% else %}<span class='ty-muted ty-sm'>None yet.</span>{% endif %}
+</div>{% if me().is_admin or is_staff() %}<button type=button class="rg-btn secondary" data-open="social{{ p.id }}">{{ 'Edit' if social_line(p) else 'Add' }}</button>{% endif %}</div></div></div>
+<div class=rg-day>Coaches</div>
 <div class=list>
 {% if plan_editing %}<form id=practiceForm method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=plan_fields value=1>
 <div class=li><span class="chip-info" style="margin:0">Coaches only</span></div>
@@ -7384,17 +7399,17 @@ T["practice"] = """{% set p = x.p %}
 </div></div>{% endfor %}
 </form>
 {% else %}
-{% for c in x.coaches %}{% set editable = can_host_practice() and (me().is_admin or c.id == me().id) %}<div class="li personrow">{% if editable %}<button type=button class="coachopen coachbody" data-open="cfocus{{ p.id }}-{{ c.id }}">{% else %}<div class="grow coachbody">{% endif %}<span class=coachline>{% if can_host_practice() %}{{ person_mark(c) }}{% endif %}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Head coach</span>{% endif %}</span>{% if can_host_practice() and c.focus %}<span class="t3 sm coachplan">{{ c.focus }}</span>{% endif %}{% if editable %}</button>{% else %}</div>{% endif %}</div>{% else %}<div class=li><span class="t3 grow">No coaches assigned.</span>{% if me().is_admin %}<button type=button class="btn btn-secondary" data-open="assign{{ p.id }}">Add</button>{% endif %}</div>{% endfor %}
-{% if can_host_practice() %}<div class="li planrow"><div class=planline><span class=planlabel>Practice plan</span><span class="chip-info" style="margin:0">Coaches only</span></div><button type=button class="btn btn-secondary" data-open="plan{{ p.id }}">{{ 'Edit' if p.coaching_plan else 'Add' }}</button>{% if p.coaching_plan %}<div class="t3 sm plantext">{{ p.coaching_plan }}</div>{% endif %}</div>{% endif %}
+{% for c in x.coaches %}{% set editable = can_host_practice() and (me().is_admin or c.id == me().id) %}<div class="li personrow">{% if editable %}<button type=button class="coachopen coachbody" data-open="cfocus{{ p.id }}-{{ c.id }}">{% else %}<div class="grow coachbody">{% endif %}<span class=coachline>{% if can_host_practice() %}{{ person_mark(c) }}{% endif %}<span class=ell>{{ display_first(c) }} {{ c.last }}</span>{% if c.is_lead %}<span class="chip-info" style="margin:0">Head coach</span>{% endif %}</span>{% if can_host_practice() and c.focus %}<span class="ty-muted ty-sm sm coachplan">{{ c.focus }}</span>{% endif %}{% if editable %}</button>{% else %}</div>{% endif %}</div>{% else %}<div class=li><span class="ty-muted ty-sm grow">No coaches assigned.</span>{% if me().is_admin %}<button type=button class="rg-btn secondary" data-open="assign{{ p.id }}">Add</button>{% endif %}</div>{% endfor %}
+{% if can_host_practice() %}<div class="li planrow"><div class=planline><span class=planlabel>Practice plan</span><span class="chip-info" style="margin:0">Coaches only</span></div><button type=button class="rg-btn secondary" data-open="plan{{ p.id }}">{{ 'Edit' if p.coaching_plan else 'Add' }}</button>{% if p.coaching_plan %}<div class="ty-muted ty-sm sm plantext">{{ p.coaching_plan }}</div>{% endif %}</div>{% endif %}
 {% endif %}
 </div>
 {{ whos_going(x.going) }}
-<div class=seclabel>Can't make it</div>
-<div class=list>{% for r in x.notgoing %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class=t3>No one yet.</span></div>{% endfor %}</div>
+<div class=rg-day>Can't make it</div>
+<div class=list>{% for r in x.notgoing %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class='ty-muted ty-sm'>No one yet.</span></div>{% endfor %}</div>
 {% set check_href = '/admin?date=' ~ p.date ~ '&ev=p-' ~ p.id ~ '#ev-p-' ~ p.id %}
-{% if can_host_practice() and x.checked %}<div class="sechead checkhead"><span class=seclabel>Checked in</span><a class="btn btn-secondary" href="{{ check_href }}">Check in</a></div>
-{% else %}<div class=seclabel>Checked in</div>{% endif %}
-<div class=list>{% for r in x.checked %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class="t3 grow">No one yet.</span>{% if can_host_practice() %}<a class="btn btn-secondary" href="{{ check_href }}">Check in</a>{% endif %}</div>{% endfor %}</div>
+{% if can_host_practice() and x.checked %}<div class="sechead checkhead"><span class=rg-day>Checked in</span><a class="rg-btn secondary" href="{{ check_href }}">Check in</a></div>
+{% else %}<div class=rg-day>Checked in</div>{% endif %}
+<div class=list>{% for r in x.checked %}<div class=li><div class=grow>{{ display_first(r) }} {{ r.last }}</div></div>{% else %}<div class=li><span class="ty-muted ty-sm grow">No one yet.</span>{% if can_host_practice() %}<a class="rg-btn secondary" href="{{ check_href }}">Check in</a>{% endif %}</div>{% endfor %}</div>
 {% if p.location %}{% set dest = (pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location) %}{% set soc = namespace(name='', sub='', href='', dest='') %}{% if social_line(p) %}{% set soc.name = (p.social_place or '')|trim %}{% set _saddr = (p.social_address or '')|trim %}{% if _saddr and not (_saddr.lower().startswith('http://') or _saddr.lower().startswith('https://')) %}{% set soc.sub = _saddr %}{% endif %}{% set _spin = namespace(lat=none, lng=none) %}{% for pin in pins %}{% if pin.kind == 'social' %}{% set _spin.lat = pin.lat %}{% set _spin.lng = pin.lng %}{% endif %}{% endfor %}{% if _saddr.lower().startswith('http://') or _saddr.lower().startswith('https://') %}{% set soc.href = _saddr %}{% elif _spin.lat is not none %}{% set soc.dest = _spin.lat|string ~ ',' ~ _spin.lng|string %}{% set soc.href = 'https://www.google.com/maps/dir/?api=1&destination=' ~ (soc.dest|urlencode) %}{% else %}{% set soc.href = 'https://www.google.com/maps/dir/?api=1&destination=' ~ ((soc.sub or soc.name)|urlencode) %}{% endif %}{% endif %}{{ r2_section('Getting there') }}{{ event_location('practiceLoc', pins, p.location, p.address or '', 'https://www.google.com/maps/dir/?api=1&destination=' ~ (dest|urlencode), social_route_points(p), p.social_drive_min if pins|selectattr('kind','equalto','social')|list else none, soc.name, soc.sub, soc.href, soc.dest) }}{% endif %}
 </div>
 {% endif %}
@@ -7402,13 +7417,13 @@ T["practice"] = """{% set p = x.p %}
 <dialog class=modal id=plan{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Practice plan</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <textarea class=planfield name=coaching_plan rows=4 aria-label="Practice plan">{{ p.coaching_plan or '' }}</textarea>
-<button class="btn btn-primary full" name=action value=plan>Save</button></form></div></dialog>
+<button class="rg-btn primary full" name=action value=plan>Save</button></form></div></dialog>
 {% for c in x.coaches %}{% if me().is_admin or c.id == me().id %}<dialog class=modal id="cfocus{{ p.id }}-{{ c.id }}"><div class=sheet><h2 style="margin:0 0 12px">{{ display_first(c) }} {{ c.last }}</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=coach_id value="{{ c.id }}">
 <label class=switchrow>Head coach<span class=switch><input type=checkbox name=head_coach value=1 {% if c.is_lead %}checked{% endif %}><span></span></span></label>
 <label>Groups<input name=focus data-groups="Beginners,Intermediate,Advanced,Goalies" value="{{ c.focus or '' }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>
 <label>Plan details<textarea class=planfield name=plan_note rows=4>{{ c.plan_note or '' }}</textarea></label>
-<button class="btn btn-primary full" name=action value=coach_plan>Save</button></form></div></dialog>{% endif %}{% endfor %}
+<button class="rg-btn primary full" name=action value=coach_plan>Save</button></form></div></dialog>{% endif %}{% endfor %}
 {% endif %}
 {% if is_staff() and not me().is_admin %}
 <dialog class=modal id=hostedit{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Edit practice</h2>
@@ -7422,11 +7437,11 @@ T["practice"] = """{% set p = x.p %}
 <dialog class=modal id=assign{{ p.id }}><div class=sheet><h2 style="margin:0 0 12px">Assign coaches</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <div class=checks role=group aria-label="Coaches">{% for c in coach_choices %}<label><input type=checkbox name=coach value="{{ c.id }}" {% if c.id in x.coach_ids %}checked{% endif %}>{{ display_first(c) }} {{ c.last }} {{ coach_tag(c) }}</label>
-{% else %}<p class="t3 sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
-<div class=row><button class="btn btn-primary" name=action value=assign>Save</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
+{% else %}<p class="ty-muted ty-sm sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
+<div class=row><button class="rg-btn primary" name=action value=assign>Save</button><button type=button class="rg-btn secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% if not practice_ended(p) %}
 <dialog class=modal id=cancel{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Send cancellation</h2>
-<p class="t2 sm">Members get an email and a push that include this reason.</p>
+<p class="ty-body sm">Members get an email and a push that include this reason.</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 {% if p.series_id %}<div class=checks role=radiogroup aria-label="Cancel">
 <label><input type=radio name=series_scope value=once checked> This event</label>
@@ -7434,16 +7449,16 @@ T["practice"] = """{% set p = x.p %}
 <label><input type=radio name=series_scope value=all> All events</label>
 </div>{% endif %}
 <label>Reason<textarea class=planfield name=reason rows=4 required></textarea></label>
-<button class="btn btn-danger full" name=action value=cancel>Confirm</button></form></div></dialog>
+<button class="rg-btn danger full" name=action value=cancel>Confirm</button></form></div></dialog>
 <dialog class=modal id=delete{{ p.id }}><div class=sheet><h2 style="margin:0 0 8px">Delete this practice?</h2>
-<p class="t2 sm">{% if practice_is_month(p) %}{{ practice_when(p) }} at {{ p.location }}.{% else %}{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.{% endif %}</p>
+<p class="ty-body sm">{% if practice_is_month(p) %}{{ practice_when(p) }} at {{ p.location }}.{% else %}{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.{% endif %}</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
 {% if p.series_id %}<div class=checks role=radiogroup aria-label="Delete">
 <label><input type=radio name=series_scope value=once checked> This event</label>
 <label><input type=radio name=series_scope value=following> This and following</label>
 <label><input type=radio name=series_scope value=all> All events</label>
 </div>{% endif %}
-<div class=row><button class="btn btn-danger" name=action value=delete>Delete practice</button><button type=button class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
+<div class=row><button class="rg-btn danger" name=action value=delete>Delete practice</button><button type=button class="rg-btn secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% endif %}
 {% endif %}""" + _PRACTICE_JS
 
@@ -7480,7 +7495,7 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Check-in') }}
 <button type=button class=mattext id=calOk>OK</button>
 </div>
 </div></dialog>
-<dialog class=modal id=evPick><div class=sheet><h2 style="margin:0 0 12px">Events</h2><div class=list id=evPickList data-seg>{% for ev in events %}<a class=li href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ ev.title }}</span><span class="t3 sm">{{ ev.when }}</span></span></a>{% endfor %}</div><button type=button class="btn btn-secondary full" onclick="this.closest('dialog').close()">Cancel</button></div></dialog>
+<dialog class=modal id=evPick><div class=sheet><h2 style="margin:0 0 12px">Events</h2><div class=list id=evPickList data-seg>{% for ev in events %}<a class=li href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ ev.title }}</span><span class="ty-muted ty-sm sm">{{ ev.when }}</span></span></a>{% endfor %}</div><button type=button class="rg-btn secondary full" onclick="this.closest('dialog').close()">Cancel</button></div></dialog>
 </div>
 {% if sel %}<div id="ev-{{ sel.key }}" class="evpin{% if ev_pinned %} on{% endif %}">{{ rg_checkin_hero(n, going|length, sel.title, sel.when ~ (' · ' ~ sel.place if sel.place else ''), sel.tone or 'sun', sel.detail) }}</div>{% else %}<p class=emptyfind>No events on this day</p>{% endif %}
 {%- set ebit -%}{% if evkey %}&ev={{ evkey }}{% endif %}{%- endset -%}
@@ -7508,7 +7523,7 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Check-in') }}
 <div class=rg-cilist>{% for r in rest %}{{ ci(r) }}{% endfor %}</div>{% endif %}
 {% endif %}
 {% if ev_pinned %}<script>(function(){var el=document.querySelector('.evpin.on'); if(el) el.scrollIntoView({block:'center'});})();</script>{% endif %}
-{% if coming %}<div class=seclabel>Coming up</div><div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="t3 sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endif %}
+{% if coming %}<div class=rg-day>Coming up</div><div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="ty-muted ty-sm sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endif %}
 <a class=wkadd href="/events/new?lane=schedule">+ New practice or event</a>
 <script>
 if(!window.grunionsConfirm){window.grunionsConfirm=1;
@@ -7540,7 +7555,7 @@ function showEvents(iso, list){
  eventView.hidden=false;
  if(eventLabel) eventLabel.textContent=headline(iso)||iso;
  eventList.innerHTML=list.map(function(ev){
-  return '<a class=li href="'+href(iso, ev.key)+'" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">'+String(ev.title||'').replace(/[&<>]/g,'')+'</span><span class="t3 sm">'+String(ev.when||'').replace(/[&<>]/g,'')+'</span></span></a>';
+  return '<a class=li href="'+href(iso, ev.key)+'" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">'+String(ev.title||'').replace(/[&<>]/g,'')+'</span><span class="ty-muted ty-sm sm">'+String(ev.when||'').replace(/[&<>]/g,'')+'</span></span></a>';
  }).join('');
 }
 var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -7598,37 +7613,37 @@ grid.addEventListener('click', function(e){
 
 T["transfer"] = ADMIN_NAV + """{{ admin_page('Transfer', 'Bring in a Sport:80 export, or download the roster and attendance.') }}
 <h2>Import</h2>
-<div class=card><ol class="t2 sm" style="margin:0;padding-left:18px;line-height:1.7">
+<div class=card><ol class="ty-body sm" style="margin:0;padding-left:18px;line-height:1.7">
 <li>Log in at <a href=https://usawp.sport80.com>usawp.sport80.com</a> and switch to the Grunions club profile.</li>
 <li>Members → Smart Lists → Edit Columns: name, email, membership status, member number, valid until, plus SafeSport / background columns.</li>
 <li>Actions → Export Report, then upload the emailed file here.</li></ol>
-<form method=post action=/transfer enctype=multipart/form-data style="margin-top:14px">{{csrf_field()}}{{ upload_field('file', 'file', 'CSV or Excel', '.csv,.xlsx') }}<button class="btn btn-primary full" style="margin-top:12px">Import</button></form>
+<form method=post action=/transfer enctype=multipart/form-data style="margin-top:14px">{{csrf_field()}}{{ upload_field('file', 'file', 'CSV or Excel', '.csv,.xlsx') }}<button class="rg-btn primary full" style="margin-top:12px">Import</button></form>
 {% if stats %}<div class=note style="margin-top:16px">Read {{stats.rows}} rows · updated {{stats.matched}} members · {{stats.req_updates or 0}} compliance items · {{stats.unmatched|length}} roster rows not in the app</div>
-{% if stats.unmatched %}<details style="margin-top:12px"><summary>Not signed up in the app</summary><div class=body>{% for u in stats.unmatched %}<div class="kv t2">{{u}}</div>{% endfor %}</div></details>{% endif %}
-{% else %}<p class="t3 sm" style="margin:12px 0 0">No file imported yet.</p>{% endif %}
-<p class="t3 xs" style="margin:12px 0 0">Matching uses email first, then exact legal first and last name. An optional Preferred First Name column is stored as the name shown in the app and is not used for matching. A Membership Type or Member Type column adds USAWP coaches to the coaching list.</p></div>
+{% if stats.unmatched %}<details style="margin-top:12px"><summary>Not signed up in the app</summary><div class=body>{% for u in stats.unmatched %}<div class="kv ty-body">{{u}}</div>{% endfor %}</div></details>{% endif %}
+{% else %}<p class="ty-muted ty-sm sm" style="margin:12px 0 0">No file imported yet.</p>{% endif %}
+<p class="ty-muted ty-sm xs" style="margin:12px 0 0">Matching uses email first, then exact legal first and last name. An optional Preferred First Name column is stored as the name shown in the app and is not used for matching. A Membership Type or Member Type column adds USAWP coaches to the coaching list.</p></div>
 <h2>Export</h2>
 <div class=card><h2 style="margin:0 0 8px">Members</h2>
-<p class="t2 sm">Legal name, preferred name, phone, role, clearance, USAWP number, membership, SafeSport, background screening, trial dates, and attendance.</p>
-<a class="btn btn-secondary full" href=/members.csv>Download members CSV</a></div>
+<p class="ty-body sm">Legal name, preferred name, phone, role, clearance, USAWP number, membership, SafeSport, background screening, trial dates, and attendance.</p>
+<a class="rg-btn secondary full" href=/members.csv>Download members CSV</a></div>
 <div class=card><h2 style="margin:0 0 8px">Practices and attendance</h2>
 <form method=get action=/export/practices.csv>
 <div class=row><label>Start<input type=date name=start value="{{start}}" required></label><label>End<input type=date name=end value="{{end}}" required></label></div>
-<button class="btn btn-secondary full" name=detail value=0>Download practices CSV</button>
-<button class="btn btn-secondary full" style="margin-top:10px" name=detail value=1>Download detailed attendance CSV</button></form>
-<p class="t3 sm" style="margin:12px 0 0">Practices is one row per practice, with the assigned coaches, a coach count, and how many of those coaches are coach-eligible. Detailed attendance is one row per member per practice, with RSVP and check-in.</p></div>
+<button class="rg-btn secondary full" name=detail value=0>Download practices CSV</button>
+<button class="rg-btn secondary full" style="margin-top:10px" name=detail value=1>Download detailed attendance CSV</button></form>
+<p class="ty-muted ty-sm sm" style="margin:12px 0 0">Practices is one row per practice, with the assigned coaches, a coach count, and how many of those coaches are coach-eligible. Detailed attendance is one row per member per practice, with RSVP and check-in.</p></div>
 {% if sheet_on %}<div class=card><h2 style="margin:0 0 8px">Google Sheet</h2>
-<p class="t2 sm">{% if sheet_status.at %}Last sync {{sheet_status.at}} PT · {{sheet_status.label}}{% else %}Not synced yet{% endif %}{% if sheet_status.detail and not sheet_status.ok %} · {{sheet_status.detail}}{% endif %}</p>
-<p class="t3 sm">Members, Practices, and Attendance stay in sync after changes. A full rewrite also runs daily.</p>
-<form method=post action=/export/sheet>{{csrf_field()}}<button class="btn btn-secondary full">Sync to Google Sheet now</button></form></div>{% endif %}"""
+<p class="ty-body sm">{% if sheet_status.at %}Last sync {{sheet_status.at}} PT · {{sheet_status.label}}{% else %}Not synced yet{% endif %}{% if sheet_status.detail and not sheet_status.ok %} · {{sheet_status.detail}}{% endif %}</p>
+<p class="ty-muted ty-sm sm">Members, Practices, and Attendance stay in sync after changes. A full rewrite also runs daily.</p>
+<form method=post action=/export/sheet>{{csrf_field()}}<button class="rg-btn secondary full">Sync to Google Sheet now</button></form></div>{% endif %}"""
 
-T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pageact" href=/members.csv>Export CSV</a>{% endcall %}
+T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="rg-btn ghost pageact" href=/members.csv>Export CSV</a>{% endcall %}
 <div class=peoplebar>
 <form method=get action=/members><input name=q value="{{q}}" placeholder="Search people..." autocomplete=off>{% if view != 'members' %}<input type=hidden name=view value="{{view}}">{% endif %}{% if filt %}<input type=hidden name=filt value="{{ filt }}">{% endif %}</form>
-<div class="fchips chiprow" data-seg>
-<a href="/members{% if view != 'members' %}?view={{ view }}{% endif %}{% if q %}{{ '&amp;' if view != 'members' else '?' }}q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if not filt }}">All</a>
-<a href="/members?{% if view != 'members' %}view={{ view }}&amp;{% endif %}filt=expiring{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if filt=='expiring' }}">Expiring</a>
-<a href="/members?{% if view != 'members' %}view={{ view }}&amp;{% endif %}filt=uncleared{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="chip{{ ' chip-active on' if filt=='uncleared' }}">Not cleared</a>
+<div class="rg-filters fchips chiprow" data-seg>
+<a href="/members{% if view != 'members' %}?view={{ view }}{% endif %}{% if q %}{{ '&amp;' if view != 'members' else '?' }}q={{ q|urlencode }}{% endif %}" {% if not filt %}class=on aria-current=true{% endif %}>All</a>
+<a href="/members?{% if view != 'members' %}view={{ view }}&amp;{% endif %}filt=expiring{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if filt=='expiring' %}class=on aria-current=true{% endif %}>Expiring</a>
+<a href="/members?{% if view != 'members' %}view={{ view }}&amp;{% endif %}filt=uncleared{% if q %}&amp;q={{ q|urlencode }}{% endif %}" {% if filt=='uncleared' %}class=on aria-current=true{% endif %}>Not cleared</a>
 </div>
 {{ rg_counts([(rows|length, 'Total', 'graphite'), (c.verified, 'Verified', 'lime'), (c.pending, 'Pending', 'sun'), (c.expired, 'Expired', 'cherry'), (c.unknown, 'Unknown', 'tangerine')]) }}
 </div>
@@ -7706,7 +7721,7 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pa
 })();
 </script>
 <div class=people>
-{% macro lettered() %}{% set ns = namespace(letter='') %}{% for r in rows %}{% set letter = ((r.last or '?')[:1])|upper %}{% if letter != ns.letter %}{% if ns.letter %}</div></div>{% endif %}<div class=lgroup><h3 class=alpha>{{ letter }}</h3><div class="list loose">{% set ns.letter = letter %}{% endif %}{% if view == 'coaches' %}{{ prow(r, 'coaches' if r.id in listed else 'eligible') }}{% elif view == 'referees' %}{{ prow(r, 'referees' if r.id in referees else 'ref_eligible') }}{% elif view == 'admins' %}{{ prow(r, 'admins') }}{% else %}{{ prow(r, 'members') }}{% endif %}{% else %}<div class="list loose"><div class=li><span class=t3>{% if q %}No people match “{{ q }}”.{% else %}No one here.{% endif %}</span></div></div>{% endfor %}{% if ns.letter %}</div></div>{% endif %}{% endmacro %}
+{% macro lettered() %}{% set ns = namespace(letter='') %}{% for r in rows %}{% set letter = ((r.last or '?')[:1])|upper %}{% if letter != ns.letter %}{% if ns.letter %}</div></div>{% endif %}<div class=lgroup><h3 class=alpha>{{ letter }}</h3><div class="list loose">{% set ns.letter = letter %}{% endif %}{% if view == 'coaches' %}{{ prow(r, 'coaches' if r.id in listed else 'eligible') }}{% elif view == 'referees' %}{{ prow(r, 'referees' if r.id in referees else 'ref_eligible') }}{% elif view == 'admins' %}{{ prow(r, 'admins') }}{% else %}{{ prow(r, 'members') }}{% endif %}{% else %}<div class="list loose"><div class=li><span class='ty-muted ty-sm'>{% if q %}No people match “{{ q }}”.{% else %}No one here.{% endif %}</span></div></div>{% endfor %}{% if ns.letter %}</div></div>{% endif %}{% endmacro %}
 {{ lettered() }}
 </div>
 <script>
@@ -7725,7 +7740,7 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pa
  function closeAll(fromPop){
   hide();
   if(fromPop){ state.pushed=false; return; }
-  if(state.pushed){ state.pushed=false; window.grunionsMenuPop=1; history.back(); }
+  if(state.pushed){ state.pushed=false; window.grunionsMenuPop=1; grunionsPopOverlay(); }
  }
  function place(btn){
   var menu=menuOf(btn); if(!menu) return;
@@ -7754,7 +7769,7 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pa
    var menu=menuOf(btn);
    var was=menu && !menu.hidden && state.btn===btn;
    hide();
-   if(was){ if(state.pushed){ state.pushed=false; window.grunionsMenuPop=1; history.back(); } return; }
+   if(was){ if(state.pushed){ state.pushed=false; window.grunionsMenuPop=1; grunionsPopOverlay(); } return; }
    if(!menu) return;
    state.btn=btn;
    btn.setAttribute('aria-expanded','true');
@@ -7786,34 +7801,34 @@ T["members"] = ADMIN_NAV + """{% call admin_page(title) %}<a class="btn quiet pa
 
 T["expiring"] = ADMIN_NAV + """{{ admin_page('Expiring', 'Membership, SafeSport, and other dated items. Tap a person to open them.') }}
 <div class=expage>
-<form class="row noprint" method=get action=/expiring style="align-items:center;margin-bottom:8px"><label class="t2 sm" style="flex:0 0 auto;margin:0">Window (days)<input name=days type=number min=1 value={{days}} onchange=this.form.submit() style="margin:6px 0 0;height:44px;width:96px"></label></form>
-{% for key, label in [('expired','Expired'),('within_7','Next 7 days'),('within_%d'%days,'Next %d days'%days)] %}<h2 class=egroup>{{label}} <span class=t3>{{rep[key]|length}}</span></h2>
+<form class="row noprint" method=get action=/expiring style="align-items:center;margin-bottom:8px"><label class="ty-body sm" style="flex:0 0 auto;margin:0">Window (days)<input name=days type=number min=1 value={{days}} onchange=this.form.submit() style="margin:6px 0 0;height:44px;width:96px"></label></form>
+{% for key, label in [('expired','Expired'),('within_7','Next 7 days'),('within_%d'%days,'Next %d days'%days)] %}<h2 class=egroup>{{label}} <span class='ty-muted ty-sm'>{{rep[key]|length}}</span></h2>
 <div class=list>{% for r in rep[key] %}<div class=li><a class=grow href="/admin/member/{{ r.id }}" style="color:inherit;text-decoration:none;min-width:0"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span class=ell style="font-weight:500;flex:1">{{display_first(r)}} {{r.last}}</span>
 <span class="chip-info daybadge"><span class="dot {{ 'bad' if r.days_left < 0 else ('warn' if r.days_left <= 7 else '') }}" aria-hidden=true></span>{% if r.days_left < 0 %}{{ -r.days_left }}d ago{% elif r.days_left == 0 %}Today{% else %}{{ r.days_left }}d left{% endif %}</span></div>
-<div class="t3 xs">{{ r.item }} · {{ fmt_long(r.usawp_valid_until) }}</div></a>
-<a class="btn btn-secondary" href="/admin/member/{{ r.id }}">Check</a></div>{% else %}<div class=li><span class=t3>None</span></div>{% endfor %}</div>{% endfor %}
-<p class="t3 sm" style="margin-top:20px">Check each person on Sport:80 and update them from their page. Daily report: <a href=/api/expiring>/api/expiring</a>.</p>
+<div class="ty-muted ty-sm xs">{{ r.item }} · {{ fmt_long(r.usawp_valid_until) }}</div></a>
+<a class="rg-btn secondary" href="/admin/member/{{ r.id }}">Check</a></div>{% else %}<div class=li><span class='ty-muted ty-sm'>None</span></div>{% endfor %}</div>{% endfor %}
+<p class="ty-muted ty-sm sm" style="margin-top:20px">Check each person on Sport:80 and update them from their page. Daily report: <a href=/api/expiring>/api/expiring</a>.</p>
 </div>"""
 
 T["requirements_page"] = ADMIN_NAV + """{{ admin_page('Rules', 'Cleared to play means a current USAWP membership and current SafeSport.') }}
 {% if not reqs %}<p class=emptyfind>No rules yet.</p>{% endif %}
-{% for q in reqs %}<details class=card><summary><span>{{q.name}}</span><span class="t3 sm" style="margin-left:auto;margin-right:10px">{{q.applies_to}}{{'' if q.active else ' · off'}}</span></summary>
+{% for q in reqs %}<details class=card><summary><span>{{q.name}}</span><span class="ty-muted ty-sm sm" style="margin-left:auto;margin-right:10px">{{q.applies_to}}{{'' if q.active else ' · off'}}</span></summary>
 <form method=post class=body>{{csrf_field()}}<input type=hidden name=id value={{q.id}}>
 <div class=row><label>Applies to<select name=applies_to>{% for o in ['all','athlete','coach'] %}<option {{'selected' if q.applies_to==o}}>{{o}}</option>{% endfor %}</select></label>
 <label>Import keywords<input name=keywords value="{{q.keywords or ''}}"></label></div>
 <label><input type=checkbox name=expires {{'checked' if q.expires}}>Has an expiration date</label><label><input type=checkbox name=active {{'checked' if q.active}}>Active</label>
-<button class="btn btn-primary full" name=action value=save>Save</button></form></details>{% endfor %}
+<button class="rg-btn primary full" name=action value=save>Save</button></form></details>{% endfor %}
 <details class=card><summary>Add a rule</summary><form method=post class=body>{{csrf_field()}}<label>Name<input name=name placeholder="CPR / First Aid"></label>
 <div class=row><label>Applies to<select name=applies_to><option>all</option><option>athlete</option><option>coach</option></select></label><label>Keywords<input name=keywords placeholder="cpr,firstaid"></label></div>
-<label><input type=checkbox name=expires checked>Has an expiration date</label><button class="btn btn-secondary full" name=action value=add>Add</button></form></details>"""
+<label><input type=checkbox name=expires checked>Has an expiration date</label><button class="rg-btn secondary full" name=action value=add>Add</button></form></details>"""
 
 T["qr_page"] = ADMIN_NAV + """{{ admin_page('Join QR', 'Anyone who scans this joins the team.') }}
 <div style="text-align:center">
 {% if u %}<div style="background:var(--paper);border-radius:16px;padding:18px;display:inline-block;margin-top:8px"><img src=/qr.svg alt="Sign-up QR code" width="240" height="240" style="width:min(64vw,240px);height:auto;display:block"></div>
-<p class="t3 sm" id=joinLink style="margin-top:12px;word-break:break-all">{{u}}</p>
-<button class="btn btn-primary full noprint" type=button id=copyJoin>Copy link</button>
-<button class="btn btn-secondary full noprint" type=button id=shareJoin style="margin-top:8px">Share</button>
-<button class="btn btn-secondary noprint" type=button onclick="print()" style="margin-top:8px">Print</button>
+<p class="ty-muted ty-sm sm" id=joinLink style="margin-top:12px;word-break:break-all">{{u}}</p>
+<button class="rg-btn primary full noprint" type=button id=copyJoin>Copy link</button>
+<button class="rg-btn secondary full noprint" type=button id=shareJoin style="margin-top:8px">Share</button>
+<button class="rg-btn secondary noprint" type=button onclick="print()" style="margin-top:8px">Print</button>
 {% else %}<p class=emptyfind>The join link is not ready yet.</p>{% endif %}</div>
 <script>
 (function(){
@@ -7853,12 +7868,12 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 .card .m{margin-top:8px}
 </style>
 <h1>Regulars</h1>
-<p class="t2">Fonts, colors, spacing, and radius change in regulars/foundation.css.</p>
+<p class="ty-body">Fonts, colors, spacing, and radius change in regulars/foundation.css.</p>
 <h2>Type</h2>
 <div class=card>
 <p style="font-size:var(--type-title-1-size);font-weight:var(--type-title-1-weight);letter-spacing:var(--type-title-1-tracking)">Title</p>
 <p>Body. The default reading size.</p>
-<p class="t3 sm">Caption and meta.</p>
+<p class="ty-muted ty-sm sm">Caption and meta.</p>
 </div>
 <h2>Color</h2>
 <div class=ds-swatches>
@@ -7870,20 +7885,20 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 <div><div class=ds-swatch style="background:var(--color-status-not-cleared)"></div><div class=ds-name>Not cleared</div></div>
 </div>
 <h2>Buttons and chips</h2>
-<p class="t3 sm">One primary in a group. Tertiary is the quiet action. Loading hides the label.</p>
+<p class="ty-muted ty-sm sm">One primary in a group. Tertiary is the quiet action. Loading hides the label.</p>
 <div class=ds-row>
-<button type=button class="btn btn-primary">Primary</button>
-<button type=button class="btn btn-secondary">Secondary</button>
-<button type=button class="btn btn-tertiary">Tertiary</button>
-<button type=button class="btn btn-danger">Destructive</button>
-<button type=button class="btn btn-primary" disabled>Disabled</button>
-<button type=button class="btn btn-primary" aria-busy=true>Saving</button>
+<button type=button class="rg-btn primary">Primary</button>
+<button type=button class="rg-btn secondary">Secondary</button>
+<button type=button class="rg-btn secondary btn-tertiary">Tertiary</button>
+<button type=button class="rg-btn danger">Destructive</button>
+<button type=button class="rg-btn primary" disabled>Disabled</button>
+<button type=button class="rg-btn primary" aria-busy=true>Saving</button>
 </div>
 <h2>Page header</h2>
-<p class="t3 sm">Management pages use Title 1, a ghost action on the right, then an optional Body 2 subtitle. A back control returns to Manage. The gap below the block is --space-4.</p>
-{% call admin_page('People', 'One line in secondary text.') %}<a class="btn quiet pageact" href="#">Export CSV</a>{% endcall %}
+<p class="ty-muted ty-sm sm">Management pages use Title 1, a ghost action on the right, then an optional Body 2 subtitle. A back control returns to Manage. The gap below the block is --space-4.</p>
+{% call admin_page('People', 'One line in secondary text.') %}<a class="rg-btn ghost pageact" href="#">Export CSV</a>{% endcall %}
 <h2>Filter chips</h2>
-<p class="t3 sm">Lime when selected, outlined when not. Sibling views (Chat, Admin, Profile) use the same pill, one at a time.</p>
+<p class="ty-muted ty-sm sm">Lime when selected, outlined when not. Sibling views (Chat, Admin, Profile) use the same pill, one at a time.</p>
 <div class=ds-row>
 <span class="chip on">Selected</span>
 <span class=chip>Open</span>
@@ -7897,17 +7912,17 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 <span class="chip-info bad">Blocked</span>
 </div>
 <h2>Navigation</h2>
-<p class="t3 sm">One pill. Members get three circles. Coaches and admins get four. The fourth is Manage. Icons only. The selected circle is Electric Lime.</p>
+<p class="ty-muted ty-sm sm">One pill. Members get three circles. Coaches and admins get four. The fourth is Manage. Icons only. The selected circle is Electric Lime.</p>
 """ + _ds_nav("Member navigation", ("home", "lineup", "chat")) + _ds_nav("Coach navigation", ("home", "lineup", "chat", "manage")) + """
 <h2>Manage rows</h2>
-<p class="t3 sm">Grouped list rows on a raised surface. A leading icon, a title, one line of description, a count only when it is above zero, and a trailing chevron. A pending Requests count is the info badge. A Compliance count is the warning badge.</p>
+<p class="ty-muted ty-sm sm">Grouped list rows on a raised surface. A leading icon, a title, one line of description, a count only when it is above zero, and a trailing chevron. A pending Requests count is the info badge. A Compliance count is the warning badge.</p>
 <div class=mgroup><h2>Activities</h2><div class=mlist>
 {{ manage_row('/manage', 'Schedule', 'Practices, scrimmages & games', '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></svg>', 0) }}
 {{ manage_row('/manage', 'Requests', 'Member-submitted events', '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V168H76.69a8,8,0,0,1,5.65,2.34l19.32,19.32a8,8,0,0,0,5.65,2.34h41.38a8,8,0,0,0,5.65-2.34l19.32-19.32a8,8,0,0,1,5.65-2.34H208Z"/></svg>', 2, 'info') }}
 {{ manage_row('/manage', 'Compliance', 'Memberships & certifications', '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,40H48A16,16,0,0,0,32,56v56c0,52.72,25.52,84.67,46.93,102.19,23.06,18.86,46,25.26,47,25.53a8,8,0,0,0,4.2,0c1-.27,23.91-6.67,47-25.53C198.48,196.67,224,164.72,224,112V56A16,16,0,0,0,208,40Z"/></svg>', 5, 'warn') }}
 </div></div>
 <h2>Segmented</h2>
-<p class="t3 sm">Same control as Exact dates / Month only. Figma role: Toggle group 73:2902.</p>
+<p class="ty-muted ty-sm sm">Same control as Exact dates / Month only. Figma role: Toggle group 73:2902.</p>
 <div class=actseg role=radiogroup aria-label=Sample>
 <label><input type=radio name=dsseg checked><span>Exact dates</span></label>
 <label><input type=radio name=dsseg><span>Month only</span></label>
@@ -7915,24 +7930,24 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 <h2>Field</h2>
 <label>Field<input placeholder="Location"></label>
 <h2>Upload</h2>
-<p class="t3 sm">One field for images and files. The dashed area is the control. An image fills the zone. A file shows its name and size. Replace and Remove sit on either one.</p>
+<p class="ty-muted ty-sm sm">One field for images and files. The dashed area is the control. An image fills the zone. A file shows its name and size. Replace and Remove sit on either one.</p>
 {{ upload_field('ds_image') }}
 <div style="height:12px"></div>
 {{ upload_field('ds_file', 'file', 'CSV', '.csv,.xlsx') }}
 <h2>Card and RSVP</h2>
 <div class=card>
 <div class=nxtitle>Practice</div>
-<p class=t2>7:00 – 8:30 PM</p>
-<p class="t3 sm">Marina High School</p>
+<p class=ty-body>7:00 – 8:30 PM</p>
+<p class="ty-muted ty-sm sm">Marina High School</p>
 <div class=pills>
 {{ rsvp_btn('Going', true, 'going') }}
 {{ rsvp_btn('Not going', false, 'notgoing') }}
 </div>
 </div>
-<p class="t3 sm">Disabled</p>
-<div class=ds-row><button type=button class="btn btn-primary" disabled>Primary</button></div>
+<p class="ty-muted ty-sm sm">Disabled</p>
+<div class=ds-row><button type=button class="rg-btn primary" disabled>Primary</button></div>
 <h2>Date and time</h2>
-<p class="t3 sm">A centered dialog, the same one as Schedule and every date or time field. Schedule ghosts days with no events and shows a dot. Form calendars leave every day selectable. Time is a clock. Cancel and OK confirm.</p>
+<p class="ty-muted ty-sm sm">A centered dialog, the same one as Schedule and every date or time field. Schedule ghosts days with no events and shows a dot. Form calendars leave every day selectable. Time is a clock. Cancel and OK confirm.</p>
 <div class="sheet" style="border:1px solid var(--color-sheet-border);border-radius:var(--radius-overlay);padding:20px 12px 8px;background:var(--color-sheet)">
 <div class=matkicker>Select date</div>
 <div class=matheadline>Tue, Nov 3</div>
@@ -7942,7 +7957,7 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 <div class=matactions><button type=button class=mattext>Cancel</button><button type=button class=mattext>OK</button></div>
 </div>
 <h2>Map, chat, and sheet</h2>
-<p class="t3 sm">Dark is the app. Light uses the same components.</p>
+<p class="ty-muted ty-sm sm">Dark is the app. Light uses the same components.</p>
 <div class=card>
 <div class=ds-map aria-hidden=true></div>
 <div class=m><div class=txt>See you at the pool.</div></div>
@@ -7955,6 +7970,6 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 <div class=ds-map aria-hidden=true></div>
 <div class=m><div class=txt>See you at the pool.</div></div>
 <div class=ds-sheet><span class=grab aria-hidden=true></span><div class=actgroup><button type=button class=actrow>Reply</button></div></div>
-<button type=button class="btn btn-primary">Primary</button>
+<button type=button class="rg-btn primary">Primary</button>
 </div>
 """

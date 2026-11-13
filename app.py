@@ -11,6 +11,7 @@ import mailhtml
 import publicfeed
 import sportspay
 import flows2
+import nav
 import components
 import routing
 import sports
@@ -396,6 +397,10 @@ def fmt_phone(raw):
 # The first live Grunions push turns both off. Do not deploy that hide to grunions.regulars.team from this branch.
 SHOW_DISCOVER = True
 SHOW_FIND_TEAM = True
+def _route_area():
+    """Nav 3.0 lights the tab of the area the route belongs to (route tree), not where the user came from."""
+    ep = request.endpoint or ""
+    return nav.area(ep, dict(request.view_args or {})) if nav.entry(ep) else ""
 def nav_context():
     """Where the crest is, and which tabs belong there. Grunions is the only live team."""
     m = me()
@@ -407,6 +412,10 @@ def nav_context():
         place = forced
     elif path in ("/discover", "/find", "/home") or path.startswith("/inbox"):
         place = "everything"
+    elif _route_area() in ("calendar", "profile"):
+        place = "me"
+    elif _route_area() in ("schedule", "lineup", "chat", "manage") and path not in ("/home",):
+        place = "team"
     elif path.startswith("/calendar") or path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy") or path.startswith("/appearance") or path.startswith("/rides") or path.startswith("/availability"):
         # Me is Calendar, Chat, Profile. The older Schedule · Settings · Lineup brief is not used.
         place = "me"
@@ -437,20 +446,20 @@ def nav_context():
         # Calendar, Chat, Profile. Calendar is the first tab and the default.
         on_personal = (path.startswith("/inbox") and forced == "me") or (path.startswith("/chat") and forced == "me")
         tabs = [
-            ("calendar", "Calendar", "/calendar", path.startswith("/calendar") or path.startswith("/availability")),
+            ("calendar", "Calendar", "/calendar", _route_area() == "calendar"),
             ("chat", "Chat", "/inbox?place=me", on_personal),
-            ("profile", "Profile", "/profile", path.startswith("/profile") or path.startswith("/notifications") or path.startswith("/privacy") or path.startswith("/appearance") or path.startswith("/rides")),
+            ("profile", "Profile", "/profile", _route_area() == "profile"),
         ]
         crest = initials(m)
         switch = (("%s %s" % (display_first(m), m["last"] or "")).strip(), "Calendar · chat · profile")
     else:
         tabs = [
-            ("calendar", "Schedule", "/practices", here("/practices") and forced != "me"),
-            ("ticket", "Lineup", "/lineup", here("/lineup") and forced != "me"),
-            ("chat", "Chat", "/chat?view=list", here("/chat") and forced not in ("me", "everything")),
+            ("calendar", "Schedule", "/practices", _route_area() == "schedule" and forced != "me"),
+            ("ticket", "Lineup", "/lineup", _route_area() == "lineup" and forced != "me"),
+            ("chat", "Chat", "/chat?view=list", _route_area() == "chat" and forced not in ("me", "everything")),
         ]
         if can_open_manage():
-            tabs.append(("manage", "Manage", "/manage", path.startswith("/manage") or path.startswith("/admin") or path.startswith("/members") or path.startswith("/expiring")))
+            tabs.append(("manage", "Manage", "/manage", _route_area() == "manage"))
         crest = "G"
         switch = ("Grunions", role)
     staff = bool(m["is_admin"] or (m["role"] or "") == "coach")
@@ -1176,6 +1185,30 @@ def auth_destination(mid):
 _MACRO_AT = ui.BASE.find("{% macro")
 _BODY_AT = ui.BASE.find("<body")
 _BODY_END = ui.BASE.find(">", _BODY_AT) + 1
+def nav_args():
+    """View args + query args for the route tree. Sport pages also carry the sport's display name."""
+    args = dict(request.view_args or {})
+    for k, v in request.args.items():
+        args.setdefault(k, v)
+    if "slug" in args:
+        try:
+            row = db().execute("SELECT name FROM programs WHERE slug=?", (args["slug"],)).fetchone()
+            if row: args["_sport_name"] = row["name"]
+        except Exception:
+            pass
+    return args
+@app.context_processor
+def nav_context_processor():
+    """2.0 navigation (Figma 60): one source for back href / back label / area / kind. Templates never compute back."""
+    ep = request.endpoint or ""
+    if not nav.entry(ep):
+        return {"nav_kind": "", "nav_back_href": "", "nav_back_title": "", "nav_area": "", "nav_topbar": False}
+    args = nav_args()
+    kind = nav.kind(ep, args)
+    href = nav.parent_url(ep, args, url_for) or ""
+    return {"nav_kind": kind, "nav_area": nav.area(ep, args), "nav_back_href": href,
+            "nav_back_title": nav.parent_title(ep, args), "nav_title": nav.title(ep, args),
+            "nav_topbar": kind == "page" and bool(href)}
 def _build_id():
     """Changes whenever page CSS/templates change. In-app navigation swaps only <main>, so a tab opened before a
     deploy would keep the old inline CSS; the client reloads fully when this differs."""
@@ -1233,7 +1266,7 @@ def index(): return redirect("/practices" if me() else "/join")
 def discover():
     """Everything starts here. One live team, not a directory of clubs."""
     return page("""<p>Grunions is your team. Other clubs are not listed here.</p>
-<p><a class="btn btn-primary" href="/practices">Open the Grunions schedule</a></p>""", tab="discover")
+<p><a class="rg-btn primary" href="/practices">Open the Grunions schedule</a></p>""", tab="discover")
 @app.route("/inbox")
 @login_required
 def inbox():
@@ -1482,7 +1515,7 @@ def auth_google_callback():
     session.clear()
     flash(Markup("We couldn't find a Grunions registration for ") + escape(email) + Markup(
         '. Sign up first at /join using this email, or sign in with the email you registered with.'
-        '<a class="btn primary full" href="/join" style="margin-top:12px">Sign up</a>'))
+        '<a class="rg-btn secondary primary full" href="/join" style="margin-top:12px">Sign up</a>'))
     return redirect("/login")
 
 @app.route("/logout")
@@ -1671,6 +1704,13 @@ def forget_location():
     d = db(); d.execute("UPDATE members SET last_lat=NULL, last_lng=NULL, last_loc_at=NULL WHERE id=?", (me()["id"],))
     d.execute("DELETE FROM leave_alerts WHERE member_id=?", (me()["id"],)); d.commit()
     flash("Location forgotten", "toast"); return redirect("/privacy")
+@app.route("/settings")
+@login_required
+def settings():
+    """Me › Profile › Settings (Figma 60 · D). Roles are per organization; there is no global Admin label."""
+    m = me()
+    return page(T["settings"], tab="settings", my_roles=[(org_name() or "Your club", role_label(m).capitalize())],
+                push_on=bool(db().execute("SELECT 1 FROM push_subscriptions WHERE member_id=?", (m["id"],)).fetchone()))
 @app.route("/privacy", methods=["GET", "POST"])
 @login_required
 def privacy():
@@ -2873,6 +2913,9 @@ def _joined_people(d, mid):
           AND COALESCE(show_in_picker,1)=1
         ORDER BY first, last""", (mid,)).fetchall()
 def _chat_title(mode):
+    # Nov 13: the + is for coaches and admins; members message someone from their profile.
+    if not can_host_practice():
+        return '<div class=chathead><h1 class=chatdisplay>Chat.</h1></div>'
     return ('<div class=chathead><h1 class=chatdisplay>Chat.</h1>'
             '<button type=button class=chatplus data-scope="%s" aria-label="New chat">+</button></div>') % mode
 def _person_tone(n):
@@ -2909,18 +2952,18 @@ def _pick_people(d, m):
             '<div id=pickChips class=pickchips hidden></div>'
             '<label class=picksearch><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M14.25 9C14.25 11.8995 11.8995 14.25 9 14.25C6.10051 14.25 3.75 11.8995 3.75 9C3.75 6.10051 6.10051 3.75 9 3.75C11.8995 3.75 14.25 6.10051 14.25 9Z" stroke="#8B8F93" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.2 13.2L16.5 16.5" stroke="#8B8F93" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg><input id=pickSearch placeholder="Search your teams" autocomplete=off></label>'
             '<div id=pickName hidden><label>Group name, optional<input id=groupName maxlength=40 placeholder="Carpool, captains…"></label>'
-            '<button type=button class="btn btn-primary full" id=pickCreate>Create</button></div>'
+            '<button type=button class="rg-btn primary full" id=pickCreate>Create</button></div>'
             '<div id=pickBody><p id=pickRecentLabel class=r2caps%s>Recent</p><div id=pickRecent>%s</div>'
-            '<p class="r2caps" id=pickTeam%s>Grunions Aquatics · %d</p><div id=pickList>%s</div>'
-            '<p id=pickEmpty class=t3 hidden>No one on your teams by that name</p>'
-            '<p id=pickFoot class=t3>Opens a 1:1 in Me › Chat. You can message anyone on a team you\'re on.</p></div>'
+            '<p class="rg-day" id=pickTeam%s>Grunions Aquatics · %d</p><div id=pickList>%s</div>'
+            '<p id=pickEmpty class="ty-muted ty-sm" hidden>No one on your teams by that name</p>'
+            '<p id=pickFoot class="ty-muted ty-sm">Opens a 1:1 in Me › Chat. You can message anyone on a team you\'re on.</p></div>'
             '<textarea id=pickData hidden readonly>%s</textarea>%s</div></dialog>'
             ) % ("" if recent_rows else " hidden", "".join(_pick_button(person) for person in recent_rows),
                  "" if people else " hidden", roster, "".join(_pick_button(person) for person in people), blob, csrf_field())
 def _new_chat_sheet(d, m, team):
     """06.30 member, 06.31 coach/admin. Me and Everything keep only the personal section."""
     personal = (
-        '<p class="r2caps">Personal · goes to your Me › Chat</p><div class=newcard>'
+        '<p class="rg-day">Personal · goes to your Me › Chat</p><div class=newcard>'
         '<button type=button class=newrow data-pick=direct><span class="mark lime" aria-hidden=true>'
         '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5V13a2.5 2.5 0 0 1-2.5 2.5H9l-3.2 2.4A.8.8 0 0 1 4.5 17V6.5Z"/></svg></span>'
         '<span class=grow><b>Message someone</b><small>1:1 with anyone on your teams</small></span><span class=chatgo>›</span></button>'
@@ -2947,7 +2990,7 @@ def _new_chat_sheet(d, m, team):
             rows += ('<button type=button class=newrow data-open-channel><span class="mark mango" aria-hidden=true>+</span>'
                      '<span class=grow><b>New channel</b><small>Official · sport, role or everyone</small></span>'
                      '<span class=mini>Coach · admin</span><span class=chatgo>›</span></button>')
-        club = '<p class="r2caps">Grunions</p><div class=newcard>%s</div>' % rows
+        club = '<p class="rg-day">Grunions</p><div class=newcard>%s</div>' % rows
     return ('<dialog id=newChat class="botsheet newchat"><div class=sheet><div class=grab aria-hidden=true></div>'
             '<h2 class=newtitle>New chat</h2>%s%s</div></dialog>') % (personal, club)
 def _channel_sheet(d):
@@ -2972,10 +3015,10 @@ def _channel_sheet(d):
         name = ("%s %s" % (display_first(person), person["last"] or "")).strip()
         people.append('<label><input type=checkbox name=person value="%d">%s</label>' % (person["id"], escape(name)))
     return ('<dialog id=channelSheet class=botsheet><div class=sheet><div class=grab aria-hidden=true></div>'
-            '<form method=post action=/chat/channels>%s<p class="r2caps">Manage · chat</p><h2 style="margin:0">New channel</h2>'
-            '<p class="t3">Official team chat · only coaches &amp; admins create these</p>'
-            '<p class="r2caps">Name</p><label class=hashfield># <input name=title value="open-water" required maxlength=40 autocomplete=off></label>'
-            '<p class="r2caps">Who\'s in</p><div class=audchips>'
+            '<form method=post action=/chat/channels>%s<p class="rg-day">Manage · chat</p><h2 style="margin:0">New channel</h2>'
+            '<p class="ty-muted ty-sm">Official team chat · only coaches &amp; admins create these</p>'
+            '<p class="rg-day">Name</p><label class=hashfield># <input name=title value="open-water" required maxlength=40 autocomplete=off></label>'
+            '<p class="rg-day">Who\'s in</p><div class=audchips>'
             '<button type=button data-aud=everyone>Everyone on the team</button>'
             '<button type=button data-aud=sport class=on>By sport</button>'
             '<button type=button data-aud=role>By role</button>'
@@ -2991,8 +3034,8 @@ def _channel_sheet(d):
             '<button type=button class=switchrow data-open-posters><span>Who can post<small>Everyone in it, or coaches and admins only.</small></span><span class=onword id=postLabel>Everyone</span></button>'
             '<div id=postChoices class=postchoices hidden><button type=button data-post=everyone class=on>Everyone in it</button><button type=button data-post=staff>Coaches and admins only</button></div>'
             '<input type=hidden name=who_posts value=everyone>'
-            '<p class="t3">Practice chats are automatic: everyone going to a session is in its chat. You don\'t set those up here.</p>'
-            '<button class="btn btn-primary full" id=createChannel data-roster="%d" data-coaches="%d">Create #open-water · %d people</button>'
+            '<p class="ty-muted ty-sm">Practice chats are automatic: everyone going to a session is in its chat. You don\'t set those up here.</p>'
+            '<button class="rg-btn primary full" id=createChannel data-roster="%d" data-coaches="%d">Create #open-water · %d people</button>'
             '</form></div></dialog>') % (csrf_field(), escape((sports[0]["slug"] if sports else "water-polo")), "".join(chips), "".join(people), roster, coaches, roster)
 _CHAT_PLUS_JS = """<script>
 (function(){
@@ -3197,10 +3240,10 @@ def personal_chat_html(d, m):
         title = titles.get(channel) or channel.split(":", 1)[1].replace("-", " ").title()
         directs.append((latest, _chat_row("/chat?c=%s&place=%s" % (escape(channel), place), escape(title[:1].upper()), escape(title), preview or "Group", when, n, "bubble", chat_muted(d, mid, channel))))
     directs.sort(key=lambda item: item[0], reverse=True)
-    direct_html = "".join(html for _latest, html in directs) or '<p class="t3">No direct messages yet.</p>'
+    direct_html = "".join(html for _latest, html in directs) or '<p class="ty-muted ty-sm">No direct messages yet.</p>'
     return (_chat_title("direct")
-            + '<p class="r2caps">Your teams · unread</p><div class=chatlist>%s</div>'
-            + '<p class="r2caps">Direct</p><div class=chatlist>%s</div>%s') % (teams, direct_html, chat_sheets(d, m, "direct"))
+            + '<p class="rg-day">Your teams · unread</p><div class=chatlist>%s</div>'
+            + '<p class="rg-day">Direct</p><div class=chatlist>%s</div>%s') % (teams, direct_html, chat_sheets(d, m, "direct"))
 def _chip_date(iso):
     day = dt.date.fromisoformat(str(iso)[:10])
     return "%s %d" % (day.strftime("%a %b"), day.day)
@@ -3258,10 +3301,10 @@ def team_chat_html(d, m):
             practice = (_chat_row("/chat?c=practice:%d" % following["id"], "P", "Following",
                                   "%s · %s" % ((following["title"] or "Practice").strip(), following["date"]), "", 0, "sun")
                         + '<form method=post action=/chat/follow class=chattools>%s<input type=hidden name=practice value="%d">'
-                          '<button class="btn btn-secondary" name=leave value=1>Leave</button></form>'
+                          '<button class="rg-btn secondary" name=leave value=1>Leave</button></form>'
                           % (csrf_field(), following["id"]))
         else:
-            practice = ('<p class="r2caps">Practice chats</p><div class=chatlist>'
+            practice = ('<p class="rg-day">Practice chats</p><div class=chatlist>'
                         + _chat_row("/practices", "+", "No practice chat right now",
                                     "Tap Going, or open Chat on a practice, to add it here", "", 0, "lime")
                         + (_chat_row("/chat?view=practices", "↺", "Past practices · %d" % past_n, past_line, "", 0, "lime") if past_n else "")
@@ -3286,10 +3329,10 @@ def team_chat_html(d, m):
         channels.append(_chat_row("/chat?c=%s" % escape(ch), "#", "%s <span class=count>%d</span>" % (escape(slug), roster), preview or "Team channel", when, chat_unread_n(d, mid, ch), _channel_tone(slug), chat_muted(d, mid, ch)))
     channels, left = _without_hidden(d, mid, channels)
     channels = _pins_first(d, mid, channels)
-    left_html = ('<p class="r2caps">Left</p><div class=chatlist>%s</div>' % "".join(
+    left_html = ('<p class="rg-day">Left</p><div class=chatlist>%s</div>' % "".join(
         html + _rejoin_form(ch) for html in left for ch in [_row_channel(html)])) if left else ""
     return (_chat_title("team") + '<div class=chatlist>%s</div>%s'
-            '<p class="r2caps">Grunions · team</p><div class=chatlist>%s</div>%s%s%s') % (
+            '<p class="rg-day">Grunions · team</p><div class=chatlist>%s</div>%s%s%s') % (
                 personal, practice, "".join(channels), _inbox_role_sections(d, m), left_html, chat_sheets(d, m, "team"))
 def join_practice_chat(d, pid, mid):
     """Going, or opening that practice's Chat, keeps the session on My practices."""
@@ -3359,7 +3402,7 @@ def practice_picker_html(d, m, query="", sheet=False):
     upcoming = [row for row in upcoming if keep_practice(row)]
     earlier = [row for row in earlier if keep_practice(row)]
     featured_id = upcoming[0]["id"] if upcoming and not q else None
-    up_html = "".join(_session_row(d, m["id"], row, featured=(row["id"] == featured_id), upcoming=True) for row in upcoming) or '<p class="t3">Nothing coming up.</p>'
+    up_html = "".join(_session_row(d, m["id"], row, featured=(row["id"] == featured_id), upcoming=True) for row in upcoming) or '<p class="ty-muted ty-sm">Nothing coming up.</p>'
     early_bits = [(str(row["date"]), _session_row(d, m["id"], row)) for row in earlier]
     for event in lineup:
         blob = " ".join([event["date"] or "", event["title"] or "", event["venue"] or "", event["city"] or ""]).lower()
@@ -3371,15 +3414,15 @@ def practice_picker_html(d, m, query="", sheet=False):
         sub = (event["description"] or "Photos from the weekend").strip()
         early_bits.append((str(event["date"]), _history_row("/lineup/%d" % event["id"], day, title, sub, "")))
     early_bits.sort(key=lambda item: item[0], reverse=True)
-    early_html = "".join(html for _date, html in early_bits) or '<p class="t3">No earlier practices yet.</p>'
+    early_html = "".join(html for _date, html in early_bits) or '<p class="ty-muted ty-sm">No earlier practices yet.</p>'
     if sheet:
         title, sub = "Your practice chats.", "Practices you went to or are going to. Pick one to open its chat — older ones are read-only."
     else:
         title, sub = "Practice chats.", "The chat follows the next practice you're signed up for. Earlier ones stay here, read-only after 7 days."
     return ('<div class=chathead><h1 class=chatdisplay>%s</h1></div>'
-            '<p class="t3">%s</p>'
-            '<p class="r2caps">Up next</p><div class="chatlist histlist">%s</div>'
-            '<p class="r2caps">Earlier</p><div class="chatlist histlist">%s</div>'
+            '<p class="ty-muted ty-sm">%s</p>'
+            '<p class="rg-day">Up next</p><div class="chatlist histlist">%s</div>'
+            '<p class="rg-day">Earlier</p><div class="chatlist histlist">%s</div>'
             '<form method=get action=/chat class=searchpill><input type=hidden name=view value=practices>'
             '<input name=q value="%s" placeholder="Search all practice chats" aria-label="Search all practice chats"></form>'
             ) % (title, sub, up_html, early_html, escape(query or ""))
@@ -3402,9 +3445,10 @@ def practice_switcher(d, m, current):
     if locked and upcoming and upcoming[0]["id"] != pid:
         back = '<p><a href="/chat?c=practice:%d">Back to tonight</a></p>' % upcoming[0]["id"]
     live = upcoming[0]["id"] == pid if upcoming else False
-    back_link = '<a class=rg-pcback href="/chat?view=list">← Practice chat</a>'
+    # Back goes up to Chat (route tree: practice chat's parent is Chat). "Tonight" is a switch, not a back.
+    back_link = '<a class="rg-pcback rg-tbdisc" href="/chat?view=list" aria-label="Back to Chat">%s</a>' % components.icon("chevron_left")
     if not live and upcoming:
-        back_link = '<a class=rg-pcback href="/chat?c=practice:%d">← Back to tonight</a>' % upcoming[0]["id"]
+        back_link += '<a class=rg-pcback href="/chat?c=practice:%d">Jump to tonight</a>' % upcoming[0]["id"]
     where = (row["location"] or row["title"] or "Practice").strip()
     when = "Tonight · %s" % where if str(row["date"])[:10] == today_pt().isoformat() else "%s · %s" % (_chip_date(row["date"]), where)
     going = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (pid,)).fetchone()[0]
@@ -3534,7 +3578,7 @@ def _pins_first(d, mid, rows):
     return pinned + rest
 def _rejoin_form(channel):
     return ('<form method=post action=/chat/rejoin class=chattools>%s<input type=hidden name=c value="%s">'
-            '<button class="btn btn-secondary">Rejoin</button></form>') % (csrf_field(), escape(channel))
+            '<button class="rg-btn secondary">Rejoin</button></form>') % (csrf_field(), escape(channel))
 def _request_visible(row, m):
     if not row or not m:
         return False
@@ -3657,7 +3701,7 @@ def _open_scoped(d, m, audience, sport=""):
 def _section(label, rows):
     if not rows:
         return ""
-    return '<p class="r2caps">%s</p><div class=chatlist>%s</div>' % (escape(label), "".join(rows))
+    return '<p class="rg-day">%s</p><div class=chatlist>%s</div>' % (escape(label), "".join(rows))
 def _inbox_role_sections(d, m):
     """Coaches and Admin hold the staff inboxes. Ask the club is only for people who can still file one."""
     parts = []
@@ -3818,7 +3862,7 @@ def _actions_bundle():
         '<button class=newrow name=mute value=off id=actUnmute hidden><b>Unmute</b></button></form>'
         '<form method=post action=/chat/channel-delete id=actDeleteForm class="newcard actcard" hidden>' + token + '<input type=hidden name=c>'
         '<p id=actDeleteCopy></p><label>Type the channel name<input name=confirm autocomplete=off></label>'
-        '<p class="t3" id=actDeleteHelp></p><button class="btn btn-primary full">Delete channel</button></form>'
+        '<p class="ty-muted ty-sm" id=actDeleteHelp></p><button class="rg-btn primary full">Delete channel</button></form>'
         '</div></dialog>'
     )
     script = (
@@ -4064,7 +4108,7 @@ def chat_info():
     else:
         why = "This chat follows the people in it."
     back = ("/chat?c=%s" % ch) if request.args.get("from") == "thread" else "/chat?view=list"
-    return page("%s<div class=rg-subhead><p class=r2caps>Channel info</p><h1>%s</h1></div><p class=t3>%s</p><p class=t3>Notifications follow mute. A separate mentions setting is not in the app yet.</p>"
+    return page("%s<div class=rg-subhead><p class=rg-day>Channel info</p><h1>%s</h1></div><p class='ty-muted ty-sm'>%s</p><p class='ty-muted ty-sm'>Notifications follow mute. A separate mentions setting is not in the app yet.</p>"
                 % (components.back_button(back), escape(_thread_title(db(), me(), ch)), escape(why)), tab="chat")
 @app.route("/chat/channel-delete", methods=["POST"])
 @login_required
@@ -4095,14 +4139,14 @@ def _request_dialog(d):
     return ('<dialog id=requestSheet class=botsheet><div class=sheet><div class=grab aria-hidden=true></div>'
             '<form method=post action=/chat/requests id=requestForm>%s'
             '<div class=pickhead><button type=button data-sheet-close>Cancel</button><h2>Ask the club.</h2>'
-            '<button class="btn btn-primary" id=requestSend>Send</button></div>'
-            '<div id=toField><p class="r2caps">To</p><select name=audience><option value=coaches>Coaches</option><option value=board>The board</option></select></div>'
+            '<button class="rg-btn primary" id=requestSend>Send</button></div>'
+            '<div id=toField><p class="rg-day">To</p><select name=audience><option value=coaches>Coaches</option><option value=board>The board</option></select></div>'
             '<label id=sportField>Which coaches<select name=sport>%s</select></label>'
-            '<p class="r2caps">About</p><select name=topic>%s</select>'
+            '<p class="rg-day">About</p><select name=topic>%s</select>'
             '<label>Subject<input name=subject maxlength=80 placeholder="Optional"></label>'
             '<label>Message<textarea name=message required maxlength=2000 placeholder="What do you need?"></textarea></label>'
             '<input type=hidden name=practice value="">'
-            '<p class="t3" id=requestFoot>Only coaches see this. Replies show up in Chat › Requests, and you\'ll get a notification. It stays open until someone marks it resolved.</p>'
+            '<p class="ty-muted ty-sm" id=requestFoot>Only coaches see this. Replies show up in Chat › Requests, and you\'ll get a notification. It stays open until someone marks it resolved.</p>'
             '</form></div></dialog>'
             '<script>window.grunionsPaintRequest=function(){var form=document.getElementById("requestForm");if(!form)return;'
             'var board={membership:1,waiver:1};if(board[form.topic.value]&&!form.dataset.kept)form.audience.value="board";'
@@ -4162,7 +4206,7 @@ def requests_list_html(d, m):
             meta = _opened_ago(row["updated_at"] or row["created_at"]).replace("Opened ", "")
         title = "%s · %s" % (display_first(author) if author else "Someone", row["subject"])
         return _history_row("/chat?c=%s" % ch, letters, title, sub, meta, n, featured)
-    empty = '<p class="t3">No open requests — nice.</p>'
+    empty = '<p class="ty-muted ty-sm">No open requests — nice.</p>'
     plus = "" if staff_list else '<button type=button class=chatplus data-open-request aria-label="New request">+</button>'
     hidden = ""
     if sport:
@@ -4173,13 +4217,13 @@ def requests_list_html(d, m):
     blurb = "Questions sent to the coaches or the board. Open ones stay on top until someone marks them resolved — then they move to history." if staff else "Questions you sent. Open ones stay on top until someone marks them resolved."
     open_html = "".join(one(row, featured=(i == 0 and not q)) for i, row in enumerate(open_rows)) or empty
     return ('<div class=chathead><h1 class=chatdisplay>Requests.</h1>%s</div>'
-            '<p class="t3">%s</p>'
-            '<p class="r2caps">Open · %d</p><div class="chatlist histlist">%s</div>'
-            '<p class="r2caps">Resolved</p><div class="chatlist histlist">%s</div>'
+            '<p class="ty-muted ty-sm">%s</p>'
+            '<p class="rg-day">Open · %d</p><div class="chatlist histlist">%s</div>'
+            '<p class="rg-day">Resolved</p><div class="chatlist histlist">%s</div>'
             '<form method=get action=/chat class=searchpill><input type=hidden name=c value=requests>%s'
             '<input name=q value="%s" placeholder="Search all requests" aria-label="Search all requests"></form>') % (
                 plus, blurb, len(open_rows), open_html,
-                "".join(one(row) for row in done) or '<p class="t3">Nothing resolved yet.</p>',
+                "".join(one(row) for row in done) or '<p class="ty-muted ty-sm">Nothing resolved yet.</p>',
                 hidden, escape(q))
 def _request_list_href(row):
     if not row:
@@ -4203,7 +4247,7 @@ def _request_thread_head(d, m, ch):
     attrs = 'data-ch="%s" data-kind="%s" data-required="%d" data-manage="%d" data-title="%s" data-profile="%s"' % (
         escape(ch), kind, required, manage, escape(subject), escape(profile))
     chip = "%s · %s" % (who.split(" ")[0], subject)
-    return ('<div class="reqbar"><div class=reqtop><a class=reqback href="%s">← Requests</a>'
+    return ('<div class="reqbar"><div class=reqtop><a class="reqback rg-tbdisc" href="%s" aria-label="Back to Requests">' + str(components.icon("chevron_left")) + '</a>'
             '<a class=datechip href="%s">%s ▾</a></div>'
             '<button type=button id=threadName class=reqsubject %s>%s</button>'
             '<p class=reqmeta>%s → %s · %s</p></div>'
@@ -4431,11 +4475,11 @@ def chat_channels():
     current = d.execute("SELECT title, slug, rules FROM chat_channels WHERE slug=? AND kind='official'", (edit,)).fetchone() if edit else None
     rows = d.execute("SELECT title, slug FROM chat_channels WHERE kind='official' ORDER BY title").fetchall()
     listed = "".join("<li>%s</li>" % escape(r["title"]) for r in rows) or "<li>#everyone is always here.</li>"
-    return page("""<p class="r2caps">Team</p><h1>Channels.</h1>
-<p class="t3">Official channels stay in the team. Members cannot create them.</p>
+    return page("""<p class="rg-day">Team</p><h1>Channels.</h1>
+<p class="ty-muted ty-sm">Official channels stay in the team. Members cannot create them.</p>
 <ul>%s</ul>
 <form method=post>%s%s<label>Name<input name=title required value="%s" placeholder="water-polo"></label>
-<button class="btn btn-primary">%s</button></form>""" % (
+<button class="rg-btn primary">%s</button></form>""" % (
         listed, csrf_field(),
         '<input type=hidden name=edit value="%s">' % escape(current["slug"]) if current else "",
         escape(current["title"]) if current else "",
@@ -5156,7 +5200,7 @@ def sports_editor(row=None, show_activity=True, show_format=False):
     for pid, name, short, _full in catalog:
         checked = " checked" if pid in levels else ""
         parts.append('<label class=sheetopt data-label="%s"><input type=checkbox name=level value="%s"%s><span><b>%s</b><small>%s</small></span></label>' % (escape(name), pid, checked, escape(name), escape(short)))
-    parts.append('</div><button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>')
+    parts.append('</div><button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>')
     first_div = next((pid for pid, _name in sports.DIVISIONS if pid in divs), "")
     parts.append('<button type=button class="li selfield" data-open=sheetDivision><span class=selfieldk>Division</span><span class="selfieldv ell" data-for=division>%s</span>%s</button>' % (escape(div_sum), chev))
     parts.append('<dialog class=botsheet id=sheetDivision><div class=sheet><div class=grab></div><h2>Division</h2><div class=sheetlist data-sum=division data-empty="Not set">')
@@ -5166,13 +5210,13 @@ def sports_editor(row=None, show_activity=True, show_format=False):
         parts.append('<label class=sheetopt data-label="%s"><input type=radio name=division value="%s"%s><span><b>%s</b></span></label>' % (escape(name), pid, checked, escape(name)))
     custom_hidden = "" if first_div == "custom" else " hidden"
     parts.append('</div><label id=divCustom%s>Custom label<input name=division_custom value="%s" autocomplete=off></label>' % (custom_hidden, escape(data["division_custom"])))
-    parts.append('<button type=button class="btn btn-primary full" data-sheetdone>Done</button></div></dialog>')
+    parts.append('<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>')
     if show_activity:
         parts.append('<div data-act=game><label>Opponent<input name=opponent value="%s" autocomplete=off placeholder="Squid"></label>' % escape(data["opponent"]))
         parts.append('<label>Home / away<select name=home_away><option value="">Not set</option><option value=home%s>Home</option><option value=away%s>Away</option></select></label></div>' % (
             " selected" if data["home_away"] == "home" else "", " selected" if data["home_away"] == "away" else ""))
         parts.append('<div data-act=scrimmage><label>Gameplay notes<textarea class=planfield name=gameplay_notes rows=4>%s</textarea></label></div>' % escape(data["gameplay_notes"]))
-        parts.append('<div data-act=hybrid><div class="t3 xs">Segments</div>')
+        parts.append('<div data-act=hybrid><div class="ty-muted ty-sm xs">Segments</div>')
         for seg in segs[:3]:
             opts = "".join('<option value="%s"%s>%s</option>' % (pid, " selected" if seg["type"] == pid else "", name) for pid, name in sports.ACTIVITIES if pid != "hybrid")
             parts.append('<div class=row><label>Type<select name=segment_type><option value="">—</option>%s</select></label><label>Start<input type=time name=segment_start value="%s"></label><label>End<input type=time name=segment_end value="%s"></label></div>' % (opts, escape(seg["start"]), escape(seg["end"])))
@@ -5183,7 +5227,7 @@ def sports_editor(row=None, show_activity=True, show_format=False):
             parts.append('<option value="%s"%s>%s</option>' % (pid, " selected" if data["comp_format"] == pid else "", name))
         parts.append("</select></label>")
         for _pid, name, blurb in sports.FORMATS:
-            parts.append('<p class="t3 sm" style="margin:0 0 4px">%s — %s</p>' % (name, escape(blurb)))
+            parts.append('<p class="ty-muted ty-sm sm" style="margin:0 0 4px">%s — %s</p>' % (name, escape(blurb)))
     parts.append("""<script>(function(){
  var boxes=[].slice.call(document.querySelectorAll('input[name=level]'));
  var all=document.getElementById('allLevels');
@@ -7318,7 +7362,7 @@ def manage_pay_membership():
     checks = []
     for row in sportspay.pending_checks(d):
         who = ("%s %s" % (row["preferred_first"] or row["first"], row["last"] or "")).strip()
-        checks.append('<form method=post class=card><input type=hidden name=action value=verify_check><input type=hidden name=check_id value="%d">{{ csrf_field() }}<p>%s · %s</p><button class="btn btn-primary" type=submit>Verify payment</button></form>' % (row["id"], escape(who), escape(row["plan_name"] or "Plan")))
+        checks.append('<form method=post class=card><input type=hidden name=action value=verify_check><input type=hidden name=check_id value="%d">{{ csrf_field() }}<p>%s · %s</p><button class="rg-btn primary" type=submit>Verify payment</button></form>' % (row["id"], escape(who), escape(row["plan_name"] or "Plan")))
     body = sportspay.membership_page(sportspay.membership_rows(d)) + "".join(checks)
     return _pay_page(body, "membership")
 @app.route("/practices/<int:pid>/participate", methods=["GET", "POST"])
@@ -8374,7 +8418,7 @@ def club_programs():
     import clubadmin
     d = db()
     clubadmin.ensure(d)
-    body = clubadmin.programs_html(d) + '<p style="margin-top:16px"><a class="btn btn-primary full" href="/manage/club/programs/new">Add sport</a></p>'
+    body = clubadmin.programs_html(d) + '<p style="margin-top:16px"><a class="rg-btn primary full" href="/manage/club/programs/new">Add sport</a></p>'
     return page(ui.ADMIN_NAV + "{{ admin_page('Sports', 'Compliance and divisions for each sport.') }}{{ club_body|safe }}",
         tab="admin", admin_back="/manage/area/club", club_body=body)
 @app.route("/manage/club/programs/<slug>", methods=["GET", "POST"])
@@ -9625,7 +9669,7 @@ def growth_chart(joined, verified, today=None):
     joined = sorted(d for d in joined if d and d <= today)
     verified = sorted(d for d in verified if d and d <= today)
     if not joined:
-        return {"html": Markup('<p class="t3 sm" style="margin:0">No signups yet.</p>'),
+        return {"html": Markup('<p class="ty-muted ty-sm sm" style="margin:0">No signups yet.</p>'),
                 "kind": "", "total": 0, "delta": 0, "title": "Members", "sub": "No signups yet.", "pts": []}
     start, total = joined[0], len(joined)
     kind = _growth_kind((today - start).days)
@@ -9710,7 +9754,7 @@ def attendance_chart(rows):
     avg = int(round(sum(c for _d, c in clean) / n)) if n else 0
     title = "Attendance"
     if not n:
-        html = Markup('<p class="t3 sm" style="margin:0">No practices yet.</p>')
+        html = Markup('<p class="ty-muted ty-sm sm" style="margin:0">No practices yet.</p>')
         return {"html": html, "title": title, "sub": "No practices yet.", "avg": 0, "n": 0, "dates": [], "bars": []}
     sub = "Average %d checked in" % avg
     W, H, L, R, T, B = 320, 132, 8, 312, 16, 104
@@ -9748,8 +9792,8 @@ def chart_card(growth, attendance):
         '<div class="card growthcard" id=growthCard>'
         '<div class=growthheadrow>'
         '<div class=growthtitles>'
-        '<div class="growthhead on" data-chart=growth><div class=growthtitle>%s</div><p class="t3 sm growthsub">%s</p></div>'
-        '<div class=growthhead data-chart=attendance aria-hidden=true><div class=growthtitle>%s</div><p class="t3 sm growthsub">%s</p></div>'
+        '<div class="growthhead on" data-chart=growth><div class=growthtitle>%s</div><p class="ty-muted ty-sm sm growthsub">%s</p></div>'
+        '<div class=growthhead data-chart=attendance aria-hidden=true><div class=growthtitle>%s</div><p class="ty-muted ty-sm sm growthsub">%s</p></div>'
         '</div>'
         '<div class=growthswitch role=group aria-label=Charts>'
         '<button type=button class=growthchip data-dir=-1 aria-label="Previous chart">%s</button>'
@@ -11093,7 +11137,7 @@ def practice_signup(pid):
     tw = trial_window(m)
     trial_offer = not (m["trial_acknowledged_at"] or "") and not tw
     when = "%s · %s" % (fmt_d(p["date"]), fmt_span(p["start"], p["end"]))
-    return page(flows2.SIGNUP, tab="", p=p, needs=needs, w=flows2.waiver(d), when=when, org=org_name(), trial_offer=trial_offer)
+    return page(flows2.SIGNUP, tab="flow", p=p, needs=needs, w=flows2.waiver(d), when=when, org=org_name(), trial_offer=trial_offer)
 
 @app.route("/practices/<int:pid>/rides", methods=["GET", "POST"])
 @login_required

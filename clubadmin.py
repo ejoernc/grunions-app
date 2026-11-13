@@ -98,8 +98,8 @@ def reminders_html(d, csrf):
     return """<form method=post class=clubform style="padding-bottom:120px">%s
 <label class=checkline><input type=checkbox name=enabled value=1%s> Send practice reminders</label>
 <label>Hours before<input name=hours type=number min=1 max=24 value="%d"></label>
-<p class="t3 sm">Off until you turn this on. Nothing goes out automatically while it is off. A reminder is sent once for each session and skips cancelled or started sessions. RSVPs are not changed.</p>
-<button class="btn btn-primary full" type=submit>Save</button>
+<p class="ty-muted ty-sm sm">Off until you turn this on. Nothing goes out automatically while it is off. A reminder is sent once for each session and skips cancelled or started sessions. RSVPs are not changed.</p>
+<button class="rg-btn primary full" type=submit>Save</button>
 </form>""" % (csrf, " checked" if settings["enabled"] else "", settings["hours"])
 
 
@@ -1033,8 +1033,8 @@ def add_program_html(d, csrf):
 <label class=checkline><input type=checkbox name=activity_practice value=1 checked> Practice</label>
 <label class=checkline><input type=checkbox name=activity_scrimmage value=1> Scrimmage</label>
 <label class=checkline><input type=checkbox name=activity_game value=1> Game</label>
-<p class="t3 sm">A new sport starts off. Its requirements are not applied until you turn it on.</p>
-<button class="btn btn-primary full" type=submit>Save</button>
+<p class="ty-muted ty-sm sm">A new sport starts off. Its requirements are not applied until you turn it on.</p>
+<button class="rg-btn primary full" type=submit>Save</button>
 </form>""" % (csrf, options)
 
 
@@ -1223,14 +1223,14 @@ def program_detail_html(d, program, csrf):
 <form method=post class=clubform>
 %s
 <input type=hidden name=action value=identity>
-<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px"><p class="t3 sm" style="margin:0">Governing body: %s</p><span class="mbadge info">%s</span></div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px"><p class="ty-muted ty-sm sm" style="margin:0">Governing body: %s</p><span class="mbadge info">%s</span></div>
 <label>Governing body<select name=governing_body>%s</select></label>
 <label class=checkline><input type=checkbox name=active value=1%s> Active</label>
-<p class="t3 sm">While this is off, its requirements are not applied. Choosing a governing body does not add requirements.</p>
-<button class="btn btn-secondary" type=submit>Save</button>
+<p class="ty-muted ty-sm sm">While this is off, its requirements are not applied. Choosing a governing body does not add requirements.</p>
+<button class="rg-btn secondary" type=submit>Save</button>
 </form>
 <h2>Compliance requirements</h2>
-<p class="t3 sm">Requirements for people in this sport.</p>
+<p class="ty-muted ty-sm sm">Requirements for people in this sport.</p>
 <div class=mlist>%s</div>
 <h2>Divisions</h2>
 <div class=mlist>%s</div>
@@ -1263,12 +1263,12 @@ def program_requirements_html(d, program):
     grouped = {code: [] for code, _label in REQ_GROUPS}
     for row in rows:
         grouped.setdefault(_req_role(row), []).append(row)
-    bits = ['<h2>Requirements</h2><p class="t3 sm">A requirement applies only to that role, and only while this sport is on. Off means it is not enforced.</p>']
+    bits = ['<h2>Requirements</h2><p class="ty-muted ty-sm sm">A requirement applies only to that role, and only while this sport is on. Off means it is not enforced.</p>']
     for code, label in REQ_GROUPS:
         bits.append("<h2>%s</h2><div class=mlist>" % label)
         items = grouped.get(code) or []
         if not items:
-            bits.append('<p class="t3 sm" style="padding:12px 16px">No requirements yet.</p>')
+            bits.append('<p class="ty-muted ty-sm sm" style="padding:12px 16px">No requirements yet.</p>')
         for row in items:
             others = [item["name"] for item in d.execute("""SELECT p.name FROM requirement_programs rp
                 JOIN programs p ON p.id=rp.program_id
@@ -1286,9 +1286,9 @@ def program_requirements_html(d, program):
 
 def divisions_html(d, program):
     rows = d.execute("""SELECT * FROM program_divisions WHERE program_id=? AND archived=0 ORDER BY sort, id""", (program["id"],)).fetchall()
-    bits = ['<h2>Divisions</h2><p class="t3 sm">These are the skill levels for this sport. All levels stays available on each session and is not stored here.</p><div class=mlist>']
+    bits = ['<h2>Divisions</h2><p class="ty-muted ty-sm sm">These are the skill levels for this sport. All levels stays available on each session and is not stored here.</p><div class=mlist>']
     if not rows:
-        bits.append('<p class="t3 sm" style="padding:12px 16px">No divisions yet.</p>')
+        bits.append('<p class="ty-muted ty-sm sm" style="padding:12px 16px">No divisions yet.</p>')
     for i, row in enumerate(rows):
         bits.append(_row("/manage/club/programs/%s/divisions/%d" % (program["slug"], row["id"]), row["name"], row["description"] or "No description"))
     bits.append(_row("/manage/club/programs/%s/divisions/new" % program["slug"], "Add division", "Name and a one-line description"))
@@ -1301,7 +1301,7 @@ def role_rules_html(d, program, role):
     bits = ['<div class=mlist>']
     rows = rules_for(d, program["id"], role)
     if not rows:
-        bits.append('<p class="t3 sm" style="padding:12px 16px">No requirements yet.</p>')
+        bits.append('<p class="ty-muted ty-sm sm" style="padding:12px 16px">No requirements yet.</p>')
     for row in rows:
         bits.append(_row("/manage/club/programs/%s/rules/%d" % (program["slug"], row["id"]), row["name"], _rule_note(d, program, row)))
     bits.append(_row("/manage/club/programs/%s/rules/new?role=%s" % (program["slug"], role), "Add requirement", "For %s" % label.lower()))
@@ -1333,10 +1333,10 @@ def rule_edit_html(d, program, rule, csrf, preset_role=""):
     within = rule["within_days"] if rule else 0
     remove = ""
     if rule:
-        remove = """<form method=post style="margin-top:12px">%s<input type=hidden name=action value=remove><button class="btn btn-danger full" type=submit>Remove from this sport</button></form>""" % csrf
+        remove = """<form method=post style="margin-top:12px">%s<input type=hidden name=action value=remove><button class="rg-btn danger full" type=submit>Remove from this sport</button></form>""" % csrf
     return """<form method=post class=clubform style="padding-bottom:120px">%s
 <label>Requirement<select name=requirement>%s</select></label>
-<p class="t3 sm">Or create one. An existing name is reused, not copied.</p>
+<p class="ty-muted ty-sm sm">Or create one. An existing name is reused, not copied.</p>
 <label>New name<input name=new_name placeholder="Leave blank to use the requirement above"></label>
 <label>Kind<select name=kind>%s</select></label>
 <p>Who</p>
@@ -1346,7 +1346,7 @@ def rule_edit_html(d, program, rule, csrf, preset_role=""):
 <label>Days<input name=within_days inputmode=numeric value="%s"></label>
 <label>Verification<select name=verification>%s</select></label>
 <label class=checkline><input type=checkbox name=tracks_expiration value=1%s> Track expiration</label>
-<button class="btn btn-primary full" type=submit>Save</button>
+<button class="rg-btn primary full" type=submit>Save</button>
 </form>%s""" % (
         csrf, "".join(options), _select(KIND_LABELS, kind), role_bits,
         " checked" if rule and rule["enforced"] else "",
@@ -1419,17 +1419,17 @@ def remove_program_rule(d, program, rule_id):
 
 
 def compliance_html(d):
-    bits = ['<p class="t3 sm">Each requirement is defined once and can apply to one sport, several, or all of them.</p><div class=mlist>']
+    bits = ['<p class="ty-muted ty-sm sm">Each requirement is defined once and can apply to one sport, several, or all of them.</p><div class=mlist>']
     rows = d.execute("SELECT * FROM requirements WHERE active=1 ORDER BY name").fetchall()
     if not rows:
-        bits.append('<p class="t3 sm" style="padding:12px 16px">No requirements yet.</p>')
+        bits.append('<p class="ty-muted ty-sm sm" style="padding:12px 16px">No requirements yet.</p>')
     labels = dict(KIND_LABELS)
     for row in rows:
         n = d.execute("SELECT COUNT(*) FROM program_rules WHERE requirement_id=?", (row["id"],)).fetchone()[0]
         sport = "all sports" if n and n == d.execute("SELECT COUNT(*) FROM programs").fetchone()[0] else ("%d sports" % n if n != 1 else "1 sport")
         bits.append(_row("/manage/club/compliance/%d" % row["id"], row["name"], "%s · %s" % (labels.get(row["kind"] or "custom", "Custom"), sport)))
     bits.append("</div>")
-    bits.append('<p style="margin-top:16px"><a class="btn btn-primary full" href="/manage/club/compliance/new">Add requirement</a></p>')
+    bits.append('<p style="margin-top:16px"><a class="rg-btn primary full" href="/manage/club/compliance/new">Add requirement</a></p>')
     return "".join(bits)
 
 
@@ -1452,8 +1452,8 @@ def definition_edit_html(d, req, csrf):
 <p>Sports</p>
 <label class=checkline><input type=checkbox name=all_sports value=1%s> All sports</label>
 %s
-<p class="t3 sm">Unchecking a sport removes the rule from that sport. It does not delete the definition or anyone's record.</p>
-<button class="btn btn-primary full" type=submit>Save</button>
+<p class="ty-muted ty-sm sm">Unchecking a sport removes the rule from that sport. It does not delete the definition or anyone's record.</p>
+<button class="rg-btn primary full" type=submit>Save</button>
 </form>""" % (
         csrf, escape(req["name"] if req else ""), _select(KIND_LABELS, kind or "custom"),
         escape(scope["description"] if scope else ""),
@@ -1499,10 +1499,10 @@ def save_definition(d, req_id, form):
 
 
 def venues_html(d):
-    bits = ['<p class="t3 sm">A venue is a place. Days, times, and coaches stay on Schedule and People.</p><div class=mlist>']
+    bits = ['<p class="ty-muted ty-sm sm">A venue is a place. Days, times, and coaches stay on Schedule and People.</p><div class=mlist>']
     rows = d.execute("SELECT * FROM venues ORDER BY name").fetchall()
     if not rows:
-        bits.append('<p class="t3 sm" style="padding:12px 16px">No venues yet.</p>')
+        bits.append('<p class="ty-muted ty-sm sm" style="padding:12px 16px">No venues yet.</p>')
     for row in rows:
         names = [item["name"] for item in d.execute("""SELECT p.name FROM venue_programs vp
             JOIN programs p ON p.id=vp.program_id WHERE vp.venue_id=? ORDER BY p.name""", (row["id"],)).fetchall()]
@@ -1511,7 +1511,7 @@ def venues_html(d):
             desc = "%s · %s" % (", ".join(names), desc)
         bits.append(_row("/manage/club/venues/%d" % row["id"], row["name"], desc))
     bits.append("</div>")
-    bits.append('<p style="margin-top:16px"><a class="btn btn-primary full" href="/manage/club/venues/new">Add venue</a></p>')
+    bits.append('<p style="margin-top:16px"><a class="rg-btn primary full" href="/manage/club/venues/new">Add venue</a></p>')
     return "".join(bits)
 
 
@@ -1525,18 +1525,18 @@ def venue_edit_html(d, venue, csrf):
             program["id"], " checked" if program["id"] in linked else "", escape(program["name"])))
     remove = ""
     if venue:
-        remove = """<form method=post style="margin-top:12px">%s<input type=hidden name=action value=remove><button class="btn btn-danger full" type=submit>Remove venue</button></form>""" % csrf
+        remove = """<form method=post style="margin-top:12px">%s<input type=hidden name=action value=remove><button class="rg-btn danger full" type=submit>Remove venue</button></form>""" % csrf
     return """<form method=post class=clubform style="padding-bottom:120px">%s
 <label>Name<input name=name required value="%s"></label>
 <label>Address<input name=address value="%s"></label>
 <label>Instructions<textarea class=planfield name=instructions rows=3>%s</textarea></label>
 <p>Sports</p>
 %s
-<p class="t3 sm">Unchecking a sport removes the link. Sessions that already use this place are left as they are.</p>
-<button class="btn btn-primary full" type=submit>Save</button>
+<p class="ty-muted ty-sm sm">Unchecking a sport removes the link. Sessions that already use this place are left as they are.</p>
+<button class="rg-btn primary full" type=submit>Save</button>
 </form>%s""" % (
         csrf, escape(venue["name"] if venue else ""), escape(venue["address"] if venue else ""),
-        escape(venue["instructions"] if venue else ""), "".join(boxes) or "<p class=t3>No sports yet.</p>", remove)
+        escape(venue["instructions"] if venue else ""), "".join(boxes) or "<p class='ty-muted ty-sm'>No sports yet.</p>", remove)
 
 
 def save_venue(d, venue_id, form):
@@ -1596,9 +1596,9 @@ def _place_hit_local(q, name, detail=""):
 
 def sport_leadership_html(d, program):
     rows = d.execute("SELECT * FROM leadership_roles WHERE program_id=? ORDER BY sort, id", (program["id"],)).fetchall()
-    bits = ['<h2>Leadership</h2><p class="t3 sm">Roles for this sport. Sport admin is a title. It does not open club settings.</p><div class=mlist>']
+    bits = ['<h2>Leadership</h2><p class="ty-muted ty-sm sm">Roles for this sport. Sport admin is a title. It does not open club settings.</p><div class=mlist>']
     if not rows:
-        bits.append('<p class="t3 sm" style="padding:12px 16px">No roles yet.</p>')
+        bits.append('<p class="ty-muted ty-sm sm" style="padding:12px 16px">No roles yet.</p>')
     for row in rows:
         n = d.execute("SELECT COUNT(*) FROM leadership_members WHERE role_id=?", (row["id"],)).fetchone()[0]
         bits.append(_row("/manage/club/programs/%s/leadership/%d" % (program["slug"], row["id"]), row["name"], "%s · %d %s" % (dict(PERM_SPORT).get(row["permission"], row["permission"]), n, "person" if n == 1 else "people")))
@@ -1652,10 +1652,10 @@ def permission_holders(d):
 
 
 def permissions_html(d):
-    bits = ['<p class="t3 sm">Admin, Admin lite, and Sport admin. Opening this list does not change anyone.</p><div class=mlist>']
+    bits = ['<p class="ty-muted ty-sm sm">Admin, Admin lite, and Sport admin. Opening this list does not change anyone.</p><div class=mlist>']
     rows = permission_holders(d)
     if not rows:
-        bits.append('<p class="t3 sm" style="padding:12px 16px">No admin-level access yet.</p>')
+        bits.append('<p class="ty-muted ty-sm sm" style="padding:12px 16px">No admin-level access yet.</p>')
     for row in rows:
         bits.append(_row("/manage/club/permissions/%d" % row["id"], row["name"], row["desc"]))
     bits.append(_row("/manage/club/permissions/new", "Assign", "Add someone to an existing admin-level role"))
@@ -1673,7 +1673,7 @@ def permission_edit_html(d, member, csrf):
     people = d.execute("""SELECT id, first, preferred_first, last FROM members
         WHERE COALESCE(role,'')!='system' ORDER BY last, first""").fetchall()
     if member:
-        who = '<p class="t3 sm">%s</p>' % escape(_person_name(member))
+        who = '<p class="ty-muted ty-sm sm">%s</p>' % escape(_person_name(member))
     else:
         options = ['<option value="">Choose a person</option>']
         for person in people:
@@ -1689,19 +1689,19 @@ def permission_edit_html(d, member, csrf):
             role["id"], " checked" if role["id"] in held else "", escape(title), escape(label)))
     locked = ""
     if member and member["is_admin"]:
-        locked = '<p class="t3 sm">Account admin stays on this person. Removing a role does not take it away.</p>'
+        locked = '<p class="ty-muted ty-sm sm">Account admin stays on this person. Removing a role does not take it away.</p>'
     empty = ""
     if not roles:
-        empty = '<p class="t3 sm">No admin-level role exists yet. Club Leadership is where those roles are defined.</p><p><a class="btn btn-secondary" href="/manage/club/leadership">Leadership</a></p>'
+        empty = '<p class="ty-muted ty-sm sm">No admin-level role exists yet. Club Leadership is where those roles are defined.</p><p><a class="rg-btn secondary" href="/manage/club/leadership">Leadership</a></p>'
     return """<form method=post class=clubform style="padding-bottom:120px">%s
 %s
 <p>Roles</p>
 %s
 %s
 %s
-<button class="btn btn-primary full" type=submit>Save</button>
+<button class="rg-btn primary full" type=submit>Save</button>
 </form>""" % (csrf, who, "".join(boxes) or empty, locked,
-              '<p class="t3 sm">Saving adds or removes only these roles. It never removes an existing admin.</p>' if roles else "")
+              '<p class="ty-muted ty-sm sm">Saving adds or removes only these roles. It never removes an existing admin.</p>' if roles else "")
 
 
 def save_permission_assignment(d, member_id, form):
@@ -1732,12 +1732,12 @@ def leadership_list_html(d):
     rows = d.execute("SELECT * FROM leadership_roles WHERE program_id IS NULL ORDER BY sort, id").fetchall()
     bits = ['<div class=mlist>']
     if not rows:
-        bits.append('<p class="t3 sm" style="padding:12px 16px">No club roles yet.</p>')
+        bits.append('<p class="ty-muted ty-sm sm" style="padding:12px 16px">No club roles yet.</p>')
     for row in rows:
         n = d.execute("SELECT COUNT(*) FROM leadership_members WHERE role_id=?", (row["id"],)).fetchone()[0]
         bits.append(_row("/manage/club/leadership/%d" % row["id"], row["name"], "%s · %d %s" % (dict(PERM_CLUB).get(row["permission"], row["permission"]), n, "person" if n == 1 else "people")))
     bits.append("</div>")
-    bits.append('<p style="margin-top:16px"><a class="btn btn-primary full" href="/manage/club/leadership/new">Add role</a></p>')
+    bits.append('<p style="margin-top:16px"><a class="rg-btn primary full" href="/manage/club/leadership/new">Add role</a></p>')
     return "".join(bits)
 
 
@@ -1759,11 +1759,11 @@ def leadership_edit_html(d, role, csrf, program=None):
     return """<form method=post class=clubform>%s
 <label>Name<input name=name required value="%s"></label>
 <label>Permission<select name=permission>%s</select></label>
-<p class="t3 sm">%s</p>
+<p class="ty-muted ty-sm sm">%s</p>
 <p>People</p>
 %s
-<button class="btn btn-primary full" type=submit>Save</button>
-</form>""" % (csrf, escape(role["name"] if role else ""), options, escape(note), "".join(boxes) or "<p class=t3>No people yet.</p>")
+<button class="rg-btn primary full" type=submit>Save</button>
+</form>""" % (csrf, escape(role["name"] if role else ""), options, escape(note), "".join(boxes) or "<p class='ty-muted ty-sm'>No people yet.</p>")
 
 
 def schedule_day_edit_html(program, row, csrf, attempt=None):
@@ -1782,24 +1782,24 @@ def schedule_day_edit_html(program, row, csrf, attempt=None):
         options.append('<option value="%s"%s>%s</option>' % (code, " selected" if code == chosen else "", full))
     remove = ""
     if row:
-        remove = """<form method=post style="margin-top:12px">%s<input type=hidden name=action value=remove><button class="btn btn-danger full" type=submit>Remove</button></form>""" % csrf
+        remove = """<form method=post style="margin-top:12px">%s<input type=hidden name=action value=remove><button class="rg-btn danger full" type=submit>Remove</button></form>""" % csrf
     return """<form method=post class=clubform style="padding-bottom:120px">%s
 <label>Day<select name=weekday>%s</select></label>
 <div class=row><label>Start<input type=time name=start required value="%s"></label><label>End<input type=time name=end required value="%s"></label></div>
-<button class="btn btn-primary full" type=submit>Save</button>
+<button class="rg-btn primary full" type=submit>Save</button>
 </form>%s""" % (csrf, "".join(options), escape(start), escape(end), remove)
 
 
 def division_edit_html(d, program, row, csrf):
     extra = ""
     if row:
-        extra = """<form method=post>%s<input type=hidden name=action value=up><button class="btn btn-secondary full" type=submit>Move up</button></form>
-<form method=post>%s<input type=hidden name=action value=down><button class="btn btn-secondary full" type=submit>Move down</button></form>
-<form method=post>%s<input type=hidden name=action value=remove><button class="btn btn-danger full" type=submit>Remove</button></form>""" % (csrf, csrf, csrf)
+        extra = """<form method=post>%s<input type=hidden name=action value=up><button class="rg-btn secondary full" type=submit>Move up</button></form>
+<form method=post>%s<input type=hidden name=action value=down><button class="rg-btn secondary full" type=submit>Move down</button></form>
+<form method=post>%s<input type=hidden name=action value=remove><button class="rg-btn danger full" type=submit>Remove</button></form>""" % (csrf, csrf, csrf)
     return """<form method=post class=clubform>%s
 <label>Name<input name=name required value="%s"></label>
 <label>Description<input name=description value="%s"></label>
-<button class="btn btn-primary full" type=submit>Save</button>
+<button class="rg-btn primary full" type=submit>Save</button>
 </form>%s""" % (csrf, escape(row["name"] if row else ""), escape(row["description"] if row else ""), extra)
 
 
@@ -2198,7 +2198,7 @@ def plans_html(d):
     bits = ['<div class=mlist>']
     rows = visible_plans(d)
     if not rows:
-        bits.append('<p class="t3 sm" style="padding:12px 16px">No passes yet.</p>')
+        bits.append('<p class="ty-muted ty-sm sm" style="padding:12px 16px">No passes yet.</p>')
     for plan in rows:
         names = plan_program_names(d, plan["id"]) or ["No sport yet"]
         cents, starts = _shown_price(_price_rows(d, plan["id"]), today)
@@ -2208,7 +2208,7 @@ def plans_html(d):
         state = "On" if plan["active"] else "Off"
         desc = "%s · %s · %s · %s · %s" % (KIND_WORD.get(plan["kind"], plan["kind"]), price.strip(), ", ".join(names), window_phrase(plan), state)
         bits.append(_row("/manage/club/plans/%d" % plan["id"], plan["name"], desc))
-    bits.append('</div><p style="margin-top:16px"><a class="btn btn-primary full" href="/manage/club/plans/new">Create pass</a></p>')
+    bits.append('</div><p style="margin-top:16px"><a class="rg-btn primary full" href="/manage/club/plans/new">Create pass</a></p>')
     return "".join(bits)
 
 
@@ -2252,7 +2252,7 @@ def plan_edit_html(d, plan, csrf):
         pay = {"external_link": "external", "manual": "manual", "free": "none"}.get(prow["kind"] if prow else "", "none")
     if plan and (plan["external_url"] or "") and pay == "none":
         pay = "external"
-    price_lines = "".join("<p class=t3>%s from %s</p>" % (_money(row["amount_cents"]), escape(row["effective_on"])) for row in prices)
+    price_lines = "".join("<p class='ty-muted ty-sm'>%s from %s</p>" % (_money(row["amount_cents"]), escape(row["effective_on"])) for row in prices)
     names = plan_program_names(d, pid) if pid else []
     blank_plan = {"kind": "monthly", "frequency": "month", "activities": "practice", "length_sessions": 0}
     core = pass_summary(plan if plan else blank_plan, names, cents, starts)
@@ -2267,13 +2267,13 @@ def plan_edit_html(d, plan, csrf):
     def sel(options, current):
         return "".join('<option value="%s"%s>%s</option>' % (value, " selected" if value == current else "", escape(label)) for value, label in options)
     return """<form method=post class="clubform passform" id=passForm>%s
-<p class="t3 sm">A pass grants access only. It does not satisfy USA Water Polo, USMS, or any other sport requirement, and it does not change an RSVP.</p>
+<p class="ty-muted ty-sm sm">A pass grants access only. It does not satisfy USA Water Polo, USMS, or any other sport requirement, and it does not change an RSVP.</p>
 <label>Name<input name=name required minlength=3 value="%s"></label>
 <label>Description<textarea class=planfield name=description rows=4>%s</textarea></label>
 <label>Type<select name=kind id=passKind>%s</select></label>
 <label>Price<input name=price id=passPrice inputmode=decimal placeholder="45" autocomplete=off></label>
 <label>Currency<select name=currency><option value=USD selected>USD</option></select></label>
-<p class="t3 sm">No fees are added here. A free trial or a free pass stays at no charge. Saving a price adds it from today and leaves later prices in place.</p>
+<p class="ty-muted ty-sm sm">No fees are added here. A free trial or a free pass stays at no charge. Saving a price adds it from today and leaves later prices in place.</p>
 %s
 <div id=passRenew>
 <h2>Billing and renewal</h2>
@@ -2288,13 +2288,13 @@ def plan_edit_html(d, plan, csrf):
 <label>Sessions<input name=length_sessions id=passSessions inputmode=numeric value="%s"></label>
 </div>
 <h2>Active dates</h2>
-<p class="t3 sm">These dates decide which events the pass covers. They are separate from renewal and from a person's paid start and end.</p>
+<p class="ty-muted ty-sm sm">These dates decide which events the pass covers. They are separate from renewal and from a person's paid start and end.</p>
 <label class="datefield%s">Start date<input type=date name=active_from value="%s"><span class=dateph>Starts right away</span></label>
 <button type=button class=textlink data-cleardate=active_from>Clear start date</button>
 <label class="datefield%s">End date<input type=date name=active_until value="%s"><span class=dateph>Runs indefinitely</span></label>
 <button type=button class=textlink data-cleardate=active_until>Clear end date</button>
 <h2>Applies to</h2>
-<p class="t3 sm">Check the sports, activities, and Lineup categories this pass covers.</p>
+<p class="ty-muted ty-sm sm">Check the sports, activities, and Lineup categories this pass covers.</p>
 %s
 <p>Schedule activities</p>
 %s
@@ -2309,12 +2309,12 @@ def plan_edit_html(d, plan, csrf):
 <h2>Where to pay</h2>
 <label>Payment<select name=pay>%s</select></label>
 <label>Registration URL<input name=external_url value="%s" placeholder="https://" autocomplete=off></label>
-<p class="t3 sm">External opens Club Assistant or another registration page. Manual is recorded by an admin. None is for a free pass or a trial. Stripe is not available.</p>
+<p class="ty-muted ty-sm sm">External opens Club Assistant or another registration page. Manual is recorded by an admin. None is for a free pass or a trial. Stripe is not available.</p>
 <label class=checkline id=passUsawp><input type=checkbox name=offer_code value=usawp_trial%s> Requires a USA Water Polo trial membership</label>
 <label>Terms<textarea class=planfield name=terms rows=4>%s</textarea></label>
 <label class=switchrow>Pass is on<span class=switch><input type=checkbox name=active value=1%s><span></span></span></label>
 <div class=card id=passSummaryCard><h2>Summary</h2><p id=passSummary data-base="%s">%s</p></div>
-<button class="btn btn-primary full" type=submit>Save</button>
+<button class="rg-btn primary full" type=submit>Save</button>
 </form>
 <script>
 (function(){
@@ -2381,7 +2381,7 @@ def plan_edit_html(d, plan, csrf):
         "".join('<label class=checkline><input type=checkbox name="activity_%s" value=1%s> %s</label>' % (value, " checked" if value in acts else "", label) for value, label in ACTIVITIES),
         "".join('<label class=checkline><input type=checkbox name="lineup_%s" value=1%s> %s</label>' % (value, " checked" if value in cats else "", label) for value, label in LINEUP_CATS),
         sel((("everyone", "Everyone"), ("new", "New members only"), ("specific", "Specific people")), audience),
-        "".join('<label class=checkline><input type=checkbox name=person value="%s"%s> %s</label>' % (value, " checked" if int(value) in people_on else "", escape(label)) for value, label in person_boxes) or "<p class=t3>No people yet.</p>",
+        "".join('<label class=checkline><input type=checkbox name=person value="%s"%s> %s</label>' % (value, " checked" if int(value) in people_on else "", escape(label)) for value, label in person_boxes) or "<p class='ty-muted ty-sm'>No people yet.</p>",
         " checked" if plan and "one_per_person" in plan.keys() and plan["one_per_person"] else "",
         escape(str(plan["uses_per_event"] if plan and "uses_per_event" in plan.keys() else 0)),
         sel((("external", "External registration link"), ("manual", "Manual"), ("none", "None")), pay),
@@ -2428,10 +2428,10 @@ def requirement_edit_html(d, req, scope, csrf, preset_ids=None, sport="", preset
 %s
 <label>Use<select name=effect>%s</select></label>
 <label>Verification<select name=verification>%s</select></label>
-<p class="t3 sm">External verification is recorded only. It does not call a governing body from this page.</p>
+<p class="ty-muted ty-sm sm">External verification is recorded only. It does not call a governing body from this page.</p>
 <label class=checkline><input type=checkbox name=expires value=1%s> Has an expiration date</label>
 <label class=checkline><input type=checkbox name=affects_clearance value=1%s> Counts toward Cleared to Play</label>
-<button class="btn btn-primary full" type=submit>Save</button>
+<button class="rg-btn primary full" type=submit>Save</button>
 </form>""" % (
         csrf, hidden_sport, escape(req["name"] if req else ""), escape(scope["description"] if scope else ""),
         escape(scope["category"] if scope else ""), escape(scope["issuer"] if scope else ""),
@@ -2443,7 +2443,7 @@ def requirement_edit_html(d, req, scope, csrf, preset_ids=None, sport="", preset
 
 
 def integrations_html(d):
-    bits = ['<p class="t3 sm">Plans use these providers. Stripe cannot be turned on and no card is collected.</p><div class=mlist>']
+    bits = ['<p class="ty-muted ty-sm sm">Plans use these providers. Stripe cannot be turned on and no card is collected.</p><div class=mlist>']
     for row in d.execute("SELECT * FROM payment_providers ORDER BY id").fetchall():
         state = "On" if row["active"] else "Off"
         if row["kind"] == "stripe":
@@ -2454,8 +2454,8 @@ def integrations_html(d):
 
 
 def program_eligibility_html(d, member, today):
-    bits = ['<div class=seclabel id=programs>Eligibility by program</div>',
-            '<p class="t3 sm">Clearance is separate from payment. An off program does not apply its requirements.</p>']
+    bits = ['<div class=rg-day id=programs>Eligibility by program</div>',
+            '<p class="ty-muted ty-sm sm">Clearance is separate from payment. An off program does not apply its requirements.</p>']
     for program in programs(d):
         if not program["active"]:
             bits.append("<p><b>%s</b> · Off</p>" % escape(program["name"]))

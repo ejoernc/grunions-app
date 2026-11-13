@@ -478,20 +478,20 @@ PRACTICE_PANEL = """
 <div class="fxcard tone-aqua"><span class=fxk>RIDE CONFIRMED</span><b>{{ rd.mine.dpref or rd.mine.dfirst }} is driving.</b>
 <small>Pickup area · {{ rd.mine.area }}{% if rd.mine.back %} · ride back too{% endif %}</small>
 {% if fx.in_window and rd.mine.pickup_note %}<p class=fxspot>Pickup spot: {{ rd.mine.pickup_note }}</p>{% elif rd.mine.pickup_note %}<p class=fxspot>Pickup spot shows 3 hours before practice.</p>{% endif %}
-<div class=fxrow><a class="btn btn-secondary" href="/chat?c=dm:{{ [me().id, rd.mine.driver_id]|min }}:{{ [me().id, rd.mine.driver_id]|max }}&place=me">Message {{ rd.mine.dpref or rd.mine.dfirst }}</a>
-<form method=post action="/practices/{{ p.id }}/rides">{{ csrf_field() }}<button class="btn quiet" name=action value=cancel>Cancel ride</button></form></div></div>
+<div class=fxrow><a class="rg-btn secondary" href="/chat?c=dm:{{ [me().id, rd.mine.driver_id]|min }}:{{ [me().id, rd.mine.driver_id]|max }}&place=me">Message {{ rd.mine.dpref or rd.mine.dfirst }}</a>
+<form method=post action="/practices/{{ p.id }}/rides">{{ csrf_field() }}<button class="rg-btn ghost" name=action value=cancel>Cancel ride</button></form></div></div>
 {% elif rd.mine %}
 <div class=fxcard><span class=fxk>RIDE REQUESTED</span><b>Asking drivers near {{ rd.mine.area }}.</b>
 <small>{{ rd.drivers }} driver{{ '' if rd.drivers == 1 else 's' }} offering for this practice · we'll notify you when one picks you up</small>
-<form method=post action="/practices/{{ p.id }}/rides">{{ csrf_field() }}<button class="btn quiet" name=action value=cancel>Cancel request</button></form></div>
+<form method=post action="/practices/{{ p.id }}/rides">{{ csrf_field() }}<button class="rg-btn ghost" name=action value=cancel>Cancel request</button></form></div>
 {% elif not rd.offer %}
 {{ rg_callout('Need a ride?', ((rd.drivers ~ ' teammate' ~ ('' if rd.drivers == 1 else 's') ~ ' driving') if rd.drivers else 'Ask teammates who are going'), 'Ask →', '', 'aqua', "document.getElementById('fxAsk').showModal()") }}
 {% endif %}
 {% if rd.offer %}
 <div class=fxcard><span class=fxk>YOU'RE DRIVING · {{ fx.seats_left }} SEAT{{ '' if fx.seats_left == 1 else 'S' }} LEFT</span><b>From {{ rd.offer.area }}.</b>
-{% for r in rd.riders %}<form method=post action="/practices/{{ p.id }}/rides" class=fxrider>{{ csrf_field() }}<input type=hidden name=req_id value="{{ r.id }}"><span class=grow><b>{{ r.preferred_first or r.first }} {{ r.last[:1] }}.</b><small>{{ r.area }}{% if r.back %} · back too{% endif %}</small></span><input name=pickup_note value="{{ r.pickup_note or '' }}" placeholder="Pickup spot (only they see it)" maxlength=120><button class="btn btn-secondary" name=action value=spot>Save</button></form>{% endfor %}
-{% for r in rd.open %}<form method=post action="/practices/{{ p.id }}/rides" class=fxrider>{{ csrf_field() }}<input type=hidden name=req_id value="{{ r.id }}"><span class=grow><b>{{ r.preferred_first or r.first }} {{ r.last[:1] }}.</b><small>Needs a ride · {{ r.area }}{% if r.back %} · back too{% endif %}</small></span>{% if fx.seats_left %}<button class="btn btn-primary" name=action value=pick>Pick up</button>{% endif %}</form>{% endfor %}
-<form method=post action="/practices/{{ p.id }}/rides">{{ csrf_field() }}<button class="btn quiet" name=action value=unoffer>Stop offering</button></form></div>
+{% for r in rd.riders %}<form method=post action="/practices/{{ p.id }}/rides" class=fxrider>{{ csrf_field() }}<input type=hidden name=req_id value="{{ r.id }}"><span class=grow><b>{{ r.preferred_first or r.first }} {{ r.last[:1] }}.</b><small>{{ r.area }}{% if r.back %} · back too{% endif %}</small></span><input name=pickup_note value="{{ r.pickup_note or '' }}" placeholder="Pickup spot (only they see it)" maxlength=120><button class="rg-btn secondary" name=action value=spot>Save</button></form>{% endfor %}
+{% for r in rd.open %}<form method=post action="/practices/{{ p.id }}/rides" class=fxrider>{{ csrf_field() }}<input type=hidden name=req_id value="{{ r.id }}"><span class=grow><b>{{ r.preferred_first or r.first }} {{ r.last[:1] }}.</b><small>Needs a ride · {{ r.area }}{% if r.back %} · back too{% endif %}</small></span>{% if fx.seats_left %}<button class="rg-btn primary" name=action value=pick>Pick up</button>{% endif %}</form>{% endfor %}
+<form method=post action="/practices/{{ p.id }}/rides">{{ csrf_field() }}<button class="rg-btn ghost" name=action value=unoffer>Stop offering</button></form></div>
 {% elif not rd.mine %}
 {{ rg_callout('Driving?', ((rd.open|length ~ ' teammate' ~ ('' if rd.open|length == 1 else 's') ~ ' need a ride') if rd.open else 'Offer seats to teammates who are going'), 'Offer →', '', 'graphite', "document.getElementById('fxOffer').showModal()") }}
 {% endif %}
@@ -499,17 +499,17 @@ PRACTICE_PANEL = """
 <dialog id=fxAsk class=botsheet><form method=post action="/practices/{{ p.id }}/rides" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
 <h2>Ask for a ride.</h2>
 <label class=rg-field><span>PICKUP AREA</span><input name=area required maxlength=60 placeholder="Neighborhood or city, e.g. Belmont Shore" value="{{ fx.last_area }}"></label>
-<p class=t3>Drivers see this area, never your address. You can share an exact spot with your driver after they pick you up.</p>
+<p class='ty-muted ty-sm'>Drivers see this area, never your address. You can share an exact spot with your driver after they pick you up.</p>
 <label class=checkline><input type=checkbox name=back value=1 checked> Ride back too · practice ends {{ fmt_clock(p.end) if p.end else '' }}</label>
-<button class="btn btn-primary full" name=action value=ask>Ask {% if rd.drivers %}{{ rd.drivers }} driver{{ '' if rd.drivers == 1 else 's' }}{% else %}teammates{% endif %}</button>
+<button class="rg-btn primary full" name=action value=ask>Ask {% if rd.drivers %}{{ rd.drivers }} driver{{ '' if rd.drivers == 1 else 's' }}{% else %}teammates{% endif %}</button>
 </form></dialog>
 <dialog id=fxOffer class=botsheet><form method=post action="/practices/{{ p.id }}/rides" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
 <h2>Offer a ride.</h2>
 <label class=rg-field><span>LEAVING FROM (AREA)</span><input name=area required maxlength=60 placeholder="Neighborhood or city" value="{{ fx.last_area }}"></label>
 <label class=rg-field><span>SEATS</span><select name=seats>{% for n in range(1,7) %}<option{% if n == fx.seats_default %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
 <label class=checkline><input type=checkbox name=back value=1 checked> I can drive people back</label>
-<button class="btn btn-primary full" name=action value=offer>Offer seats</button>
-<p class=t3>Riders only see your area. Your exact location is never shared.</p>
+<button class="rg-btn primary full" name=action value=offer>Offer seats</button>
+<p class='ty-muted ty-sm'>Riders only see your area. Your exact location is never shared.</p>
 </form></dialog>
 {% endif %}
 {% if fx.going %}<a class=rg-calink href="/practices/{{ p.id }}/rides">Ride board →</a>{% endif %}
@@ -518,7 +518,6 @@ PRACTICE_PANEL = """
 """
 
 RIDE_BOARD = """<div class="rg-page rg-rides">
-<a class=rg-backlink href="/practices/{{ p.id }}">← Practice · {{ when }}</a>
 <h1 class=ty-display-l>Rides.</h1>
 <div class=rg-metrics>{{ rg_metric('%02d'|format(board.seats_open), 'Seats open', 'lime') }}{{ rg_metric('%02d'|format(board.need), 'Need a ride', 'sun') }}{{ rg_metric('%02d'|format(board.cars), 'Cars', 'carbon') }}</div>
 {% if rd.mine and rd.mine.status == 'matched' %}{{ rg_callout(((rd.mine.dpref or rd.mine.dfirst) ~ ' is driving you'), 'Pickup area · ' ~ rd.mine.area, 'Practice →', '/practices/' ~ p.id, 'aqua') }}
@@ -556,7 +555,6 @@ RIDE_BOARD = """<div class="rg-page rg-rides">
 </div>"""
 
 LEAVE_BY = """<div class="rg-page rg-rides rg-leaveby" data-practice="{{ p.id }}">
-<a class=rg-backlink href="/practices/{{ p.id }}">← Practice · {{ when }}</a>
 <div class="rg-lbhero" id=lbHero><span class=ty-caps>Leave by</span><b class=ty-display-xl id=lbTime>–:––</b>
 <small id=lbSub>Arrive {{ arrive_label }} · {{ buffer }} min deck buffer</small></div>
 <p class=ty-muted id=lbStatus role=status>Finding your location to plan the drive. We keep your last spot (to about 100 m) so we can tell you if leave-by moves. Only you see it; turn it off in <a href=/privacy>Privacy</a>.</p>
@@ -629,7 +627,6 @@ AVAIL_WEEK = """<div class="rg-screen rg-avail">
 </div>"""
 
 AVAIL_FIT = """<div class="rg-page rg-rides rg-avail rg-avail-fit">
-<a class=rg-backlink href=/availability>← My week</a>
 <h1 class=ty-display-l>How your teams fit.</h1>
 <div class=rg-fithero><b class=ty-display-ml>{{ fit.fit }}/{{ fit.total }}</b><span><b>Sessions fit</b><small>this week{% if org %} · {{ org }}{% endif %}</small></span></div>
 {{ rg_week_grid(blocks, "Your windows and this week's sessions") }}
@@ -650,7 +647,6 @@ AVAIL_FIT = """<div class="rg-page rg-rides rg-avail rg-avail-fit">
 </div>"""
 
 AVAIL_AWAY = """<div class="rg-page rg-rides rg-avail">
-<a class=rg-backlink href=/availability>← My week</a>
 <h1 class=ty-display-l>Away dates.</h1>
 <p class=ty-muted>Sessions on these days count as conflicts, and Auto-RSVP skips them.</p>
 {% for a in aways %}<form method=post class=rg-awayrow>{{ csrf_field() }}<input type=hidden name=id value="{{ a.id }}"><span><b>{{ fmt_d(a.start_date) }}{% if a.end_date != a.start_date %} – {{ fmt_d(a.end_date) }}{% endif %}</b>{% if a.note %}<small>{{ a.note }}</small>{% endif %}</span><button class="rg-btn secondary" name=action value=delete>Remove</button></form>
@@ -662,7 +658,6 @@ AVAIL_AWAY = """<div class="rg-page rg-rides rg-avail">
 </div>"""
 
 SHIFTS = """<div class="rg-page rg-rides rg-shifts">
-<a class=rg-backlink href="/lineup/{{ e.id }}">← {{ e.title }}</a>
 <section class="rg-shifthero tone-bubblegum"><div class=rg-fitacts><span class=rg-pillk>Volunteer</span>{% if goal %}<span class=rg-pillk>Counts as service hours</span>{% endif %}</div>
 <b class=ty-heading>{{ e.title }}</b><div class=rg-shiftdate><b class=ty-hero>{{ day }}</b><small>{{ dow }} · {{ mon }}<br>{{ where }}</small></div></section>
 <h2 class=ty-title>Pick a shift</h2>
@@ -684,7 +679,6 @@ SHIFTS = """<div class="rg-page rg-rides rg-shifts">
 </div>"""
 
 SHIFT_DONE = """<div class="rg-page rg-rides rg-shifts">
-<a class=rg-backlink href="/lineup/{{ e.id }}/shifts">← Shifts</a>
 <section class=rg-lbhero><span class=ty-caps>{{ e.title }} · {{ when }}</span><b class="ty-display-80 rg-donetime">{{ s.nums }}<small>{{ s.ampm }}</small></b><small>You're on {{ s.title|lower }}.</small></section>
 <div class=rg-ridebtns><a class="rg-btn secondary" href="/lineup/{{ e.id }}/shifts/{{ s.id }}.ics">Add to calendar</a><button type=button class="rg-btn secondary" data-share="{{ share_url }}" onclick="var u=this.dataset.share;if(navigator.share){navigator.share({title:'{{ e.title|e }}',url:u}).catch(function(){})}else if(navigator.clipboard){navigator.clipboard.writeText(u);this.textContent='Link copied'}">Invite a friend</button></div>
 {% if goal %}<h2 class=ty-title>Your service hours</h2>
@@ -695,7 +689,6 @@ SHIFT_DONE = """<div class="rg-page rg-rides rg-shifts">
 </div>"""
 
 RIDE_SETTINGS = """<div class="rg-page rg-rides">
-<a class=rg-backlink href=/profile>← Profile</a>
 <p class=ty-caps>Me · Rides</p>
 <h1 class=ty-display-l>Ride settings.</h1>
 <form method=post class=fxsheet>{{ csrf_field() }}
@@ -709,16 +702,15 @@ RIDE_SETTINGS = """<div class="rg-page rg-rides">
 </form>
 </div>"""
 
-SIGNUP = """<div class=rg-page>
-<a class=rg-back href="/practices/{{ p.id }}">← Practice</a>
+SIGNUP = """<div class="rg-page rg-task">
 {{ rg_chip("First time with " ~ org, "neutral") }}
 <h1>{% if needs|length > 1 %}Two things, then you're in.{% else %}One thing, then you're in.{% endif %}</h1>
-<p class=t3>{{ when }} · {{ p.location or '' }}</p>
+<p class='ty-muted ty-sm'>{{ when }} · {{ p.location or '' }}</p>
 <form method=post class=fxsheet>{{ csrf_field() }}
 {% set n = namespace(i=0) %}
 {% if 'number' in needs %}{% set n.i = n.i + 1 %}
 <label class=rg-field><span>{{ n.i }} · USA WATER POLO MEMBER #</span><input name=usawp_number inputmode=numeric pattern="[0-9]{4,10}" maxlength=10 placeholder="1002004" autocomplete=off></label>
-<p class=t3>A coach or admin checks it by hand. You can still go while it's pending.</p>
+<p class='ty-muted ty-sm'>A coach or admin checks it by hand. You can still go while it's pending.</p>
 {% endif %}
 {% if 'waiver' in needs %}{% set n.i = n.i + 1 %}
 <div class=fxwaiver>
@@ -729,8 +721,8 @@ SIGNUP = """<div class=rg-page>
 <label class=rg-field><span>TYPE YOUR FULL NAME</span><input name=typed_name required maxlength=120 autocomplete=name placeholder="{{ me().first }} {{ me().last }}"></label>
 </div>
 {% endif %}
-<button class="btn btn-primary full" name=action value=go>I'm going</button>
-{% if 'number' in needs and trial_offer %}<button class="btn quiet full" name=action value=trial formnovalidate>No number yet? Start a free trial instead →</button>{% endif %}
+<button class="rg-btn primary full" name=action value=go>I'm going</button>
+{% if 'number' in needs and trial_offer %}<button class="rg-btn ghost full" name=action value=trial formnovalidate>No number yet? Start a free trial instead →</button>{% endif %}
 </form></div>"""
 
 WAIVER_ADMIN = """{{ admin_page('Club waiver', 'Members accept it once, in the same sheet as their insurance number. Raise the version to make everyone sign again.') }}
@@ -739,23 +731,23 @@ WAIVER_ADMIN = """{{ admin_page('Club waiver', 'Members accept it once, in the s
 <label class=rg-field><span>TITLE</span><input name=title value="{{ w.title or '' }}" maxlength=120></label>
 <label class=rg-field><span>LINK TO THE WAIVER (URL OR PDF)</span><input name=url value="{{ w.url or '' }}" placeholder="https://"></label>
 <label class=rg-field><span>OR PASTE THE TEXT</span><textarea name=body rows=10>{{ w.body or '' }}</textarea></label>
-<p class=t3>Current version {{ w.version }} · {{ signed }} signed this version{% if w.updated_at %} · updated {{ w.updated_at[:10] }}{% if w.updated_by %} by {{ w.updated_by }}{% endif %}{% endif %}</p>
+<p class='ty-muted ty-sm'>Current version {{ w.version }} · {{ signed }} signed this version{% if w.updated_at %} · updated {{ w.updated_at[:10] }}{% if w.updated_by %} by {{ w.updated_by }}{% endif %}{% endif %}</p>
 <label class=checkline><input type=checkbox name=bump value=1> This is a new version. Everyone signs again.</label>
-<button class="btn btn-primary full">Save</button>
+<button class="rg-btn primary full">Save</button>
 </form>"""
 
 WRAP = """<div class=rg-page>
-<a class=rg-back href="/practices/{{ p.id }}">← Practice</a>
+<a class=rg-tbdisc href="/practices/{{ p.id }}" aria-label="Close">{{ rg_icon('close') }}</a>
 <h1>Wrap up.</h1>
-<p class=t3>{{ when }} · {{ p.location or '' }}{% if wr and wr.closed_at %} · closed {{ wr.closed_at[:16].replace('T', ' ') }}{% endif %}</p>
+<p class='ty-muted ty-sm'>{{ when }} · {{ p.location or '' }}{% if wr and wr.closed_at %} · closed {{ wr.closed_at[:16].replace('T', ' ') }}{% endif %}</p>
 <div class=rg-metrics>{{ rg_metric('%02d'|format(c.attended), 'Attended', 'lime') }}{{ rg_metric('%02d'|format(c.no_show), 'No-show') }}{{ rg_metric('%02d'|format(c.walk_in), 'Walk-in') }}</div>
 <form method=post class=fxsheet>{{ csrf_field() }}
 <label class=rg-field><span>NOTE FOR ADMINS (PRIVATE)</span><textarea name=admin_note rows=3 maxlength=2000 placeholder="Lane 3 light out. Ana needs her USAWP renewed.">{{ wr.admin_note if wr else '' }}</textarea></label>
 <label class=rg-field><span>RECAP TO PRACTICE CHAT (OPTIONAL)</span><input name=recap maxlength=280 placeholder="One line for everyone who came"></label>
-<button class="btn btn-secondary full" name=action value=save>Save note</button>
-<button class="btn btn-primary full" name=action value=close>{% if wr and wr.closed_at %}Save and keep closed{% else %}Close practice{% endif %}</button>
+<button class="rg-btn secondary full" name=action value=save>Save note</button>
+<button class="rg-btn primary full" name=action value=close>{% if wr and wr.closed_at %}Save and keep closed{% else %}Close practice{% endif %}</button>
 </form>
-<p class=t3><a href="/admin?date={{ p.date }}">Back to check-in</a></p>
+<p class='ty-muted ty-sm'><a href="/admin?date={{ p.date }}">Back to check-in</a></p>
 </div>"""
 
 WEEK = """<div class=rg-page>
@@ -763,9 +755,9 @@ WEEK = """<div class=rg-page>
 <h1>When can you usually play?</h1>
 <form method=post class=fxsheet>{{ csrf_field() }}
 <div class=fxdays>{% for d in days %}<label><input type=checkbox name=day value="{{ d }}" {% if d in picked %}checked{% endif %}><span>{{ d[:1] }}</span></label>{% endfor %}</div>
-<p class=t3>{{ fit }}</p>
-<button class="btn btn-primary full" name=action value=save>Save my week</button>
-<a class="btn quiet full" href="{{ back }}">Later</a>
+<p class='ty-muted ty-sm'>{{ fit }}</p>
+<button class="rg-btn primary full" name=action value=save>Save my week</button>
+<a class="rg-btn ghost full" href="{{ back }}">Later</a>
 </form></div>"""
 
 SETUP_CARD = """{% if setup and setup.show %}{{ rg_checklist('Finish setup', setup.steps) }}{% endif %}"""

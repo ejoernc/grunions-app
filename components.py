@@ -46,7 +46,8 @@ def _tag(href, klass, inner, extra=""):
 def icon(name, size="md"):
     """Icon / * (02 G). 20×20 stroke glyphs, rendered at sm 16, md 20 or lg 24."""
     import ui
-    return Markup('<span class="rg-ic rg-ic-%s" aria-hidden=true>%s</span>' % (size if size in ("sm", "md", "lg") else "md", ui.nav_icon(name)))
+    svg = ui.nav_icon(name).replace('class="nav3-glyph"', 'class="rg-glyph"')
+    return Markup('<span class="rg-ic rg-ic-%s" aria-hidden=true>%s</span>' % (size if size in ("sm", "md", "lg") else "md", svg))
 
 
 def chip(label, status="neutral"):
@@ -72,7 +73,7 @@ def section(title, action_label="", action_href=""):
 
 def seg(items, current):
     """2.0 / Segmented control. items = [(key, label, href)]; selected is paper."""
-    return Markup('<nav class=rg-seg aria-label=View>%s</nav>' % "".join(
+    return Markup('<nav class=rg-seg data-seg aria-label=View>%s</nav>' % "".join(
         '<a href="%s"%s>%s</a>' % (_e(h), ' class=on aria-current=page' if k == current else "", _e(l)) for k, l, h in items))
 
 
@@ -96,7 +97,7 @@ def map_unavailable(line="We can't show the map right now.", sub="Your week is b
 
 def filters(items, current):
     """Type filters. items = [(key, label, href)]; selected is lime."""
-    return Markup('<nav class=rg-filters aria-label=Filter>%s</nav>' % "".join(
+    return Markup('<nav class=rg-filters data-seg aria-label=Filter>%s</nav>' % "".join(
         '<a href="%s"%s>%s</a>' % (_e(h), ' class=on aria-current=true' if k == current else "", _e(l)) for k, l, h in items))
 
 
@@ -486,12 +487,63 @@ def event_hero(kind, title, line="", tone="lavender", status=""):
         ('<p class=rg-evline>%s</p>' % _e(line)) if line else ""))
 
 
-def plus_button(href, label="Add"):
-    """Header plus (06 Chat list): lime 52px circle, top right of a display title. Chat, Schedule, Lineup."""
-    return Markup('<a class="chatplus rg-plus" href="%s" aria-label="%s" title="%s"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></a>' % (_e(href), _e(label), _e(label)))
+def plus_button(href, label="Add", dialog=""):
+    """Header plus (06 Chat list): lime 52px circle, top right of a display title. Chat, Schedule, Lineup.
+    dialog opens a slide-up instead (href stays as the no-JS fallback)."""
+    extra = (' data-open-dialog="%s"' % _e(dialog)) if dialog else ""
+    return Markup('<a class="chatplus rg-plus" href="%s"%s aria-label="%s" title="%s"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></a>' % (_e(href), extra, _e(label), _e(label)))
+
+
+def top_bar(type="compact", title="", eyebrow="", back_href="", back_label="", action_href="", action_icon="plus",
+            action_label="", avatar_html="", action_html=""):
+    """2.0 / Top bar (02, 353:648). Props mirror Figma: Type (large | compact), Title, Eyebrow, Show back, Show action,
+    Show avatar. Back is always a link to the canonical parent (nav.parent_url), never history.
+    Compact: ‹ disc + the parent's title (the page's own large heading follows in the body).
+    Large: actions row, then eyebrow + 56px title. Only roots show the avatar."""
+    back = ('<a class=rg-tbdisc href="%s" aria-label="Back to %s">%s</a>' % (_e(back_href), _e(back_label or title), icon("chevron_left"))) if back_href else ""
+    act = action_html or (('<a class=rg-tbdisc href="%s" aria-label="%s">%s</a>' % (_e(action_href), _e(action_label or "Add"), icon(action_icon))) if action_href else "")
+    avatar = ('<span class=rg-tbavatar>%s</span>' % avatar_html) if avatar_html else ""
+    if type == "large":
+        head = '<div class=rg-tbhead>%s<h1 class=rg-tbtitle>%s</h1></div>' % (('<p class=rg-tbeyebrow>%s</p>' % _e(eyebrow)) if eyebrow else "", _e(title))
+        return Markup('<header class="rg-topbar large"><div class=rg-tbrow>%s<span class=rg-tbspace></span>%s%s</div>%s</header>' % (back, act, avatar, head))
+    label = '<a class=rg-tbtitle href="%s">%s</a>' % (_e(back_href), _e(title)) if back_href else '<span class=rg-tbtitle>%s</span>' % _e(title)
+    return Markup('<header class="rg-topbar compact"><div class=rg-tbrow>%s%s<span class=rg-tbspace></span>%s%s</div></header>' % (back, label, act, avatar))
+
+
+def sheet_head(title, close_href):
+    """Task header (Figma 60 rule 7): ✕ close (a link to the page the task sits on) + the task title. No back."""
+    return Markup('<header class="rg-topbar compact rg-sheethead"><div class=rg-tbrow><a class=rg-tbdisc href="%s" aria-label="Close">%s</a>'
+                  '<span class=rg-tbtitle>%s</span></div></header>' % (_e(close_href), icon("close"), _e(title)))
+
+
+def button(label, type="primary", href="", name="", value="", icon_name="", disabled=False, submit=True, attrs=""):
+    """2.0 / Button (02, 349:500). Types: primary (lime) | ink | secondary (graphite) | ghost | danger | sun."""
+    ic = icon(icon_name) if icon_name else ""
+    cls = "rg-btn %s" % type
+    if href and not disabled:
+        return Markup('<a class="%s" href="%s"%s>%s<span>%s</span></a>' % (cls, _e(href), (" " + attrs) if attrs else "", ic, _e(label)))
+    nv = (' name="%s" value="%s"' % (_e(name), _e(value))) if name else ""
+    return Markup('<button class="%s" type=%s%s%s%s>%s<span>%s</span></button>' % (
+        cls, "submit" if submit else "button", nv, " disabled" if disabled else "", (" " + attrs) if attrs else "", ic, _e(label)))
+
+
+def settings_row(label, value="", href="", attrs=""):
+    """2.0 / List row · Type=Settings (02, 350:849): carbon pill, bold label, smoke value, chevron."""
+    inner = '<span class=rg-srlabel>%s</span>%s%s' % (_e(label), ('<span class=rg-srvalue>%s</span>' % _e(value)) if value else "",
+                                                     icon("chevron_right", "sm") if href else "")
+    return Markup(_tag(href, "rg-srow", inner, (" " + attrs) if attrs else "") if href else '<div class=rg-srow%s>%s</div>' % ((" " + attrs) if attrs else "", inner))
+
+
+def page_title(title, sub="", actions=""):
+    """The large heading under a compact Top bar (Figma 60: the large heading names the current page)."""
+    t = _e(title)
+    if t and not t.endswith((".", "?", "!")):
+        t = t + "."
+    return Markup('<div class=rg-pagetitle><h1 class=rg-pt>%s</h1>%s%s</div>' % (
+        t, ('<p class=rg-ptsub>%s</p>' % _e(sub)) if sub else "", ('<div class=rg-ptacts>%s</div>' % actions) if actions else ""))
 
 
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, event_tone=event_tone)

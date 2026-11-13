@@ -223,7 +223,7 @@ ok("USAWP #1234567" in h and "expires 2027-08-31" in xp and "1234567" in h and "
 ok("Checked in (1)" in eli.get("/admin?date=2026-10-27").get_data(as_text=True) and "Checked in 1 / Going" not in eli.get("/admin?date=2026-10-27").get_data(as_text=True), "check-in count per practice")
 ok(eli.get("/qr.svg").data.startswith(b"<?xml"), "QR svg")
 qr_page = eli.get("/qr").get_data(as_text=True)
-ok("<h1>Join QR</h1>" in qr_page and "Anyone who scans this joins the team." in qr_page and "src=/qr.svg" in qr_page and ">Copy link</button>" in qr_page and ">Share</button>" in qr_page and ">Print</button>" in qr_page, "QR page has the code, share, and copy link")
+ok("<h1 class=rg-pt>Join QR.</h1>" in qr_page and "Anyone who scans this joins the team." in qr_page and "src=/qr.svg" in qr_page and ">Copy link</button>" in qr_page and ">Share</button>" in qr_page and ">Print</button>" in qr_page, "QR page has the code, share, and copy link")
 # manual verify
 t = eli.get("/admin?date=2026-10-27").get_data(as_text=True)
 ok("Open Sport:80" in eli.get("/admin/member/3").get_data(as_text=True) and "usawp.sport80.com" in eli.get("/admin/member/3").get_data(as_text=True) and "does not contact Sport:80" not in eli.get("/admin/member/3").get_data(as_text=True), "Sport:80 stays a fallback link for someone who is not verified")
@@ -264,7 +264,7 @@ ok(len(j["expired"]) >= 1 and any(r["first"]=="Ana" for r in j["within_7"]), "ex
 ok(jane.get("/api/expiring").status_code == 403, "report endpoint admin-only")
 eli.post("/expiring", data=dict(csrf=tok_e, member_id=4))
 exp_page = eli.get("/expiring", follow_redirects=True).get_data(as_text=True)
-ok(eli.get("/expiring").status_code == 200 and "<h1>Expiring</h1>" in exp_page and "Window (days)" in exp_page, "compliance page lists dated items")
+ok(eli.get("/expiring").status_code == 200 and "<h1 class=rg-pt>Expiring.</h1>" in exp_page and "Window (days)" in exp_page, "compliance page lists dated items")
 ana = A.app.test_client(); rr = ana.post("/login", data=dict(csrf=csrf(ana,"/login"), email="ana@example.com"), follow_redirects=True).get_data(as_text=True)
 h = ana.get(re.search(r'href="http://localhost(/auth/[^"]+)"', rr).group(1), follow_redirects=True).get_data(as_text=True)
 ok("expires in <b>5 days" in ana.get("/profile").get_data(as_text=True) and "notice" in h, "member home expiry warning + in-app reminder")

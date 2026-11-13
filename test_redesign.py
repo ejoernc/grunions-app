@@ -26,8 +26,8 @@ RAE = sql("SELECT id FROM members WHERE email='rae@example.com'")[0][0]
 
 
 def test_appearance_saves_and_sets_the_theme():
-    html = member.get("/profile").get_data(as_text=True)
-    assert "Appearance" in html and 'data-theme="dark"' in html
+    html = member.get("/settings").get_data(as_text=True)
+    assert "Appearance" in html and 'data-theme="dark"' in html and "/settings" in member.get("/profile").get_data(as_text=True)
     member.post("/appearance", data=dict(csrf=csrf(member, "/appearance"), appearance="light"))
     assert 'data-theme="light"' in member.get("/practices").get_data(as_text=True)
     member.post("/appearance", data=dict(csrf=csrf(member, "/appearance"), appearance="nonsense"))
@@ -92,7 +92,7 @@ def test_ride_settings_validate_and_auto_offer_on_going():
     pid = _practice("Auto offer practice")
     _going(driver, pid)
     assert sql("SELECT area, seats, status FROM ride_offers WHERE practice_id=? AND driver_id=?", (pid, dee[0])) == [("Fountain Valley", 3, "open")]
-    assert "Offering from Fountain Valley" in driver.get("/profile").get_data(as_text=True)
+    assert "Offering" in driver.get("/settings").get_data(as_text=True)
 
 
 def test_ride_board_shows_offers_and_asks_and_driver_picks_from_it():

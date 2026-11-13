@@ -209,11 +209,12 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
         os.environ.pop("IS_PULL_REQUEST", None)
         clear_preview_rows()
     assert "Personal messages" in html and "everyone" in html and "No practice chat right now" in html and "Requests" in html and "Ask the club" in html
-    assert 'class=chatplus' in html and 'data-scope="team"' in html and "<h1>Team</h1>" not in html
+    # Nov 13: the + on Chat is for coaches and admins only; members get + only on Lineup.
+    assert 'class=chatplus' not in html and 'class=chatplus' in coach and 'data-scope="team"' in coach and "<h1>Team</h1>" not in html
     assert "New chat" in html and "Message someone" in html and "New group" in html and "Ask the club" in html
     roster = html.split("id=pickList", 1)[1].split("id=pickEmpty", 1)[0]
     assert "Adele Voss" in roster and "Player · Water polo" in roster and "Mira Solano" in roster and "Coach · Water polo" in roster
-    assert "Grunions Aquatics ·" in html and 'id=pickEmpty class=t3 hidden' in html and "No one on your teams by that name" in html
+    assert "Grunions Aquatics ·" in html and 'id=pickEmpty class="ty-muted ty-sm" hidden' in html and "No one on your teams by that name" in html
     assert "Search your teams" in html and "<textarea id=pickData" in html and 'id=pickData>' not in html.split("<textarea id=pickData", 1)[0]
     assert "M14.25 9C14.25 11.8995" in html and ".pickbox{box-sizing:border-box;width:24px;height:24px;border:1.5px solid var(--r2-smoke);border-radius:999px" in html and "border-radius:6px" not in html.split(".pickbox{", 1)[1].split("}", 1)[0]
     assert "pickEmpty').hidden=!q||!!list.length" in html
@@ -531,9 +532,9 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
     sports = admin.get("/manage/club/programs").get_data(as_text=True)
     assert "Water Polo" in sports and "<b>Swimming</b>" in sports and "Open Water Swimming" in sports and "Pool Swimming" not in sports
     assert "Inactive" in sports and "USA Water Polo" in sports and "Add sport" in sports
-    assert "href=/manage/area/club" in sports
+    assert 'href="/manage/area/club"' in sports
     detail = admin.get("/manage/club/programs/pool-swimming").get_data(as_text=True)
-    assert "Compliance requirements" in detail and "Regular schedule" not in detail and "href=/manage/club/programs" in detail
+    assert "Compliance requirements" in detail and "Regular schedule" not in detail and 'href="/manage/club/programs"' in detail
     assert "Active" in detail and "does not add sessions" not in detail
     assert "Needs a sport" not in sports
     polo = admin.get("/manage/club/programs/water-polo").get_data(as_text=True)
@@ -628,7 +629,7 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
         plan = d.execute("SELECT id FROM payment_plans WHERE kind='monthly'").fetchone()["id"]
         before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
     page = admin.get("/manage/area/people").get_data(as_text=True)
-    assert "<h1>People</h1>" in page and "<b>Participants</b>" in page and "<b>Members</b>" in page and "<b>Compliance</b>" in page and "<b>Membership</b>" not in page
+    assert "<h1 class=rg-pt>People.</h1>" in page and "<b>Participants</b>" in page and "<b>Members</b>" in page and "<b>Compliance</b>" in page and "<b>Membership</b>" not in page
     roster = admin.get("/members").get_data(as_text=True)
     assert "Unpaid" in roster and ">Paying</a>" not in roster and ">Not paying</a>" not in roster and 'data-seg' in roster
     passes = admin.get("/manage/club/plans").get_data(as_text=True)
@@ -691,8 +692,8 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
     paying = admin.get("/members?view=membership").get_data(as_text=True)
     participants = admin.get("/members").get_data(as_text=True)
     paying_list = re.sub(r'<nav class="nav3.*?</nav>|<dialog id="crestMenu".*?</dialog>', "", paying, flags=re.S)
-    assert "<h1>Members</h1>" in paying and "Bea" in paying and "Nia" not in paying_list and ">Paying</a>" not in paying
-    assert "<h1>Participants</h1>" in participants and "Bea" in participants and "Nia" in participants and ">Paying</a>" not in participants
+    assert "<h1 class=rg-pt>Members.</h1>" in paying and "Bea" in paying and "Nia" not in paying_list and ">Paying</a>" not in paying
+    assert "<h1 class=rg-pt>Participants.</h1>" in participants and "Bea" in participants and "Nia" in participants and ">Paying</a>" not in participants
     old = admin.get("/members?pay=paying")
     assert old.status_code == 200 and "Bea" in old.get_data(as_text=True) and "Nia" in old.get_data(as_text=True)
 
@@ -780,7 +781,7 @@ def test_practice_reminders_stay_off_and_use_the_branded_mail():
     page = admin.get("/manage/club/reminders").get_data(as_text=True)
     assert "Send practice reminders" in page and "Hours before" in page and "checked" not in page.split("Send practice reminders")[0][-80:]
     settings = admin.get("/notifications").get_data(as_text=True)
-    assert "Practice reminders" in settings and 'value=both' in settings and "checked" in settings
+    assert "Practice reminders" in settings and 'value="both"' in settings and "checked" in settings
     sent = []
     real_send, real_ready = A.send_email, A.smtp_ready
     A.send_email = lambda to, subj, text, html=None: sent.append((to, subj, text, html))
