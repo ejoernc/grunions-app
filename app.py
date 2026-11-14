@@ -6768,6 +6768,7 @@ def combined_view(entry):
             show_drive = True
             home_coffee = True
             ride_label = "Ride to coffee?"
+            show_rides = True
             leave = (social_at or now) - dt.timedelta(minutes=16)
             drive_chip = "Leave by %s" % fmt_t(leave.strftime("%H:%M"))
             drive_num = "16"

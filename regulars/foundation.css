@@ -1645,3 +1645,4 @@ header.homehead .headmain .rg-plus,.chathead .rg-plus{align-self:flex-start;marg
 .rg-empty p{font:500 15px/1.45 var(--font-sans)}
 .rg-empty .rg-big{font:700 160px/.8 var(--font-display);letter-spacing:-12.8px;color:var(--fixed-paper)}
 .rg-empty .btn.btn-primary{display:inline-flex;align-items:center;justify-content:center;height:56px;padding:0 24px;border-radius:999px;background:var(--lime);color:var(--fixed-ink);font:700 16px/normal var(--font-sans);text-decoration:none;border:0}
+.weekhi .weekplus,.weekhi .weekplus .rg-plus{opacity:1;pointer-events:auto}

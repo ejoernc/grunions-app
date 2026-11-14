@@ -86,6 +86,7 @@ with A.app.app_context():
     cy = db.execute("SELECT * FROM members WHERE email='cy@example.com'").fetchone()
     if "number" in flows2.gate_needs(db, cy, "2030-01-01", False, swim):
         problems.append("a swim practice asked for a USAWP number")
+    db.rollback(); db.close()
 print(json.dumps(problems))
 '''
 
