@@ -559,7 +559,7 @@
 .rg-faces+span{padding-left:8px}
 .rg-soacts{display:flex;gap:8px}.rg-soacts .rg-joined,.rg-soacts .rg-outline{flex:1 1 0}
 .rg-joined{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:44px;border:0;border-radius:999px;background:var(--fixed-ink);color:var(--fixed-paper);font:700 14px/1 var(--font-sans);cursor:pointer}
-.rg-cancelled{min-height:200px;align-content:start}
+.rg-cancelled{min-height:0;align-content:start}
 .rg-cancelled .rg-ectitle{text-decoration:line-through;color:var(--smoke)}
 .rg-reason{font:600 13px/1.4 var(--font-sans);color:var(--paper)}
 .rg-pactions{display:flex;gap:3px}
