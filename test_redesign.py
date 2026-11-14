@@ -369,7 +369,7 @@ def test_members_get_chat_plus_with_ask_coaches_and_board_and_export_has_legal_g
     import csv, io
     rows = list(csv.reader(io.StringIO(boss.get("/members.csv").get_data(as_text=True).lstrip("﻿"))))
     i = rows[0].index("Sex on sport membership")
-    assert [r[i] for r in rows if r[3] == "rae@example.com"] == ["Female"]
+    assert [r[i] for r in rows if r[3] == "rae@example.com"] == ["Woman"]
 
 
 def test_website_settings_save_themselves_and_embed_sheet_has_platform_steps():
@@ -434,7 +434,7 @@ def test_join_asks_gender_and_usawp_entry_asks_membership_sex():
     c.post("/join", data=dict(birth_date="1991-05-06", csrf=csrf(c, "/join"), first="Gia", last="Join", email="gia.join@example.com", phone="1", gender_identity="nonbinary"))
     assert sql("SELECT gender_identity FROM members WHERE email='gia.join@example.com'")[0][0] == "nonbinary"
     home = c.get("/home").get_data(as_text=True)
-    assert "SEX ON YOUR USA WATER POLO MEMBERSHIP" in home
+    assert "registered as the following with USAWP" in home and "Woman" in home
     c.post("/home", data=dict(csrf=csrf(c, "/home"), usawp_number="123456", membership_sex="female"))
     assert sql("SELECT legal_gender FROM members WHERE email='gia.join@example.com'")[0][0] == "female"
     assert ">Prefer not to say<" in home and ">Intersex<" not in home
@@ -459,7 +459,7 @@ def test_practice_page_sheets_edit_when_coaches_notes_and_link_check_in():
     pid = _practice("Sheet Practice", 3)
     sql("INSERT OR IGNORE INTO coaching_list(member_id) VALUES(?)", (RAE,))
     page = boss.get("/practices/%d" % pid).get_data(as_text=True)
-    for bit in ("WHEN &amp; WHERE", "id=pqWhen", "id=pqCoaches", "NOTES", "Check-in", "NOT ADDED YET", "/admin?date="):
+    for bit in ("Start check-in", "id=pqMore", "id=pqCoaches", "Notes", "Check-in", "Practice plan", "Details", "/admin?date="):
         assert bit in page, bit
     tok = csrf(boss, "/practices/%d" % pid)
     day = (A.today_pt() + dt.timedelta(days=4)).isoformat()
@@ -472,13 +472,13 @@ def test_practice_page_sheets_edit_when_coaches_notes_and_link_check_in():
     page = boss.get("/practices/%d" % pid).get_data(as_text=True)
     assert "Head coach" in page and "Bring caps" in page
     mpage = member.get("/practices/%d" % pid).get_data(as_text=True)
-    assert "pqWhen" not in mpage and "NOT ADDED YET" not in mpage and "Bring caps" in mpage
+    assert "id=pqMore" not in mpage and "Start check-in" not in mpage and "Practice plan" not in mpage and "Bring caps" in mpage
 
 
 def test_practice_page_level_and_division_sheets_save():
     pid = _practice("Level Practice", 3)
     page = boss.get("/practices/%d" % pid).get_data(as_text=True)
-    assert "id=pqLevels" in page and "id=pqDivs" in page and "+ Skill level" in page
+    assert "id=pqLevels" in page and "id=pqDivs" in page and "Skill level" in page
     tok = csrf(boss, "/practices/%d" % pid)
     lv = re.search(r'name="?level"? value="?([\w-]+)', page).group(1)
     boss.post("/practices/%d" % pid, data=dict(csrf=tok, pid=pid, back="page", action="levels", level=[lv]))
@@ -486,7 +486,7 @@ def test_practice_page_level_and_division_sheets_save():
     row = sql("SELECT skill_levels, divisions, division_custom FROM practices WHERE id=?", (pid,))[0]
     assert lv in row[0] and row[1] == "custom" and row[2] == "18U girls"
     page = boss.get("/practices/%d" % pid).get_data(as_text=True)
-    assert "SKILL LEVEL" in page and "18U girls" in page and "+ Division" not in page
+    assert "18U girls" in page
 
 
 def test_leaders_board_roles_assign_replace_and_requests_switch():
@@ -616,3 +616,20 @@ def test_interest_check_ask_answer_results_and_official():
     boss.post("/lineup/%d/interest" % eid, data=dict(csrf=tok, action="official", option="Jun 2027"))
     assert sql("SELECT team_intent FROM lineup_events WHERE id=?", (eid,))[0][0] == "official"
     assert sql("SELECT status FROM interest_checks WHERE event_id=?", (eid,))[0][0] == "decided"
+
+
+
+def test_practice_page_coach_can_set_coaches_for_series_and_ask_admin():
+    pid = _practice("Coach Practice", 5)
+    sql("UPDATE members SET role='coach' WHERE id=?", (RAE,))
+    sql("INSERT OR IGNORE INTO coaching_list(member_id) VALUES(?)", (RAE,))
+    page = member.get("/practices/%d" % pid).get_data(as_text=True)
+    assert "id=pqMore" in page and "Ask an admin to change it" in page and "All details" not in page
+    tok = csrf(member, "/practices/%d" % pid)
+    member.post("/practices/%d" % pid, data=dict(csrf=tok, pid=pid, back="page", action="coaches", coach=str(RAE), lead=str(RAE)))
+    assert sql("SELECT member_id, is_lead FROM practice_coaches WHERE practice_id=?", (pid,)) == [(RAE, 1)]
+    n = sql("SELECT COUNT(*) FROM club_requests")[0][0]
+    member.post("/practices/%d" % pid, data=dict(csrf=tok, pid=pid, back="page", action="ask_admin", message="Move it to 7:30"))
+    row = sql("SELECT audience, practice_id FROM club_requests ORDER BY id DESC LIMIT 1")[0]
+    assert sql("SELECT COUNT(*) FROM club_requests")[0][0] == n + 1 and row == ("board", pid)
+    sql("UPDATE members SET role='athlete' WHERE id=?", (RAE,))

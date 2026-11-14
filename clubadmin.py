@@ -1233,7 +1233,9 @@ BUILTIN_BODIES = (("usawp", "USA Water Polo", "Membership + insurance"),
 SPECIAL_BODIES = (("self", "Self-insured", "Club covers insurance"), ("none", "None", "Club requirements only"))
 
 
-DEFAULT_SEXES = ("Male", "Female", "Prefer not to say")
+DEFAULT_SEXES = ("Man", "Woman", "Prefer not to say")
+_SEX_WORDS = {"male": "Man", "female": "Woman"}  # Nov 13: say Man / Woman; stored values stay male / female
+_SEX_SLUGS = {"man": "male", "woman": "female"}
 
 
 def sex_slug(label):
@@ -1244,7 +1246,11 @@ def sex_options(program):
     """The sexes a sport's governing body records on a membership, as [(slug, label)]. Set per sport."""
     raw = (program["sex_options"] if program is not None and "sex_options" in program.keys() else "") or ""
     labels = [x.strip() for x in raw.split("\n") if x.strip()] or list(DEFAULT_SEXES)
-    return [(sex_slug(x), x) for x in labels]
+    out = []
+    for x in labels:
+        slug = _SEX_SLUGS.get(sex_slug(x), sex_slug(x))
+        out.append((slug, _SEX_WORDS.get(slug, x)))
+    return out
 
 
 def membership_program(d):

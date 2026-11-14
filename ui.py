@@ -2320,7 +2320,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {% if not cl.ok %}{% if not vr_pending %}{% for line in ex.lines %}<p class="sm" style="margin:8px 0 0">{{line}}</p>{% endfor %}{% elif ex.safesport %}<p class="sm" style="margin:8px 0 0">SafeSport expired {{ex.safesport}}</p>{% endif %}
 {% if ex.rest %}<p class="ty-body sm" style="margin:8px 0 0">Needs: {{ex.rest|join(', ')}}</p>{% endif %}{% endif %}
 {% if m.usawp_status=='verified' and dl is not none and dl <= EXPIRING_DAYS %}<p class="sm" style="margin:8px 0 0"><span class="st st-warn"></span> Your membership expires in <b>{{dl}} days</b> ({{m.usawp_valid_until}}). <a href=https://usawp.sport80.com>Renew</a></p>{% endif %}
-{% if m.usawp_status != 'verified' %}<p class="ty-body sm" style="margin:8px 0 0">Register or renew at <a href=https://usawp.sport80.com>usawp.sport80.com</a> with {{m.email}} and choose Grunions as your club.</p>{% endif %}
+{% if m.usawp_status != 'verified' %}<p class="ty-body sm" style="margin:8px 0 0">Register or renew at <a href=https://usawp.sport80.com>usawp.sport80.com</a> and choose Grunions as your club.</p>{% endif %}
 {% if ex.membership and not vr_pending %}
 <button type=button class="rg-btn primary full" id=reverifyOpen style="margin-top:14px">Reverify membership</button>
 <form id=reverifyForm hidden method=post action=/home style="margin-top:14px">{{csrf_field()}}
@@ -2502,11 +2502,12 @@ dialog.memberedit .help a{color:var(--t1)}
 {% else %}<p class="ty-muted ty-sm sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
 <div class=row><button class="rg-btn primary" name=action value=assign>Save</button><button type=button class="rg-btn secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% if not practice_ended(p) %}
-<dialog class="botsheet modal" id=cancel{{ p.id }}><div class=sheet><div class=grab aria-hidden=true></div><h2>Cancel practice.</h2>
-<p class="ty-body sm">Members get an email and a push that include this reason.</p>
-<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value="{{ back }}">
-<label>Reason<textarea class=planfield name=reason rows=4 required></textarea></label>
-<button class="rg-btn danger full" name=action value=cancel>Confirm</button></form></div></dialog>
+<dialog class="botsheet modal" id=cancel{{ p.id }}><div class=sheet><div class=grab aria-hidden=true></div><h2>Cancel {{ weekday_name(p.date) }}'s practice?</h2>
+<p class=ty-muted>{{ x.going|length }} {{ 'person' if x.going|length == 1 else 'people' }} going get a push and an email.{% if social_cards %} The social is cancelled too.{% endif %}</p>
+<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+{% if p.series_id %}{{ rg_choice('series_scope', 'once', 'Just this one', '', true) }}{{ rg_choice('series_scope', 'following', 'This and the ones after', '') }}{{ rg_choice('series_scope', 'all', 'Every practice in the series', '') }}{% endif %}
+<label class=rg-field><span>REASON (OPTIONAL)</span><textarea name=reason rows=3 maxlength=300 placeholder="e.g. Pool closed for maintenance"></textarea></label>
+<div class=rg-btnrow><button type=button class="rg-btn ghost" onclick="var d=this.closest('dialog'); if(window.grunionsCloseSheet) grunionsCloseSheet(d); else d.close()">Keep it</button><button class="rg-btn danger" name=action value=cancel>Cancel practice</button></div></form></div></dialog>
 <dialog class="botsheet modal" id=delete{{ p.id }}><div class=sheet><div class=grab aria-hidden=true></div><h2>Delete this practice?</h2>
 <p class="ty-body sm">{% if practice_is_month(p) %}{{ practice_when(p) }} at {{ p.location }}.{% else %}{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.{% endif %}</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
@@ -2566,10 +2567,10 @@ dialog.memberedit .help a{color:var(--t1)}
 </a>{% endif %}
 {% endmacro %}
 {% macro app_header(fade, entry, plus_href, plus_label='Add') %}<header class="homehead apphead{% if fade %} homefade{% endif %}"{% if entry %} data-entry="{{ entry }}"{% endif %}><div class=headmain>{{ caller() }}{% if plus_href %}{{ rg_plus(plus_href, plus_label) }}{% endif %}</div></header>{% endmacro %}
-{% set _tbact %}{% if tab == 'practice' and (me().is_admin or is_staff()) %}<a class=rg-tbdisc href="/practices/{{ x.p.id }}?edit=1" aria-label="Edit practice">{{ rg_icon('edit') }}</a>{% elif tab == 'lineup_event' and e and e.can_edit %}<a class=rg-tbdisc href="/lineup/{{ e.id }}/edit" aria-label="Edit event">{{ rg_icon('edit') }}</a>{% elif tab == 'person' %}<button type=button class="rg-tbdisc morebtn" id=profileMore aria-label="Profile menu">{{ rg_icon('more') }}</button>{% elif tab == 'member' and me().is_admin %}<button type=button class="rg-tbdisc viewonly" id=profileEdit aria-label="Edit member">{{ rg_icon('edit') }}</button><button type=submit class="rg-btn primary editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}{% endset %}{% if nav_kind == 'sheet' and me() and tab in ('flow', 'settings_sheet') %}{{ rg_sheet_head(nav_title, nav_back_href) }}{% elif nav_topbar and me() and not (editing or plan_editing) %}{{ rg_top_bar('compact', nav_back_title, back_href=nav_back_href, back_label=nav_back_title, action_html=_tbact) }}{% elif tab == 'profile' and me() %}<header class=profilebar>
+{% set _tbact %}{% if tab == 'practice' and (me().is_admin or is_staff()) %}<button type=button class=rg-tbdisc data-open-dialog=pqMore aria-label="Practice menu">{{ rg_icon('more') }}</button>{% elif tab == 'lineup_event' and e and e.can_edit %}<a class=rg-tbdisc href="/lineup/{{ e.id }}/edit" aria-label="Edit event">{{ rg_icon('edit') }}</a>{% elif tab == 'person' %}<button type=button class="rg-tbdisc morebtn" id=profileMore aria-label="Profile menu">{{ rg_icon('more') }}</button>{% elif tab == 'member' and me().is_admin %}<button type=button class="rg-tbdisc viewonly" id=profileEdit aria-label="Edit member">{{ rg_icon('edit') }}</button><button type=submit class="rg-btn primary editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}{% endset %}{% if nav_kind == 'sheet' and me() and tab in ('flow', 'settings_sheet') %}{{ rg_sheet_head(nav_title, nav_back_href) }}{% elif nav_topbar and me() and not (editing or plan_editing) %}{{ rg_top_bar('compact', '' if (tab == 'person' and not nav_back_href) else nav_back_title, back_href=nav_back_href, back_label=nav_back_title, action_html=_tbact) }}{% elif tab == 'profile' and me() %}<header class=profilebar>
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
-<h1>Profile</h1>
-<div class=right><button type=button class="profileact viewonly morebtn" id=profileMore aria-label="Profile menu">•••</button><button type=button id=profileEdit hidden>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=profileForm>Save</button></div>
+<h1 class=editonly>Profile</h1>
+<div class=right><button type=button class="rg-tbdisc viewonly morebtn" id=profileMore aria-label="Profile menu">{{ rg_icon('more') }}</button><button type=button id=profileEdit hidden>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=profileForm>Save</button></div>
 </header>{% elif me() and tab == 'person' %}<header class=profilebar>
 <div class=left><a class=profileback href="/chat?view=list" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div>
 <h1>Profile</h1>
@@ -2582,7 +2583,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class=profileact href="/practices/{{ x.p.id }}{% if from_admin %}?from=admin{% endif %}">Cancel</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{% if editing or plan_editing %}Edit practice{% else %}Practice{% endif %}</h1><div class=right>{% if editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=edit>Save</button>{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() and tab == 'chat' %}{% elif me() %}{% call app_header(tab == 'home' or tab == 'practices', ('schedule' if tab == 'practices' else 'home') if (tab == 'home' or tab == 'practices') else '', (('/events/new?lane=lineup' if tab == 'lineup' else '/events/new') if can_host_practice() and (tab == 'lineup' or (tab == 'practices' and not sched_home)) else ('/lineup/new' if tab == 'lineup' else '')), 'Create' if can_host_practice() else 'Suggest an event') %}{% if tab == 'practices' %}{% if sched_list %}<div class=displayhead><h1>Schedule</h1></div>{% else %}<div class=displayhead><h1>Schedule</h1></div>{% endif %}{% elif tab == 'home' %}<div class=displayhead><div class=displayeye>{{ hi_membership() }}</div><h1>Hi, {{ display_first(me()) }}</h1></div>{% elif tab == 'discover' %}<h1>Discover.</h1>{% elif tab == 'calendar' %}<div class=displayhead><p class=displayeye>{{ display_first(me()) }} {{ me().last }}</p><h1>Calendar</h1></div>{% elif tab == 'manage' %}<div class=displayhead><h1>Manage</h1></div>{% elif tab == 'admin' %}{% elif tab == 'lineup' %}<div class=displayhead><h1>Lineup</h1></div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% elif tab in ('appearance', 'rides', 'availability', 'flow') %}{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}{% endcall %}{% else %}<header><a class=brand href=/ aria-label=Regulars><img src="/static/icons/icon-192.png?v=119" alt=""></a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class="rg-tbdisc" href="/practices/{{ x.p.id }}" aria-label="Close">{{ rg_icon('close') }}</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{% if editing or plan_editing %}Edit practice{% else %}Practice{% endif %}</h1><div class=right>{% if editing %}{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() and tab == 'chat' %}{% elif me() %}{% call app_header(tab == 'home' or tab == 'practices', ('schedule' if tab == 'practices' else 'home') if (tab == 'home' or tab == 'practices') else '', (('/events/new?lane=lineup' if tab == 'lineup' else '/events/new') if can_host_practice() and (tab == 'lineup' or (tab == 'practices' and not sched_home)) else ('/lineup/new' if tab == 'lineup' else '')), 'Create' if can_host_practice() else 'Suggest an event') %}{% if tab == 'practices' %}{% if sched_list %}<div class=displayhead><h1>Schedule</h1></div>{% else %}<div class=displayhead><h1>Schedule</h1></div>{% endif %}{% elif tab == 'home' %}<div class=displayhead><div class=displayeye>{{ hi_membership() }}</div><h1>Hi, {{ display_first(me()) }}</h1></div>{% elif tab == 'discover' %}<h1>Discover.</h1>{% elif tab == 'calendar' %}<div class=displayhead><p class=displayeye>{{ display_first(me()) }} {{ me().last }}</p><h1>Calendar</h1></div>{% elif tab == 'manage' %}<div class=displayhead><h1>Manage</h1></div>{% elif tab == 'admin' %}{% elif tab == 'lineup' %}<div class=displayhead><h1>Lineup</h1></div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% elif tab in ('appearance', 'rides', 'availability', 'flow') %}{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}{% endcall %}{% else %}<header><a class=brand href=/ aria-label=Regulars><img src="/static/icons/icon-192.png?v=119" alt=""></a></header>{% endif %}<main>
 {% if me() and can_host_practice() %}<dialog id=createSheet class="botsheet profmenu modal" data-sheet-name=create><div class=sheet><div class=grab aria-hidden=true></div>
 <h2 class=newtitle>Create.</h2><p class=ty-muted>What are you planning?</p>
 {{ rg_label('Team schedule') }}
@@ -7434,7 +7435,7 @@ T["practices"] = """<p class="ty-body sm" style="margin-top:0">Tue · Marina HS 
 """ + _PRACTICE_JS
 
 T["practice"] = """{% set p = x.p %}
-{{ event_hero('practiceMap', pins if not p.image else [], ('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', p.location or 'Practice', social_route_points(p)) }}
+{% if not editing %}{{ event_hero('practiceMap', pins if not p.image else [], ('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', p.location or 'Practice', social_route_points(p)) }}{% endif %}
 {% if not editing %}<div class=profilehero>
 <div class="profilename{% if p.cancelled %} cancelled{% endif %}">{{ practice_title(p) }}</div>
 {% if practice_sports_line(p) %}<p class="ty-muted ty-sm sm sportline">{{ practice_sports_line(p) }}</p>{% endif %}
@@ -7455,26 +7456,11 @@ T["practice"] = """{% set p = x.p %}
 </div>{% endif %}
 {% if p.skill_levels %}<details class=card><summary>Skill levels</summary><div class=body>{% for row in level_catalog(p.sport, p.skill_levels) %}{% if row[0] in p.skill_levels.split(',') %}<p><b>{{ row[1] }}</b> {{ row[2] }}</p>{% endif %}{% endfor %}</div></details>{% endif %}
 {% if editing %}
-<div class=p5>
-<div class="p5hero{% if p.cancelled %} off{% endif %}">
-<div class=p5over>{{ (p.sport or 'Water Polo')|upper }} · {{ weekday_name(p.date)[:3]|upper }} · {{ month_abbr(p.date)|upper }} {{ day_num(p.date) }}</div>
-<span class="p5chip{% if p.cancelled %} bad{% endif %}">{% if p.cancelled %}Cancelled{% else %}Scheduled{% endif %}</span>
-<h2>{% if p.activity_type == 'game' %}Game{% elif p.activity_type == 'scrimmage' %}Scrimmage{% else %}Practice{% endif %}</h2>
-{% set clk = fmt_clock(p.start).split(' ') %}
-<div class=p5time><b>{{ clk[0] }}</b><span><i>{{ clk[1] if clk|length > 1 else '' }}</i><i>TO {{ fmt_clock(p.end) }}</i></span></div>
-{% if p.location %}<div class=p5venue>{{ p.location }}</div>{% endif %}
-</div>
-<div class=p5metrics>
-{{ r2_metric('%02d'|format(x.going|length), 'GOING', 'lime') }}
-{{ r2_metric('%02d'|format(x.coaches|length), 'COACHES') }}
-{{ r2_metric('%02d'|format(x.checked|length), 'CHECKED IN') }}
-</div>
-</div>
 <form id=practiceForm method=post action="/practices/{{ p.id }}" class="card editorform" style="margin-top:16px" data-editorform enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
-<div class=formsec><h2>Practice details</h2>
+<div class=formsec><h2>What</h2>
 {{ sports_editor(p) }}
 </div>
-<div class=formsec><h2>Schedule &amp; location</h2>
+<div class=formsec><h2>When &amp; where</h2>
 <label>Date<input type=date name=date value="{{ p.date }}" required></label>
 {% if p.series_id %}<div class=checks role=radiogroup aria-label="Apply changes to"><div class="ty-muted ty-sm xs">Recurrence</div>
 <label><input type=radio name=series_scope value=once checked> This event</label>
@@ -7534,62 +7520,83 @@ T["practice"] = """{% set p = x.p %}
 </div>
 </div>
 <input type=hidden name=plan_fields value=1>
+<button class="rg-btn primary rg-wide" name=action value=edit>Save changes</button>
+<p class=rg-note>Duplicate, copy link, check-in, cancel and delete are in the practice's ⋯ menu.</p>
 </form>
-{% if me().is_admin %}<div class=rg-day>Manage</div><div class=list>
-<button type=button class="li rowbtn" data-open="assign{{ p.id }}">Assign coaches</button>
-<a class="li rowbtn" href="/admin?date={{ p.date }}">Check in</a>
-{% if p.cancelled %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="li rowbtn" name=action value=restore>Undo cancel</button></form>
-{% endif %}
-<a class="li rowbtn" href="/events/new?lane=schedule&amp;copy={{ p.id }}">Duplicate practice</a>
-<button type=button class="li rowbtn" data-copy="{{ app_base() }}/practices/{{ p.id }}">Copy link</button>
-</div>
-{% if not practice_ended(p) %}<div class=eventacts>
-{% if not p.cancelled %}<button type=button class="rg-btn secondary btn-tangerine full" data-open="cancel{{ p.id }}">Cancel this practice</button>{% endif %}
-<button type=button class="rg-btn secondary" data-open="delete{{ p.id }}">Delete event</button>
-</div>{% endif %}
-{% endif %}
 {% else %}
-{# Figma Audit Q1/Q2 · Practice: one set of groups, each with its own Edit / + Add sheet for coaches and admins. #}
+{# Figma 63 · Practice page. 1 Participant · 2 Coach · 3 Admin. One thing at a time from a section's Edit / + Add; everything else in ⋯ › Edit practice. #}
 {% set host = me().is_admin or is_staff() %}{% set admin = me().is_admin %}
 <div class="p5 pq">
-{% if p.image %}{{ r2_cover('/practice-image/' ~ p.id ~ '?v=' ~ p.image) }}{% endif %}
-{{ rg_event_row('', (p.sport or 'Water Polo'), practice_title(p), (fmt_card_date(p.date) ~ ' · ' ~ fmt_clock(p.start) ~ '–' ~ fmt_clock(p.end) ~ (' · ' ~ p.location if p.location else '')) if not practice_is_month(p) else practice_when(p), x.going|length, 'GOING', 'graphite' if p.cancelled else event_tone(p.activity_type or 'practice'), 'Cancelled' if p.cancelled else '') }}
+{% set clk = fmt_clock(p.start).split(' ') %}{% set dur = practice_minutes(p) if practice_minutes is defined else 0 %}
+{{ rg_event_card('', (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1] if clk|length > 1 else '', '', p.location or '', [], 0, x.mine == 1, 'graphite' if p.cancelled else event_tone(p.activity_type or 'practice'), 'Cancelled' if p.cancelled else (fmt_card_date(p.date) if not practice_is_month(p) else practice_when(p))) }}
 {% if p.cancelled and p.cancel_reason %}<p class=rg-note>{{ p.cancel_reason }}</p>{% endif %}
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class="pills p5rsvp">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>{{ rsvp_base('p' ~ p.id) }}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
-{{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>
-{{ r2_practice_actions('/chat?c=practice:' ~ p.id ~ ('&peek=1' if x.mine != 1 else ''), 'Practice Chat', x.going|length) }}
-{% endif %}
-{#fxpanel#}
-{% macro grp(label, count=none, action='', href='', dlg='') %}{{ rg_detail_group(label, count, action, href, ('data-open-dialog=' ~ dlg) if dlg else '', caller()) }}{% endmacro %}
-{% if host %}{% call grp('WHEN & WHERE', none, 'Edit' if admin else '', '', 'pqWhen') %}<b class=pqline>{% if practice_is_month(p) %}{{ practice_when(p) }}{% else %}{{ fmt_card_date(p.date) }} · {{ fmt_clock(p.start) }} – {{ fmt_clock(p.end) }}{% endif %}</b>{% if p.location %}<small class=pqsub>{{ p.location }}</small>{% endif %}{% endcall %}{% endif %}
-{% if x.coaches or host %}{% call grp('COACHES', x.coaches|length, ('Edit' if x.coaches else '+ Add') if admin else '', '', 'pqCoaches') %}
-{% for c in x.coaches %}{{ rg_person(display_first(c) ~ ' ' ~ c.last, ('Head coach' if c.is_lead else 'Coach') ~ ((' · ' ~ c.focus) if host and c.focus else ''), initials(c), 'Head' if c.is_lead else '', 'going') }}{% else %}<p class=pqempty>No coaches yet.</p>{% endfor %}
-{% endcall %}{% endif %}
-{% if p.note or host %}{% call grp('NOTES', none, (('Edit' if p.note else '+ Add') if host else ''), '', 'notes' ~ p.id) %}{% if p.note %}<p class=pqtext>{{ p.note }}</p>{% else %}<p class=pqempty>No notes yet.</p>{% endif %}{% endcall %}{% endif %}
-{% if host and (p.coaching_plan or true) %}{% call grp('PRACTICE PLAN · COACHES ONLY', none, ('Edit' if p.coaching_plan else '+ Add'), '', 'plan' ~ p.id) %}{% if p.coaching_plan %}<p class=pqtext>{{ p.coaching_plan }}</p>{% else %}<p class=pqempty>Only coaches and admins see this.</p>{% endif %}{% endcall %}{% endif %}
-{% if sports_now.levels %}{% call grp('SKILL LEVEL', none, 'Edit' if admin else '', '', 'pqLevels') %}<b class=pqline>{{ sports_now.levels }}</b>{% endcall %}{% endif %}
-{% if sports_now.division %}{% call grp('DIVISION', none, 'Edit' if admin else '', '', 'pqDivs') %}<b class=pqline>{{ sports_now.division }}</b>{% endcall %}{% endif %}
-{% if social_cards %}{% call grp('SOCIALS', social_cards|length, 'Edit' if host else '', '', 'social' ~ p.id) %}{% for card in social_cards %}{{ r2_social_card(card, 'row') }}{% endfor %}{% endcall %}{% endif %}
-{% if host and x.going %}{% call grp('TO PLAY') %}<span class=pqchips>{{ rg_chip(to_play.ok ~ ' cleared' ~ (' · ' ~ to_play.not ~ ' not' if to_play.not else ''), 'cleared' if not to_play.not else 'expiring') }}</span><small class=pqsub>Insurance and requirements, checked at the deck.</small>{% endcall %}{% endif %}
+{{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>{% endif %}
+<div class=rg-tiles3>{{ rg_metric('%02d'|format(x.going|length), 'Going', 'lime') }}{{ rg_metric('%02d'|format(x.coaches|length), 'Coaches', 'carbon') }}{{ rg_metric('%02d'|format(x.checked|length), 'Checked in', 'carbon') }}</div>
+{% if not p.cancelled %}{{ r2_practice_actions('/chat?c=practice:' ~ p.id ~ ('&peek=1' if x.mine != 1 else ''), 'Practice Chat', x.going|length) }}{% endif %}
 {% set check_href = '/admin?date=' ~ p.date ~ '&ev=p-' ~ p.id %}
-{% if x.going or host %}{% call grp("WHO'S GOING", x.going|length, 'Check-in' if host else '', check_href if host else '') %}
-{% set in_ids = x.checked|map(attribute='id')|list %}{% for r in x.going %}{{ rg_person(display_first(r) ~ ' ' ~ r.last, 'Coach' if r.id in x.coach_ids else 'Player', initials(r), ('In' if r.id in in_ids else 'Going') if host else '', 'going') }}{% else %}<p class=pqempty>No one yet.</p>{% endfor %}
-{% endcall %}{% endif %}
-{% if x.notgoing %}{% call grp("CAN'T MAKE IT", x.notgoing|length) %}{% for r in x.notgoing %}{{ rg_person(display_first(r) ~ ' ' ~ r.last, '', initials(r)) }}{% endfor %}{% endcall %}{% endif %}
-{% if host and (practice_started(p) if practice_started is defined else x.checked) and x.checked %}{% call grp('CHECKED IN', x.checked|length, 'Check-in', check_href) %}{% for r in x.checked %}{{ rg_person(display_first(r) ~ ' ' ~ r.last, '', initials(r)) }}{% endfor %}{% endcall %}{% endif %}
-{% if host %}{% set missing_bits = [] %}
-{% if not social_line(p) %}{% set _ = missing_bits.append(('+ After-practice social', 'social' ~ p.id, '')) %}{% endif %}
-{% if not p.image %}{% set _ = missing_bits.append(('+ Cover image', 'image' ~ p.id, '')) %}{% endif %}
-{% if admin and not p.skill_levels %}{% set _ = missing_bits.append(('+ Skill level', 'pqLevels', '')) %}{% endif %}
-{% if admin and not p.divisions %}{% set _ = missing_bits.append(('+ Division', 'pqDivs', '')) %}{% endif %}
-{% if missing_bits %}<section class=pqmissing><span class=pqhead><span>NOT ADDED YET</span></span><div>{% for label, dlg, href in missing_bits %}{% if href %}<a href="{{ href }}">{{ label }}</a>{% else %}<button type=button data-open-dialog="{{ dlg }}">{{ label }}</button>{% endif %}{% endfor %}</div></section>{% endif %}
-{% endif %}
-{% if admin %}<div class=pqmore>
-<a class="rg-srow" href="/events/new?lane=schedule&amp;copy={{ p.id }}"><span class=rg-srlabel>Duplicate practice</span>{{ rg_icon('chevron_right', 'sm') }}</a>
-<button type=button class="rg-srow" data-copy="{{ app_base() }}/practices/{{ p.id }}"><span class=rg-srlabel>Copy link</span></button>
-{% if not practice_ended(p) %}<div class=rg-btnrow>{% if not p.cancelled %}<button type=button class="rg-btn secondary" data-open-dialog="cancel{{ p.id }}">Cancel practice</button>{% else %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="rg-btn secondary" name=action value=restore style="width:100%">Undo cancel</button></form>{% endif %}<button type=button class="rg-btn ghost" data-open-dialog="delete{{ p.id }}">Delete</button></div>{% endif %}
+{% if fx and fx.gate_hint and not p.cancelled %}{{ rg_callout(fx.gate_hint, 'First time only', 'Once', '/practices/' ~ p.id ~ '/signup', 'graphite') }}{% endif %}
+{% if host and not p.cancelled %}<a class="rg-btn primary rg-wide" href="{{ check_href }}">Start check-in</a>{% endif %}
+{{ rg_section_count("Who's going · " ~ x.going|length, none, ('Check-in' if host else ('See all' if x.going|length > 4 else '')), (check_href if host else ''), ('' if host else 'data-seeall=pqGoing')) }}
+{% set in_ids = x.checked|map(attribute='id')|list %}
+<div class=rg-plist id=pqGoing>{% for r in x.going %}{% set why = holds.get(r.id, '') if host else '' %}<div{% if loop.index > 4 %} data-more hidden{% endif %}>{{ rg_person(display_first(r) ~ ' ' ~ r.last, why or (('Coach' if r.id in x.coach_ids else 'Player') ~ ' · ' ~ (p.sport or 'Water Polo')), initials(r), 'In' if r.id in in_ids else 'Going', 'going' if not why else 'expiring') }}</div>{% else %}<p class=rg-note>No one yet.</p>{% endfor %}</div>
+{% if x.going|length > 4 %}<button type=button class=rg-seeall data-seeall=pqGoing>See all {{ x.going|length }} going</button>{% endif %}
+{% if p.location %}{{ rg_section('Getting there') }}
+<div class=rg-stack8>
+{{ rg_info('VENUE', p.location, 'https://www.google.com/maps/dir/?api=1&destination=' ~ (((pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location))|urlencode), 'target=_blank rel=noopener') }}
+{% if not p.cancelled %}{{ rg_settings_row('When to leave', 'With traffic', '/practices/' ~ p.id ~ '/leave-by') }}
+{{ rg_settings_row('Rides', 'Ask for one · Offer seats', '/practices/' ~ p.id ~ '/rides') }}{% endif %}
 </div>{% endif %}
+{#fxpanel#}
+{% if social_cards %}{% set befores = social_cards|selectattr('when', 'equalto', 'before')|list %}{{ rg_section_count('Before practice' if befores|length == social_cards|length else ('After practice' if not befores else 'Socials'), none, 'Edit' if host else '', '', 'data-open-dialog=social' ~ p.id if host else '') }}
+<div class=rg-stack8>{% for card in social_cards %}{{ r2_social_card(card, 'row') }}{% endfor %}</div>{% endif %}
+{% if p.note or host %}{{ rg_section_count('Notes', none, (('Edit' if p.note else '+ Add') if host else ''), '', 'data-open-dialog=notes' ~ p.id if host else '') }}
+{% if p.note %}<p class=pqtext>{{ p.note }}</p>{% else %}<p class=rg-note>Nothing for everyone going yet.</p>{% endif %}{% endif %}
+{% if host %}{{ rg_section_count('Practice plan', none, ('Edit' if p.coaching_plan else '+ Add'), '', 'data-open-dialog=plan' ~ p.id) }}
+<span class=pqchips>{{ rg_chip('Coaches only', 'neutral') }}</span>
+{% if p.coaching_plan %}<p class=pqtext>{{ p.coaching_plan }}</p>{% else %}<p class=rg-note>Drills, groups, who runs what.</p>{% endif %}{% endif %}
+{% if x.coaches or host %}{{ rg_section_count('Coaches', none, ('+ Add · Head' if host else ''), '', 'data-open-dialog=pqCoaches' if host else '') }}
+<div class=rg-plist>{% for c in x.coaches %}{{ rg_person(display_first(c) ~ ' ' ~ c.last, ('Head coach' if c.is_lead else 'Coach') ~ ((' · ' ~ c.focus) if host and c.focus else ''), initials(c), 'Head' if c.is_lead else '', 'going') }}{% else %}<p class=rg-note>No coaches yet.</p>{% endfor %}</div>{% endif %}
+{% if x.notgoing %}{{ rg_section("Can't make it") }}<p class=pqtext>{% for r in x.notgoing %}{{ display_first(r) }} {{ r.last }}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+{% if admin %}{{ rg_section('Details') }}
+<div class=rg-stack8>
+{{ rg_settings_row('Skill level', sports_now.levels or 'Not set', '#', 'data-open-dialog=pqLevels') }}
+{{ rg_settings_row('Division', sports_now.division or 'Not set', '#', 'data-open-dialog=pqDivs') }}
+{{ rg_settings_row('Cover image', 'Change' if p.image else 'Add', '#', 'data-open-dialog=image' ~ p.id) }}
+</div>
+<p class=rg-note>Date, time, venue, social, notes and details change in ⋯ › Edit practice.</p>{% endif %}
+</div>
+{% if host %}
+<dialog id=pqMore class="botsheet modal"><div class=sheet><div class=grab aria-hidden=true></div>
+<h2>{{ practice_title(p) }}</h2><p class=ty-muted>{{ fmt_card_date(p.date) }} · {{ fmt_clock(p.start) }}</p>
+<div class=rg-stack8>
+{% if admin %}{{ rg_settings_row('Edit practice', 'All details', '/practices/' ~ p.id ~ '?edit=1') }}{% else %}{{ rg_settings_row('Ask an admin to change it', 'Date · time · place', '#', 'data-open-dialog=pqAsk') }}{% endif %}
+{{ rg_settings_row('Start check-in', x.going|length ~ ' going', check_href) }}
+{% if admin %}{{ rg_settings_row('Duplicate', 'New date', '/events/new?lane=schedule&copy=' ~ p.id) }}{% endif %}
+<button type=button class=rg-srow data-copy="{{ app_base() }}/practices/{{ p.id }}"><span class=rg-srlabel>Copy link</span><span class=rg-srvalue>Share</span>{{ rg_icon('chevron_right', 'sm') }}</button>
+</div>
+{% if admin and not practice_ended(p) %}<h3 class=rg-day>CAN'T HAPPEN?</h3>
+{% if not p.cancelled %}<button type=button class="rg-btn secondary rg-wide" data-open-dialog="cancel{{ p.id }}">Cancel this practice</button>{% else %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="rg-btn secondary rg-wide" name=action value=restore>Undo cancel</button></form>{% endif %}
+<button type=button class="rg-btn danger rg-wide" data-open-dialog="delete{{ p.id }}" style="margin-top:8px">Delete practice</button>
+<p class=rg-note>Cancel keeps it on the schedule as "Cancelled" and tells everyone going. Delete removes it completely.</p>{% endif %}
+</div></dialog>
+{% if not admin %}<dialog id=pqAsk class="botsheet modal"><form method=post action="/practices/{{ p.id }}" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+<h2>Ask an admin.</h2><p class=ty-muted>{{ practice_title(p) }} · {{ fmt_card_date(p.date) }} is attached.</p>
+<label class=rg-field><span>WHAT SHOULD CHANGE?</span><textarea name=message rows=4 required maxlength=2000 placeholder="Move it to 7:30 — lanes open late"></textarea></label>
+<button class="rg-btn primary" name=action value=ask_admin>Send to the admins</button></form></dialog>{% endif %}
+<dialog id=pqCoaches class="botsheet modal"><form method=post action="/practices/{{ p.id }}" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+<h2>Coaches</h2><p class=ty-muted>{{ practice_title(p) }} · {{ fmt_card_date(p.date) }}</p>
+<h3 class=rg-day>WHO'S COACHING</h3>
+{% for c in coach_choices %}{{ rg_choice('coach', c.id|string, display_first(c) ~ ' ' ~ c.last, coach_line(c) if coach_line is defined else 'Coach', c.id in x.coach_ids, 'checkbox', 'data-coachpick') }}{% else %}<p class=rg-note>No one is on the coaching list yet. Add coaches on People.</p>{% endfor %}
+{% if coach_choices %}<h3 class=rg-day>HEAD COACH</h3>
+{{ rg_choice('lead', '', 'No head coach', '', not x.lead_id) }}
+{% for c in coach_choices %}<div data-leadfor="{{ c.id }}"{% if c.id not in x.coach_ids %} hidden{% endif %}>{{ rg_choice('lead', c.id|string, display_first(c) ~ ' ' ~ c.last, 'Runs practice and check-in', c.id == x.lead_id) }}</div>{% endfor %}{% endif %}
+{% if p.series_id %}<input type=hidden name=series_all value=0>{{ rg_toggle('series_all', 'Use for every ' ~ weekday_name(p.date) ~ ' practice', 'This one and the ones after it', false) }}{% endif %}
+<button class="rg-btn primary" name=action value=coaches>Save</button></form></dialog>
+<script>document.addEventListener('change',function(e){var i=e.target; if(!i.matches||!i.matches('[data-coachpick]')) return; var row=document.querySelector('[data-leadfor="'+i.value+'"]'); if(row){ row.hidden=!i.checked; if(!i.checked){ var r=row.querySelector('input'); if(r&&r.checked){ r.checked=false; var none=document.querySelector('#pqCoaches input[name=lead][value=""]'); if(none) none.checked=true; } } }});</script>
+{% endif %}
+<script>document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-seeall]'); if(!b) return; e.preventDefault(); var l=document.getElementById(b.getAttribute('data-seeall')); if(!l) return; l.querySelectorAll('[data-more]').forEach(function(r){ r.hidden=false; }); document.querySelectorAll('button[data-seeall="'+b.getAttribute('data-seeall')+'"]').forEach(function(x){ x.hidden=true; });});</script>
 {% if admin %}
 <dialog id=pqWhen class="botsheet modal"><form method=post action="/practices/{{ p.id }}" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <h2>When &amp; where.</h2><p class=ty-muted>{{ practice_title(p) }}{% if p.series_id %} · changes only this date{% endif %}</p>
@@ -7607,18 +7614,8 @@ T["practice"] = """{% set p = x.p %}
 <label class=rg-field data-divtext{% if not p.division_custom %} hidden{% endif %}><span>CUSTOM DIVISION</span><input name=division_custom value="{{ p.division_custom or '' }}" maxlength=80 placeholder="e.g. 18U girls"></label>
 <button class="rg-btn primary" name=action value=divisions>Save</button></form></dialog>
 <script>document.addEventListener('change',function(e){var i=e.target; if(i.matches&&i.matches('[data-divcustom]')){var t=document.querySelector('[data-divtext]'); if(t) t.hidden=!i.checked;}});</script>
-<dialog id=pqCoaches class="botsheet modal"><form method=post action="/practices/{{ p.id }}" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
-<h2>Coaches.</h2><p class=ty-muted>{{ practice_title(p) }} · {{ fmt_card_date(p.date) }}</p>
-<h3 class=rg-day>WHO'S COACHING</h3>
-{% for c in coach_choices %}{{ rg_choice('coach', c.id|string, display_first(c) ~ ' ' ~ c.last, 'Coach', c.id in x.coach_ids, 'checkbox', 'data-coachpick') }}{% else %}<p class=rg-note>No one is on the coaching list yet. Add coaches on People.</p>{% endfor %}
-{% if coach_choices %}<h3 class=rg-day>HEAD COACH</h3>
-{{ rg_choice('lead', '', 'No head coach', '', not x.lead_id) }}
-{% for c in coach_choices %}<div data-leadfor="{{ c.id }}"{% if c.id not in x.coach_ids %} hidden{% endif %}>{{ rg_choice('lead', c.id|string, display_first(c) ~ ' ' ~ c.last, 'Runs practice and check-in', c.id == x.lead_id) }}</div>{% endfor %}{% endif %}
-<button class="rg-btn primary" name=action value=coaches>Save</button></form></dialog>
-<script>document.addEventListener('change',function(e){var i=e.target; if(!i.matches||!i.matches('[data-coachpick]')) return; var row=document.querySelector('[data-leadfor="'+i.value+'"]'); if(row){ row.hidden=!i.checked; if(!i.checked){ var r=row.querySelector('input'); if(r&&r.checked){ r.checked=false; var none=document.querySelector('#pqCoaches input[name=lead][value=""]'); if(none) none.checked=true; } } }});</script>
 {% endif %}
-{% if p.location %}{% set dest = (pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location) %}{% set soc = namespace(name='', sub='', href='', dest='') %}{% if social_line(p) %}{% set soc.name = (p.social_place or '')|trim %}{% set _saddr = (p.social_address or '')|trim %}{% if _saddr and not (_saddr.lower().startswith('http://') or _saddr.lower().startswith('https://')) %}{% set soc.sub = _saddr %}{% endif %}{% set _spin = namespace(lat=none, lng=none) %}{% for pin in pins %}{% if pin.kind == 'social' %}{% set _spin.lat = pin.lat %}{% set _spin.lng = pin.lng %}{% endif %}{% endfor %}{% if _saddr.lower().startswith('http://') or _saddr.lower().startswith('https://') %}{% set soc.href = _saddr %}{% elif _spin.lat is not none %}{% set soc.dest = _spin.lat|string ~ ',' ~ _spin.lng|string %}{% set soc.href = 'https://www.google.com/maps/dir/?api=1&destination=' ~ (soc.dest|urlencode) %}{% else %}{% set soc.href = 'https://www.google.com/maps/dir/?api=1&destination=' ~ ((soc.sub or soc.name)|urlencode) %}{% endif %}{% endif %}{{ r2_section('Getting there') }}{{ event_location('practiceLoc', pins, p.location, p.address or '', 'https://www.google.com/maps/dir/?api=1&destination=' ~ (dest|urlencode), social_route_points(p), p.social_drive_min if pins|selectattr('kind','equalto','social')|list else none, soc.name, soc.sub, soc.href, soc.dest) }}{% endif %}
-</div>
+
 {% endif %}
 {% if me().is_admin or is_staff() %}{{ practice_extra_dialogs(p, 'page') }}
 <dialog class="botsheet modal" id=plan{{ p.id }}><div class=sheet><div class=grab aria-hidden=true></div><h2>Practice plan.</h2><p class=ty-muted>Coaches and admins only.</p>

@@ -478,7 +478,6 @@ def wrap_counts(d, pid):
 # ---------- templates (rendered inside ui.BASE, so the shared macros and classes apply) ----------
 PRACTICE_PANEL = """
 {% if fx and not p.cancelled %}
-{% if fx.gate_hint %}{{ rg_callout(fx.gate_hint, 'First time only', 'Once', '/practices/' ~ p.id ~ '/signup', 'graphite') }}{% endif %}
 {% if fx.going %}
 <div class=fxrides>
 {% set rd = fx.rides %}

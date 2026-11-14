@@ -445,7 +445,8 @@
 .rg-seg a{display:inline-flex;align-items:center;min-height:32px;padding:0 16px;border-radius:999px;background:transparent;color:var(--smoke);font:700 13px/1 var(--font-sans);text-decoration:none}
 .rg-filters a{display:inline-flex;align-items:center;min-height:32px;padding:0 14px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 13px/1 var(--font-sans);text-decoration:none}
 .rg-seg a.on{background:var(--paper);color:var(--ink)}
-.rg-segform label{position:relative;display:inline-flex}
+.rg-segform{align-items:center;height:auto}
+.rg-segform label{position:relative;display:inline-flex;margin:0;padding:0;min-height:0}
 .rg-segform input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
 .rg-segform span{display:inline-flex;align-items:center;min-height:32px;padding:0 var(--space-4);border-radius:var(--radius-full);color:var(--smoke);font:var(--type-label)}
 .rg-segform input:checked+span{background:var(--paper);color:var(--ink)}
@@ -1379,3 +1380,31 @@ a.ckhero{text-decoration:none}
 .rg-pagetitle:has(.rg-ptacts .rg-plus) .rg-pt{grid-column:1;grid-row:1}
 .rg-pagetitle:has(.rg-ptacts .rg-plus) .rg-ptsub{grid-column:1 / -1;grid-row:2}
 .rg-pagetitle:has(.rg-ptacts .rg-plus) .rg-ptacts{grid-column:2;grid-row:1}
+
+/* Practice page (Figma 63) */
+.pq .rg-ecard{margin:0 0 10px}
+.pq .rg-tiles3{margin:12px 0 10px}
+.pq .rg-wide{width:100%;margin:10px 0 0}
+.pq .rg-sec{margin-top:22px}
+.rg-seeall{display:block;margin:8px 0 0;padding:0;border:0;background:transparent;height:auto;min-height:0;color:var(--lime);font:700 14px/1.3 var(--font-sans);cursor:pointer}
+[data-theme="light"] .rg-seeall{color:var(--paper);text-decoration:underline}
+#pqGoing>[hidden]{display:none}
+.pq .pqtext{margin:4px 0 0}
+#pqMore .rg-btn.danger{background:var(--team-tangerine);color:var(--fixed-ink)}
+/* Practice · Edit practice full form (Figma 63 · 8): compact solid header, caps section labels, one Save at the bottom */
+#practiceForm.editorform{background:transparent;border:0;padding:0;box-shadow:none}
+#practiceForm .formsec{margin:0 0 16px}
+#practiceForm .formsec>h2{margin:16px 0 8px;color:var(--smoke);font:700 11px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase}
+#practiceForm .rg-wide{width:100%;margin-top:8px}
+
+dialog[id^=cancel] .rg-btn.danger{background:var(--team-tangerine);color:var(--fixed-ink)}
+
+/* Top bar ⋯ (Profile, Practice): same 44px disc and 20px glyph as the back disc */
+.rg-topbar .rg-tbdisc.morebtn,body.profilepage .rg-topbar .morebtn{width:44px;height:44px;min-width:44px;padding:0;border-radius:999px;background:var(--graphite);font-size:0}
+.rg-topbar .rg-tbdisc .rg-ic{width:20px;height:20px}
+.rg-topbar .rg-tbdisc .rg-glyph *{stroke-width:2.4}
+header.profilebar h1.editonly{visibility:hidden}
+body.profile-edit header.profilebar h1.editonly{visibility:visible}
+.rg-tbdisc.morebtn .rg-ic,[data-open-dialog=pqMore] .rg-ic{width:20px;height:20px}
+.rg-tbdisc.morebtn .rg-glyph *,[data-open-dialog=pqMore] .rg-glyph *{stroke-width:3}
+.rg-sexq>span{text-transform:none;letter-spacing:0;font:700 15px/1.3 var(--font-sans);color:var(--paper)}

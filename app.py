@@ -6110,11 +6110,46 @@ def handle_practice_post(d):
     elif a == "message" and pid:
         if not can_host_practice(): abort(403)
         save_coach_note(d, pid, request.form.get("message"))
+    elif a == "coaches" and pid:
+        # Figma 63 · 4 Edit coaches: coach or admin. Pick coaches, then the head coach; optionally every practice in the series from this one on.
+        if not can_host_practice(): abort(403)
+        targets = [pid]
+        if request.form.get("series_all") == "1":
+            cur = d.execute("SELECT series_id, date FROM practices WHERE id=?", (pid,)).fetchone()
+            if cur and cur["series_id"]:
+                targets = [r["id"] for r in d.execute("SELECT id FROM practices WHERE series_id=? AND date>=? AND COALESCE(cancelled,0)=0", (cur["series_id"], cur["date"]))]
+        for tid in targets:
+            focuses = {r["member_id"]: r["focus"] or "" for r in d.execute("SELECT member_id, focus FROM practice_coaches WHERE practice_id=?", (tid,))}
+            save_practice_coaches(d, tid, request.form.getlist("coach"), lead=request.form.get("lead"), focuses=focuses)
+        if len(targets) > 1: flash("Coaches saved for %d practices" % len(targets), "toast")
+    elif a == "ask_admin" and pid:
+        # Figma 63 · 11 coach ⋯ › Ask an admin: a request to the admins with this practice attached.
+        if not can_host_practice(): abort(403)
+        body = " ".join((request.form.get("message") or "").split())[:2000]
+        if not body: flash("Say what should change."); return redirect("/practices/%d" % pid)
+        p_ = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+        now = dt.datetime.now(dt.timezone.utc).isoformat()
+        rid = d.execute("""INSERT INTO club_requests(member_id, audience, topic, subject, practice_id, sport, status, created_at, updated_at, last_side, staff_replied)
+            VALUES(?, 'board', 'other', ?, ?, '', 'open', ?, ?, 'member', 0)""", (me()["id"], ("Change: %s %s" % (practice_title(p_), fmt_d(p_["date"])))[:80], pid, now, now)).lastrowid
+        d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)", (me()["id"], body, "req:%d" % rid))
+        d.commit(); _nudge_staff(d, rid, "Change request: %s" % practice_title(p_))
+        flash("Sent to the admins", "toast")
     elif a == "plan" and pid:
         if not can_host_practice(): abort(403)
         if "lead" in request.form or any(str(k).startswith("focus-") for k in request.form):
             save_assigned_plan(d, pid, request.form.get("lead"), focus_map_from_form())
         save_coaching_plan(d, pid, request.form.get("coaching_plan"))
+        if request.form.get("to_coaches") == "1" and (request.form.get("coaching_plan") or "").strip():
+            p_ = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+            try:
+                import clubadmin
+                prog = clubadmin.program_for_label(d, p_["sport"] or "Water Polo")
+            except Exception:
+                prog = None
+            if prog:
+                d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)", (me()["id"],
+                          "Plan for %s %s: %s" % (practice_title(p_), fmt_d(p_["date"]), clean_plan(request.form.get("coaching_plan"))[:1500]), "coach:" + prog["slug"]))
+                flash("Plan saved · copied to the coaches chat", "toast")
     elif a == "coach_plan" and pid:
         if not can_host_practice(): abort(403)
         cid = request.form.get("coach_id", type=int)
@@ -6171,10 +6206,6 @@ def handle_practice_post(d):
             divs, custom = sports.pack_divisions(request.form.getlist("division"), request.form.get("division_custom"))
             d.execute("UPDATE practices SET divisions=?, division_custom=? WHERE id=?", (divs, custom, pid))
         if old["series_id"]: d.execute("UPDATE practices SET series_detached=1 WHERE id=?", (pid,))
-    elif a == "coaches" and pid:
-        # Figma Q3 · pick coaches, then the head coach from the ones picked. Focus groups stay.
-        focuses = {r["member_id"]: r["focus"] or "" for r in d.execute("SELECT member_id, focus FROM practice_coaches WHERE practice_id=?", (pid,))}
-        save_practice_coaches(d, pid, request.form.getlist("coach"), lead=request.form.get("lead"), focuses=focuses)
     elif a == "add":
         if request.form.get("repeat"):
             try: save_series(d)
@@ -6778,12 +6809,17 @@ def practice_page(pid):
     if host and going_ids:
         for m in d.execute("SELECT * FROM members WHERE id IN (%s)" % ",".join("?" * len(going_ids)), going_ids).fetchall():
             to_play["ok" if clearance(d, m)["ok"] else "not"] += 1
+    holds = {}
+    if host:
+        for g_ in bundle["going"]:
+            full = d.execute("SELECT m.*, (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status FROM members m WHERE id=?", (g_["id"],)).fetchone()
+            if full: holds[full["id"]] = hold_reason(full)
     lv = set((p["skill_levels"] or "").split(","))
     dv = set((p["divisions"] or "").split(","))
     level_opts = [(pid_, name, short, pid_ in lv) for pid_, name, short, _f in level_catalog(p["sport"], p["skill_levels"] or "")] if host else []
     div_opts = [(k, name, k in dv) for k, name in sports.DIVISIONS] if host else []
     sports_now = {"levels": sports.levels_label(p["skill_levels"] or "", level_catalog(p["sport"], p["skill_levels"] or "")), "division": sports.divisions_label(p["divisions"] or "", p["division_custom"] or "")}
-    return page(T["practice"], tab="practice", fx=practice_flows(d, p), x=bundle, to_play=to_play, level_opts=level_opts, div_opts=div_opts, sports_now=sports_now, editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin", social_cards=schedule_social_cards(p))
+    return page(T["practice"], tab="practice", fx=practice_flows(d, p), x=bundle, to_play=to_play, holds=holds, level_opts=level_opts, div_opts=div_opts, sports_now=sports_now, editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin", social_cards=schedule_social_cards(p))
 @app.route("/practices/series/new", methods=["GET", "POST"])
 @admin_required
 def series_new():
