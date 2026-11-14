@@ -2555,7 +2555,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {%- endif %}
 {% if mode == 'tall' %}<div class="lcard ltall card tap tripcard{% if past %} past{% endif %}{% if e.featured %} pinned{% endif %}{% if e.status == 'canceled' %} cancelled{% endif %}" data-kind="{{ e.event_type or '' }}" data-r2="lineup-card" data-variant="tall" style="background:{{ fill }};color:{{ ink }}" onclick="if(event.target.closest('button,a,form,input,select,textarea,label'))return;location.href='/lineup/{{ e.id }}'">
 <a class=cardlink href="/lineup/{{ e.id }}"><div class=ltop><span class=lover>{{ 'PINNED · ' if e.featured else '' }}{{ over }}</span>{% if past %}<span class=pastpill>Past</span>{% endif %}</div>
-<div class=lmain><div class=ldate>{% if e.tile.wd %}<span>{{ e.tile.wd }}</span>{% endif %}<b>{{ e.tile.dn }}</b><span>{{ e.tile.mo }}</span></div>
+<div class=lmain>{% if (e.tile.dn|string).isdigit() %}<div class=ldate>{% if e.tile.wd %}<span>{{ e.tile.wd }}</span>{% endif %}<b>{{ e.tile.dn }}</b><span>{{ e.tile.mo }}</span></div>{% endif %}
 <div class=lgrow><b class=lttitle>{{ title }}</b><p class=ltmeta>{{ e.when }}{% if place %} · {{ place }}{% endif %}</p></div></div></a>
 {% if e.status != 'published' %}<p class=ltmeta>{{ e.status_label }}{% if e.review_note %} · {{ e.review_note }}{% endif %}</p>
 {% elif past %}<div class=ltfoot><span>{{ e.going_n }} went</span></div>
