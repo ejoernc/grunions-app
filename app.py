@@ -233,8 +233,11 @@ def migrate_practices(d):
     migrate_social_kinds(d)
     pin_known_pools(d)
 def migrate_social_joins(d):
-    """Who is joining the after-practice social. Existing practices start with nobody."""
+    """Who is joining the after-practice social. Existing practices start with nobody.
+    A practice can have a second social (social2_*); its joins live in their own table so joining one never joins both."""
     d.execute("""CREATE TABLE IF NOT EXISTS social_joins(
+        practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id))""")
+    d.execute("""CREATE TABLE IF NOT EXISTS social2_joins(
         practice_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(practice_id, member_id))""")
 def migrate_practice_coaches(d):
     """Create practice coach assignments on an older database under DATA_DIR. Existing rows stay."""
@@ -4830,6 +4833,7 @@ def delete_practice_row(d, pid):
     d.execute("DELETE FROM practice_coaches WHERE practice_id=?", (pid,))
     d.execute("DELETE FROM rsvps WHERE practice_id=?", (pid,))
     d.execute("DELETE FROM social_joins WHERE practice_id=?", (pid,))
+    d.execute("DELETE FROM social2_joins WHERE practice_id=?", (pid,))
     d.execute("DELETE FROM practice_notices WHERE practice_id=?", (pid,))
     d.execute("DELETE FROM practices WHERE id=?", (pid,))
 def replace_series_coaches(d, sid, raw, lead=None):
@@ -6003,6 +6007,11 @@ def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
     ref = request.referrer or ""
+    if action in ("social_join", "social_leave") and ref.startswith(request.host_url):
+        # Stay on the view you joined from (Schedule list stays Schedule list).
+        u = urllib.parse.urlparse(ref)
+        path = u.path + (("?" + u.query) if u.query else "")
+        if safe_return_path(u.path): return redirect(path)
     if action in ("going", "notgoing", "clear", "social_join", "social_leave") and "/home" in ref: return redirect("/home")
     if action == "delete" or not pid: return redirect("/practices")
     if request.form.get("back") == "home": return redirect("/practices")
@@ -6056,8 +6065,9 @@ def handle_practice_post(d):
                 except Exception:
                     app.logger.exception("signup confirmation failed")
     elif a in ("social_join", "social_leave") and pid:
-        if a == "social_leave": d.execute("DELETE FROM social_joins WHERE practice_id=? AND member_id=?", (pid, me()["id"]))
-        else: d.execute("INSERT OR IGNORE INTO social_joins(practice_id, member_id) VALUES(?,?)", (pid, me()["id"]))
+        table = "social2_joins" if request.form.get("slot") == "2" else "social_joins"
+        if a == "social_leave": d.execute("DELETE FROM %s WHERE practice_id=? AND member_id=?" % table, (pid, me()["id"]))
+        else: d.execute("INSERT OR IGNORE INTO %s(practice_id, member_id) VALUES(?,?)" % table, (pid, me()["id"]))
     elif a == "social" and pid:
         if not can_host_practice(): abort(403)
         if not save_social(d, pid, request.form): flash("Add a place for the social.")
@@ -6374,11 +6384,12 @@ def _social_card(p, when, kinds, place, address, clock):
     except (TypeError, ValueError):
         live = False
     return {"when": when, "title": title, "place": place, "address": address,
-            "clock": clock, "practice_id": p["id"], "practice": practice_title(p), "live": live}
+            "clock": clock, "practice_id": p["id"], "practice": practice_title(p), "live": live, "slot": 1}
 def _decorate_social(d, card, mid):
     """Faces and the going line for the shared social card. Joins only — not practice RSVPs."""
-    rows = d.execute("""SELECT m.id, m.first, m.last, m.preferred_first FROM social_joins j
-        JOIN members m ON m.id=j.member_id WHERE j.practice_id=? ORDER BY m.first LIMIT 6""", (card["practice_id"],)).fetchall()
+    table = "social2_joins" if card.get("slot") == 2 else "social_joins"
+    rows = d.execute("""SELECT m.id, m.first, m.last, m.preferred_first FROM %s j
+        JOIN members m ON m.id=j.member_id WHERE j.practice_id=? ORDER BY m.first LIMIT 6""" % table, (card["practice_id"],)).fetchall()
     people = [{"id": r["id"], "initials": initials(r), "name": display_first(r)} for r in rows]
     card["people"] = people
     card["joined"] = any(person["id"] == mid for person in people)
@@ -6409,8 +6420,10 @@ def schedule_social_cards(p):
     kinds2 = social_kinds_of(_field(p, "social2_kind"))
     place2 = " ".join(str(_field(p, "social2_place") or "").split())
     if kinds2 and place2:
-        cards.append(_social_card(p, "after", kinds2, place2, " ".join(str(_field(p, "social2_address") or "").split()),
-                                  str(_field(p, "social2_time") or "")[:5]))
+        second = _social_card(p, "after", kinds2, place2, " ".join(str(_field(p, "social2_address") or "").split()),
+                              str(_field(p, "social2_time") or "")[:5])
+        second["slot"] = 2
+        cards.append(second)
     return cards
 def schedule_home_rows(d):
     """14 days for the pulled-up Schedule home. Not the Upcoming / Past / All list."""

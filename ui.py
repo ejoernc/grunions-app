@@ -3053,6 +3053,20 @@ function grunionsPopOverlay(){ history.back(); }
  document.addEventListener('keydown', function(e){ var i=e.target; if(!i.matches||!i.matches('[data-dob]')||e.key!=='Backspace'||i.value) return; var pv=i.closest('label').previousElementSibling; if(pv){ var p=pv.querySelector('input'); if(p){ e.preventDefault(); p.focus(); p.value=p.value.slice(0,-1); upd(i.closest('.rg-dob')); } } });
  document.addEventListener('submit', function(e){ var w=e.target.querySelector&&e.target.querySelector('.rg-dob'); if(!w) return; upd(w); if(!w.querySelector('input[type=hidden]').value){ e.preventDefault(); w.classList.add('bad'); w.querySelector('.rg-dobhelp').textContent='Add your date of birth.'; w.querySelector('[data-dob=m]').focus(); } }, true);
 })();
+/* Social Join / Joined: save in place and swap just that card, so the Schedule view you're on stays put. */
+document.addEventListener('submit', function(e){
+ var f=e.target, card=f.closest&&f.closest('.rg-social[data-social]'); if(!card) return;
+ var btn=e.submitter; if(!btn||!/^social_(join|leave)$/.test(btn.value||'')) return;
+ e.preventDefault();
+ var fd=new FormData(f); fd.set('action', btn.value); btn.disabled=true;
+ fetch(f.getAttribute('action'), {method:'POST', body:fd, credentials:'same-origin', redirect:'manual'}).then(function(){
+  return fetch(location.pathname+location.search, {credentials:'same-origin', headers:{'X-Grunions-Nav':'1'}});
+ }).then(function(r){ return r.text(); }).then(function(html){
+  var doc=new DOMParser().parseFromString(html,'text/html'), key=card.getAttribute('data-social');
+  var fresh=doc.querySelector('.rg-social[data-social="'+key+'"]');
+  if(fresh){ card.replaceWith(document.importNode(fresh, true)); } else { location.reload(); }
+ }).catch(function(){ location.reload(); });
+});
 window.grunionsSavedToast=function(msg){ var t=document.createElement('div'); t.className='toast noprint'; t.setAttribute('role','status'); t.textContent=msg||'Saved'; document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 1800); };
 /* Forms marked data-autosave save on change (Figma 62: settings save themselves, no page Save). */
 document.addEventListener('change', function(e){

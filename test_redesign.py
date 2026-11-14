@@ -443,3 +443,11 @@ def test_join_asks_gender_and_usawp_entry_asks_membership_sex():
     assert ">X<" in boss.get("/admin/member/%d" % gid).get_data(as_text=True)
     boss.post("/admin/member/%d" % gid, data=dict(csrf=csrf(boss, "/admin/member/%d" % gid), action="noop", membership_sex="x"))
     assert sql("SELECT legal_gender FROM members WHERE email='gia.join@example.com'")[0][0] == "x"
+
+
+def test_joining_the_second_social_only_joins_that_one():
+    sql("INSERT INTO practices(date,start,end,location,social_kind,social_place,social2_kind,social2_place) VALUES(date('now','+3 day'),'19:00','20:30','Pool 2S','dinner','The Harp','coffee','Cafe')")
+    pid = sql("SELECT id FROM practices WHERE location='Pool 2S'")[0][0]
+    member.post("/practices/%d" % pid, data={"csrf": csrf(member, "/practices"), "pid": pid, "slot": "2", "action": "social_join"})
+    assert sql("SELECT COUNT(*) FROM social2_joins WHERE practice_id=?", (pid,))[0][0] == 1
+    assert sql("SELECT COUNT(*) FROM social_joins WHERE practice_id=?", (pid,))[0][0] == 0

@@ -225,17 +225,17 @@ def social_card(card, csrf_html, back="home", clock_label=""):
     title = _social_title(card.get("title"))
     place = card.get("place") or ""
     pid = int(card.get("practice_id") or 0)
-    form = ('<form method=post action="/practices/%d">%s<input type=hidden name=pid value="%d"><input type=hidden name=back value="%s">'
-            % (pid, csrf_html, pid, _e(back)))
+    form = ('<form method=post action="/practices/%d">%s<input type=hidden name=pid value="%d"><input type=hidden name=back value="%s"><input type=hidden name=slot value="%d">'
+            % (pid, csrf_html, pid, _e(back), int(card.get("slot") or 1)))
     if not card.get("joined"):
         n = len(card.get("people") or [])
         kicker = when + ((" · " + clock_label.upper()) if clock_label else "")
         # Condensed (Nov 13 redesign): the kicker gets the full width, the title wraps instead of truncating,
         # and "N going" + Join share their own row, so nothing collides at 320px.
-        return Markup('<div class="rg-social cond" data-when="%s"><span class=rg-socicon aria-hidden=true>%s</span>'
+        return Markup('<div class="rg-social cond" data-social="%d-%d" data-when="%s"><span class=rg-socicon aria-hidden=true>%s</span>'
                       '<span class=rg-txt><span class=rg-sk>%s</span><b>%s</b>'
                       '<span class=rg-someta><small>%d going</small>%s<button class=rg-outline name=action value=social_join>Join</button></form></span></span></div>'
-                      % (_e(card.get("when")), _social_icon(title), _e(kicker), _e(title + (" · " + place if place else "")), n, form))
+                      % (pid, int(card.get("slot") or 1), _e(card.get("when")), _social_icon(title), _e(kicker), _e(title + (" · " + place if place else "")), n, form))
     live = card.get("live")
     kicker = when + (" · HAPPENING NOW" if live else ((" · " + clock_label.upper()) if clock_label else ""))
     till = ('<span class=rg-live><i></i>Till %s</span>' % _e(clock_label)) if (live and clock_label) else ""
@@ -245,12 +245,12 @@ def social_card(card, csrf_html, back="home", clock_label=""):
         faces += '<i class=more>+%d</i>' % extra
     addr = card.get("address") or ""
     q = __import__("urllib.parse").parse.quote(addr or place)
-    return Markup('<div class="rg-social open" data-when="%s"><div class=rg-sotop><span class=rg-sk>%s</span>%s</div>'
+    return Markup('<div class="rg-social open" data-social="%d-%d" data-when="%s"><div class=rg-sotop><span class=rg-sk>%s</span>%s</div>'
                   '<b class=rg-sotitle>%s.</b><div class=rg-sowhere><b>%s</b><small>%s %s</small></div>'
                   '<div class=rg-sowho><span class=rg-faces>%s</span><span>%s</span></div>'
                   '<div class=rg-soacts>%s<button class=rg-joined name=action value=social_leave><svg width=16 height=16 viewBox="0 0 20 20" fill=none aria-hidden=true><path d="M4.5 10.5L8.25 14.25L15.5 6.5" stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round/></svg><span>Joined</span></button></form>'
                   '<a class=rg-outline href="https://www.google.com/maps/search/?api=1&amp;query=%s" target=_blank rel=noopener>↗ Directions</a></div></div>'
-                  % (_e(card.get("when")), _e(kicker), till, _e(title), _e(place + (" · " + addr if addr else "")),
+                  % (pid, int(card.get("slot") or 1), _e(card.get("when")), _e(kicker), till, _e(title), _e(place + (" · " + addr if addr else "")),
                      "Then" if card.get("when") == "before" else "After", _e(card.get("practice") or "practice"),
                      faces, _e(card.get("going_line") or ""), form, q))
 
