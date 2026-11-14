@@ -4,7 +4,10 @@ import app as A
 def client():
     c = A.app.test_client(); return c
 def csrf(c, path):
-    return re.search(r'(?:name=csrf value=|const CSRF=)"([^"]+)"', c.get(path).get_data(as_text=True)).group(1)
+    m = re.search(r'(?:name=csrf value=|const CSRF=)"([^"]+)"', c.get(path).get_data(as_text=True))
+    if not m and path == "/practices":  # 2.0 schedule has no forms; the token is per session, so take it from the profile
+        m = re.search(r'(?:name=csrf value=|const CSRF=)"([^"]+)"', c.get("/profile").get_data(as_text=True))
+    return m.group(1)
 def join(c, first, last, email):
     return c.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(c, "/join"), first=first, last=last, email=email, phone="555-0100"), follow_redirects=True)
 ok = lambda cond, name: print(("PASS " if cond else "FAIL ") + name) or cond

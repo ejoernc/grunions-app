@@ -8,7 +8,11 @@ import app as A
 SENT = []
 A.send_email = lambda to, subj, text, html=None: SENT.append((to, subj, text))
 HERE = os.path.dirname(os.path.abspath(__file__))
-def csrf(c, p): return re.search(r'(?:name=csrf value=|const CSRF=)"([^"]+)"', c.get(p).get_data(as_text=True)).group(1)
+def csrf(c, p):
+    m = re.search(r'(?:name=csrf value=|const CSRF=)"([^"]+)"', c.get(p).get_data(as_text=True))
+    if not m and p == "/practices":  # 2.0 schedule has no forms; the token is per session
+        m = re.search(r'(?:name=csrf value=|const CSRF=)"([^"]+)"', c.get("/profile").get_data(as_text=True))
+    return m.group(1)
 def join(first, last, email):
     c = A.app.test_client(); c.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(c, "/join"), first=first, last=last, email=email, phone="1")); return c
 boss = join("Boss", "One", "boss@example.com"); sec = join("Sec", "Two", "second@example.com"); mem = join("Mem", "Three", "mem@example.com")

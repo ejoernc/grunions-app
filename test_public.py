@@ -19,7 +19,10 @@ def client():
 
 def csrf(browser, path):
     html = browser.get(path).get_data(as_text=True)
-    return re.search(r'name=csrf value="([^"]+)"', html).group(1)
+    m = re.search(r'name=csrf value="([^"]+)"', html)
+    if not m and path == "/practices":  # 2.0 schedule has no forms; the token is per session
+        m = re.search(r'name=csrf value="([^"]+)"', browser.get("/profile").get_data(as_text=True))
+    return m.group(1)
 
 
 def join(browser, first, last, email):
@@ -315,7 +318,7 @@ def test_manage_search_matches_people_and_settings():
     assert member.get("/manage/search?q=Stephen").status_code == 403
     people = admin.get("/manage/search?q=Stephen").get_json()
     assert people["people"] and people["people"][0]["name"] == "Steve Morris"
-    assert people["people"][0]["href"] == "/admin/member/%d" % sid
+    assert people["people"][0]["href"] == "/profile/%d" % sid  # 2.0: people open their profile
     assert "Admin" in people["people"][0]["role"] and people["people"][0]["initials"] == "SM"
     assert people["people"][0]["status"]
     assert admin.get("/manage/search?q=stephen.morris@").get_json()["people"]
@@ -323,9 +326,9 @@ def test_manage_search_matches_people_and_settings():
     hidden = coach.get("/manage/search?q=Stephen").get_json()
     assert hidden["people"] == []
     trial = admin.get("/manage/search?q=trial").get_json()["settings"]
-    assert any(row["title"] == "Plans & passes" for row in trial)
-    assert any(row["title"] == "Plans & passes" for row in admin.get("/manage/search?q=free trial").get_json()["settings"])
-    assert any(row["title"] == "Plans & passes" for row in admin.get("/manage/search?q=drop-in").get_json()["settings"])
+    assert any(row["title"] == "Plans & payments" for row in trial)
+    assert any(row["title"] == "Plans & payments" for row in admin.get("/manage/search?q=free trial").get_json()["settings"])
+    assert any(row["title"] == "Plans & payments" for row in admin.get("/manage/search?q=drop-in").get_json()["settings"])
     assert any(row["title"] == "Website & sharing" for row in admin.get("/manage/search?q=embed").get_json()["settings"])
     assert any(row["title"] == "Sports" for row in admin.get("/manage/search?q=SafeSport").get_json()["settings"])
     assert any(row["title"] == "Data transfer" for row in admin.get("/manage/search?q=export CSV").get_json()["settings"])
@@ -369,7 +372,9 @@ def test_registration_checks_eligibility_and_does_not_charge_or_email():
             again = A.db().execute("SELECT usawp_status, trial_acknowledged_at, usawp_valid_until FROM members WHERE email='nia.reg@example.com'").fetchone()
             assert tuple(again) == tuple(snapshot)
         created = guest.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(guest, "/join"), first="Rio", last="Visitor", email="rio.reg@example.com", phone="555-0199"))
-        assert created.status_code == 302 and created.headers["Location"].endswith("/register?event=%s" % event)
+        assert created.status_code == 302 and created.headers["Location"].endswith("/setup/week")  # 2.0 asks for the usual week first
+        with guest.session_transaction() as sess:
+            assert sess.get("setup_next", "").endswith("/register?event=%s" % event)  # then continues to registration
         claim = guest.get("/register?event=%s" % event).get_data(as_text=True)
         assert "<h2>USA Water Polo trial</h2>" in claim and "Submit for verification" in claim
         guest.post("/register?event=%s" % event, data={
@@ -513,6 +518,8 @@ def test_payment_gate_stays_off_and_does_not_rewrite_rsvps():
                 VALUES(?,?,?,?,?,?)""", (day, "19:00", "20:30", "Gate Pool", "practice", "Water Polo")).lastrowid
             d.commit()
             gid = d.execute("SELECT id FROM members WHERE email='gale.pay@example.com'").fetchone()["id"]
+            d.execute("UPDATE members SET usawp_number='1234567' WHERE id=?", (gid,))  # 2.0 sign-up gate asks for a number first
+            d.commit()
         athlete.post("/practices", data={"csrf": csrf(athlete, "/practices"), "action": "going", "pid": pid})
         with A.app.app_context():
             assert A.db().execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, gid)).fetchone()["going"] == 1

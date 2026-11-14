@@ -2,11 +2,15 @@
 import os; os.environ.setdefault("ADMIN_EMAIL", "eli@example.com"); os.environ.setdefault("DEV_SHOW_LINKS", "1")
 import re, app as A
 c = A.app.test_client()
-def tok(cl, p): return re.search(r'(?:name=csrf value=|const CSRF=)"([^"]+)"', cl.get(p).get_data(as_text=True)).group(1)
+def tok(cl, p):
+    m = re.search(r'(?:name=csrf value=|const CSRF=)"([^"]+)"', cl.get(p).get_data(as_text=True))
+    if not m:  # 2.0 schedule has no forms; the token is per session
+        m = re.search(r'(?:name=csrf value=|const CSRF=)"([^"]+)"', cl.get("/profile").get_data(as_text=True))
+    return m.group(1)
 people = [("Eli","Joern","eli@example.com"),("Jane","Doe","jane@example.com"),("John","Smith","john@example.com"),("Ana","Lopez","ana@example.com"),("Marcus","Lee","marcus@example.com")]
 cl = {}
 for f,l,e in people:
-    x = A.app.test_client(); x.post("/join", data=dict(csrf=tok(x,"/join"), first=f, last=l, email=e, phone="714-555-0100")); cl[f]=x
+    x = A.app.test_client(); x.post("/join", data=dict(birth_date="1990-03-04", csrf=tok(x,"/join"), first=f, last=l, email=e, phone="714-555-0100")); cl[f]=x
 import sqlite3
 con = sqlite3.connect(A.DB)
 con.execute("UPDATE members SET role='coach' WHERE email='eli@example.com'")
