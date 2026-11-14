@@ -950,6 +950,10 @@ def _req_kind(q):
     if "background" in blob: return "background"
     if "referee certification" in blob or "refereecert" in blob: return "referee"
     return "other"
+def _is_usawp_req(q):
+    """The USA Water Polo membership rule is tracked by the member's USAWP # and expiry, not a member_reqs date."""
+    blob = ((q["name"] or "") + " " + (q["keywords"] or "")).lower()
+    return ("water polo" in blob or "usawp" in blob) and "membership" in blob
 def _req_label(q, kind):
     if kind == "safesport": return "SafeSport"
     if kind == "background": return "Background screening"
@@ -1031,6 +1035,7 @@ def list_status(d, member, view):
         kind = _req_kind(q)
         if not _counts_on_list(kind, q["applies_to"], view, member): continue
         if not q["expires"]: continue
+        if _is_usawp_req(q): continue
         date = dates.get((mid, q["id"]), "")
         if not date: state = "missing"
         elif date < today: state = "expired"
@@ -11183,7 +11188,7 @@ def member_status_sheet(mid):
             if kind == "safesport": rows.append({"title": label, "sub": "Not needed for players", "chip": ("N/A", "neutral")})
             continue
         if not rq["expires"]: continue  # same rules as the row's chip (list_status)
-        if "water polo" in label.lower() and "membership" in label.lower(): continue  # that's the USA Water Polo # row above
+        if _is_usawp_req(rq): continue  # that's the USA Water Polo # row above
         date = dates.get((mid, rq["id"]), "")
         if not date: rows.append({"title": label, "sub": "Missing", "action": "Add", "href": "/admin/member/%d" % mid})
         elif date < today: rows.append({"title": label, "sub": "Expired %s" % fmt_long(date), "action": "Update", "href": "/admin/member/%d" % mid})

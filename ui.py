@@ -6042,7 +6042,7 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 {{ cred_row('warn' if on_trial else date_dot(m.usawp_valid_until)|trim, 'USAWP # ' ~ (m.usawp_number or '—'), (trial_badge(tw)|striptags) if on_trial else (fmt_long(m.usawp_valid_until) if m.usawp_valid_until else 'Not on file')) }}
 {{ cred_row(date_dot(cred.safesport)|trim, 'SafeSport training', fmt_long(cred.safesport) if cred.safesport else 'Not on file') }}
 {{ cred_row(date_dot(cred.background)|trim, 'Background screening', fmt_long(cred.background) if cred.background else 'Not on file') }}
-{% set rf = referee_eligibility(m) %}{{ cred_row(date_dot(cred.referee)|trim, 'Referee', (fmt_long(cred.referee) if cred.referee else 'Not on file') ~ ((' · eligibility expired ' ~ fmt_long(rf.expired)) if rf.expired and not rf.eligible else '')) }}
+{% set rf = referee_eligibility(m) %}{% if cred.referee or rf.eligible or rf.expired or rf.text %}{{ cred_row(date_dot(cred.referee)|trim, 'Referee', (fmt_long(cred.referee) if cred.referee else 'Not on file') ~ ((' · eligibility expired ' ~ fmt_long(rf.expired)) if rf.expired and not rf.eligible else '')) }}{% endif %}
 {% if cc %}{{ cred_row('ok' if cc.ok else 'bad', 'Coaching', 'cleared' if cc.ok else cc.text) }}{% elif ce.eligible %}{{ cred_row('ok', 'Coaching', 'Coach eligible') }}{% elif ce.text %}{{ cred_row('bad' if ce.expired else 'warn', 'Coaching', ce.text) }}{% endif %}
 </div>
 {% if me().is_admin %}

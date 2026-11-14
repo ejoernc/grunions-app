@@ -156,3 +156,21 @@ def test_chat_pushes_go_only_to_people_in_that_chat():
         assert not pushes
     finally:
         A.push_member = old
+
+
+def test_usawp_rule_uses_the_usawp_number_not_a_rule_date():
+    """A verified, current USAWP # clears the USA Water Polo membership rule; no separate date is needed."""
+    import app as A
+    with A.app.app_context():
+        d = A.db()
+        mid = d.execute("SELECT id FROM members ORDER BY id LIMIT 1").fetchone()[0]
+        d.execute("UPDATE members SET usawp_status='verified', usawp_valid_until='2099-01-01', usawp_number='40573' WHERE id=?", (mid,))
+        for q in d.execute("SELECT * FROM requirements WHERE active=1").fetchall():
+            if A._is_usawp_req(q): d.execute("DELETE FROM member_reqs WHERE member_id=? AND req_id=?", (mid, q["id"]))
+            elif q["expires"]: d.execute("INSERT OR REPLACE INTO member_reqs(member_id, req_id, expires_on) VALUES(?,?,?)", (mid, q["id"], "2099-01-01"))
+        d.commit()
+        m = d.execute("SELECT * FROM members WHERE id=?", (mid,)).fetchone()
+        st = A.list_status(d, m, "members")
+        assert "Water Polo" not in st.get("rest", ""), st
+        assert st["ok"], st
+        d.rollback(); d.close()
