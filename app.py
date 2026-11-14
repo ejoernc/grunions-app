@@ -2053,6 +2053,15 @@ def chat_unread_n(d, mid, channel):
     row = d.execute("SELECT last_read FROM chat_reads WHERE member_id=? AND channel=?", (mid, channel)).fetchone()
     if not row: return 0
     return d.execute("SELECT COUNT(*) FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=? AND id>? AND member_id!=?", (channel, row["last_read"], mid)).fetchone()[0]
+def practice_chat_unread(pid):
+    """New messages from others in this practice's chat since I last opened it (all of them if I never have)."""
+    m = me()
+    if not m: return 0
+    d = db(); ch = "practice:%d" % int(pid)
+    row = d.execute("SELECT last_read FROM chat_reads WHERE member_id=? AND channel=?", (m["id"], ch)).fetchone()
+    return d.execute("SELECT COUNT(*) FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=? AND id>? AND member_id!=?",
+                     (ch, row["last_read"] if row else 0, m["id"])).fetchone()[0]
+app.jinja_env.globals["practice_chat_unread"] = practice_chat_unread
 def ensure_cancel_notices(d, mid):
     """One unseen cancel row per practice still on the schedule. Existing seen_at values stay put."""
     d.execute("""INSERT OR IGNORE INTO practice_notices(practice_id, member_id, kind, seen_at)

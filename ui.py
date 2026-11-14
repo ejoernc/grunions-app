@@ -7667,7 +7667,7 @@ T["practice"] = """{% set p = x.p %}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>{% endif %}
 <div class=rg-tiles3>{{ rg_metric('%02d'|format(x.going|length), 'Going', 'lime') }}{{ rg_metric('%02d'|format(x.coaches|length), 'Coaches', 'carbon') }}{{ rg_metric('%02d'|format(x.checked|length), 'Checked in', 'carbon') }}</div>
-{% if not p.cancelled %}{{ r2_practice_actions('/chat?c=practice:' ~ p.id ~ ('&peek=1' if x.mine != 1 else ''), 'Practice chat', x.going|length) }}{% endif %}
+{% if not p.cancelled %}{{ r2_practice_actions('/chat?c=practice:' ~ p.id ~ ('&peek=1' if x.mine != 1 else ''), 'Practice chat', practice_chat_unread(p.id)) }}{% endif %}
 {% set check_href = '/admin?date=' ~ p.date ~ '&ev=p-' ~ p.id ~ '&from=practice' %}
 {% if fx and fx.gate_hint and not p.cancelled %}{{ rg_callout(fx.gate_hint, 'First time only', 'Once', '/practices/' ~ p.id ~ '/signup', 'graphite') }}{% endif %}
 {% if host and not p.cancelled %}<a class="rg-btn primary rg-wide" href="{{ check_href }}">Start check-in</a>{% endif %}
