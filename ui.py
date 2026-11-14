@@ -747,6 +747,7 @@ main:has(.lineupfilt){padding-bottom:calc(var(--nav-clear) + 80px + env(safe-are
 .lmetric.reg{background:var(--lime);color:var(--ink)}
 .lmetric.dec{background:var(--team-sun);color:var(--ink)}
 .lmonth,details.lineuppast>summary{margin:18px 0 10px;color:var(--smoke);font:700 28px/.95 var(--r2-font-display);letter-spacing:-.03em;text-transform:none}
+.schedfeed>.lmonth{margin:-6px 0 -14px}
 details.lineuppast{border:0}
 details.lineuppast>summary{cursor:pointer;list-style:none}
 details.lineuppast>summary::-webkit-details-marker{display:none}
@@ -5076,7 +5077,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% set ns = namespace(day='', open=false, featured=true, month='') %}
 {% for x in rows %}{% set p = x.p %}{% set tile = practice_tile(p) %}{% set key = tile.wd ~ tile.dn %}
 {% if key != ns.day %}{% if ns.open %}</div></div>{% endif %}{% set ns.day = key %}{% set ns.open = true %}
-{% if (p.date|string)[:7] != ns.month %}{% set ns.month = (p.date|string)[:7] %}<h2 class="lmonth schedmonth">{{ month_label(p.date) }}</h2>{% endif %}
+{% if (p.date|string)[:7] != ns.month %}{% set ns.month = (p.date|string)[:7] %}<div class=lmonth>{{ month_label(p.date) }}</div>{% endif %}
 <div class=daygroup><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class=daycards>
 {% endif %}
 {% set ended = practice_ended(p) or when == 'past' %}
@@ -6652,7 +6653,7 @@ _PRACTICE_JS = """<script>
 })();
 </script>"""
 
-T["lineup"] = """{% macro lineup_months(groups, mode, past=false) %}{% for g in groups %}<div class=lmonth>{% if mode == 'tall' %}{{ g.label }}{% if past %} · Past{% endif %}{% else %}{{ g.label.split(' ')[0] }}{% endif %}</div>{% for e in g.events %}{{ lineup_card(e, '/lineup' ~ ('?group=' ~ group if group else ''), mode, past) }}{% endfor %}{% endfor %}{% endmacro %}
+T["lineup"] = """{% macro lineup_months(groups, mode, past=false) %}{% for g in groups %}<div class=lmonth>{{ g.label }}{% if past and mode == 'tall' %} · Past{% endif %}</div>{% for e in g.events %}{{ lineup_card(e, '/lineup' ~ ('?group=' ~ group if group else ''), mode, past) }}{% endfor %}{% endfor %}{% endmacro %}
 <div class="rg-filters filt lineupfilt chiprow" data-seg role=group aria-label="Type"><a {% if not group %}class=on aria-current=true{% endif %} href=/lineup>All</a>{% for slug, label in filter_groups %}<a {% if group == slug %}class=on aria-current=true{% endif %} href="/lineup?group={{ slug }}">{{ label }}</a>{% endfor %}</div>
 {% if not group %}<div class=lmetrics><div class="lmetric hrs"><b>{{ '%02d'|format(lineup_hours) }}</b><span>SERVICE HRS</span></div><div class="lmetric reg"><b>{{ '%02d'|format(lineup_registered) }}</b><span>REGISTERED</span></div><div class="lmetric dec"><b>{{ '%02d'|format(lineup_decide) }}</b><span>TO DECIDE</span></div></div>{% endif %}
 {% if featured %}<div class=lmonth>Pinned</div>{% for e in featured %}{{ lineup_card(e, '/lineup?group=' ~ group, 'tall') }}{% endfor %}{% endif %}
