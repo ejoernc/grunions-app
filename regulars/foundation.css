@@ -1371,3 +1371,11 @@ a.rg-metric.on{outline:3px solid var(--paper);outline-offset:-3px}
 .rg-icform{display:grid;gap:8px}
 .rg-tiles3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 12px}
 .rg-tiles3 .rg-metric b{font-size:clamp(34px,11vw,48px)}
+
+a.ckhero{text-decoration:none}
+.ckweek{touch-action:pan-y}
+/* A lime + in the page title sits top right, beside the display title (Check-in, Lineup). */
+.rg-pagetitle:has(.rg-ptacts .rg-plus){grid-template-columns:1fr auto;align-items:center;column-gap:12px}
+.rg-pagetitle:has(.rg-ptacts .rg-plus) .rg-pt{grid-column:1;grid-row:1}
+.rg-pagetitle:has(.rg-ptacts .rg-plus) .rg-ptsub{grid-column:1 / -1;grid-row:2}
+.rg-pagetitle:has(.rg-ptacts .rg-plus) .rg-ptacts{grid-column:2;grid-row:1}

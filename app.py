@@ -5813,7 +5813,7 @@ def admin_day_events(d, date):
             "type_label": sports.ACTIVITY_NAME.get(kind, "Practice"), "place": p["location"] or "",
             "map_href": lineup_map_href("", p["location"] or ""),
             "who": "", "tone": components.event_tone(kind),
-            "detail": "/practices/%d?from=admin" % p["id"]})
+            "detail": "/practices/%d" % p["id"]})
     for e in d.execute("""SELECT e.*, c.chip AS cat_chip, h.first AS host_first, h.last AS host_last, h.preferred_first AS host_preferred
         FROM lineup_events e LEFT JOIN lineup_categories c ON c.id=e.category_id
         LEFT JOIN members h ON h.id=e.host_id
@@ -5825,7 +5825,7 @@ def admin_day_events(d, date):
             "start": start, "when": when, "pill": fmt_clock(start), "type_label": e["cat_chip"] or "Event",
             "place": lineup_where(e["city"] or "", e["venue"] or ""),
             "map_href": lineup_map_href(e["city"] or "", e["venue"] or ""), "who": who, "tone": "lavender",
-            "detail": "/lineup/%d?from=admin&date=%s" % (e["id"], date)})
+            "detail": "/lineup/%d" % e["id"]})
     events.sort(key=lambda ev: (ev["start"], 0 if ev["kind"] == "practice" else 1, ev["id"]))
     return events
 def admin_people(d, date, event, q):
