@@ -2158,7 +2158,9 @@ def can_read(ch):
         return is_board()
     if ch.startswith("coach:"):
         return _can_read_coach_chat(ch)
-    if ch in ("team",) or ch.startswith(("ch:", "ask:", "grp:")):
+    if ch.startswith("grp:"):
+        return me()["id"] in group_member_ids(db(), ch)
+    if ch in ("team",) or ch.startswith(("ch:", "ask:")):
         return True
     if ch.startswith("req:"):
         row = db().execute("SELECT * FROM club_requests WHERE id=?", (int(ch.split(":", 1)[1]),)).fetchone()
@@ -11819,6 +11821,17 @@ def push_member(d, member, kind, title, body, url):
         except Exception as e:
             app.logger.warning("push to member %s failed: %s", member["id"], e)
     return n
+def group_member_ids(d, ch):
+    """A group's people: the creator and everyone picked (both are in its slug, g<creator>-<id>-<id>),
+    plus anyone who has posted in it, minus anyone who left."""
+    slug = ch.split(":", 1)[1] if ":" in ch else ch
+    ids = set(int(x) for x in re.findall(r"\d+", slug))
+    ids |= {r[0] for r in d.execute("SELECT DISTINCT member_id FROM messages WHERE channel=?", (ch,))}
+    try:
+        ids -= {r[0] for r in d.execute("SELECT member_id FROM chat_hidden WHERE channel=? AND reason='leave'", (ch,))}
+    except Exception:
+        pass
+    return ids
 def chat_push_recipients(d, channel, sender_id):
     """Who gets a push for a new message: only people who can read that chat. Never the whole club
     unless it is #everyone (team) or an official club channel."""
@@ -11832,8 +11845,9 @@ def chat_push_recipients(d, channel, sender_id):
         try: ids = [int(x) for x in ch.split(":")[1:3]]
         except ValueError: return []
         return d.execute(base + " AND id IN (?,?)", (sender_id, ids[0], ids[1])).fetchall()
-    if ch.startswith("grp:"):  # people already in the group thread
-        return d.execute(base + " AND id IN (SELECT DISTINCT member_id FROM messages WHERE channel=?)", (sender_id, ch)).fetchall()
+    if ch.startswith("grp:"):
+        ids = group_member_ids(d, ch)
+        return [m for m in d.execute(base, (sender_id,)) if m["id"] in ids]
     if ch.startswith("practice:"):
         try: pid = int(ch.split(":", 1)[1])
         except ValueError: return []
@@ -11866,8 +11880,10 @@ def notify_chat(d, channel, sender, body, has_image):
         except Exception: title = "Chat"
         line = "%s: %s" % (who, text)
     url = "/chat?c=" + ch
+    try: left = {r[0] for r in d.execute("SELECT member_id FROM chat_hidden WHERE channel=? AND reason='leave'", (ch,))}
+    except Exception: left = set()
     for m in chat_push_recipients(d, ch, sender["id"]):
-        if chat_muted(d, m["id"], ch): continue
+        if m["id"] in left or chat_muted(d, m["id"], ch): continue
         push_member(d, m, kind, title, line, url)
 def notify_practice_cancelled(d, p):
     when = "%s, %s-%s" % (fmt_d(p["date"]), fmt_t(p["start"]), fmt_t(p["end"]))

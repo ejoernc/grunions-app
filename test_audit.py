@@ -143,7 +143,16 @@ def test_chat_pushes_go_only_to_people_in_that_chat():
         jane.post("/api/messages?c=team", json={"body": "all hands"}, headers={"X-CSRF": csrf(jane)})
         assert BOSS in {p[0] for p in pushes} and CORA in {p[0] for p in pushes} and JANE not in {p[0] for p in pushes}
         pushes.clear()
-        jane.post("/api/messages?c=grp:secret", json={"body": "group start"}, headers={"X-CSRF": csrf(jane)})
-        assert not pushes  # nobody else in that group yet
+        # a group: only the people picked get it; outsiders can't read or post
+        r = jane.post("/chat/dm", data={"csrf": csrf(jane), "with": [str(CORA), str(BOSS)], "name": "Trio"})
+        ch = r.headers["Location"].split("c=", 1)[1].split("&", 1)[0]
+        outsider = join("Otto", "Side", "otto@example.com")
+        jane.post("/api/messages?c=" + ch, json={"body": "group start"}, headers={"X-CSRF": csrf(jane)})
+        assert {p[0] for p in pushes} == {CORA, BOSS}, pushes
+        assert outsider.get("/api/messages?c=" + ch).status_code == 403
+        assert outsider.post("/api/messages?c=" + ch, json={"body": "x"}, headers={"X-CSRF": csrf(outsider)}).status_code == 403
+        pushes.clear()
+        jane.post("/api/messages?c=grp:nobody-here", json={"body": "x"}, headers={"X-CSRF": csrf(jane)})
+        assert not pushes
     finally:
         A.push_member = old
