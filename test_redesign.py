@@ -707,3 +707,18 @@ def test_email_image_block_uploads_renders_and_is_public():
     assert A.app.test_client().get("/email-image/../app.py").status_code == 404
     html = A.clubemail.render([b])
     assert 'alt="Team photo"' in html and name in html
+
+
+def test_home_week_falls_forward_to_the_next_week_with_sessions():
+    sql("UPDATE practices SET cancelled=1 WHERE date>=?", (A.today_pt().isoformat(),))
+    pid = _practice("Far Week", days=23)
+    page = member.get("/home").get_data(as_text=True)
+    assert "Far Week" in page or "Ride Pool Far Week" in page
+    assert "Nothing coming up." not in page and "fullschedrow" in page
+
+
+def test_home_with_nothing_scheduled_offers_add_to_admins_and_suggest_to_members():
+    sql("UPDATE practices SET date='2000-01-01' WHERE date>=?", (A.today_pt().isoformat(),))
+    assert "Suggest an event" in member.get("/home").get_data(as_text=True)
+    admin_home = boss.get("/home").get_data(as_text=True)
+    assert "Add to the schedule" in admin_home and "/events/new?lane=schedule" in admin_home

@@ -22,7 +22,7 @@ from ui import T
 _PANEL_AT = '{#fxpanel#}'
 assert _PANEL_AT in T["practice"], "practice template anchor moved"
 T["practice"] = T["practice"].replace(_PANEL_AT, _PANEL_AT + flows2.PRACTICE_PANEL, 1)
-_WEEK_AT = '<div class=weekhead><h2>This week'
+_WEEK_AT = '<div class=weekhead><h2>'
 assert _WEEK_AT in T["home"], "home template anchor moved"
 T["home"] = T["home"].replace(_WEEK_AT, '{% set setup = setup_card() %}' + flows2.SETUP_CARD + _WEEK_AT, 1)
 from flask import (Flask, request, redirect, url_for, session, g, render_template_string, Response, abort, flash, jsonify, send_from_directory)
@@ -6697,6 +6697,31 @@ def combined_view(entry):
                                   "cancelled": bool(row["p"]["cancelled"]),
                                   "before": [c for c in cards if c["when"] == "before"],
                                   "after": [c for c in cards if c["when"] != "before"]})
+    week_label = "This week"
+    if sched_home and not week_sessions:
+        # Nothing this week: show the next week that has something, so Home isn't empty when the schedule isn't.
+        nxt = d.execute("SELECT date FROM practices WHERE date>? AND COALESCE(cancelled,0)=0 ORDER BY date LIMIT 1", (week_end,)).fetchone()
+        later = []
+        if nxt:
+            f0 = dt.date.fromisoformat(str(nxt["date"])[:10]); s0 = f0 - dt.timedelta(days=f0.weekday())
+            for p in d.execute("SELECT * FROM practices WHERE date>=? AND date<=? ORDER BY date, start", (s0.isoformat(), (s0 + dt.timedelta(days=6)).isoformat())):
+                row = practice_bundle(d, p)
+                k = (p["activity_type"] or "practice") if "activity_type" in p.keys() else "practice"
+                row["kind"] = k if k in ("practice", "scrimmage", "game") else "practice"
+                later.append(row)
+        if later:
+            first = dt.date.fromisoformat(str(later[0]["p"]["date"])[:10])
+            wk_start = first - dt.timedelta(days=first.weekday())
+            wk_end = (wk_start + dt.timedelta(days=6)).isoformat()
+            week_label = "Next week" if wk_start == today + dt.timedelta(days=7 - today.weekday()) else "Week of " + fmt_md(wk_start.isoformat())
+            for row in later:
+                if str(row["p"]["date"])[:10] > wk_end:
+                    break
+                cards = [_decorate_social(d, card, m["id"]) for card in schedule_social_cards(row["p"])]
+                week_sessions.append({"p": row["p"], "going": row["going"], "mine": row["mine"], "kind": row["kind"],
+                                      "cancelled": bool(row["p"]["cancelled"]),
+                                      "before": [c for c in cards if c["when"] == "before"],
+                                      "after": [c for c in cards if c["when"] != "before"]})
     week_n = sum(1 for s in week_sessions if not s["cancelled"])
     kind_n = {"all": week_n, "practice": 0, "scrimmage": 0, "game": 0}
     going_today = next((s for s in week_sessions if str(s["p"]["date"])[:10] == today.isoformat() and s["mine"] == 1 and not s["cancelled"]), None)
@@ -6840,7 +6865,7 @@ def combined_view(entry):
     return page(T["home"], tab="practices" if entry == "practices" else "home",
         sched_home=sched_home, sched_list=sched_list, sched_when=sched_when or "upcoming", sched_rows=sched_rows,
         home_rows=home_rows, week_n=week_n, kind_n=kind_n, social_cards=[],
-        week_sessions=week_sessions, show_rides=show_rides, ride_label=ride_label,
+        week_sessions=week_sessions, week_label=week_label, show_rides=show_rides, ride_label=ride_label,
         ride_pid=(going_today["p"]["id"] if going_today else (nextp["id"] if (show_rides and nextp) else None)), ride_area=_last_ride_area(d, m), ride_seats=flows2.ride_defaults(m)["seats"], drive_detail=drive_detail, not_cleared=not_cleared,
         show_drive=show_drive, drive_placeholder=drive_placeholder, drive_num=drive_num, drive_note=drive_note, drive_kicker=drive_kicker,
         home_out=home_out, preview_on=preview_on, preview_drawer=preview_drawer, pin_label=pin_label, week_strip=week_strip,

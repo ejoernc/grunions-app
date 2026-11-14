@@ -1639,3 +1639,9 @@ header.homehead .headmain .rg-plus,.chathead .rg-plus{align-self:flex-start;marg
 /* Can't make it: a full button, same 56px as Going / Interested (ghost: graphite outline) */
 .rg-cant{align-self:stretch;width:100%;height:56px;min-height:56px;padding:0 24px;border:1.5px solid var(--graphite);border-radius:999px;background:transparent;color:var(--paper);font:700 16px/normal var(--font-sans)}
 .rg-emimg{display:block;width:100%;height:auto;border-radius:16px;margin:0 0 8px}
+.fullschedrow .dayrail{visibility:hidden}.fullschedrow .daycards{flex:1;min-width:0}.fullschedrow .fullsched{width:100%;box-sizing:border-box}
+/* 2.0 / Empty state (Figma 353:749 via 2009:2987): exact values */
+.rg-empty h2{font:700 36px/.95 var(--font-display);letter-spacing:-1.08px}
+.rg-empty p{font:500 15px/1.45 var(--font-sans)}
+.rg-empty .rg-big{font:700 160px/.8 var(--font-display);letter-spacing:-12.8px;color:var(--fixed-paper)}
+.rg-empty .btn.btn-primary{display:inline-flex;align-items:center;justify-content:center;height:56px;padding:0 24px;border-radius:999px;background:var(--lime);color:var(--fixed-ink);font:700 16px/normal var(--font-sans);text-decoration:none;border:0}

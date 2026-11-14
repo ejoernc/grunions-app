@@ -311,7 +311,7 @@ def test_schedule_is_not_the_old_home_and_profile_sheets_open():
     os.environ["IS_PULL_REQUEST"] = "true"
     try:
         empty = member.get("/practices?home=empty").get_data(as_text=True)
-        assert "Nothing scheduled this week." in empty and "YOUR DRIVE" not in empty and "See Lineup" in empty
+        assert "Nothing coming up." in empty and "YOUR DRIVE" not in empty and ("Add to the schedule" in empty or "Suggest an event" in empty)
         banner = member.get("/practices?home=uncleared").get_data(as_text=True)
         assert "NOT CLEARED" in banner and "Add USAWP number" in banner
         later = member.get("/practices?home=later").get_data(as_text=True)

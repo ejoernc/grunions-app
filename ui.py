@@ -5070,14 +5070,14 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <button type=button class=sheetgrab id=sheetGrab aria-label="Drag the week"></button>
 {% if not_cleared %}<div class=clearbanner><b>NOT CLEARED YET</b><strong>Add your USAWP number to go to practice.</strong><p>Takes 2 minutes. Coaches can see you once it’s verified.</p><a href=/profile#membership>Add USAWP number</a></div>{% endif %}
 <div class=weekbody id=weekBody>
-<div class=weekhead><h2>This week{% if week_n %} <span>({{ '%02d'|format(week_n) }})</span>{% endif %}</h2><a href="/practices?view=list">See all ›</a></div>
+<div class=weekhead><h2>{{ week_label or 'This week' }}{% if week_n %} <span>({{ '%02d'|format(week_n) }})</span>{% endif %}</h2><a href="/practices?view=list">See all ›</a></div>
 <div class=weekthis>
 {% if tab == 'home' %}<div class=homealerts>{{ push_card() }}{% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}</div>
 {% if not (me().usawp_number or '')|trim %}{{ rg_usawp_card(csrf_field(), not trial_window(me()), TRIAL_JOIN_URL) }}{% endif %}{% endif %}
 {% if show_drive %}{{ r2_drive_card(drive_num or '18', drive_note or drive_detail, drive_chip, drive_placeholder, drive_kicker or 'YOUR DRIVE · 7.4 MI', ('/practices/' ~ nextp.id ~ '/leave-by') if nextp else '') }}{% endif %}
 {% if show_rides %}<div class=ridebtns><button type=button id=needRide>{{ ride_label }}</button><button type=button id=offerRide>Offer a ride</button></div>{% endif %}
 {% if ann %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(ann)|upper }}</b><p>{{ ann.body }}</p></div>{% endif %}
-{% if not week_sessions %}<div class=weekempty><span>THIS WEEK</span><b>Nothing scheduled this week.</b><p>Your team hasn’t posted anything yet. Check Lineup for events or look at the full schedule.</p><a href=/lineup>See Lineup</a></div>{% endif %}
+{% if not week_sessions %}{% if can_host_practice() %}{{ rg_empty('Nothing coming up.', 'Nothing is on the schedule yet. Add a practice, scrimmage or game and it shows up here for everyone.', 'Add to the schedule', '/events/new?lane=schedule') }}{% else %}{{ rg_empty('Nothing coming up.', 'Coaches post practices here. Want a game or meetup? Suggest one for the Lineup.', 'Suggest an event', '/events/new?lane=lineup') }}{% endif %}{% endif %}
 {% set wk = namespace(day='', open=false) %}{% for s in week_sessions %}{% set tile = practice_tile(s.p) %}{% set key = tile.wd ~ tile.dn %}
 {% if key != wk.day %}{% if wk.open %}</div></div>{% endif %}{% set wk.day = key %}{% set wk.open = true %}<div class=daygroup><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class=daycards>{% endif %}
 {% for card in s.before %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
@@ -5085,7 +5085,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% else %}{% set clk = fmt_clock(s.p.start).split(' ') %}{{ r2_event_card('/practices/' ~ s.p.id, (s.p.sport or 'Water Polo')|upper, practice_title(s.p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(s.p.start, s.p.end), short_place(s.p.location), s.going, '' if s.mine == 1 and not home_out else day_chip(s.p.date), s.mine == 1 and not home_out, event_tone(s.kind or 'practice', false, row_color(s.p)), practice_ended(s.p)) }}{% endif %}
 {% for card in s.after %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
 {% endfor %}{% if wk.open %}</div></div>{% endif %}
-<a class=fullsched href="/practices?view=list">View full schedule ›</a>
+{% if week_sessions %}<div class="daygroup fullschedrow"><div class=dayrail aria-hidden=true></div><div class=daycards><a class=fullsched href="/practices?view=list">View full schedule ›</a></div></div>{% else %}<a class=fullsched href="/practices?view=list">View full schedule ›</a>{% endif %}
 
 </div>
 </div>
