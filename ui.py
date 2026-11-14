@@ -2402,7 +2402,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {%- endmacro %}
 {% macro r2_event_row(href, variant, kicker, title, meta, count, kind='', went=false) -%}
 {%- if variant == 'cancelled' -%}{{ rg_event_cancelled(href, kicker, title, meta) }}
-{%- elif variant == 'stack' -%}{{ rg_event_row(href, kind or 'WATER POLO', kicker ~ ' ' ~ title, meta, count, 'WENT' if went else 'GOING', event_tone(kind)) }}
+{%- elif variant == 'stack' -%}{{ rg_event_row(href, kind or 'WATER POLO', title, meta, count, 'WENT' if went else 'GOING', event_tone(kind)) }}
 {%- else -%}{{ rg_event_line(href, kicker ~ ' · ' ~ title, meta ~ ((' · ' ~ count ~ ' going') if count else ''), 'graphite' if variant == 'off' else event_tone(kind)) }}{%- endif -%}
 {%- endmacro %}
 {% macro r2_social_card(card, variant='home') -%}{{ rg_social_card(card, csrf_field(), 'page' if variant in ('row', 'open') else 'home', fmt_clock(card.clock) if card.clock else '', variant == 'open') }}{%- endmacro %}
@@ -2993,7 +2993,8 @@ function grunionsEditor(){
    sheet.querySelectorAll('[data-search]').forEach(function(row){ row.hidden=!!(q&&(row.getAttribute('data-search')||'').toLowerCase().indexOf(q)<0); });
   });
  });
- document.querySelectorAll('[data-sheetdone]').forEach(function(b){ b.addEventListener('click', function(){ var d=b.closest('dialog'); if(d) d.close(); }); });
+ if(!window._grunionsSheetDone){ window._grunionsSheetDone=true;
+  document.addEventListener('click', function(e){ var b=e.target.closest&&e.target.closest('[data-sheetdone]'); if(!b) return; var d=b.closest('dialog'); if(d&&d.open){ if(window.grunionsCloseSheet) grunionsCloseSheet(d); else d.close(); } }); }
  var toggle=document.getElementById('socialToggle'), sbody=document.getElementById('socialBody'), clearer=document.getElementById('socialClear');
  if(toggle&&sbody) toggle.addEventListener('click', function(){ sbody.hidden=false; if(clearer) clearer.disabled=true; });
  var removeSocial=document.getElementById('socialRemove');
@@ -3012,6 +3013,7 @@ function grunionsEditor(){
   setTimeout(function(){ try{ el.scrollIntoView({block:'center'}); }catch(err){} }, 80);
  });
 }
+window.grunionsEditor=grunionsEditor;
 if(document.querySelector('[data-editorform],#sheetLevels')) grunionsEditor();
 function grunionsPushCard(){
 var card=document.getElementById('pushCard'); if(!card) return;
@@ -3565,6 +3567,7 @@ function grunionsApply(html,url,pop,replace,quiet){
  grunionsRunScripts(scripts);
  if(window.grunionsBindPickers) grunionsBindPickers();
  if(window.grunionsDropzones) grunionsDropzones();
+ if(window.grunionsEditor && document.querySelector('[data-editorform],#sheetLevels')) grunionsEditor();
  if(window.grunionsPinHead) grunionsPinHead();
  grunionsPushCard();
  if(window.grunionsRefresh) grunionsRefresh();
