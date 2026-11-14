@@ -1445,6 +1445,7 @@ body.practicepage:not(.editor) main{padding-left:16px;padding-right:16px}
 .pq .rg-tiles3 .rg-metric.tone-carbon span{color:var(--paper)}
 .pq .rg-pactions{gap:4px}
 .pq .rg-pamain{height:56px;gap:10px;padding:0 20px;border-radius:999px 8px 8px 999px}
+.pq .rg-pamain:only-child{border-radius:999px}
 .pq>a.rg-btn.primary{display:flex;align-items:center;justify-content:center;width:100%;height:56px;min-height:56px;padding:0 24px;border-radius:999px;font:700 16px/1 var(--font-sans)}
 .pq .rg-sec{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding-bottom:4px}
 .pq .rg-sec h2{font:700 36px/.95 var(--font-display);letter-spacing:-1.08px;color:var(--paper)}
