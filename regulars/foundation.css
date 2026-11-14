@@ -474,7 +474,7 @@
 .rg-chip{flex:none;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px 0 10px;border-radius:999px;background:var(--lime);color:var(--fixed-ink);font:700 12px/1 var(--font-sans);white-space:nowrap}
 .rg-chip i{width:6px;height:6px;border-radius:50%;background:currentColor}
 .rg-chip.st-paid{background:var(--team-sage)}.rg-chip.st-expiring{background:var(--team-sun)}.rg-chip.st-notcleared{background:var(--team-tangerine)}
-.rg-chip.st-cleared{background:var(--team-sky)}.rg-chip.st-interested{background:var(--team-lavender)}.rg-chip.st-sport{background:var(--team-stone)}
+.rg-chip.st-cleared{background:var(--lime)}.rg-chip.st-interested{background:var(--team-lavender)}.rg-chip.st-sport{background:var(--team-stone)}
 .rg-chip.st-neutral{background:var(--graphite);color:var(--paper)}
 .rg-empty{display:grid;gap:16px;justify-items:start;padding:28px;border-radius:40px;background:var(--carbon)}
 .rg-big{font:700 160px/.8 var(--font-display);letter-spacing:-.08em;color:var(--graphite)}
