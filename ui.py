@@ -447,7 +447,8 @@ body.editor button.lanecard.on span,body.editor button.lanecard span{color:inher
 body.editor h2.planask,body.editor .fldlab{margin:18px 0 8px;font:700 11px/1 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--smoke)}
 body.editor .actseg{gap:8px;margin:0 0 16px;padding:0;background:transparent}
 body.editor .actseg span{height:40px;min-height:40px;padding:0 14px;border-radius:999px;background:var(--graphite);color:var(--paper)}
-body.editor #schedBlock .actseg input:checked+span,body.editor .hostseg input:checked+span,body.editor #whenPrec input:checked+span{background:var(--team-sun);color:var(--ink)}
+body.editor #schedBlock .actseg input:checked+span,body.editor .hostseg input:checked+span,body.editor #whenPrec input:checked+span{background:var(--lime);color:var(--fixed-ink)}
+body.editor .actseg span{text-transform:none;letter-spacing:0;font:700 15px/1 var(--r2-font-sans)}
 body.editor #lineBlock .actseg input:checked+span,body.editor #eventForm .actseg input:checked+span{background:var(--team-lavender);color:var(--ink)}
 body.editor .colordots{display:flex;gap:10px;margin:0 0 16px}
 body.editor button.cdot{width:28px;height:28px;min-height:28px;padding:0;border-radius:999px;border:0;background:var(--c);box-shadow:0 0 0 2px var(--ink)}
@@ -459,8 +460,10 @@ body.editor label{font:700 11px/1.2 var(--r2-font-sans);letter-spacing:.08em;tex
 body.editor label input,body.editor label select,body.editor label textarea,body.editor .livetitle{text-transform:none;letter-spacing:0;font:600 16px/1.3 var(--r2-font-sans);color:var(--paper)}
 body.editor input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]),body.editor select,body.editor textarea.planfield{background:var(--carbon);border:0;border-radius:22px;min-height:56px;color:var(--paper)}
 body.editor input.bad,body.editor button.setrow.bad{outline:2px solid var(--team-tangerine);outline-offset:0}
-body.editor #exactWhen{display:grid;grid-template-columns:1fr 1fr;gap:10px;background:transparent;border:0}
-body.editor #exactWhen .setrow{min-height:72px;border:0;border-radius:22px;background:var(--carbon);color:var(--paper);align-items:flex-start;flex-direction:column;padding:12px 14px}
+body.editor #exactWhen{display:grid;grid-template-columns:1fr;gap:8px;background:transparent;border:0}
+body.editor #exactWhen .setrow{min-height:56px;border:0;border-radius:999px;background:var(--carbon);color:var(--paper);align-items:center;flex-direction:row;padding:0 20px;gap:8px}
+body.editor #exactWhen .setrow .grow{display:flex;justify-content:space-between;align-items:center;flex:1;font:700 16px/1.2 var(--r2-font-sans)}
+body.editor #exactWhen .setrow .sum{color:var(--smoke);font:500 15px/1.2 var(--r2-font-sans)}
 body.editor #exactWhen .setrow[data-matfor=dateInput],body.editor #exactWhen #repeatRow,body.editor #exactWhen #freqRow,body.editor #exactWhen #endsRow,body.editor #exactWhen #skipRow{grid-column:1 / -1}
 body.editor .livetitle{display:flex;align-items:center;justify-content:space-between;min-height:56px;margin:0 0 16px;padding:0 16px;border-radius:22px;background:var(--carbon)}
 body.editor .plancards{flex-direction:row;align-items:stretch}
@@ -6793,10 +6796,13 @@ T["manage_request"] = ADMIN_NAV + """{{ admin_page(e.title) }}
 _CHEV = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
 T["event_new"] = """<form id=planForm method=post action=/events/new enctype=multipart/form-data data-editorform data-practicedays='{{ practice_days|tojson }}'>{{ csrf_field() }}
 <h1 class=newevent id=newEventTitle>{% if lane == 'lineup' %}New lineup event.{% else %}New event.{% endif %}</h1>
+{# Figma 62 · V1–V3: three steps on one form. Nothing posts until the last step. #}
+<div class=evsteps aria-live=polite><span class=rg-day id=evStepLab>STEP 1 OF 3 · WHAT</span><span class=evbars><i class=on></i><i></i><i></i></span></div>
 <input type=hidden name=lane id=laneVal value="{{ 'lineup' if not staff else lane }}">
 <input type=hidden name=title_mode id=titleMode value="{{ 'custom' if dup and dup.title else 'auto' }}">
 {% if dup %}<input type=hidden name=copy_from value="{{ dup.id }}"><textarea name=coaching_plan hidden>{{ dup.coaching_plan }}</textarea>{% endif %}
 <input type=hidden name=mode value="{{ 'create' if staff else 'suggest' }}">
+<section class=evstep data-step=1>
 {% if staff %}<h2 class=planask>What are you planning?</h2>
 <div class=lanepick role=radiogroup aria-label="What are you planning?">
 <button type=button class="lanecard{{ ' on' if lane != 'lineup' }}" data-lane=schedule><b>Team schedule</b><span>Practices, scrimmages &amp; games</span></button>
@@ -6854,6 +6860,9 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label>Event name<input name=line_title id=lineTitle autocomplete=off placeholder="IGLA 2027"></label>
 <label>Short description<textarea class=planfield name=description id=lineDesc rows=4 placeholder="What should people know?"></textarea></label>
 </div>
+<div class=evnav><button type=button class="rg-btn primary" data-evgo=2>Next: when &amp; where</button></div>
+</section>
+<section class=evstep data-step=2 hidden>
 <div class=rg-day>When</div>
 {% if staff %}<div class=actseg id=whenPrec role=radiogroup aria-label=Dates>
 <label data-prec=exact><input type=radio name=date_precision value=exact checked><span>Exact dates</span></label>
@@ -6874,7 +6883,10 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <input type=hidden name=date_part id=datePart data-monthpart value=all>
 </div>
 <label>Location<span id=locOk class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location id=locInput data-places value="{{ dup.location if dup else '' }}" autocomplete=off placeholder="Pool or address"></label>
-<div class=rg-day>Additional settings</div>
+<div class="evnav two"><button type=button class="rg-btn secondary" data-evgo=1>Back</button><button type=button class="rg-btn primary" data-evgo=3>Next: details</button></div>
+</section>
+<section class=evstep data-step=3 hidden>
+<div class=rg-day>Details · optional</div>
 {% if staff %}<div id=schedSets {% if lane == 'lineup' %}hidden{% endif %}>
 <div class=formsec><h2>Practice details</h2><div class=list>
 <button type=button class="li selfield" data-open=sheetLevels><span class=selfieldk>Skill levels</span><span class="selfieldv ell" data-for=levels>Not set</span>""" + _CHEV + """</button>
@@ -6902,9 +6914,10 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>
 </div>
 <div class=createfoot>
+<div class="evnav two"><button type=button class="rg-btn secondary" data-evgo=2>Back</button><button class="rg-btn primary" name=action value=preview id=evPost>{% if dup %}Save{% elif not staff %}Submit{% elif lane == 'lineup' %}Post to Lineup{% else %}Post to Schedule{% endif %}</button></div>
 <p class=pagesub id=destHint>{% if not staff %}Sent to admins for review{% elif lane == 'lineup' %}Appears on Lineup by default{% else %}Appears on Home by default{% endif %}</p>
-<button class="rg-btn primary full" name=action value=preview>{% if dup %}Save{% elif not staff %}Submit{% else %}Create event{% endif %}</button>
 </div>
+</section>
 <input class=pickhold type=date name=date id=dateInput value="{{ dup.date if dup else '' }}">
 <input class=pickhold type=time name=start id=startInput value="{{ dup.start if dup else '19:00' }}">
 <input class=pickhold type=time name=end id=endInput value="{{ dup.end if dup else '20:30' }}">
@@ -7187,6 +7200,22 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
  paintTitle();
 })();
 </script>
+<script>(function(){
+ var form=document.getElementById('planForm'); if(!form) return;
+ var names={1:'WHAT',2:'WHEN & WHERE',3:'DETAILS (OPTIONAL)'};
+ function go(n){
+  if(n>1){ var lane=(document.getElementById('laneVal')||{}).value; var title=lane==='lineup'?document.getElementById('lineTitle'):null;
+   if(title&&!title.value.trim()){ title.focus(); title.reportValidity&&title.setCustomValidity('Add an event name.'); title.reportValidity&&title.reportValidity(); title.setCustomValidity(''); return; } }
+  if(n>2){ var dt=document.getElementById('dateInput'), prec=form.querySelector('input[name=date_precision]:checked');
+   if(dt&&!dt.value&&(!prec||prec.value==='exact')){ var lab=document.getElementById('dateSum'); if(lab){ lab.textContent=' Pick a date first'; } return; } }
+  form.querySelectorAll('.evstep').forEach(function(s){ s.hidden=+s.getAttribute('data-step')!==n; });
+  var bars=form.querySelectorAll('.evbars i'); bars.forEach(function(b,i){ b.classList.toggle('on', i<n); });
+  var lab=document.getElementById('evStepLab'); if(lab) lab.textContent='STEP '+n+' OF 3 · '+names[n];
+  window.scrollTo({top:0,behavior:'smooth'});
+ }
+ form.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('[data-evgo]'); if(!b) return; e.preventDefault(); go(+b.getAttribute('data-evgo')); });
+ form.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('[data-lane]'); if(!c) return; var p=document.getElementById('evPost'); if(p&&p.textContent.indexOf('Post to')===0) p.textContent=c.getAttribute('data-lane')==='lineup'?'Post to Lineup':'Post to Schedule'; });
+})();</script>
 """ + _PRACTICE_JS
 T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" enctype=multipart/form-data>{{ csrf_field() }}
 <h1 class=newevent>{% if event_id %}{{ values.title }}.{% else %}New lineup event.{% endif %}</h1>

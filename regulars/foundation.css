@@ -1351,3 +1351,12 @@ a.rg-metric.on{outline:3px solid var(--paper);outline-offset:-3px}
 .rg-passbtn{display:flex;align-items:center;justify-content:center;height:52px;margin-top:8px;border-radius:999px;background:var(--fixed-ink);color:var(--fixed-paper);font:700 16px/1 var(--font-sans);text-decoration:none}
 .rg-kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0}
 .rg-kv dt{color:var(--smoke);font:600 12px/1.4 var(--font-sans)}.rg-kv dd{margin:0;color:var(--paper);font:500 15px/1.35 var(--font-sans)}
+/* New event · 3 steps (Figma 62 V1–V3) */
+.evsteps{display:grid;gap:8px;margin:4px 0 16px}
+.evbars{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.evbars i{display:block;height:4px;border-radius:2px;background:var(--graphite)}
+.evbars i.on{background:var(--lime)}
+.evstep[hidden]{display:none}
+.evnav{display:grid;gap:8px;margin:16px 0 8px}
+.evnav.two{grid-template-columns:1fr 1fr}
+.evnav .rg-btn{width:100%}
