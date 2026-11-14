@@ -1425,14 +1425,14 @@ body.practicepage.editor header.profilebar h1{text-align:left;padding-left:12px}
 .pqedit dialog input:not([type=radio]):not([type=checkbox]):not([type=hidden]):not([type=file]),.pqedit dialog textarea,.pqedit dialog select{background:var(--graphite) !important;border:0;border-radius:22px}
 .pqedit dialog .rg-field{display:grid;gap:8px;margin:0 0 12px}
 /* Practice view (Figma 63 · 1–3): full-bleed map under the top bar, card overlapping it */
-body.practicepage:not(.editor) .homemap.banner,body.practicepage:not(.editor) .evhero{display:block;height:380px;margin:-68px -16px -122px;border-radius:0;overflow:hidden;position:relative;z-index:0}
-body.practicepage:not(.editor) .evhero img{width:100%;height:100%;object-fit:cover}
-body.practicepage:not(.editor) .homemap.banner::after,body.practicepage:not(.editor) .evhero::after{content:"";position:absolute;inset:auto 0 0 0;height:200px;background:linear-gradient(transparent,var(--ink));z-index:450;pointer-events:none}
-body.practicepage:not(.editor) .pq{position:relative;z-index:1}
+body.practicepage:not(.editor):has(.pq) .homemap.banner,body.practicepage:not(.editor):has(.pq) .evhero{display:block;height:380px;margin:-68px -16px -122px;border-radius:0;overflow:hidden;position:relative;z-index:0}
+body.practicepage:not(.editor):has(.pq) .evhero img{width:100%;height:100%;object-fit:cover}
+body.practicepage:not(.editor):has(.pq) .homemap.banner::after,body.practicepage:not(.editor):has(.pq) .evhero::after{content:"";position:absolute;inset:auto 0 0 0;height:200px;background:linear-gradient(transparent,var(--ink));z-index:450;pointer-events:none}
+body.practicepage:not(.editor):has(.pq) .pq{position:relative;z-index:1}
 .pq .rg-ecard .rg-ecgo{display:none}
 
 /* ===== Practice page · Figma 63 frames 1–3 (2527:21744), exact values ===== */
-body.practicepage:not(.editor) main{padding-left:16px;padding-right:16px}
+body.practicepage:not(.editor):has(.pq) main{padding-left:16px;padding-right:16px}
 .pq{display:flex;flex-direction:column;gap:16px;padding-bottom:24px}
 .pq>*{margin:0 !important}
 .pq>form.pills,.pq .p5rsvp{display:flex;gap:8px}
