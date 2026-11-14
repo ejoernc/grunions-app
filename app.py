@@ -8617,7 +8617,7 @@ def _manage_catalog(d):
         add("activities", "Schedule", "Practices, scrimmages, and games", "/admin" if staff else "/manage/schedule", "cal", "practice scrimmage game schedule")
     if host:
         add("activities", "Lineup", "Events, tournaments, camps, and socials", "/manage/lineup", "people", "event tournament camp trip lineup")
-        add("activities", "Bulletin", "Team announcements in chat", "/chat", "tray", "announcement message bulletin chat")
+        # Bulletin hidden for now (Nov 13).
         add("activities", "Requests", "Member-submitted events", "/manage/requests", "tray", "approval pending request")
     if admin:
         add("activities", "Email", "Send news to members. See what went out.", "/manage/email", "tray", "email newsletter news announcement send")
@@ -8637,7 +8637,7 @@ def _manage_catalog(d):
         add("tools", "Usage", "Mapbox calls today", "/manage/tools/usage", "rules", "mapbox usage", mapbox_calls_today())
     return rows
 _AREA_COPY = {
-    "activities": ("Activities", "Schedule, Lineup, Bulletin, requests and email"),
+    "activities": ("Activities", "Schedule, Lineup, requests and email"),
     "people": ("People", "Participants, members, coaches, admins, and referees"),
     "club": ("Club", "Sports, plans, and sharing"),
     "tools": ("Tools", "QR codes, data transfer, and usage"),
