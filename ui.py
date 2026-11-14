@@ -7654,8 +7654,7 @@ T["admin"] = ADMIN_NAV + """<div class="rg-screen rg-checkin">
 {% if clean %}<h3 class=rg-day>GOING · {{ clean|length }}</h3>{% for c in clean %}{{ ci(c) }}{% endfor %}{% endif %}
 {% if not going %}<p class=rg-note>No one going yet.</p>{% endif %}
 {% if rest %}<h3 class=rg-day>EVERYONE ELSE · {{ rest|length }}</h3><p class=rg-note>Not signed up. Add someone who shows up anyway.</p>
-<div class=ckmore>{% for c in rest %}<div class="ckmoreitem"{% if loop.index > 5 %} hidden{% endif %}>{{ ci(c, true) }}</div>{% endfor %}</div>
-{% if rest|length > 5 %}<button type=button class=ckshow onclick="this.previousElementSibling.querySelectorAll('[hidden]').forEach(function(e){e.hidden=false});this.remove()">Show {{ rest|length - 5 }} more</button>{% endif %}{% endif %}
+{% for c in rest %}{{ ci(c, true) }}{% endfor %}{% endif %}
 {% endif %}
 {% if coming %}<h3 class=rg-day>COMING UP · {{ coming|length }}</h3>{% for item in coming[:3] %}{{ rg_event_row(item.href, item.sport or 'Practice', item.title, item.when ~ (' · ' ~ item.place if item.place else ''), item.get('going'), 'GOING', item.get('tone') or 'sky') }}{% endfor %}{% endif %}
 {% if pr %}<a class="rg-btn primary ckwrap" href="/practices/{{ pr.id }}/wrap">Wrap up practice</a>{% endif %}
