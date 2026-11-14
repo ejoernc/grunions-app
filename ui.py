@@ -4306,7 +4306,11 @@ window.grunionsMountMap=function(el, opts){
     try{ if(el._reframe) el._reframe(); }catch(e){}
    }).observe(el);
   }
-  if(el._gmap && !el._mapDead && window.grunionsMapAlive && grunionsMapAlive(el)){
+  var mapKey=JSON.stringify([opts.pins||[], opts.route||[]]);
+  var sameMap=el._mapKey===mapKey;
+  el._mapKey=mapKey;
+  if(sameMap && el._gmap && !el._mapDead && window.grunionsMapAlive && grunionsMapAlive(el)){
+   window.grunionsMapRefit(el);
    try{ if(el._gmap.resize) el._gmap.resize(); }catch(e){}
    try{ if(el._gmap.invalidateSize) el._gmap.invalidateSize(); }catch(e){}
    try{ if(el._reframe) el._reframe(); }catch(e){}
@@ -4724,6 +4728,18 @@ window.grunionsMountMap=function(el, opts){
     }
     requestAnimationFrame(function(){ separatePins(); });
    }
+   function venuesVisible(){
+    var box=el.getBoundingClientRect(), pts=venueLL(), top=headerFloor()+4, low=lowerLimit()-4, i, pt;
+    if(box.width<2||box.height<2) return true;
+    if(document.body.classList.contains('schedopen')||(window.scrollY||0)>8) return true;
+    for(i=0;i<pts.length;i++){
+     try{ pt=map.project(pts[i]); }catch(e){ return false; }
+     if(!pt||!isFinite(pt.x)||!isFinite(pt.y)) return false;
+     var x=box.left+pt.x, y=box.top+pt.y;
+     if(x<box.left+8||x>box.right-8||y<top||y>low) return false;
+    }
+    return true;
+   }
    function viewContains(pts){
     var box=el.getBoundingClientRect(), pad=homeView()?focalPad(pts.length):pads(), i, pt;
     for(i=0;i<pts.length;i++){
@@ -4909,6 +4925,7 @@ window.grunionsMountMap=function(el, opts){
     }
     if(el._applyRoute) el._applyRoute();
     if(!el._venuesFramed){ try{ frame(false); el._venuesFramed=true; }catch(e){} }
+    else if(homeView() && !el._mapHeld && !venuesVisible()){ try{ frame(false); }catch(e){} }
     if(homeView() && (el._you || (el._driveRoute && el._driveRoute.length>1))) scheduleCommuteFrame();
     else requestAnimationFrame(function(){ separatePins(); });
    };
@@ -4924,6 +4941,11 @@ window.grunionsMountMap=function(el, opts){
  }
 }
 boot();
+};
+window.grunionsMapRefit=function(el){
+ if(!el) return;
+ el._mapHeld=false; el._venuesFramed=false; el._commuteFramed=false;
+ [120, 450].forEach(function(ms){ setTimeout(function(){ try{ if(el.isConnected&&el._reframe) el._reframe(); }catch(e){} }, ms); });
 };
 window.grunionsPlaceMap=function(){
  var el=document.getElementById('homeMap');
@@ -4958,6 +4980,7 @@ window.grunionsRefreshMap=function(el, force){
  }
  var map=el._gmap;
  if(map && !force){
+  if(window.grunionsMapRefit) grunionsMapRefit(el);
   try{ if(map.resize) map.resize(); }catch(e){}
   try{ if(map.invalidateSize) map.invalidateSize(); }catch(e){}
   try{ if(map.triggerRepaint) map.triggerRepaint(); }catch(e){}
