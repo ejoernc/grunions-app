@@ -1248,3 +1248,27 @@ body:has(.rg-authhead)>header{display:none}
 #calPop .matactions{display:flex;gap:10px;margin:8px 0 0}
 #calPop .matactions button{flex:1;height:48px;min-height:0;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 15px/1 var(--font-sans)}
 #calPop #calOk{background:var(--lime);color:var(--fixed-ink)}
+
+/* Practice page (Figma Audit Q1/Q2) */
+.pq .rg-erow{margin:0 0 10px}
+.pqgroup{display:grid;gap:8px;margin:0 0 10px;padding:16px 20px;border-radius:24px;background:var(--carbon)}
+.pqhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0}
+.pqhead>span{color:var(--smoke);font:700 11px/1.2 var(--font-sans);letter-spacing:.08em}
+.pqact{border:0;background:transparent;padding:0;height:auto;min-height:0;color:var(--lime);font:700 14px/1 var(--font-sans);text-decoration:none;cursor:pointer}
+[data-theme="light"] .pqact{color:var(--paper);text-decoration:underline}
+.pqline{display:block;color:var(--paper);font:700 16px/1.3 var(--font-sans)}
+.pqsub{display:block;margin-top:4px;color:var(--smoke);font:600 13px/1.35 var(--font-sans)}
+.pqtext{margin:0;color:var(--paper);font:500 15px/1.45 var(--font-sans);white-space:pre-wrap}
+.pqempty{margin:0;color:var(--smoke);font:600 14px/1.35 var(--font-sans)}
+.pqperson{display:flex;align-items:center;gap:12px;padding:4px 0}
+.pqav{flex:none;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:var(--team-sun);color:var(--fixed-ink);font:700 15px/1 var(--font-display)}
+.pqtxt{flex:1;min-width:0;display:grid;gap:2px}.pqtxt b{color:var(--paper);font:700 16px/1.2 var(--font-sans)}.pqtxt small{color:var(--smoke);font:600 13px/1.3 var(--font-sans)}
+.pqgroup .rg-social{margin:0 0 8px}
+.pqchips{display:flex;gap:6px}
+.pqmissing{margin:0 0 12px;padding:16px 20px;border-radius:24px;border:1.5px dashed var(--graphite)}
+.pqmissing .pqhead{margin-bottom:10px}
+.pqmissing div{display:flex;flex-wrap:wrap;gap:8px 16px}
+.pqmissing a,.pqmissing button{border:0;background:transparent;padding:0;height:auto;min-height:0;color:var(--lime);font:700 14px/1.3 var(--font-sans);text-decoration:none;cursor:pointer}
+[data-theme="light"] .pqmissing a,[data-theme="light"] .pqmissing button{color:var(--paper)}
+.pqmore{display:grid;gap:8px;margin:16px 0 0}
+body.practicepage:not(.editor) .pq .rg-day{display:block}

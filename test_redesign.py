@@ -451,3 +451,23 @@ def test_joining_the_second_social_only_joins_that_one():
     member.post("/practices/%d" % pid, data={"csrf": csrf(member, "/profile"), "pid": pid, "slot": "2", "action": "social_join"})
     assert sql("SELECT COUNT(*) FROM social2_joins WHERE practice_id=?", (pid,))[0][0] == 1
     assert sql("SELECT COUNT(*) FROM social_joins WHERE practice_id=?", (pid,))[0][0] == 0
+
+
+def test_practice_page_sheets_edit_when_coaches_notes_and_link_check_in():
+    pid = _practice("Sheet Practice", 3)
+    sql("INSERT OR IGNORE INTO coaching_list(member_id) VALUES(?)", (RAE,))
+    page = boss.get("/practices/%d" % pid).get_data(as_text=True)
+    for bit in ("WHEN &amp; WHERE", "id=pqWhen", "id=pqCoaches", "NOTES", "Check-in", "NOT ADDED YET", "/admin?date="):
+        assert bit in page, bit
+    tok = csrf(boss, "/practices/%d" % pid)
+    day = (A.today_pt() + dt.timedelta(days=4)).isoformat()
+    boss.post("/practices/%d" % pid, data=dict(csrf=tok, pid=pid, back="page", action="when", date=day, start="18:00", end="19:30", location="New Pool"))
+    assert sql("SELECT date,start,end,location FROM practices WHERE id=?", (pid,))[0] == (day, "18:00", "19:30", "New Pool")
+    boss.post("/practices/%d" % pid, data=dict(csrf=tok, pid=pid, back="page", action="coaches", coach=str(RAE), lead=str(RAE)))
+    assert sql("SELECT member_id FROM practice_coaches WHERE practice_id=?", (pid,)) == [(RAE,)]
+    boss.post("/practices/%d" % pid, data=dict(csrf=tok, pid=pid, back="page", action="note", note="Bring caps"))
+    assert sql("SELECT note FROM practices WHERE id=?", (pid,))[0][0] == "Bring caps"
+    page = boss.get("/practices/%d" % pid).get_data(as_text=True)
+    assert "Head coach" in page and "Bring caps" in page
+    mpage = member.get("/practices/%d" % pid).get_data(as_text=True)
+    assert "pqWhen" not in mpage and "NOT ADDED YET" not in mpage and "Bring caps" in mpage

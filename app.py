@@ -18,7 +18,7 @@ import routing
 import sports
 import ui
 from ui import T
-_PANEL_AT = '{% for card in social_cards %}{{ r2_social_card(card, \'row\') }}{% endfor %}'
+_PANEL_AT = '{#fxpanel#}'
 assert _PANEL_AT in T["practice"], "practice template anchor moved"
 T["practice"] = T["practice"].replace(_PANEL_AT, _PANEL_AT + flows2.PRACTICE_PANEL, 1)
 _WEEK_AT = '<div class=weekhead><h2>This week'
@@ -6106,6 +6106,25 @@ def handle_practice_post(d):
         except ValueError as e:
             flash(str(e))
     elif not is_club_admin(): abort(403)
+    elif a == "when" and pid:
+        # Figma Q · When & where sheet: just date, time and venue for this practice.
+        old = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+        date = parse_date(request.form.get("date") or "")
+        start, end = (request.form.get("start") or old["start"])[:5], (request.form.get("end") or old["end"])[:5]
+        loc = " ".join((request.form.get("location") or old["location"] or "").split())[:120]
+        if not date: flash("Enter the practice date.")
+        else:
+            try:
+                moved = loc != (old["location"] or "")
+                d.execute("UPDATE practices SET date=?, start=?, end=?, location=?" + (", lat=NULL, lng=NULL" if moved else "") + (", series_detached=1" if old["series_id"] else "") + " WHERE id=?",
+                          (date.isoformat(), start, end, loc, pid))
+                if (old["date"], old["start"], old["end"], old["location"]) != (date.isoformat(), start, end, loc): flag_practice(d, pid, "change", me()["id"])
+            except sqlite3.IntegrityError:
+                d.rollback(); flash("A practice already exists at that place on that date.")
+    elif a == "coaches" and pid:
+        # Figma Q3 · pick coaches, then the head coach from the ones picked. Focus groups stay.
+        focuses = {r["member_id"]: r["focus"] or "" for r in d.execute("SELECT member_id, focus FROM practice_coaches WHERE practice_id=?", (pid,))}
+        save_practice_coaches(d, pid, request.form.getlist("coach"), lead=request.form.get("lead"), focuses=focuses)
     elif a == "add":
         if request.form.get("repeat"):
             try: save_series(d)
@@ -6703,7 +6722,13 @@ def practice_page(pid):
     host = can_host_practice()
     editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
     plan_editing = request.args.get("edit") == "1" and host and not me()["is_admin"]
-    return page(T["practice"], tab="practice", fx=practice_flows(d, p), x=practice_bundle(d, p), editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin", social_cards=schedule_social_cards(p))
+    bundle = practice_bundle(d, p)
+    going_ids = [r["id"] for r in bundle["going"]]
+    to_play = {"ok": 0, "not": 0}
+    if host and going_ids:
+        for m in d.execute("SELECT * FROM members WHERE id IN (%s)" % ",".join("?" * len(going_ids)), going_ids).fetchall():
+            to_play["ok" if clearance(d, m)["ok"] else "not"] += 1
+    return page(T["practice"], tab="practice", fx=practice_flows(d, p), x=bundle, to_play=to_play, editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin", social_cards=schedule_social_cards(p))
 @app.route("/practices/series/new", methods=["GET", "POST"])
 @admin_required
 def series_new():
