@@ -669,7 +669,40 @@ def membership_sex(current="", body="USA Water Polo", name="membership_sex", opt
         _e(body.upper()), choice_chips(name, opts, current or "")))
 
 
+
+def person_row(name, sub="", initials="", chip_label="", chip_status="neutral", href="", attrs="", tone="sun"):
+    """2.0 / People row (Figma 62 L2, Q1, N1): 52 avatar, bold name, smoke line, chip on the right.
+    href makes it a link; attrs (e.g. data-open-dialog) on a row without href makes it a button."""
+    ini = initials or ("".join(p[:1] for p in str(name).split()[:2]) or "?").upper()
+    inner = '<span class="rg-pav tone-%s" aria-hidden=true>%s</span><span class=rg-txt><b>%s</b>%s</span>%s' % (
+        _tone(tone, "sun"), _e(ini), _e(name), ('<small>%s</small>' % _e(sub)) if sub else "", str(chip(chip_label, chip_status)) if chip_label else "")
+    extra = (" " + attrs) if attrs else ""
+    if href:
+        return Markup('<a class=rg-person href="%s"%s>%s</a>' % (_e(href), extra, inner))
+    if attrs:
+        return Markup('<button type=button class=rg-person%s>%s</button>' % (extra, inner))
+    return Markup('<div class=rg-person>%s</div>' % inner)
+
+
+def group_card(title, sub="", chips=(), href=""):
+    """2.0 / Group card (Figma 62 L1): title + one line, chevron, then on/off chips. chips = [(label, on)]."""
+    row = "".join(str(chip(label, "going" if on else "neutral")) for label, on in chips)
+    inner = '<span class=rg-gchead><span class=rg-txt><b>%s</b>%s</span>%s</span>%s' % (
+        _e(title), ('<small>%s</small>' % _e(sub)) if sub else "", icon("chevron_right", "sm") if href else "",
+        ('<span class=rg-gcchips>%s</span>' % row) if row else "")
+    return Markup(_tag(href, "rg-gcard", inner) if href else '<div class=rg-gcard>%s</div>' % inner)
+
+
+def detail_group(label, count=None, action="", action_href="", action_attrs="", body=""):
+    """2.0 / Detail group (Figma 62 Q1): caps label (+count), lime Edit / + Add on the right, content below, on carbon."""
+    act = ""
+    if action:
+        act = ('<a class=rg-dgact href="%s">%s</a>' % (_e(action_href), _e(action))) if action_href else \
+              '<button type=button class=rg-dgact%s>%s</button>' % ((" " + action_attrs) if action_attrs else "", _e(action))
+    return Markup('<section class=rg-dgroup><div class=rg-dghead><span>%s%s</span>%s</div>%s</section>' % (
+        _e(label), (" %s" % _e(count)) if count is not None else "", act, body))
+
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, rg_person=person_row, rg_group_card=group_card, rg_detail_group=detail_group, event_tone=event_tone)

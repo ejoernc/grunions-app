@@ -215,10 +215,10 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
     roster = html.split("id=pickList", 1)[1].split("id=pickEmpty", 1)[0]
     assert "Adele Voss" in roster and "Player · Water polo" in roster and "Mira Solano" in roster and "Coach · Water polo" in roster
     assert "Grunions Aquatics ·" in html and 'id=pickEmpty class="ty-muted ty-sm" hidden' in html and "No one on your teams by that name" in html
-    assert "Search your teams" in html and "<textarea id=pickData" in html and 'id=pickData>' not in html.split("<textarea id=pickData", 1)[0]
-    assert "M14.25 9C14.25 11.8995" in html and ".pickbox{box-sizing:border-box;width:24px;height:24px;border:1.5px solid var(--r2-smoke);border-radius:999px" in html and "border-radius:6px" not in html.split(".pickbox{", 1)[1].split("}", 1)[0]
+    assert "Search people and groups" in html and "<textarea id=pickData" in html and 'id=pickData>' not in html.split("<textarea id=pickData", 1)[0]
+    assert "class=rg-search" in html and ".pickbox{box-sizing:border-box;width:24px;height:24px;border:1.5px solid var(--r2-smoke);border-radius:999px" in html and "border-radius:6px" not in html.split(".pickbox{", 1)[1].split("}", 1)[0]
     assert "pickEmpty').hidden=!q||!!list.length" in html
-    assert "New channel" not in html and "Board room" not in html and "Message the coaches" not in html and "New message" not in html
+    assert "New channel" not in html and "Board room" not in html and "Message the coaches" not in html and "New message" in html
     assert "Preview Tuesday practice" not in html and "Preview Friday practice" not in html and "Preview recent practice" not in html
     ask = html.split("Ask the club", 1)[1].split("<dialog", 1)[0]
     assert "Message the board" not in ask and "Create channel" not in html
@@ -554,8 +554,8 @@ def test_programs_start_with_water_polo_on_and_swimming_off():
     assert "SafeSport" in athletes and "On" in athletes
     assert "Background screening" in coaches and "Off" in coaches
     club = admin.get("/manage/area/club").get_data(as_text=True)
-    assert "Roles &amp; permissions" in club
-    assert "Club roles, who holds them, and who can manage what" in club and 'href="/manage/club/permissions"' in club
+    assert "Leaders" in club
+    assert "The board, sport leads, and who can manage what" in club and 'href="/manage/club/leaders"' in club
     club_area = admin.get("/manage/area/club").get_data(as_text=True)
     # Nov 13: Compliance folded into Sports (covered per sport).
     assert "<b>Compliance</b>" not in club_area and "Club supported sports, sports insurance and requirements" in club_area and "Venues" in club_area

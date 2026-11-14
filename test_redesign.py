@@ -485,3 +485,31 @@ def test_practice_page_level_and_division_sheets_save():
     assert lv in row[0] and row[1] == "custom" and row[2] == "18U girls"
     page = boss.get("/practices/%d" % pid).get_data(as_text=True)
     assert "SKILL LEVEL" in page and "18U girls" in page and "+ Division" not in page
+
+
+def test_leaders_board_roles_assign_replace_and_requests_switch():
+    page = boss.get("/manage/club/leaders").get_data(as_text=True)
+    assert "Leaders." in page and "/manage/club/leaders/board" in page
+    tok = csrf(boss, "/manage/club/leaders/board")
+    boss.post("/manage/club/leaders/board", data=dict(csrf=tok, action="add_role", name="Treasurer"))
+    rid = sql("SELECT id FROM leadership_roles WHERE program_id IS NULL AND name='Treasurer'")[0][0]
+    boss.post("/manage/club/leaders/board", data=dict(csrf=tok, action="assign", role_id=rid, person=RAE))
+    assert sql("SELECT board_member FROM members WHERE id=?", (RAE,))[0][0] == 1
+    page = boss.get("/manage/club/leaders/board").get_data(as_text=True)
+    assert "Rae Design" in page and "Treasurer" in page
+    boss_id = sql("SELECT id FROM members WHERE email='boss@example.com'")[0][0]
+    boss.post("/manage/club/leaders/board", data=dict(csrf=tok, action="assign", role_id=rid, person=boss_id))
+    assert sql("SELECT member_id FROM leadership_members WHERE role_id=?", (rid,)) == [(boss_id,)]
+    assert sql("SELECT board_member FROM members WHERE id=?", (RAE,))[0][0] == 0
+    # Members can message the board: off blocks the request and hides the row.
+    r = boss.post("/manage/club/leaders/board", data=dict(csrf=tok, requests="0", field="requests"), headers={"X-Autosave": "1"})
+    assert r.get_json()["ok"]
+    n = sql("SELECT COUNT(*) FROM club_requests")[0][0]
+    member.post("/chat/requests", data=dict(csrf=csrf(member, "/chat"), audience="board", topic="other", message="hi"))
+    assert sql("SELECT COUNT(*) FROM club_requests")[0][0] == n
+    boss.post("/manage/club/leaders/board", data=dict(csrf=tok, requests="1", field="requests"), headers={"X-Autosave": "1"})
+    chat = member.get("/chat").get_data(as_text=True)
+    assert "New message" in chat and "The board" in chat
+    boss.post("/manage/club/leaders/board", data=dict(csrf=tok, action="clear", role_id=rid, member_id=boss_id))
+    boss.post("/manage/club/leaders/board", data=dict(csrf=tok, action="delete_role", role_id=rid))
+    assert not sql("SELECT id FROM leadership_roles WHERE id=?", (rid,))

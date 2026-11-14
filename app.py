@@ -3004,10 +3004,28 @@ def _chat_title(mode):
 def _person_tone(n):
     return ("sun", "sky", "bubble", "grape", "mango", "aqua")[n % 6]
 def _pick_button(person):
-    return ('<button type=button class=newrow data-person="%d"><span class="mark %s">%s</span>'
-            '<span class=grow><b>%s</b><small>%s</small></span></button>'
-            % (person["id"], person["tone"], escape(person["initials"]), escape(person["name"]), escape(person["line"])))
-def _pick_people(d, m):
+    return str(components.person_row(person["name"], person["line"], person["initials"], attrs='data-person="%d"' % person["id"], tone=person["tone"]))
+def _ask_rows(d, m):
+    """Figma 62 · N1 / L6: Ask the club — the board and each sport's leads that take requests."""
+    import leaders
+    rows = []
+    if not is_board(m) and leaders.board_requests_on(d) and leaders.board_people(d):
+        rows.append(str(components.person_row("The board", "Replies come from the board", "B", attrs="data-open-request data-to=board data-lock=board data-about=other")))
+    coached = {s["slug"] for s in _assigned_sports(d, m)}
+    try:
+        import clubadmin
+        progs = clubadmin.programs(d)
+    except Exception:
+        progs = []
+    for p in progs:
+        if p["slug"] in coached or not leaders.leads_requests_on(d, p["slug"]) or not leaders.sport_coaches(d, p["id"]):
+            continue
+        name = p["public_name"] or p["name"]
+        rows.append(str(components.person_row("%s leads" % name, "Practices, gear, teams", name[:1].upper(),
+                    attrs='data-open-request data-to=coaches data-lock=sport data-sport="%s" data-about=other' % escape(p["slug"]))))
+    return rows
+def _pick_people(d, m, ask=False):
+    import leaders
     recent = []
     for channel, _n, _latest in _dm_unread(d, m["id"])[1][:4]:
         parts = channel.split(":")
@@ -3022,26 +3040,32 @@ def _pick_people(d, m):
         people.append({
             "id": person["id"], "name": name,
             "initials": ("".join(part[:1] for part in name.split()[:2]) or "?").upper(),
-            "line": "%s · %s" % (kind, sport), "tone": _person_tone(i),
+            "line": leaders.member_line(d, person["id"], "%s · %s" % (kind, sport)), "tone": "sun",
             "recent": person["id"] in recent,
             "href": "/chat?c=%s&place=me" % dm_channel(m["id"], person["id"]),
         })
     roster = len(people)
     recent_rows = [person for person in people if person["recent"]]
     blob = json.dumps(people).replace("<", "\\u003c")
+    ask_html = ""
+    if ask:
+        rows = _ask_rows(d, m)
+        group = str(components.person_row("New group", "Pick people · not an official team chat", "+", attrs="data-pick=group", tone="lime"))
+        ask_html = ('<div id=pickAsk>%s<div class=rg-stack8>%s</div></div>' % ('<p class=rg-day>Ask the club</p><div class=rg-stack8>%s</div>' % "".join(rows) if rows else "", group))
     return ('<dialog id=pickPeople class="botsheet pickpeople"><div class=sheet><div class=grab aria-hidden=true></div>'
-            '<div class=pickhead><button type=button data-sheet-close>Cancel</button><h2 id=pickTitle>Message someone</h2>'
+            '<div class=pickhead><button type=button class=pickx data-sheet-close aria-label=Close>%s</button><h2 id=pickTitle>New message</h2>'
             '<button type=button id=pickNext hidden disabled>Next · 0</button></div>'
             '<div id=pickChips class=pickchips hidden></div>'
-            '<label class=picksearch><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M14.25 9C14.25 11.8995 11.8995 14.25 9 14.25C6.10051 14.25 3.75 11.8995 3.75 9C3.75 6.10051 6.10051 3.75 9 3.75C11.8995 3.75 14.25 6.10051 14.25 9Z" stroke="#8B8F93" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.2 13.2L16.5 16.5" stroke="#8B8F93" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg><input id=pickSearch placeholder="Search your teams" autocomplete=off></label>'
+            '%s'
             '<div id=pickName hidden><label>Group name, optional<input id=groupName maxlength=40 placeholder="Carpool, captains…"></label>'
             '<button type=button class="rg-btn primary full" id=pickCreate>Create</button></div>'
-            '<div id=pickBody><p id=pickRecentLabel class=r2caps%s>Recent</p><div id=pickRecent>%s</div>'
+            '<div id=pickBody>%s<p id=pickRecentLabel class=rg-day%s>Recent</p><div id=pickRecent>%s</div>'
             '<p class="rg-day" id=pickTeam%s>Grunions Aquatics · %d</p><div id=pickList>%s</div>'
             '<p id=pickEmpty class="ty-muted ty-sm" hidden>No one on your teams by that name</p>'
             '<p id=pickFoot class="ty-muted ty-sm">Opens a 1:1 in Me › Chat. You can message anyone on a team you\'re on.</p></div>'
             '<textarea id=pickData hidden readonly>%s</textarea>%s</div></dialog>'
-            ) % ("" if recent_rows else " hidden", "".join(_pick_button(person) for person in recent_rows),
+            ) % (components.icon("close", "md"), components.search_field("pickSearch", "Search people and groups"), ask_html,
+                 "" if recent_rows else " hidden", "".join(_pick_button(person) for person in recent_rows),
                  "" if people else " hidden", roster, "".join(_pick_button(person) for person in people), blob, csrf_field())
 def _new_chat_sheet(d, m, team):
     """06.30 member, 06.31 coach/admin. Me and Everything keep only the personal section."""
@@ -3075,8 +3099,9 @@ def _new_chat_sheet(d, m, team):
                      '<span class=grow><b>New channel</b><small>Official · sport, role or everyone</small></span>'
                      '<span class=mini>Coach · admin</span><span class=chatgo>›</span></button>')
         club = '<p class="rg-day">Grunions</p><div class=newcard>%s</div>' % rows
-    return ('<dialog id=newChat class="botsheet newchat"><div class=sheet><div class=grab aria-hidden=true></div>'
-            '<h2 class=newtitle>New chat</h2>%s%s</div></dialog>') % (personal, club)
+    direct = " data-direct" if team and not is_board() and not can_make_channel() else ""
+    return ('<dialog id=newChat class="botsheet newchat"%s><div class=sheet><div class=grab aria-hidden=true></div>'
+            '<h2 class=newtitle>New chat</h2>%s%s</div></dialog>') % (direct, personal, club)
 def _channel_sheet(d):
     try:
         sports = d.execute("SELECT slug, public_name, name FROM programs WHERE COALESCE(active,0)=1 ORDER BY name").fetchall()
@@ -3154,6 +3179,7 @@ _CHAT_PLUS_JS = """<script>
   document.getElementById('pickRecent').innerHTML=mode==='direct'?recent.map(row).join(''):'';
   listEl.innerHTML=list.map(row).join('');
   document.getElementById('pickEmpty').hidden=!q||!!list.length;
+  var ask=document.getElementById('pickAsk'); if(ask) ask.hidden=mode!=='direct'||!!q;
   document.getElementById('pickTeam').hidden=!list.length;
   var n=Object.keys(picked).length, next=document.getElementById('pickNext');
   next.hidden=false; next.style.visibility=mode==='group'?'visible':'hidden'; next.disabled=n<1; next.textContent='Next · '+n;
@@ -3166,11 +3192,11 @@ _CHAT_PLUS_JS = """<script>
  function row(p){
   var on=!!picked[p.id];
   var box=mode==='group'?'<span class="pickbox'+(on?' on':'')+'" aria-hidden=true>'+(on?'<svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 10.5L8.2 14.5L16 6" stroke="#0B0B0C" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+'</span>':'';
-  return '<button type=button class=newrow data-person="'+p.id+'"><span class="mark '+esc(p.tone)+'">'+esc(p.initials)+'</span><span class=grow><b>'+esc(p.name)+'</b><small>'+esc(p.line)+'</small></span>'+box+'</button>';
+  return '<button type=button class=rg-person data-person="'+p.id+'"><span class="rg-pav tone-'+esc(p.tone)+'" aria-hidden=true>'+esc(p.initials)+'</span><span class=rg-txt><b>'+esc(p.name)+'</b><small>'+esc(p.line)+'</small></span>'+box+'</button>';
  }
  function showPick(kind, anchor){
   mode=kind; picked={};
-  document.getElementById('pickTitle').textContent=kind==='group'?'New group':'Message someone';
+  document.getElementById('pickTitle').textContent=kind==='group'?'New group':'New message';
   document.getElementById('pickFoot').textContent=kind==='group'?'Group chats you make live in Me › Chat. Anyone in the group can add people or leave.':'Opens a 1:1 in Me › Chat. You can message anyone on a team you\\'re on.';
   document.getElementById('pickSearch').value='';
   document.getElementById('pickName').hidden=true;
@@ -3181,7 +3207,7 @@ _CHAT_PLUS_JS = """<script>
  }
  document.addEventListener('click', function(e){
   var plus=e.target.closest&&e.target.closest('.chatplus');
-  if(plus){ e.preventDefault(); openSheet('newChat', plus); return; }
+  if(plus){ e.preventDefault(); var nc=document.getElementById('newChat'); if(nc&&nc.hasAttribute('data-direct')) showPick('direct', plus); else openSheet('newChat', plus); return; }
   var pick=e.target.closest&&e.target.closest('[data-pick]');
   if(pick){ showPick(pick.getAttribute('data-pick'), document.querySelector('.chatplus')); return; }
   var openC=e.target.closest&&e.target.closest('[data-open-channel]');
@@ -3279,7 +3305,7 @@ _CHAT_PLUS_JS = """<script>
 })();
 </script>"""
 def chat_sheets(d, m, mode):
-    html = _new_chat_sheet(d, m, mode == "team") + _pick_people(d, m)
+    html = _new_chat_sheet(d, m, mode == "team") + _pick_people(d, m, ask=(mode == "team"))
     if mode == "team" and can_make_channel():
         html += _channel_sheet(d)
     if mode == "team":
@@ -3813,8 +3839,9 @@ def _inbox_role_sections(d, m):
             ask.append(str(components.row("Request the board", "Private to board members", "/chat?view=list", lead="B", lead_tone="grape",
                                           kind="chat", extra=" data-open-request data-to=board data-lock=board data-about=other")))
         else:
+            ask += _ask_rows(d, m)
             _n, sub, badge = _requests_inbox_meta(d, m)
-            ask.append(_chat_row("/chat?c=requests", "R", "Requests", sub, "", badge, "sun", False))
+            ask.append(_chat_row("/chat?c=requests", "R", "Your requests", sub, "", badge, "sun", False))
     parts.append(_section("Ask the club", ask))
     return "".join(parts)
 def _thread_title(d, m, ch):
@@ -4014,9 +4041,10 @@ def _actions_bundle():
         'if(t&&(t.id==="threadName"||t.id==="threadMore")){e.preventDefault();openActions(t);return;}'
         'if(t&&t.hasAttribute("data-open-request")){e.preventDefault();var form=document.getElementById("requestForm");'
         'if(!form)return;var to=t.getAttribute("data-to"),about=t.getAttribute("data-about"),subject=t.getAttribute("data-subject"),practice=t.getAttribute("data-practice");'
-        'if(to)form.audience.value=to;if(about)form.topic.value=about;if(subject)form.subject.value=subject;if(form.practice)form.practice.value=practice||"";'
+        'var sp=t.getAttribute("data-sport");if(sp&&form.sport)form.sport.value=sp;if(to)form.audience.value=to;if(about)form.topic.value=about;if(subject)form.subject.value=subject;if(form.practice)form.practice.value=practice||"";'
         'form.dataset.lock=t.getAttribute("data-lock")||"";'
-        'if(form.dataset.lock==="board"){form.audience.value="board";form.dataset.kept="1";}'
+        'if(form.dataset.lock==="board"){form.audience.value="board";form.dataset.kept="1";}if(form.dataset.lock==="sport"){form.audience.value="coaches";form.dataset.kept="1";}'
+        'var pk=document.getElementById("pickPeople");if(pk&&pk.open){if(window.grunionsCloseSheet)grunionsCloseSheet(pk);else pk.close();}'
         'if(window.grunionsPaintRequest)grunionsPaintRequest();openBox(document.getElementById("requestSheet"), t);}});'
         'var hold,held=false;document.addEventListener("pointerdown",function(e){var row=e.target.closest&&e.target.closest("a.chatrow[data-ch],a.rg-row[data-ch],a.practcard[data-ch]");if(!row)return;'
         'held=false;hold=setTimeout(function(){held=true;openActions(row);},480);});'
@@ -4236,8 +4264,8 @@ def _request_dialog(d):
             '<script>window.grunionsPaintRequest=function(){var form=document.getElementById("requestForm");if(!form)return;'
             'var board={membership:1,waiver:1};if(board[form.topic.value]&&!form.dataset.kept)form.audience.value="board";'
             'var foot=document.getElementById("requestFoot");'
-            'var sportField=document.getElementById("sportField");if(sportField)sportField.hidden=form.audience.value==="board";'
-            'var toField=document.getElementById("toField");if(toField)toField.hidden=form.dataset.lock==="board";'
+            'var sportField=document.getElementById("sportField");if(sportField)sportField.hidden=form.audience.value==="board"||form.dataset.lock==="sport";'
+            'var toField=document.getElementById("toField");if(toField)toField.hidden=form.dataset.lock==="board"||form.dataset.lock==="sport";'
             'foot.textContent=form.audience.value==="board"?"Only board members see this. Replies show up in Chat › Requests.":"Only that sport\'s coaches see this. Replies show up in Chat › Requests, and you\'ll get a notification. It stays open until someone marks it resolved.";};'
             'var form=document.getElementById("requestForm");if(form){form.topic.addEventListener("change",function(){form.dataset.kept="";window.grunionsPaintRequest()});'
             'form.audience.addEventListener("change",function(){form.dataset.kept="1";window.grunionsPaintRequest()});window.grunionsPaintRequest();}</script>'
@@ -4399,13 +4427,20 @@ def chat_request_create():
     now = dt.datetime.now(dt.timezone.utc).isoformat()
     d = db()
     sport = (request.form.get("sport") or "").strip()
+    import leaders
     if audience == "coaches":
         allowed = {item["slug"] for item in club_sports(d)}
         if sport not in allowed:
             flash("Pick which sport's coaches.")
             return redirect("/chat?c=requests")
+        if not leaders.leads_requests_on(d, sport):
+            flash("That sport's leads aren't taking requests in the app right now.")
+            return redirect("/chat?view=list")
     else:
         sport = ""
+        if not leaders.board_requests_on(d):
+            flash("The board isn't taking requests in the app right now.")
+            return redirect("/chat?view=list")
     rid = d.execute("""INSERT INTO club_requests(member_id, audience, topic, subject, practice_id, sport, status, created_at, updated_at, last_side, staff_replied)
         VALUES(?,?,?,?,?,?, 'open', ?, ?, 'member', 0)""", (me()["id"], audience, topic, subject, practice_id, sport, now, now)).lastrowid
     d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)", (me()["id"], body, "req:%d" % rid))
@@ -8676,7 +8711,7 @@ def _manage_catalog(d):
         add("club", "Plans & payments", "Memberships, drop-ins, pricing and how members pay", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass integration club assistant provider payment link")
         add("club", "Venues", "Manage locations and assign them to sports", "/manage/club/venues", "pin", "venue pool location address marina westminster")
         add("club", "Documents", "Waiver and agreements members sign on their first Going", "/manage/club/waiver", "shield", "waiver liability agreement sign version document code of conduct")
-        add("club", "Roles & permissions", "Club roles, who holds them, and who can manage what", "/manage/club/permissions", "key", "permission admin admin lite sport admin who can manage leadership president treasurer board role")
+        add("club", "Leaders", "The board, sport leads, and who can manage what", "/manage/club/leaders", "key", "leaders leadership board president treasurer secretary sport leads head coach captain permission admin admin lite sport admin who can manage role")
         add("club", "Website & sharing", "Public schedule and the website widget", "/manage/widget", "widget", "embed website widget preview")
         add("club", "Reminders", "Emails and notifications before a practice. Off until you turn them on.", "/manage/club/reminders", "tray", "practice reminder email hours before")
         add("tools", "QR codes", "Join the club", "/manage/tools/qr", "qr", "qr code join check-in")
@@ -9234,6 +9269,75 @@ def practice_reminder_off(token):
         d.execute("UPDATE members SET practice_reminder=? WHERE id=?", (nxt, mid))
         d.commit()
     return Response("<p>Practice reminder emails are off. You can turn them back on in Notification settings.</p>", mimetype="text/html")
+@app.route("/manage/club/leaders", methods=["GET"])
+@admin_required
+def club_leaders():
+    """Figma 62 · L1 Leaders ‹ Club: the board, each sport's leads, then who can manage what."""
+    import clubadmin, leaders
+    d = db(); clubadmin.ensure(d); leaders.ensure(d)
+    progs = clubadmin.programs(d)
+    return page(T["leaders"], tab="admin", ov=leaders.overview(d, progs), access=leaders.access_counts(d))
+def _leaders_group(slug):
+    import clubadmin, leaders
+    d = db(); clubadmin.ensure(d); leaders.ensure(d)
+    program = None
+    if slug != "board":
+        program = clubadmin.program_by_slug(d, slug)
+        if not program: abort(404)
+    pid = program["id"] if program else None
+    flag_key = ("leads_requests:" + program["slug"]) if program else "board_requests"
+    back = request.path
+    if request.method == "POST":
+        if request.headers.get("X-Autosave") == "1":
+            on = request.form.get("requests") == "1"
+            leaders.set_flag(d, flag_key, on); d.commit()
+            return jsonify({"ok": True, "toast": "Member requests on" if on else "Member requests off"})
+        a = request.form.get("action") or ""
+        try:
+            if a == "assign":
+                role = leaders.assign(d, request.form.get("role_id", type=int), request.form.get("person", type=int), request.form.get("access"))
+                d.commit(); sync_practice_sheets(d)
+                flash("Saved · %s" % role["name"], "toast")
+            elif a == "clear":
+                role = leaders.clear(d, request.form.get("role_id", type=int), request.form.get("member_id", type=int))
+                d.commit(); sync_practice_sheets(d)
+                flash("%s is open" % role["name"], "toast")
+            elif a == "add_role":
+                leaders.add_role(d, request.form.get("name"), pid, request.form.get("access") or "none")
+                d.commit(); flash("Role added", "toast")
+            elif a == "delete_role":
+                leaders.delete_role(d, request.form.get("role_id", type=int))
+                d.commit(); flash("Role removed", "toast")
+            else:
+                abort(400)
+        except ValueError as exc:
+            d.rollback(); flash(str(exc), "toast")
+        return redirect(back)
+    rows = leaders.roles(d, pid)
+    if program:
+        name = program["public_name"] or program["name"]
+        chat_n = len(leaders.sport_coaches(d, pid))
+        chat = {"label": "%s coaches" % name, "n": chat_n, "href": ("/chat?c=coach:%s" % program["slug"]) if program["slug"] in {s["slug"] for s in _assigned_sports(d, me())} else ""}
+        info = {"title": "%s leads" % name, "sub": "Leads for %s only. Their questions come from members in %s requests." % (name, name),
+                "toggle": "Members can ask %s leads" % name, "toggle_sub": "Questions about practices, gear, teams",
+                "empty": "No %s leads yet." % name, "role_hint": "Head coach, Assistant, Captain…"}
+    else:
+        chat_n = len(leaders.board_people(d))
+        chat = {"label": "#board", "n": chat_n, "href": "/chat?c=board" if is_board() else ""}
+        info = {"title": "Board", "sub": "Club-wide roles. Everyone here is in #board and can open Manage.",
+                "toggle": "Members can message the board", "toggle_sub": "Arrives in Board requests as a thread",
+                "empty": "No board yet.", "role_hint": "President, Treasurer, Secretary…"}
+    seats = {r["role_id"] for r in rows if r["role_id"]}
+    return page(T["leaders_group"], tab="admin", rows=rows, n_roles=len(rows), program=program, chat=chat, info=info,
+                requests_on=leaders.flag(d, flag_key), people=leaders.people_for_pick(d), back_label="Leaders")
+@app.route("/manage/club/leaders/board", methods=["GET", "POST"])
+@admin_required
+def club_leaders_board():
+    return _leaders_group("board")
+@app.route("/manage/club/leaders/<slug>", methods=["GET", "POST"])
+@admin_required
+def club_leaders_sport(slug):
+    return _leaders_group(slug)
 @app.route("/manage/club/permissions", methods=["GET"])
 @admin_required
 def club_permissions():

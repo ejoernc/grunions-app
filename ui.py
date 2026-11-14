@@ -1188,6 +1188,7 @@ dialog.pickpeople .grab::after{content:none}
 .pickhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0;width:100%}
 .pickhead h2{margin:0;font:700 17px/1 var(--r2-font-display);color:var(--r2-paper)}
 .pickhead button{border:0;background:transparent;color:var(--r2-smoke);font:600 15px/1 var(--r2-font-sans);padding:0}
+.pickhead button.pickx{background:var(--r2-graphite);color:var(--r2-paper)}
 #pickNext{height:auto;padding:8px 14px;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 14px/1 var(--r2-font-sans)}
 #pickNext:disabled{opacity:.45}
 #pickData{display:none !important}
@@ -1201,7 +1202,7 @@ dialog.pickpeople .picksearch input::placeholder{color:var(--r2-smoke)}
 .pickbox{box-sizing:border-box;width:24px;height:24px;border:1.5px solid var(--r2-smoke);border-radius:999px;background:transparent;display:inline-flex;align-items:center;justify-content:center;flex:none}
 .pickbox svg{display:block}
 .pickbox.on{background:var(--lime);border-color:var(--lime)}
-dialog.pickpeople #pickList,dialog.pickpeople #pickRecent{display:flex;flex-direction:column;gap:0;background:var(--r2-graphite);border-radius:20px;overflow:hidden}
+dialog.pickpeople #pickList,dialog.pickpeople #pickRecent{display:flex;flex-direction:column;gap:4px}
 dialog.pickpeople #pickList:empty,dialog.pickpeople #pickRecent:empty{display:none}
 dialog.pickpeople .newrow{min-height:0;padding:10px 14px;border-radius:0;gap:12px}
 dialog.pickpeople .newrow .mark{width:40px;height:40px;font:700 14.4px/1 var(--r2-font-sans)}
@@ -7488,10 +7489,10 @@ T["practice"] = """{% set p = x.p %}
 {{ r2_practice_actions('/chat?c=practice:' ~ p.id ~ ('&peek=1' if x.mine != 1 else ''), 'Practice Chat', x.going|length) }}
 {% endif %}
 {#fxpanel#}
-{% macro grp(label, count=none, action='', href='', dlg='') %}<section class=pqgroup><div class=pqhead><span>{{ label }}{% if count is not none %} {{ count }}{% endif %}</span>{% if action %}{% if href %}<a class=pqact href="{{ href }}">{{ action }}</a>{% else %}<button type=button class=pqact data-open-dialog="{{ dlg }}">{{ action }}</button>{% endif %}{% endif %}</div>{{ caller() }}</section>{% endmacro %}
+{% macro grp(label, count=none, action='', href='', dlg='') %}{{ rg_detail_group(label, count, action, href, ('data-open-dialog=' ~ dlg) if dlg else '', caller()) }}{% endmacro %}
 {% if host %}{% call grp('WHEN & WHERE', none, 'Edit' if admin else '', '', 'pqWhen') %}<b class=pqline>{% if practice_is_month(p) %}{{ practice_when(p) }}{% else %}{{ fmt_card_date(p.date) }} · {{ fmt_clock(p.start) }} – {{ fmt_clock(p.end) }}{% endif %}</b>{% if p.location %}<small class=pqsub>{{ p.location }}</small>{% endif %}{% endcall %}{% endif %}
 {% if x.coaches or host %}{% call grp('COACHES', x.coaches|length, ('Edit' if x.coaches else '+ Add') if admin else '', '', 'pqCoaches') %}
-{% for c in x.coaches %}<div class=pqperson><span class=pqav>{{ initials(c) }}</span><span class=pqtxt><b>{{ display_first(c) }} {{ c.last }}</b><small>{{ 'Head coach' if c.is_lead else 'Coach' }}{% if host and c.focus %} · {{ c.focus }}{% endif %}</small></span>{% if c.is_lead %}{{ rg_chip('Head', 'going') }}{% endif %}</div>{% else %}<p class=pqempty>No coaches yet.</p>{% endfor %}
+{% for c in x.coaches %}{{ rg_person(display_first(c) ~ ' ' ~ c.last, ('Head coach' if c.is_lead else 'Coach') ~ ((' · ' ~ c.focus) if host and c.focus else ''), initials(c), 'Head' if c.is_lead else '', 'going') }}{% else %}<p class=pqempty>No coaches yet.</p>{% endfor %}
 {% endcall %}{% endif %}
 {% if p.note or host %}{% call grp('NOTES', none, (('Edit' if p.note else '+ Add') if host else ''), '', 'notes' ~ p.id) %}{% if p.note %}<p class=pqtext>{{ p.note }}</p>{% else %}<p class=pqempty>No notes yet.</p>{% endif %}{% endcall %}{% endif %}
 {% if host and (p.coaching_plan or true) %}{% call grp('PRACTICE PLAN · COACHES ONLY', none, ('Edit' if p.coaching_plan else '+ Add'), '', 'plan' ~ p.id) %}{% if p.coaching_plan %}<p class=pqtext>{{ p.coaching_plan }}</p>{% else %}<p class=pqempty>Only coaches and admins see this.</p>{% endif %}{% endcall %}{% endif %}
@@ -7501,10 +7502,10 @@ T["practice"] = """{% set p = x.p %}
 {% if host and x.going %}{% call grp('TO PLAY') %}<span class=pqchips>{{ rg_chip(to_play.ok ~ ' cleared' ~ (' · ' ~ to_play.not ~ ' not' if to_play.not else ''), 'cleared' if not to_play.not else 'expiring') }}</span><small class=pqsub>Insurance and requirements, checked at the deck.</small>{% endcall %}{% endif %}
 {% set check_href = '/admin?date=' ~ p.date ~ '&ev=p-' ~ p.id %}
 {% if x.going or host %}{% call grp("WHO'S GOING", x.going|length, 'Check-in' if host else '', check_href if host else '') %}
-{% for r in x.going %}<div class=pqperson><span class=pqav>{{ initials(r) }}</span><span class=pqtxt><b>{{ display_first(r) }} {{ r.last }}</b><small>{{ 'Coach' if r.id in x.coach_ids else 'Player' }}</small></span>{{ rg_chip('In' if r.id in (x.checked|map(attribute='id')|list) else 'Going', 'going') }}</div>{% else %}<p class=pqempty>No one yet.</p>{% endfor %}
+{% set in_ids = x.checked|map(attribute='id')|list %}{% for r in x.going %}{{ rg_person(display_first(r) ~ ' ' ~ r.last, 'Coach' if r.id in x.coach_ids else 'Player', initials(r), ('In' if r.id in in_ids else 'Going') if host else '', 'going') }}{% else %}<p class=pqempty>No one yet.</p>{% endfor %}
 {% endcall %}{% endif %}
-{% if x.notgoing %}{% call grp("CAN'T MAKE IT", x.notgoing|length) %}{% for r in x.notgoing %}<div class=pqperson><span class=pqav>{{ initials(r) }}</span><span class=pqtxt><b>{{ display_first(r) }} {{ r.last }}</b></span></div>{% endfor %}{% endcall %}{% endif %}
-{% if host and (practice_started(p) if practice_started is defined else x.checked) and x.checked %}{% call grp('CHECKED IN', x.checked|length, 'Check-in', check_href) %}{% for r in x.checked %}<div class=pqperson><span class=pqav>{{ initials(r) }}</span><span class=pqtxt><b>{{ display_first(r) }} {{ r.last }}</b></span></div>{% endfor %}{% endcall %}{% endif %}
+{% if x.notgoing %}{% call grp("CAN'T MAKE IT", x.notgoing|length) %}{% for r in x.notgoing %}{{ rg_person(display_first(r) ~ ' ' ~ r.last, '', initials(r)) }}{% endfor %}{% endcall %}{% endif %}
+{% if host and (practice_started(p) if practice_started is defined else x.checked) and x.checked %}{% call grp('CHECKED IN', x.checked|length, 'Check-in', check_href) %}{% for r in x.checked %}{{ rg_person(display_first(r) ~ ' ' ~ r.last, '', initials(r)) }}{% endfor %}{% endcall %}{% endif %}
 {% if host %}{% set missing_bits = [] %}
 {% if not social_line(p) %}{% set _ = missing_bits.append(('+ After-practice social', 'social' ~ p.id, '')) %}{% endif %}
 {% if not p.image %}{% set _ = missing_bits.append(('+ Cover image', 'image' ~ p.id, '')) %}{% endif %}
@@ -8299,3 +8300,79 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 <button type=button class="rg-btn primary">Primary</button>
 </div>
 """
+
+T["leaders"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
+{# Figma 62 · L1 Leaders ‹ Club #}
+{{ rg_page_title('Leaders', 'Groups that run the club. Each has its own chat.') }}
+{{ rg_section_count('Board', ov.board.count) }}
+{{ rg_group_card('Board', ov.board.sub, [('Chat on' if ov.board.chat else 'Chat off', ov.board.chat), ('Requests on' if ov.board.requests else 'Requests off', ov.board.requests)], '/manage/club/leaders/board') }}
+{{ rg_section_count('Sport leads', ov.sports|length) }}
+<div class=rg-stack8>
+{% for s in ov.sports %}{{ rg_group_card(s.name ~ ' leads', s.sub, [('Chat on' if s.chat else 'Chat off', s.chat), ('Requests on' if s.requests else 'Requests off', s.requests)], '/manage/club/leaders/' ~ s.slug) }}{% else %}<p class=rg-note>Add a sport first, then its leads.</p>{% endfor %}
+</div>
+{{ rg_section_count('Access', access|length) }}
+<div class=rg-stack8>
+{% for label, n in access %}{{ rg_settings_row(label, n ~ (' person' if n == 1 else ' people'), '/manage/club/permissions#access') }}{% endfor %}
+</div>
+<p class=rg-note>Access is what someone can change in Manage. A title alone doesn't give access.</p>
+</div>"""
+
+T["leaders_group"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
+{# Figma 62 · L2 Board / L3 not set up / L4 sport leads, L5 assign sheet #}
+{{ rg_page_title(info.title, info.sub) }}
+{% if not rows %}
+<div class=rg-leadempty>{{ rg_empty(info.empty, ('Board chat and member requests to the board stay off until someone holds a board role.' if not program else 'Add the roles this sport needs, then assign people.'), '', '', '0') }}
+<button type=button class="rg-btn primary" data-open-dialog=roleAdd>{{ 'Add a board role' if not program else 'Add a role' }}</button></div>
+{% else %}
+{{ rg_section_count('Roles', n_roles) }}
+<div class=rg-plist>
+{% for r in rows %}{% if r.legacy %}{{ rg_person(r.name, r.role, r.initials, r.access, 'going', '/profile/' ~ r.member_id) }}{% else %}{{ rg_person(r.name, r.role, r.initials, r.access, 'going', '', 'data-seat data-role="' ~ r.role_id ~ '" data-title="' ~ r.role|e ~ '" data-member="' ~ (r.member_id or '') ~ '" data-perm="' ~ r.permission ~ '"', 'sun') }}{% endif %}{% endfor %}
+</div>
+<button type=button class="rg-btn secondary rg-wide" data-open-dialog=roleAdd>Add a role</button>
+{% endif %}
+{{ rg_section_count('Chat & requests', 2) }}
+<div class=rg-stack8>
+{% if chat.n %}{{ rg_settings_row(chat.label, chat.n ~ (' person' if chat.n == 1 else ' people'), chat.href) }}
+<form method=post data-autosave>{{ csrf_field() }}{{ rg_toggle('requests', info.toggle, info.toggle_sub, requests_on) }}</form>
+{% else %}<div class=rg-dim>{{ rg_settings_row(chat.label, 'Off') }}{{ rg_settings_row('Member requests', 'Off') }}</div><p class=rg-note>{{ 'Turns on when someone holds a board role.' if not program else 'Turns on when this sport has coaches.' }}</p>{% endif %}
+</div>
+{% if not program %}<p class=rg-note>Board members open Manage the same as an admin. To give someone access without a title, use <a href="/manage/club/permissions">Roles &amp; permissions</a>.</p>{% else %}<p class=rg-note>The chat is the {{ (program.public_name or program.name) }} coaches room. Sport admin is a title for this sport; it doesn't open club settings.</p>{% endif %}
+
+<dialog id=seatSheet class="botsheet modal"><form method=post class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<input type=hidden name=action value=assign><input type=hidden name=role_id id=seatRole>
+<h2 id=seatTitle>Role</h2><p class=ty-muted>{{ info.title }} · who holds this role?</p>
+{{ rg_search('seatSearch', 'Search members') }}
+<div class=rg-seatlist id=seatList>{% for p in people %}<div data-name="{{ p.name|lower }}">{{ rg_choice('person', p.id|string, p.name, p.line) }}</div>{% endfor %}</div>
+{% if program %}<h3 class=rg-day>ACCESS</h3>
+{{ rg_choice('access', 'sport_admin', 'Sport admin', 'A title for this sport') }}
+{{ rg_choice('access', 'none', 'No access', "Title only — can't change settings") }}{% endif %}
+<p class=rg-note id=seatFoot>{% if not program %}They join #board and can open Manage when you save.{% else %}Saving replaces whoever holds this role now.{% endif %}</p>
+<button class="rg-btn primary" id=seatSave>Assign</button>
+</form>
+<form method=post id=seatClearForm hidden>{{ csrf_field() }}<input type=hidden name=action value=clear><input type=hidden name=role_id><input type=hidden name=member_id><button class="rg-btn ghost rg-wide">Clear this role</button></form>
+<form method=post id=seatDeleteForm hidden>{{ csrf_field() }}<input type=hidden name=action value=delete_role><input type=hidden name=role_id><button class="rg-btn ghost rg-wide">Remove this role</button></form>
+</dialog>
+
+<dialog id=roleAdd class="botsheet modal"><form method=post class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=action value=add_role>
+<h2>Add a role.</h2><p class=ty-muted>{{ info.title }}</p>
+<label class=rg-field><span>ROLE NAME</span><input name=name required maxlength=80 placeholder="{{ info.role_hint }}" autocomplete=off></label>
+{% if program %}<h3 class=rg-day>ACCESS</h3>{{ rg_choice('access', 'none', 'No access', 'Title only', true) }}{{ rg_choice('access', 'sport_admin', 'Sport admin', 'A title for this sport') }}{% endif %}
+<button class="rg-btn primary">Add role</button></form></dialog>
+<script>(function(){
+ var sheet=document.getElementById('seatSheet'); if(!sheet) return;
+ document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-seat]'); if(!b) return; e.preventDefault();
+  var role=b.getAttribute('data-role'), member=b.getAttribute('data-member'), title=b.getAttribute('data-title'), perm=b.getAttribute('data-perm');
+  document.getElementById('seatRole').value=role; document.getElementById('seatTitle').textContent=title;
+  document.getElementById('seatSave').textContent='Assign '+title;
+  sheet.querySelectorAll('input[name=person]').forEach(function(i){ i.checked=(i.value===member); });
+  sheet.querySelectorAll('input[name=access]').forEach(function(i){ i.checked=(i.value===(perm==='sport_admin'?'sport_admin':'none')); });
+  var c=document.getElementById('seatClearForm'), dl=document.getElementById('seatDeleteForm');
+  c.hidden=!member; c.role_id.value=role; c.member_id.value=member||'';
+  dl.hidden=!!member; dl.role_id.value=role;
+  var q=document.getElementById('seatSearch'); if(q){ q.value=''; filter(''); }
+  if(window.grunionsOpenSheet) grunionsOpenSheet(sheet); else sheet.showModal();
+ });
+ function filter(q){ q=(q||'').trim().toLowerCase(); sheet.querySelectorAll('#seatList>[data-name]').forEach(function(r){ r.hidden=!!q && r.getAttribute('data-name').indexOf(q)<0; }); }
+ var q=document.getElementById('seatSearch'); if(q) q.addEventListener('input',function(){ filter(q.value); });
+})();</script>
+</div>"""
