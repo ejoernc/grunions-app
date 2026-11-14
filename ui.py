@@ -5073,9 +5073,10 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% macro schedule_feed(when, rows, note) %}
 {{ rg_seg([('upcoming','Upcoming','/practices?view=list&when=upcoming'),('past','Past','/practices?view=list&when=past'),('all','All','/practices?view=list&when=all')], when) }}
 {% if note %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(note)|upper }}</b><p>{{ note.body }}</p></div>{% endif %}
-{% set ns = namespace(day='', open=false, featured=true) %}
+{% set ns = namespace(day='', open=false, featured=true, month='') %}
 {% for x in rows %}{% set p = x.p %}{% set tile = practice_tile(p) %}{% set key = tile.wd ~ tile.dn %}
 {% if key != ns.day %}{% if ns.open %}</div></div>{% endif %}{% set ns.day = key %}{% set ns.open = true %}
+{% if (p.date|string)[:7] != ns.month %}{% set ns.month = (p.date|string)[:7] %}<h2 class="lmonth schedmonth">{{ month_label(p.date) }}</h2>{% endif %}
 <div class=daygroup><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class=daycards>
 {% endif %}
 {% set ended = practice_ended(p) or when == 'past' %}
