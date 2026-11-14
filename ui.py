@@ -3496,6 +3496,8 @@ function grunionsApply(html,url,pop,replace,quiet){
  var doc=new DOMParser().parseFromString(html,'text/html');
  var newMain=doc.querySelector('main'), newNav=doc.querySelector('nav.tabs');
  if(!newMain){location.href=url; return;}
+ // Coming back from a page with no nav (event create, task sheets): load in full so the nav and its menu come back wired up.
+ if(doc.querySelector('nav.nav3')&&!document.querySelector('nav.nav3')){location.href=url; return;}
  // A deploy changed the CSS/templates: this tab's inline CSS is stale, so load the page in full.
  var nb=doc.querySelector('meta[name=grunions-build]'), cb=document.querySelector('meta[name=grunions-build]');
  if(nb&&cb&&nb.content&&nb.content!==cb.content){location.href=url; return;}
@@ -3663,6 +3665,7 @@ window.addEventListener('popstate',function(){
  if(grunionsChildBack(from, dest)) grunionsMarkBack(location.href);
  else try{sessionStorage.removeItem('grunionsBackNav')}catch(e){}
  if(document.querySelector('nav.nav3, nav.tabs')) grunionsBackTo(location.href);
+ else if(document.querySelector('main')&&!document.body.classList.contains('homefull')) location.reload(); /* left a no-nav task (event create): bring the nav back */
  else if(window.grunionsWakeHome) grunionsWakeHome();
 });
 window.grunionsOpenSheet=function(d){

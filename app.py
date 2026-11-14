@@ -8886,7 +8886,8 @@ def club_programs():
     clubadmin.ensure(d)
     body = clubadmin.programs_html(d) + '<p style="margin-top:16px"><a class="rg-btn primary full" href="/manage/club/programs/new">Add sport</a></p>'
     # The Compliance page is retired into here: shared requirement definitions, defined once, applied per sport.
-    body += '<section id=requirements><h3 class=rg-day>Club requirements</h3>' + clubadmin.compliance_html(d) + '</section>'
+    # Club requirements hidden on Sports for now (Nov 13).
+    if False: body += '<section id=requirements><h3 class=rg-day>Club requirements</h3>' + clubadmin.compliance_html(d) + '</section>'
     return page(ui.ADMIN_NAV + "{{ admin_page('Sports', 'Club supported sports, sports insurance and requirements.') }}{{ club_body|safe }}",
         tab="admin", club_body=body)
 @app.route("/manage/club/programs/<slug>", methods=["GET", "POST"])
