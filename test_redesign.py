@@ -471,3 +471,17 @@ def test_practice_page_sheets_edit_when_coaches_notes_and_link_check_in():
     assert "Head coach" in page and "Bring caps" in page
     mpage = member.get("/practices/%d" % pid).get_data(as_text=True)
     assert "pqWhen" not in mpage and "NOT ADDED YET" not in mpage and "Bring caps" in mpage
+
+
+def test_practice_page_level_and_division_sheets_save():
+    pid = _practice("Level Practice", 3)
+    page = boss.get("/practices/%d" % pid).get_data(as_text=True)
+    assert "id=pqLevels" in page and "id=pqDivs" in page and "+ Skill level" in page
+    tok = csrf(boss, "/practices/%d" % pid)
+    lv = re.search(r'name="?level"? value="?([\w-]+)', page).group(1)
+    boss.post("/practices/%d" % pid, data=dict(csrf=tok, pid=pid, back="page", action="levels", level=[lv]))
+    boss.post("/practices/%d" % pid, data=dict(csrf=tok, pid=pid, back="page", action="divisions", division=["custom"], division_custom="18U girls"))
+    row = sql("SELECT skill_levels, divisions, division_custom FROM practices WHERE id=?", (pid,))[0]
+    assert lv in row[0] and row[1] == "custom" and row[2] == "18U girls"
+    page = boss.get("/practices/%d" % pid).get_data(as_text=True)
+    assert "SKILL LEVEL" in page and "18U girls" in page and "+ Division" not in page

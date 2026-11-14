@@ -7495,6 +7495,8 @@ T["practice"] = """{% set p = x.p %}
 {% endcall %}{% endif %}
 {% if p.note or host %}{% call grp('NOTES', none, (('Edit' if p.note else '+ Add') if host else ''), '', 'notes' ~ p.id) %}{% if p.note %}<p class=pqtext>{{ p.note }}</p>{% else %}<p class=pqempty>No notes yet.</p>{% endif %}{% endcall %}{% endif %}
 {% if host and (p.coaching_plan or true) %}{% call grp('PRACTICE PLAN · COACHES ONLY', none, ('Edit' if p.coaching_plan else '+ Add'), '', 'plan' ~ p.id) %}{% if p.coaching_plan %}<p class=pqtext>{{ p.coaching_plan }}</p>{% else %}<p class=pqempty>Only coaches and admins see this.</p>{% endif %}{% endcall %}{% endif %}
+{% if sports_now.levels %}{% call grp('SKILL LEVEL', none, 'Edit' if admin else '', '', 'pqLevels') %}<b class=pqline>{{ sports_now.levels }}</b>{% endcall %}{% endif %}
+{% if sports_now.division %}{% call grp('DIVISION', none, 'Edit' if admin else '', '', 'pqDivs') %}<b class=pqline>{{ sports_now.division }}</b>{% endcall %}{% endif %}
 {% if social_cards %}{% call grp('SOCIALS', social_cards|length, 'Edit' if host else '', '', 'social' ~ p.id) %}{% for card in social_cards %}{{ r2_social_card(card, 'row') }}{% endfor %}{% endcall %}{% endif %}
 {% if host and x.going %}{% call grp('TO PLAY') %}<span class=pqchips>{{ rg_chip(to_play.ok ~ ' cleared' ~ (' · ' ~ to_play.not ~ ' not' if to_play.not else ''), 'cleared' if not to_play.not else 'expiring') }}</span><small class=pqsub>Insurance and requirements, checked at the deck.</small>{% endcall %}{% endif %}
 {% set check_href = '/admin?date=' ~ p.date ~ '&ev=p-' ~ p.id %}
@@ -7506,8 +7508,8 @@ T["practice"] = """{% set p = x.p %}
 {% if host %}{% set missing_bits = [] %}
 {% if not social_line(p) %}{% set _ = missing_bits.append(('+ After-practice social', 'social' ~ p.id, '')) %}{% endif %}
 {% if not p.image %}{% set _ = missing_bits.append(('+ Cover image', 'image' ~ p.id, '')) %}{% endif %}
-{% if admin and not p.skill_levels %}{% set _ = missing_bits.append(('+ Skill level', '', '/practices/' ~ p.id ~ '?edit=1')) %}{% endif %}
-{% if admin and not p.divisions %}{% set _ = missing_bits.append(('+ Division', '', '/practices/' ~ p.id ~ '?edit=1')) %}{% endif %}
+{% if admin and not p.skill_levels %}{% set _ = missing_bits.append(('+ Skill level', 'pqLevels', '')) %}{% endif %}
+{% if admin and not p.divisions %}{% set _ = missing_bits.append(('+ Division', 'pqDivs', '')) %}{% endif %}
 {% if missing_bits %}<section class=pqmissing><span class=pqhead><span>NOT ADDED YET</span></span><div>{% for label, dlg, href in missing_bits %}{% if href %}<a href="{{ href }}">{{ label }}</a>{% else %}<button type=button data-open-dialog="{{ dlg }}">{{ label }}</button>{% endif %}{% endfor %}</div></section>{% endif %}
 {% endif %}
 {% if admin %}<div class=pqmore>
@@ -7522,6 +7524,16 @@ T["practice"] = """{% set p = x.p %}
 <div class=rg-fieldpair><label class=rg-field><span>START</span><input type=time name=start value="{{ p.start }}" required></label><label class=rg-field><span>END</span><input type=time name=end value="{{ p.end }}" required></label></div>
 <label class=rg-field><span>VENUE</span><input name=location value="{{ p.location or '' }}" autocomplete=off></label>
 <button class="rg-btn primary" name=action value=when>Save</button></form></dialog>
+<dialog id=pqLevels class="botsheet modal"><form method=post action="/practices/{{ p.id }}" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+<h2>Skill level.</h2><p class=ty-muted>Who this practice is for. Pick any that fit.</p>
+{% for id_, name, short, on in level_opts %}{{ rg_choice('level', id_, name, short, on, 'checkbox') }}{% endfor %}
+<button class="rg-btn primary" name=action value=levels>Save</button></form></dialog>
+<dialog id=pqDivs class="botsheet modal"><form method=post action="/practices/{{ p.id }}" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+<h2>Division.</h2><p class=ty-muted>Shown on the practice and used for filters.</p>
+{% for id_, name, on in div_opts %}{{ rg_choice('division', id_, name, '', on, 'checkbox', 'data-divcustom' if id_ == 'custom' else '') }}{% endfor %}
+<label class=rg-field data-divtext{% if not p.division_custom %} hidden{% endif %}><span>CUSTOM DIVISION</span><input name=division_custom value="{{ p.division_custom or '' }}" maxlength=80 placeholder="e.g. 18U girls"></label>
+<button class="rg-btn primary" name=action value=divisions>Save</button></form></dialog>
+<script>document.addEventListener('change',function(e){var i=e.target; if(i.matches&&i.matches('[data-divcustom]')){var t=document.querySelector('[data-divtext]'); if(t) t.hidden=!i.checked;}});</script>
 <dialog id=pqCoaches class="botsheet modal"><form method=post action="/practices/{{ p.id }}" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <h2>Coaches.</h2><p class=ty-muted>{{ practice_title(p) }} · {{ fmt_card_date(p.date) }}</p>
 <h3 class=rg-day>WHO'S COACHING</h3>

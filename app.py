@@ -6121,6 +6121,20 @@ def handle_practice_post(d):
                 if (old["date"], old["start"], old["end"], old["location"]) != (date.isoformat(), start, end, loc): flag_practice(d, pid, "change", me()["id"])
             except sqlite3.IntegrityError:
                 d.rollback(); flash("A practice already exists at that place on that date.")
+    elif a in ("levels", "divisions") and pid:
+        # Practice page sheets: skill levels and division, one at a time; the rest of the session details stay.
+        old = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
+        if a == "levels":
+            try:
+                import clubadmin
+                extra = clubadmin.level_slugs(d, old["sport"] or "Water Polo", include_archived=True)
+            except Exception:
+                extra = []
+            d.execute("UPDATE practices SET skill_levels=? WHERE id=?", (sports.pack_levels(request.form.getlist("level"), extra), pid))
+        else:
+            divs, custom = sports.pack_divisions(request.form.getlist("division"), request.form.get("division_custom"))
+            d.execute("UPDATE practices SET divisions=?, division_custom=? WHERE id=?", (divs, custom, pid))
+        if old["series_id"]: d.execute("UPDATE practices SET series_detached=1 WHERE id=?", (pid,))
     elif a == "coaches" and pid:
         # Figma Q3 · pick coaches, then the head coach from the ones picked. Focus groups stay.
         focuses = {r["member_id"]: r["focus"] or "" for r in d.execute("SELECT member_id, focus FROM practice_coaches WHERE practice_id=?", (pid,))}
@@ -6728,7 +6742,12 @@ def practice_page(pid):
     if host and going_ids:
         for m in d.execute("SELECT * FROM members WHERE id IN (%s)" % ",".join("?" * len(going_ids)), going_ids).fetchall():
             to_play["ok" if clearance(d, m)["ok"] else "not"] += 1
-    return page(T["practice"], tab="practice", fx=practice_flows(d, p), x=bundle, to_play=to_play, editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin", social_cards=schedule_social_cards(p))
+    lv = set((p["skill_levels"] or "").split(","))
+    dv = set((p["divisions"] or "").split(","))
+    level_opts = [(pid_, name, short, pid_ in lv) for pid_, name, short, _f in level_catalog(p["sport"], p["skill_levels"] or "")] if host else []
+    div_opts = [(k, name, k in dv) for k, name in sports.DIVISIONS] if host else []
+    sports_now = {"levels": sports.levels_label(p["skill_levels"] or "", level_catalog(p["sport"], p["skill_levels"] or "")), "division": sports.divisions_label(p["divisions"] or "", p["division_custom"] or "")}
+    return page(T["practice"], tab="practice", fx=practice_flows(d, p), x=bundle, to_play=to_play, level_opts=level_opts, div_opts=div_opts, sports_now=sports_now, editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin", social_cards=schedule_social_cards(p))
 @app.route("/practices/series/new", methods=["GET", "POST"])
 @admin_required
 def series_new():
