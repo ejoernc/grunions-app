@@ -94,6 +94,8 @@ def _cols(d, table):
 
 def ensure_schema(d):
     """Add feed tables and columns. Existing lineup rows are filled in once, when status is empty."""
+    if "color" not in [r[1] for r in d.execute("PRAGMA table_info(lineup_events)")]:
+        d.execute("ALTER TABLE lineup_events ADD COLUMN color TEXT")  # event color picked on create/edit; empty = by type
     d.execute("""CREATE TABLE IF NOT EXISTS lineup_categories(
         id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE, name TEXT NOT NULL, chip TEXT NOT NULL,
         member_ok INTEGER NOT NULL DEFAULT 1, intent_ok INTEGER NOT NULL DEFAULT 0,

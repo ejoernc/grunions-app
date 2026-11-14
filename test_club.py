@@ -210,7 +210,7 @@ def test_team_chat_list_keeps_everyone_and_personal_messages():
         clear_preview_rows()
     assert "Personal messages" in html and "everyone" in html and "No practice chat right now" in html and "Requests" in html and "Ask the club" in html
     # Nov 13: the + on Chat is for coaches and admins only; members get + only on Lineup.
-    assert 'Ask the board' in html and 'class=chatplus' in coach and 'data-scope="team"' in coach and "<h1>Team</h1>" not in html
+    assert 'Ask the board' in html and 'chatplus' in coach and 'data-scope="team"' in coach and "<h1>Team</h1>" not in html
     assert "New chat" in html and "Message someone" in html and "New group" in html and "Ask the club" in html
     roster = html.split("id=pickList", 1)[1].split("id=pickEmpty", 1)[0]
     assert "Adele Voss" in roster and "Player · Water polo" in roster and "Mira Solano" in roster and "Coach · Water polo" in roster

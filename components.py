@@ -27,10 +27,24 @@ def _tone(t, default="graphite"):
     return t if t in TONES else default
 
 
-def event_tone(kind, cancelled=False):
+EVENT_COLORS = (("sun", "Sun"), ("sky", "Sky"), ("tangerine", "Tangerine"), ("lime", "Lime"), ("aqua", "Aqua"),
+                ("cobalt", "Blue"), ("bubblegum", "Bubblegum"), ("cherry", "Coral"), ("lavender", "Lavender"))
+
+
+def event_tone(kind, cancelled=False, color=None):
+    """An event's color: the one picked for it (Event color), else its type's color. Cancelled is graphite."""
     if cancelled:
         return "graphite"
+    if color and color in dict(EVENT_COLORS):
+        return color
     return EVENT_TONE.get((kind or "practice").lower(), "sun")
+
+
+def row_color(row):
+    try:
+        return (row["color"] or "") if row is not None and "color" in row.keys() else ""
+    except (KeyError, IndexError, AttributeError, TypeError):
+        return (row or {}).get("color", "") if isinstance(row, dict) else ""
 
 
 def _e(v):
@@ -583,6 +597,14 @@ def toggle(name, label, sub="", checked=False, value="1", attrs="", plain=False)
         _e(label), ('<small>%s</small>' % _e(sub)) if sub else "", _e(name), _e(value), " checked" if checked else "", (" " + attrs) if attrs else ""))
 
 
+def color_dots(name, selected="", label="Event color"):
+    """Event color picker (Figma 01 team palette): one radio per color, ring when chosen; none chosen = the type's color."""
+    dots = "".join('<label class=rg-cdot style="--c:var(--%s)" title="%s"><input type=radio name="%s" value="%s"%s aria-label="%s"><i aria-hidden=true></i></label>'
+                   % ("lime" if key == "lime" else "team-" + key, _e(lbl), _e(name), key, " checked" if key == selected else "", _e(lbl))
+                   for key, lbl in EVENT_COLORS)
+    return Markup('<div class=rg-day>%s</div><div class=rg-colordots role=radiogroup aria-label="%s">%s</div>' % (_e(label), _e(label), dots))
+
+
 def choice(name, value, title, sub="", checked=False, type="radio", attrs=""):
     """2.0 / Choice row (Figma M5.2 picker, M5.3 checkboxes): title + caption, lime ring when chosen."""
     return Markup('<label class="rg-choice %s"><input type=%s name="%s" value="%s"%s%s><span class=rg-txt><b>%s</b>%s</span><i aria-hidden=true></i></label>' % (
@@ -788,4 +810,4 @@ def drive_card(minutes, note="", leave="", kicker="YOUR DRIVE", href=""):
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, rg_person=person_row, rg_group_card=group_card, rg_detail_group=detail_group, rg_doc_card=doc_card, rg_notif=notif_preview, rg_person_status=person_status, rg_status_list=status_list, rg_pass=pass_card, rg_kv=kv_rows, rg_progress=progress_card, rg_drive=drive_card, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, rg_person=person_row, rg_group_card=group_card, rg_detail_group=detail_group, rg_doc_card=doc_card, rg_notif=notif_preview, rg_person_status=person_status, rg_status_list=status_list, rg_pass=pass_card, rg_kv=kv_rows, rg_progress=progress_card, rg_drive=drive_card, rg_color_dots=color_dots, event_tone=event_tone, row_color=row_color, EVENT_COLORS=EVENT_COLORS)

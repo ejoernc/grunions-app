@@ -648,3 +648,30 @@ def test_practice_social_screen_saves_before_or_after():
     assert got == ("Coffee,Breakfast", "before", "06:30"), got
     page = boss.get("/practices/%d" % pid).get_data(as_text=True)
     assert "Before practice" in page
+
+
+def test_new_event_error_keeps_everything_typed():
+    tok = csrf(boss, "/events/new?lane=lineup")
+    r = boss.post("/events/new", data=dict(csrf=tok, action="preview", lane="lineup", line_title="Draft Cup", description="", event_type="Tournament",
+                                           hosting="Attending", host_org="West Hollywood Aquatics", date_precision="exact", date="2030-05-02", location="Long Beach"))
+    assert r.status_code == 302
+    page = boss.get(r.headers["Location"]).get_data(as_text=True)
+    assert "Add a short description." in page
+    assert '"Draft Cup"' in page and '"West Hollywood Aquatics"' in page and '"2030-05-02"' in page  # restored into the form
+    assert "var draft=" in page and "step=1" in page
+    again = boss.get("/events/new?lane=lineup").get_data(as_text=True)
+    assert "var draft=" not in again  # used once
+
+
+def test_event_color_saves_for_schedule_and_lineup_events():
+    tok = csrf(boss, "/events/new?lane=lineup")
+    r = boss.post("/events/new", data=dict(csrf=tok, action="preview", lane="lineup", line_title="Color Cup", description="Bring caps", event_type="Tournament",
+                                           hosting="Hosting", date_precision="exact", date="2030-06-02", location="Long Beach", event_color_line="cobalt"))
+    assert r.status_code == 302, r.status_code
+    eid = sql("SELECT id, color FROM lineup_events WHERE title='Color Cup'")[0]
+    assert eid[1] == "cobalt"
+    assert "tone-cobalt" in boss.get("/lineup/%d" % eid[0]).get_data(as_text=True)
+    page = boss.get("/lineup/%d/edit" % eid[0]).get_data(as_text=True)
+    assert 'name="event_color_line" value="cobalt" checked' in page and "Event color" in page
+    new = boss.get("/events/new").get_data(as_text=True)
+    assert "Event color" in new and "Team color" not in new and 'name="event_color_schedule"' in new

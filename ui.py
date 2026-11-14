@@ -2524,6 +2524,7 @@ dialog.memberedit .help a{color:var(--t1)}
 </div>{% endmacro %}
 {% macro lineup_fill(e, mode, past=false) -%}
 {%- if past -%}var(--carbon)
+{%- elif e.color -%}var(--{{ 'lime' if e.color == 'lime' else 'team-' ~ e.color }})
 {%- elif mode == 'tall' and e.event_type == 'Trip' -%}var(--team-mango)
 {%- elif mode == 'tall' and e.event_type in ('Social', 'Meeting', 'Other', 'Volunteer', 'Fundraiser') -%}var(--team-bubblegum)
 {%- elif e.event_type in ('Tournament', 'Competition') -%}var(--team-lavender)
@@ -5079,7 +5080,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% if key != wk.day %}{% if wk.open %}</div></div>{% endif %}{% set wk.day = key %}{% set wk.open = true %}<div class=daygroup><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class=daycards>{% endif %}
 {% for card in s.before %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
 {% if s.cancelled %}{{ r2_event_row('/practices/' ~ s.p.id, 'cancelled', (s.p.sport or 'Water Polo')|upper, practice_title(s.p), s.p.cancel_reason or 'Cancelled', s.going|length) }}
-{% else %}{% set clk = fmt_clock(s.p.start).split(' ') %}{{ r2_event_card('/practices/' ~ s.p.id, (s.p.sport or 'Water Polo')|upper, practice_title(s.p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(s.p.start, s.p.end), short_place(s.p.location), s.going, '' if s.mine == 1 and not home_out else day_chip(s.p.date), s.mine == 1 and not home_out, event_tone(s.kind or 'practice'), practice_ended(s.p)) }}{% endif %}
+{% else %}{% set clk = fmt_clock(s.p.start).split(' ') %}{{ r2_event_card('/practices/' ~ s.p.id, (s.p.sport or 'Water Polo')|upper, practice_title(s.p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(s.p.start, s.p.end), short_place(s.p.location), s.going, '' if s.mine == 1 and not home_out else day_chip(s.p.date), s.mine == 1 and not home_out, event_tone(s.kind or 'practice', false, row_color(s.p)), practice_ended(s.p)) }}{% endif %}
 {% for card in s.after %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
 {% endfor %}{% if wk.open %}</div></div>{% endif %}
 <a class=fullsched href="/practices?view=list">View full schedule ›</a>
@@ -6586,7 +6587,7 @@ T["lineup"] = """{% macro lineup_months(groups, mode, past=false) %}{% for g in 
 {{ lineup_months(upcoming, 'tall' if group else 'compact') }}
 {% if past %}<details class=lineuppast open><summary>{% if group %}Past{% else %}Past{% endif %} <span class=pastn>{{ past_n }}</span></summary>{{ lineup_months(past, 'tall' if group else 'compact', true) }}</details>{% endif %}"""
 T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
-{{ rg_event_hero(e.event_type or 'Event', e.title, [e.when, e.venue, e.city]|select|join(' · '), 'graphite' if e.status == 'canceled' else event_tone(e.event_type), e.status_text if e.status != 'published' else (e.tag or '')) }}
+{{ rg_event_hero(e.event_type or 'Event', e.title, [e.when, e.venue, e.city]|select|join(' · '), 'graphite' if e.status == 'canceled' else event_tone(e.event_type, false, e.color), e.status_text if e.status != 'published' else (e.tag or '')) }}
 {% if ic and ic.status == 'open' %}{# Figma 62 · I2 Interest check, member view #}
 {% set icn = ic_res.counts %}
 <section class=rg-ic>
@@ -6860,17 +6861,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label><input type=radio name=activity_type value=scrimmage {% if activity == 'scrimmage' %}checked{% endif %}><span>Scrimmage</span></label>
 <label><input type=radio name=activity_type value=game {% if activity == 'game' %}checked{% endif %}><span>Game</span></label>
 </div>
-<div class=rg-day>Team color</div>
-<div class=colordots role=radiogroup aria-label="Team color">
-<button type=button class="cdot on" style="--c:var(--team-sun)" aria-label="Sun"></button>
-<button type=button class=cdot style="--c:var(--team-sky)" aria-label="Sky"></button>
-<button type=button class=cdot style="--c:var(--team-tangerine)" aria-label="Tangerine"></button>
-<button type=button class=cdot style="--c:var(--lime)" aria-label="Lime"></button>
-<button type=button class=cdot style="--c:var(--team-aqua)" aria-label="Aqua"></button>
-<button type=button class=cdot style="--c:var(--team-cobalt)" aria-label="Blue"></button>
-<button type=button class=cdot style="--c:var(--team-bubblegum)" aria-label="Bubblegum"></button>
-<button type=button class=cdot style="--c:var(--team-cherry)" aria-label="Coral"></button>
-</div>
+{{ rg_color_dots('event_color_schedule', '') }}
 <label>Sport<select name=sport id=sportSel><option{% if not dup or dup.sport == 'Water Polo' %} selected{% endif %}>Water Polo</option><option{% if dup and dup.sport == 'Swimming' %} selected{% endif %}>Swimming</option>{% if dup and dup.sport not in ('Water Polo', 'Swimming') %}<option selected>{{ dup.sport }}</option>{% endif %}</select></label>
 <div class=rg-day>Display name</div>
 <div class=livetitle><strong id=liveTitle>{% if dup and dup.title %}{{ dup.title }}{% else %}Water Polo Practice{% endif %}</strong><button type=button class="rg-btn ghost" id=customize>Customize</button></div>
@@ -6884,6 +6875,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button data-type=Trip>Trip</button>
 <button type=button data-type=Social>Social</button>
 </div>{% endif %}
+{{ rg_color_dots('event_color_line', '') }}
 <div class=rg-day>Who's hosting?</div>
 <div class="actseg hostseg" id=whoHost role=radiogroup aria-label="Who's hosting?">
 <label><input type=radio name=hosting value=Hosting checked><span>Our organization</span></label>
@@ -6954,9 +6946,9 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <div class=rg-day>Who can sign up</div>
 <p class="ty-muted ty-sm sm">For this event. Club default is set in Manage · Club.</p>
 <div class=signupopts role=radiogroup aria-label="Who can sign up">
-<label class=sigopt><input type=radio name=signup_scope value=anyone><span><b>Anyone</b><small>Open to people outside Grunions. They can see it on the public schedule.</small></span></label>
-<label class=sigopt><input type=radio name=signup_scope value=network><span><b>Our network</b><small>Grunions plus partner clubs you've linked.</small></span></label>
-<label class=sigopt><input type=radio name=signup_scope value=team checked><span><b>Team members only</b><small>Outside people can see it but can't sign up.</small></span></label>
+{{ rg_choice('signup_scope', 'anyone', 'Anyone', 'Open to people outside Grunions. They can see it on the public schedule.') }}
+{{ rg_choice('signup_scope', 'network', 'Our network', "Grunions plus partner clubs you've linked.") }}
+{{ rg_choice('signup_scope', 'team', 'Team members only', "Outside people can see it but can't sign up.", true) }}
 </div>
 </div>
 <div class=createfoot>
@@ -7260,8 +7252,22 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   window.scrollTo({top:0,behavior:'smooth'});
  }
  form.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('[data-evgo]'); if(!b) return; e.preventDefault(); go(+b.getAttribute('data-evgo')); });
+ form.addEventListener('submit',function(e){ var lane=(document.getElementById('laneVal')||{}).value; if(lane!=='lineup') return;
+  var miss=[['line_title','Add an event name.'],['description','Add a short description.']].map(function(x){ var el=form.querySelector('[name='+x[0]+']'); return el&&!el.value.trim()?[el,x[1]]:null; }).filter(Boolean)[0];
+  if(!miss) return; e.preventDefault(); var sec=miss[0].closest('.evstep'); var n=sec?+sec.getAttribute('data-step'):1;
+  form.querySelectorAll('.evstep').forEach(function(s){ s.hidden=+s.getAttribute('data-step')!==n; });
+  form.querySelectorAll('.evbars i').forEach(function(b,i){ b.classList.toggle('on', i<n); }); var lab=document.getElementById('evStepLab'); if(lab) lab.textContent='STEP '+n+' OF 3 · '+names[n];
+  miss[0].setCustomValidity(miss[1]); miss[0].reportValidity(); miss[0].addEventListener('input',function(){ miss[0].setCustomValidity(''); },{once:true}); miss[0].focus(); });
  form.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('[data-lane]'); if(!c) return; var p=document.getElementById('evPost'); if(p&&p.textContent.indexOf('Post to')===0) p.textContent=c.getAttribute('data-lane')==='lineup'?'Post to Lineup':'Post to Schedule'; });
 })();</script>
+{% if event_draft %}<script>(function(){var draft={{ event_draft.form|tojson }}, step={{ event_draft.step|int }};
+ function restore(){ var form=document.getElementById('planForm'); if(!form) return;
+  Object.keys(draft).forEach(function(name){ var vals=draft[name]; var els=form.querySelectorAll('[name="'+name.replace(/"/g,'')+'"]');
+   els.forEach(function(el){ if(el.type==='file'||el.type==='hidden'&&name==='csrf') return;
+    if(el.type==='radio'||el.type==='checkbox'){ var on=vals.indexOf(el.value)>=0; if(el.checked!==on){ el.checked=on; el.dispatchEvent(new Event('change',{bubbles:true})); } }
+    else { var v=vals.length>1&&els.length===vals.length?vals[[].indexOf.call(els,el)]:vals[0]; if(v!=null&&el.value!==v){ el.value=v; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); } } }); });
+  if(step>1){ var b=document.createElement('button'); b.type='button'; b.hidden=true; b.setAttribute('data-evgo', String(step)); form.appendChild(b); b.click(); b.remove(); } }
+ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(restore, 0); }); else setTimeout(restore, 0); })();</script>{% endif %}
 """ + _PRACTICE_JS
 T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" enctype=multipart/form-data>{{ csrf_field() }}
 <h1 class=newevent>{% if event_id %}{{ values.title }}.{% else %}New event.{% endif %}</h1>
@@ -7272,6 +7278,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 {{ upload_field('banner', src=('/lineup-image/' ~ event_id ~ '?v=' ~ banner) if banner and event_id else '', clear_name='banner_clear') }}
 </div>
 <label>Type{{ type_select(event_types, values.event_type) }}</label>
+{% if event_color is defined %}{{ rg_color_dots('event_color_line', event_color) }}{% endif %}
 <div class=rg-day>Who's hosting?</div>
 <div class="actseg hostseg" id=whoHost role=radiogroup aria-label="Who's hosting?">
 <label><input type=radio name=hosting value=Hosting {% if values.hosting != 'Attending' %}checked{% endif %}><span>Our organization</span></label>
@@ -7580,7 +7587,7 @@ T["practice"] = """{% set p = x.p %}
 {% set host = me().is_admin or is_staff() %}{% set admin = me().is_admin %}
 <div class="p5 pq">
 {% set clk = fmt_clock(p.start).split(' ') %}{% set dur = practice_minutes(p) if practice_minutes is defined else 0 %}
-{{ rg_event_card('', (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(p.start, p.end), p.location or '', [], 0, x.mine == 1, 'graphite' if p.cancelled else event_tone(p.activity_type or 'practice'), 'Cancelled' if p.cancelled else '') }}
+{{ rg_event_card('', (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(p.start, p.end), p.location or '', [], 0, x.mine == 1, 'graphite' if p.cancelled else event_tone(p.activity_type or 'practice', false, row_color(p)), 'Cancelled' if p.cancelled else '') }}
 {% if p.cancelled and p.cancel_reason %}<p class=rg-note>{{ p.cancel_reason }}</p>{% endif %}
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class="pills p5rsvp">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>{{ rsvp_base('p' ~ p.id) }}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}

@@ -217,7 +217,7 @@ def migrate_practices(d):
                  ("coach_note", "TEXT"), ("coach_note_by", "TEXT"), ("coach_note_at", "TEXT"),
                  ("image", "TEXT"), ("lat", "REAL"), ("lng", "REAL"), ("social_lat", "REAL"), ("social_lng", "REAL"),
                  ("social_route", "TEXT"), ("social_drive_min", "INTEGER"), ("social_routed", "INTEGER DEFAULT 0"),
-                 ("social_when", "TEXT"), ("social2_kind", "TEXT"), ("social2_place", "TEXT"),
+                 ("social_when", "TEXT"), ("social2_kind", "TEXT"), ("social2_place", "TEXT"), ("color", "TEXT"),
                  ("social2_address", "TEXT"), ("social2_time", "TEXT"),
                  ("address", "TEXT"), ("coaching_plan", "TEXT"),
                  ("series_id", "INTEGER"), ("series_detached", "INTEGER DEFAULT 0"), ("skipped", "INTEGER DEFAULT 0"),
@@ -342,6 +342,8 @@ def migrate_series(d):
         if c not in scols:
             d.execute("ALTER TABLE practice_series ADD COLUMN %s %s" % (c, t))
     d.execute("UPDATE practice_series SET interval_weeks=1 WHERE interval_weeks IS NULL OR interval_weeks NOT IN (1, 2)")
+    if "color" not in [r[1] for r in d.execute("PRAGMA table_info(practice_series)")]:
+        d.execute("ALTER TABLE practice_series ADD COLUMN color TEXT")
 def migrate_notices(d):
     """Retry bookkeeping for notices. Rows already stored were successful sends."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(sent_notices)")]
@@ -1345,7 +1347,7 @@ def calendar():
         for event in d.execute("""SELECT e.id, e.date, e.title, e.event_type FROM lineup_events e
                 WHERE (e.created_by=? OR e.host_id=?) AND e.date%s? ORDER BY e.date%s""" % (op, order), (m["id"], m["id"], today)).fetchall():
             items.append((event["date"], "", "/lineup/%d" % event["id"], event["title"] or "Lineup", "Lineup · you're hosting",
-                          components.event_tone(event["event_type"] or "lineup")))
+                          components.event_tone(event["event_type"] or "lineup", False, components.row_color(event))))
     if show != "availability" and kind in ("all", "lineup"):
         try:
             events = d.execute("""SELECT e.id, e.date, e.title, e.event_type,
@@ -1359,7 +1361,7 @@ def calendar():
             if state not in ("going", "registered", "interested"):
                 continue
             items.append((event["date"], "", "/lineup/%d" % event["id"], event["title"] or "Lineup",
-                          "Lineup · %s" % ("registered" if state == "going" else state), components.event_tone(event["event_type"] or "lineup")))
+                          "Lineup · %s" % ("registered" if state == "going" else state), components.event_tone(event["event_type"] or "lineup", False, components.row_color(event))))
     items.sort(key=lambda item: (item[0] or "", item[1]), reverse=(show == "past"))
     when_items = calendar_when_items(kind)
     kinds = [("all", "All"), ("practices", "Practices"), ("scrimmages", "Scrimmages"), ("games", "Games"), ("lineup", "Lineup")]
@@ -3006,7 +3008,7 @@ def _joined_people(d, mid):
 def _chat_title(mode):
     # Nov 13: everyone gets the +. Members: message someone on their teams, ask the coaches, ask the board.
     return ('<div class=chathead><h1 class=chatdisplay>Chat.</h1>'
-            '<button type=button class=chatplus data-scope="%s" aria-label="New chat">+</button></div>') % mode
+            '<button type=button class="chatplus rg-plus" data-scope="%s" aria-label="New chat"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>') % mode
 def _person_tone(n):
     return ("sun", "sky", "bubble", "grape", "mango", "aqua")[n % 6]
 def _pick_button(person):
@@ -4326,7 +4328,7 @@ def requests_list_html(d, m):
         title = "%s · %s" % (display_first(author) if author else "Someone", row["subject"])
         return _history_row("/chat?c=%s" % ch, letters, title, sub, meta, n, featured)
     empty = '<p class="ty-muted ty-sm">No open requests — nice.</p>'
-    plus = "" if staff_list else '<button type=button class=chatplus data-open-request aria-label="New request">+</button>'
+    plus = "" if staff_list else '<button type=button class="chatplus rg-plus" data-open-request aria-label="New request"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>'
     hidden = ""
     if sport:
         hidden += '<input type=hidden name=sport value="%s">' % escape(sport)
@@ -4945,6 +4947,7 @@ def sync_series(d, sid, today=None):
             continue
         clear_schedule_gap(d, iso, row["location"])
         copy_series_coaches(d, sid, cur.lastrowid)
+        d.execute("UPDATE practices SET color=(SELECT color FROM practice_series WHERE id=?) WHERE id=?", (sid, cur.lastrowid))
 def restore_series_date(d, sid, iso):
     """Put back the single date an admin restored. No other date is created."""
     iso = str(iso or "")[:10]
@@ -4961,6 +4964,7 @@ def restore_series_date(d, sid, iso):
         return
     clear_schedule_gap(d, iso, row["location"])
     copy_series_coaches(d, sid, cur.lastrowid)
+    d.execute("UPDATE practices SET color=(SELECT color FROM practice_series WHERE id=?) WHERE id=?", (sid, cur.lastrowid))
 def series_end_mode(row):
     if series_end_count(row): return "count"
     if row is not None and row["end_date"]: return "date"
@@ -5847,7 +5851,7 @@ def admin_day_events(d, date):
             "start": start, "when": fmt_span(start, end), "pill": fmt_clock(start),
             "type_label": sports.ACTIVITY_NAME.get(kind, "Practice"), "place": p["location"] or "",
             "map_href": lineup_map_href("", p["location"] or ""),
-            "who": "", "tone": components.event_tone(kind),
+            "who": "", "tone": components.event_tone(kind, False, components.row_color(p)),
             "detail": "/practices/%d" % p["id"]})
     for e in d.execute("""SELECT e.*, c.chip AS cat_chip, h.first AS host_first, h.last AS host_last, h.preferred_first AS host_preferred
         FROM lineup_events e LEFT JOIN lineup_categories c ON c.id=e.category_id
@@ -7144,6 +7148,7 @@ def lineup_pack(d, rows):
             "description": r["description"] or "", "details": r["details"] or "", "link": r["link"] or "",
             "cost": r["cost"] or "", "capacity": cap, "full": full, "reg_deadline": r["reg_deadline"] or "",
             "review_note": r["review_note"] or "", "banner": r["banner"] or "",
+            "color": components.row_color(r),
             "going_n": going_n, "interested_n": interested_n, "wait_n": wait_n, "count_line": count_line,
             "roster": names, "mine": mine.get(r["id"]), "created_by": r["created_by"], "host_id": r["host_id"],
             "can_edit": lineupfeed.can_edit_event(me(), r, organizer) if me() else False,
@@ -8429,12 +8434,15 @@ def lineup_edit(eid):
     if request.method == "POST":
         try:
             info = _save_lineup(d, row)
+            if "event_color_line" in request.form:
+                d.execute("UPDATE lineup_events SET color=? WHERE id=?", (_picked_color("event_color_line") or None, eid)); d.commit()
             flash("Submitted" if info["status"] == "pending" else "Saved", "toast")
             return redirect("/lineup/%d" % eid if info["status"] == "published" else "/lineup")
         except ValueError as e:
             flash(str(e)); values = lineupfeed.form_values(_form_last(), mode="edit")
     ctx = lineup_template_ctx(d, "edit", values, event_id=eid, banner=row["banner"] or "")
     ctx["sports_row"] = row
+    ctx["event_color"] = components.row_color(row)
     ended = lineup_ended(row)
     ctx["show_cancel"] = can_host_practice() and (row["status"] or "") == "published" and not ended
     ctx["show_delete"] = (not ended) and (can_host_practice() or (row["created_by"] == me()["id"] and (row["status"] or "") in ("draft", "declined", "changes_requested")))
@@ -8555,7 +8563,7 @@ def events_hub_groups(d):
             "href": "/practices/%d?from=admin" % p["id"],
             "going": d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (p["id"],)).fetchone()[0],
             "sport": p["sport"] if "sport" in p.keys() and p["sport"] else "Water Polo",
-            "tone": components.event_tone(kind),
+            "tone": components.event_tone(kind, False, components.row_color(p)),
             "sort": (effective_sort_date(p), p["start"] or "", p["id"]),
         })
     raw = []
@@ -8591,6 +8599,17 @@ class _FormWrap:
         return self.form.get(key, default)
     def getlist(self, key):
         return self.form.getlist(key)
+def _picked_color(field):
+    v = (request.form.get(field) or "").strip().lower()
+    return v if v in dict(components.EVENT_COLORS) else ""
+def _event_draft_back(url):
+    """A create error goes back to the form with everything the person typed, on the step to fix."""
+    form = {k: request.form.getlist(k) for k in request.form if k not in ("csrf", "action")}
+    msgs = [m for _c, m in session.get("_flashes", [])] if session.get("_flashes") else []
+    last = (msgs[-1] if msgs else "").lower()
+    step = 1 if any(w in last for w in ("name", "description", "type", "sport")) else (2 if any(w in last for w in ("date", "location", "place", "days", "repeat")) else 3)
+    session["event_draft"] = {"form": form, "step": step}
+    return redirect(url)
 @app.route("/events/new", methods=["GET", "POST"])
 @login_required
 def event_new():
@@ -8626,18 +8645,18 @@ def event_new():
         if precision not in ("exact", "month", "recur"): precision = "exact"
         if not staff and precision in ("month", "recur"):
             flash("Add a specific date.")
-            return redirect("/events/new?lane=lineup")
+            return _event_draft_back("/events/new?lane=lineup")
         if lane_now != "lineup" and precision == "month":
             flash("Pick exact dates or a repeat.")
-            return redirect("/events/new")
+            return _event_draft_back("/events/new")
         if lane_now == "lineup" and precision == "recur":
             flash("Add a specific date.")
-            return redirect("/events/new?lane=lineup")
+            return _event_draft_back("/events/new?lane=lineup")
         month_mode = lane_now == "lineup" and staff and precision == "month"
         recur_mode = lane_now != "lineup" and staff and precision == "recur"
         if not loc or (not month_mode and not day):
             flash("Add a location." if month_mode else "Add a date and a location.")
-            return redirect("/events/new" + ("?lane=lineup" if month_mode else ""))
+            return _event_draft_back("/events/new" + ("?lane=lineup" if month_mode else ""))
         d = db()
         if (request.form.get("lane") or lane) != "lineup" and staff:
             try:
@@ -8655,6 +8674,9 @@ def event_new():
                     if request.form.get("title_mode") != "custom":
                         d.execute("UPDATE practices SET title='' WHERE series_id=?", (sid,))
                     pid = ids[0]
+                    if _picked_color("event_color_schedule"):
+                        d.execute("UPDATE practice_series SET color=? WHERE id=?", (_picked_color("event_color_schedule"), sid))
+                        d.execute("UPDATE practices SET color=? WHERE series_id=?", (_picked_color("event_color_schedule"), sid))
                     for one in ids:
                         if request.form.getlist("social_kind") and not save_social(d, one, request.form):
                             flash("Add a place for the social.")
@@ -8676,6 +8698,8 @@ def event_new():
                 clear_schedule_gap(d, day.isoformat(), loc)
                 pid = cur.lastrowid
                 save_practice_coaches(d, pid, request.form.getlist("coach"), lead=request.form.get("lead"), focuses=focus_map_from_form())
+                if _picked_color("event_color_schedule"):
+                    d.execute("UPDATE practices SET color=? WHERE id=?", (_picked_color("event_color_schedule"), pid))
                 if request.form.getlist("social_kind"):
                     if not save_social(d, pid, request.form): flash("Add a place for the social.")
                 try: apply_practice_image(d, pid)
@@ -8686,14 +8710,14 @@ def event_new():
                 return redirect("/practices/%d" % pid)
             except ValueError as e:
                 flash(str(e))
-                return redirect("/events/new")
+                return _event_draft_back("/events/new")
             except sqlite3.IntegrityError:
                 flash("A practice already exists at that place on that date.")
-                return redirect("/events/new")
+                return _event_draft_back("/events/new")
         title = " ".join((request.form.get("line_title") or "").split())
         if not title:
             flash("Add an event name.")
-            return redirect("/events/new?lane=lineup")
+            return _event_draft_back("/events/new?lane=lineup")
         raw_hosting = (request.form.get("hosting") or "").strip()
         hosting_now = "Hosting" if raw_hosting in ("Cohost", "Co-hosting", "Co-host") else lineupfeed.normalize_hosting(raw_hosting, "Attending")
         plan_now = (request.form.get("team_plan") or "").strip() if staff and hosting_now == "Attending" else ""
@@ -8711,9 +8735,11 @@ def event_new():
             info = lineupfeed.save_event(d, wrapped, me(), staff, parse_date=parse_date)
         except ValueError as e:
             flash(str(e))
-            return redirect("/events/new?lane=lineup")
+            return _event_draft_back("/events/new?lane=lineup")
         except PermissionError:
             abort(403)
+        if info and info.get("id") and _picked_color("event_color_line"):
+            d.execute("UPDATE lineup_events SET color=? WHERE id=?", (_picked_color("event_color_line"), info["id"]))
         d.commit()
         if not staff:
             flash("Sent to admins for review", "toast")
@@ -8725,7 +8751,7 @@ def event_new():
         practice_days = [r[0] for r in db().execute(
             "SELECT DISTINCT date FROM practices WHERE cancelled=0 AND date>=? ORDER BY date",
             (today_pt().isoformat(),)).fetchall()]
-    return page(T["event_new"], tab="event_new", staff=staff, lane=lane, activity=activity, line_types=line_types,
+    return page(T["event_new"], tab="event_new", event_draft=(session.pop("event_draft", None) if request.method == "GET" else None), staff=staff, lane=lane, activity=activity, line_types=line_types,
         coaches=coach_candidates(db()) if staff else [], dup=dup, practice_days=practice_days,
         plan_back=("/practices/%d" % dup["id"]) if dup else (("/manage/lineup" if lane == "lineup" else ("/admin" if is_staff() else "/manage/schedule")) if staff else "/lineup"),
         plan_title=("Create event" if staff else "Suggest an event"),
@@ -8875,7 +8901,7 @@ def _manage_week(d, admin):
         n = d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (p["id"],)).fetchone()[0]
         kind = ((p["activity_type"] if "activity_type" in p.keys() else "") or "practice").lower()
         label = {"scrimmage": "Scrimmage", "game": "Game"}.get(kind, "Practice")
-        tone = components.event_tone(kind, bool(p["cancelled"]) if "cancelled" in p.keys() else False)
+        tone = components.event_tone(kind, bool(p["cancelled"]) if "cancelled" in p.keys() else False, components.row_color(p))
         wd = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.date.fromisoformat(p["date"]).weekday()]
         place = ((p["location"] or "").split(",")[0] or "Pool")
         if admin:
@@ -8899,7 +8925,7 @@ def _manage_week(d, admin):
                     kind = (e["event_type"] if "event_type" in e.keys() and e["event_type"] else "") or (e["subtype"] if "subtype" in e.keys() else "") or "Event"
                     wd = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.date.fromisoformat(str(e["date"])[:10]).weekday()]
                     items.append({"title": "%s · %s" % (wd, e["title"]), "meta": "%s · %s" % (kind, place or "Lineup"),
-                                  "href": "/lineup/%d/edit" % e["id"], "action": "Edit", "tone": components.event_tone(e["event_type"] if "event_type" in e.keys() else "lineup"),
+                                  "href": "/lineup/%d/edit" % e["id"], "action": "Edit", "tone": components.event_tone(e["event_type"] if "event_type" in e.keys() else "lineup", False, components.row_color(e)),
                                   "sort": (str(e["date"]), "", e["id"])})
                 except (TypeError, ValueError):
                     continue

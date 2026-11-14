@@ -1606,3 +1606,29 @@ dialog.pqcancel .sheet{gap:12px !important;row-gap:12px !important}
 dialog.pqsheet .sheet>form{display:contents !important}
 dialog.pqsheet .sheet>form>*{margin:0 !important}
 .rg-evtiles{margin:16px 0 20px}
+/* Plan cards match the lane cards ("What are you planning?"): sentence case, 16/650 title, 14/20 line at .8 */
+label.plancard{text-transform:none !important;letter-spacing:normal !important;font:400 16px/16px var(--font-sans) !important;padding:16px !important}
+label.plancard b{font:650 16px/24px var(--font-sans) !important;text-transform:none !important;letter-spacing:normal !important}
+label.plancard .plantxt>span{font:400 14px/20px var(--font-sans) !important;text-transform:none !important;letter-spacing:normal !important;opacity:.8}
+/* 2.0 / Select option (Figma 63 · 4): graphite, r20, 60 min, 16 px sides, 2px lime ring when chosen, 24 control (r8 checkbox) */
+.rg-choice{border-radius:20px;padding:10px 16px;gap:12px}
+.rg-choice .rg-txt b{font:700 16px/normal var(--font-sans)}
+.rg-choice .rg-txt small{font:500 13px/normal var(--font-sans)}
+.rg-choice.checkbox i{border-radius:8px}
+.signupopts{display:flex;flex-direction:column;gap:8px}
+.signupopts .rg-choice{margin:0}
+body.editor label.rg-choice,body.editor label.rg-choice b,body.editor label.rg-choice small{text-transform:none !important;letter-spacing:normal !important;opacity:1 !important}
+body.editor label.rg-choice{font:400 16px/normal var(--font-sans) !important;color:var(--paper) !important;padding:10px 16px !important;border-radius:20px !important;background:var(--graphite) !important;min-height:60px}
+body.editor label.rg-choice b{font:700 16px/normal var(--font-sans) !important;color:var(--paper) !important}
+body.editor label.rg-choice small{font:500 13px/normal var(--font-sans) !important;color:var(--smoke) !important}
+/* Event color dots */
+.rg-colordots{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 16px}
+label.rg-cdot{position:relative;display:block;width:28px;height:28px;margin:0 !important;padding:0 !important;cursor:pointer;background:none !important}
+label.rg-cdot input{position:absolute;opacity:0;width:1px;height:1px}
+label.rg-cdot i{display:block;width:28px;height:28px;border-radius:999px;background:var(--c);box-shadow:0 0 0 2px var(--ink)}
+label.rg-cdot input:checked+i{box-shadow:0 0 0 2px var(--ink),0 0 0 4px var(--paper)}
+label.rg-cdot input:focus-visible+i{outline:2px solid var(--paper);outline-offset:4px}
+/* Header plus: same spot on Schedule, Lineup and Chat (16px from the right edge, 24px from the top, 52px lime) */
+header.homehead.apphead{padding-left:16px;padding-right:16px}
+header.homehead .headmain .rg-plus,.chathead .rg-plus{align-self:flex-start;margin-top:8px}
+.chathead .rg-plus{display:grid;place-items:center;padding:0;font:0/0 a}
