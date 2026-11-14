@@ -685,3 +685,25 @@ def test_week_swipe_lands_on_nearest_session_or_says_the_week_is_empty():
     assert ('href="/admin?date=%s" aria-current=date' % day) in page
     far = (A.today_pt() + dt.timedelta(days=700)).isoformat()
     assert "No events this week." in boss.get("/admin?week=%s&near=3" % far).get_data(as_text=True)
+
+
+def test_email_image_block_uploads_renders_and_is_public():
+    import io, json as _json
+    from PIL import Image
+    r = boss.post("/manage/email", data=dict(csrf=csrf(boss, "/manage/email")))
+    eid = int(re.search(r"/manage/email/(\d+)", r.headers["Location"]).group(1))
+    tok = csrf(boss, "/manage/email/%d" % eid)
+    boss.post("/manage/email/%d" % eid, data=dict(csrf=tok, action="add_block", kind="image"))
+    blocks = _json.loads(sql("SELECT blocks FROM club_emails WHERE id=?", (eid,))[0][0])
+    i = [n for n, b in enumerate(blocks) if b.get("kind") == "image"][0]
+    buf = io.BytesIO(); Image.new("RGB", (1600, 900), (200, 255, 60)).save(buf, "PNG"); buf.seek(0)
+    boss.post("/manage/email/%d" % eid, data=dict(csrf=tok, action="edit_block", index=str(i), alt="Team photo", url="/lineup", image=(buf, "team.png")),
+              content_type="multipart/form-data")
+    b = _json.loads(sql("SELECT blocks FROM club_emails WHERE id=?", (eid,))[0][0])[i]
+    assert b["alt"] == "Team photo" and "/email-image/em_" in b["src"]
+    name = b["src"].rsplit("/", 1)[1]
+    pic = A.app.test_client().get("/email-image/" + name)  # signed out, like a mail app
+    assert pic.status_code == 200 and pic.mimetype == "image/jpeg"
+    assert A.app.test_client().get("/email-image/../app.py").status_code == 404
+    html = A.clubemail.render([b])
+    assert 'alt="Team photo"' in html and name in html

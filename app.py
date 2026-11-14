@@ -2640,6 +2640,33 @@ def save_banner(f):
     os.makedirs(UPLOADS, exist_ok=True); name = secrets.token_hex(12)
     im.save(os.path.join(UPLOADS, name + ".webp"), "WEBP", quality=82)
     return name + ".webp"
+def save_email_image(f):
+    """Email image block: keeps the shape, longest edge 1200, JPEG (every mail app shows it)."""
+    from PIL import Image, ImageOps
+    try:
+        import pillow_heif; pillow_heif.register_heif_opener()
+    except ImportError: pass
+    data = f.read(MAX_UPLOAD + 1)
+    if len(data) > MAX_UPLOAD: raise ValueError("Image is larger than 8 MB.")
+    try:
+        im = Image.open(io.BytesIO(data)); fmt = (im.format or "").upper(); im.load()
+    except Exception: raise ValueError("That file isn't a supported image.")
+    if fmt not in ("JPEG", "PNG", "GIF", "WEBP", "HEIF", "HEIC"): raise ValueError("Use JPG, PNG, GIF, WEBP or HEIC.")
+    im = ImageOps.exif_transpose(im).convert("RGB")
+    im.thumbnail((1200, 1200))
+    os.makedirs(UPLOADS, exist_ok=True); name = "em_" + secrets.token_hex(12) + ".jpg"
+    im.save(os.path.join(UPLOADS, name), "JPEG", quality=85, optimize=True)
+    return name
+@app.route("/email-image/<name>")
+def email_image(name):
+    """Public on purpose: mail apps load it without signing in. Names are random and only email images are served."""
+    if not re.fullmatch(r"em_[0-9a-f]{24}\.jpg", name or ""): abort(404)
+    fn = _stored_file(name)
+    if not fn: abort(404)
+    from flask import send_from_directory
+    resp = send_from_directory(UPLOADS, fn, max_age=31536000)
+    resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return resp
 @app.route("/media/<int:mid>/<kind>")
 @login_required
 def media(mid, kind):
@@ -8060,8 +8087,15 @@ def email_builder(eid):
                 elif action == "down" and i < len(blocks) - 1: blocks[i + 1], blocks[i] = blocks[i], blocks[i + 1]
                 elif action == "edit_block":
                     b = blocks[i]
-                    for key in ("kicker", "big", "title", "body", "label", "url", "tone"):
+                    for key in ("kicker", "big", "title", "body", "label", "url", "tone", "alt"):
                         if key in request.form: b[key] = (request.form.get(key) or "")[:2000]
+                    up = request.files.get("image") if request.files else None
+                    if b.get("kind") == "image" and up and up.filename:
+                        try:
+                            name = save_email_image(up)
+                            b["src"] = app_base().rstrip("/") + "/email-image/" + name
+                        except ValueError as e:
+                            flash(str(e))
                     if "practice_id" in request.form: b["practice_id"] = request.form.get("practice_id", type=int)
                 clubemail.save(d, eid, blocks=json.dumps(blocks))
         elif action == "discard":

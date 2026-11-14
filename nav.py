@@ -198,7 +198,7 @@ route("find_team", "Discover", "discover", "public", "redirect")
 route("join", "Join", "discover", "public")
 route("login", "Log in", "discover", "public")
 # Files, feeds and endpoints that aren't screens
-for ep in ("avatar", "media", "practice_image", "club_doc_pdf", "lineup_image", "practice_ics", "lineup_shift_ics", "practices_csv",
+for ep in ("avatar", "media", "email_image", "practice_image", "club_doc_pdf", "lineup_image", "practice_ics", "lineup_shift_ics", "practices_csv",
            "members_csv", "payments_csv", "export_all_zip", "qr_svg", "service_worker", "webmanifest", "widget_frame", "auth", "auth_google",
            "auth_google_callback", "logout", "practice_reminder_off", "static"):
     route(ep, "", None, "public", "asset")

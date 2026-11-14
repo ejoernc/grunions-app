@@ -18,6 +18,7 @@ BLOCK_KINDS = (
     ("header", "Header", "Club logo + name"),
     ("text", "Text", "A paragraph. {first name} fills in."),
     ("practice", "Practice", "When and where, from the schedule"),
+    ("image", "Image", "A photo, full width, optional link"),
     ("button", "Button", "One link"),
     ("footer", "Footer", "Unsubscribe · club address"),
 )
@@ -175,6 +176,11 @@ def render(blocks, first="Eli", practice_lookup=None, link=lambda url: url, pixe
                                      '<div style="font-family:%s;font-size:10px;font-weight:700;letter-spacing:1px;color:%s;">%s</div>'
                                      '<div style="margin-top:4px;font-family:%s;font-size:16px;line-height:22px;font-weight:700;color:%s;">%s</div>'
                                      '</td></tr></table>' % (box, box, FONT, muted, label, FONT, text, _e(value)))
+        elif kind == "image" and b.get("src"):
+            img = '<img src="%s" alt="%s" width="512" style="display:block;width:100%%;max-width:512px;height:auto;border:0;border-radius:16px;">' % (_a(b["src"]), _a(b.get("alt") or ""))
+            if b.get("url"):
+                img = '<a href="%s" style="text-decoration:none;">%s</a>' % (_a(link(b["url"])), img)
+            parts.append('<table role="presentation" width="100%%" cellspacing="0" cellpadding="0" border="0" style="margin:4px 0 16px;"><tr><td>%s</td></tr></table>' % img)
         elif kind == "button" and b.get("label") and b.get("url"):
             parts.append('<table role="presentation" width="100%%" cellspacing="0" cellpadding="0" border="0" style="margin:10px 0 16px;"><tr>'
                          '<td align="center" bgcolor="%s" style="background:%s;border-radius:999px;">'
@@ -210,6 +216,8 @@ def plain_text(blocks, first="", practice_lookup=None):
                 lines.append("\n".join(x for x in (p.get("when"), p.get("where")) if x))
         elif b.get("kind") == "button" and b.get("url"):
             lines.append("%s: %s" % (b.get("label") or "Link", b["url"]))
+        elif b.get("kind") == "image" and b.get("url"):
+            lines.append("%s: %s" % (b.get("alt") or "Image", b["url"]))
     return "\n\n".join(x for x in lines if x)
 
 
@@ -222,6 +230,8 @@ def block_summary(b, practice_lookup=None):
     if k == "practice":
         p = practice_lookup(b.get("practice_id")) if practice_lookup and b.get("practice_id") else None
         return " · ".join(x for x in ((p or {}).get("when"), (p or {}).get("where")) if x) or "Pick a practice"
+    if k == "image":
+        return (b.get("alt") or "Photo added") if b.get("src") else "Pick a photo"
     if k == "button":
         return b.get("label") or "Add a label"
     if k == "footer":

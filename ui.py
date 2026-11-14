@@ -8234,7 +8234,7 @@ T["email_builder"] = """<div class="rg-screen rg-email rg-task">
 {% for k, label, desc in kinds %}{{ rg_choice('kind', k, label, desc, loop.first) }}{% endfor %}
 <button class="rg-btn primary">Add</button>
 </form></dialog>
-{% for b in blocks %}<dialog id="block{{ b.i }}" class="botsheet modal"><form method=post class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+{% for b in blocks %}<dialog id="block{{ b.i }}" class="botsheet modal"><form method=post class=sheet enctype=multipart/form-data>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
 <input type=hidden name=index value="{{ b.i }}">
 <h2>{{ b.label }}.</h2>
 {% if b.kind == 'header' %}
@@ -8248,6 +8248,11 @@ T["email_builder"] = """<div class="rg-screen rg-email rg-task">
 <p class=rg-note>Type {first name} and each person sees their own name.</p>
 {% elif b.kind == 'practice' %}
 <label class=rg-field><span>PRACTICE</span><select name=practice_id><option value="">Pick a practice</option>{% for pr in practices %}<option value="{{ pr.id }}"{% if b.b.practice_id == pr.id %} selected{% endif %}>{{ pr.label }}</option>{% endfor %}</select></label>
+{% elif b.kind == 'image' %}
+{% if b.b.src %}<img class=rg-emimg src="{{ b.b.src }}" alt="">{% endif %}
+<label class=rg-field><span>{{ 'REPLACE PHOTO' if b.b.src else 'PHOTO' }}</span><input type=file name=image accept="image/*"></label>
+<label class=rg-field><span>DESCRIBE IT (FOR SCREEN READERS)</span><input name=alt value="{{ b.b.alt or '' }}" maxlength=140 placeholder="Team photo at the pool"></label>
+<label class=rg-field><span>LINK (OPTIONAL)</span><input name=url value="{{ b.b.url or '' }}" maxlength=500 placeholder="/lineup or https://…"></label>
 {% elif b.kind == 'button' %}
 <label class=rg-field><span>LABEL</span><input name=label value="{{ b.b.label or '' }}" maxlength=40 placeholder="See the schedule"></label>
 <label class=rg-field><span>LINK</span><input name=url value="{{ b.b.url or '' }}" maxlength=500 placeholder="/practices or https://…"></label>
