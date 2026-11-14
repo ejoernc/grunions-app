@@ -5143,6 +5143,31 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
  if(window.grunionsSchedAbort) window.grunionsSchedAbort.abort();
  var ac=new AbortController(); window.grunionsSchedAbort=ac;
  function live(){ return document.body.classList.contains('schedhome') && document.getElementById('schedSheet')===sheet; }
+ // Pull to refresh: the drawer owns vertical swipes on Home, so the browser's own pull-to-refresh never fires.
+ // Pulling down on the drawer while it rests at its floor refreshes the page instead.
+ var oldPtr=document.getElementById('homePtr'); if(oldPtr) oldPtr.remove();
+ var PTR_AT=72, ptr=null;
+ function ptrEl(){
+  if(ptr) return ptr;
+  ptr=document.createElement('div'); ptr.id='homePtr'; ptr.className='homeptr'; ptr.setAttribute('aria-hidden','true');
+  ptr.innerHTML='<svg viewBox="0 0 24 24" width=22 height=22 fill=none stroke="currentColor" stroke-width=2.4 stroke-linecap=round stroke-linejoin=round><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>';
+  document.body.appendChild(ptr); return ptr;
+ }
+ function ptrShow(dist){
+  var n=ptrEl(), d=Math.min(dist, PTR_AT*1.6)*0.6, top=(window.innerHeight||0)-h;
+  n.classList.toggle('ready', dist>=PTR_AT);
+  n.style.top=top+'px';
+  n.style.opacity=Math.min(1, dist/(PTR_AT*0.6)).toFixed(3);
+  n.style.transform='translate(-50%, '+(-56+d)+'px) rotate('+Math.round(dist*3)+'deg)';
+ }
+ function ptrHide(){ if(!ptr) return; var n=ptr; ptr=null; n.style.opacity='0'; setTimeout(function(){ n.remove(); }, 200); }
+ function ptrRun(){
+  var n=ptrEl(); n.classList.add('ready','spinning');
+  n.style.transform='translate(-50%, -16px)';
+  if(navigator.vibrate) try{ navigator.vibrate(8); }catch(e){}
+  setTimeout(function(){ if(document.getElementById('homePtr')===n) n.remove(); }, 8000);
+  if(window.grunionsGo) grunionsGo(location.href, false, true); else location.reload();
+ }
  var scroller=document.getElementById('weekBody');
  var h=0, anim=0, drag=null, wheelT=0, wheelFull=false, wasFull=false;
  function wide(){ return window.innerWidth>=768; }
@@ -5260,7 +5285,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   var t=e.target;
   if(t.closest&&(t.closest('nav,dialog,.mapcontrols')||(t.closest('button,input,textarea,select')&&!t.closest('#sheetGrab')))) return;
   if(anim){ cancelAnimationFrame(anim); anim=0; }
-  touch={y:e.touches[0].clientY,t:performance.now(),vy:0,moved:false,fromFull:sheet.classList.contains('full')};
+  touch={y:e.touches[0].clientY,t:performance.now(),vy:0,moved:false,fromFull:sheet.classList.contains('full'),onMap:!!(t.closest&&t.closest('#homeMap')),pull:0};
  }, {passive:true, signal:ac.signal});
  document.addEventListener('touchmove', function(e){
   if(!touch||!live()||wide()) return;
@@ -5276,6 +5301,11 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   // keeps scrolling the cards up under the header like a normal page (no native hand-off that can stall).
   if(full && scroller && dy<0){ if(more){ scroller.scrollTop-=dy; touch.scrolled=true; } return; }
   if(full && scroller && dy>0 && (above || touch.scrolled)){ scroller.scrollTop-=dy; touch.scrolled=true; return; }
+  if(!full && !touch.onMap && h<=metrics().half+0.5 && (dy>0 || touch.pull>0)){
+   touch.pull=Math.max(0, touch.pull+dy);
+   if(touch.pull>0){ ptrShow(touch.pull); return; }
+   ptrHide();
+  }
   apply(h-dy);
  }, {passive:false, signal:ac.signal});
  function glide(v){
@@ -5292,8 +5322,9 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
  }
  document.addEventListener('touchend', function(){
   if(!touch) return;
-  var moved=touch.moved, vy=touch.vy||0, fromFull=touch.fromFull, scrolled=touch.scrolled;
+  var moved=touch.moved, vy=touch.vy||0, fromFull=touch.fromFull, scrolled=touch.scrolled, pulled=touch.pull||0;
   touch=null;
+  if(pulled>0){ if(pulled>=PTR_AT) ptrRun(); else ptrHide(); return; }
   if(!moved) return;
   if(sheet.classList.contains('full') && (scrolled || vy<0)){ glide(vy); return; }
   settle(vy, fromFull);
@@ -7637,7 +7668,7 @@ T["practice"] = """{% set p = x.p %}
 {% if host and not p.cancelled %}<a class="rg-btn primary rg-wide" href="{{ check_href }}">Start check-in</a>{% endif %}
 {{ rg_section_count("Who's going · " ~ x.going|length, none, ('Check-in' if host else ('See all' if x.going|length > 4 else '')), (check_href if host else ''), ('' if host else 'data-seeall=pqGoing'), true) }}
 {% set in_ids = x.checked|map(attribute='id')|list %}
-<div class=rg-plist id=pqGoing>{% for r in x.going %}{% set why = holds.get(r.id, '') if host else '' %}<div{% if loop.index > 4 %} data-more hidden{% endif %}>{{ rg_person(display_first(r) ~ ' ' ~ r.last, why or (('Coach' if r.id in x.coach_ids else 'Player') ~ ' · ' ~ (p.sport or 'Water Polo')), initials(r), 'In' if r.id in in_ids else 'Going', 'going') }}</div>{% else %}<p class=rg-note>No one yet.</p>{% endfor %}</div>
+<div class=rg-plist id=pqGoing>{% for r in x.going %}{% set why = holds.get(r.id, '') if host else '' %}<div{% if loop.index > 4 %} data-more hidden{% endif %}>{{ rg_person(display_first(r) ~ ' ' ~ r.last, why or (('Coach' if r.id in x.coach_ids else 'Player') ~ ' · ' ~ (p.sport or 'Water Polo')), initials(r), 'In' if r.id in in_ids else 'Going', 'going', '', '', 'sun', ('/avatar/' ~ r.id ~ '?v=' ~ r.photo) if r.photo else '') }}</div>{% else %}<p class=rg-note>No one yet.</p>{% endfor %}</div>
 {% if x.going|length > 4 %}<button type=button class=rg-seeall data-seeall=pqGoing>See all {{ x.going|length }} going</button>{% endif %}
 {% if p.location and not p.cancelled %}{{ rg_section('Getting there') }}
 {{ rg_drive('–', 'Tap to plan when to leave', '', 'YOUR DRIVE', '/practices/' ~ p.id ~ '/leave-by') }}
@@ -7651,7 +7682,7 @@ T["practice"] = """{% set p = x.p %}
 <span class=pqchips>{{ rg_chip('Coaches only', 'neutral') }}</span>
 <p class="pqtext smoke">{{ p.coaching_plan or 'No plan yet.' }}</p>{% endif %}
 {% if x.coaches or host %}{{ rg_section_count('Coaches', none, ('+ Add · Head' if host else ''), '', 'data-open-dialog=pqCoaches' if host else '', true) }}
-<div class=rg-plist>{% for c in x.coaches %}{{ rg_person(display_first(c) ~ ' ' ~ c.last, ('Head coach' if c.is_lead else 'Coach') ~ ((' · ' ~ c.focus) if host and c.focus else ''), initials(c), 'Head' if c.is_lead else '', 'going') }}{% else %}<p class="pqtext smoke">No coaches yet.</p>{% endfor %}</div>{% endif %}
+<div class=rg-plist>{% for c in x.coaches %}{{ rg_person(display_first(c) ~ ' ' ~ c.last, ('Head coach' if c.is_lead else 'Coach') ~ ((' · ' ~ c.focus) if host and c.focus else ''), initials(c), 'Head' if c.is_lead else '', 'going', '', '', 'sun', ('/avatar/' ~ c.id ~ '?v=' ~ c.photo) if c.photo else '') }}{% else %}<p class="pqtext smoke">No coaches yet.</p>{% endfor %}</div>{% endif %}
 {% if x.notgoing %}{{ rg_section("Can't make it") }}<p class="pqtext smoke">{% for r in x.notgoing %}{{ display_first(r) }} {{ r.last }}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
 {% if admin %}{{ rg_section('Details') }}
 <div class=rg-stack8>
@@ -8647,13 +8678,36 @@ T["participants"] = ADMIN_NAV + """<div class="rg-screen rg-parts">
 </div>
 {{ rg_filters([('', 'All · ' ~ n.all, '/members'), ('uncleared', 'Not cleared · ' ~ n.uncleared, '/members?filt=uncleared'), ('unpaid', 'Unpaid · ' ~ n.unpaid, '/members?filt=unpaid'), ('expiring', 'Expiring · ' ~ n.expiring, '/members?filt=expiring')], filt if filt in ('uncleared', 'unpaid', 'expiring') else '') }}
 <div class=rg-plist id=partList>
-{% for c in cards %}<div data-q="{{ c.search }}">{% if c.good %}{{ rg_person_status(c.name, c.sub, c.chips, c.note, '', '/admin/member/' ~ c.id) }}{% else %}{{ rg_person_status(c.name, c.sub, c.chips, c.note, '', '', 'data-status="' ~ c.id ~ '"') }}{% endif %}</div>{% else %}<p class=rg-note>No one here.</p>{% endfor %}
+{% for c in cards %}<div data-q="{{ c.search }}" data-ok="{{ 1 if c.ok else 0 }}" data-paid="{{ 1 if c.paid else 0 }}" data-exp="{{ 1 if c.expiring else 0 }}"{% if not c.shown %} data-off hidden{% endif %}>{% if c.good %}{{ rg_person_status(c.name, c.sub, c.chips, c.note, '', '/admin/member/' ~ c.id, '', 'sun', c.photo) }}{% else %}{{ rg_person_status(c.name, c.sub, c.chips, c.note, '', '', 'data-status="' ~ c.id ~ '"', 'sun', c.photo) }}{% endif %}</div>{% else %}<p class=rg-note>No one here.</p>{% endfor %}
 </div>
 <p class=rg-note id=partNone hidden>No one by that name.</p>
 <dialog id=statusSheet class="botsheet modal"><div class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><div id=statusBody><p class=rg-note>Loading…</p></div></div></dialog>
 <script>(function(){
  var q=document.getElementById('partQ'), list=document.getElementById('partList');
- if(q){ q.value={{ q|tojson }}; var go=function(){ var v=(q.value||'').trim().toLowerCase(), any=false; list.querySelectorAll('[data-q]').forEach(function(r){ var hit=!v||r.getAttribute('data-q').indexOf(v)>=0; r.hidden=!hit; if(hit) any=true; }); document.getElementById('partNone').hidden=any||!v; }; q.addEventListener('input',go); go(); q.closest('form').addEventListener('submit',function(e){e.preventDefault();}); }
+ if(q){ q.value={{ q|tojson }};
+  var pad=function(n){ return n<10?'0'+n:String(n); };
+  var go=function(){
+   var v=(q.value||'').trim().toLowerCase(), any=false, n={all:0,ready:0,unpaid_only:0,uncleared_only:0,both:0,uncleared:0,unpaid:0,expiring:0};
+   list.querySelectorAll('[data-q]').forEach(function(r){
+    var hit=!v||r.getAttribute('data-q').indexOf(v)>=0;
+    if(hit){
+     var ok=r.getAttribute('data-ok')==='1', paid=r.getAttribute('data-paid')==='1';
+     n.all++; if(ok&&paid) n.ready++; if(ok&&!paid) n.unpaid_only++; if(!ok&&paid) n.uncleared_only++; if(!ok&&!paid) n.both++;
+     if(!ok) n.uncleared++; if(!paid) n.unpaid++; if(r.getAttribute('data-exp')==='1') n.expiring++;
+    }
+    var show=hit&&!r.hasAttribute('data-off'); r.hidden=!show; if(show) any=true;
+   });
+   document.getElementById('partNone').hidden=any||!v;
+   document.querySelectorAll('.rg-parts .rg-tiles2 a.rg-metric, .rg-parts .rg-filters a').forEach(function(a){
+    var u=new URL(a.getAttribute('href'), location.href), f=u.searchParams.get('filt')||'all';
+    if(v) u.searchParams.set('q', q.value.trim()); else u.searchParams.delete('q');
+    a.setAttribute('href', u.pathname+(u.search||''));
+    if(!(f in n)) return;
+    if(a.classList.contains('rg-metric')){ var b=a.querySelector('b'); if(b) b.textContent=pad(n[f]); }
+    else a.textContent=a.textContent.replace(/·\s*\d+\s*$/, '· '+n[f]);
+   });
+  };
+  q.addEventListener('input',go); go(); q.closest('form').addEventListener('submit',function(e){e.preventDefault();}); }
  var sheet=document.getElementById('statusSheet'), body=document.getElementById('statusBody');
  document.addEventListener('click',function(e){
   var b=e.target.closest&&e.target.closest('[data-status]'); if(b){ e.preventDefault(); body.innerHTML='<p class=rg-note>Loading…</p>';
@@ -8664,7 +8718,7 @@ T["participants"] = ADMIN_NAV + """<div class="rg-screen rg-parts">
 })();</script>
 </div>"""
 
-T["member_status"] = """<div class=rg-sthead><span class="rg-pav tone-sky" aria-hidden=true>{{ (name.split()|map('first')|join)[:2]|upper }}</span><span class=rg-txt><b>{{ name }}</b><small>{{ sub }}</small></span></div>
+T["member_status"] = """<div class=rg-sthead><span class="rg-pav tone-sky{% if m.photo %} hasphoto{% endif %}" aria-hidden=true>{% if m.photo %}<img src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="">{% else %}{{ (name.split()|map('first')|join)[:2]|upper }}{% endif %}</span><span class=rg-txt><b>{{ name }}</b><small>{{ sub }}</small></span></div>
 <h3 class=rg-day>CLEARED TO PLAY</h3>
 {{ rg_status_list(rows) }}
 <form method=post action=/members id=slVerify class=rg-slform hidden>{{ csrf_field() }}<input type=hidden name=member_id value="{{ m.id }}"><input type=hidden name=action value=verify>

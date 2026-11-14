@@ -1650,3 +1650,11 @@ body.schedhome .weekhi .weekplus{opacity:var(--titlefade);pointer-events:none}
 body.schedhome .weekhi .weekplus.on,body.schedhome .weekhi .weekplus.on .rg-plus{pointer-events:auto}
 /* Home map: the original drive-time chip (traffic line from your location to the next practice) */
 body.schedhome .homedrivechip{position:fixed;z-index:3;top:132px;left:calc(var(--rail-w, 0px) + 16px);right:72px;justify-content:flex-start;margin:0;opacity:calc(1 - var(--titlefade, 0))}
+.homeptr{position:fixed;left:50%;z-index:60;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--graphite);color:var(--smoke);box-shadow:0 4px 16px rgba(0,0,0,.35);pointer-events:none;opacity:0;transition:opacity .2s,color .15s,background .15s}
+.homeptr.ready{background:var(--lime);color:var(--fixed-ink)}
+.homeptr.spinning{transition:opacity .2s,transform .2s}
+.homeptr.spinning svg{animation:grunions-spin .8s linear infinite}
+.rg-pav.hasphoto{overflow:hidden;background:var(--graphite)}
+.rg-pav.hasphoto img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+.pickchip .mark.hasphoto{overflow:hidden;padding:0}
+.pickchip .mark.hasphoto img{width:100%;height:100%;object-fit:cover;display:block}

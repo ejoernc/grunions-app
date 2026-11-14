@@ -701,12 +701,13 @@ def membership_sex(current="", body="USA Water Polo", name="membership_sex", opt
 
 
 
-def person_row(name, sub="", initials="", chip_label="", chip_status="neutral", href="", attrs="", tone="sun"):
+def person_row(name, sub="", initials="", chip_label="", chip_status="neutral", href="", attrs="", tone="sun", photo=""):
     """2.0 / People row (Figma 62 L2, Q1, N1): 52 avatar, bold name, smoke line, chip on the right.
     href makes it a link; attrs (e.g. data-open-dialog) on a row without href makes it a button."""
     ini = initials or ("".join(p[:1] for p in str(name).split()[:2]) or "?").upper()
-    inner = '<span class="rg-pav tone-%s" aria-hidden=true>%s</span><span class=rg-txt><b>%s</b>%s</span>%s' % (
-        _tone(tone, "sun"), _e(ini), _e(name), ('<small>%s</small>' % _e(sub)) if sub else "", str(chip(chip_label, chip_status)) if chip_label else "")
+    face = ('<img src="%s" alt="" loading=lazy decoding=async>' % _e(photo)) if photo else _e(ini)
+    inner = '<span class="rg-pav tone-%s%s" aria-hidden=true>%s</span><span class=rg-txt><b>%s</b>%s</span>%s' % (
+        _tone(tone, "sun"), " hasphoto" if photo else "", face, _e(name), ('<small>%s</small>' % _e(sub)) if sub else "", str(chip(chip_label, chip_status)) if chip_label else "")
     extra = (" " + attrs) if attrs else ""
     if href:
         return Markup('<a class=rg-person href="%s"%s>%s</a>' % (_e(href), extra, inner))
@@ -746,13 +747,14 @@ def notif_preview(app, title, line):
     return Markup('<div class=rg-notif>%s<b>%s</b><small>%s</small></div>' % (str(chip(app, "neutral")), _e(title), _e(line)))
 
 
-def person_status(name, sub="", chips=(), note="", initials="", href="", attrs="", tone="sun"):
+def person_status(name, sub="", chips=(), note="", initials="", href="", attrs="", tone="sun", photo=""):
     """2.0 / People row with status (Figma 62 S1): avatar, name, role line, status chips, one 'missing' line.
     chips = [(label, status)]. No action buttons on the row; tap opens the status drawer or the profile."""
     ini = initials or ("".join(p[:1] for p in str(name).split()[:2]) or "?").upper()
     row = "".join(str(chip(l, st)) for l, st in chips if l)
-    inner = '<span class="rg-pav tone-%s" aria-hidden=true>%s</span><span class=rg-txt><b>%s</b>%s%s%s</span>' % (
-        _tone(tone, "sun"), _e(ini), _e(name), ('<small>%s</small>' % _e(sub)) if sub else "",
+    face = ('<img src="%s" alt="" loading=lazy decoding=async>' % _e(photo)) if photo else _e(ini)
+    inner = '<span class="rg-pav tone-%s%s" aria-hidden=true>%s</span><span class=rg-txt><b>%s</b>%s%s%s</span>' % (
+        _tone(tone, "sun"), " hasphoto" if photo else "", face, _e(name), ('<small>%s</small>' % _e(sub)) if sub else "",
         ('<span class=rg-gcchips>%s</span>' % row) if row else "", ('<small class=rg-pnote>%s</small>' % _e(note)) if note else "")
     extra = (" " + attrs) if attrs else ""
     if href:

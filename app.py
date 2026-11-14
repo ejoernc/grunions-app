@@ -963,6 +963,15 @@ def _people_req_index(d):
     except RuntimeError:
         cached = None
     reqs = [q for q in d.execute("SELECT * FROM requirements WHERE active=1 ORDER BY id") if _req_kind(q) != "concussion"]
+    # A rule tied only to sports that are switched off doesn't count. Rules tied to no sport apply club-wide.
+    try:
+        links = {}
+        for rid, on in d.execute("""SELECT rp.requirement_id, COALESCE(p.active,0) FROM requirement_programs rp
+                                    JOIN programs p ON p.id=rp.program_id"""):
+            links.setdefault(rid, []).append(bool(on))
+        reqs = [q for q in reqs if q["id"] not in links or any(links[q["id"]])]
+    except sqlite3.Error:
+        pass
     dates = {}
     for mid, rid, exp in d.execute("SELECT member_id, req_id, expires_on FROM member_reqs"):
         if exp: dates[(mid, rid)] = str(exp)[:10]
@@ -3032,7 +3041,7 @@ def _session_eyebrow(iso, start):
         return "Tonight" if hour >= 17 else "Today"
     return day.strftime("%a")
 def _joined_people(d, mid):
-    return d.execute("""SELECT id, first, last, preferred_first, role, COALESCE(show_in_picker,1) AS show_in_picker FROM members
+    return d.execute("""SELECT id, first, last, preferred_first, role, photo, COALESCE(show_in_picker,1) AS show_in_picker FROM members
         WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1 AND id!=?
           AND COALESCE(show_in_picker,1)=1
         ORDER BY first, last""", (mid,)).fetchall()
@@ -3043,7 +3052,7 @@ def _chat_title(mode):
 def _person_tone(n):
     return ("sun", "sky", "bubble", "grape", "mango", "aqua")[n % 6]
 def _pick_button(person):
-    return str(components.person_row(person["name"], person["line"], person["initials"], attrs='data-person="%d"' % person["id"], tone=person["tone"]))
+    return str(components.person_row(person["name"], person["line"], person["initials"], attrs='data-person="%d"' % person["id"], tone=person["tone"], photo=person.get("photo") or ""))
 def _ask_rows(d, m):
     """Figma 62 · N1 / L6: Ask the club — the board and each sport's leads that take requests."""
     import leaders
@@ -3081,6 +3090,7 @@ def _pick_people(d, m, ask=False):
             "initials": ("".join(part[:1] for part in name.split()[:2]) or "?").upper(),
             "line": leaders.member_line(d, person["id"], "%s · %s" % (kind, sport)), "tone": "sun",
             "recent": person["id"] in recent,
+            "photo": ("/avatar/%d?v=%s" % (person["id"], person["photo"])) if person["photo"] else "",
             "href": "/chat?c=%s&place=me" % dm_channel(m["id"], person["id"]),
         })
     roster = len(people)
@@ -3227,13 +3237,13 @@ _CHAT_PLUS_JS = """<script>
   var chips=document.getElementById('pickChips');
   chips.hidden=mode!=='group' || !n;
   chips.innerHTML=people.filter(function(p){ return picked[p.id]; }).map(function(p){
-   return '<button type=button class=pickchip data-drop="'+p.id+'"><span class="mark '+esc(p.tone)+'">'+esc(p.initials)+'</span>'+esc(p.name.split(' ')[0])+'<svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 5L10 10M10 10L15 15M10 10L15 5M10 10L5 15" stroke="#8B8F93" stroke-width="1.75" stroke-linecap="round"/></svg></button>';
+   return '<button type=button class=pickchip data-drop="'+p.id+'"><span class="mark '+esc(p.tone)+(p.photo?' hasphoto':'')+'">'+(p.photo?'<img src="'+esc(p.photo)+'" alt="">':esc(p.initials))+'</span>'+esc(p.name.split(' ')[0])+'<svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 5L10 10M10 10L15 15M10 10L15 5M10 10L5 15" stroke="#8B8F93" stroke-width="1.75" stroke-linecap="round"/></svg></button>';
   }).join('');
  }
  function row(p){
   var on=!!picked[p.id];
   var box=mode==='group'?'<span class="pickbox'+(on?' on':'')+'" aria-hidden=true>'+(on?'<svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 10.5L8.2 14.5L16 6" stroke="#0B0B0C" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+'</span>':'';
-  return '<button type=button class=rg-person data-person="'+p.id+'"><span class="rg-pav tone-'+esc(p.tone)+'" aria-hidden=true>'+esc(p.initials)+'</span><span class=rg-txt><b>'+esc(p.name)+'</b><small>'+esc(p.line)+'</small></span>'+box+'</button>';
+  return '<button type=button class=rg-person data-person="'+p.id+'"><span class="rg-pav tone-'+esc(p.tone)+(p.photo?' hasphoto':'')+'" aria-hidden=true>'+(p.photo?'<img src="'+esc(p.photo)+'" alt="" loading=lazy decoding=async>':esc(p.initials))+'</span><span class=rg-txt><b>'+esc(p.name)+'</b><small>'+esc(p.line)+'</small></span>'+box+'</button>';
  }
  function showPick(kind, anchor){
   mode=kind; picked={};
@@ -11117,7 +11127,9 @@ def _participant_card(d, r, sport_name, today):
     kind = "Coach" if (r["role"] or "") == "coach" else "Player"
     name = ("%s %s" % (display_first(r), r["last"] or "")).strip()
     good = st["ok"] and not pending and paid and tone == "cleared"
-    return {"id": r["id"], "name": name, "sub": leaders.member_line(d, r["id"], "%s · %s" % (kind, sport_name)),
+    photo = (r["photo"] if "photo" in r.keys() else "") or ""
+    return {"id": r["id"], "name": name, "photo": ("/avatar/%d?v=%s" % (r["id"], photo)) if photo else "",
+            "sub": leaders.member_line(d, r["id"], "%s · %s" % (kind, sport_name)),
             "chips": [(word, tone), ("Paid" if paid else "Unpaid", "paid" if paid else "neutral")],
             "note": "" if good else note, "ok": st["ok"] and not pending, "paid": paid, "expiring": tone == "expiring", "good": good,
             "search": " ".join(x for x in (r["first"], r["preferred_first"], r["last"]) if x).casefold()}
@@ -11137,7 +11149,7 @@ def _participants_page(d, rows, q, filt):
     keep = {"ready": lambda c: c["ok"] and c["paid"], "unpaid_only": lambda c: c["ok"] and not c["paid"],
             "uncleared_only": lambda c: not c["ok"] and c["paid"], "both": lambda c: not c["ok"] and not c["paid"],
             "uncleared": lambda c: not c["ok"], "unpaid": lambda c: not c["paid"], "expiring": lambda c: c["expiring"]}
-    if filt in keep: cards = [c for c in cards if keep[filt](c)]
+    for c in cards: c["shown"] = keep[filt](c) if filt in keep else True
     return page(T["participants"], tab="admin", admin_back="/manage/area/people", cards=cards, n=n, filt=filt, q=q)
 @app.route("/members/<int:mid>/status")
 @admin_required
@@ -11150,11 +11162,12 @@ def member_status_sheet(mid):
     today = today_pt().isoformat()
     rows = []
     until = (m["usawp_valid_until"] or "")[:10]
+    wp_title = "USA Water Polo #" + (m["usawp_number"] or "").strip().lstrip("#")
     if (m["usawp_status"] or "") == "verified" and (not until or until >= today):
-        rows.append({"title": "USA Water Polo #", "sub": ("Current through %s" % fmt_long(until)) if until else "Verified", "chip": ("Done", "cleared")})
+        rows.append({"title": wp_title, "sub": ("Current through %s" % fmt_long(until)) if until else "Verified", "chip": ("Done", "cleared")})
     else:
         sub = ("Expired %s" % fmt_long(until)) if until and until < today else ("#%s sent — not checked yet" % m["usawp_number"] if (m["usawp_number"] or "").strip() else "Missing — insurance not confirmed")
-        rows.append({"title": "USA Water Polo #", "sub": sub, "action": "Check", "attrs": "data-sl-open=slVerify"})
+        rows.append({"title": wp_title, "sub": sub, "action": "Check", "attrs": "data-sl-open=slVerify"})
     w = flows2.waiver(d)
     if w and w["enabled"]:
         acc = flows2.accepted_waiver(d, mid)
