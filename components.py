@@ -71,13 +71,14 @@ def section(title, action_label="", action_href=""):
     return Markup('<div class=rg-sec><h2>%s</h2>%s</div>' % (_e(title), act))
 
 
-def section_count(title, count=None, action_label="", action_href="", action_attrs=""):
+def section_count(title, count=None, action_label="", action_href="", action_attrs="", chevron=False):
     """2.0 / Section header with the small (04) count, Figma 62 style. Action is an Edit / + Add link or button."""
     sup = ('<sup>(%s)</sup>' % (("%02d" % count) if isinstance(count, int) and count < 10 and count >= 0 else _e(count))) if count is not None else ""
     act = ""
     if action_label:
-        act = ('<a class=rg-secact href="%s"%s>%s</a>' % (_e(action_href), (" " + action_attrs) if action_attrs else "", _e(action_label))) if action_href \
-            else '<button type=button class=rg-secact%s>%s</button>' % ((" " + action_attrs) if action_attrs else "", _e(action_label))
+        lab = _e(action_label) + (Markup(icon("chevron_right", "sm")) if chevron else "")
+        act = ('<a class=rg-secact href="%s"%s>%s</a>' % (_e(action_href), (" " + action_attrs) if action_attrs else "", lab)) if action_href \
+            else '<button type=button class=rg-secact%s>%s</button>' % ((" " + action_attrs) if action_attrs else "", lab)
     return Markup('<div class=rg-sec><h2>%s%s</h2>%s</div>' % (_e(title), sup, act))
 
 
@@ -218,7 +219,7 @@ def _social_title(title):
     return t
 
 
-def social_card(card, csrf_html, back="home", clock_label=""):
+def social_card(card, csrf_html, back="home", clock_label="", expanded=False):
     """2.0 / Social card (02 H, 2072:3771). Condensed until you join (slim row: icon · when · place · going · Join);
     joining expands it (who's there, Joined, Directions). Condensed cards attach right above/below their practice."""
     when = "BEFORE PRACTICE" if card.get("when") == "before" else "AFTER PRACTICE"
@@ -227,7 +228,7 @@ def social_card(card, csrf_html, back="home", clock_label=""):
     pid = int(card.get("practice_id") or 0)
     form = ('<form method=post action="/practices/%d">%s<input type=hidden name=pid value="%d"><input type=hidden name=back value="%s"><input type=hidden name=slot value="%d">'
             % (pid, csrf_html, pid, _e(back), int(card.get("slot") or 1)))
-    if not card.get("joined"):
+    if not card.get("joined") and not expanded:
         n = len(card.get("people") or [])
         kicker = when + ((" · " + clock_label.upper()) if clock_label else "")
         # Condensed (Nov 13 redesign): the kicker gets the full width, the title wraps instead of truncating,
@@ -248,11 +249,13 @@ def social_card(card, csrf_html, back="home", clock_label=""):
     return Markup('<div class="rg-social open" data-social="%d-%d" data-when="%s"><div class=rg-sotop><span class=rg-sk>%s</span>%s</div>'
                   '<b class=rg-sotitle>%s.</b><div class=rg-sowhere><b>%s</b><small>%s %s</small></div>'
                   '<div class=rg-sowho><span class=rg-faces>%s</span><span>%s</span></div>'
-                  '<div class=rg-soacts>%s<button class=rg-joined name=action value=social_leave><svg width=16 height=16 viewBox="0 0 20 20" fill=none aria-hidden=true><path d="M4.5 10.5L8.25 14.25L15.5 6.5" stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round/></svg><span>Joined</span></button></form>'
+                  '<div class=rg-soacts>%s%s</form>'
                   '<a class=rg-outline href="https://www.google.com/maps/search/?api=1&amp;query=%s" target=_blank rel=noopener>↗ Directions</a></div></div>'
                   % (pid, int(card.get("slot") or 1), _e(card.get("when")), _e(kicker), till, _e(title), _e(place + (" · " + addr if addr else "")),
                      "Then" if card.get("when") == "before" else "After", _e(card.get("practice") or "practice"),
-                     faces, _e(card.get("going_line") or ""), form, q))
+                     faces, _e(card.get("going_line") or ("%d going" % len(card.get("people") or []))), form,
+                     ('<button class=rg-joined name=action value=social_leave><svg width=16 height=16 viewBox="0 0 20 20" fill=none aria-hidden=true><path d="M4.5 10.5L8.25 14.25L15.5 6.5" stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round/></svg><span>Joined</span></button>'
+                      if card.get("joined") else '<button class=rg-outline name=action value=social_join>I\'m coming</button>'), q))
 
 
 def event_cancelled(href, kicker, title, reason=""):
@@ -511,12 +514,14 @@ def plus_button(href, label="Add", dialog=""):
 
 
 def top_bar(type="compact", title="", eyebrow="", back_href="", back_label="", action_href="", action_icon="plus",
-            action_label="", avatar_html="", action_html=""):
+            action_label="", avatar_html="", action_html="", back_button=False):
     """2.0 / Top bar (02, 353:648). Props mirror Figma: Type (large | compact), Title, Eyebrow, Show back, Show action,
     Show avatar. Back is always a link to the canonical parent (nav.parent_url), never history.
     Compact: ‹ disc + the parent's title (the page's own large heading follows in the body).
     Large: actions row, then eyebrow + 56px title. Only roots show the avatar."""
-    back = ('<a class=rg-tbdisc href="%s" aria-label="Back to %s">%s</a>' % (_e(back_href), _e(back_label or title), icon("chevron_left"))) if back_href else ""
+    if back_button:
+        back_href = ""
+    back = ('<button type=button class=rg-tbdisc data-sheetdone aria-label="Back to %s">%s</button>' % (_e(back_label or title), icon("chevron_left"))) if back_button else ('<a class=rg-tbdisc href="%s" aria-label="Back to %s">%s</a>' % (_e(back_href), _e(back_label or title), icon("chevron_left"))) if back_href else ""
     act = action_html or (('<a class=rg-tbdisc href="%s" aria-label="%s">%s</a>' % (_e(action_href), _e(action_label or "Add"), icon(action_icon))) if action_href else "")
     avatar = ('<span class=rg-tbavatar>%s</span>' % avatar_html) if avatar_html else ""
     if type == "large":
@@ -572,9 +577,9 @@ def qr_card(title, sub, img_src="", url="", filename="qr.svg", note=""):
                       _e(img_src), _e(title), _e(title), _e(sub), _e(url), _e(img_src), _e(filename), _e(url)))
 
 
-def toggle(name, label, sub="", checked=False, value="1", attrs=""):
-    """2.0 / Toggle row (02): carbon row, bold label, caption, lime switch."""
-    return Markup('<label class=rg-toggle><span><b>%s</b>%s</span><input type=checkbox name="%s" value="%s"%s%s><i aria-hidden=true></i></label>' % (
+def toggle(name, label, sub="", checked=False, value="1", attrs="", plain=False):
+    """2.0 / Toggle row (02): carbon row, bold label, caption, lime switch. plain = no row fill (Figma 63 sheets)."""
+    return Markup(('<label class="rg-toggle plain">' if plain else '<label class=rg-toggle>') + '<span><b>%s</b>%s</span><input type=checkbox name="%s" value="%s"%s%s><i aria-hidden=true></i></label>' % (
         _e(label), ('<small>%s</small>' % _e(sub)) if sub else "", _e(name), _e(value), " checked" if checked else "", (" " + attrs) if attrs else ""))
 
 
@@ -771,7 +776,16 @@ def progress_card(title, done, total, sub=""):
     return Markup('<div class=rg-progress><b>%s</b><span class=rg-pbar><i style="width:%d%%"></i></span>%s</div>' % (
         _e(title), pct, ('<small>%s</small>' % _e(sub)) if sub else ""))
 
+
+def drive_card(minutes, note="", leave="", kicker="YOUR DRIVE", href=""):
+    """2.0 / Drive card (Figma 359:1134): lime, r40. Caps kicker + ink 'Leave by' pill, 80px minutes, MIN + note, 60px ink disc."""
+    pill = ('<span class=rg-drvleave>%s</span>' % _e(leave)) if leave else ""
+    inner = ('<span class=rg-drvtop><span class=rg-drvk>%s</span>%s</span><span class=rg-drvmid><span class=rg-drvnum><b>%s</b>'
+             '<span><i>MIN</i><small>%s</small></span></span><span class=rg-drvdisc aria-hidden=true>%s</span></span>') % (
+        _e(kicker), pill, _e(minutes), _e(note), icon("chevron_right"))
+    return Markup(_tag(href, "rg-drive", inner, ' aria-label="Plan when to leave"' if href else ""))
+
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, rg_person=person_row, rg_group_card=group_card, rg_detail_group=detail_group, rg_doc_card=doc_card, rg_notif=notif_preview, rg_person_status=person_status, rg_status_list=status_list, rg_pass=pass_card, rg_kv=kv_rows, rg_progress=progress_card, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, rg_person=person_row, rg_group_card=group_card, rg_detail_group=detail_group, rg_doc_card=doc_card, rg_notif=notif_preview, rg_person_status=person_status, rg_status_list=status_list, rg_pass=pass_card, rg_kv=kv_rows, rg_progress=progress_card, rg_drive=drive_card, event_tone=event_tone)

@@ -633,3 +633,18 @@ def test_practice_page_coach_can_set_coaches_for_series_and_ask_admin():
     row = sql("SELECT audience, practice_id FROM club_requests ORDER BY id DESC LIMIT 1")[0]
     assert sql("SELECT COUNT(*) FROM club_requests")[0][0] == n + 1 and row == ("board", pid)
     sql("UPDATE members SET role='athlete' WHERE id=?", (RAE,))
+
+
+def test_practice_social_screen_saves_before_or_after():
+    pid = _practice("Social Screen", 3)
+    page = boss.get("/practices/%d?edit=1" % pid).get_data(as_text=True)
+    for bit in ("id=sheetSocialAll", "Before practice", "After practice", "Breakfast", "id=sheetSocialPlace", "id=sheetSocialTime", "Remove social"):
+        assert bit in page, bit
+    tok = csrf(boss, "/practices/%d?edit=1" % pid)
+    row = sql("SELECT date,start,end,location FROM practices WHERE id=?", (pid,))[0]
+    boss.post("/practices/%d" % pid, data=dict(csrf=tok, pid=pid, action="edit", date=row[0], start=row[1], end=row[2], location=row[3] or "Pool",
+                                                plan_fields="1", social_when="before", social_kind=["Coffee", "Breakfast"], social_place="Cafe", social_address="1 Main St", social_time="06:30"))
+    got = sql("SELECT social_kind, social_when, social_time FROM practices WHERE id=?", (pid,))[0]
+    assert got == ("Coffee,Breakfast", "before", "06:30"), got
+    page = boss.get("/practices/%d" % pid).get_data(as_text=True)
+    assert "Before practice" in page

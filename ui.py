@@ -390,7 +390,7 @@ a.practlink .mark{width:48px;height:48px;border-radius:999px;display:inline-flex
 a.practlink b{display:block;font:700 15px/1.2 var(--r2-font-sans);color:var(--r2-paper)}
 a.practlink small{display:block;margin-top:2px;color:var(--r2-smoke);font:600 12px/1.3 var(--r2-font-sans)}
 .heldsocial{display:none !important}
-body.practicepage:not(.editor) .profilehero,body.practicepage:not(.editor) .evhero,body.practicepage:not(.editor) .homemap.banner{display:none}
+body.practicepage:not(.editor) .profilehero{display:none}
 body.practicepage:not(.editor) .p5 .seclabel,body.practicepage:not(.editor) .p5>.list,body.practicepage:not(.editor) .p5 .sechead{display:none}
 body.practicepage:not(.editor) .p5 .list.loccard{display:block}
 .p5{display:flex;flex-direction:column;gap:20px;padding:0 0 24px}
@@ -2402,7 +2402,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {%- elif variant == 'stack' -%}{{ rg_event_row(href, kind or 'WATER POLO', kicker ~ ' ' ~ title, meta, count, 'WENT' if went else 'GOING', event_tone(kind)) }}
 {%- else -%}{{ rg_event_line(href, kicker ~ ' · ' ~ title, meta ~ ((' · ' ~ count ~ ' going') if count else ''), 'graphite' if variant == 'off' else event_tone(kind)) }}{%- endif -%}
 {%- endmacro %}
-{% macro r2_social_card(card, variant='home') -%}{{ rg_social_card(card, csrf_field(), 'page' if variant == 'row' else 'home', fmt_clock(card.clock) if card.clock else '') }}{%- endmacro %}
+{% macro r2_social_card(card, variant='home') -%}{{ rg_social_card(card, csrf_field(), 'page' if variant in ('row', 'open') else 'home', fmt_clock(card.clock) if card.clock else '', variant == 'open') }}{%- endmacro %}
 {% macro r2_drive_card(minutes, detail, leave, placeholder=false, kicker='YOUR DRIVE', href='') -%}
 <{{ 'a' if href else 'div' }} class="r2-drive drivecard" data-r2="drive-card"{% if href %} href="{{ href }}" aria-label="Plan when to leave"{% endif %} {% if placeholder %}data-placeholder=1{% endif %}><div class=drivetop><span>{{ kicker }}</span>{% if leave %}<b>{{ leave }}</b>{% endif %}</div><div class=drivemain><strong>{{ minutes }}</strong><small><i>MIN</i>{{ detail }}</small><span class=drivego aria-hidden=true>›</span></div></{{ 'a' if href else 'div' }}>
 {%- endmacro %}
@@ -2567,7 +2567,7 @@ dialog.memberedit .help a{color:var(--t1)}
 </a>{% endif %}
 {% endmacro %}
 {% macro app_header(fade, entry, plus_href, plus_label='Add') %}<header class="homehead apphead{% if fade %} homefade{% endif %}"{% if entry %} data-entry="{{ entry }}"{% endif %}><div class=headmain>{{ caller() }}{% if plus_href %}{{ rg_plus(plus_href, plus_label) }}{% endif %}</div></header>{% endmacro %}
-{% set _tbact %}{% if tab == 'practice' and (me().is_admin or is_staff()) %}<button type=button class=rg-tbdisc data-open-dialog=pqMore aria-label="Practice menu">{{ rg_icon('more') }}</button>{% elif tab == 'lineup_event' and e and e.can_edit %}<a class=rg-tbdisc href="/lineup/{{ e.id }}/edit" aria-label="Edit event">{{ rg_icon('edit') }}</a>{% elif tab == 'person' %}<button type=button class="rg-tbdisc morebtn" id=profileMore aria-label="Profile menu">{{ rg_icon('more') }}</button>{% elif tab == 'member' and me().is_admin %}<button type=button class="rg-tbdisc viewonly" id=profileEdit aria-label="Edit member">{{ rg_icon('edit') }}</button><button type=submit class="rg-btn primary editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}{% endset %}{% if nav_kind == 'sheet' and me() and tab in ('flow', 'settings_sheet') %}{{ rg_sheet_head(nav_title, nav_back_href) }}{% elif nav_topbar and me() and not (editing or plan_editing) %}{{ rg_top_bar('compact', '' if (tab == 'person' and not nav_back_href) else nav_back_title, back_href=nav_back_href, back_label=nav_back_title, action_html=_tbact) }}{% elif tab == 'profile' and me() %}<header class=profilebar>
+{% set _tbact %}{% if tab == 'practice' and (me().is_admin or is_staff()) %}<button type=button class=rg-tbdisc data-open-dialog=pqMore aria-label="Practice menu">{{ rg_icon('more') }}</button>{% elif tab == 'lineup_event' and e and e.can_edit %}<a class=rg-tbdisc href="/lineup/{{ e.id }}/edit" aria-label="Edit event">{{ rg_icon('edit') }}</a>{% elif tab == 'person' %}<button type=button class="rg-tbdisc morebtn" id=profileMore aria-label="Profile menu">{{ rg_icon('more') }}</button>{% elif tab == 'member' and me().is_admin %}<button type=button class="rg-tbdisc viewonly" id=profileEdit aria-label="Edit member">{{ rg_icon('edit') }}</button><button type=submit class="rg-btn primary editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}{% endset %}{% if nav_kind == 'sheet' and me() and tab in ('flow', 'settings_sheet') %}{{ rg_sheet_head(nav_title, nav_back_href) }}{% elif tab == 'practice' and editing and me() %}{{ rg_sheet_head('Edit practice', '/practices/' ~ x.p.id) }}{% elif nav_topbar and me() and not (editing or plan_editing) %}{{ rg_top_bar('compact', '' if (tab == 'person' and not nav_back_href) else nav_back_title, back_href=nav_back_href, back_label=nav_back_title, action_html=_tbact) }}{% elif tab == 'profile' and me() %}<header class=profilebar>
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
 <h1 class=editonly>Profile</h1>
 <div class=right><button type=button class="rg-tbdisc viewonly morebtn" id=profileMore aria-label="Profile menu">{{ rg_icon('more') }}</button><button type=button id=profileEdit hidden>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=profileForm>Save</button></div>
@@ -2991,10 +2991,11 @@ function grunionsEditor(){
  var toggle=document.getElementById('socialToggle'), sbody=document.getElementById('socialBody'), clearer=document.getElementById('socialClear');
  if(toggle&&sbody) toggle.addEventListener('click', function(){ sbody.hidden=false; if(clearer) clearer.disabled=true; });
  var removeSocial=document.getElementById('socialRemove');
- if(removeSocial&&sbody) removeSocial.addEventListener('click', function(){
-  sbody.querySelectorAll('input[type=radio][name=social_kind]').forEach(function(r){ r.checked=false; });
+ var sroot=sbody||(removeSocial&&removeSocial.closest('dialog'));
+ if(removeSocial&&sroot) removeSocial.addEventListener('click', function(){
+  sroot.querySelectorAll('input[name=social_kind]:not([type=hidden])').forEach(function(r){ r.checked=false; });
   if(clearer) clearer.disabled=false;
-  sbody.hidden=true;
+  var dlg=removeSocial.closest('dialog'); if(dlg&&dlg.open) dlg.close(); else if(sbody) sbody.hidden=true;
   var sum=document.getElementById('socialSum'); if(sum) sum.textContent='Not added';
  });
  document.addEventListener('focusin', function(e){
@@ -7015,7 +7016,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=sheetCoaches><div class=sheet><div class=grab></div><h2>Coaches</h2>
 <input class=sheetsearch placeholder="Search coaches" autocomplete=off data-sheetsearch>
-<div class=sheetlist data-sum=coaches data-empty=None>
+<div class=sheetlist data-sum=coaches data-empty="None · pick a head coach">
 {% for c in coaches %}<label class=coachrow data-search="{{ display_first(c) }} {{ c.last }}" data-label="{{ display_first(c) }} {{ c.last }}"><span class=avatar>{{ initials(c) }}</span><span class=grow><b>{{ display_first(c) }} {{ c.last }}</b></span><input type=checkbox name=coach value="{{ c.id }}"{% if dup and c.id in dup.coaches %} checked{% endif %} data-name="{{ display_first(c) }} {{ c.last }}"></label>
 {% else %}<p class='ty-muted ty-sm'>No coaches on the list yet.</p>{% endfor %}
 </div>
@@ -7456,119 +7457,166 @@ T["practice"] = """{% set p = x.p %}
 </div>{% endif %}
 {% if p.skill_levels %}<details class=card><summary>Skill levels</summary><div class=body>{% for row in level_catalog(p.sport, p.skill_levels) %}{% if row[0] in p.skill_levels.split(',') %}<p><b>{{ row[1] }}</b> {{ row[2] }}</p>{% endif %}{% endfor %}</div></details>{% endif %}
 {% if editing %}
-<form id=practiceForm method=post action="/practices/{{ p.id }}" class="card editorform" style="margin-top:16px" data-editorform enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
-<div class=formsec><h2>What</h2>
-{{ sports_editor(p) }}
+<form id=practiceForm method=post action="/practices/{{ p.id }}" class="editorform pqedit" data-editorform enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>
+{# Figma 63 · 8 Edit practice ✕: rows with values, each opens its own sheet; one Save at the bottom. Field names match the old form. #}
+{% set w = practice_what(p) %}
+<h3 class=rg-day>WHAT</h3>
+{{ w.chips }}
+<div class=pqrows>
+<button type=button class=rg-srow data-open=sheetName><span class=rg-srlabel>Name</span><span class=rg-srvalue data-live=pqname>{{ p.title or practice_title(p) }}</span>{{ rg_icon('chevron_right', 'sm') }}</button>
+<button type=button class=rg-srow data-open=sheetSport><span class=rg-srlabel>Sport</span><span class=rg-srvalue data-live=pqsport>{{ p.sport or 'Water Polo' }}</span>{{ rg_icon('chevron_right', 'sm') }}</button>
+{{ w.rest }}
 </div>
-<div class=formsec><h2>When &amp; where</h2>
-<label>Date<input type=date name=date value="{{ p.date }}" required></label>
+<dialog class="botsheet modal" id=sheetName><div class=sheet><div class=grab aria-hidden=true></div><h2>Name</h2><p class=ty-muted>Leave it empty and it fills itself from sport + kind.</p>{{ w.title }}<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class="botsheet modal" id=sheetSport><div class=sheet><div class=grab aria-hidden=true></div><h2>Sport</h2>{{ w.sport }}<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
+<h3 class=rg-day>WHEN &amp; WHERE</h3>
+<div class=pqrows>
+<button type=button class=rg-srow data-open=sheetDate><span class=rg-srlabel>Date</span><span class=rg-srvalue data-live=pqdate>{{ fmt_card_date(p.date) }}</span>{{ rg_icon('chevron_right', 'sm') }}</button>
+<button type=button class=rg-srow data-open=sheetTime><span class=rg-srlabel>Time</span><span class=rg-srvalue data-live=pqtime>{{ fmt_span(p.start, p.end) }}</span>{{ rg_icon('chevron_right', 'sm') }}</button>
+<button type=button class=rg-srow data-open=sheetVenue><span class=rg-srlabel>Venue</span><span class=rg-srvalue data-live=pqvenue>{{ p.location or 'Add a venue' }}</span>{{ rg_icon('chevron_right', 'sm') }}</button>
+</div>
+<dialog class="botsheet modal" id=sheetDate><div class=sheet><div class=grab aria-hidden=true></div><h2>Date</h2>
+<label class=rg-field><span>DATE</span><input type=date name=date value="{{ p.date }}" required></label>
 {% if p.series_id %}<div class=checks role=radiogroup aria-label="Apply changes to"><div class="ty-muted ty-sm xs">Recurrence</div>
 <label><input type=radio name=series_scope value=once checked> This event</label>
 <label><input type=radio name=series_scope value=following> This and following</label>
 <label><input type=radio name=series_scope value=all> All events</label>
 </div>{% endif %}
-<div class=row><label>Start<input type=time name=start value="{{ p.start }}" required></label><label>End<input type=time name=end value="{{ p.end }}" required></label></div>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class="botsheet modal" id=sheetTime><div class=sheet><div class=grab aria-hidden=true></div><h2>Time</h2>
+<div class=rg-fieldpair><label class=rg-field><span>START</span><input type=time name=start value="{{ p.start }}" required></label><label class=rg-field><span>END</span><input type=time name=end value="{{ p.end }}" required></label></div>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
+<dialog class="botsheet modal" id=sheetVenue><div class=sheet><div class=grab aria-hidden=true></div><h2>Venue</h2>
 <label>Venue<span class=locok hidden><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=location value="{{ p.location or '' }}" data-places{{ place_proximity(p.lat, p.lng) }} required autocomplete=off placeholder="Pool or address"></label>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
+<h3 class=rg-day>COACHING</h3>
+<div class=pqrows>
+<button type=button class=rg-srow data-open=sheetCoaches><span class=rg-srlabel>Coaches</span><span class=rg-srvalue data-for=coaches>{% if x.coaches %}{% for c in x.coaches %}{{ display_first(c) }}{{ ' (head)' if c.is_lead }}{{ ', ' if not loop.last }}{% endfor %}{% else %}None · pick a head coach{% endif %}</span><span class=pqleadsum hidden data-for=lead></span>{{ rg_icon('chevron_right', 'sm') }}</button>
 </div>
-<div class=formsec><h2>Coaching</h2>
-<div class=list>
-<button type=button class="li selfield" data-open=sheetCoaches><span class=selfieldk>Coaches</span><span class="selfieldv ell" data-for=coaches>None</span>""" + _CHEV + """</button>
-<button type=button class="li selfield" data-open=sheetLead><span class=selfieldk>Head coach</span><span class="selfieldv ell" data-for=lead>No head coach</span>""" + _CHEV + """</button>
-</div>
-<div id=assignedCoaches class=list></div>
-<dialog class=botsheet id=sheetCoaches><div class=sheet><div class=grab></div><h2>Coaches</h2>
+<div id=assignedCoaches class=list hidden></div>
+<dialog class=botsheet id=sheetCoaches><div class=sheet><div class=grab></div><h2>Coaches</h2><h3 class=rg-day>WHO'S COACHING</h3>
 <input class=sheetsearch name=coachq placeholder="Search coaches" autocomplete=off data-sheetsearch>
 <div class=sheetlist data-sum=coaches data-empty=None>
 {% for c in coach_choices %}<label class=coachrow data-search="{{ display_first(c) }} {{ c.last }}" data-label="{{ display_first(c) }} {{ c.last }}"><span class=avatar>{{ initials(c) }}</span><span class=grow><b>{{ display_first(c) }} {{ c.last }}</b> {{ coach_tag(c) }}</span><input type=checkbox name=coach value="{{ c.id }}" data-name="{{ display_first(c) }} {{ c.last }}" {% if c.id in x.coach_ids %}checked{% endif %}></label>
 {% else %}<p class="ty-muted ty-sm sm">No coaches yet. Add someone on People.</p>{% endfor %}
 </div>
-<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
-<dialog class=botsheet id=sheetLead><div class=sheet><div class=grab></div><h2>Head coach</h2>
-<div class=sheetlist data-sum=lead data-empty="No head coach">
+<h3 class=rg-day>HEAD COACH</h3><div class=sheetlist data-sum=lead data-empty="No head coach">
 <label class=sheetopt data-lead="" data-label="No head coach"><input type=radio name=lead value="" {% if not x.lead_id %}checked{% endif %}><span><b>No head coach</b></span></label>
 {% for c in coach_choices %}<label class=sheetopt data-lead="{{ c.id }}" data-label="{{ display_first(c) }} {{ c.last }}" {% if c.id not in x.coach_ids %}hidden{% endif %}><input type=radio name=lead value="{{ c.id }}" {% if c.id == x.lead_id %}checked{% endif %}><span><b>{{ display_first(c) }} {{ c.last }}</b></span></label>{% endfor %}
 </div>
 <button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <dialog class=botsheet id=focusSheet><div class=sheet><div class=grab></div><h2 id=focusTitle>Coach</h2><div id=focusSlot></div><button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <div id=focusHome hidden>{% for c in coach_choices %}<label data-coach="{{ c.id }}">Focus group<input name="focus-{{ c.id }}" data-groups="Beginners,Intermediate,Advanced,Goalies" value="{{ x.focuses.get(c.id, '') }}" placeholder="Beginners, Intermediate, Advanced, Goalies" autocomplete=off></label>{% endfor %}</div>
-<label>Practice plan<textarea class=planfield name=coaching_plan rows=4>{{ p.coaching_plan or '' }}</textarea></label>
-</div>
-<div class=formsec><h2>Additional details</h2>
-<label>Notes<textarea class=planfield name=note rows=4>{{ p.note or '' }}</textarea></label>
-{{ message_fields(p) }}
-<details class=optsec {% if p.image %}open{% endif %}><summary class="li selfield"><span class=selfieldk>Cover image</span><span class=selfieldv>{% if p.image %}Added{% else %}Not added{% endif %}</span></summary>
-{{ upload_field('image', src=('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', clear_name='image_clear') }}
-</details>
+<h3 class=rg-day>PRACTICE PLAN · COACHES ONLY</h3>
+<textarea class=planfield name=coaching_plan rows=3 placeholder="e.g. Warm-up 400, legs, 6-on-5 drills…" aria-label="Practice plan">{{ p.coaching_plan or '' }}</textarea>
+<h3 class=rg-day>FOR EVERYONE GOING</h3>
+<textarea class=planfield name=note rows=3 placeholder="What should everyone going know?" aria-label="Note for everyone going">{{ p.note or '' }}</textarea>
+<p class=rg-note>One note replaces "Notes" and "Coach message". Leave it empty to hide it.</p>
+<input type=hidden name=message value="{{ p.coach_note or '' }}">
 {% set ns = namespace(kind='', custom='') %}
 {% for kind in SOCIAL_KINDS %}{% if not ns.kind and kind in (p.social_kind or '').split(',') %}{% set ns.kind = kind %}{% endif %}{% endfor %}
 {% if p.social_kind and not ns.kind %}{% set ns.kind = 'Other' %}{% set ns.custom = p.social_kind %}{% endif %}
-<button type=button class="li selfield" id=socialToggle><span class=selfieldk>After-practice social</span><span class="selfieldv ell" id=socialSum>{% if ns.kind %}{{ ns.custom or ns.kind }}{% else %}Not added{% endif %}</span>""" + _CHEV + """</button>
-<div id=socialBody {% if not ns.kind %}hidden{% endif %}>
-<button type=button class="li selfield" data-open=sheetSocial><span class=selfieldk>Social type</span><span class="selfieldv ell" data-for=social>{{ ns.custom or ns.kind or 'Not set' }}</span>""" + _CHEV + """</button>
-<dialog class=botsheet id=sheetSocial><div class=sheet><div class=grab></div><h2>Social type</h2>
-<div class=sheetlist data-sum=social data-empty="Not set">
-{% for kind in SOCIAL_KINDS %}<label class=sheetopt data-label="{{ kind }}"><input type=radio name=social_kind value="{{ kind }}" {% if ns.kind == kind %}checked{% endif %}><span><b>{{ kind }}</b></span></label>{% endfor %}
+<div class=pqrows>
+<button type=button class=rg-srow data-open=sheetSocialAll><span class=rg-srlabel>Before / after social</span><span class=rg-srvalue id=socialSum>{% if ns.kind %}{{ ns.custom or ns.kind }}{% if p.social_time %} · {{ fmt_clock(p.social_time) }}{% endif %}{% else %}Not added{% endif %}</span>{{ rg_icon('chevron_right', 'sm') }}</button>
+<button type=button class=rg-srow data-open=sheetCover><span class=rg-srlabel>Cover image</span><span class=rg-srvalue>{% if p.image %}Added{% else %}Not added{% endif %}</span>{{ rg_icon('chevron_right', 'sm') }}</button>
 </div>
-<label id=socialCustom {% if ns.kind != 'Other' %}hidden{% endif %}>Label<input name=social_custom value="{{ ns.custom }}" autocomplete=off></label>
+{% set sw = (p.social_when or 'after')|lower %}{% set picked = (p.social_kind or '').split(',') %}
+<dialog class="modal pqscreen" id=sheetSocialAll><div class=pqscreenin>
+{{ rg_top_bar('compact', 'Edit practice', back_button=True) }}
+<h2 class=pqdisplay>Social.</h2>
+<h3 class=rg-day>WHEN</h3>
+<div class=actseg role=radiogroup aria-label="When">{% for v, l in (('before','Before practice'),('after','After practice')) %}<label><input type=radio name=social_when value="{{ v }}" {% if sw == v %}checked{% endif %}><span>{{ l }}</span></label>{% endfor %}</div>
+<h3 class=rg-day>WHAT</h3>
+<div class=actseg aria-label="What">{% for kind in PRACTICE_SOCIAL_KINDS %}<label><input type=checkbox name=social_kind value="{{ kind }}" data-socialkind {% if kind in picked %}checked{% endif %}><span>{{ kind }}</span></label>{% endfor %}{% for kind in picked if kind and kind not in PRACTICE_SOCIAL_KINDS %}<label><input type=checkbox name=social_kind value="{{ kind if kind in SOCIAL_KINDS else 'Other' }}" data-socialkind checked><span>{{ kind }}</span></label>{% if kind not in SOCIAL_KINDS %}<input type=hidden name=social_custom value="{{ kind }}">{% endif %}{% endfor %}</div>
+<button type=button class=rg-srow data-open-dialog=sheetSocialPlace><span class=rg-srlabel>Place</span><span class=rg-srvalue id=socialPlaceSum>{% if p.social_place %}{{ p.social_place }}{% if p.social_address %} · {{ p.social_address }}{% endif %}{% else %}Add a place{% endif %}</span>{{ rg_icon('chevron_right', 'sm') }}</button>
+<p class=pqok id=socialOk {% if not p.social_lat %}hidden{% endif %}>Address checked on the map ✓</p>
+<button type=button class=rg-srow data-open-dialog=sheetSocialTime><span class=rg-srlabel>Time</span><span class=rg-srvalue id=socialTimeSum>{{ fmt_clock(p.social_time) if p.social_time else 'Add a time' }}</span>{{ rg_icon('chevron_right', 'sm') }}</button>
+<h3 class=rg-day>NOTE (OPTIONAL)</h3>
+<textarea class=planfield name=social_note rows=3 placeholder="e.g. Grab a table on the patio">{{ p.social_note or '' }}</textarea>
+<input type=hidden name=social_kind value="" id=socialClear {% if p.social_kind %}disabled{% endif %}>
+<button type=button class="rg-btn primary" data-sheetdone>Done</button>
+<button type=button class="rg-btn ghost" id=socialRemove>Remove social</button>
+</div></dialog>
+<dialog class="botsheet modal" id=sheetSocialPlace><div class=sheet><div class=grab aria-hidden=true></div><h2>Place</h2>
+<label class=rg-field><span>PLACE</span><input name=social_place value="{{ p.social_place or '' }}" autocomplete=off placeholder="Name of the place"></label>
+<label class=rg-field><span>ADDRESS</span><input name=social_address value="{{ p.social_address or '' }}" data-places data-place-name=social_place{{ place_proximity(p.lat, p.lng) }} autocomplete=off placeholder="Search for an address"></label>
 <button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
-<label>Address<span class=locok {% if not p.social_address %}hidden{% endif %}><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg> Verified</span><input name=social_address value="{{ p.social_address or '' }}" data-places data-place-name=social_place{{ place_proximity(p.lat, p.lng) }} autocomplete=off placeholder="Search for an address"></label>
-<label>Place name<input name=social_place value="{{ p.social_place or '' }}" autocomplete=off placeholder="Name of the place"></label>
-<label>Time (optional)<input data-native type=time name=social_time min="{{ (p.end or '20:30')[:5] }}" value="{{ p.social_time or (p.end or '20:30')[:5] }}"></label>
-<label>Notes (optional)<textarea class=planfield name=social_note rows=4>{{ p.social_note or '' }}</textarea></label>
-<button type=button class="rg-btn danger full" id=socialRemove>Remove social</button>
-<input type=hidden name=social_kind value="" id=socialClear {% if ns.kind %}disabled{% endif %}>
-</div>
-</div>
+<dialog class="botsheet modal" id=sheetSocialTime><div class=sheet><div class=grab aria-hidden=true></div><h2>Time</h2>
+<label class=rg-field><span>TIME</span><input data-native type=time name=social_time value="{{ p.social_time or (p.end or '20:30')[:5] }}"></label>
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
+<script>(function(){var f=document.getElementById('practiceForm'); if(!f) return;
+ function clock(t){ if(!t) return ''; var h=+t.slice(0,2), m=t.slice(3,5); return ((h+11)%12+1)+':'+m+' '+(h<12?'AM':'PM'); }
+ function sync(){ var pl=f.querySelector('[name=social_place]').value.trim(), ad=f.querySelector('[name=social_address]').value.trim();
+  document.getElementById('socialPlaceSum').textContent=pl?(pl+(ad?' · '+ad:'')):'Add a place';
+  var t=f.querySelector('[name=social_time]').value; document.getElementById('socialTimeSum').textContent=t?clock(t):'Add a time';
+  var on=[].slice.call(f.querySelectorAll('[data-socialkind]:checked')); document.getElementById('socialClear').disabled=on.length>0;
+  var w=f.querySelector('[name=social_when]:checked'), sum=document.getElementById('socialSum');
+  if(sum) sum.textContent=on.length?(on.map(function(i){return i.nextElementSibling.textContent;}).join(', ')+(t?' · '+clock(t):'')):'Not added'; }
+ f.addEventListener('change', function(e){ if(e.target.closest('#sheetSocialAll,#sheetSocialPlace,#sheetSocialTime')) sync(); });
+ f.addEventListener('input', function(e){ if(e.target.closest('#sheetSocialPlace')) { document.getElementById('socialOk').hidden=true; sync(); } });
+})();</script>
+<dialog class="botsheet modal" id=sheetCover><div class=sheet><div class=grab aria-hidden=true></div><h2>Cover image</h2>
+{{ upload_field('image', src=('/practice-image/' ~ p.id ~ '?v=' ~ p.image) if p.image else '', clear_name='image_clear') }}
+<button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
 <input type=hidden name=plan_fields value=1>
 <button class="rg-btn primary rg-wide" name=action value=edit>Save changes</button>
 <p class=rg-note>Duplicate, copy link, check-in, cancel and delete are in the practice's ⋯ menu.</p>
+<script>(function(){var f=document.getElementById('practiceForm'); if(!f) return;
+ function set(k,v){ var el=f.querySelector('[data-live="'+k+'"]'); if(el&&v) el.textContent=v; }
+ function clock(t){ if(!t) return ''; var h=+t.slice(0,2), m=t.slice(3,5); return ((h+11)%12+1)+':'+m+' '+(h<12?'AM':'PM'); }
+ f.addEventListener('change', function(e){ var n=e.target.name;
+  if(n==='title'||n==='sport'){ var t=f.querySelector('[name=title]'); set('pqname', (t&&t.value)||(t&&t.placeholder)); set('pqsport', (f.querySelector('[name=sport]')||{}).value); }
+  if(n==='date'&&e.target.value){ var d=new Date(e.target.value+'T12:00:00'); set('pqdate', d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})); }
+  if(n==='start'||n==='end'){ var a=clock(f.querySelector('[name=start]').value), b=clock(f.querySelector('[name=end]').value); set('pqtime', (a.slice(-2)===b.slice(-2)?a.slice(0,-3):a)+' – '+b); }
+  if(n==='location') set('pqvenue', e.target.value);
+ });
+ f.querySelectorAll('[name=location]').forEach(function(i){ i.addEventListener('input', function(){ set('pqvenue', i.value); }); });
+})();</script>
 </form>
+
 {% else %}
 {# Figma 63 · Practice page. 1 Participant · 2 Coach · 3 Admin. One thing at a time from a section's Edit / + Add; everything else in ⋯ › Edit practice. #}
 {% set host = me().is_admin or is_staff() %}{% set admin = me().is_admin %}
 <div class="p5 pq">
 {% set clk = fmt_clock(p.start).split(' ') %}{% set dur = practice_minutes(p) if practice_minutes is defined else 0 %}
-{{ rg_event_card('', (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1] if clk|length > 1 else '', '', p.location or '', [], 0, x.mine == 1, 'graphite' if p.cancelled else event_tone(p.activity_type or 'practice'), 'Cancelled' if p.cancelled else (fmt_card_date(p.date) if not practice_is_month(p) else practice_when(p))) }}
+{{ rg_event_card('', (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(p.start, p.end), p.location or '', [], 0, x.mine == 1, 'graphite' if p.cancelled else event_tone(p.activity_type or 'practice'), 'Cancelled' if p.cancelled else '') }}
 {% if p.cancelled and p.cancel_reason %}<p class=rg-note>{{ p.cancel_reason }}</p>{% endif %}
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class="pills p5rsvp">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>{{ rsvp_base('p' ~ p.id) }}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}
 {{ rsvp_btn('Not going', x.mine == 0, 'notgoing') }}</form>{% endif %}
 <div class=rg-tiles3>{{ rg_metric('%02d'|format(x.going|length), 'Going', 'lime') }}{{ rg_metric('%02d'|format(x.coaches|length), 'Coaches', 'carbon') }}{{ rg_metric('%02d'|format(x.checked|length), 'Checked in', 'carbon') }}</div>
-{% if not p.cancelled %}{{ r2_practice_actions('/chat?c=practice:' ~ p.id ~ ('&peek=1' if x.mine != 1 else ''), 'Practice Chat', x.going|length) }}{% endif %}
-{% set check_href = '/admin?date=' ~ p.date ~ '&ev=p-' ~ p.id %}
+{% if not p.cancelled %}{{ r2_practice_actions('/chat?c=practice:' ~ p.id ~ ('&peek=1' if x.mine != 1 else ''), 'Practice chat', x.going|length) }}{% endif %}
+{% set check_href = '/admin?date=' ~ p.date ~ '&ev=p-' ~ p.id ~ '&from=practice' %}
 {% if fx and fx.gate_hint and not p.cancelled %}{{ rg_callout(fx.gate_hint, 'First time only', 'Once', '/practices/' ~ p.id ~ '/signup', 'graphite') }}{% endif %}
 {% if host and not p.cancelled %}<a class="rg-btn primary rg-wide" href="{{ check_href }}">Start check-in</a>{% endif %}
-{{ rg_section_count("Who's going · " ~ x.going|length, none, ('Check-in' if host else ('See all' if x.going|length > 4 else '')), (check_href if host else ''), ('' if host else 'data-seeall=pqGoing')) }}
+{{ rg_section_count("Who's going · " ~ x.going|length, none, ('Check-in' if host else ('See all' if x.going|length > 4 else '')), (check_href if host else ''), ('' if host else 'data-seeall=pqGoing'), true) }}
 {% set in_ids = x.checked|map(attribute='id')|list %}
-<div class=rg-plist id=pqGoing>{% for r in x.going %}{% set why = holds.get(r.id, '') if host else '' %}<div{% if loop.index > 4 %} data-more hidden{% endif %}>{{ rg_person(display_first(r) ~ ' ' ~ r.last, why or (('Coach' if r.id in x.coach_ids else 'Player') ~ ' · ' ~ (p.sport or 'Water Polo')), initials(r), 'In' if r.id in in_ids else 'Going', 'going' if not why else 'expiring') }}</div>{% else %}<p class=rg-note>No one yet.</p>{% endfor %}</div>
+<div class=rg-plist id=pqGoing>{% for r in x.going %}{% set why = holds.get(r.id, '') if host else '' %}<div{% if loop.index > 4 %} data-more hidden{% endif %}>{{ rg_person(display_first(r) ~ ' ' ~ r.last, why or (('Coach' if r.id in x.coach_ids else 'Player') ~ ' · ' ~ (p.sport or 'Water Polo')), initials(r), 'In' if r.id in in_ids else 'Going', 'going') }}</div>{% else %}<p class=rg-note>No one yet.</p>{% endfor %}</div>
 {% if x.going|length > 4 %}<button type=button class=rg-seeall data-seeall=pqGoing>See all {{ x.going|length }} going</button>{% endif %}
-{% if p.location %}{{ rg_section('Getting there') }}
-<div class=rg-stack8>
-{{ rg_info('VENUE', p.location, 'https://www.google.com/maps/dir/?api=1&destination=' ~ (((pins[0].lat|string ~ ',' ~ pins[0].lng|string) if pins else (p.address or p.location))|urlencode), 'target=_blank rel=noopener') }}
-{% if not p.cancelled %}{{ rg_settings_row('When to leave', 'With traffic', '/practices/' ~ p.id ~ '/leave-by') }}
-{{ rg_settings_row('Rides', 'Ask for one · Offer seats', '/practices/' ~ p.id ~ '/rides') }}{% endif %}
-</div>{% endif %}
-{#fxpanel#}
-{% if social_cards %}{% set befores = social_cards|selectattr('when', 'equalto', 'before')|list %}{{ rg_section_count('Before practice' if befores|length == social_cards|length else ('After practice' if not befores else 'Socials'), none, 'Edit' if host else '', '', 'data-open-dialog=social' ~ p.id if host else '') }}
-<div class=rg-stack8>{% for card in social_cards %}{{ r2_social_card(card, 'row') }}{% endfor %}</div>{% endif %}
-{% if p.note or host %}{{ rg_section_count('Notes', none, (('Edit' if p.note else '+ Add') if host else ''), '', 'data-open-dialog=notes' ~ p.id if host else '') }}
-{% if p.note %}<p class=pqtext>{{ p.note }}</p>{% else %}<p class=rg-note>Nothing for everyone going yet.</p>{% endif %}{% endif %}
-{% if host %}{{ rg_section_count('Practice plan', none, ('Edit' if p.coaching_plan else '+ Add'), '', 'data-open-dialog=plan' ~ p.id) }}
+{% if p.location and not p.cancelled %}{{ rg_section('Getting there') }}
+{{ rg_drive('–', 'Tap to plan when to leave', '', 'YOUR DRIVE', '/practices/' ~ p.id ~ '/leave-by') }}
+<div data-pqdrive="{{ p.id }}" hidden></div>
+{{ rg_settings_row('Rides', 'Ask for one · Offer seats', '/practices/' ~ p.id ~ '/rides') }}
+{% endif %}
+{% if false %}{#fxpanel#}{% endif %}
+{% for card in social_cards %}{{ rg_section('Before practice' if card.when == 'before' else 'After practice') }}{{ r2_social_card(card, 'open') }}{% endfor %}
+{% if p.note %}{{ rg_section('Notes') }}<p class=pqtext>{{ p.note }}</p>{% endif %}
+{% if host %}{{ rg_section_count('Practice plan', none, ('Edit' if p.coaching_plan else '+ Add'), '', 'data-open-dialog=plan' ~ p.id, true) }}
 <span class=pqchips>{{ rg_chip('Coaches only', 'neutral') }}</span>
-{% if p.coaching_plan %}<p class=pqtext>{{ p.coaching_plan }}</p>{% else %}<p class=rg-note>Drills, groups, who runs what.</p>{% endif %}{% endif %}
-{% if x.coaches or host %}{{ rg_section_count('Coaches', none, ('+ Add · Head' if host else ''), '', 'data-open-dialog=pqCoaches' if host else '') }}
-<div class=rg-plist>{% for c in x.coaches %}{{ rg_person(display_first(c) ~ ' ' ~ c.last, ('Head coach' if c.is_lead else 'Coach') ~ ((' · ' ~ c.focus) if host and c.focus else ''), initials(c), 'Head' if c.is_lead else '', 'going') }}{% else %}<p class=rg-note>No coaches yet.</p>{% endfor %}</div>{% endif %}
-{% if x.notgoing %}{{ rg_section("Can't make it") }}<p class=pqtext>{% for r in x.notgoing %}{{ display_first(r) }} {{ r.last }}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+<p class="pqtext smoke">{{ p.coaching_plan or 'No plan yet.' }}</p>{% endif %}
+{% if x.coaches or host %}{{ rg_section_count('Coaches', none, ('+ Add · Head' if host else ''), '', 'data-open-dialog=pqCoaches' if host else '', true) }}
+<div class=rg-plist>{% for c in x.coaches %}{{ rg_person(display_first(c) ~ ' ' ~ c.last, ('Head coach' if c.is_lead else 'Coach') ~ ((' · ' ~ c.focus) if host and c.focus else ''), initials(c), 'Head' if c.is_lead else '', 'going') }}{% else %}<p class="pqtext smoke">No coaches yet.</p>{% endfor %}</div>{% endif %}
+{% if x.notgoing %}{{ rg_section("Can't make it") }}<p class="pqtext smoke">{% for r in x.notgoing %}{{ display_first(r) }} {{ r.last }}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
 {% if admin %}{{ rg_section('Details') }}
 <div class=rg-stack8>
 {{ rg_settings_row('Skill level', sports_now.levels or 'Not set', '#', 'data-open-dialog=pqLevels') }}
 {{ rg_settings_row('Division', sports_now.division or 'Not set', '#', 'data-open-dialog=pqDivs') }}
 {{ rg_settings_row('Cover image', 'Change' if p.image else 'Add', '#', 'data-open-dialog=image' ~ p.id) }}
 </div>
-<p class=rg-note>Date, time, venue, social, notes and details change in ⋯ › Edit practice.</p>{% endif %}
+<p class=pqfoot>Date, time, venue, social, notes and details change in ⋯ › Edit practice.</p>{% endif %}
 </div>
 {% if host %}
-<dialog id=pqMore class="botsheet modal"><div class=sheet><div class=grab aria-hidden=true></div>
+<dialog id=pqMore class="botsheet modal pqsheet"><div class=sheet tabindex=-1 autofocus><div class=grab aria-hidden=true></div>
 <h2>{{ practice_title(p) }}</h2><p class=ty-muted>{{ fmt_card_date(p.date) }} · {{ fmt_clock(p.start) }}</p>
 <div class=rg-stack8>
 {% if admin %}{{ rg_settings_row('Edit practice', 'All details', '/practices/' ~ p.id ~ '?edit=1') }}{% else %}{{ rg_settings_row('Ask an admin to change it', 'Date · time · place', '#', 'data-open-dialog=pqAsk') }}{% endif %}
@@ -7578,24 +7626,30 @@ T["practice"] = """{% set p = x.p %}
 </div>
 {% if admin and not practice_ended(p) %}<h3 class=rg-day>CAN'T HAPPEN?</h3>
 {% if not p.cancelled %}<button type=button class="rg-btn secondary rg-wide" data-open-dialog="cancel{{ p.id }}">Cancel this practice</button>{% else %}<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><button class="rg-btn secondary rg-wide" name=action value=restore>Undo cancel</button></form>{% endif %}
-<button type=button class="rg-btn danger rg-wide" data-open-dialog="delete{{ p.id }}" style="margin-top:8px">Delete practice</button>
+<button type=button class="rg-btn danger rg-wide" data-open-dialog="delete{{ p.id }}">Delete practice</button>
 <p class=rg-note>Cancel keeps it on the schedule as "Cancelled" and tells everyone going. Delete removes it completely.</p>{% endif %}
 </div></dialog>
-{% if not admin %}<dialog id=pqAsk class="botsheet modal"><form method=post action="/practices/{{ p.id }}" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+{% if not admin %}<dialog id=pqAsk class="botsheet modal pqsheet"><form method=post action="/practices/{{ p.id }}" class=sheet tabindex=-1 autofocus>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
 <h2>Ask an admin.</h2><p class=ty-muted>{{ practice_title(p) }} · {{ fmt_card_date(p.date) }} is attached.</p>
 <label class=rg-field><span>WHAT SHOULD CHANGE?</span><textarea name=message rows=4 required maxlength=2000 placeholder="Move it to 7:30 — lanes open late"></textarea></label>
 <button class="rg-btn primary" name=action value=ask_admin>Send to the admins</button></form></dialog>{% endif %}
-<dialog id=pqCoaches class="botsheet modal"><form method=post action="/practices/{{ p.id }}" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
-<h2>Coaches</h2><p class=ty-muted>{{ practice_title(p) }} · {{ fmt_card_date(p.date) }}</p>
+<dialog id=pqCoaches class="botsheet modal pqsheet"><form method=post action="/practices/{{ p.id }}" class=sheet tabindex=-1 autofocus>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+<h2>Coaches</h2><p class=ty-muted>{{ practice_title(p) }} · {{ fmt_card_date(p.date)|replace(',', '') }}</p>
 <h3 class=rg-day>WHO'S COACHING</h3>
-{% for c in coach_choices %}{{ rg_choice('coach', c.id|string, display_first(c) ~ ' ' ~ c.last, coach_line(c) if coach_line is defined else 'Coach', c.id in x.coach_ids, 'checkbox', 'data-coachpick') }}{% else %}<p class=rg-note>No one is on the coaching list yet. Add coaches on People.</p>{% endfor %}
+{% for c in coach_choices %}{{ rg_choice('coach', c.id|string, display_first(c) ~ ' ' ~ c.last, ('Head coach' if c.id == x.lead_id else ('Coach' if c.role == 'coach' or c.id in x.coach_ids else 'Player')) ~ ((' · ' ~ p.sport) if p.sport else ''), c.id in x.coach_ids, 'checkbox', 'data-coachpick') }}{% else %}<p class=rg-note>No one is on the coaching list yet. Add coaches on People.</p>{% endfor %}
 {% if coach_choices %}<h3 class=rg-day>HEAD COACH</h3>
-{{ rg_choice('lead', '', 'No head coach', '', not x.lead_id) }}
-{% for c in coach_choices %}<div data-leadfor="{{ c.id }}"{% if c.id not in x.coach_ids %} hidden{% endif %}>{{ rg_choice('lead', c.id|string, display_first(c) ~ ' ' ~ c.last, 'Runs practice and check-in', c.id == x.lead_id) }}</div>{% endfor %}{% endif %}
-{% if p.series_id %}<input type=hidden name=series_all value=0>{{ rg_toggle('series_all', 'Use for every ' ~ weekday_name(p.date) ~ ' practice', 'This one and the ones after it', false) }}{% endif %}
+{% for c in coach_choices %}<div data-leadfor="{{ c.id }}"{% if c.id not in x.coach_ids %} hidden{% endif %}>{{ rg_choice('lead', c.id|string, display_first(c) ~ ' ' ~ c.last, 'Runs practice and check-in' if c.id == x.lead_id else 'Coach', c.id == x.lead_id, 'radio', 'data-leadpick') }}</div>{% endfor %}{% endif %}
+{% if p.series_id %}<input type=hidden name=series_all value=0>{{ rg_toggle('series_all', 'Use for every ' ~ weekday_name(p.date) ~ ' practice', '', false, attrs='', plain=True) }}{% endif %}
 <button class="rg-btn primary" name=action value=coaches>Save</button></form></dialog>
-<script>document.addEventListener('change',function(e){var i=e.target; if(!i.matches||!i.matches('[data-coachpick]')) return; var row=document.querySelector('[data-leadfor="'+i.value+'"]'); if(row){ row.hidden=!i.checked; if(!i.checked){ var r=row.querySelector('input'); if(r&&r.checked){ r.checked=false; var none=document.querySelector('#pqCoaches input[name=lead][value=""]'); if(none) none.checked=true; } } }});</script>
+<script>document.addEventListener('change',function(e){var i=e.target; if(i.matches&&i.matches('[data-leadpick]')){ document.querySelectorAll('#pqCoaches [data-leadpick]').forEach(function(r){ var sm=r.parentNode.querySelector('small'); if(sm) sm.textContent=r.checked?'Runs practice and check-in':'Coach'; }); return; } if(!i.matches||!i.matches('[data-coachpick]')) return; var row=document.querySelector('[data-leadfor="'+i.value+'"]'); if(row){ row.hidden=!i.checked; if(!i.checked){ var r=row.querySelector('input'); if(r&&r.checked){ r.checked=false; var none=document.querySelector('#pqCoaches input[name=lead][value=""]'); if(none) none.checked=true; } } }});</script>
 {% endif %}
+<script>(function(){var m=document.querySelector('[data-pqdrive]'); if(!m||!navigator.geolocation||!navigator.permissions) return; var card=m.previousElementSibling; if(!card||!card.classList.contains('rg-drive')) return;
+ navigator.permissions.query({name:'geolocation'}).then(function(st){ if(st.state!=='granted') return;
+  navigator.geolocation.getCurrentPosition(function(pos){ fetch('/api/leave-by',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF':(window.PUSH_CSRF||'')},body:JSON.stringify({id:+m.getAttribute('data-pqdrive'),lat:pos.coords.latitude,lng:pos.coords.longitude})}).then(function(r){return r.json();}).then(function(j){ if(!j||!j.ok) return;
+   var top=card.querySelector('.rg-drvk'); if(top&&j.miles) top.textContent='YOUR DRIVE · '+j.miles+' MI';
+   var n=card.querySelector('.rg-drvnum b'); if(n) n.textContent=j.minutes;
+   var sm=card.querySelector('.rg-drvnum small'); if(sm) sm.textContent=j.estimated?'Estimate':'With traffic';
+   var t=card.querySelector('.rg-drvtop'); if(t&&j.leave_by){ var b=t.querySelector('.rg-drvleave')||document.createElement('span'); b.className='rg-drvleave'; b.textContent='Leave by '+j.leave_by; t.appendChild(b); } }).catch(function(){}); }, function(){}, {maximumAge:600000,timeout:8000}); }).catch(function(){}); })();</script>
 <script>document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-seeall]'); if(!b) return; e.preventDefault(); var l=document.getElementById(b.getAttribute('data-seeall')); if(!l) return; l.querySelectorAll('[data-more]').forEach(function(r){ r.hidden=false; }); document.querySelectorAll('button[data-seeall="'+b.getAttribute('data-seeall')+'"]').forEach(function(x){ x.hidden=true; });});</script>
 {% if admin %}
 <dialog id=pqWhen class="botsheet modal"><form method=post action="/practices/{{ p.id }}" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
@@ -7618,9 +7672,10 @@ T["practice"] = """{% set p = x.p %}
 
 {% endif %}
 {% if me().is_admin or is_staff() %}{{ practice_extra_dialogs(p, 'page') }}
-<dialog class="botsheet modal" id=plan{{ p.id }}><div class=sheet><div class=grab aria-hidden=true></div><h2>Practice plan.</h2><p class=ty-muted>Coaches and admins only.</p>
+<dialog class="botsheet modal pqsheet" id=plan{{ p.id }}><div class=sheet tabindex=-1 autofocus><div class=grab aria-hidden=true></div><h2>Practice plan</h2><p class=ty-muted>Only coaches and admins see this.</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
-<textarea class=planfield name=coaching_plan rows=4 aria-label="Practice plan">{{ p.coaching_plan or '' }}</textarea>
+<textarea class=planfield name=coaching_plan rows=4 aria-label="Practice plan" placeholder="Warm-up 400 · legs 10 min · 6-on-5 drills · scrimmage">{{ p.coaching_plan or '' }}</textarea>
+<input type=hidden name=to_coaches value=0>{{ rg_toggle('to_coaches', 'Copy to the coaches chat', 'Coaches on this practice get it', false, plain=True) }}
 <button class="rg-btn primary full" name=action value=plan>Save</button></form></div></dialog>
 {% for c in x.coaches %}{% if me().is_admin or c.id == me().id %}<dialog class=modal id="cfocus{{ p.id }}-{{ c.id }}"><div class=sheet><h2 style="margin:0 0 12px">{{ display_first(c) }} {{ c.last }}</h2>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page><input type=hidden name=coach_id value="{{ c.id }}">
@@ -7644,16 +7699,12 @@ T["practice"] = """{% set p = x.p %}
 {% else %}<p class="ty-muted ty-sm sm">No coaches yet. Add someone on People.</p>{% endfor %}</div>
 <div class=row><button class="rg-btn primary" name=action value=assign>Save</button><button type=button class="rg-btn secondary" onclick="this.closest('dialog').close()">Cancel</button></div></form></div></dialog>
 {% if not practice_ended(p) %}
-<dialog class="botsheet modal" id=cancel{{ p.id }}><div class=sheet><div class=grab aria-hidden=true></div><h2>Cancel practice.</h2>
-<p class="ty-body sm">Members get an email and a push that include this reason.</p>
-<form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
-{% if p.series_id %}<div class=checks role=radiogroup aria-label="Cancel">
-<label><input type=radio name=series_scope value=once checked> This event</label>
-<label><input type=radio name=series_scope value=following> This and following</label>
-<label><input type=radio name=series_scope value=all> All events</label>
-</div>{% endif %}
-<label>Reason<textarea class=planfield name=reason rows=4 required></textarea></label>
-<button class="rg-btn danger full" name=action value=cancel>Confirm</button></form></div></dialog>
+<dialog class="botsheet modal pqsheet pqcancel" id=cancel{{ p.id }}><form method=post action="/practices/{{ p.id }}" class=sheet tabindex=-1 autofocus>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>
+<h2>Cancel {{ weekday_name(p.date) }}'s practice?</h2>
+{% set ng = x.going|length %}<p class=pqlead>{{ ng }} {{ 'person' if ng == 1 else 'people' }} going {{ 'gets' if ng == 1 else 'get' }} a push and an email.{% for card in social_cards %} The {{ 'before' if card.when == 'before' else 'after' }}-practice {{ (card.kind or 'social')|lower }} is cancelled too.{% endfor %}</p>
+{% if p.series_id %}{{ rg_choice('series_scope', 'once', 'Just this one', '', true) }}{{ rg_choice('series_scope', 'following', 'This and the ones after', '') }}{{ rg_choice('series_scope', 'all', 'Every practice in the series', '') }}{% endif %}
+<textarea class=pqreason name=reason rows=2 maxlength=300 aria-label="Reason (optional)" placeholder="e.g. Pool closed for maintenance"></textarea>
+<div class=pqpair><button type=button class="rg-btn ghost" data-sheetdone>Keep it</button><button class="rg-btn danger" name=action value=cancel>Cancel practice</button></div></form></dialog>
 <dialog class="botsheet modal" id=delete{{ p.id }}><div class=sheet><div class=grab aria-hidden=true></div><h2>Delete this practice?</h2>
 <p class="ty-body sm">{% if practice_is_month(p) %}{{ practice_when(p) }} at {{ p.location }}.{% else %}{{ fmt_d(p.date) }}, {{ fmt_t(p.start) }}–{{ fmt_t(p.end) }} at {{ p.location }}.{% endif %}</p>
 <form method=post action="/practices/{{ p.id }}">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}>

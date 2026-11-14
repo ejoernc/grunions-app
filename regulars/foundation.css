@@ -973,7 +973,7 @@ body.profilepage:not(.profile-edit) .infogrid .prow .v{max-width:100%;overflow:h
 .rg-tbspace{flex:1}
 .rg-tbdisc{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:999px;background:var(--graphite);color:var(--paper);text-decoration:none;border:0;cursor:pointer}
 .rg-tbdisc:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
-.rg-topbar.compact .rg-tbtitle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 22px/1 var(--font-display);letter-spacing:-.02em;color:var(--paper);text-decoration:none}
+.rg-topbar.compact .rg-tbtitle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 22px/.95 var(--font-display);letter-spacing:-.03em;color:var(--paper);text-decoration:none}
 .rg-tbavatar{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:999px;background:var(--team-sun);color:var(--fixed-ink);font:700 14px/1 var(--font-display);overflow:hidden}
 .rg-tbhead{display:grid;gap:4px;padding-left:4px}
 .rg-tbeyebrow{margin:0;font:700 11px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--smoke)}
@@ -1382,14 +1382,9 @@ a.ckhero{text-decoration:none}
 .rg-pagetitle:has(.rg-ptacts .rg-plus) .rg-ptacts{grid-column:2;grid-row:1}
 
 /* Practice page (Figma 63) */
-.pq .rg-ecard{margin:0 0 10px}
-.pq .rg-tiles3{margin:12px 0 10px}
-.pq .rg-wide{width:100%;margin:10px 0 0}
-.pq .rg-sec{margin-top:22px}
 .rg-seeall{display:block;margin:8px 0 0;padding:0;border:0;background:transparent;height:auto;min-height:0;color:var(--lime);font:700 14px/1.3 var(--font-sans);cursor:pointer}
 [data-theme="light"] .rg-seeall{color:var(--paper);text-decoration:underline}
 #pqGoing>[hidden]{display:none}
-.pq .pqtext{margin:4px 0 0}
 #pqMore .rg-btn.danger{background:var(--team-tangerine);color:var(--fixed-ink)}
 /* Practice · Edit practice full form (Figma 63 · 8): compact solid header, caps section labels, one Save at the bottom */
 #practiceForm.editorform{background:transparent;border:0;padding:0;box-shadow:none}
@@ -1408,3 +1403,204 @@ body.profile-edit header.profilebar h1.editonly{visibility:visible}
 .rg-tbdisc.morebtn .rg-ic,[data-open-dialog=pqMore] .rg-ic{width:20px;height:20px}
 .rg-tbdisc.morebtn .rg-glyph *,[data-open-dialog=pqMore] .rg-glyph *{stroke-width:3}
 .rg-sexq>span{text-transform:none;letter-spacing:0;font:700 15px/1.3 var(--font-sans);color:var(--paper)}
+/* Edit practice (Figma 63 · 8) */
+.pqedit .pqrows{display:grid;gap:8px;margin:0 0 8px}
+.pqedit .rg-srow{width:100%;text-align:left}
+.pqedit .rg-srow .rg-srvalue{max-width:58%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pqedit .pqrows .li.selfield{display:flex;align-items:center;gap:8px;min-height:56px;padding:0 20px;border:0;border-radius:999px;background:var(--carbon);color:var(--paper);font:700 16px/1.2 var(--font-sans)}
+.pqedit .pqrows .li.selfield .selfieldk{flex:1;text-transform:none;letter-spacing:0;font:700 16px/1.2 var(--font-sans);color:var(--paper)}
+.pqedit .pqrows .li.selfield .selfieldv{color:var(--smoke);font:500 15px/1.2 var(--font-sans)}
+.pqedit .actseg{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;padding:0;background:transparent}
+.pqedit .actseg label{flex:none}
+.pqedit .actseg span{height:32px;min-height:32px;padding:0 14px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 13px/1 var(--font-sans);text-transform:none;letter-spacing:0}
+.pqedit .actseg input:checked+span{background:var(--lime);color:var(--fixed-ink)}
+.pqedit textarea.planfield{width:100%;min-height:96px;margin:0 0 4px;padding:16px;border:0;border-radius:24px;background:var(--carbon);color:var(--paper);font:500 15px/1.4 var(--font-sans);box-sizing:border-box}
+.pqedit h3.rg-day{margin:20px 0 10px}
+.pqedit .rg-wide{width:100%;margin-top:16px}
+.pqleadsum[hidden]{display:none}
+body.practicepage.editor header.profilebar h1{text-align:left;padding-left:12px}
+.pqedit p.rg-note+.pqrows{margin-top:16px}
+.pqedit .rg-chipset label{text-transform:none;letter-spacing:0;margin:0}
+.pqedit .rg-chipset span{text-transform:none;letter-spacing:0;font:700 13px/1 var(--font-sans)}
+.pqedit dialog input:not([type=radio]):not([type=checkbox]):not([type=hidden]):not([type=file]),.pqedit dialog textarea,.pqedit dialog select{background:var(--graphite) !important;border:0;border-radius:22px}
+.pqedit dialog .rg-field{display:grid;gap:8px;margin:0 0 12px}
+/* Practice view (Figma 63 · 1–3): full-bleed map under the top bar, card overlapping it */
+body.practicepage:not(.editor) .homemap.banner,body.practicepage:not(.editor) .evhero{display:block;height:380px;margin:-68px -16px -122px;border-radius:0;overflow:hidden;position:relative;z-index:0}
+body.practicepage:not(.editor) .evhero img{width:100%;height:100%;object-fit:cover}
+body.practicepage:not(.editor) .homemap.banner::after,body.practicepage:not(.editor) .evhero::after{content:"";position:absolute;inset:auto 0 0 0;height:200px;background:linear-gradient(transparent,var(--ink));z-index:450;pointer-events:none}
+body.practicepage:not(.editor) .pq{position:relative;z-index:1}
+.pq .rg-ecard .rg-ecgo{display:none}
+
+/* ===== Practice page · Figma 63 frames 1–3 (2527:21744), exact values ===== */
+body.practicepage:not(.editor) main{padding-left:16px;padding-right:16px}
+.pq{display:flex;flex-direction:column;gap:16px;padding-bottom:24px}
+.pq>*{margin:0 !important}
+.pq>form.pills,.pq .p5rsvp{display:flex;gap:8px}
+.pq .p5rsvp .btn{flex:1 0 0;height:56px;min-height:56px;padding:0 24px;border-radius:999px;font:700 16px/1 var(--font-sans);gap:8px}
+.pq .rg-tiles3{display:flex;gap:8px}
+.pq .rg-tiles3 .rg-metric{flex:1 0 0;min-width:0;gap:8px;padding:18px 20px;border-radius:32px;container-type:normal}
+.pq .rg-tiles3 .rg-metric b{font:700 64px/.9 var(--font-display) !important;letter-spacing:-3.2px}
+.pq .rg-tiles3 .rg-metric span{font:700 10px/1 var(--font-sans);letter-spacing:.8px;text-transform:uppercase}
+.pq .rg-tiles3 .rg-metric.tone-carbon b{color:var(--accent-text)}
+.pq .rg-tiles3 .rg-metric.tone-carbon span{color:var(--paper)}
+.pq .rg-pactions{gap:4px}
+.pq .rg-pamain{height:56px;gap:10px;padding:0 20px;border-radius:999px 8px 8px 999px}
+.pq>a.rg-btn.primary{display:flex;align-items:center;justify-content:center;width:100%;height:56px;min-height:56px;padding:0 24px;border-radius:999px;font:700 16px/1 var(--font-sans)}
+.pq .rg-sec{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding-bottom:4px}
+.pq .rg-sec h2{font:700 36px/.95 var(--font-display);letter-spacing:-1.08px;color:var(--paper)}
+.pq .rg-secact{display:inline-flex;align-items:center;gap:4px;padding-bottom:6px;font:700 14px/1 var(--font-sans);color:var(--accent-text)}
+.pq .rg-secact .rg-ic{width:16px;height:16px}
+.pq .rg-plist{display:flex;flex-direction:column;gap:16px}
+.pq .rg-plist>div{display:contents}
+.pq .rg-plist .rg-person,.pq .rg-person{gap:14px;padding:12px 16px 12px 12px;border-radius:28px;background:var(--carbon)}
+.pq .rg-person .rg-pav{width:52px;height:52px;font:700 18px/1 var(--font-display)}
+.pq .rg-person .rg-txt{gap:2px}
+.pq .rg-person .rg-txt b{font:700 18px/normal var(--font-display);color:var(--paper)}
+.pq .rg-person .rg-txt small{font:600 13px/normal var(--font-sans);color:var(--smoke)}
+.pq .rg-person .rg-chip{height:auto;padding:6px 12px;gap:0;background:var(--lime);color:var(--fixed-ink);font:700 12px/normal var(--font-sans)}
+.pq .rg-person .rg-chip i{display:none}
+.pq .rg-seeall{align-self:flex-start;color:var(--lime);font:700 13px/normal var(--font-sans);text-decoration:none}
+.pq .pqtext{font:500 15px/1.45 var(--font-sans);color:var(--paper);white-space:pre-wrap}
+.pq .pqtext.smoke{color:var(--smoke)}
+.pq .pqchips{display:flex}
+.pq .pqchips .rg-chip{height:32px;padding:0 14px 0 12px;gap:6px;background:var(--graphite);color:var(--paper);font:700 13px/1 var(--font-sans)}
+.pq .pqfoot{font:500 12px/normal var(--font-sans);color:var(--smoke)}
+.pq .rg-srow{min-height:0;padding:18px 16px 18px 20px;gap:12px;border-radius:999px;background:var(--carbon)}
+.pq .rg-srow .rg-srlabel{flex:1 0 0;min-width:0;font:700 16px/normal var(--font-sans);color:var(--paper)}
+.pq .rg-srow .rg-srvalue{flex:none;white-space:nowrap;font:600 15px/normal var(--font-sans);color:var(--smoke)}
+.pq .rg-srow .rg-ic{width:18px;height:18px}
+.pq .rg-stack8{display:flex;flex-direction:column;gap:16px}
+/* 2.0 / Drive card (359:1134) */
+.rg-drive{display:flex;flex-direction:column;gap:14px;padding:18px 18px 18px 24px;border-radius:40px;background:var(--lime);color:var(--fixed-ink);text-decoration:none}
+.rg-drvtop{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.rg-drvk{font:700 10px/1 var(--font-sans);letter-spacing:.8px;text-transform:uppercase}
+.rg-drvleave{padding:6px 10px;border-radius:999px;background:var(--fixed-ink);color:var(--lime);font:700 11px/1 var(--font-sans)}
+.rg-drvmid{display:flex;align-items:flex-end;justify-content:space-between}
+.rg-drvnum{display:flex;align-items:flex-end;gap:6px}
+.rg-drvnum b{font:700 80px/.8 var(--font-display);letter-spacing:-5.6px}
+.rg-drvnum>span{display:flex;flex-direction:column;gap:2px;padding-bottom:8px}
+.rg-drvnum i{font:700 18px/normal var(--font-display);font-style:normal}
+.rg-drvnum small{font:700 12px/normal var(--font-sans)}
+.rg-drvdisc{display:grid;place-items:center;width:60px;height:60px;border-radius:999px;background:var(--fixed-ink);color:var(--fixed-paper)}
+.rg-drvdisc .rg-ic{width:24px;height:24px}
+/* 2.0 / Event card status (350:498) and Social card (2072:3782) exact */
+.rg-ecstatus{height:auto;padding:6px 12px}
+.rg-sotitle{line-height:.95;letter-spacing:-2px}
+.rg-soacts .rg-outline,.rg-soacts .rg-joined{height:auto;padding:12px 18px}
+.pq .rg-ic,.rg-drive .rg-ic{margin:0}
+.pq .rg-secact{min-height:0;height:auto;line-height:1}
+.pq .rg-person .rg-txt small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pq .rg-pabadge{padding:0 8px;border-radius:999px}
+.rg-drvtop{min-height:25px}
+.rg-faces:empty{display:none}.rg-faces:empty+span{padding-left:0}
+
+/* ===== Edit practice · Figma 63 frame 8 (2523:20244), exact values ===== */
+body.practicepage.editor main{padding:12px 16px 24px}
+.pqedit{display:flex;flex-direction:column;gap:20px}
+.pqedit>*{margin:0 !important}
+.pqedit .pqrows{display:contents}
+.pqedit h3.rg-day{margin:0;font:700 11px/normal var(--font-sans);letter-spacing:.88px;text-transform:uppercase;color:var(--smoke)}
+.pqedit .actseg{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;background:transparent}
+.pqedit .actseg span{display:inline-flex;align-items:center;gap:6px;height:32px;min-height:32px;padding:0 14px 0 12px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 13px/normal var(--font-sans)}
+.pqedit .actseg span::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor}
+.pqedit .actseg input:checked+span{background:var(--lime);color:var(--fixed-ink)}
+.pqedit .rg-srow,.pqedit .li.selfield{display:flex;align-items:center;gap:12px;width:100%;min-height:0;height:auto;padding:18px 16px 18px 20px;border:0;border-radius:999px;background:var(--carbon);text-align:left}
+.pqedit .rg-srow .rg-srlabel,.pqedit .li.selfield .selfieldk{flex:1 0 0;min-width:0;font:700 16px/normal var(--font-sans);color:var(--paper);text-transform:none;letter-spacing:0}
+.pqedit .rg-srow .rg-srvalue,.pqedit .li.selfield .selfieldv{flex:none;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 15px/normal var(--font-sans);color:var(--smoke)}
+.pqedit .rg-srow .rg-ic,.pqedit .li.selfield svg{width:18px;height:18px;margin:0;flex:none;color:var(--smoke)}
+.pqedit>textarea.planfield{display:block;width:100%;min-height:96px;margin:0;padding:16px;border:0;border-radius:32px;background:var(--carbon);color:var(--paper);font:500 15px/normal var(--font-sans);box-sizing:border-box}
+.pqedit>textarea.planfield::placeholder{color:var(--smoke)}
+.pqedit>p.rg-note{font:500 12px/normal var(--font-sans);color:var(--smoke)}
+.pqedit>button.rg-btn.primary{width:100%;height:56px;min-height:56px;padding:0 24px;border-radius:999px;font:700 16px/1 var(--font-sans)}
+
+body.practicepage .pqedit .actseg span{height:32px !important;min-height:32px !important;padding:0 14px 0 12px !important;font:700 13px/normal var(--font-sans) !important}
+body.practicepage .pqedit>textarea.planfield{min-height:96px !important;border-radius:32px !important;padding:16px !important}
+body.practicepage .pqedit .li.selfield{padding:18px 16px 18px 20px !important;gap:12px !important;font:700 16px/normal var(--font-sans)}
+/* Social screen · Figma 63 frame 10 (pushed from Edit practice) */
+dialog.pqscreen{position:fixed;inset:0;width:100%;max-width:none;height:100%;max-height:none;margin:0;padding:0;border:0;background:var(--ink);color:var(--paper);overflow-y:auto}
+dialog.pqscreen::backdrop{background:var(--ink)}
+.pqscreenin{display:flex;flex-direction:column;gap:20px;max-width:480px;margin:0 auto;padding:0 16px 24px}
+.pqscreenin>*{margin:0 !important}
+.pqscreenin>.rg-topbar{margin:0 -16px !important;position:static}
+.pqscreenin .rg-tbdisc{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:0;border-radius:999px;background:var(--graphite);color:var(--paper)}
+.pqscreenin h2.pqdisplay{font:700 64px/.9 var(--font-display);letter-spacing:-3.2px;color:var(--paper)}
+.pqscreenin h3.rg-day{font:700 11px/normal var(--font-sans);letter-spacing:.88px;text-transform:uppercase;color:var(--smoke)}
+.pqscreenin .actseg{display:flex;flex-wrap:wrap;gap:8px;padding:0;background:transparent}
+.pqscreenin .actseg label{flex:none;margin:0}
+.pqscreenin .actseg input{position:absolute;opacity:0;pointer-events:none}
+.pqscreenin .actseg span{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px 0 12px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 13px/normal var(--font-sans);text-transform:none;letter-spacing:0}
+.pqscreenin .actseg span::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor}
+.pqscreenin .actseg input:checked+span{background:var(--lime);color:var(--fixed-ink)}
+.pqscreenin .rg-srow{display:flex;align-items:center;gap:12px;width:100%;padding:18px 16px 18px 20px;border:0;border-radius:999px;background:var(--carbon);text-align:left}
+.pqscreenin .rg-srow .rg-srlabel{flex:1 0 0;min-width:0;font:700 16px/normal var(--font-sans);color:var(--paper)}
+.pqscreenin .rg-srow .rg-srvalue{flex:none;max-width:65%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 15px/normal var(--font-sans);color:var(--smoke)}
+.pqscreenin .rg-srow .rg-ic{width:18px;height:18px;margin:0;flex:none;color:var(--smoke)}
+.pqscreenin p.pqok{font:500 12px/normal var(--font-sans);color:var(--lime)}
+.pqscreenin p.pqok[hidden]{display:none}
+.pqscreenin textarea.planfield{display:block;width:100%;min-height:96px;padding:16px;border:0;border-radius:32px;background:var(--carbon);color:var(--paper);font:500 15px/normal var(--font-sans);box-sizing:border-box}
+.pqscreenin textarea.planfield::placeholder{color:var(--smoke)}
+.pqscreenin .rg-btn{width:100%;height:56px;min-height:56px;padding:0 24px;border-radius:999px;font:700 16px/normal var(--font-sans)}
+.pqscreenin .rg-btn.primary{background:var(--lime);color:var(--fixed-ink);border:0}
+.pqscreenin .rg-btn.ghost{background:transparent;border:1.5px solid var(--graphite);color:var(--paper)}
+body .pqedit dialog.pqscreen{width:100% !important;max-width:none !important;height:100% !important;max-height:none !important;margin:0 !important;left:0;right:0}
+body .pqedit dialog.pqscreen textarea.planfield{min-height:96px !important;border-radius:32px !important;background:var(--carbon) !important;padding:16px !important}
+body .pqedit dialog.pqscreen{background:var(--ink) !important}
+.pqscreenin .rg-srow .rg-srlabel{flex:1 0 auto}
+.pqscreenin .rg-srow .rg-srvalue{flex:0 1 auto;max-width:none}
+/* 2.0 / Toggle (02, 349:567 / 349:569): 60×34 track, 26 knob, 4 inset */
+.rg-toggle i{width:60px;height:34px;border-radius:999px;background:var(--graphite)}
+.rg-toggle i::after{top:4px;left:5.5px;width:26px;height:26px;background:var(--smoke)}
+.rg-toggle input:checked+i::after,.rg-toggle i.on::after{transform:translateX(24.5px);background:var(--fixed-ink)}
+.rg-toggle.plain{padding:0;border-radius:0;background:transparent;gap:0}
+.rg-toggle.plain>span{gap:0}
+.rg-toggle.plain b{font:700 15px/normal var(--font-sans);color:var(--paper)}
+.rg-toggle.plain small{font:500 12px/normal var(--font-sans);color:var(--smoke)}
+.rg-toggle.plain:not(:has(small)) b{font-weight:500}
+/* Practice sheets · Figma 63 frames 4, 5, 7, 9, 11: carbon sheet, 16 pad, 8 gap, 28 radius, full width */
+dialog.botsheet.pqsheet{width:100% !important;max-width:none !important;margin:auto 0 0 !important;left:0;right:0;padding:0 !important}
+dialog.pqsheet .sheet{display:flex !important;flex-direction:column;gap:8px;width:100% !important;max-width:none !important;padding:16px !important;border-radius:28px !important;background:var(--carbon) !important;box-sizing:border-box}
+dialog.pqsheet .sheet>*,dialog.pqsheet .rg-stack8>*{margin:0 !important}
+dialog.pqsheet .grab{display:none !important}
+dialog.pqsheet input[type=hidden]{display:none}
+dialog.pqsheet h2{margin:0;font:700 22px/.95 var(--font-display) !important;letter-spacing:-.66px !important;color:var(--paper)}
+dialog.pqsheet .ty-muted{margin:0;font:500 12px/normal var(--font-sans) !important;color:var(--smoke)}
+dialog.pqsheet h3.rg-day{margin:0;font:700 11px/normal var(--font-sans);letter-spacing:.88px;text-transform:uppercase;color:var(--smoke)}
+dialog.pqsheet .rg-stack8{display:flex;flex-direction:column;gap:8px}
+dialog.pqsheet .rg-srow{display:flex;align-items:center;gap:12px;width:100%;min-height:0;height:auto;padding:18px 16px 18px 20px;border:0;border-radius:999px;background:var(--carbon);text-align:left;box-sizing:border-box}
+dialog.pqsheet .rg-srow .rg-srlabel{flex:1 0 0;min-width:0;font:700 16px/normal var(--font-sans);color:var(--paper)}
+dialog.pqsheet .rg-srow .rg-srvalue{flex:none;font:600 15px/normal var(--font-sans);color:var(--smoke)}
+dialog.pqsheet .rg-srow .rg-ic{width:18px;height:18px;margin:0;flex:none;color:var(--smoke)}
+dialog.pqsheet .rg-btn{width:100%;height:56px;min-height:56px;padding:0 24px;border-radius:999px;font:700 16px/normal var(--font-sans);box-shadow:none}
+dialog.pqsheet .rg-btn.primary{background:var(--lime);color:var(--fixed-ink);border:0}
+dialog.pqsheet .rg-btn.secondary{background:var(--graphite);color:var(--paper);border:0}
+dialog.pqsheet .rg-btn.danger{background:var(--team-tangerine);color:var(--fixed-ink);border:0}
+dialog.pqsheet .rg-btn.ghost{background:transparent;border:1.5px solid var(--graphite);color:var(--paper)}
+dialog.pqsheet .rg-note{margin:0;font:500 12px/normal var(--font-sans) !important;color:var(--smoke)}
+dialog.pqsheet form{display:contents}
+/* 2.0 / Select option (graphite, r20, 60 tall, 16 px, 2px ring) */
+dialog.pqsheet .rg-choice{min-height:60px;height:60px;margin:0;padding:0 16px;gap:12px;border-radius:20px;background:var(--graphite);box-shadow:inset 0 0 0 2px transparent}
+dialog.pqsheet .rg-choice:has(input:checked){box-shadow:inset 0 0 0 2px var(--lime)}
+dialog.pqsheet .rg-choice .rg-txt{gap:2px}
+dialog.pqsheet .rg-choice .rg-txt b{font:700 16px/normal var(--font-sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+dialog.pqsheet .rg-choice .rg-txt small{font:500 13px/normal var(--font-sans);color:var(--smoke);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+dialog.pqsheet .rg-choice i{width:24px;height:24px;border-radius:999px;box-shadow:inset 0 0 0 2px var(--smoke)}
+dialog.pqsheet .rg-choice.checkbox i{border-radius:8px}
+dialog.pqsheet .rg-choice input:checked~i{background:var(--lime);box-shadow:none}
+dialog.pqsheet .rg-choice.radio input:checked~i::after{inset:7px;background:var(--fixed-ink)}
+dialog.pqsheet .rg-choice.checkbox input:checked~i::after{content:"";position:absolute;left:8px;top:4px;width:6px;height:11px;border:solid var(--fixed-ink);border-width:0 2.2px 2.2px 0;transform:rotate(45deg)}
+dialog.pqsheet div[data-leadfor]{display:contents}
+dialog.pqsheet div[data-leadfor][hidden]{display:none}
+/* Figma 63 frame 5: ink text area r16, min 140 */
+dialog.pqsheet textarea.planfield{display:block;width:100%;min-height:140px;margin:0;padding:16px;border:0;border-radius:16px;background:var(--ink) !important;color:var(--paper);font:500 15px/normal var(--font-sans);box-sizing:border-box;resize:vertical}
+dialog.pqsheet textarea::placeholder{color:var(--smoke)}
+/* Cancel (frame 9): 12 gap, 15px lead, ink reason r32 min 80, paired buttons */
+dialog.pqcancel .sheet{gap:12px}
+dialog.pqcancel p.pqlead{margin:0;font:500 15px/normal var(--font-sans);color:var(--smoke)}
+dialog.pqcancel textarea.pqreason{display:block;width:100%;min-height:80px;margin:0;padding:16px;border:0;border-radius:32px;background:var(--ink) !important;color:var(--paper);font:500 15px/normal var(--font-sans);box-sizing:border-box;resize:none}
+dialog.pqcancel .pqpair{display:flex;gap:8px}
+dialog.pqcancel .pqpair .rg-btn{flex:1 0 0;min-width:0;padding:0 12px}
+dialog.pqsheet .sheet:focus{outline:none}
+dialog.pqsheet .sheet{gap:8px !important;row-gap:8px !important}
+dialog.pqcancel .sheet{gap:12px !important;row-gap:12px !important}
+dialog.pqsheet .sheet>form{display:contents !important}
+dialog.pqsheet .sheet>form>*{margin:0 !important}

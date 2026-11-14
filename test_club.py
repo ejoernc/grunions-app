@@ -1080,14 +1080,15 @@ def test_rides_show_areas_only_and_match_one_driver():
     assert "not a street address" in r.get_data(as_text=True)
     rider.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(rider, "/practices/%d" % pid), action="ask", area="Belmont Shore", back="1"))
     driver.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(driver, "/practices/%d" % pid), action="offer", area="Long Beach", seats="2", back="1"))
-    page = driver.get("/practices/%d" % pid).get_data(as_text=True)
-    assert "Needs a ride · Belmont Shore" in page and "Pick up" in page
+    page = driver.get("/practices/%d/rides" % pid).get_data(as_text=True)
+    assert "Belmont Shore" in page and "value=pick" in page
+    assert "/practices/%d/rides" % pid in driver.get("/practices/%d" % pid).get_data(as_text=True)
     with A.app.app_context():
         rid = A.db().execute("SELECT r.id FROM ride_requests r JOIN members m ON m.id=r.rider_id WHERE m.email='rae.rider@example.com' AND status='open'").fetchone()[0]
     driver.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(driver, "/practices/%d" % pid), action="pick", req_id=rid))
     driver.post("/practices/%d/rides" % pid, data=dict(csrf=csrf(driver, "/practices/%d" % pid), action="spot", req_id=rid, pickup_note="Corner of 2nd and Granada"))
-    mine = rider.get("/practices/%d" % pid).get_data(as_text=True)
-    assert "RIDE CONFIRMED" in mine and "Dev is driving" in mine
+    mine = rider.get("/practices/%d/rides" % pid).get_data(as_text=True)
+    assert "Dev is driving you" in mine
     assert "Corner of 2nd and Granada" not in mine  # two days out: outside the pickup window
     rider.post("/practices/%d" % pid, data=dict(csrf=csrf(rider, "/practices/%d" % pid), pid=pid, action="notgoing"))
     with A.app.app_context():

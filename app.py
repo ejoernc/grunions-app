@@ -1232,8 +1232,13 @@ def nav_context_processor():
     args = nav_args()
     kind = nav.kind(ep, args)
     href = nav.parent_url(ep, args, url_for) or ""
+    back_title = nav.parent_title(ep, args)
+    # Figma 63 · 6: Check-in opened from a practice goes back to that practice ("‹ Practice").
+    if ep == "admin" and (request.args.get("from") or "") == "practice" and (request.args.get("ev") or "").startswith("p-"):
+        pid = (request.args.get("ev") or "")[2:]
+        if pid.isdigit(): href, back_title = "/practices/%s" % pid, "Practice"
     return {"nav_kind": kind, "nav_area": nav.area(ep, args), "nav_back_href": href,
-            "nav_back_title": nav.parent_title(ep, args), "nav_title": nav.title(ep, args),
+            "nav_back_title": back_title, "nav_title": nav.title(ep, args),
             "nav_topbar": kind == "page" and bool(href)}
 def _build_id():
     """Changes whenever page CSS/templates change. In-app navigation swaps only <main>, so a tab opened before a
@@ -5291,6 +5296,31 @@ def practice_going_line(n, p):
         if level: parts.append(level)
         if division: parts.append(division)
     return " · ".join(parts)
+def _practice_social_cards(p):
+    """Figma 63: on the practice page the social card's second line reads 'Then Water polo practice at 7:00'."""
+    cards = schedule_social_cards(p)
+    try:
+        h, m = [int(x) for x in str(p["start"] or "19:00").split(":")[:2]]
+        clock = "%d:%02d" % ((h - 1) % 12 + 1, m)
+    except ValueError:
+        clock = ""
+    label = "%s practice%s" % ((p["sport"] or "Water polo").capitalize(), (" at " + clock) if clock else "")
+    for c in cards:
+        c["practice"] = label
+    return cards
+def practice_what(p):
+    """Figma 63 · 8 WHAT: activity chips, then Name / Sport / Skill levels / Division as rows. Same fields as sports_editor."""
+    html = str(sports_editor(p))
+    title = re.search(r'<label>Title<input name=title id=actTitle[^>]*></label>', html)
+    sport = re.search(r'<label>Sport<input name=sport[^>]*></label>', html)
+    seg_end = html.index("</div>") + 6 if html.startswith("<div class=actseg") else 0
+    chips, rest = html[:seg_end], html[seg_end:]
+    for m in (title, sport):
+        if m: rest = rest.replace(m.group(0), "", 1)
+    return {"chips": Markup(chips), "title": Markup(title.group(0).replace("<label>Title", "<label class=rg-field><span>NAME</span>", 1)) if title else Markup(""),
+            "sport": Markup(sport.group(0).replace("<label>Sport", "<label class=rg-field><span>SPORT</span>", 1)) if sport else Markup(""),
+            "rest": Markup(rest)}
+app.jinja_env.globals.update(practice_what=practice_what)
 def sports_editor(row=None, show_activity=True, show_format=False):
     """Shared activity, level, and division fields. Levels are an exact set."""
     data = sports.sports_from_row(row) if row is not None else {
@@ -5375,7 +5405,8 @@ def fmt_stamp(s):
     day, clock = str(s).split("T", 1)
     try: return "%s, %s" % (fmt_d(day[:10]), fmt_t(clock[:5]))
     except (ValueError, IndexError): return ""
-SOCIAL_KINDS = ("Dinner", "Drinks", "Social", "Coffee", "Dessert", "Activities", "Potluck", "Other")
+SOCIAL_KINDS = ("Dinner", "Drinks", "Social", "Coffee", "Breakfast", "Dessert", "Activities", "Potluck", "Other")
+PRACTICE_SOCIAL_KINDS = ("Coffee", "Breakfast", "Drinks", "Dinner")  # Figma 63 · 10
 def _field(row, key):
     try:
         if hasattr(row, "keys") and key in row.keys(): return row[key]
@@ -5446,11 +5477,15 @@ def save_social(d, pid, form):
     if kind and not place: return False
     end_row = d.execute("SELECT end FROM practices WHERE id=?", (pid,)).fetchone()
     end = ((end_row["end"] if end_row else "") or "20:30")[:5]
-    if social_time and _clock_minutes(social_time) < _clock_minutes(end):
+    when = (form.get("social_when") or "").strip().lower()
+    if when not in ("before", "after"):
+        cur = d.execute("SELECT social_when FROM practices WHERE id=?", (pid,)).fetchone()
+        when = ((cur["social_when"] if cur else "") or "after").strip().lower()
+    if when == "after" and social_time and _clock_minutes(social_time) < _clock_minutes(end):
         social_time = end
     old = d.execute("SELECT social_place, social_address, social_kind FROM practices WHERE id=?", (pid,)).fetchone()
-    d.execute("""UPDATE practices SET social_kind=?, social_place=?, social_address=?, social_time=?, social_note=? WHERE id=?""",
-              (kind, place, address, social_time, note, pid))
+    d.execute("""UPDATE practices SET social_kind=?, social_place=?, social_address=?, social_time=?, social_note=?, social_when=? WHERE id=?""",
+              (kind, place, address, social_time, note, when, pid))
     moved = not old or (old["social_place"] or "") != (place or "") or (old["social_address"] or "") != (address or "") or not kind
     if moved or not has_social_address_text(address):
         d.execute("UPDATE practices SET social_lat=NULL, social_lng=NULL, social_route=NULL, social_drive_min=NULL, social_routed=0 WHERE id=?", (pid,))
@@ -6038,7 +6073,7 @@ def sport_card_status(practice, mine):
         return sportspay.card_status(db(), me(), practice, mine, today_pt().isoformat())
     except Exception:
         return ""
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_live_chip=practice_live_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS, sport_filter_names=sport_filter_names, sport_card_status=sport_card_status, level_catalog=level_catalog)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_live_chip=practice_live_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, PRACTICE_SOCIAL_KINDS=PRACTICE_SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS, sport_filter_names=sport_filter_names, sport_card_status=sport_card_status, level_catalog=level_catalog)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
@@ -6483,7 +6518,7 @@ def _social_card(p, when, kinds, place, address, clock):
             live = social_after_window(p, now)
     except (TypeError, ValueError):
         live = False
-    return {"when": when, "title": title, "place": place, "address": address,
+    return {"when": when, "title": title, "kind": " & ".join(names).lower(), "place": place, "address": address,
             "clock": clock, "practice_id": p["id"], "practice": practice_title(p), "live": live, "slot": 1}
 def _decorate_social(d, card, mid):
     """Faces and the going line for the shared social card. Joins only — not practice RSVPs."""
@@ -6819,7 +6854,7 @@ def practice_page(pid):
     level_opts = [(pid_, name, short, pid_ in lv) for pid_, name, short, _f in level_catalog(p["sport"], p["skill_levels"] or "")] if host else []
     div_opts = [(k, name, k in dv) for k, name in sports.DIVISIONS] if host else []
     sports_now = {"levels": sports.levels_label(p["skill_levels"] or "", level_catalog(p["sport"], p["skill_levels"] or "")), "division": sports.divisions_label(p["divisions"] or "", p["division_custom"] or "")}
-    return page(T["practice"], tab="practice", fx=practice_flows(d, p), x=bundle, to_play=to_play, holds=holds, level_opts=level_opts, div_opts=div_opts, sports_now=sports_now, editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin", social_cards=schedule_social_cards(p))
+    return page(T["practice"], tab="practice", fx=practice_flows(d, p), x=bundle, to_play=to_play, holds=holds, level_opts=level_opts, div_opts=div_opts, sports_now=sports_now, editing=editing, plan_editing=plan_editing, pins=map_pins(p), coach_choices=coach_candidates(d) if host else [], from_admin=request.args.get("from") == "admin", social_cards=_practice_social_cards(p))
 @app.route("/practices/series/new", methods=["GET", "POST"])
 @admin_required
 def series_new():
