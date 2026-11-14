@@ -637,9 +637,11 @@ def test_payment_tag_is_separate_from_clearance_and_does_not_touch_rsvps():
     roster = admin.get("/members").get_data(as_text=True)
     assert "Unpaid" in roster and ">Paying</a>" not in roster and ">Not paying</a>" not in roster and 'data-seg' in roster
     passes = admin.get("/manage/club/plans").get_data(as_text=True)
-    assert "Create pass" in passes and "Monthly Membership" in passes and "Water Polo 2-Week Free Trial" in passes and "Drop-in" in passes
-    assert "Swimming drop-in" not in passes and "min-height:72px" in passes
-    editor = admin.get("/manage/club/plans/%d" % plan).get_data(as_text=True)
+    assert "Create a pass" in passes and "Monthly Membership" in passes and "Water Polo 2-Week Free Trial" in passes and "Drop-in" in passes
+    assert "Swimming drop-in" not in passes
+    page = admin.get("/manage/club/plans/%d" % plan).get_data(as_text=True)
+    assert "Every setting, in plain words." in page and "Get it on Club Assistant" in page and "Billing &amp; renewal" in page
+    editor = admin.get("/manage/club/plans/%d?classic=1" % plan).get_data(as_text=True)
     assert "Summary" in editor and "cid=103002" in editor and "Water Polo" in editor and "Does not" not in editor
     assert "A pass grants access only" in editor and "name=kind" in editor and "Renews indefinitely" in editor
     assert "Specific events" not in editor and "Active dates" in editor and "Starts right away" in editor and "Runs indefinitely" in editor

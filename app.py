@@ -9526,15 +9526,28 @@ def _division_form(slug, div_id):
     body = clubadmin.division_edit_html(d, program, row, csrf_field()) if row else clubadmin.division_edit_html(d, program, None, csrf_field())
     return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Sessions keep a removed division if they already use it.') }}{{ club_body|safe }}",
         tab="admin", admin_back=back, title=title, club_body=body)
-@app.route("/manage/club/plans", methods=["GET"])
+@app.route("/manage/club/plans", methods=["GET", "POST"])
 @admin_required
 def club_plans():
+    if request.method == "POST":
+        import clubadmin, passes
+        d = db(); clubadmin.ensure(d)
+        try:
+            before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
+            plan_id = passes.create(d, request.form); d.commit()
+            if d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != before: raise RuntimeError("saving a pass must not change RSVPs")
+            flash("Pass created · it's off until you turn it on", "toast")
+            return redirect("/manage/club/plans/%d" % plan_id)
+        except ValueError as exc:
+            d.rollback(); flash(str(exc), "toast")
+            return redirect("/manage/club/plans")
     import clubadmin
     d = db()
     clubadmin.ensure(d)
     # "How members pay" (payment providers) is hidden for now (Nov 13). clubadmin.integrations_html still exists.
-    return page(ui.ADMIN_NAV + "{{ admin_page('Plans & payments', 'A pass grants access. It does not clear a sport requirement.') }}{{ club_body|safe }}",
-        tab="admin", club_body=clubadmin.plans_html(d))
+    import passes
+    cards = [passes.card(d, p) for p in clubadmin.visible_plans(d)]
+    return page(T["passes"], tab="admin", cards=cards, kinds=passes.NEW_KINDS)
 @app.route("/manage/club/plans/new", methods=["GET", "POST"])
 @admin_required
 def club_plan_new():
@@ -9563,19 +9576,53 @@ def club_plan(plan_id):
     plan = d.execute("SELECT * FROM payment_plans WHERE id=? AND COALESCE(archived,0)=0", (plan_id,)).fetchone()
     if not plan:
         abort(404)
+    import passes
     if request.method == "POST":
+        section = request.form.get("section") or ""
+        auto = request.headers.get("X-Autosave") == "1"
         try:
             before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
-            clubadmin.save_pass(d, plan_id, request.form)
+            if section == "price":
+                passes.add_price(d, plan_id, request.form.get("price"), request.form.get("effective_on"))
+            elif section == "duplicate":
+                f = passes.form_from_plan(d, plan); f["name"] = ("Copy of " + plan["name"])[:80]; f.pop("active", None)
+                new_id = clubadmin.save_pass(d, None, f)
+                for r in d.execute("SELECT amount_cents, effective_on FROM payment_prices WHERE plan_id=?", (plan_id,)).fetchall():
+                    d.execute("INSERT INTO payment_prices(plan_id, amount_cents, effective_on) VALUES(?,?,?)", (new_id, r["amount_cents"], r["effective_on"]))
+                d.commit(); flash("Duplicated · the copy is off", "toast")
+                return redirect("/manage/club/plans/%d" % new_id)
+            elif section == "archive":
+                d.execute("UPDATE payment_plans SET archived=1, active=0 WHERE id=?", (plan_id,))
+                d.commit(); flash("Pass removed. Anyone who has it keeps it.", "toast")
+                return redirect("/manage/club/plans")
+            elif section:
+                form = request.form
+                if auto:
+                    form = request.form.copy(); form["active"] = request.form.get("active") or "0"
+                passes.save_section(d, plan, section, form)
+            else:
+                clubadmin.save_pass(d, plan_id, request.form)
             d.commit()
             if d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != before:
                 raise RuntimeError("saving a pass must not change RSVPs")
+            if auto:
+                on = request.form.get("active") == "1"
+                return jsonify({"ok": True, "toast": "Pass is on" if on else "Pass is off"})
             flash("Saved", "toast")
         except ValueError as exc:
-            flash(str(exc))
+            d.rollback()
+            if auto: return jsonify({"ok": False, "toast": str(exc)})
+            flash(str(exc), "toast")
         return redirect("/manage/club/plans/%d" % plan_id)
-    return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Access only. Saving does not charge a card or change an RSVP.') }}{{ club_body|safe }}",
-        tab="admin", admin_back="/manage/club/plans", title=plan["name"], club_body=clubadmin.plan_edit_html(d, plan, csrf_field()))
+    plan = d.execute("SELECT * FROM payment_plans WHERE id=?", (plan_id,)).fetchone()
+    if request.args.get("classic") == "1":
+        return page(ui.ADMIN_NAV + "{{ admin_page(title, 'Access only. Saving does not charge a card or change an RSVP.') }}{{ club_body|safe }}",
+            tab="admin", admin_back="/manage/club/plans", title=plan["name"], club_body=clubadmin.plan_edit_html(d, plan, csrf_field()))
+    people = d.execute("""SELECT id, first, preferred_first, last FROM members WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1
+        ORDER BY lower(COALESCE(NULLIF(preferred_first,''), first)), lower(last)""").fetchall()
+    return page(T["pass"], tab="admin", admin_back="/manage/club/plans", plan=plan, c=passes.card(d, plan), sections=passes.detail(d, plan), f=passes.form_from_plan(d, plan),
+                progs=clubadmin.programs(d), acts=clubadmin.ACTIVITIES, cats=clubadmin.LINEUP_CATS, kinds=clubadmin.PASS_KINDS,
+                people=people, pay=passes.pay_mode(d, plan), today_iso=today_pt().isoformat())
 @app.route("/manage/club/requirements/new", methods=["GET", "POST"])
 @admin_required
 def club_requirement_new():

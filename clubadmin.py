@@ -2361,7 +2361,7 @@ def save_pass(d, plan_id, form):
         plan_id = d.execute("""INSERT INTO payment_plans(name, kind, provider_id, external_url, activities, description, currency,
             renewal, renewal_count, frequency, length_mode, length_days, length_sessions, audience, one_per_person,
             uses_per_event, lineup_categories, active_from, active_until, terms, offer_code, active, archived, sports, notes)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'','')""", fields).lastrowid
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'','')""", fields).lastrowid
     cents = _dollars(form.get("price"))
     if cents is not None:
         today = dt.date.today().isoformat()

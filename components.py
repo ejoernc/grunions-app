@@ -747,7 +747,23 @@ def status_list(rows):
             _e(r["title"]), ('<small>%s</small>' % _e(r["sub"])) if r.get("sub") else "", side, r.get("extra", "")))
     return Markup('<div class=rg-slist>%s</div>' % "".join(out))
 
+
+def pass_card(name, on, price, per="", covers="", line="", href="", hero=False, button="", button_href=""):
+    """2.0 / Pass card (Figma 62 P1/H2): name + On/Off chip, big price, what it covers, renewal line.
+    hero = the lime top card on the pass page, with the member-facing button."""
+    btn = ('<a class=rg-passbtn href="%s" target=_blank rel=noopener>%s</a>' % (_e(button_href), _e(button))) if button and button_href else ""
+    inner = ('<span class=rg-passtop><b>%s</b>%s</span><span class=rg-passprice><b>%s</b><small>%s</small></span>%s%s%s') % (
+        _e(name), str(chip("On" if on else "Off", "going" if on else "neutral")), _e(price), _e(per),
+        ('<span class=rg-passcov>%s</span>' % _e(covers)) if covers else "", ('<small class=rg-passline>%s</small>' % _e(line)) if line else "", btn)
+    klass = "rg-pass" + (" hero" if hero else "")
+    return Markup(_tag(href, klass, inner) if href else '<div class="%s">%s</div>' % (klass, inner))
+
+
+def kv_rows(rows):
+    """2.0 / Key–value rows inside a detail group (Figma 62 H2): smoke label, paper value."""
+    return Markup('<dl class=rg-kv>%s</dl>' % "".join('<dt>%s</dt><dd>%s</dd>' % (_e(k), _e(v)) for k, v in rows))
+
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, rg_person=person_row, rg_group_card=group_card, rg_detail_group=detail_group, rg_doc_card=doc_card, rg_notif=notif_preview, rg_person_status=person_status, rg_status_list=status_list, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, rg_person=person_row, rg_group_card=group_card, rg_detail_group=detail_group, rg_doc_card=doc_card, rg_notif=notif_preview, rg_person_status=person_status, rg_status_list=status_list, rg_pass=pass_card, rg_kv=kv_rows, event_tone=event_tone)

@@ -8508,3 +8508,100 @@ T["member_status"] = """<div class=rg-sthead><span class="rg-pav tone-sky" aria-
 <button class="rg-btn primary">Mark paid</button></form>{% endif %}
 <div class=rg-btnrow style="margin-top:12px"><a class="rg-btn primary" href="/admin/member/{{ m.id }}">View profile</a>{% if dm %}<a class="rg-btn secondary" href="/chat?c={{ dm }}&place=me">Message {{ name.split()[0] }}</a>{% endif %}</div>
 <p class=rg-note>Fixes save right here. View profile opens the full profile.</p>"""
+
+T["passes"] = ADMIN_NAV + """<div class="rg-screen rg-passes">
+{# Figma 62 · P1/H1 Passes ‹ Club. "How members pay" stays hidden for now (Nov 13). #}
+{{ rg_page_title('Passes', 'What members can buy.') }}
+{{ rg_section_count('Passes', cards|length) }}
+<div class=rg-stack8>
+{% for c in cards %}{{ rg_pass(c.name, c.on, c.price, c.per, c.covers, c.line, '/manage/club/plans/' ~ c.id) }}{% else %}<p class=rg-note>No passes yet.</p>{% endfor %}
+</div>
+<button type=button class="rg-btn primary" style="width:100%;margin-top:12px" data-open-dialog=passNew>Create a pass</button>
+<p class=rg-note>A pass grants access. It doesn't clear a sport requirement, charge a card, or change an RSVP.</p>
+<dialog id=passNew class="botsheet modal"><form method=post class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<h2>New pass</h2><p class=ty-muted>What kind? You can change the details after.</p>
+{% for k, label, sub in kinds %}{{ rg_choice('kind', k, label, sub, loop.first) }}{% endfor %}
+<label class=rg-field><span>NAME</span><input name=name required minlength=3 maxlength=80 placeholder="Monthly Membership"></label>
+<label class=rg-field><span>PRICE</span><input name=price inputmode=decimal placeholder="45" autocomplete=off></label>
+<button class="rg-btn primary">Create and preview</button>
+<p class=rg-note>It starts off. Turn it on from the pass when it's ready.</p></form></dialog>
+</div>"""
+
+T["pass"] = ADMIN_NAV + """<div class="rg-screen rg-passes">
+{# Figma 62 · H2 Pass settings, H3 billing sheet, H4 who & limits sheet, P3 price, P4 covers #}
+{{ rg_page_title('Pass', 'Every setting, in plain words.') }}
+{{ rg_pass(c.name, c.on, c.price, c.per, c.covers, c.line, '', true, 'Get it on Club Assistant' if pay == 'external' and plan.external_url else '', plan.external_url if pay == 'external' else '') }}
+<form method=post data-autosave style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=section value=status>{{ rg_toggle('active', 'Pass is on', 'Members can get it now' if c.on else "Members can't see it", c.on) }}</form>
+<div class=rg-stack8 style="margin-top:8px">
+{% for key, title, rows in sections %}{{ rg_detail_group(title, none, 'Edit', '', 'data-open-dialog=ps_' ~ key, rg_kv(rows)) }}{% endfor %}
+</div>
+<div class=rg-btnrow style="margin-top:12px">
+<form method=post>{{ csrf_field() }}<button class="rg-btn secondary" style="width:100%" name=section value=duplicate>Duplicate</button></form>
+<form method=post>{{ csrf_field() }}<button class="rg-btn ghost" style="width:100%" name=section value=archive>Delete</button></form>
+</div>
+<p class=rg-note>Delete hides the pass from members. Anyone who already has it keeps it.</p>
+
+{% macro sheet(key, title) %}<dialog id="ps_{{ key }}" class="botsheet modal"><form method=post class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=section value="{{ key }}">
+<h2>{{ title }}</h2><p class=ty-muted>{{ plan.name }}</p>{{ caller() }}<button class="rg-btn primary">Save</button></form></dialog>{% endmacro %}
+
+{% call sheet('basics', 'Basics') %}
+<label class=rg-field><span>NAME</span><input name=name value="{{ plan.name }}" required minlength=3 maxlength=80></label>
+<label class=rg-field><span>DESCRIPTION</span><textarea name=description rows=3 maxlength=500>{{ plan.description or '' }}</textarea></label>
+<h3 class=rg-day>TYPE</h3>{% for k, label in kinds %}{{ rg_choice('kind', k, label, '', plan.kind == k) }}{% endfor %}
+{% endcall %}
+
+{% call sheet('price', 'Price') %}
+<label class=rg-field><span>PRICE (USD)</span><input name=price inputmode=decimal placeholder="45" required></label>
+<label class=rg-field><span>STARTS</span><input type=date name=effective_on value="{{ today_iso }}" min="{{ today_iso }}"></label>
+<p class=rg-note>Earlier prices stay in place until this one starts. Nobody is charged here.</p>
+{% endcall %}
+
+{% call sheet('billing', 'Billing & renewal' if plan.kind == 'monthly' else 'Length') %}
+{% if plan.kind == 'monthly' %}
+<h3 class=rg-day>HOW OFTEN</h3>{{ rg_choice_chips('frequency', [('week', 'Week'), ('month', 'Month'), ('year', 'Year')], plan.frequency or 'month') }}
+<h3 class=rg-day>HOW LONG</h3>
+{{ rg_choice('renewal', 'indefinite', 'Until cancelled', 'Keeps renewing every ' ~ (plan.frequency or 'month'), plan.renewal != 'fixed') }}
+{{ rg_choice('renewal', 'fixed', 'A set number of times', 'e.g. 3 months, then it ends', plan.renewal == 'fixed' and (plan.renewal_count or 0) != 1) }}
+<label class=rg-field><span>HOW MANY TIMES</span><input name=renewal_count inputmode=numeric value="{{ plan.renewal_count or 3 }}"></label>
+{{ rg_choice('renewal', 'once', "Doesn't renew", 'One period only', plan.renewal == 'fixed' and plan.renewal_count == 1) }}
+<p class=rg-note>Changes apply to the next renewal. Nobody is charged here.</p>
+{% else %}
+<h3 class=rg-day>ENDS AFTER</h3>
+{{ rg_choice('length_mode', 'duration', 'A number of days', '', plan.length_mode == 'duration') }}
+{{ rg_choice('length_mode', 'sessions', 'A number of practices', '', plan.length_mode == 'sessions') }}
+<div class=rg-fieldpair><label class=rg-field><span>DAYS</span><input name=length_days inputmode=numeric value="{{ plan.length_days or 0 }}"></label><label class=rg-field><span>PRACTICES</span><input name=length_sessions inputmode=numeric value="{{ plan.length_sessions or 0 }}"></label></div>
+{% endif %}
+{% endcall %}
+
+{% call sheet('dates', 'Active dates') %}
+<p class=ty-muted>Which events the pass covers. Blank means right away, and no end.</p>
+<div class=rg-fieldpair><label class=rg-field><span>START</span><input type=date name=active_from value="{{ (plan.active_from or '')[:10] }}"></label><label class=rg-field><span>END</span><input type=date name=active_until value="{{ (plan.active_until or '')[:10] }}"></label></div>
+{% endcall %}
+
+{% call sheet('covers', 'What it covers') %}
+<h3 class=rg-day>SPORTS</h3>{% for p in progs %}{{ rg_choice('program', p.id|string, p.public_name or p.name, '' if p.active else 'Off', (p.id|string) in f.getlist('program'), 'checkbox') }}{% endfor %}
+<h3 class=rg-day>SCHEDULE</h3>{% for k, label in acts %}{{ rg_choice('activity_' ~ k, '1', label, '', f.get('activity_' ~ k), 'checkbox') }}{% endfor %}
+<h3 class=rg-day>LINEUP</h3>{% for k, label in cats %}{{ rg_choice('lineup_' ~ k, '1', label, '', f.get('lineup_' ~ k), 'checkbox') }}{% endfor %}
+{% endcall %}
+
+{% call sheet('who', 'Who & limits') %}
+<h3 class=rg-day>WHO CAN GET IT</h3>
+{{ rg_choice('audience', 'everyone', 'Everyone', '', (plan.audience or 'everyone') == 'everyone') }}
+{{ rg_choice('audience', 'new', 'New members only', '', plan.audience == 'new') }}
+{{ rg_choice('audience', 'specific', 'Specific people', 'Pick them below', plan.audience == 'specific') }}
+<div class=rg-seatlist>{% for p in people %}{{ rg_choice('person', p.id|string, (p.preferred_first or p.first) ~ ' ' ~ (p.last or ''), '', (p.id|string) in f.getlist('person'), 'checkbox') }}{% endfor %}</div>
+<h3 class=rg-day>LIMITS</h3>
+<input type=hidden name=one_per_person value=0>{{ rg_toggle('one_per_person', 'One per person', 'Someone can only get it once', plan.one_per_person) }}
+<label class=rg-field><span>USES PER EVENT</span><input name=uses_per_event inputmode=numeric value="{{ plan.uses_per_event or 0 }}" placeholder="0 = no limit"></label>
+{% if plan.kind == 'trial' %}<input type=hidden name=offer_code value=0>{{ rg_toggle('offer_code', 'Needs a USA Water Polo trial membership', '', plan.offer_code == 'usawp_trial', 'usawp_trial') }}{% endif %}
+{% endcall %}
+
+{% call sheet('pay', 'Where to pay') %}
+{{ rg_choice('pay', 'external', 'Club Assistant link', 'Members pay on your registration page', pay == 'external') }}
+{{ rg_choice('pay', 'manual', 'Manual — the board records it', 'Cash, Venmo, check', pay == 'manual') }}
+{{ rg_choice('pay', 'none', 'Free', 'Trials and free passes', pay == 'none') }}
+<label class=rg-field><span>REGISTRATION LINK</span><input name=external_url value="{{ plan.external_url or '' }}" placeholder="https://"></label>
+<label class=rg-field><span>TERMS</span><textarea name=terms rows=3 maxlength=2000>{{ plan.terms or '' }}</textarea></label>
+{% endcall %}
+<p class=rg-note><a href="/manage/club/plans/{{ plan.id }}?classic=1">All settings on one page</a></p>
+</div>"""

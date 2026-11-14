@@ -571,3 +571,27 @@ def test_participants_tiles_filters_and_status_drawer():
     assert member.get("/members/%d/status" % RAE).status_code in (302, 403)
     classic = boss.get("/members?view=coaches").get_data(as_text=True)
     assert "Participants." not in classic
+
+
+def test_passes_create_sheet_sections_and_archive_keep_rsvps():
+    page = boss.get("/manage/club/plans").get_data(as_text=True)
+    assert "Passes." in page and "Create and preview" in page and "How members pay" not in page
+    tok = csrf(boss, "/manage/club/plans")
+    r = boss.post("/manage/club/plans", data=dict(csrf=tok, kind="pass", name="Ten Pack", price="120"))
+    pid = int(r.headers["Location"].rsplit("/", 1)[1])
+    row = sql("SELECT kind, active, length_sessions FROM payment_plans WHERE id=?", (pid,))[0]
+    assert row == ("pass", 0, 10)
+    rsvps = sql("SELECT COUNT(*) FROM rsvps")[0][0]
+    boss.post("/manage/club/plans/%d" % pid, data=dict(csrf=tok, section="billing", length_mode="sessions", length_days="0", length_sessions="12"))
+    boss.post("/manage/club/plans/%d" % pid, data=dict(csrf=tok, section="who", audience="new", one_per_person="1", uses_per_event="1"))
+    boss.post("/manage/club/plans/%d" % pid, data=dict(csrf=tok, section="price", price="130", effective_on="2099-01-01"))
+    r = boss.post("/manage/club/plans/%d" % pid, data=dict(csrf=tok, section="status", active="1", field="active"), headers={"X-Autosave": "1"})
+    assert r.get_json()["ok"]
+    row = sql("SELECT length_sessions, audience, one_per_person, uses_per_event, active, name FROM payment_plans WHERE id=?", (pid,))[0]
+    assert row == (12, "new", 1, 1, 1, "Ten Pack")
+    assert (13000, "2099-01-01") in sql("SELECT amount_cents, effective_on FROM payment_prices WHERE plan_id=?", (pid,))
+    page = boss.get("/manage/club/plans/%d" % pid).get_data(as_text=True)
+    assert "Every setting, in plain words." in page and "$130 from Jan 1, 2099" in page and "New members only" in page
+    boss.post("/manage/club/plans/%d" % pid, data=dict(csrf=tok, section="archive"))
+    assert sql("SELECT archived FROM payment_plans WHERE id=?", (pid,))[0][0] == 1
+    assert sql("SELECT COUNT(*) FROM rsvps")[0][0] == rsvps
