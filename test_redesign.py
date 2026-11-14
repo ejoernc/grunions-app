@@ -675,3 +675,13 @@ def test_event_color_saves_for_schedule_and_lineup_events():
     assert 'name="event_color_line" value="cobalt" checked' in page and "Event color" in page
     new = boss.get("/events/new").get_data(as_text=True)
     assert "Event color" in new and "Team color" not in new and 'name="event_color_schedule"' in new
+
+
+def test_week_swipe_lands_on_nearest_session_or_says_the_week_is_empty():
+    pid = _practice("Swipe Week", days=9)
+    day = sql("SELECT date FROM practices WHERE id=?", (pid,))[0][0]
+    page = boss.get("/admin?week=%s&near=0" % day).get_data(as_text=True)
+    assert "ckweektrack" in page and page.count("class=ckweek ") == 3
+    assert ('href="/admin?date=%s" aria-current=date' % day) in page
+    far = (A.today_pt() + dt.timedelta(days=700)).isoformat()
+    assert "No events this week." in boss.get("/admin?week=%s&near=3" % far).get_data(as_text=True)

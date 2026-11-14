@@ -10459,6 +10459,20 @@ def admin():
         return redirect(url_for("admin", **kwargs))
     days = schedule_days(d)
     date = posted or default_checkin_date(days)
+    week_empty = False
+    if request.args.get("week"):  # week swipe: land on the session nearest the same weekday, or say the week is empty
+        try:
+            wk = dt.date.fromisoformat(request.args.get("week")[:10])
+            start = wk - dt.timedelta(days=(wk.weekday() + 1) % 7)
+            near = start + dt.timedelta(days=max(0, min(6, request.args.get("near", type=int) or 0)))
+            have = set(days or [])
+            hits = [start + dt.timedelta(days=i) for i in range(7) if (start + dt.timedelta(days=i)).isoformat() in have]
+            if hits:
+                date = min(hits, key=lambda x: (abs((x - near).days), x)).isoformat()
+            else:
+                date, week_empty = near.isoformat(), True
+        except ValueError:
+            pass
     q = request.args.get("q", "").strip()
     events = admin_day_events(d, date)
     ev = (request.args.get("ev") or "").strip()
@@ -10479,7 +10493,14 @@ def admin():
     for e in events:
         e["n_going"], e["n_in"] = checkin_counts(d, date, e)
     week = checkin_week(date, days)
-    return page(T["admin"],
+    def _shift(n):
+        x = dt.date.fromisoformat(date) + dt.timedelta(days=7 * n)
+        return checkin_week(x.isoformat(), days)
+    weeks = [_shift(-1), week, _shift(1)]
+    for wkd in (weeks[0], weeks[2]):
+        for c in wkd: c["on"] = False
+    week_empty = week_empty or not any(c["has"] for c in week)
+    return page(T["admin"], weeks=weeks, week_empty=week_empty,
         tab="admin", date=date, q=q, going=going_c, rest=[cards[r["id"]] for r in rest], not_going=[cards[r["id"]] for r in not_going],
         checked=[cards[r["id"]] for r in checked], n=n, n_not=n_not, filt=filt, look=look, clean=clean, n_look=len(look), week=week,
         n_in_sel=sum(1 for c in going_c if c["checked"]),

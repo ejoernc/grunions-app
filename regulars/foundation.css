@@ -1632,3 +1632,7 @@ label.rg-cdot input:focus-visible+i{outline:2px solid var(--paper);outline-offse
 header.homehead.apphead{padding-left:16px;padding-right:16px}
 header.homehead .headmain .rg-plus,.chathead .rg-plus{align-self:flex-start;margin-top:8px}
 .chathead .rg-plus{display:grid;place-items:center;padding:0;font:0/0 a}
+/* Week strip carousel: last, this and next week side by side; this week in view */
+.ckweekwrap{overflow:hidden;margin:0 -3px 12px;touch-action:pan-y}
+.ckweektrack{display:flex;width:300%;transform:translateX(-33.3333%);will-change:transform}
+.ckweektrack>.ckweek{flex:0 0 33.3333%;box-sizing:border-box;margin:0;padding:0 3px}

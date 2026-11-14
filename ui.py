@@ -3076,17 +3076,19 @@ document.addEventListener('submit', function(e){
  }).catch(function(){ location.reload(); });
 });
 window.grunionsSavedToast=function(msg){ var t=document.createElement('div'); t.className='toast noprint'; t.setAttribute('role','status'); t.textContent=msg||'Saved'; document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 1800); };
-/* Check-in week strip: swipe left for next week, right for last week. */
-(function(){ var sx=0, sy=0, el=null, moved=false;
- document.addEventListener('touchstart', function(e){ el=e.target.closest&&e.target.closest('[data-weekswipe]'); if(!el) return; sx=e.touches[0].clientX; sy=e.touches[0].clientY; moved=false; }, {passive:true});
- document.addEventListener('touchmove', function(e){ if(!el) return; var dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy; if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(dy)){ moved=true; el.style.transform='translateX('+Math.max(-80,Math.min(80,dx/2))+'px)'; } }, {passive:true});
- document.addEventListener('touchend', function(e){ if(!el) return; var node=el; el=null; node.style.transition='transform .18s'; node.style.transform=''; setTimeout(function(){ node.style.transition=''; }, 200);
-  var dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy; if(!moved||Math.abs(dx)<50||Math.abs(dx)<Math.abs(dy)*1.5) return;
-  var d=new Date(node.getAttribute('data-weekswipe')+'T12:00:00'); if(isNaN(d)) return; d.setDate(d.getDate()+(dx<0?7:-7));
-  var iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  node.setAttribute('data-swiped','1'); setTimeout(function(){ node.removeAttribute('data-swiped'); }, 400);
-  var url='/admin?date='+iso; if(window.grunionsGo) grunionsGo(url); else location.href=url; });
- document.addEventListener('click', function(e){ var w=e.target.closest&&e.target.closest('[data-weekswipe][data-swiped]'); if(w){ e.preventDefault(); e.stopPropagation(); } }, true);
+/* Check-in week strip: drag the weeks; the neighbor week slides in, then the page lands on that week's nearest session. */
+(function(){ var sx=0, sy=0, el=null, track=null, moved=false, w=0;
+ function set(x, anim){ track.style.transition=anim?'transform .22s cubic-bezier(.2,.7,.2,1)':'none'; track.style.transform='translateX(calc(-33.3333% + '+x+'px))'; }
+ document.addEventListener('touchstart', function(e){ el=e.target.closest&&e.target.closest('[data-weekswipe]'); if(!el) return; track=el.querySelector('.ckweektrack'); if(!track){ el=null; return; } w=el.clientWidth; sx=e.touches[0].clientX; sy=e.touches[0].clientY; moved=false; }, {passive:true});
+ document.addEventListener('touchmove', function(e){ if(!el) return; var dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy; if(!moved&&Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)) moved=true; if(moved) set(Math.max(-w,Math.min(w,dx)), false); }, {passive:true});
+ document.addEventListener('touchend', function(e){ if(!el) return; var node=el, tr=track; el=null; if(!moved) return;
+  var dx=e.changedTouches[0].clientX-sx; track=tr;
+  if(Math.abs(dx)<Math.min(70,w*0.2)){ set(0, true); return; }
+  node.setAttribute('data-swiped','1'); setTimeout(function(){ node.removeAttribute('data-swiped'); }, 500);
+  set(dx<0?-w:w, true);
+  var url='/admin?week='+node.getAttribute(dx<0?'data-next':'data-prev')+'&near='+node.getAttribute('data-near');
+  setTimeout(function(){ if(window.grunionsGo) grunionsGo(url); else location.href=url; }, 200); });
+ document.addEventListener('click', function(e){ var x=e.target.closest&&e.target.closest('[data-weekswipe][data-swiped]'); if(x){ e.preventDefault(); e.stopPropagation(); } }, true);
 })();
 /* Forms marked data-autosave save on change (Figma 62: settings save themselves, no page Save). */
 document.addEventListener('change', function(e){
@@ -7737,7 +7739,7 @@ T["admin"] = ADMIN_NAV + """<div class="rg-screen rg-checkin">
 <button type=button class=ckmonthbtn id=calOpen aria-haspopup=dialog aria-expanded=false aria-controls=calPop>{{ month.label }} <span aria-hidden=true>⌄</span></button>
 {% if date != today %}<a class=cktoday href="/admin?date={{ today }}">Today</a>{% else %}<span class="cktoday on">Today</span>{% endif %}
 </div>
-<nav class=ckweek aria-label="This week" data-weekswipe="{{ date }}">{% for wd in week %}<a class="ckday{% if wd.on %} on{% endif %}{% if wd.today %} today{% endif %}" href="/admin?date={{ wd.iso }}"{% if wd.on %} aria-current=date{% endif %}><small>{{ wd.wd }}</small><b>{{ wd.day }}</b>{% if wd.has %}<i></i>{% endif %}</a>{% endfor %}</nav>
+{% set _near = (week|map(attribute='on')|list).index(true) if true in (week|map(attribute='on')|list) else 0 %}<div class=ckweekwrap data-weekswipe="{{ date }}" data-near="{{ _near }}" data-prev="{{ weeks[0][0].iso }}" data-next="{{ weeks[2][0].iso }}"><div class=ckweektrack>{% for w in weeks %}<nav class=ckweek aria-label="{{ 'Last week' if loop.first else ('Next week' if loop.last else 'This week') }}"{% if not loop.index == 2 %} aria-hidden=true{% endif %}>{% for wd in w %}<a class="ckday{% if wd.on %} on{% endif %}{% if wd.today %} today{% endif %}" href="/admin?date={{ wd.iso }}"{% if wd.on %} aria-current=date{% endif %}{% if loop.index0 is defined and not w is sameas week %} tabindex=-1{% endif %}><small>{{ wd.wd }}</small><b>{{ wd.day }}</b>{% if wd.has %}<i></i>{% endif %}</a>{% endfor %}</nav>{% endfor %}</div></div>
 <dialog class=matpick id=calPop aria-label="Select date"><div class=sheet>
 <div class=matkicker>Select date</div>
 <div class=matheadline id=calHeadline>{{ fmt_d(date).replace(' ', ', ', 1) }}</div>
@@ -7760,7 +7762,7 @@ T["admin"] = ADMIN_NAV + """<div class="rg-screen rg-checkin">
 </div></dialog>
 {% if events %}<nav class=cksessions aria-label="Sessions">{% for ev in events %}<a class="cksess{% if ev.key == evkey %} on{% endif %}" href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}"><small>{{ ev.pill|upper }} · {{ ev.n_in }}/{{ ev.n_going }}</small><b>{{ ev.title }}</b></a>{% endfor %}</nav>{% endif %}
 {% if sel %}{% if sel.detail %}<a{% else %}<div{% endif %} id="ev-{{ sel.key }}" class="ckhero tone-{{ sel.tone or 'sun' }}{% if ev_pinned %} on{% endif %}"{% if sel.detail %} href="{{ sel.detail }}" aria-label="Open {{ sel.title }}"{% endif %}><b>{{ n_in_sel }} of {{ going|length }} in{% if n_look %} · {{ n_look }} need{{ 's' if n_look == 1 else '' }} a look{% endif %}</b><small>{{ sel.title }} · {{ sel.when }}{% if sel.place %} · {{ sel.place }}{% endif %}</small>{% if sel.detail %}<span class=ckherolink aria-hidden=true>›</span></a>{% else %}</div>{% endif %}
-{% else %}<p class=rg-note>No sessions on this day. Pick another day above.</p>{% endif %}
+{% elif week_empty %}<p class=rg-note>No events this week.</p>{% else %}<p class=rg-note>No sessions on this day. Pick another day above.</p>{% endif %}
 <form class=rg-cisearch method=get action=/admin><input type=hidden name=date value="{{ date }}">{% if filt != 'going' %}<input type=hidden name=filt value="{{ filt }}">{% endif %}{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}<label class=rg-search>{{ rg_icon('search') }}<input name=q type=search value="{{ q }}" placeholder="Search people" enterkeyhint=search autocomplete=off></label></form>
 {%- set ebit -%}{% if evkey %}&ev={{ evkey }}{% endif %}{%- endset -%}
 {%- set qq -%}{% if q %}&q={{ q|urlencode }}{% endif %}{%- endset -%}
