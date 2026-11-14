@@ -11819,17 +11819,55 @@ def push_member(d, member, kind, title, body, url):
         except Exception as e:
             app.logger.warning("push to member %s failed: %s", member["id"], e)
     return n
+def chat_push_recipients(d, channel, sender_id):
+    """Who gets a push for a new message: only people who can read that chat. Never the whole club
+    unless it is #everyone (team) or an official club channel."""
+    ch = channel or "team"
+    base = "SELECT * FROM members WHERE COALESCE(role,'')!='system' AND id!=?"
+    if ch == "team" or ch.startswith("ch:"):
+        return d.execute(base, (sender_id,)).fetchall()
+    if ch == "coaches":
+        return [m for m in d.execute(base, (sender_id,)) if is_active_coach(m) or m["is_admin"]]
+    if ch.startswith("dm:"):
+        try: ids = [int(x) for x in ch.split(":")[1:3]]
+        except ValueError: return []
+        return d.execute(base + " AND id IN (?,?)", (sender_id, ids[0], ids[1])).fetchall()
+    if ch.startswith("grp:"):  # people already in the group thread
+        return d.execute(base + " AND id IN (SELECT DISTINCT member_id FROM messages WHERE channel=?)", (sender_id, ch)).fetchall()
+    if ch.startswith("practice:"):
+        try: pid = int(ch.split(":", 1)[1])
+        except ValueError: return []
+        return d.execute(base + """ AND (id IN (SELECT member_id FROM rsvps WHERE practice_id=? AND going=1)
+            OR id IN (SELECT member_id FROM chat_follows WHERE practice_id=?)
+            OR id IN (SELECT member_id FROM practice_coaches WHERE practice_id=?))""", (sender_id, pid, pid, pid)).fetchall()
+    if ch == "board":
+        return [m for m in d.execute(base, (sender_id,)) if is_board_member(m)]
+    if ch.startswith("req:"):
+        try: row = d.execute("SELECT * FROM club_requests WHERE id=?", (int(ch.split(":", 1)[1]),)).fetchone()
+        except ValueError: row = None
+        return [m for m in d.execute(base, (sender_id,)) if row and _request_visible(row, m)] if row else []
+    return []  # coach:<sport>, ask:… and anything new: no push until its audience is defined
 def notify_chat(d, channel, sender, body, has_image):
-    kind = "coaches_chat" if channel == "coaches" else "team_chat"
+    ch = channel or "team"
+    kind = "coaches_chat" if ch == "coaches" else "team_chat"
     text = (body or "").strip()
     if not text and has_image: text = "Sent a photo"
     if not text: return
     text = text[:140]
-    title = "Coaches chat" if channel == "coaches" else "Team chat"
-    url = "/chat?c=coaches" if channel == "coaches" else "/chat"
-    line = "%s %s.: %s" % (display_first(sender), (sender["last"] or "")[:1], text)
-    for m in d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' AND id!=?", (sender["id"],)):
-        if channel == "coaches" and not is_active_coach(m): continue
+    who = "%s %s." % (display_first(sender), (sender["last"] or "")[:1])
+    if ch.startswith("dm:"):
+        title, line = who, text
+    elif ch == "team":
+        title, line = "#everyone", "%s: %s" % (who, text)
+    elif ch == "coaches":
+        title, line = "Coaches chat", "%s: %s" % (who, text)
+    else:
+        try: title = _plain_chat_title(_thread_title(d, sender, ch)) or "Chat"
+        except Exception: title = "Chat"
+        line = "%s: %s" % (who, text)
+    url = "/chat?c=" + ch
+    for m in chat_push_recipients(d, ch, sender["id"]):
+        if chat_muted(d, m["id"], ch): continue
         push_member(d, m, kind, title, line, url)
 def notify_practice_cancelled(d, p):
     when = "%s, %s-%s" % (fmt_d(p["date"]), fmt_t(p["start"]), fmt_t(p["end"]))

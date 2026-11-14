@@ -128,3 +128,22 @@ def test_every_simple_page_renders_for_every_role():
                 bad.append((who, path, repr(e)[:80])); continue
             if code >= 500: bad.append((who, path, code))
     assert not bad, bad
+
+
+def test_chat_pushes_go_only_to_people_in_that_chat():
+    pushes = []
+    old = A.push_member
+    A.push_member = lambda d, m, kind, title, body, url: pushes.append((m["id"], title, url))
+    try:
+        lo, hi = sorted([JANE, CORA])
+        jane.post("/api/messages?c=dm:%d:%d" % (lo, hi), json={"body": "private hi"}, headers={"X-CSRF": csrf(jane)})
+        assert pushes and {p[0] for p in pushes} == {CORA}, pushes
+        assert all(p[2] == "/chat?c=dm:%d:%d" % (lo, hi) for p in pushes)
+        pushes.clear()
+        jane.post("/api/messages?c=team", json={"body": "all hands"}, headers={"X-CSRF": csrf(jane)})
+        assert BOSS in {p[0] for p in pushes} and CORA in {p[0] for p in pushes} and JANE not in {p[0] for p in pushes}
+        pushes.clear()
+        jane.post("/api/messages?c=grp:secret", json={"body": "group start"}, headers={"X-CSRF": csrf(jane)})
+        assert not pushes  # nobody else in that group yet
+    finally:
+        A.push_member = old
