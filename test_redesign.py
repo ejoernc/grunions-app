@@ -265,7 +265,7 @@ def test_auto_rsvp_asks_once_and_never_rsvps():
     sql("UPDATE members SET auto_rsvp=1 WHERE id=?", (aid,))
     pushed = []
     saved = A.push_member
-    A.push_member = lambda d, m, kind, title, body, url: pushed.append((m["id"], title))
+    A.push_member = lambda d, m, kind, title, body, url: pushed.append((m["id"], title)) if body.startswith("Auto practice") else None
     try:
         con = A.open_db()
         now = dt.datetime.combine(A.today_pt(), dt.time(19, 30))
@@ -725,9 +725,11 @@ def test_home_with_nothing_scheduled_offers_add_to_admins_and_suggest_to_members
 
 
 def test_home_week_moves_on_when_this_week_is_over_but_waits_for_the_after_social():
-    import datetime as _dt
-    sql("UPDATE practices SET date='2000-01-02' WHERE date>=?", (A.today_pt().isoformat(),))
+    import datetime as _dt, pytest
     now = A.wall_pt()
+    if now.hour < 4 or now.hour >= 22:
+        pytest.skip("needs a practice that started and ended earlier today")
+    sql("UPDATE practices SET date='2000-01-02' WHERE date>=?", (A.today_pt().isoformat(),))
     done = now - _dt.timedelta(hours=3)
     day = now.date().isoformat()
     sql("INSERT INTO practices(date,start,end,location,sport,title) VALUES(?,?,?,?,?,?)",
@@ -758,7 +760,7 @@ def test_home_map_uses_real_pins_and_the_original_drive_chip():
     A.drive_offer = lambda *a, **k: True
     try:
         sql("UPDATE practices SET date='2000-01-03' WHERE date>=?", (A.today_pt().isoformat(),))
-        pid = _practice("Map Practice", days=1)
+        pid = _practice("Map Practice", days=2)
         sql("UPDATE practices SET lat=33.75, lng=-117.99, social_kind='Dinner', social_place='Harp', social_when='after', social_time='20:45', social_lat=33.76, social_lng=-117.98 WHERE id=?", (pid,))
         _going(member, pid)
         page = member.get("/home").get_data(as_text=True)

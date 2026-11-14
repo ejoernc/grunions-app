@@ -2886,7 +2886,9 @@ document.addEventListener('click',function(e){
 document.addEventListener('submit',function(e){
  if(e.defaultPrevented) return;
  var form=e.target;
- if(!form||(form.getAttribute('method')||'get').toLowerCase()!=='get') return;
+ // Runs in capture, before the form's own handler: leave forms that handle themselves alone (chat composer).
+ if(!form||form.hasAttribute('data-nonav')||typeof form.onsubmit==='function') return;
+ if((form.getAttribute('method')||'get').toLowerCase()!=='get') return;
  if(form.target&&form.target!=='_self') return;
  var abs; try{abs=new URL(form.getAttribute('action')||location.pathname,location.href);}catch(err){return;}
  if(abs.origin!==location.origin||abs.pathname!==location.pathname) return;
@@ -6103,7 +6105,7 @@ T["notifications"] = """<div class=rg-screen>
 
 T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template><div class=chat id=chat><div class=chatin><button type=button id=earlier class=earlier hidden>Load earlier messages</button></div></div><div class=chatpad></div>
 {% if chat_locked %}<p class=chatlock>read-only · this practice ended.</p>{% endif %}<div class="composer noprint"><div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=thumbs id=prev hidden></div>
-<form id=f><input class=fileclip type=file id=file accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif,.gif,.png,.jpg,.jpeg,.webp" multiple>
+<form id=f data-nonav><input class=fileclip type=file id=file accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif,.gif,.png,.jpg,.jpeg,.webp" multiple>
 <textarea id=body rows=1 maxlength=2000 placeholder="{{ chat_placeholder or 'Message' }}" {% if chat_locked %}disabled{% endif %}></textarea>
 <button type=button class="iconbtn send" id=attach aria-label="Add photo">+</button>
 </form></div>
