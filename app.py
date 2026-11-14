@@ -8333,6 +8333,9 @@ def events_hub_groups(d):
             "when": practice_when(p) if practice_is_month(p) else "%s · %s" % (fmt_d(p["date"]), fmt_span(p["start"] or "19:00", p["end"] or "20:30")),
             "place": p["location"] or "",
             "href": "/practices/%d?from=admin" % p["id"],
+            "going": d.execute("SELECT COUNT(*) FROM rsvps WHERE practice_id=? AND going=1", (p["id"],)).fetchone()[0],
+            "sport": p["sport"] if "sport" in p.keys() and p["sport"] else "Water Polo",
+            "tone": components.event_tone(kind),
             "sort": (effective_sort_date(p), p["start"] or "", p["id"]),
         })
     raw = []
@@ -9918,9 +9921,85 @@ def members_back():
     if filt in ("expiring", "uncleared"): kwargs["filt"] = filt
     if q: kwargs["q"] = q
     return redirect(url_for("members", **kwargs))
+def checkin_week(date_iso, days):
+    """Sunday-first week strip around the picked day (Figma K1). Dots mark days with sessions."""
+    try: cur = dt.date.fromisoformat(date_iso)
+    except ValueError: cur = today_pt()
+    start = cur - dt.timedelta(days=(cur.weekday() + 1) % 7)
+    have, today = set(days or []), today_pt().isoformat()
+    out = []
+    for i in range(7):
+        day = start + dt.timedelta(days=i); iso = day.isoformat()
+        out.append({"iso": iso, "wd": "SMTWTFS"[i], "day": day.day, "has": iso in have, "on": iso == date_iso, "today": iso == today})
+    return out
+def checkin_counts(d, date, event):
+    """(going, checked in among them) for one session chip."""
+    if event["kind"] == "practice":
+        going = [r[0] for r in d.execute("SELECT member_id FROM rsvps WHERE practice_id=? AND going=1", (event["id"],))]
+    else:
+        going = [r[0] for r in d.execute("SELECT member_id FROM lineup_rsvps WHERE event_id=? AND state='going'", (event["id"],))]
+    if not going: return 0, 0
+    n_in = d.execute("SELECT COUNT(*) FROM checkins WHERE practice_date=? AND member_id IN (%s)" % ",".join("?" * len(going)), [date] + going).fetchone()[0]
+    return len(going), n_in
+def checkin_card(d, r, pr, event):
+    """One Check-in row (Figma K1): roles, a clearance chip and a payment chip on one line, the exact missing item,
+    and the flags the K2 sheet lists before a coach checks someone in anyway."""
+    import clubadmin
+    today = today_pt().isoformat()
+    name = ("%s %s" % (display_first(r), r["last"] or "")).strip()
+    roles = []
+    try: roles += clubadmin.leadership_tags(d, r["id"])
+    except Exception: pass
+    roles.append("Coach" if (r["role"] or "") == "coach" else ("Admin" if r["is_admin"] and not roles else "Player"))
+    sport = (pr["sport"] if pr is not None and "sport" in pr.keys() and pr["sport"] else "") or "Water Polo"
+    st = view_list_status(r, "members")
+    word = st.get("word") or ""
+    pending = word == "Check pending"
+    if pending: clear = ("Pending", "interested")
+    elif not st.get("ok"): clear = ("Not cleared", "notcleared")
+    elif st.get("tone") == "warn": clear = ("Expiring", "expiring")
+    else: clear = ("Cleared", "cleared")
+    missing = (st.get("rest") or "").lstrip(" ·").strip()
+    if missing and clear[0] == "Not cleared":
+        missing = missing.replace(" missing", "")
+        if missing.startswith("Membership"): missing = missing.replace("Membership", "USA Water Polo #", 1)
+        missing = "Missing: " + missing
+    flags = []
+    if clear[0] == "Not cleared":
+        what = missing.replace("Missing: ", "")
+        if what.startswith("USA Water Polo"):
+            flags.append({"kicker": "NOT CLEARED", "line": "USA Water Polo # is missing — insurance isn't confirmed.",
+                          "fix": "Check insurance now", "hint": "Enter #", "href": "/admin/member/%d?edit=1" % r["id"]})
+        else:
+            flags.append({"kicker": "NOT CLEARED", "line": ("%s is missing or out of date." % what) if what else "Not cleared to play yet.",
+                          "fix": "Update clearance", "hint": "Enter date", "href": "/admin/member/%d?edit=1" % r["id"]})
+    pick, due = "", ""
+    if pr is not None:
+        row = d.execute("""SELECT pl.name, pl.kind, c.status FROM payment_checks c LEFT JOIN payment_plans pl ON pl.id=c.plan_id
+            WHERE c.member_id=? AND c.practice_id=? ORDER BY c.id DESC LIMIT 1""", (r["id"], pr["id"])).fetchone()
+        if row and row["name"]:
+            pick = row["name"]
+            if (row["status"] or "") == "pending": due = pick
+    try: pay = clubadmin.payment_view(d, r["id"], today)
+    except Exception: pay = {"label": "Unpaid", "paying": False}
+    if due: pay_chip = ("%s due" % due, "neutral")
+    elif pay.get("paying") and pay.get("label") in ("Trial",): pay_chip = ("Trial", "interested")
+    elif pay.get("paying"): pay_chip = ("Member", "paid")
+    else: pay_chip = ("Unpaid", "neutral")
+    if due:
+        flags.append({"kicker": "PAYMENT", "line": "Picked %s. Not recorded yet." % due, "fix": "Record %s" % due, "hint": "Cash · Venmo",
+                      "href": "/admin/member/%d#paid" % r["id"]})
+    try:
+        if not flows2.accepted_waiver(d, r["id"]):
+            flags.append({"kicker": "WAIVER", "line": "Hasn't accepted the club waiver yet.", "fix": "", "hint": "", "href": ""})
+    except Exception: pass
+    line = " · ".join(x for x in (" · ".join(roles), sport) if x) + ((" · picked %s" % pick.lower()) if pick else "")
+    return {"id": r["id"], "name": name, "first": display_first(r), "initials": initials(r), "photo": r["photo"] if "photo" in r.keys() else "",
+            "roles": line, "chips": [clear, pay_chip], "missing": missing if clear[0] != "Cleared" else "",
+            "flags": flags, "checked": bool(r["cid"])}
 def checkin_filter(raw, n_not, n_in):
     """Going is the default. A Not Going or Checked in view with nobody in it falls back."""
-    filt = raw if raw in ("not", "in") else "going"
+    filt = raw if raw in ("not", "in", "look", "else") else "going"
     if filt == "not" and n_not <= 0: return "going"
     if filt == "in" and n_in <= 0: return "going"
     return filt
@@ -10015,8 +10094,17 @@ def admin():
     ev_i = ([e["key"] for e in events].index(evkey) + 1) if evkey and events else 0
     prev_step = admin_step(d, days, date, events, evkey, -1)
     next_step = admin_step(d, days, date, events, evkey, 1)
+    cards = {r["id"]: checkin_card(d, r, pr, selected) for r in list(going) + list(rest) + list(not_going) + list(checked)}
+    going_c = [cards[r["id"]] for r in going]
+    look = [c for c in going_c if c["flags"] and not c["checked"]]
+    clean = [c for c in going_c if not (c["flags"] and not c["checked"])]
+    for e in events:
+        e["n_going"], e["n_in"] = checkin_counts(d, date, e)
+    week = checkin_week(date, days)
     return page(T["admin"],
-        tab="admin", date=date, q=q, going=going, rest=rest, not_going=not_going, checked=checked, n=n, n_not=n_not, filt=filt,
+        tab="admin", date=date, q=q, going=going_c, rest=[cards[r["id"]] for r in rest], not_going=[cards[r["id"]] for r in not_going],
+        checked=[cards[r["id"]] for r in checked], n=n, n_not=n_not, filt=filt, look=look, clean=clean, n_look=len(look), week=week,
+        n_in_sel=sum(1 for c in going_c if c["checked"]),
         loc=(selected["place"] if selected else ""), pr=pr, sel=selected, events=events, evkey=evkey, ev_pinned=ev_pinned,
         ev_i=ev_i, ev_n=len(events),
         prev_href=admin_href(prev_step[0], prev_step[1], filt, q) if prev_step else "",

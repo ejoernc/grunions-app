@@ -2636,6 +2636,7 @@ _NAV3_GLYPHS = {
     "chevron_left": ("M12.5 4.5L7 10L12.5 15.5",),
     "chevron_right": ("M7.5 4.5L13 10L7.5 15.5",),
     "plus": ("M10 4V16M4 10H16",),
+    "check": ("M4.5 10.5L8.25 14.25L15.5 6.5",),
     "edit": ("M4 16L4.5 13L13.5 4L16 6.5L7 15.5L4 16Z", "M12 5.5L14.5 8"),
     "more": ("M5 10H5.01M10 10H10.01M15 10H15.01",),
     "close": ("M5 5L15 15M15 5L5 15",),
@@ -7590,16 +7591,16 @@ T["practice"] = """{% set p = x.p %}
 _CHEV_L = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>'
 _CHEV_R = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>'
 _CAL_I = '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></svg>'
-T["admin"] = ADMIN_NAV + """{{ admin_page('Check-in') }}
+T["admin"] = ADMIN_NAV + """<div class="rg-screen rg-checkin">
+{# Figma Audit K1 · Check-in ‹ Activities: week strip, one chip per session, people who need a look first. #}
 {%- set qbit -%}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{%- endset -%}
 {%- set fbit -%}{% if filt != 'going' %}&amp;filt={{ filt }}{% endif %}{%- endset -%}
-<div class=checkbar>
-<div class=calpick id=calPick data-seg data-date="{{date}}" data-today="{{ today }}" data-q="{{q}}" data-filt="{{ '' if filt=='going' else filt }}" data-dates='{{ days|tojson }}' data-events='{{ catalog|tojson }}'>
-{% if prev_href %}<a class=calnav href="{{ prev_href }}" aria-label="Previous event">""" + _CHEV_L + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Previous event">""" + _CHEV_L + """</span>{% endif %}
-{% if ev_n > 1 %}<button type=button class=evcount id=evCount aria-haspopup=dialog aria-controls=evPick>{{ ev_i }}/{{ ev_n }}</button>{% elif ev_n == 1 %}<span class=evcount>{{ ev_i }}/{{ ev_n }}</span>{% endif %}
-<button type=button class=calbtn id=calOpen aria-haspopup=dialog aria-expanded=false aria-controls=calPop>""" + _CAL_I + """<span>{{ fmt_d(date).replace(' ', ', ', 1) }}</span></button>
-{% if next_href %}<a class=calnav href="{{ next_href }}" aria-label="Next event">""" + _CHEV_R + """</a>{% else %}<span class=calnav aria-disabled=true aria-label="Next event">""" + _CHEV_R + """</span>{% endif %}
+{{ rg_page_title('Check-in', '', rg_plus('/events/new?lane=schedule', 'New practice or event')) }}
+<div class=ckmonth id=calPick data-date="{{date}}" data-today="{{ today }}" data-q="{{q}}" data-filt="{{ '' if filt=='going' else filt }}" data-dates='{{ days|tojson }}' data-events='{{ catalog|tojson }}'>
+<button type=button class=ckmonthbtn id=calOpen aria-haspopup=dialog aria-expanded=false aria-controls=calPop>{{ month.label }} <span aria-hidden=true>⌄</span></button>
+{% if date != today %}<a class=cktoday href="/admin?date={{ today }}">Today</a>{% else %}<span class="cktoday on">Today</span>{% endif %}
 </div>
+<nav class=ckweek aria-label="This week">{% for wd in week %}<a class="ckday{% if wd.on %} on{% endif %}{% if wd.today %} today{% endif %}" href="/admin?date={{ wd.iso }}"{% if wd.on %} aria-current=date{% endif %}><small>{{ wd.wd }}</small><b>{{ wd.day }}</b>{% if wd.has %}<i></i>{% endif %}</a>{% endfor %}</nav>
 <dialog class=matpick id=calPop aria-label="Select date"><div class=sheet>
 <div class=matkicker>Select date</div>
 <div class=matheadline id=calHeadline>{{ fmt_d(date).replace(' ', ', ', 1) }}</div>
@@ -7617,39 +7618,73 @@ T["admin"] = ADMIN_NAV + """{{ admin_page('Check-in') }}
 </div>
 <div class=matactions>
 <button type=button class=mattext id=calCancel>Cancel</button>
-<button type=button class=mattext id=calOk>OK</button>
+<button type=button class=mattext id=calOk>Done</button>
 </div>
 </div></dialog>
-<dialog class=modal id=evPick><div class=sheet><h2 style="margin:0 0 12px">Events</h2><div class=list id=evPickList data-seg>{% for ev in events %}<a class=li href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:650">{{ ev.title }}</span><span class="ty-muted ty-sm sm">{{ ev.when }}</span></span></a>{% endfor %}</div><button type=button class="rg-btn secondary full" onclick="this.closest('dialog').close()">Cancel</button></div></dialog>
-</div>
-{% if sel %}<div id="ev-{{ sel.key }}" class="evpin{% if ev_pinned %} on{% endif %}">{{ rg_checkin_hero(n, going|length, sel.title, sel.when ~ (' · ' ~ sel.place if sel.place else ''), sel.tone or 'sun', sel.detail) }}</div>{% else %}<p class=emptyfind>No events on this day</p>{% endif %}
+{% if events %}<nav class=cksessions aria-label="Sessions">{% for ev in events %}<a class="cksess{% if ev.key == evkey %} on{% endif %}" href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}"><small>{{ ev.pill|upper }} · {{ ev.n_in }}/{{ ev.n_going }}</small><b>{{ ev.title }}</b></a>{% endfor %}</nav>{% endif %}
+{% if sel %}<div id="ev-{{ sel.key }}" class="ckhero tone-{{ sel.tone or 'sun' }}{% if ev_pinned %} on{% endif %}"><b>{{ n_in_sel }} of {{ going|length }} in{% if n_look %} · {{ n_look }} need{{ 's' if n_look == 1 else '' }} a look{% endif %}</b><small>{{ sel.title }} · {{ sel.when }}{% if sel.place %} · {{ sel.place }}{% endif %}</small>{% if sel.detail %}<a class=ckherolink href="{{ sel.detail }}" aria-label="Open {{ sel.title }}">›</a>{% endif %}</div>
+{% else %}<p class=rg-note>No sessions on this day. Pick another day above.</p>{% endif %}
+<form class=rg-cisearch method=get action=/admin><input type=hidden name=date value="{{ date }}">{% if filt != 'going' %}<input type=hidden name=filt value="{{ filt }}">{% endif %}{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}<label class=rg-search>{{ rg_icon('search') }}<input name=q type=search value="{{ q }}" placeholder="Search people" enterkeyhint=search autocomplete=off></label></form>
 {%- set ebit -%}{% if evkey %}&ev={{ evkey }}{% endif %}{%- endset -%}
 {%- set qq -%}{% if q %}&q={{ q|urlencode }}{% endif %}{%- endset -%}
-{{ rg_filters([('going', 'Going ' ~ going|length, '/admin?date=' ~ date ~ qq ~ ebit), ('not', 'Not going ' ~ n_not, '/admin?date=' ~ date ~ '&filt=not' ~ qq ~ ebit), ('in', 'Checked in ' ~ n, '/admin?date=' ~ date ~ '&filt=in' ~ qq ~ ebit)], filt) }}
-<form class="playersearch rg-cisearch" method=get action=/admin><input type=hidden name=date value="{{ date }}">{% if filt != 'going' %}<input type=hidden name=filt value="{{ filt }}">{% endif %}{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}<label class=rg-search>{{ rg_icon('search') }}<input name=q type=search value="{{ q }}" placeholder="Search players" enterkeyhint=search autocomplete=off></label></form>
-{% macro ci(r) -%}
-{%- set info = checkin_info(r, pr.id if pr else None) -%}
-{%- set fields -%}{{csrf_field()}}<input type=hidden name=member_id value={{r.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{filt}}">{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}{%- endset -%}
-{{ rg_checkin_row(display_first(r) ~ ' ' ~ r.last, '/admin/member/' ~ r.id ~ '?from=admin', info.sub, fields|safe, checked=r.cid, hold=('' if r.cid else info.hold), pick=info.pick) }}
+{{ rg_filters([('going', 'Going · ' ~ going|length, '/admin?date=' ~ date ~ qq ~ ebit), ('look', 'Needs a look · ' ~ n_look, '/admin?date=' ~ date ~ '&filt=look' ~ qq ~ ebit), ('in', 'In · ' ~ n, '/admin?date=' ~ date ~ '&filt=in' ~ qq ~ ebit), ('not', 'Not going · ' ~ n_not, '/admin?date=' ~ date ~ '&filt=not' ~ qq ~ ebit), ('else', 'Everyone else · ' ~ rest|length, '/admin?date=' ~ date ~ '&filt=else' ~ qq ~ ebit)], filt) }}
+{% macro ci(c, walkin=false) -%}
+<div class="ckrow{% if c.checked %} done{% endif %}" data-ckname="{{ c.first }}">
+<a class="rg-avatar ckav" href="/admin/member/{{ c.id }}?from=admin">{% if c.photo %}<img src="/avatar/{{ c.id }}?v={{ c.photo }}" alt="" width="52" height="52">{% else %}{{ c.initials }}{% endif %}</a>
+<a class=cktxt href="/admin/member/{{ c.id }}?from=admin"><b>{{ c.name }}</b><small>{{ c.roles }}</small>
+{% if c.chips %}<span class=ckchips>{% for label, st in c.chips %}{{ rg_chip(label, st) }}{% endfor %}</span>{% endif %}
+{% if c.missing %}<small class=ckmiss>{{ c.missing }}</small>{% endif %}</a>
+<form method=post class=ckact>{{csrf_field()}}<input type=hidden name=member_id value={{c.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{filt}}">{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}
+{% if c.checked %}<button class="ckbtn in" name=action value=undo aria-label="Undo check-in for {{ c.name }}">{{ rg_icon('check') }}</button>
+{% elif c.flags %}<button type=button class="ckbtn {{ 'add' if walkin else 'go' }}" data-ckflag='{{ {"id": c.id, "first": c.first, "flags": c.flags}|tojson }}' aria-label="Check in {{ c.name }}">{{ rg_icon('plus' if walkin else 'check') }}</button>
+{% else %}<button class="ckbtn {{ 'add' if walkin else 'go' }}" aria-label="Check in {{ c.name }}">{{ rg_icon('plus' if walkin else 'check') }}</button>{% endif %}
+</form></div>
 {%- endmacro %}
-{% if q and ((filt=='not' and not not_going) or (filt=='in' and not checked) or (filt=='going' and not going and not rest)) %}<p class=emptyfind>No players match “{{ q }}”.</p>{% endif %}
-{% macro walkin() %}{% if pr %}<a class=rg-walkin href="/qr"><b>+ Walk-in</b><small>Show a QR. They do the one-sheet sign-up on their own phone.</small></a><a class=rg-wrapbtn href="/practices/{{ pr.id }}/wrap">Wrap up practice</a>{% endif %}{% endmacro %}
-{% if filt == 'not' %}
-<h2 class=rg-cisec>Not going <span>{{ n_not }}</span></h2>
-<div class=rg-cilist>{% for r in not_going %}{{ ci(r) }}{% else %}<p class=emptyfind>No one yet.</p>{% endfor %}</div>
+{% if q and not (going or rest or not_going) %}<p class=rg-note>No one matches “{{ q }}”.</p>{% endif %}
+{% if filt == 'look' %}
+<h3 class=rg-day>GOING · NEEDS A LOOK · {{ look|length }}</h3>{% for c in look %}{{ ci(c) }}{% else %}<p class=rg-note>Everyone going is cleared.</p>{% endfor %}
 {% elif filt == 'in' %}
-<h2 class=rg-cisec>Checked in <span>{{ n }}</span></h2>
-<div class=rg-cilist>{% for r in checked %}{{ ci(r) }}{% else %}<p class=emptyfind>No one yet.</p>{% endfor %}</div>
-{{ walkin() }}
+<h3 class=rg-day>CHECKED IN · {{ n }}</h3>{% for c in checked %}{{ ci(c) }}{% else %}<p class=rg-note>No one checked in yet.</p>{% endfor %}
+{% elif filt == 'not' %}
+<h3 class=rg-day>NOT GOING · {{ n_not }}</h3><p class=rg-note>They said they can't make it. Check them in if they show up anyway.</p>{% for c in not_going %}{{ ci(c, true) }}{% endfor %}
+{% elif filt == 'else' %}
+<h3 class=rg-day>EVERYONE ELSE · {{ rest|length }}</h3><p class=rg-note>Not signed up. Add someone who shows up anyway.</p>{% for c in rest %}{{ ci(c, true) }}{% endfor %}
 {% else %}
-<div class=rg-cilist>{% for r in going %}{{ ci(r) }}{% else %}<p class=emptyfind>No one going yet.</p>{% endfor %}</div>
-{{ walkin() }}
-{% if rest %}<h2 class=rg-cisec>Everyone else <span>{{rest|length}}</span></h2>
-<div class=rg-cilist>{% for r in rest %}{{ ci(r) }}{% endfor %}</div>{% endif %}
+{% if look %}<h3 class=rg-day>GOING · NEEDS A LOOK · {{ look|length }}</h3>{% for c in look %}{{ ci(c) }}{% endfor %}{% endif %}
+{% if clean %}<h3 class=rg-day>GOING · {{ clean|length }}</h3>{% for c in clean %}{{ ci(c) }}{% endfor %}{% endif %}
+{% if not going %}<p class=rg-note>No one going yet.</p>{% endif %}
+{% if rest %}<h3 class=rg-day>EVERYONE ELSE · {{ rest|length }}</h3><p class=rg-note>Not signed up. Add someone who shows up anyway.</p>
+<div class=ckmore>{% for c in rest %}<div class="ckmoreitem"{% if loop.index > 5 %} hidden{% endif %}>{{ ci(c, true) }}</div>{% endfor %}</div>
+{% if rest|length > 5 %}<button type=button class=ckshow onclick="this.previousElementSibling.querySelectorAll('[hidden]').forEach(function(e){e.hidden=false});this.remove()">Show {{ rest|length - 5 }} more</button>{% endif %}{% endif %}
 {% endif %}
-{% if ev_pinned %}<script>(function(){var el=document.querySelector('.evpin.on'); if(el) el.scrollIntoView({block:'center'});})();</script>{% endif %}
-{% if coming %}<div class=rg-day>Coming up</div><div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="ty-muted ty-sm sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% endif %}
-<a class=wkadd href="/events/new?lane=schedule">+ New practice or event</a>
+{% if coming %}<h3 class=rg-day>COMING UP · {{ coming|length }}</h3>{% for item in coming[:3] %}{{ rg_event_row(item.href, item.sport or 'Practice', item.title, item.when ~ (' · ' ~ item.place if item.place else ''), item.get('going'), 'GOING', item.get('tone') or 'sky') }}{% endfor %}{% endif %}
+{% if pr %}<a class="rg-btn primary ckwrap" href="/practices/{{ pr.id }}/wrap">Wrap up practice</a>{% endif %}
+</div>
+<dialog id=ckSheet class="botsheet modal"><div class=sheet><div class=grab aria-hidden=true></div>
+<h2 id=ckTitle>Check in?</h2><p class=ty-muted id=ckLead></p>
+<div id=ckFlags></div>
+<form method=post class=rg-btnrow id=ckForm>{{csrf_field()}}<input type=hidden name=member_id id=ckMid><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{filt}}">{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}
+<button type=button class="rg-btn secondary" onclick="this.closest('dialog').close()">Not today</button><button class="rg-btn primary">Check in anyway</button></form>
+<p class=rg-note>Checking in someone who isn't cleared is noted for the board.</p>
+</div></dialog>
+<script>
+(function(){
+ if(window.grunionsCkBound) return; window.grunionsCkBound=1;
+ function esc(t){ return String(t||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+ document.addEventListener('click', function(e){
+  var b=e.target.closest&&e.target.closest('[data-ckflag]'); if(!b) return; e.preventDefault();
+  var info; try{ info=JSON.parse(b.getAttribute('data-ckflag')); }catch(err){ return; }
+  var dlg=document.getElementById('ckSheet'); if(!dlg) return;
+  document.getElementById('ckTitle').textContent='Check in '+info.first+'?';
+  var n=info.flags.length; document.getElementById('ckLead').textContent=(n===1?'One thing':(n===2?'Two things':n+' things'))+' before they get in the pool.';
+  document.getElementById('ckMid').value=info.id;
+  document.getElementById('ckFlags').innerHTML=info.flags.map(function(f){
+   return '<h3 class=rg-day>'+esc(f.kicker)+'</h3><p class=ckflagline>'+esc(f.line)+'</p>'+(f.fix?'<a class=rg-srow href="'+esc(f.href)+'"><span class=rg-srlabel>'+esc(f.fix)+'</span><span class=rg-srvalue>'+esc(f.hint||'')+'</span></a>':'');
+  }).join('');
+  if(window.grunionsOpenSheet) grunionsOpenSheet(dlg); else dlg.showModal();
+ });
+})();
+</script>
 <script>
 if(!window.grunionsConfirm){window.grunionsConfirm=1;
  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-confirm]');if(!b||b.dataset.ok)return;e.preventDefault();if(window.confirm(b.getAttribute('data-confirm'))){b.dataset.ok='1';b.click()}});
