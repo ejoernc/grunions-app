@@ -89,6 +89,7 @@ route("lineup_detail", "Event", "lineup", "lineup")
 route("lineup_edit", "Edit event", "lineup_detail", "lineup", "sheet")
 route("lineup_new", "Suggest an event", "lineup", "lineup", "sheet")
 route("lineup_shifts", "Volunteer shifts", "lineup_detail", "lineup")
+route("lineup_interest", "Interest", "lineup_detail", "lineup")
 route("lineup_shift_done", "Your shift", "lineup_shifts", "lineup")
 route("register_for_event", "Register", "lineup", "lineup")
 # Chat

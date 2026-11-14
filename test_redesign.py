@@ -595,3 +595,24 @@ def test_passes_create_sheet_sections_and_archive_keep_rsvps():
     boss.post("/manage/club/plans/%d" % pid, data=dict(csrf=tok, section="archive"))
     assert sql("SELECT archived FROM payment_plans WHERE id=?", (pid,))[0][0] == 1
     assert sql("SELECT COUNT(*) FROM rsvps")[0][0] == rsvps
+
+
+def test_interest_check_ask_answer_results_and_official():
+    day = (A.today_pt() + dt.timedelta(days=200)).isoformat()
+    sql("INSERT INTO lineup_events(kind,title,date,city,venue,start,status,team_intent,team_plan) VALUES('Trip','IGLA Test',?,'Copenhagen','Pool','09:00','published','considering','considering')", (day,))
+    eid = sql("SELECT id FROM lineup_events WHERE title='IGLA Test'")[0][0]
+    page = boss.get("/lineup/%d" % eid).get_data(as_text=True)
+    assert "Check interest first" in page and "id=icSetup" in page
+    tok = csrf(boss, "/lineup/%d" % eid)
+    boss.post("/lineup/%d/interest" % eid, data=dict(csrf=tok, action="setup", ask="month", option_new="Jun 2027", cost="$1,200", need="2", answer_by="2099-01-15"))
+    boss.post("/lineup/%d/interest" % eid, data={"csrf": tok, "action": "setup", "ask": "month", "option": ["Jun 2027"], "option_new": "Jul 2027", "cost": "$1,200", "need": "2"})
+    mp = member.get("/lineup/%d" % eid).get_data(as_text=True)
+    assert "ARE YOU IN?" in mp and "Jul 2027" in mp and "0 in · 2 needed" in mp and "See answers" not in mp
+    member.post("/lineup/%d/interest" % eid, data={"csrf": csrf(member, "/lineup/%d" % eid), "action": "answer", "answer": "in", "pick": ["Jun 2027"]})
+    assert sql("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=?", (eid, RAE)) == [("interested",)]
+    assert member.get("/lineup/%d/interest" % eid).status_code == 302
+    res = boss.get("/lineup/%d/interest" % eid).get_data(as_text=True)
+    assert "Interest." in res and "Rae Design" in res and "Make it official — Jun 2027" in res and "1 in · 0 maybe" in res
+    boss.post("/lineup/%d/interest" % eid, data=dict(csrf=tok, action="official", option="Jun 2027"))
+    assert sql("SELECT team_intent FROM lineup_events WHERE id=?", (eid,))[0][0] == "official"
+    assert sql("SELECT status FROM interest_checks WHERE event_id=?", (eid,))[0][0] == "decided"

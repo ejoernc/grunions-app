@@ -6573,7 +6573,38 @@ T["lineup"] = """{% macro lineup_months(groups, mode, past=false) %}{% for g in 
 {% if past %}<details class=lineuppast open><summary>{% if group %}Past{% else %}Past{% endif %} <span class=pastn>{{ past_n }}</span></summary>{{ lineup_months(past, 'tall' if group else 'compact', true) }}</details>{% endif %}"""
 T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
 {{ rg_event_hero(e.event_type or 'Event', e.title, [e.when, e.venue, e.city]|select|join(' · '), 'graphite' if e.status == 'canceled' else event_tone(e.event_type), e.status_text if e.status != 'published' else (e.tag or '')) }}
-{% if e.status == 'published' %}<form method=post action="/lineup/{{ e.id }}" class="rg-rsvp2 rsvprow">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>{{ rsvp_base('e' ~ e.id) }}
+{% if ic and ic.status == 'open' %}{# Figma 62 · I2 Interest check, member view #}
+{% set icn = ic_res.counts %}
+<section class=rg-ic>
+{% if ic.need %}{{ rg_progress(icn['in'] ~ ' in · ' ~ ic.need ~ ' needed', icn['in'], ic.need, ("It's on the table" if icn['in'] >= ic.need else (ic.need - icn['in']) ~ ' more and it' ~ "'" ~ 's happening')) }}{% else %}{{ rg_progress(icn['in'] ~ ' in so far', icn['in'], [icn['in'], 1]|max, '') }}{% endif %}
+<p class=rg-icmeta>{{ [('about ' ~ ic.cost) if ic.cost else '', ('answer by ' ~ fmt_d(ic.answer_by)) if ic.answer_by else '']|select|join(' · ') }}</p>
+<form method=post action="/lineup/{{ e.id }}/interest" class=rg-icform>{{ csrf_field() }}<input type=hidden name=action value=answer>
+{% if ic.options %}<h3 class=rg-day>WHICH WORK FOR YOU?</h3>
+<div class=rg-chipset role=group>{% for o in ic.options %}<label><input type=checkbox name=pick value="{{ o }}"{% if o in ic_mine.picks %} checked{% endif %}><span>{{ o }} · {{ ic_res.per[o]['in'] }}</span></label>{% endfor %}</div>{% endif %}
+<h3 class=rg-day>ARE YOU IN?</h3>
+<div class=rg-btnrow><button class="rg-btn {{ 'primary' if ic_mine.answer == 'in' else 'secondary' }}" name=answer value=in>I'm in</button><button class="rg-btn {{ 'primary' if ic_mine.answer == 'maybe' else 'secondary' }}" name=answer value=maybe>Maybe</button></div>
+<button class="rg-btn {{ 'primary' if ic_mine.answer == 'no' else 'ghost' }} rg-wide" name=answer value=no>Not this time</button>
+</form>
+<p class=rg-note>You won't be signed up or charged. If it happens, you'll be asked to confirm.</p>
+{% if ic_host %}<a class=rg-calink href="/lineup/{{ e.id }}/interest">See answers →</a>{% endif %}
+</section>
+{% elif ic_host and ic_considering and not ic %}
+{{ rg_callout('Check interest first', 'Ask who’s in before dates and cost are set', 'Ask →', '', 'grape', "document.getElementById('icSetup').showModal()") }}
+{% elif ic and ic_host %}<a class=rg-calink href="/lineup/{{ e.id }}/interest">Interest answers →</a>{% endif %}
+{% if ic_host and (ic_considering or ic) %}
+<dialog id=icSetup class="botsheet modal"><form method=post action="/lineup/{{ e.id }}/interest" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=action value=setup>
+<h2>The question.</h2><p class=ty-muted>{{ e.title }} · nobody is signed up or charged.</p>
+<h3 class=rg-day>ASK ABOUT</h3>{{ rg_choice_chips('ask', [('month', 'Month'), ('date', 'Dates'), ('none', 'Just yes or no')], (ic.ask if ic else 'month')) }}
+<h3 class=rg-day>OPTIONS (MEMBERS CAN PICK MORE THAN ONE)</h3>
+<div class=rg-chipset role=group>{% for o in (ic.options if ic else []) %}<label><input type=checkbox name=option value="{{ o }}" checked><span>{{ o }}</span></label>{% endfor %}</div>
+<label class=rg-field><span>+ ADD AN OPTION</span><input name=option_new maxlength=40 placeholder="Jun 2027"></label>
+<div class=rg-fieldpair><label class=rg-field><span>ROUGH COST</span><input name=cost maxlength=40 value="{{ ic.cost if ic else '' }}" placeholder="$1,200–1,500"></label><label class=rg-field><span>NEED AT LEAST</span><input name=need inputmode=numeric value="{{ ic.need if ic and ic.need else '' }}" placeholder="12"></label></div>
+<label class=rg-field><span>ANSWER BY</span><input type=date name=answer_by value="{{ ic.answer_by if ic else '' }}"></label>
+<button class="rg-btn primary">{{ 'Save' if ic else 'Ask the team' }}</button>
+<p class=rg-note>Add one option at a time; save, then add the next from here.</p></form></dialog>
+{% if ic %}<button type=button class="rg-btn ghost rg-wide" data-open-dialog=icSetup>Edit the question</button>{% endif %}
+{% endif %}
+{% if e.status == 'published' and not (ic and ic.status == 'open') %}<form method=post action="/lineup/{{ e.id }}" class="rg-rsvp2 rsvprow">{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}>{{ rsvp_base('e' ~ e.id) }}
 {% set going_label = 'Join waitlist' if e.full and e.mine != 'going' and e.mine != 'waitlist' else ('Waitlist' if e.mine == 'waitlist' else 'Going') %}
 <div class=rg-rsvp2main>{{ rsvp_btn(going_label, e.mine == 'going' or e.mine == 'waitlist', 'going') }}
 {{ rsvp_btn('Maybe', e.mine == 'interested', 'interested') }}</div>
@@ -8633,4 +8664,20 @@ T["pass"] = ADMIN_NAV + """<div class="rg-screen rg-passes">
 <label class=rg-field><span>TERMS</span><textarea name=terms rows=3 maxlength=2000>{{ plan.terms or '' }}</textarea></label>
 {% endcall %}
 <p class=rg-note><a href="/manage/club/plans/{{ plan.id }}?classic=1">All settings on one page</a></p>
+</div>"""
+
+
+T["interest_results"] = """<div class="rg-screen rg-ic">
+{# Figma 62 · I3 Organizer — results ‹ Lineup #}
+{{ rg_page_title('Interest', e.title ~ ((' · answers by ' ~ fmt_d(r.check.answer_by)) if r.check.answer_by else '')) }}
+<div class=rg-tiles3>{{ rg_metric('%02d'|format(r.counts['in']), 'In', 'lime') }}{{ rg_metric('%02d'|format(r.counts['maybe']), 'Maybe', 'sun') }}{{ rg_metric('%02d'|format(r.counts['no']), 'Not this time', 'carbon') }}</div>
+{% if r.per %}{{ rg_section_count('Options', r.per|length) }}
+<div class=rg-stack8>{% for o, n in r.per.items() %}{{ rg_settings_row(o, n['in'] ~ ' in · ' ~ n['maybe'] ~ ' maybe') }}{% endfor %}</div>{% endif %}
+{{ rg_section_count("Who's in", r.counts['in'] + r.counts['maybe']) }}
+<div class=rg-plist>{% for p in r.people if p.answer != 'no' %}{{ rg_person(p.name, p.picks|join(', '), '', 'In' if p.answer == 'in' else 'Maybe', 'going' if p.answer == 'in' else 'expiring') }}{% else %}<p class=rg-note>No answers yet.</p>{% endfor %}</div>
+{% if r.check.status == 'open' %}
+<form method=post>{{ csrf_field() }}<input type=hidden name=option value="{{ r.best }}"><button class="rg-btn primary rg-wide" name=action value=official>Make it official{{ (' — ' ~ r.best) if r.best else '' }}</button></form>
+<div class=rg-btnrow style="margin-top:8px"><form method=post>{{ csrf_field() }}<button class="rg-btn secondary" style="width:100%" name=action value=nudge{% if not r.counts['maybe'] %} disabled{% endif %}>Nudge maybes</button></form><form method=post>{{ csrf_field() }}<button class="rg-btn ghost" style="width:100%" name=action value=close>Call it off</button></form></div>
+<p class=rg-note>Making it official tells everyone who's in. Dates and cost come next, from Edit.</p>
+{% else %}<p class=rg-note>This question is {{ 'decided' if r.check.status == 'decided' else 'closed' }}. Answers are kept.</p>{% endif %}
 </div>"""

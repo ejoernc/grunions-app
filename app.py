@@ -8180,7 +8180,74 @@ def lineup_detail(eid):
     packed = lineup_pack(d, [row])[0]
     sh = flows2.shifts_for(d, eid, me()["id"])
     packed["shifts_open"] = sum(x["open"] for x in sh); packed["shifts_n"] = len(sh); packed["shift_mine"] = next((x for x in sh if x["mine"]), None)
-    return page(T["lineup_event"], tab="lineup_event", e=packed, from_admin=request.args.get("from") == "admin", admin_date=(request.args.get("date") or row["date"] or "")[:10])
+    import interest
+    ic = interest.get(d, eid) if (row["team_intent"] or "") == "considering" or interest.get(d, eid) else None
+    ic_res = interest.results(d, eid) if ic else None
+    return page(T["lineup_event"], tab="lineup_event", e=packed, from_admin=request.args.get("from") == "admin", admin_date=(request.args.get("date") or row["date"] or "")[:10],
+                ic=ic, ic_res=ic_res, ic_mine=interest.mine(d, eid, me()["id"]) if ic else None, ic_host=bool(packed.get("can_edit") or packed.get("can_review")),
+                ic_considering=(row["team_intent"] or "") == "considering")
+def _ic_host(d, row):
+    p = lineup_pack(d, [row])[0]
+    return bool(p.get("can_edit") or p.get("can_review"))
+@app.route("/lineup/<int:eid>/interest", methods=["GET", "POST"])
+@login_required
+def lineup_interest(eid):
+    """Figma 62 · I1 the question, I2 member answer, I3 organizer results."""
+    import interest
+    d = db(); interest.ensure(d)
+    row = lineup_event_row(d, eid)
+    if not row or not lineup_seen(row, me()): abort(404)
+    host = _ic_host(d, row)
+    if request.method == "POST":
+        a = request.form.get("action") or ""
+        try:
+            if a == "setup":
+                if not host: abort(403)
+                interest.save(d, eid, request.form, me()["id"])
+                if (row["team_intent"] or "") != "considering" and not d.execute("SELECT 1 FROM lineup_rsvps WHERE event_id=? LIMIT 1", (eid,)).fetchone():
+                    d.execute("UPDATE lineup_events SET team_intent='considering', team_plan='considering' WHERE id=?", (eid,))
+                d.commit(); flash("Question saved · members can answer now", "toast")
+                return redirect("/lineup/%d" % eid)
+            if a == "answer":
+                val = request.form.get("answer") or ""
+                interest.answer(d, eid, me()["id"], val, request.form.getlist("pick"))
+                if (row["status"] or "") == "published":
+                    prev = d.execute("SELECT state FROM lineup_rsvps WHERE event_id=? AND member_id=?", (eid, me()["id"])).fetchone()
+                    if val == "in": set_lineup_rsvp(d, row, "interested")
+                    elif val == "no": set_lineup_rsvp(d, row, "notgoing")
+                    elif prev and prev["state"] in ("interested", "notgoing"): set_lineup_rsvp(d, row, "clear")
+                d.commit(); flash({"in": "You're in · no one is charged", "maybe": "Saved as maybe", "no": "Got it · not this time"}[val], "toast")
+                return redirect("/lineup/%d" % eid)
+            if not host: abort(403)
+            if a == "nudge":
+                maybes = [p["id"] for p in interest.results(d, eid)["people"] if p["answer"] == "maybe"]
+                people = d.execute("SELECT * FROM members WHERE id IN (%s)" % ",".join("?" * len(maybes)), maybes).fetchall() if maybes else []
+                notify_lineup_people(d, people, "Still thinking?", "%s: are you in? Answer when you can." % row["title"], "/lineup/%d" % eid)
+                d.execute("UPDATE interest_checks SET nudged_at=? WHERE event_id=?", (dt.datetime.now().isoformat(timespec="seconds"), eid))
+                d.commit(); flash("Nudged %d %s" % (len(people), "person" if len(people) == 1 else "people"), "toast")
+            elif a == "close":
+                d.execute("UPDATE interest_checks SET status='closed' WHERE event_id=?", (eid,))
+                d.commit(); flash("Called off · answers are kept. Cancel the event from Edit if it's not happening.", "toast")
+            elif a == "official":
+                pick = (request.form.get("option") or "").strip()[:40]
+                d.execute("UPDATE interest_checks SET status='decided' WHERE event_id=?", (eid,))
+                if (row["team_intent"] or "") == "considering":
+                    note = ("Picked: %s. " % pick) if pick else ""
+                    d.execute("UPDATE lineup_events SET team_intent='official', team_plan='committed', stage='going', status=CASE WHEN status IS NULL OR status='' OR status='draft' THEN 'published' ELSE status END WHERE id=?", (eid,))
+                    d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "official")
+                    if pick:
+                        notify_lineup_people(d, lineup_rsvp_members(d, eid, ("interested",)), "It's happening", "%s · %s. Dates and cost come next." % (row["title"], pick), "/lineup/%d" % eid)
+                d.commit(); flash("Official%s" % (" · " + pick if pick else ""), "toast")
+                return redirect("/lineup/%d" % eid)
+            else:
+                abort(400)
+        except ValueError as exc:
+            d.rollback(); flash(str(exc), "toast")
+        return redirect("/lineup/%d/interest" % eid if host else "/lineup/%d" % eid)
+    if not host: return redirect("/lineup/%d" % eid)
+    res = interest.results(d, eid)
+    if not res["check"]: return redirect("/lineup/%d" % eid)
+    return page(T["interest_results"], tab="lineup_event", e=row, r=res)
 def _shift_range(s):
     """'10–12' + 'AM' (07.16): the numbers carry the card; the meridiem is small. Mixed ranges keep both."""
     def f(v):
