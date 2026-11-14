@@ -5538,8 +5538,19 @@ def geocode_address(query):
         if data and data[0].get("lat") and data[0].get("lon"):
             hit = (round(float(data[0]["lat"]), 6), round(float(data[0]["lon"]), 6))
     except Exception as e:
-        app.logger.info("geocode failed: %s", e)
+        app.logger.warning("geocode failed: %s", e)
         hit = None
+    if not hit and MAPBOX_TOKEN:  # Nominatim can refuse cloud hosts; Mapbox's geocoder is the fallback
+        try:
+            murl = "https://api.mapbox.com/geocoding/v5/mapbox.places/%s.json?%s" % (
+                urllib.parse.quote(q), urllib.parse.urlencode({"access_token": MAPBOX_TOKEN, "limit": "1", "country": "us"}))
+            with urllib.request.urlopen(murl, timeout=3) as resp:
+                feats = (json.loads(resp.read().decode() or "{}") or {}).get("features") or []
+            if feats and feats[0].get("center"):
+                lng, lat = feats[0]["center"][:2]
+                hit = (round(float(lat), 6), round(float(lng), 6))
+        except Exception as e:
+            app.logger.warning("mapbox geocode failed: %s", e)
     _GEO_CACHE[q] = hit
     return hit
 def social_geocode_query(p):

@@ -1636,3 +1636,5 @@ header.homehead .headmain .rg-plus,.chathead .rg-plus{align-self:flex-start;marg
 .ckweekwrap{overflow:hidden;margin:0 -3px 12px;touch-action:pan-y}
 .ckweektrack{display:flex;width:300%;transform:translateX(-33.3333%);will-change:transform}
 .ckweektrack>.ckweek{flex:0 0 33.3333%;box-sizing:border-box;margin:0;padding:0 3px}
+/* Can't make it: a full button, same 56px as Going / Interested (ghost: graphite outline) */
+.rg-cant{align-self:stretch;width:100%;height:56px;min-height:56px;padding:0 24px;border:1.5px solid var(--graphite);border-radius:999px;background:transparent;color:var(--paper);font:700 16px/normal var(--font-sans)}
