@@ -425,9 +425,12 @@ def week_grid(blocks, label="Your week"):
                   % (_e(label), cols, hours, marks))
 
 
-def metric(value, label, tone="carbon"):
-    """2.0 / Metric."""
-    return Markup('<div class="rg-metric tone-%s"><b>%s</b><span>%s</span></div>' % (_tone(tone, "carbon"), _e(value), _e(label)))
+def metric(value, label, tone="carbon", href="", on=False):
+    """2.0 / Metric. With href it's a filter tile (Figma 62 S1 2×2): the picked one gets a ring."""
+    inner = '<b>%s</b><span>%s</span>' % (_e(value), _e(label))
+    if href:
+        return Markup('<a class="rg-metric tone-%s%s" href="%s"%s>%s</a>' % (_tone(tone, "carbon"), " on" if on else "", _e(href), ' aria-current=true' if on else "", inner))
+    return Markup('<div class="rg-metric tone-%s">%s</div>' % (_tone(tone, "carbon"), inner))
 
 
 def info(kicker, body, href="", attrs=""):
@@ -714,7 +717,37 @@ def notif_preview(app, title, line):
     """2.0 / Notification preview (Figma 62 R1): what the reminder looks like on a phone."""
     return Markup('<div class=rg-notif>%s<b>%s</b><small>%s</small></div>' % (str(chip(app, "neutral")), _e(title), _e(line)))
 
+
+def person_status(name, sub="", chips=(), note="", initials="", href="", attrs="", tone="sun"):
+    """2.0 / People row with status (Figma 62 S1): avatar, name, role line, status chips, one 'missing' line.
+    chips = [(label, status)]. No action buttons on the row; tap opens the status drawer or the profile."""
+    ini = initials or ("".join(p[:1] for p in str(name).split()[:2]) or "?").upper()
+    row = "".join(str(chip(l, st)) for l, st in chips if l)
+    inner = '<span class="rg-pav tone-%s" aria-hidden=true>%s</span><span class=rg-txt><b>%s</b>%s%s%s</span>' % (
+        _tone(tone, "sun"), _e(ini), _e(name), ('<small>%s</small>' % _e(sub)) if sub else "",
+        ('<span class=rg-gcchips>%s</span>' % row) if row else "", ('<small class=rg-pnote>%s</small>' % _e(note)) if note else "")
+    extra = (" " + attrs) if attrs else ""
+    if href:
+        return Markup('<a class="rg-person rg-pstat" href="%s"%s>%s</a>' % (_e(href), extra, inner))
+    return Markup('<button type=button class="rg-person rg-pstat"%s>%s</button>' % (extra, inner))
+
+
+def status_list(rows):
+    """2.0 / Status list (Figma 62 S3): grouped rows, title + one line, a chip or a lime action on the right.
+    rows = [dict(title, sub, chip=(label, status) | None, action=label, href='', attrs='')]."""
+    out = []
+    for r in rows:
+        side = ""
+        if r.get("chip"):
+            side = str(chip(*r["chip"]))
+        elif r.get("action"):
+            side = ('<a class=rg-dgact href="%s">%s</a>' % (_e(r["href"]), _e(r["action"]))) if r.get("href") else \
+                   '<button type=button class=rg-dgact%s>%s</button>' % ((" " + r["attrs"]) if r.get("attrs") else "", _e(r["action"]))
+        out.append('<div class=rg-slrow><span class=rg-txt><b>%s</b>%s</span>%s</div>%s' % (
+            _e(r["title"]), ('<small>%s</small>' % _e(r["sub"])) if r.get("sub") else "", side, r.get("extra", "")))
+    return Markup('<div class=rg-slist>%s</div>' % "".join(out))
+
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, rg_person=person_row, rg_group_card=group_card, rg_detail_group=detail_group, rg_doc_card=doc_card, rg_notif=notif_preview, event_tone=event_tone)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, rg_person=person_row, rg_group_card=group_card, rg_detail_group=detail_group, rg_doc_card=doc_card, rg_notif=notif_preview, rg_person_status=person_status, rg_status_list=status_list, event_tone=event_tone)

@@ -313,8 +313,10 @@ def test_people_menu_insurance_membership_board_and_no_auto_lookup():
     pm = join("Pat", "Menu", "pat@example.com")
     pid_ = sql("SELECT id FROM members WHERE email='pat@example.com'")[0][0]
     page = boss.get("/members").get_data(as_text=True)
-    assert "Check insurance" in page and "data-sheet=insSheet" in page and "Check USAWP" not in page
-    assert "ask_bot" not in page and "Look it up" not in page and "Add to leadership" in page and "Add to board" not in page
+    # Nov 13 (Figma 62 S1/S3): rows have no buttons; fixes live in the status drawer, the board in Leaders.
+    drawer = boss.get("/members/%d/status" % pid_).get_data(as_text=True)
+    assert 'data-status="%d"' % pid_ in page and "Mark verified" in drawer and "Check USAWP" not in page
+    assert "ask_bot" not in page and "Look it up" not in page
     t = csrf(boss, "/members")
     boss.post("/members", data=dict(csrf=t, member_id=pid_, action="verify", number="1002020", valid_until="2099-01-01"))
     assert sql("SELECT usawp_status, usawp_number FROM members WHERE id=?", (pid_,))[0] == ("verified", "1002020")
@@ -324,14 +326,14 @@ def test_people_menu_insurance_membership_board_and_no_auto_lookup():
     con = A.open_db(); sportspay.ensure(con) if hasattr(sportspay, "ensure") else None; con.close()
     sql("INSERT INTO payment_plans(name, kind, active) VALUES('Season pass','annual',1)")
     plan = sql("SELECT id FROM payment_plans WHERE name='Season pass'")[0][0]
-    assert "Check membership" in boss.get("/members").get_data(as_text=True)
+    assert "Mark paid" in boss.get("/members/%d/status" % pid_).get_data(as_text=True)
     boss.post("/members", data=dict(csrf=t, member_id=pid_, action="membership", plan_id=plan, paid_through="2099-06-30"))
     assert sql("SELECT status, paid_through FROM access_entitlements WHERE member_id=? AND plan_id=?", (pid_, plan))[-1] == ("active", "2099-06-30")
     # Board: a new role is created as a board role, they join Board chat, then leave it.
     boss.post("/members", data=dict(csrf=t, member_id=pid_, action="add_board", role_id="", new_role="Treasurer"))
     assert sql("SELECT board_member FROM members WHERE id=?", (pid_,))[0][0] == 1
     assert sql("SELECT r.name, r.board FROM leadership_roles r JOIN leadership_members m ON m.role_id=r.id WHERE m.member_id=?", (pid_,)) == [("Treasurer", 1)]
-    assert pm.get("/chat?c=board").status_code == 200 and "Remove from leadership" in boss.get("/members").get_data(as_text=True)
+    assert pm.get("/chat?c=board").status_code == 200 and "Pat Menu" in boss.get("/manage/club/leaders/board").get_data(as_text=True)
     boss.post("/members", data=dict(csrf=t, member_id=pid_, action="remove_board"))
     assert sql("SELECT board_member FROM members WHERE id=?", (pid_,))[0][0] == 0
     assert not sql("SELECT 1 FROM leadership_members WHERE member_id=?", (pid_,))
@@ -556,3 +558,16 @@ def test_reminders_choices_save_and_going_only_filter():
     assert s["when"] == "morning" and s["who"] == "going" and not s["enabled"]
     page = boss.get("/manage/club/reminders").get_data(as_text=True)
     assert "Reminders." in page and "Morning of" in page and "data-off" in page
+
+
+def test_participants_tiles_filters_and_status_drawer():
+    page = boss.get("/members").get_data(as_text=True)
+    assert "Participants." in page and "Needs both" in page and "data-status=" in page and "Make admin" not in page
+    page = boss.get("/members?filt=uncleared").get_data(as_text=True)
+    assert "Not cleared" in page
+    drawer = boss.get("/members/%d/status" % RAE).get_data(as_text=True)
+    assert "CLEARED TO PLAY" in drawer and "USA Water Polo #" in drawer and "View profile" in drawer and "Message Rae" in drawer
+    assert "<html" not in drawer
+    assert member.get("/members/%d/status" % RAE).status_code in (302, 403)
+    classic = boss.get("/members?view=coaches").get_data(as_text=True)
+    assert "Participants." not in classic

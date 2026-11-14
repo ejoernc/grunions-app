@@ -10731,6 +10731,9 @@ def members():
     if view == "expiring": view, filt = "members", "expiring"
     elif view == "uncleared": view, filt = "members", "uncleared"
     if view not in ("members", "coaches", "admins", "referees", "all", "compliance", "membership"): view = "members"
+    if filt not in ("", "expiring", "uncleared", "ready", "unpaid", "unpaid_only", "uncleared_only", "both"): filt = ""
+    if view == "members" and request.args.get("classic") != "1":
+        return _participants_page(d, rows, q, filt)
     if filt not in ("", "expiring", "uncleared"): filt = ""
     sets = roster_sets(d, rows)
     if view == "coaches": rows = [r for r in rows if r["id"] in sets["coaches"]]
@@ -10761,6 +10764,99 @@ def members():
         tab="admin", admin_back="/manage/area/people", rows=rows, c=c, view=view, filt=filt, pay="", date=focus, q=q, title=titles[view],
         listed=sets["listed"], referees=sets["referees"], coach_ids=sets["coach_ids"], ref_ids=sets["ref_ids"],
         n_admins=len(sets["admins"]), boot=ADMIN_EMAILS, **_people_sheets(d))
+def _participant_card(d, r, sport_name, today):
+    """Figma 62 S1 row: clearance chip, payment chip, one line on what's missing."""
+    import clubadmin, leaders
+    st = list_status(d, r, "members")
+    pending = (r["vr_status"] or "") == "pending"
+    if pending:
+        word, tone = "Pending", "interested"
+    elif not st["ok"]:
+        word, tone = "Not cleared", "notcleared"
+    elif st["tone"] == "warn":
+        word, tone = "Expiring", "expiring"
+    else:
+        word, tone = "Cleared", "cleared"
+    paid = clubadmin.has_monthly_membership(d, r["id"], today)
+    rest = (st.get("rest") or "").lstrip(" ·")
+    note = "Insurance # sent — check it" if pending else (("Missing: " + rest[:-8]) if rest.endswith(" missing") else rest)
+    tw = trial_window(r)
+    if tw and tw["active"] and (r["usawp_status"] or "") != "verified":
+        left = tw.get("days_left") or 0
+        note = "Trial · %d day%s left" % (left, "" if left == 1 else "s")
+    kind = "Coach" if (r["role"] or "") == "coach" else "Player"
+    name = ("%s %s" % (display_first(r), r["last"] or "")).strip()
+    good = st["ok"] and not pending and paid and tone == "cleared"
+    return {"id": r["id"], "name": name, "sub": leaders.member_line(d, r["id"], "%s · %s" % (kind, sport_name)),
+            "chips": [(word, tone), ("Paid" if paid else "Unpaid", "paid" if paid else "neutral")],
+            "note": "" if good else note, "ok": st["ok"] and not pending, "paid": paid, "expiring": tone == "expiring", "good": good,
+            "search": " ".join(x for x in (r["first"], r["preferred_first"], r["last"]) if x).casefold()}
+def _participants_page(d, rows, q, filt):
+    import clubadmin
+    clubadmin.ensure(d)
+    today = today_pt().isoformat()
+    progs = [p for p in clubadmin.programs(d) if p["active"]] or clubadmin.programs(d)
+    sport_name = (progs[0]["public_name"] or progs[0]["name"]) if progs else "Water Polo"
+    cards = [_participant_card(d, r, sport_name, today) for r in rows]
+    n = {"all": len(cards), "ready": sum(1 for c in cards if c["ok"] and c["paid"]),
+         "unpaid_only": sum(1 for c in cards if c["ok"] and not c["paid"]),
+         "uncleared_only": sum(1 for c in cards if not c["ok"] and c["paid"]),
+         "both": sum(1 for c in cards if not c["ok"] and not c["paid"]),
+         "uncleared": sum(1 for c in cards if not c["ok"]), "unpaid": sum(1 for c in cards if not c["paid"]),
+         "expiring": sum(1 for c in cards if c["expiring"])}
+    keep = {"ready": lambda c: c["ok"] and c["paid"], "unpaid_only": lambda c: c["ok"] and not c["paid"],
+            "uncleared_only": lambda c: not c["ok"] and c["paid"], "both": lambda c: not c["ok"] and not c["paid"],
+            "uncleared": lambda c: not c["ok"], "unpaid": lambda c: not c["paid"], "expiring": lambda c: c["expiring"]}
+    if filt in keep: cards = [c for c in cards if keep[filt](c)]
+    return page(T["participants"], tab="admin", admin_back="/manage/area/people", cards=cards, n=n, filt=filt, q=q)
+@app.route("/members/<int:mid>/status")
+@admin_required
+def member_status_sheet(mid):
+    """Figma 62 S3: what this person needs, fixed right here. Returned as the drawer's inside."""
+    import clubadmin
+    d = db(); clubadmin.ensure(d)
+    m = d.execute("SELECT m.*, (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status FROM members m WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone()
+    if not m: abort(404)
+    today = today_pt().isoformat()
+    rows = []
+    until = (m["usawp_valid_until"] or "")[:10]
+    if (m["usawp_status"] or "") == "verified" and (not until or until >= today):
+        rows.append({"title": "USA Water Polo #", "sub": ("Current through %s" % fmt_long(until)) if until else "Verified", "chip": ("Done", "cleared")})
+    else:
+        sub = ("Expired %s" % fmt_long(until)) if until and until < today else ("#%s sent — not checked yet" % m["usawp_number"] if (m["usawp_number"] or "").strip() else "Missing — insurance not confirmed")
+        rows.append({"title": "USA Water Polo #", "sub": sub, "action": "Check", "attrs": "data-sl-open=slVerify"})
+    w = flows2.waiver(d)
+    if w and w["enabled"]:
+        acc = flows2.accepted_waiver(d, mid)
+        rows.append({"title": w["title"] or "Liability waiver", "sub": ("Signed v%s · %s" % (w["version"], fmt_d(acc["at"][:10]))) if acc else "Not signed yet — asked at their next Going",
+                     "chip": ("Done", "cleared") if acc else ("Not signed", "notcleared")})
+    for doc in clubdocs.pending(d, mid):
+        rows.append({"title": doc["title"], "sub": "Not accepted yet — asked at their next Going", "chip": ("Not signed", "notcleared")})
+    reqs, dates = _people_req_index(d)
+    for rq in reqs:
+        kind = _req_kind(rq)
+        label = _req_label(rq, kind)
+        if not _counts_on_list(kind, rq["applies_to"], "members", m):
+            if kind == "safesport": rows.append({"title": label, "sub": "Not needed for players", "chip": ("N/A", "neutral")})
+            continue
+        if not rq["expires"]: continue  # same rules as the row's chip (list_status)
+        if "water polo" in label.lower() and "membership" in label.lower(): continue  # that's the USA Water Polo # row above
+        date = dates.get((mid, rq["id"]), "")
+        if not date: rows.append({"title": label, "sub": "Missing", "action": "Add", "href": "/admin/member/%d" % mid})
+        elif date < today: rows.append({"title": label, "sub": "Expired %s" % fmt_long(date), "action": "Update", "href": "/admin/member/%d" % mid})
+        else: rows.append({"title": label, "sub": "Through %s" % fmt_long(date), "chip": ("Done", "cleared")})
+    pay = []
+    paid = clubadmin.has_monthly_membership(d, mid, today)
+    plans = _people_sheets(d)["member_plans"]
+    if paid:
+        pay.append({"title": "Paying member", "sub": "Membership is current", "chip": ("Paid", "paid")})
+    else:
+        pay.append({"title": "Paying member", "sub": "Not paying · the board marks it", "action": "Mark paid" if plans else "", "attrs": "data-sl-open=slPaid"})
+    name = ("%s %s" % (display_first(m), m["last"] or "")).strip()
+    kind = "Coach" if (m["role"] or "") == "coach" else "Player"
+    import leaders
+    return render_template_string(T["member_status"], m=m, name=name, sub=leaders.member_line(d, mid, kind), rows=rows, pay=pay, plans=plans,
+                                  dm=dm_channel(me()["id"], mid) if me()["id"] != mid else "", today_iso=today)
 def _people_sheets(d):
     """Data for the People ⋯ sheets: insurance, membership plans (monthly/annual only), board roles."""
     import clubadmin

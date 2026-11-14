@@ -8326,7 +8326,7 @@ T["leaders_group"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
 {% else %}
 {{ rg_section_count('Roles', n_roles) }}
 <div class=rg-plist>
-{% for r in rows %}{% if r.legacy %}{{ rg_person(r.name, r.role, r.initials, r.access, 'going', '/profile/' ~ r.member_id) }}{% else %}{{ rg_person(r.name, r.role, r.initials, r.access, 'going', '', 'data-seat data-role="' ~ r.role_id ~ '" data-title="' ~ r.role|e ~ '" data-member="' ~ (r.member_id or '') ~ '" data-perm="' ~ r.permission ~ '"', 'sun') }}{% endif %}{% endfor %}
+{% for r in rows %}{% if r.legacy %}{{ rg_person(r.name, r.role, r.initials, r.access, 'going', '/admin/member/' ~ r.member_id) }}{% else %}{{ rg_person(r.name, r.role, r.initials, r.access, 'going', '', 'data-seat data-role="' ~ r.role_id ~ '" data-title="' ~ r.role|e ~ '" data-member="' ~ (r.member_id or '') ~ '" data-perm="' ~ r.permission ~ '"', 'sun') }}{% endif %}{% endfor %}
 </div>
 <button type=button class="rg-btn secondary rg-wide" data-open-dialog=roleAdd>Add a role</button>
 {% endif %}
@@ -8441,7 +8441,7 @@ T["document"] = ADMIN_NAV + """<div class="rg-screen rg-docs">
 
 T["document_people"] = ADMIN_NAV + """<div class="rg-screen rg-docs">
 {{ rg_page_title(('Accepted' if signed else "Haven't accepted"), doc.title ~ ' · version ' ~ doc.version) }}
-<div class=rg-plist>{% for p in people %}{{ rg_person((p.preferred_first or p.first) ~ ' ' ~ (p.last or ''), '', '', '', 'neutral', '/profile/' ~ p.id) }}{% else %}<p class=rg-note>No one.</p>{% endfor %}</div>
+<div class=rg-plist>{% for p in people %}{{ rg_person((p.preferred_first or p.first) ~ ' ' ~ (p.last or ''), '', '', '', 'neutral', '/admin/member/' ~ p.id) }}{% else %}<p class=rg-note>No one.</p>{% endfor %}</div>
 </div>"""
 
 T["reminders"] = ADMIN_NAV + """<div class="rg-screen rg-remind"{% if not s.enabled %} data-off{% endif %}>
@@ -8463,3 +8463,48 @@ T["reminders"] = ADMIN_NAV + """<div class="rg-screen rg-remind"{% if not s.enab
 <p class=rg-note>Sent once per practice, by email or notification, the way each member chose. Skips cancelled practices. Never changes anyone's RSVP.</p>
 <script>(function(){var f=document.getElementById('remForm'); if(!f) return; f.addEventListener('change',function(e){ if(e.target.name!=='enabled') return; var on=e.target.checked; var sc=f.closest('.rg-remind'); if(on) sc.removeAttribute('data-off'); else sc.setAttribute('data-off',''); var sm=e.target.closest('label').querySelector('small'); if(sm) sm.textContent=on?'Off until you turn it on':'Off — nothing is sent'; });})();</script>
 </div>"""
+
+T["participants"] = ADMIN_NAV + """<div class="rg-screen rg-parts">
+{# Figma 62 · S1 Participants ‹ People. Rows carry no buttons; tap → the status drawer (S3), or the profile when all good (S4). #}
+{{ rg_page_title('Participants', n.all ~ ' people. Cleared to play, and paying.', '<a class="rg-btn ghost" href=/members.csv>Export CSV</a>') }}
+<form method=get action=/members class=rg-partsearch>{% if filt %}<input type=hidden name=filt value="{{ filt }}">{% endif %}{{ rg_search('partQ', 'Search people') }}</form>
+<div class=rg-tiles2>
+{{ rg_metric('%02d'|format(n.ready), 'Ready', 'lime', '/members?filt=ready', filt == 'ready') }}
+{{ rg_metric('%02d'|format(n.unpaid_only), 'Unpaid only', 'sun', '/members?filt=unpaid_only', filt == 'unpaid_only') }}
+{{ rg_metric('%02d'|format(n.uncleared_only), 'Not cleared only', 'sky', '/members?filt=uncleared_only', filt == 'uncleared_only') }}
+{{ rg_metric('%02d'|format(n.both), 'Needs both', 'carbon', '/members?filt=both', filt == 'both') }}
+</div>
+{{ rg_filters([('', 'All · ' ~ n.all, '/members'), ('uncleared', 'Not cleared · ' ~ n.uncleared, '/members?filt=uncleared'), ('unpaid', 'Unpaid · ' ~ n.unpaid, '/members?filt=unpaid'), ('expiring', 'Expiring · ' ~ n.expiring, '/members?filt=expiring')], filt if filt in ('uncleared', 'unpaid', 'expiring') else '') }}
+<div class=rg-plist id=partList>
+{% for c in cards %}<div data-q="{{ c.search }}">{% if c.good %}{{ rg_person_status(c.name, c.sub, c.chips, c.note, '', '/admin/member/' ~ c.id) }}{% else %}{{ rg_person_status(c.name, c.sub, c.chips, c.note, '', '', 'data-status="' ~ c.id ~ '"') }}{% endif %}</div>{% else %}<p class=rg-note>No one here.</p>{% endfor %}
+</div>
+<p class=rg-note id=partNone hidden>No one by that name.</p>
+<dialog id=statusSheet class="botsheet modal"><div class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><div id=statusBody><p class=rg-note>Loading…</p></div></div></dialog>
+<script>(function(){
+ var q=document.getElementById('partQ'), list=document.getElementById('partList');
+ if(q){ q.value={{ q|tojson }}; var go=function(){ var v=(q.value||'').trim().toLowerCase(), any=false; list.querySelectorAll('[data-q]').forEach(function(r){ var hit=!v||r.getAttribute('data-q').indexOf(v)>=0; r.hidden=!hit; if(hit) any=true; }); document.getElementById('partNone').hidden=any||!v; }; q.addEventListener('input',go); go(); q.closest('form').addEventListener('submit',function(e){e.preventDefault();}); }
+ var sheet=document.getElementById('statusSheet'), body=document.getElementById('statusBody');
+ document.addEventListener('click',function(e){
+  var b=e.target.closest&&e.target.closest('[data-status]'); if(b){ e.preventDefault(); body.innerHTML='<p class=rg-note>Loading…</p>';
+   if(window.grunionsOpenSheet) grunionsOpenSheet(sheet); else sheet.showModal();
+   fetch('/members/'+b.getAttribute('data-status')+'/status',{credentials:'same-origin'}).then(function(r){return r.text();}).then(function(h){ body.innerHTML=h; }); return; }
+  var o=e.target.closest&&e.target.closest('[data-sl-open]'); if(o){ e.preventDefault(); var t=document.getElementById(o.getAttribute('data-sl-open')); if(t) t.hidden=!t.hidden; }
+ });
+})();</script>
+</div>"""
+
+T["member_status"] = """<div class=rg-sthead><span class="rg-pav tone-sky" aria-hidden=true>{{ (name.split()|map('first')|join)[:2]|upper }}</span><span class=rg-txt><b>{{ name }}</b><small>{{ sub }}</small></span></div>
+<h3 class=rg-day>CLEARED TO PLAY</h3>
+{{ rg_status_list(rows) }}
+<form method=post action=/members id=slVerify class=rg-slform hidden>{{ csrf_field() }}<input type=hidden name=member_id value="{{ m.id }}"><input type=hidden name=action value=verify>
+<label class=rg-field><span>MEMBER #</span><input name=number value="{{ m.usawp_number or '' }}" inputmode=numeric maxlength=20></label>
+<label class=rg-field><span>VALID UNTIL (FROM SPORT:80)</span><input type=date name=valid_until min="{{ today_iso }}"></label>
+<button class="rg-btn primary">Mark verified</button></form>
+<h3 class=rg-day>MEMBERSHIP</h3>
+{{ rg_status_list(pay) }}
+{% if plans %}<form method=post action=/members id=slPaid class=rg-slform hidden>{{ csrf_field() }}<input type=hidden name=member_id value="{{ m.id }}"><input type=hidden name=action value=membership>
+<label class=rg-field><span>PLAN</span><select name=plan_id>{% for p in plans %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></label>
+<label class=rg-field><span>PAID THROUGH</span><input type=date name=paid_through min="{{ today_iso }}" required></label>
+<button class="rg-btn primary">Mark paid</button></form>{% endif %}
+<div class=rg-btnrow style="margin-top:12px"><a class="rg-btn primary" href="/admin/member/{{ m.id }}">View profile</a>{% if dm %}<a class="rg-btn secondary" href="/chat?c={{ dm }}&place=me">Message {{ name.split()[0] }}</a>{% endif %}</div>
+<p class=rg-note>Fixes save right here. View profile opens the full profile.</p>"""
