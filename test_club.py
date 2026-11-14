@@ -783,7 +783,7 @@ def test_practice_reminders_stay_off_and_use_the_branded_mail():
         before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
         d.commit()
     page = admin.get("/manage/club/reminders").get_data(as_text=True)
-    assert "Send practice reminders" in page and "Hours before" in page and "checked" not in page.split("Send practice reminders")[0][-80:]
+    assert "Practice reminders" in page and "3 hours before" in page and "Off — nothing is sent" in page and "data-off" in page
     settings = admin.get("/notifications").get_data(as_text=True)
     assert "Practice reminders" in settings and 'value="both"' in settings and "checked" in settings
     sent = []

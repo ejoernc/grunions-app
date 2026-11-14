@@ -8376,3 +8376,90 @@ T["leaders_group"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
  var q=document.getElementById('seatSearch'); if(q) q.addEventListener('input',function(){ filter(q.value); });
 })();</script>
 </div>"""
+
+T["documents"] = ADMIN_NAV + """<div class="rg-screen rg-docs">
+{# Figma 62 · D1 Documents ‹ Club #}
+{{ rg_page_title('Documents', 'What members read and accept.') }}
+{{ rg_section_count('Accepted at sign-up', live|length) }}
+<div class=rg-stack8>
+{% for doc in live %}{{ rg_settings_row(doc.title, 'v' ~ doc.version ~ ' · ' ~ doc.signed ~ ' of ' ~ team, '/manage/club/documents/' ~ doc.key) }}{% else %}<p class=rg-note>Nothing yet. Members go straight to Going.</p>{% endfor %}
+</div>
+{% if rest or missing %}{{ rg_section_count('Not added', rest|length + missing|length) }}
+<div class=rg-stack8>
+{% for doc in rest %}{{ rg_settings_row(doc.title, ('Off · v' ~ doc.version) if doc.published else 'Draft', '/manage/club/documents/' ~ doc.key) }}{% endfor %}
+{% for kind, label in missing %}<form method=post>{{ csrf_field() }}<input type=hidden name=kind value="{{ kind }}"><button class=rg-srow style="width:100%"><span class=rg-srlabel>{{ label }}</span><span class=rg-srvalue>Add</span>{{ rg_icon('chevron_right', 'sm') }}</button></form>{% endfor %}
+</div>{% endif %}
+<form method=post>{{ csrf_field() }}<input type=hidden name=kind value=custom><button class="rg-btn secondary" style="width:100%;margin-top:8px">Add another document</button></form>
+<p class=rg-note>Members accept documents once, in the same sheet as their insurance number — at their first Going.</p>
+</div>"""
+
+T["document"] = ADMIN_NAV + """<div class="rg-screen rg-docs">
+{# Figma 62 · D2 Document, D3 edit sheet, D4 publish a new version #}
+{{ rg_page_title('Document', 'Preview first. Changes are explicit.') }}
+{% set src_label = {'text': 'Pasted text', 'url': 'Link', 'pdf': 'PDF'}[doc.source] %}
+{% if doc.published %}
+{{ rg_doc_card([src_label, 'Version ' ~ doc.version], doc.title, (doc.body[:220] ~ ('…' if doc.body|length > 220 else '')) if doc.source == 'text' else (doc.url if doc.source == 'url' else 'PDF on file'), 'Read it as members see it', 'data-open-dialog=docRead') }}
+<form method=post data-autosave style="margin-top:8px">{{ csrf_field() }}{{ rg_toggle('required', 'Required before Going', "Members can't mark Going until they accept", doc.enabled) }}</form>
+{{ rg_section_count('Signatures', doc.signed ~ '/' ~ team) }}
+<div class=rg-stack8>
+{{ rg_settings_row('Accepted version ' ~ doc.version, doc.signed ~ (' person' if doc.signed == 1 else ' people'), '/manage/club/documents/' ~ doc.key ~ '/people') }}
+{{ rg_settings_row("Haven't accepted", not_signed ~ (' person' if not_signed == 1 else ' people'), '/manage/club/documents/' ~ doc.key ~ '/people?f=not') }}
+</div>
+{{ rg_section_count('Change it', 2) }}
+<div class=rg-stack8>
+{{ rg_settings_row('Edit text (typo fix)', 'No re-sign', '#', 'data-open-dialog=docEdit') }}
+{{ rg_settings_row('Publish a new version', 'Everyone re-signs', '#', 'data-open-dialog=docPublish') }}
+</div>
+{% if doc.note %}<p class=rg-note>Version {{ doc.version }}: {{ doc.note }}</p>{% endif %}
+{% else %}
+{{ rg_doc_card(['Draft'], doc.title, 'Not published. Members don\\'t see it yet.', 'Set it up', 'data-open-dialog=docEdit') }}
+{% endif %}
+{% if doc.key != 'waiver' %}<form method=post style="margin-top:16px">{{ csrf_field() }}<button class="rg-btn ghost" style="width:100%" name=action value=remove>Remove this document</button></form>{% endif %}
+<p class=rg-note>{% if doc.updated_at %}Updated {{ doc.updated_at[:10] }}{% if doc.updated_by %} by {{ doc.updated_by }}{% endif %}. {% endif %}Earlier signatures stay on record.</p>
+
+{% macro editor(mode) %}<form method=post enctype=multipart/form-data class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<h2>{{ doc.title }}</h2><p class=ty-muted>Shown when members sign up for a practice.</p>
+{% if doc.key != 'waiver' %}<h3 class=rg-day>DOCUMENT TYPE</h3>
+<label class=rg-field><span>TITLE</span><input name=title value="{{ doc.title }}" maxlength=120 required></label>{% endif %}
+{{ rg_seg_choice('source', sources, doc.source) }}
+<div data-src=text{% if doc.source != 'text' %} hidden{% endif %}><label class=rg-field><span>TEXT</span><textarea name=body rows=8>{{ doc.body }}</textarea></label></div>
+<div data-src=url{% if doc.source != 'url' %} hidden{% endif %}><label class=rg-field><span>LINK</span><input name=url type=url value="{{ doc.url }}" placeholder="https://"></label></div>
+<div data-src=pdf{% if doc.source != 'pdf' %} hidden{% endif %}><label class=rg-field><span>PDF{% if doc.pdf %} · ONE ON FILE{% endif %}</span><input name=pdf type=file accept="application/pdf"></label></div>
+{% if mode == 'publish' %}<label class=rg-field><span>WHAT CHANGED</span><input name=note maxlength=200 placeholder="Add a short note"></label>
+<p class=rg-note>{% if doc.published %}Everyone accepts it again at their next Going. Version {{ doc.version }} signatures are kept on record.{% else %}Members accept it at their next Going.{% endif %}</p>
+<button class="rg-btn primary" name=action value=publish>Publish · version {{ (doc.version + 1) if doc.published else 1 }}</button>
+{% else %}<p class=rg-note>{% if doc.published %}Fixes a typo. Nobody signs again.{% else %}Members won't see it until you publish.{% endif %}</p>
+<button class="rg-btn primary" name=action value="{{ 'save' if doc.published else 'publish' }}">{{ 'Save · no re-sign' if doc.published else 'Publish · version 1' }}</button>{% endif %}
+</form>{% endmacro %}
+<dialog id=docEdit class="botsheet modal" data-sheet-name=edit>{{ editor('save') }}</dialog>
+<dialog id=docPublish class="botsheet modal" data-sheet-name=publish>{{ editor('publish') }}</dialog>
+<dialog id=docRead class="botsheet modal"><div class=sheet><div class=grab aria-hidden=true></div><h2>{{ doc.title }}</h2><p class=ty-muted>Version {{ doc.version }} · what members see</p>
+{% if doc.source == 'text' %}<div class=rg-docread>{{ doc.body }}</div>{% elif doc.source == 'url' %}<a class="rg-btn secondary" href="{{ doc.url }}" target=_blank rel=noopener>Open the link</a>{% else %}<a class="rg-btn secondary" href="/club-docs/{{ doc.key }}.pdf" target=_blank rel=noopener>Open the PDF</a>{% endif %}
+<label class=checkline><input type=checkbox disabled> I've read it and I agree</label></div></dialog>
+<script>document.addEventListener('change',function(e){var i=e.target; if(!i.matches||!i.matches('input[name=source]')) return; var f=i.closest('form'); f.querySelectorAll('[data-src]').forEach(function(b){ b.hidden=b.getAttribute('data-src')!==i.value; });});</script>
+</div>"""
+
+T["document_people"] = ADMIN_NAV + """<div class="rg-screen rg-docs">
+{{ rg_page_title(('Accepted' if signed else "Haven't accepted"), doc.title ~ ' · version ' ~ doc.version) }}
+<div class=rg-plist>{% for p in people %}{{ rg_person((p.preferred_first or p.first) ~ ' ' ~ (p.last or ''), '', '', '', 'neutral', '/profile/' ~ p.id) }}{% else %}<p class=rg-note>No one.</p>{% endfor %}</div>
+</div>"""
+
+T["reminders"] = ADMIN_NAV + """<div class="rg-screen rg-remind"{% if not s.enabled %} data-off{% endif %}>
+{# Figma 62 · R1 Reminders on / R2 off #}
+{{ rg_page_title('Reminders', 'A heads-up before practice.') }}
+<form method=post data-autosave id=remForm>{{ csrf_field() }}
+{{ rg_toggle('enabled', 'Practice reminders', 'Off until you turn it on' if s.enabled else 'Off — nothing is sent', s.enabled) }}
+<div class=rg-remopts>
+<h3 class=rg-day>WHEN</h3>
+{{ rg_choice_chips('when', when, s.when) }}
+<h3 class=rg-day>WHO GETS IT</h3>
+{{ rg_choice_chips('who', who, s.who) }}
+</div>
+</form>
+<div class=rg-remopts>
+<h3 class=rg-day>WHAT THEY SEE</h3>
+{{ rg_notif('Regulars · now', sample[0], sample[1]) }}
+</div>
+<p class=rg-note>Sent once per practice, by email or notification, the way each member chose. Skips cancelled practices. Never changes anyone's RSVP.</p>
+<script>(function(){var f=document.getElementById('remForm'); if(!f) return; f.addEventListener('change',function(e){ if(e.target.name!=='enabled') return; var on=e.target.checked; var sc=f.closest('.rg-remind'); if(on) sc.removeAttribute('data-off'); else sc.setAttribute('data-off',''); var sm=e.target.closest('label').querySelector('small'); if(sm) sm.textContent=on?'Off until you turn it on':'Off — nothing is sent'; });})();</script>
+</div>"""

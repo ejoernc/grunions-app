@@ -11,6 +11,7 @@ import mailhtml
 import publicfeed
 import sportspay
 import flows2
+import clubdocs
 import clubemail
 import nav
 import components
@@ -8710,7 +8711,7 @@ def _manage_catalog(d):
         # Club list (Figma 61 · M3): Sports, Plans & payments, Venues, Documents, Roles & permissions, Website & sharing, Reminders.
         add("club", "Plans & payments", "Memberships, drop-ins, pricing and how members pay", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass integration club assistant provider payment link")
         add("club", "Venues", "Manage locations and assign them to sports", "/manage/club/venues", "pin", "venue pool location address marina westminster")
-        add("club", "Documents", "Waiver and agreements members sign on their first Going", "/manage/club/waiver", "shield", "waiver liability agreement sign version document code of conduct")
+        add("club", "Documents", "Waiver and agreements members sign on their first Going", "/manage/club/documents", "shield", "waiver liability agreement sign version document code of conduct")
         add("club", "Leaders", "The board, sport leads, and who can manage what", "/manage/club/leaders", "key", "leaders leadership board president treasurer secretary sport leads head coach captain permission admin admin lite sport admin who can manage role")
         add("club", "Website & sharing", "Public schedule and the website widget", "/manage/widget", "widget", "embed website widget preview")
         add("club", "Reminders", "Emails and notifications before a practice. Off until you turn them on.", "/manage/club/reminders", "tray", "practice reminder email hours before")
@@ -9197,6 +9198,14 @@ def club_reminders():
     d = db()
     clubadmin.ensure(d)
     if request.method == "POST":
+        if request.headers.get("X-Autosave") == "1":
+            field = request.form.get("field") or ""
+            try:
+                clubadmin.save_reminder_choice(d, field, request.form.get(field) or "0"); d.commit()
+            except ValueError as exc:
+                return jsonify({"ok": False, "toast": str(exc)})
+            s = clubadmin.reminder_settings(d)
+            return jsonify({"ok": True, "toast": ("Reminders on" if s["enabled"] else "Reminders off") if field == "enabled" else "Saved", "reload": field == "enabled"})
         try:
             clubadmin.save_reminder_settings(d, request.form)
             d.commit()
@@ -9204,8 +9213,16 @@ def club_reminders():
         except ValueError as exc:
             flash(str(exc))
         return redirect("/manage/club/reminders")
-    return page(ui.ADMIN_NAV + "{{ admin_page('Practice reminders', 'Off until you turn them on. RSVPs stay as they are.') }}{{ club_body|safe }}",
-        tab="admin", admin_back="/manage/area/club", club_body=clubadmin.reminders_html(d, csrf_field()))
+    s = clubadmin.reminder_settings(d)
+    nxt = d.execute("""SELECT * FROM practices WHERE COALESCE(cancelled,0)=0 AND date>=? AND COALESCE(date_precision,'exact')!='month'
+        ORDER BY date, start LIMIT 1""", (today_pt().isoformat(),)).fetchone()
+    if nxt:
+        clock, place = practice_clock_place(nxt)
+        lead = "Practice tonight" if nxt["date"] == today_pt().isoformat() and (nxt["start"] or "19:00") >= "17:00" else "Practice " + ("today" if nxt["date"] == today_pt().isoformat() else fmt_d(nxt["date"]))
+        sample = ("%s, %s" % (lead, fmt_clock(nxt["start"] or "19:00")), "%s · You're going" % (nxt["location"] or place or "The pool"))
+    else:
+        sample = ("Practice tonight, 7:00 PM", "The pool · You're going")
+    return page(T["reminders"], tab="admin", s=s, when=clubadmin.REMINDER_WHEN, who=clubadmin.REMINDER_WHO, sample=sample)
 def next_practice_today(d, now=None):
     """The next practice today that has not started. Cancelled and month-only sessions are skipped."""
     now = wall_pt(now)
@@ -11631,8 +11648,8 @@ def send_practice_signup(d, practice, member):
 def reminder_team(d):
     """The active roster. Going, no reply, and declines all receive the same reminder. RSVP rows are not written."""
     return d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first, id").fetchall()
-def _deliver_practice_reminder(d, practice):
-    """Send one session's reminder to the whole team. A sent flag stops a second send."""
+def _deliver_practice_reminder(d, practice, who="team"):
+    """Send one session's reminder to the whole team (or only people going). A sent flag stops a second send."""
     _reminder_sent_table(d)
     if practice["cancelled"]:
         return {"skipped": "cancelled"}
@@ -11643,7 +11660,10 @@ def _deliver_practice_reminder(d, practice):
     before = d.execute("SELECT going, member_id FROM rsvps WHERE practice_id=? ORDER BY member_id", (practice["id"],)).fetchall()
     email_sent = inapp_sent = skipped_off = 0
     email_failed = []
+    going_ids = {r["member_id"] for r in before if r["going"] == 1}
     for member in reminder_team(d):
+        if who == "going" and member["id"] not in going_ids:
+            continue
         choice = practice_reminder_choice(member)
         if choice == "off":
             skipped_off += 1
@@ -11677,7 +11697,7 @@ def _deliver_practice_reminder(d, practice):
     if [(row["member_id"], row["going"]) for row in before] != [(row["member_id"], row["going"]) for row in after]:
         raise RuntimeError("a practice reminder must not change RSVPs")
     return {"skipped": "", "email": email_sent, "inapp": inapp_sent, "off": skipped_off, "email_failed": email_failed}
-def _practices_due(d, now, hours):
+def _practices_due(d, now, hours, when=""):
     lo = (now.date() - dt.timedelta(days=1)).isoformat()
     hi = (now.date() + dt.timedelta(days=1)).isoformat()
     due = []
@@ -11689,6 +11709,11 @@ def _practices_due(d, now, hours):
         except ValueError:
             continue
         delta = start - now
+        if when == "morning":
+            # Morning of: from 8 AM on the practice day until it starts.
+            if practice["date"] == now.date().isoformat() and now.hour >= 8 and delta > dt.timedelta(0):
+                due.append(practice)
+            continue
         if dt.timedelta(0) < delta <= dt.timedelta(hours=hours):
             due.append(practice)
     return due
@@ -11702,8 +11727,8 @@ def run_practice_reminders(d, now=None):
         settings = {"enabled": False, "hours": 3}
     if not settings["enabled"]:
         return
-    for practice in _practices_due(d, now, settings["hours"]):
-        _deliver_practice_reminder(d, practice)
+    for practice in _practices_due(d, now, settings["hours"], settings.get("when", "")):
+        _deliver_practice_reminder(d, practice, settings.get("who", "team"))
 def run_notify_jobs():
     d = open_db()
     try:
@@ -11893,7 +11918,7 @@ def practice_flows(d, p):
     hint = ""
     if needs:
         w = flows2.waiver(d)
-        parts = (["USA Water Polo"] if "number" in needs else []) + (["club waiver"] if "waiver" in needs else [])
+        parts = (["USA Water Polo"] if "number" in needs else []) + (["club waiver"] if "waiver" in needs else []) + (["club documents"] if "docs" in needs else [])
         hint = "Requires " + " + ".join(parts)
     rides = flows2.rides_for(d, p["id"], m["id"]) if going else None
     wr = flows2.wrap(d, p["id"])
@@ -11925,12 +11950,17 @@ def practice_signup(pid):
             d.execute("UPDATE members SET usawp_number=? WHERE id=?", (num, m["id"]))
             d.execute("INSERT INTO usawp_submits(member_id, at) VALUES(?,?)", (m["id"], dt.datetime.now().isoformat(timespec="seconds")))
             create_verify_request(d, m["id"], update_pending=True)
-        if "waiver" in needs:
+        pending_docs = clubdocs.pending(d, m["id"]) if "docs" in needs else []
+        if "waiver" in needs or pending_docs:
             typed = request.form.get("typed_name") or ""
-            if not request.form.get("agree") or not flows2.typed_name_ok(typed, m):
+            unchecked = ("waiver" in needs and not request.form.get("agree")) or any(not request.form.get("agree_doc_" + doc["key"]) for doc in pending_docs)
+            if unchecked or not flows2.typed_name_ok(typed, m):
                 d.commit()
-                flash("Check the box and type your full name, including your last name, to sign the waiver."); return redirect("/practices/%d/signup" % pid)
-            flows2.accept_waiver(d, m["id"], typed, pid)
+                flash("Check each box and type your full name, including your last name, to sign."); return redirect("/practices/%d/signup" % pid)
+            if "waiver" in needs:
+                flows2.accept_waiver(d, m["id"], typed, pid)
+            for doc in pending_docs:
+                clubdocs.accept(d, doc, m["id"], typed, pid)
         d.commit()
         if signup_needs(d, me()):
             return redirect("/practices/%d/signup" % pid)
@@ -11945,7 +11975,8 @@ def practice_signup(pid):
     tw = trial_window(m)
     trial_offer = not (m["trial_acknowledged_at"] or "") and not tw
     when = "%s · %s" % (fmt_d(p["date"]), fmt_span(p["start"], p["end"]))
-    return page(flows2.SIGNUP, tab="flow", p=p, needs=needs, w=flows2.waiver(d), when=when, org=org_name(), trial_offer=trial_offer)
+    return page(flows2.SIGNUP, tab="flow", p=p, needs=needs, w=clubdocs.get(d, "waiver"), pending_docs=clubdocs.pending(d, m["id"]) if "docs" in needs else [],
+                when=when, org=org_name(), trial_offer=trial_offer)
 
 @app.route("/practices/<int:pid>/rides", methods=["GET", "POST"])
 @login_required
@@ -12278,10 +12309,83 @@ def practice_wrap(pid):
     when = "%s · %s" % (fmt_d(p["date"]), fmt_span(p["start"], p["end"]))
     return page(flows2.WRAP, tab="", p=p, c=c, wr=flows2.wrap(d, pid), when=when)
 
+def _save_doc_pdf():
+    f = request.files.get("pdf")
+    if not f or not f.filename:
+        return ""
+    data = f.read(10 * 1024 * 1024 + 1)
+    if len(data) > 10 * 1024 * 1024: raise ValueError("PDF is larger than 10 MB.")
+    if not data.startswith(b"%PDF"): raise ValueError("That file isn't a PDF.")
+    os.makedirs(UPLOADS, exist_ok=True)
+    name = "doc-%s.pdf" % secrets.token_hex(12)
+    with open(os.path.join(UPLOADS, name), "wb") as out:
+        out.write(data)
+    return name
+@app.route("/club-docs/<key>.pdf")
+@login_required
+def club_doc_pdf(key):
+    doc = clubdocs.get(db(), key)
+    fn = _stored_file(doc["pdf"]) if doc else None
+    if not fn: abort(404)
+    resp = send_from_directory(UPLOADS, fn, mimetype="application/pdf", max_age=3600)
+    resp.headers["Cache-Control"] = "private, max-age=3600"
+    return resp
+@app.route("/manage/club/documents", methods=["GET", "POST"])
+@admin_required
+def club_documents():
+    """Figma 62 · D1 Documents ‹ Club."""
+    d = db(); clubdocs.ensure(d)
+    if request.method == "POST":
+        did = clubdocs.create(d, request.form.get("kind") or "custom", _person_name(me()))
+        d.commit()
+        return redirect("/manage/club/documents/%d?sheet=edit" % did)
+    live, rest, missing = clubdocs.overview(d)
+    return page(T["documents"], tab="admin", live=live, rest=rest, missing=missing, team=clubdocs.team_size(d))
+@app.route("/manage/club/documents/<key>", methods=["GET", "POST"])
+@admin_required
+def club_document(key):
+    """Figma 62 · D2 Document ‹ Documents, D3 edit sheet, D4 publish a new version."""
+    d = db(); clubdocs.ensure(d)
+    doc = clubdocs.get(d, key)
+    if not doc: abort(404)
+    if request.method == "POST":
+        if request.headers.get("X-Autosave") == "1":
+            try:
+                clubdocs.set_required(d, key, request.form.get("required") == "1"); d.commit()
+            except ValueError as exc:
+                return jsonify({"ok": False, "toast": str(exc)})
+            on = request.form.get("required") == "1"
+            return jsonify({"ok": True, "toast": "Required before Going" if on else "Not required"})
+        a = request.form.get("action") or ""
+        try:
+            if a in ("save", "publish"):
+                doc = clubdocs.save(d, key, request.form, _person_name(me()), _save_doc_pdf(), publish=(a == "publish"))
+                d.commit()
+                flash(("Published · version %d" % doc["version"]) if a == "publish" else "Saved · no one re-signs", "toast")
+            elif a == "remove":
+                clubdocs.remove(d, key); d.commit(); flash("Removed", "toast")
+                return redirect("/manage/club/documents")
+            else:
+                abort(400)
+        except ValueError as exc:
+            d.rollback(); flash(str(exc), "toast")
+        return redirect("/manage/club/documents/%s" % key)
+    team = clubdocs.team_size(d)
+    return page(T["document"], tab="admin", doc=doc, team=team, not_signed=max(team - doc["signed"], 0),
+                kinds=clubdocs.PRESETS, sources=clubdocs.SOURCES)
+@app.route("/manage/club/documents/<key>/people")
+@admin_required
+def club_document_people(key):
+    d = db(); doc = clubdocs.get(d, key)
+    if not doc: abort(404)
+    signed = request.args.get("f") != "not"
+    return page(T["document_people"], tab="admin", doc=doc, signed=signed, people=clubdocs.signers(d, key, signed))
 @app.route("/manage/club/waiver", methods=["GET", "POST"])
 @admin_required
 def manage_waiver():
     d = db()
+    if request.method == "GET":
+        return redirect("/manage/club/documents/waiver")
     if request.method == "POST":
         flows2.save_waiver(d, request.form.get("enabled"), request.form.get("title"), request.form.get("body"),
                            request.form.get("url"), request.form.get("bump"), _person_name(me()))

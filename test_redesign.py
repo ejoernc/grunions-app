@@ -513,3 +513,46 @@ def test_leaders_board_roles_assign_replace_and_requests_switch():
     boss.post("/manage/club/leaders/board", data=dict(csrf=tok, action="clear", role_id=rid, member_id=boss_id))
     boss.post("/manage/club/leaders/board", data=dict(csrf=tok, action="delete_role", role_id=rid))
     assert not sql("SELECT id FROM leadership_roles WHERE id=?", (rid,))
+
+
+def test_documents_publish_gate_going_and_new_version_resigns():
+    page = boss.get("/manage/club/documents").get_data(as_text=True)
+    assert "Documents." in page and "Code of conduct" in page
+    r = boss.post("/manage/club/documents", data=dict(csrf=csrf(boss, "/manage/club/documents"), kind="conduct"))
+    key = r.headers["Location"].split("/manage/club/documents/")[1].split("?")[0]
+    tok = csrf(boss, "/manage/club/documents/" + key)
+    boss.post("/manage/club/documents/" + key, data=dict(csrf=tok, action="publish", source="text", body="Be kind in the pool."))
+    assert sql("SELECT version, enabled FROM club_docs WHERE id=?", (int(key),))[0] == (1, 1)
+    pid = _practice("Doc Practice", 2)
+    sql("UPDATE members SET usawp_status='verified', usawp_number='1002010', usawp_valid_until='2099-01-01'")
+    for rid, in sql("SELECT id FROM members"):
+        sql("INSERT INTO waiver_acceptances(member_id, version, title, typed_name, at) VALUES(?, (SELECT version FROM club_waiver WHERE id=1), 'w', 'x y', 'now')", (rid,))
+    sheet = member.get("/practices/%d/signup" % pid).get_data(as_text=True)
+    assert "Code of conduct" in sheet and "agree_doc_%s" % key in sheet
+    member.post("/practices/%d/signup" % pid, data={"csrf": csrf(member, "/practices/%d/signup" % pid), "action": "go", "agree_doc_" + key: "1", "typed_name": "Rae Design"})
+    assert sql("SELECT version FROM doc_acceptances WHERE doc_id=? AND member_id=?", (int(key), RAE)) == [(1,)]
+    assert sql("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (pid, RAE)) == [(1,)]
+    # Typo fix keeps signatures; a new version asks again.
+    boss.post("/manage/club/documents/" + key, data=dict(csrf=tok, action="save", source="text", body="Be kind in the pool!"))
+    def pend():
+        con = sqlite3.connect(A.DB); con.row_factory = sqlite3.Row
+        try: return [x["key"] for x in A.clubdocs.pending(con, RAE)]
+        finally: con.close()
+    assert pend() == []
+    boss.post("/manage/club/documents/" + key, data=dict(csrf=tok, action="publish", source="text", body="Be kind.", note="shorter"))
+    assert pend() == [key]
+    r = boss.post("/manage/club/documents/" + key, data=dict(csrf=tok, required="0", field="required"), headers={"X-Autosave": "1"})
+    assert r.get_json()["ok"] and pend() == []
+
+
+def test_reminders_choices_save_and_going_only_filter():
+    tok = csrf(boss, "/manage/club/reminders")
+    for field, val in (("when", "morning"), ("who", "going")):
+        r = boss.post("/manage/club/reminders", data={"csrf": tok, field: val, "field": field}, headers={"X-Autosave": "1"})
+        assert r.get_json()["ok"]
+    import clubadmin
+    con = sqlite3.connect(A.DB); con.row_factory = sqlite3.Row
+    s = clubadmin.reminder_settings(con); con.close()
+    assert s["when"] == "morning" and s["who"] == "going" and not s["enabled"]
+    page = boss.get("/manage/club/reminders").get_data(as_text=True)
+    assert "Reminders." in page and "Morning of" in page and "data-off" in page

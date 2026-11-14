@@ -182,6 +182,12 @@ def gate_needs(d, member, today, trial_active):
         needs.append("number")
     if not accepted_waiver(d, member["id"]):
         needs.append("waiver")
+    try:
+        import clubdocs
+        if clubdocs.pending(d, member["id"]):
+            needs.append("docs")
+    except Exception:
+        pass
     return needs
 
 
@@ -734,7 +740,8 @@ RIDE_SETTINGS = """<div class="rg-page rg-rides">
 
 SIGNUP = """<div class="rg-page rg-task">
 {{ rg_chip("First time with " ~ org, "neutral") }}
-<h1>{% if needs|length > 1 %}Two things, then you're in.{% else %}One thing, then you're in.{% endif %}</h1>
+{% set n_things = (needs|reject('equalto', 'docs')|list|length) + (pending_docs|length) %}
+<h1>{% if n_things > 2 %}A few things, then you're in.{% elif n_things == 2 %}Two things, then you're in.{% else %}One thing, then you're in.{% endif %}</h1>
 <p class='ty-muted ty-sm'>{{ when }} · {{ p.location or '' }}</p>
 <form method=post class=fxsheet>{{ csrf_field() }}
 {% set n = namespace(i=0) %}
@@ -746,12 +753,20 @@ SIGNUP = """<div class="rg-page rg-task">
 {% if 'waiver' in needs %}{% set n.i = n.i + 1 %}
 <div class=fxwaiver>
 <b>{{ n.i }} · I'm 18+ and agree to the {{ w.title }}</b>
-<small>Version {{ w.version }}{% if w.url %} · <a href="{{ w.url }}" target=_blank rel=noopener>Read it →</a>{% endif %}</small>
+<small>Version {{ w.version }}{% if w.pdf %} · <a href="/club-docs/waiver.pdf" target=_blank rel=noopener>Read it →</a>{% elif w.url %} · <a href="{{ w.url }}" target=_blank rel=noopener>Read it →</a>{% endif %}</small>
 {% if w.body %}<details><summary>Read it here</summary><div class=fxwaivertext>{{ w.body }}</div></details>{% endif %}
 <label class=checkline><input type=checkbox name=agree value=1 required> I've read it and I agree</label>
-<label class=rg-field><span>TYPE YOUR FULL NAME</span><input name=typed_name required maxlength=120 autocomplete=name placeholder="{{ me().first }} {{ me().last }}"></label>
 </div>
 {% endif %}
+{% for doc in pending_docs %}{% set n.i = n.i + 1 %}
+<div class=fxwaiver>
+<b>{{ n.i }} · I agree to the {{ doc.title }}</b>
+<small>Version {{ doc.version }}{% if doc.source == 'pdf' and doc.pdf %} · <a href="/club-docs/{{ doc.key }}.pdf" target=_blank rel=noopener>Read it →</a>{% elif doc.source == 'url' and doc.url %} · <a href="{{ doc.url }}" target=_blank rel=noopener>Read it →</a>{% endif %}</small>
+{% if doc.source == 'text' and doc.body %}<details><summary>Read it here</summary><div class=fxwaivertext>{{ doc.body }}</div></details>{% endif %}
+<label class=checkline><input type=checkbox name="agree_doc_{{ doc.key }}" value=1 required> I've read it and I agree</label>
+</div>
+{% endfor %}
+{% if 'waiver' in needs or pending_docs %}<label class=rg-field><span>TYPE YOUR FULL NAME</span><input name=typed_name required maxlength=120 autocomplete=name placeholder="{{ me().first }} {{ me().last }}"></label>{% endif %}
 <button class="rg-btn primary full" name=action value=go>I'm going</button>
 {% if 'number' in needs and trial_offer %}<button class="rg-btn ghost full" name=action value=trial formnovalidate>No number yet? Start a free trial instead →</button>{% endif %}
 </form></div>"""

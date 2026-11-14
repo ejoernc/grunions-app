@@ -85,7 +85,26 @@ def reminder_settings(d):
         hours = 1
     if hours > 24:
         hours = 24
-    return {"enabled": _meta(d, "practice_reminders") == "1", "hours": hours}
+    when = _meta(d, "practice_reminders_when") or {1: "1h", 3: "3h", 24: "day"}.get(hours, "%dh" % hours)
+    who = _meta(d, "practice_reminders_who") or "team"
+    return {"enabled": _meta(d, "practice_reminders") == "1", "hours": hours, "when": when, "who": who if who in ("going", "team") else "team"}
+
+
+REMINDER_WHEN = (("1h", "1 hour before"), ("3h", "3 hours before"), ("morning", "Morning of"), ("day", "Day before"))
+REMINDER_WHO = (("going", "People going"), ("team", "Everyone on the team"))
+
+
+def save_reminder_choice(d, field, value):
+    """Figma 62 R1: each control saves itself. The switch stays off until an admin turns it on."""
+    if field == "enabled":
+        _set_meta(d, "practice_reminders", "1" if value == "1" else "0")
+    elif field == "when" and value in dict(REMINDER_WHEN):
+        _set_meta(d, "practice_reminders_when", value)
+        _set_meta(d, "practice_reminders_hours", {"1h": "1", "3h": "3", "day": "24", "morning": "12"}[value])
+    elif field == "who" and value in dict(REMINDER_WHO):
+        _set_meta(d, "practice_reminders_who", value)
+    else:
+        raise ValueError("Pick one of the options.")
 
 
 def save_reminder_settings(d, form):
