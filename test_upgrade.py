@@ -18,6 +18,9 @@ d = sqlite3.connect(A.DB)
 c = d.cursor()
 c.execute("INSERT INTO members(first,last,email,phone,is_admin) VALUES('Ada','Old','ada@example.com','1',1)")
 c.execute("INSERT INTO members(first,last,email,phone) VALUES('Ben','Old','ben@example.com','2')")
+c.execute("UPDATE members SET usawp_number='1234567', usawp_status='verified', usawp_valid_until='2031-08-31' WHERE email='ada@example.com'")
+c.execute("UPDATE members SET usawp_number='7654321' WHERE email='ben@example.com'")  # entered, not verified yet
+c.execute("INSERT INTO members(first,last,email,phone) VALUES('Cy','New','cy@example.com','3')")  # never gave a number
 c.execute("INSERT INTO practices(date,start,end,location) VALUES('2030-01-08','19:00','20:30','Old Pool')")
 pid = c.lastrowid
 c.execute("INSERT INTO rsvps(practice_id,member_id,going) VALUES(?,1,1)", (pid,))
@@ -69,6 +72,20 @@ for body in ("legacy default channel hello", "legacy explicit team hello", "lega
     if body not in page: problems.append("missing from #everyone: " + body)
 if "coaches only note" in page: problems.append("coaches message leaked into #everyone")
 if "everyone" not in page: problems.append("team chat is not labelled #everyone")
+# USAWP numbers survive, and only someone without one is asked, and only for water polo
+import flows2
+with A.app.app_context():
+    db = A.open_db()
+    polo = db.execute("SELECT * FROM practices WHERE location='Old Pool'").fetchone()
+    for email, asked in (("ada@example.com", False), ("ben@example.com", False), ("cy@example.com", True)):
+        m = db.execute("SELECT * FROM members WHERE email=?", (email,)).fetchone()
+        if ("number" in flows2.gate_needs(db, m, "2030-01-01", False, polo)) != asked:
+            problems.append("USAWP prompt wrong for %s (expected asked=%s)" % (email, asked))
+    db.execute("INSERT INTO practices(date,start,end,location,sport) VALUES('2030-01-09','07:00','08:00','Swim Pool','Swimming')")
+    swim = db.execute("SELECT * FROM practices WHERE location='Swim Pool'").fetchone()
+    cy = db.execute("SELECT * FROM members WHERE email='cy@example.com'").fetchone()
+    if "number" in flows2.gate_needs(db, cy, "2030-01-01", False, swim):
+        problems.append("a swim practice asked for a USAWP number")
 print(json.dumps(problems))
 '''
 

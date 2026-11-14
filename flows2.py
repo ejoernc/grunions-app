@@ -173,12 +173,30 @@ def typed_name_ok(typed, member):
 
 
 # ---------- sign-up gate ----------
-def gate_needs(d, member, today, trial_active):
-    """What the one sheet must collect before Going. Empty list = one tap."""
+def practice_body(d, practice):
+    """The governing body for a practice's sport (from Club > Sports), e.g. 'usawp', 'usms', 'none'."""
+    sport = " ".join(str((practice["sport"] if practice is not None and "sport" in practice.keys() else "") or "").split()).lower()
+    if not sport:
+        sport = "water polo"
+    try:
+        for row in d.execute("SELECT name, public_name, slug, governing_body FROM programs"):
+            names = {str(row["name"] or "").lower(), str(row["public_name"] or "").lower(), str(row["slug"] or "").replace("-", " ").lower()}
+            if sport in names:
+                return (row["governing_body"] or "none").lower()
+    except Exception:
+        pass
+    return "usawp" if "polo" in sport else "none"
+
+
+def gate_needs(d, member, today, trial_active, practice=None):
+    """What the one sheet must collect before Going. Empty list = one tap.
+    The USAWP number is asked only for a sport whose governing body is USA Water Polo; a number,
+    verification or trial already on file is never asked for again."""
     needs = []
+    asks_usawp = practice is None or practice_body(d, practice) == "usawp"
     verified = (member["usawp_status"] or "") == "verified" and not (member["usawp_valid_until"] and member["usawp_valid_until"] < today)
     has_number = bool((member["usawp_number"] or "").strip())
-    if not verified and not has_number and not trial_active:
+    if asks_usawp and not verified and not has_number and not trial_active:
         needs.append("number")
     if not accepted_waiver(d, member["id"]):
         needs.append("waiver")

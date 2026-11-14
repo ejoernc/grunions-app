@@ -6110,7 +6110,7 @@ def handle_practice_post(d):
         return redirect_practice(pid, a)
     new_id = None
     if a in ("going", "notgoing", "clear"):
-        if a == "going" and pid and signup_needs(d, me()):
+        if a == "going" and pid and signup_needs(d, me(), pid):
             return redirect("/practices/%d/signup" % pid)
         if a == "going" and sportspay.require_rsvp(d):
             practice = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
@@ -6950,9 +6950,11 @@ def ensure_lineup_coords(d, row):
     venue = " ".join(str(row["venue"] or "").split())
     city = " ".join(str(row["city"] or "").split())
     if venue.lower().startswith(("http://", "https://")): venue = ""
-    query = venue or city
-    if not query: return row
-    hit = geocode_address(query)
+    hit = None
+    for query in ([", ".join(x for x in (venue, city) if x)] if venue and city else []) + [venue, city]:
+        if query:
+            hit = geocode_address(query)
+            if hit: break
     if not hit: return row
     d.execute("UPDATE lineup_events SET lat=?, lng=? WHERE id=?", (hit[0], hit[1], row["id"]))
     d.commit()
@@ -12149,10 +12151,12 @@ def notifications():
 def _trial_active(m):
     tw = trial_window(m)
     return bool(tw and tw["active"])
-def signup_needs(d, m):
-    """What the one-sheet sign-up still needs before this person can tap Going."""
+def signup_needs(d, m, practice=None):
+    """What the one-sheet sign-up still needs before this person can tap Going this practice."""
     if not m: return []
-    return flows2.gate_needs(d, m, today_pt().isoformat(), _trial_active(m))
+    if isinstance(practice, int):
+        practice = d.execute("SELECT * FROM practices WHERE id=?", (practice,)).fetchone()
+    return flows2.gate_needs(d, m, today_pt().isoformat(), _trial_active(m), practice)
 def hold_reason(r):
     """Check-in: why a coach should hold someone at the deck. Empty when they're good to go."""
     d = db()
@@ -12195,7 +12199,7 @@ def practice_flows(d, p):
     m = me()
     mine = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (p["id"], m["id"])).fetchone()
     going = bool(mine and mine["going"] == 1)
-    needs = [] if going else signup_needs(d, m)
+    needs = [] if going else signup_needs(d, m, p)
     hint = ""
     if needs:
         w = flows2.waiver(d)
@@ -12216,7 +12220,7 @@ def practice_signup(pid):
     p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
     if not p: abort(404)
     if p["cancelled"]: flash("This practice is cancelled."); return redirect("/practices/%d" % pid)
-    needs = signup_needs(d, m)
+    needs = signup_needs(d, m, p)
     if request.method == "POST":
         action = request.form.get("action")
         if action == "trial" and "number" in needs:
@@ -12243,7 +12247,7 @@ def practice_signup(pid):
             for doc in pending_docs:
                 clubdocs.accept(d, doc, m["id"], typed, pid)
         d.commit()
-        if signup_needs(d, me()):
+        if signup_needs(d, me(), p):
             return redirect("/practices/%d/signup" % pid)
         if sportspay.require_rsvp(d) and not sportspay.decide(d, me(), p, today_pt().isoformat())["allow"]:
             session["pay_practice"] = pid

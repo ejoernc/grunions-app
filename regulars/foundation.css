@@ -1437,12 +1437,12 @@ body.practicepage:not(.editor):has(.pq) main{padding-left:16px;padding-right:16p
 .pq>*{margin:0 !important}
 .pq>form.pills,.pq .p5rsvp{display:flex;gap:8px}
 .pq .p5rsvp .btn{flex:1 0 0;height:56px;min-height:56px;padding:0 24px;border-radius:999px;font:700 16px/1 var(--font-sans);gap:8px}
-.pq .rg-tiles3{display:flex;gap:8px}
-.pq .rg-tiles3 .rg-metric{flex:1 0 0;min-width:0;gap:8px;padding:18px 20px;border-radius:32px;container-type:normal}
-.pq .rg-tiles3 .rg-metric b{font:700 64px/.9 var(--font-display) !important;letter-spacing:-3.2px}
-.pq .rg-tiles3 .rg-metric span{font:700 10px/1 var(--font-sans);letter-spacing:.8px;text-transform:uppercase}
-.pq .rg-tiles3 .rg-metric.tone-carbon b{color:var(--accent-text)}
-.pq .rg-tiles3 .rg-metric.tone-carbon span{color:var(--paper)}
+.pq .rg-tiles3,.rg-evtiles{display:flex;gap:8px}
+.pq .rg-tiles3 .rg-metric,.rg-evtiles .rg-metric{flex:1 0 0;min-width:0;gap:8px;padding:18px 20px;border-radius:32px;container-type:normal}
+.pq .rg-tiles3 .rg-metric b,.rg-evtiles .rg-metric b{font:700 64px/.9 var(--font-display) !important;letter-spacing:-3.2px}
+.pq .rg-tiles3 .rg-metric span,.rg-evtiles .rg-metric span{font:700 10px/1 var(--font-sans);letter-spacing:.8px;text-transform:uppercase}
+.pq .rg-tiles3 .rg-metric.tone-carbon b,.rg-evtiles .rg-metric.tone-carbon b{color:var(--accent-text)}
+.pq .rg-tiles3 .rg-metric.tone-carbon span,.rg-evtiles .rg-metric.tone-carbon span{color:var(--paper)}
 .pq .rg-pactions{gap:4px}
 .pq .rg-pamain{height:56px;gap:10px;padding:0 20px;border-radius:999px 8px 8px 999px}
 .pq .rg-pamain:only-child{border-radius:999px}
@@ -1605,3 +1605,4 @@ dialog.pqsheet .sheet{gap:8px !important;row-gap:8px !important}
 dialog.pqcancel .sheet{gap:12px !important;row-gap:12px !important}
 dialog.pqsheet .sheet>form{display:contents !important}
 dialog.pqsheet .sheet>form>*{margin:0 !important}
+.rg-evtiles{margin:16px 0 20px}
