@@ -2393,9 +2393,12 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro cred_side(iso) %}{% if iso %}<span class=cred><span class="dot {{ date_dot(iso) }}" aria-hidden=true></span>{{ fmt_long(iso) }}</span>{% else %}<span class='ty-muted ty-sm'>Not on file</span>{% endif %}{% endmacro %}
 {% macro date_field(label, name, value) %}<label class="datefield{% if not value %} empty{% endif %}">{{ label }}<input type=date name={{ name }} value="{{ value or '' }}" placeholder="Not on file"><span class=dateph>Not on file</span></label>{% endmacro %}
 {# Event cards and rows: thin wrappers so existing call sites render the one component in components.py. #}
-{% macro r2_event_card(href, sport, title, clock, meridiem, duration, venue, people, extra, you=false, tone='', went=false) -%}
+{% macro r2_event_card(href, sport, title, clock, meridiem, duration, venue, people, extra, you=false, tone='', went=false, pid=none) -%}
 {%- set inits = [] -%}{%- for person in people[:3] %}{% set _ = inits.append(initials(person)) %}{% endfor -%}
-{{ rg_event_card(href, sport, title, clock, meridiem, duration, venue, inits, people|length, you or went, tone or 'sun', '' if (you or went) else extra, went) }}
+{#- After it ends: 'You went' (with the check) only if you were checked in; otherwise 'Event passed'. -#}
+{%- set _in = went and (me_checked_in(pid) if pid else you) -%}
+{%- if went and not _in -%}{{ rg_event_card(href, sport, title, clock, meridiem, duration, venue, inits, people|length, false, tone or 'sun', 'Event passed', true) }}
+{%- else -%}{{ rg_event_card(href, sport, title, clock, meridiem, duration, venue, inits, people|length, you or _in, tone or 'sun', '' if (you or _in) else extra, went) }}{%- endif -%}
 {%- endmacro %}
 {% macro r2_event_row(href, variant, kicker, title, meta, count, kind='', went=false) -%}
 {%- if variant == 'cancelled' -%}{{ rg_event_cancelled(href, kicker, title, meta) }}
@@ -2672,7 +2675,7 @@ TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and not (nav_kind 
 </nav>
 <dialog id="crestMenu" class="crestmenu" tabindex="-1">
 <p class="crestlabel">GO TO</p>
-<a class="crestrow{% if nav.place == 'everything' %} here{% endif %}" href="{{ nav.everything_href }}"><span class="crestmark brand"><img src="/static/nav/mark-ink.svg" width="26" height="10" alt=""></span><span><b>Everything</b><small>{{ nav.everything_sub }}</small></span></a>
+{% if nav.show_everything %}<a class="crestrow{% if nav.place == 'everything' %} here{% endif %}" href="{{ nav.everything_href }}"><span class="crestmark brand"><img src="/static/nav/mark-ink.svg" width="26" height="10" alt=""></span><span><b>Everything</b><small>{{ nav.everything_sub }}</small></span></a>{% endif %}
 <a class="crestrow{% if nav.place == 'me' %} here{% endif %}" href="/calendar"><span class="crestmark who">{% if me().photo %}<img src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="">{% else %}{{ initials(me()) }}{% endif %}</span><span><b>{{ nav.name }}</b><small>Calendar · chat · profile</small></span></a>
 <span class="crestline"></span>
 <p class="crestlabel">YOUR TEAMS</p>
@@ -5052,7 +5055,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% if p.cancelled %}
 {{ r2_event_row('/practices/' ~ p.id, 'cancelled', tile.wd ~ ' · ' ~ month_abbr(p.date) ~ ' ' ~ tile.dn ~ ' · ' ~ (p.sport or 'Water Polo')|upper, practice_title(p), p.cancel_reason, 0) }}
 {% elif ns.featured and when != 'past' %}{% set ns.featured = false %}{% set clk = fmt_clock(p.start).split(' ') %}
-{{ r2_event_card('/practices/' ~ p.id, (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1], practice_duration(p.start, p.end), short_place(p.location), x.going, '', x.mine == 1, '', ended) }}
+{{ r2_event_card('/practices/' ~ p.id, (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1], practice_duration(p.start, p.end), short_place(p.location), x.going, '', x.mine == 1, '', ended, p.id) }}
 {% else %}
 {{ r2_event_row('/practices/' ~ p.id, 'stack', weekday_name(p.date), practice_title(p), fmt_clock(p.start) ~ ' · ' ~ short_place(p.location), x.going|length, (p.sport or 'Water Polo')|upper, ended) }}
 {% endif %}
@@ -5062,15 +5065,16 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% endmacro %}
 {% if sched_home %}
 {% set _setup = setup_card() %}{% set _start = preview_drawer or ('full' if (not_cleared or (_setup and _setup.show) or (tab == 'home' and not (me().usawp_number or '')|trim)) else 'half') %}
-<div class=weekhi><span class=weekeye>{% if not_cleared %}NOT CLEARED{% elif me().usawp_number %}USAWP #{{ me().usawp_number }}{% endif %}</span>{% if can_host_practice() %}<span class=weekplus>{{ rg_plus('/events/new', 'New event') }}</span>{% endif %}<div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}.</h1><h1 class=schedtitle aria-hidden=true>{% if _start == 'full' %}Hi, {{ display_first(me()) }}.{% else %}Upcoming{% endif %}</h1></div>{{ r2_legend('') }}</div>
+<div class=weekhi><span class=weekeye>{% if not_cleared %}NOT CLEARED{% endif %}</span>{% if can_host_practice() %}<span class=weekplus>{{ rg_plus('/events/new', 'New event') }}</span>{% endif %}<div class=titlecross><h1 class=hititle>Hi, {{ display_first(me()) }}.</h1><h1 class=schedtitle aria-hidden=true>{% if _start == 'full' %}Hi, {{ display_first(me()) }}.{% else %}Upcoming{% endif %}</h1></div>{{ r2_legend('') }}</div>
 {% if pin_label %}<b class=mappinchip>{{ pin_label }}</b>{% endif %}
 <div class=mapcontrols><button type=button data-zoom=1 aria-label="Zoom in">+</button><button type=button data-zoom=-1 aria-label="Zoom out">−</button></div>
 {% if not pins %}{{ r2_map_unavailable() }}{% endif %}
+{% if drive_on and nextp and nextp.lat is not none %}<div class="drivechip homedrivechip" data-drive="{{ {'kind':'practice','id':nextp.id}|tojson|forceescape }}" data-drive-until="{{ drive_until }}" data-drive-user="{{ m.id }}" data-drive-age="{{ drive_age }}" data-drive-dest="{{ nextp.lat }},{{ nextp.lng }}" data-drive-going="{{ drive_going }}"><button type=button class=drivechipbtn data-drive-ask{% if drive_saved %} hidden{% endif %}>Show my drive time</button><a class=drivechiptext data-drive-line{% if drive_saved %} data-saved=1 data-directions="{{ nextp.lat }},{{ nextp.lng }}" href="https://www.google.com/maps/dir/?api=1&destination={{ (nextp.lat|string ~ ',' ~ nextp.lng|string)|urlencode }}" target=_blank rel=noopener aria-label="Driving directions to practice, {{ drive_saved }}"{% else %} hidden{% endif %}>{% if drive_saved %}{{ drive_saved.split(' · updated', 1)[0] }}{% if ' · updated' in drive_saved %}<span class=driveage> · updated{{ drive_saved.split(' · updated', 1)[1] }}</span>{% endif %}{% endif %}</a></div>{% endif %}
 <div class="weekdrawer {{ 'peek' if _start == 'peek' else ('full' if _start == 'full' else 'half') }}" id=schedSheet data-start="{{ _start }}">
 <button type=button class=sheetgrab id=sheetGrab aria-label="Drag the week"></button>
 {% if not_cleared %}<div class=clearbanner><b>NOT CLEARED YET</b><strong>Add your USAWP number to go to practice.</strong><p>Takes 2 minutes. Coaches can see you once it’s verified.</p><a href=/profile#membership>Add USAWP number</a></div>{% endif %}
 <div class=weekbody id=weekBody>
-<div class=weekhead><h2>{{ week_label or 'This week' }}{% if week_n %} <span>({{ '%02d'|format(week_n) }})</span>{% endif %}</h2><a href="/practices?view=list">See all ›</a></div>
+<div class=weekhead><h2>{{ week_label or 'This week' }}</h2><a href="/practices?view=list">See all ›</a></div>
 <div class=weekthis>
 {% if tab == 'home' %}<div class=homealerts>{{ push_card() }}{% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}</div>
 {% if not (me().usawp_number or '')|trim %}{{ rg_usawp_card(csrf_field(), not trial_window(me()), TRIAL_JOIN_URL) }}{% endif %}{% endif %}
@@ -5082,7 +5086,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 {% if key != wk.day %}{% if wk.open %}</div></div>{% endif %}{% set wk.day = key %}{% set wk.open = true %}<div class=daygroup><div class=dayrail><span>{{ tile.wd }}</span><b>{{ tile.dn }}</b></div><div class=daycards>{% endif %}
 {% for card in s.before %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
 {% if s.cancelled %}{{ r2_event_row('/practices/' ~ s.p.id, 'cancelled', (s.p.sport or 'Water Polo')|upper, practice_title(s.p), s.p.cancel_reason or 'Cancelled', s.going|length) }}
-{% else %}{% set clk = fmt_clock(s.p.start).split(' ') %}{{ r2_event_card('/practices/' ~ s.p.id, (s.p.sport or 'Water Polo')|upper, practice_title(s.p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(s.p.start, s.p.end), short_place(s.p.location), s.going, '' if s.mine == 1 and not home_out else day_chip(s.p.date), s.mine == 1 and not home_out, event_tone(s.kind or 'practice', false, row_color(s.p)), practice_ended(s.p)) }}{% endif %}
+{% else %}{% set clk = fmt_clock(s.p.start).split(' ') %}{{ r2_event_card('/practices/' ~ s.p.id, (s.p.sport or 'Water Polo')|upper, practice_title(s.p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(s.p.start, s.p.end), short_place(s.p.location), s.going, '' if s.mine == 1 and not home_out else day_chip(s.p.date), s.mine == 1 and not home_out, event_tone(s.kind or 'practice', false, row_color(s.p)), practice_ended(s.p), s.p.id) }}{% endif %}
 {% for card in s.after %}{{ r2_social_card(card, 'home' if card.joined else 'condensed') }}{% endfor %}
 {% endfor %}{% if wk.open %}</div></div>{% endif %}
 {% if week_sessions %}<div class="daygroup fullschedrow"><div class=dayrail aria-hidden=true></div><div class=daycards><a class=fullsched href="/practices?view=list">View full schedule ›</a></div></div>{% else %}<a class=fullsched href="/practices?view=list">View full schedule ›</a>{% endif %}
@@ -6549,7 +6553,14 @@ document.getElementById('f').onsubmit=async e=>{e.preventDefault();if(sending)re
  try{let r;if(batch.length){for(var i=0;i<batch.length;i++){const fd=new FormData();fd.append('body',i?'':text);fd.append('image',batch[i]);if(replyTo)fd.append('reply_to',replyTo);
   r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'X-CSRF':CSRF},body:fd});
   if(!r.ok){const j=await r.json().catch(()=>({}));toast(j.error||'Could not send.',4500);return}}}
- else r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:text,reply_to:replyTo})});
+ else{
+  // Show it right away; the real message replaces it when the server answers.
+  var pend=null;try{pend=document.createElement('div');pend.className='m mine pending';var bh='';try{bh=bodyHtml({id:0,body:text,mine:true,rx:{}})}catch(_){bh='<div class=b>'+esc(text)+'</div>'}
+   pend.innerHTML='<div class=mstack>'+bh+'<div class=msgfoot><span class="exact msgtime">Sending…</span></div></div>';thread().appendChild(pend);var rt=replyTo;clearCompose();replyTo=rt;stick=true;pinBottom()}catch(_){}
+  r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:text,reply_to:replyTo})});
+  if(pend&&r&&!r.ok){pend.remove();ta.value=text;grow()}
+  if(pend&&r&&r.ok){replyTo=null;quoteBar.hidden=true}
+  if(r&&r.ok){const epoch=window.grunionsNavEpoch|0;await poll();if(pend)pend.remove();if((window.grunionsNavEpoch|0)!==epoch)return;stick=true;pinBottom();return}}
  if(r&&!r.ok){const j=await r.json().catch(()=>({}));toast(j.error||'Could not send.',4500);return}
  const epoch=window.grunionsNavEpoch|0;clearCompose();stick=true;await poll();if((window.grunionsNavEpoch|0)!==epoch)return;if(stick)pinBottom()}finally{sending=false}};
 ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();document.getElementById('f').requestSubmit()}});
@@ -6680,7 +6691,7 @@ T["manage"] = ADMIN_NAV + """<div class=managehome id=manageHome>
 <div id=manageSearchWrap>{{ rg_search('manageSearch', 'Search settings, people, tools…', '/manage/area/club' if club_admin else '', 'settings', 'manageClear') }}</div>
 <div id=manageHits class=mgroups hidden aria-live=polite></div>
 <div id=manageBody class=rg-stack>
-{% if needs_n %}{{ rg_callout(needs_n ~ ' need you', needs_n ~ ' not cleared', 'Review', '/members?view=compliance', 'tangerine') }}{% endif %}
+{% if needs_n %}{{ rg_callout('Reviews needed', needs_n ~ ' not cleared', 'Review', '/members?view=compliance', 'tangerine') }}{% endif %}
 {{ rg_chart_switch(charts if club_admin else charts[:1]) }}
 <div class=rg-hubgrid>
 {{ rg_hub('/manage/area/activities', week|length, 'Activities', 'Schedule, Lineup, Bulletin & requests', 'sun') }}
@@ -7589,7 +7600,7 @@ T["practice"] = """{% set p = x.p %}
 {% set host = me().is_admin or is_staff() %}{% set admin = me().is_admin %}
 <div class="p5 pq">
 {% set clk = fmt_clock(p.start).split(' ') %}{% set dur = practice_minutes(p) if practice_minutes is defined else 0 %}
-{{ rg_event_card('', (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(p.start, p.end), p.location or '', [], 0, x.mine == 1, 'graphite' if p.cancelled else event_tone(p.activity_type or 'practice', false, row_color(p)), 'Cancelled' if p.cancelled else '') }}
+{{ rg_event_card('', (p.sport or 'Water Polo')|upper, practice_title(p), clk[0], clk[1] if clk|length > 1 else '', practice_duration(p.start, p.end), p.location or '', [], 0, (x.mine == 1 and not practice_ended(p)) or (practice_ended(p) and me_checked_in(p.id)), 'graphite' if p.cancelled else event_tone(p.activity_type or 'practice', false, row_color(p)), 'Cancelled' if p.cancelled else ('Event passed' if practice_ended(p) and not me_checked_in(p.id) else ''), practice_ended(p) and me_checked_in(p.id)) }}
 {% if p.cancelled and p.cancel_reason %}<p class=rg-note>{{ p.cancel_reason }}</p>{% endif %}
 {% if not p.cancelled %}<form method=post action="/practices/{{ p.id }}" class="pills p5rsvp">{{ csrf_field() }}<input type=hidden name=pid value={{ p.id }}><input type=hidden name=back value=page>{{ rsvp_base('p' ~ p.id) }}
 {{ rsvp_btn('Going', x.mine == 1, 'going') }}

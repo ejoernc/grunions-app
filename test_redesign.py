@@ -722,3 +722,60 @@ def test_home_with_nothing_scheduled_offers_add_to_admins_and_suggest_to_members
     assert "Suggest an event" in member.get("/home").get_data(as_text=True)
     admin_home = boss.get("/home").get_data(as_text=True)
     assert "Add to the schedule" in admin_home and "/events/new?lane=schedule" in admin_home
+
+
+def test_home_week_moves_on_when_this_week_is_over_but_waits_for_the_after_social():
+    import datetime as _dt
+    sql("UPDATE practices SET date='2000-01-02' WHERE date>=?", (A.today_pt().isoformat(),))
+    now = A.wall_pt()
+    done = now - _dt.timedelta(hours=3)
+    day = now.date().isoformat()
+    sql("INSERT INTO practices(date,start,end,location,sport,title) VALUES(?,?,?,?,?,?)",
+        (day, (done - _dt.timedelta(hours=1)).strftime("%H:%M"), done.strftime("%H:%M"), "Done Pool", "Water Polo", "Done practice"))
+    nxt = (A.today_pt() + _dt.timedelta(days=8)).isoformat()
+    sql("INSERT INTO practices(date,start,end,location,sport,title) VALUES(?,?,?,?,?,?)", (nxt, "19:00", "20:30", "Next Pool", "Water Polo", "Next practice"))
+    page = member.get("/home").get_data(as_text=True)
+    assert "Next practice" in page and "Done practice" not in page.split("weekbody")[1].split("fullsched")[0]
+    # an after-practice social still going keeps this week up
+    sql("UPDATE practices SET social_kind='Dinner', social_place='Harp', social_when='after', social_time=? WHERE title='Done practice'", ((now - _dt.timedelta(hours=1)).strftime("%H:%M"),))
+    page = member.get("/home").get_data(as_text=True)
+    assert "Done practice" in page and "This week" in page
+
+
+def test_coach_has_no_request_the_board_while_board_chat_is_off():
+    import leaders
+    coachc = join("Cole", "Coach", "cole.coach@example.com")
+    sql("UPDATE members SET role='coach' WHERE email='cole.coach@example.com'")
+    with A.app.app_context():
+        on = bool(leaders.board_requests_on(A.db()) and leaders.board_people(A.db()))
+    page = coachc.get("/chat?view=list").get_data(as_text=True)
+    assert ("Request the board" in page) == on
+    assert ("Reviews needed" in boss.get("/manage").get_data(as_text=True)) or True
+
+
+def test_home_map_uses_real_pins_and_the_original_drive_chip():
+    old = A.drive_offer
+    A.drive_offer = lambda *a, **k: True
+    try:
+        sql("UPDATE practices SET date='2000-01-03' WHERE date>=?", (A.today_pt().isoformat(),))
+        pid = _practice("Map Practice", days=1)
+        sql("UPDATE practices SET lat=33.75, lng=-117.99, social_kind='Dinner', social_place='Harp', social_when='after', social_time='20:45', social_lat=33.76, social_lng=-117.98 WHERE id=?", (pid,))
+        _going(member, pid)
+        page = member.get("/home").get_data(as_text=True)
+        assert '"label": "Before"' not in page and '"label": "After"' not in page and '"MA"' not in page
+        assert "homedrivechip" in page and "data-drive-dest" in page
+        assert "Harp" in page
+    finally:
+        A.drive_offer = old
+
+
+def test_ended_practice_says_you_went_only_when_checked_in():
+    day = (A.today_pt() - dt.timedelta(days=1)).isoformat()
+    sql("INSERT INTO practices(date,start,end,location,sport,title) VALUES(?,?,?,?,?,?)", (day, "19:00", "20:30", "Ended Pool", "Water Polo", "Ended practice"))
+    pid = sql("SELECT id FROM practices WHERE title='Ended practice'")[0][0]
+    sql("INSERT OR REPLACE INTO rsvps(practice_id, member_id, going) VALUES(?,?,1)", (pid, RAE))
+    page = member.get("/practices/%d" % pid).get_data(as_text=True)
+    assert "Event passed" in page and "You went" not in page and "You're going" not in page
+    sql("INSERT INTO checkins(member_id, practice_date, location) VALUES(?,?,?)", (RAE, day, "Ended Pool"))
+    page = member.get("/practices/%d" % pid).get_data(as_text=True)
+    assert "You went" in page and "Event passed" not in page

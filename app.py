@@ -12,6 +12,7 @@ import publicfeed
 import sportspay
 import flows2
 import clubdocs
+import leaders
 import clubemail
 import nav
 import components
@@ -402,8 +403,9 @@ def fmt_phone(raw):
     return text or "—"
 # Preview keeps Discover in Everything, and keeps Find or join a team.
 # The first live Grunions push turns both off. Do not deploy that hide to grunions.regulars.team from this branch.
-SHOW_DISCOVER = True
-SHOW_FIND_TEAM = True
+SHOW_DISCOVER = False      # Nov 13 live: hidden for now
+SHOW_FIND_TEAM = False     # Nov 13 live: hidden for now
+SHOW_EVERYTHING = False    # Nov 13 live: the Everything place is hidden from the crest menu for now
 def _route_area():
     """Nav 3.0 lights the tab of the area the route belongs to (route tree), not where the user came from."""
     ep = request.endpoint or ""
@@ -479,7 +481,7 @@ def nav_context():
             "team": "Grunions", "switch_title": switch[0], "switch_sub": switch[1], "chat_unread": unread,
             "everything_href": "/discover" if SHOW_DISCOVER else "/home",
             "everything_sub": "Discover · map · chat" if SHOW_DISCOVER else "Map · chat",
-            "show_find": SHOW_FIND_TEAM}
+            "show_find": SHOW_FIND_TEAM, "show_everything": SHOW_EVERYTHING}
 app.jinja_env.globals.update(components.jinja_globals())
 def membership_sexes():
     """[(slug, label)] for the sex on a governing-body membership, defined on the sport (Club › Sports)."""
@@ -3117,6 +3119,8 @@ def _new_chat_sheet(d, m, team):
     if team:
         if is_board():
             rows = ""
+        elif is_active_coach() and not (leaders.board_requests_on(db()) and leaders.board_people(db())):
+            rows = ""
         elif is_active_coach():
             rows = ('<button type=button class=newrow data-open-request data-to=board data-lock=board data-about=other><span class="mark grape" aria-hidden=true>B</span>'
                     '<span class=grow><b>Ask the club</b><small>Request the board. You already see coach requests.</small></span><span class=chatgo>›</span></button>')
@@ -3871,8 +3875,9 @@ def _inbox_role_sections(d, m):
     ask = []
     if not is_board(m):
         if (m["role"] or "") == "coach":
-            ask.append(str(components.row("Request the board", "Private to board members", "/chat?view=list", lead="B", lead_tone="grape",
-                                          kind="chat", extra=" data-open-request data-to=board data-lock=board data-about=other")))
+            if leaders.board_requests_on(d) and leaders.board_people(d):  # board chat off (no board yet) = requests off
+                ask.append(str(components.row("Request the board", "Private to board members", "/chat?view=list", lead="B", lead_tone="grape",
+                                              kind="chat", extra=" data-open-request data-to=board data-lock=board data-about=other")))
         else:
             ask += _ask_rows(d, m)
             _n, sub, badge = _requests_inbox_meta(d, m)
@@ -4647,6 +4652,21 @@ def _own_board(rows, ch):
         return rows
     mid = me()["id"]
     return [r for r in rows if r["member_id"] == mid]
+def _notify_chat_later(ch, sender, body, has_image):
+    import threading
+    sender = dict(sender) if sender is not None else None
+    def run():
+        try:
+            with app.app_context():
+                d2 = open_db()
+                try: notify_chat(d2, ch, d2.execute("SELECT * FROM members WHERE id=?", (sender["id"],)).fetchone(), body, has_image); d2.commit()
+                finally: d2.close()
+        except Exception as e:
+            app.logger.warning("chat push failed: %s", e)
+    if app.config.get("TESTING") or os.environ.get("GRUNIONS_SYNC_PUSH") or "PYTEST_CURRENT_TEST" in os.environ:
+        run()
+    else:
+        threading.Thread(target=run, daemon=True).start()
 @app.route("/api/messages", methods=["GET", "POST"])
 @login_required
 def api_messages():
@@ -4672,8 +4692,7 @@ def api_messages():
         _touch_request(d, ch, me())
         d.commit()
         mark_chat_read(d, me()["id"], ch)
-        try: notify_chat(d, ch, me(), body, bool(image))
-        except Exception as e: app.logger.warning("chat push failed: %s", e)
+        _notify_chat_later(ch, me(), body, bool(image))  # pushes go out after the reply, so sending feels instant
         return jsonify(ok=True)
     mark_chat_read(d, me()["id"], ch)
     info = latest_seen(d, ch)
@@ -5220,6 +5239,13 @@ def practice_span(p):
     eh, em = hm(p["end"], "20:30")
     return dt.datetime.combine(day, dt.time(sh, sm)), dt.datetime.combine(day, dt.time(eh, em))
 PAST_EVENT_MSG = "This event has already ended, so it can't be canceled or deleted."
+def me_checked_in(pid):
+    """Did the signed-in member check in at this practice (same day)?"""
+    m = me()
+    if not m or not pid: return False
+    d = db()
+    p = d.execute("SELECT date FROM practices WHERE id=?", (pid,)).fetchone()
+    return bool(p and d.execute("SELECT 1 FROM checkins WHERE member_id=? AND practice_date=?", (m["id"], str(p["date"])[:10])).fetchone())
 def practice_ended(p, now=None):
     """True once the practice end has passed in Pacific time. A month session lasts through its last date."""
     if not p: return False
@@ -6698,6 +6724,21 @@ def combined_view(entry):
                                   "before": [c for c in cards if c["when"] == "before"],
                                   "after": [c for c in cards if c["when"] != "before"]})
     week_label = "This week"
+    def _still_on(sess):
+        """A session stays on Home until it ends, or until its after-practice social ends (about 3 hours after it starts)."""
+        if sess["cancelled"]: return False
+        if not practice_ended(sess["p"]): return True
+        for card in sess.get("after") or []:
+            clock = card.get("clock") or str(sess["p"]["end"] or "")[:5]
+            try:
+                hh, mm = [int(x) for x in str(clock).split(":")[:2]]
+                at = dt.datetime.combine(dt.date.fromisoformat(str(sess["p"]["date"])[:10]), dt.time(hh, mm))
+                if wall_pt() < at + dt.timedelta(hours=3): return True
+            except (TypeError, ValueError):
+                continue
+        return False
+    if sched_home and week_sessions and not any(_still_on(s) for s in week_sessions):
+        week_sessions = []  # everything this week is over: show the next week instead
     if sched_home and not week_sessions:
         # Nothing this week: show the next week that has something, so Home isn't empty when the schedule isn't.
         nxt = d.execute("SELECT date FROM practices WHERE date>? AND COALESCE(cancelled,0)=0 ORDER BY date LIMIT 1", (week_end,)).fetchone()
@@ -6820,30 +6861,12 @@ def combined_view(entry):
         show_drive = False
         show_rides = False
     if sched_home and nextp and nextp["lat"] is not None and preview_home != "empty":
-        pool = {"lat": nextp["lat"], "lng": nextp["lng"], "kind": "pool", "label": "%s · %s" % (short_place(nextp["location"]), fmt_clock(nextp["start"]))}
-        social_pins = []
-        for sess in week_sessions:
-            if str(sess["p"]["id"]) != str(nextp["id"]):
-                continue
-            for i, card in enumerate(sess["before"] + sess["after"]):
-                social_pins.append({"lat": nextp["lat"] + (0.012 if card["when"] == "before" else -0.01),
-                                    "lng": nextp["lng"] + (-0.01 if card["when"] == "before" else 0.014),
-                                    "kind": "social",
-                                    "label": "%s · %s" % (card.get("place") or "Social", fmt_t(card["clock"]) if card.get("clock") else "")})
-        pins = [pool]
-        route = []
-        if show_drive and ride_label.startswith("Ride to coffee") and social_pins:
-            pins.append(social_pins[0])
-            route = [[nextp["lng"] - 0.02, nextp["lat"] - 0.008], [social_pins[0]["lng"], social_pins[0]["lat"]]]
-        elif show_drive:
-            route = [[nextp["lng"] - 0.03, nextp["lat"] - 0.02], [nextp["lng"], nextp["lat"]]]
-            pins.append({"lat": nextp["lat"] + 0.006, "lng": nextp["lng"] - 0.012, "kind": "mate", "label": "MA"})
-            pins.append({"lat": nextp["lat"] - 0.004, "lng": nextp["lng"] + 0.01, "kind": "mate", "label": "SR"})
-        else:
-            pins.extend(social_pins or [
-                {"lat": nextp["lat"] + 0.012, "lng": nextp["lng"] - 0.008, "kind": "social", "label": "Before"},
-                {"lat": nextp["lat"] - 0.008, "lng": nextp["lng"] + 0.014, "kind": "social", "label": "After"},
-            ])
+        # Same as the original app: the next practice's pool, its social where it's on the map, and the
+        # practice -> social route. The drive line with traffic is drawn from the phone's location (leave-by API).
+        pins = map_pins(nextp)
+        if pins:
+            pins[0]["label"] = "%s · %s" % (short_place(nextp["location"]), fmt_clock(nextp["start"]))
+        route = social_route_points(nextp)
     elif preview_home == "empty" and nextp and nextp["lat"] is not None:
         pins = [{"lat": nextp["lat"], "lng": nextp["lng"], "kind": "pool", "label": ""}]
         route = []
@@ -9111,7 +9134,7 @@ def manage_charts(d, today=None):
         att_bars.append({"label": "%d/%d" % (day.month, day.day), "segs": [int(r["n"])],
                          "tip": "%s %s %d · %d checked in" % (day.strftime("%a"), day.strftime("%b"), day.day, r["n"])})
     practices = {"key": "practices", "kicker": "AVG CHECKED IN · %d" % today.year, "value": ("%.1f" % avg).rstrip("0").rstrip(".") if days else "–",
-                 "title": "Practices", "sub": ("per practice · %d practice%s this year" % (len(days), "" if len(days) == 1 else "s")) if days else "No practices yet this year",
+                 "title": "People", "sub": ("per practice · %d practice%s this year" % (len(days), "" if len(days) == 1 else "s")) if days else "No practices yet this year",
                  "bars": att_bars, "series": [("Checked in", "")], "empty": "No practices yet this year."}
     joined, verified = signup_days(d)
     joined = sorted(x for x in joined if x <= today)
@@ -12286,7 +12309,7 @@ def hold_reason(r):
     if not flows2.accepted_waiver(d, r["id"]):
         return "Waiver not signed yet"
     return ""
-app.jinja_env.globals.update(hold_reason=hold_reason)
+app.jinja_env.globals.update(hold_reason=hold_reason, me_checked_in=me_checked_in)
 def checkin_info(r, pid=None):
     """08.70 Check-in row: the status line and what they picked when they tapped Going (drop-in, pass, trial)."""
     hr = hold_reason(r)

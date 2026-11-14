@@ -92,15 +92,11 @@ def test_nav_3_lands_on_schedule_and_lists_only_grunions():
     assert tabs.find(">Schedule<") < tabs.find(">Lineup<")
     assert "--r2-ink" in schedule and "#C8FF3C" in schedule and "#4A6A00" in schedule
     menu = schedule.split('id="crestMenu"', 1)[1].split("</dialog>", 1)[0]
-    assert ">Everything<" in menu and ">Grunions<" in menu and 'class="crestgo" href="/discover"' in menu and ">Log out<" in menu
-    assert member.get("/find").headers["Location"].endswith("/discover")
-    assert A.SHOW_DISCOVER and A.SHOW_FIND_TEAM
-    A.SHOW_DISCOVER = A.SHOW_FIND_TEAM = False
+    # Live (Nov 13): Everything, Discover and Find or join a team are hidden from the crest menu for now.
+    assert ">Grunions<" in menu and ">Log out<" in menu
+    assert ">Everything<" not in menu and 'class="crestgo"' not in menu and "Discover · map · chat" not in menu
+    assert not (A.SHOW_DISCOVER or A.SHOW_FIND_TEAM or A.SHOW_EVERYTHING)
     try:
-        live = member.get("/practices").get_data(as_text=True)
-        live_menu = live.split('id="crestMenu"', 1)[1].split("</dialog>", 1)[0]
-        assert 'class="crestgo"' not in live_menu and 'href="/home"' in live_menu.split(">Everything<", 1)[0].rsplit("<a", 1)[-1]
-        assert "Map · chat" in live_menu and "Discover · map · chat" not in live_menu
         assert ">Discover<" not in member.get("/home").get_data(as_text=True).split('class="nav3', 1)[1].split("</nav>", 1)[0]
         assert member.get("/find").headers["Location"].endswith("/home")
     finally:

@@ -1,5 +1,5 @@
 import os, re, tempfile
-os.environ["GRUNIONS_DB"] = tempfile.mktemp(suffix=".db"); os.environ["ADMIN_EMAIL"] = "eli@example.com"; os.environ["DEV_SHOW_LINKS"] = "1"; os.environ["GRUNIONS_SHEET_SYNC"] = "inline"
+os.environ["GRUNIONS_DB"] = tempfile.mktemp(suffix=".db"); os.environ["ADMIN_EMAIL"] = "eli@example.com"; os.environ["DEV_SHOW_LINKS"] = "1"; os.environ["GRUNIONS_SHEET_SYNC"] = "inline"; os.environ["GRUNIONS_SYNC_PUSH"] = "1"
 import app as A
 def client():
     c = A.app.test_client(); return c
