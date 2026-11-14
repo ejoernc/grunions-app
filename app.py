@@ -8293,7 +8293,7 @@ def manage_home_groups(d):
     host, staff, admin = can_host_practice(), is_staff(), is_club_admin()
     activities, people, club = [], [], []
     if staff or admin:
-        activities.append(_manage_row("Schedule", "Practices, scrimmages & games", "/admin" if staff else "/manage/schedule", "cal"))
+        activities.append(_manage_row("Schedule", "Practices, scrimmages & games", "/admin", "cal"))
     if host:
         activities.append(_manage_row("Lineup", "Events, tournaments, camps & socials", "/manage/lineup", "people"))
         activities.append(_manage_row("Requests", "Member-submitted events", "/manage/requests", "tray", approval_count(), "info"))
@@ -8614,7 +8614,7 @@ def _manage_catalog(d):
     if board:
         add("activities", "Board chat", "Private to the board. It can't be deleted.", "/chat?c=board", "tray", "board chat room")
     if staff or admin:
-        add("activities", "Schedule", "Practices, scrimmages, and games", "/admin" if staff else "/manage/schedule", "cal", "practice scrimmage game schedule")
+        add("activities", "Schedule", "Practices, scrimmages, and games", "/admin", "cal", "practice scrimmage game schedule")
     if host:
         add("activities", "Lineup", "Events, tournaments, camps, and socials", "/manage/lineup", "people", "event tournament camp trip lineup")
         # Bulletin hidden for now (Nov 13).
@@ -9481,9 +9481,8 @@ def manage_area(area):
 @login_required
 def manage_schedule():
     if not can_host_practice(): abort(403)
-    if is_staff(): return redirect("/admin")
-    if not is_club_admin(): abort(403)
-    return page(T["manage_schedule"], tab="admin", coming=manage_activity_lists(db())[0])
+    # Manage › Schedule is the check-in calendar for coaches and admins alike (Nov 13).
+    return redirect("/admin")
 @app.route("/manage/lineup")
 @login_required
 def manage_lineup():

@@ -192,7 +192,7 @@ def _smtp_checks():
         failed = c_fail.post("/login", data=dict(csrf=csrf(c_fail, "/login"), email="jane@example.com"), follow_redirects=True).get_data(as_text=True)
         unknown = c_unknown.post("/login", data=dict(csrf=csrf(c_unknown, "/login"), email="nobody-mail@example.com"), follow_redirects=True).get_data(as_text=True)
         def note(html):
-            i = html.find("<div class=note>")
+            i = html.find("<div class=\"rg-notice")
             return html[i:html.find("</div>", i)] if i >= 0 else ""
         ok("/auth/" not in failed and note(failed) == note(unknown) and "If that email" in failed and "15 minutes" in failed and "try again" in failed, "a failed login send uses the same on-screen message as an unknown address and does not show the link")
     finally:

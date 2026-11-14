@@ -175,7 +175,7 @@ def test_preferred_first_migration():
     assert raw.execute("SELECT preferred_first, trial_acknowledged_at FROM members").fetchone() == (None, None)
 def test_preferred_first_display_and_legal_verify():
     join_page = A.app.test_client().get("/join").get_data(as_text=True)
-    assert "Preferred first name (optional)" in join_page and "Leave blank to use your legal first name" in join_page
+    assert "PREFERRED FIRST NAME (OPTIONAL)" in join_page and "Leave blank to use your legal first name" in join_page
     blank = A.app.test_client()
     blank.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(blank, "/join"), first="Zoe", last="Blank", email="zoe@example.com", phone="1", preferred_first="   "))
     assert sqlite3.connect(A.DB).execute("SELECT preferred_first FROM members WHERE email='zoe@example.com'").fetchone()[0] is None
