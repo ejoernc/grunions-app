@@ -456,6 +456,13 @@ body.editor button.cdot.on{box-shadow:0 0 0 2px var(--ink),0 0 0 4px var(--paper
 body.editor .typechips{display:flex;flex-wrap:wrap;gap:8px;margin:-8px 0 16px}
 body.editor .typechips button{height:40px;min-height:40px;padding:0 14px;border:0;border-radius:999px;background:var(--graphite);color:var(--paper)}
 body.editor .typechips button.on{background:var(--team-lavender);color:var(--ink)}
+body.editor .sportchips{margin:0 0 6px}
+body.editor .sportchips label{display:inline-flex;margin:0;cursor:pointer}
+body.editor .sportchips input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+body.editor .sportchips span{display:inline-flex;align-items:center;height:40px;padding:0 14px;border-radius:999px;background:var(--graphite);color:var(--paper);font:600 16px/16px var(--r2-font-sans);letter-spacing:normal;text-transform:none}
+body.editor .sportchips input:checked+span{background:var(--team-lavender);color:var(--ink)}
+body.editor .sportchips input:focus-visible+span{outline:2px solid var(--lime);outline-offset:2px}
+body.editor .sporthint{margin:0 0 16px}
 body.editor label{font:700 11px/1.2 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--smoke)}
 body.editor label input,body.editor label select,body.editor label textarea,body.editor .livetitle{text-transform:none;letter-spacing:0;font:600 16px/1.3 var(--r2-font-sans);color:var(--paper)}
 body.editor input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]),body.editor select,body.editor textarea.planfield{background:var(--carbon);border:0;border-radius:22px;min-height:56px;color:var(--paper)}
@@ -2548,6 +2555,9 @@ dialog.memberedit .help a{color:var(--t1)}
 {%- else -%}var(--team-mango)
 {%- endif -%}
 {%- endmacro %}
+{% macro line_sport_chips(selected) %}<div class=rg-day>Sport</div>
+<div class="typechips sportchips" role=group aria-label="Sport"><input type=hidden name=line_sport_on value=1>{% for s in lineup_sport_options(selected) %}<label><input type=checkbox name=line_sport value="{{ s }}"{% if s in selected %} checked{% endif %}><span>{{ s }}</span></label>{% endfor %}</div>
+<p class="ty-muted ty-sm sporthint">Pick more than one for a multi-sport event.</p>{% endmacro %}
 {% macro lineup_card(e, back='/lineup', mode='compact', past=false) %}
 {%- set title = e.title if e.title.endswith('.') else e.title ~ '.' -%}
 {%- set place = e.city or e.venue -%}
@@ -2555,6 +2565,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {%- set ink = 'var(--paper)' if past else 'var(--ink)' -%}
 {%- set pill = {'Tournament':'Compete','Competition':'Compete','Volunteer':'Volunteer','Fundraiser':'Volunteer','Trip':'Trips','Clinic':'Clinic'}.get(e.event_type, 'Community') -%}
 {%- set over = {'Tournament':'TOURNAMENT','Competition':'TOURNAMENT','Clinic':'CLINIC','Trip':'TRIP','Volunteer':'VOLUNTEER','Fundraiser':'FUNDRAISER'}.get(e.event_type, 'SOCIAL') -%}
+{%- if e.sports|length > 1 %}{% set over = 'MULTI-SPORT ' ~ over %}{% elif e.sports %}{% set over = e.sports[0]|upper ~ ' ' ~ over %}{% endif -%}
 {%- set ns = namespace(bar=0, foot=(e.going_n ~ (' went' if past else ' going'))) -%}
 {%- if e.capacity -%}
 {%- set ns.bar = (e.going_n * 100 / e.capacity)|round(0, 'floor')|int -%}
@@ -6959,6 +6970,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button data-type=Trip>Trip</button>
 <button type=button data-type=Social>Social</button>
 </div>{% endif %}
+{{ line_sport_chips(['Water Polo']) }}
 {{ rg_color_dots('event_color_line', '') }}
 <div class=rg-day>Who's hosting?</div>
 <div class="actseg hostseg" id=whoHost role=radiogroup aria-label="Who's hosting?">
@@ -7362,6 +7374,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 {{ upload_field('banner', src=('/lineup-image/' ~ event_id ~ '?v=' ~ banner) if banner and event_id else '', clear_name='banner_clear') }}
 </div>
 <label>Type{{ type_select(event_types, values.event_type) }}</label>
+{{ line_sport_chips(lineup_sports(line_sport) if line_sport is defined else ['Water Polo']) }}
 {% if event_color is defined %}{{ rg_color_dots('event_color_line', event_color) }}{% endif %}
 <div class=rg-day>Who's hosting?</div>
 <div class="actseg hostseg" id=whoHost role=radiogroup aria-label="Who's hosting?">

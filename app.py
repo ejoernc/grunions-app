@@ -7192,6 +7192,21 @@ def lineup_status_label(row, now=None):
         _start, end = event_window(row)
         if end < wall_pt(now): return "Completed"
     return lineupfeed.STATUS_LABEL.get(status, status)
+def lineup_sports(raw):
+    """lineup_events.sport holds one sport or several, comma separated."""
+    return [x.strip() for x in (raw or "").split(",") if x.strip()]
+def lineup_sport_options(selected=()):
+    """Sports offered on a Lineup event: every sport the club has set up, plus anything already picked."""
+    try:
+        import clubadmin
+        names = [p["name"] for p in clubadmin.programs(db())]
+    except Exception:
+        names = []
+    if not names: names = ["Water Polo"]
+    for s in selected or ():
+        if s and s not in names: names.append(s)
+    return names
+app.jinja_env.globals.update(lineup_sport_options=lineup_sport_options, lineup_sports=lineup_sports)
 def lineup_pack(d, rows):
     mid = me()["id"] if me() else 0
     organizer = can_host_practice() if me() else False
@@ -7256,6 +7271,7 @@ def lineup_pack(d, rows):
             "precision": r["date_precision"] if "date_precision" in r.keys() and r["date_precision"] else "exact",
             "part": (r["date_part"] or "") if "date_part" in r.keys() else "",
             "sort_date": effective_sort_date(r),
+            "sports": lineup_sports(r["sport"] if "sport" in r.keys() else ""),
             "tile": lineup_tile(r),
             "venue": r["venue"] or "", "city": r["city"] or "",
             "host_org": primary if card_mode == "other" else "",
@@ -7602,6 +7618,15 @@ def _save_lineup(d, existing=None):
     cat = d.execute("SELECT slug FROM lineup_categories c JOIN lineup_events e ON e.category_id=c.id WHERE e.id=?", (info["id"],)).fetchone()
     slug = cat["slug"] if cat else ""
     sport = " ".join((request.form.get("sport") or "").split())[:40]
+    if form.get("line_sport_on"):
+        picked = []
+        for x in request.form.getlist("line_sport"):
+            x = " ".join(x.split())[:40]
+            if x and x not in picked: picked.append(x)
+        sport_value = ", ".join(picked)
+        sport = picked[0] if picked else ""
+    else:
+        sport_value = sport or "Water Polo"
     try:
         import clubadmin
         extra_levels = clubadmin.level_slugs(d, sport or "Water Polo", include_archived=True)
@@ -7611,7 +7636,7 @@ def _save_lineup(d, existing=None):
     divs, custom = sports.pack_divisions(request.form.getlist("division"), request.form.get("division_custom"))
     comp = sports.pack_format(request.form.get("comp_format")) if slug == "travel" else ""
     d.execute("UPDATE lineup_events SET skill_levels=?, divisions=?, division_custom=?, comp_format=?, sport=? WHERE id=?",
-              (levels, divs, custom, comp, sport or "Water Polo", info["id"]))
+              (levels, divs, custom, comp, sport_value, info["id"]))
     d.commit()
     return info
 @app.route("/api/places")
@@ -8565,6 +8590,7 @@ def lineup_edit(eid):
     ctx = lineup_template_ctx(d, "edit", values, event_id=eid, banner=row["banner"] or "")
     ctx["sports_row"] = row
     ctx["event_color"] = components.row_color(row)
+    ctx["line_sport"] = (row["sport"] if "sport" in row.keys() else "") or ""
     ended = lineup_ended(row)
     ctx["show_cancel"] = can_host_practice() and (row["status"] or "") == "published" and not ended
     ctx["show_delete"] = (not ended) and (can_host_practice() or (row["created_by"] == me()["id"] and (row["status"] or "") in ("draft", "declined", "changes_requested")))
@@ -8862,6 +8888,12 @@ def event_new():
             abort(403)
         if info and info.get("id") and _picked_color("event_color_line"):
             d.execute("UPDATE lineup_events SET color=? WHERE id=?", (_picked_color("event_color_line"), info["id"]))
+        if info and info.get("id") and request.form.get("line_sport_on"):
+            picked = []
+            for x in request.form.getlist("line_sport"):
+                x = " ".join(x.split())[:40]
+                if x and x not in picked: picked.append(x)
+            d.execute("UPDATE lineup_events SET sport=? WHERE id=?", (", ".join(picked), info["id"]))
         d.commit()
         if not staff:
             flash("Sent to admins for review", "toast")
