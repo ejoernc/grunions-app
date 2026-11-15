@@ -7210,6 +7210,9 @@ app.jinja_env.globals.update(lineup_sport_options=lineup_sport_options, lineup_s
 # Volunteer shifts on Lineup events are hidden for now; data and routes stay so it can come back.
 SHOW_SHIFTS = False
 app.jinja_env.globals["show_shifts"] = SHOW_SHIFTS
+# The "Check interest first" prompt on Lineup events is hidden for now; interest checks already sent still show.
+SHOW_INTEREST_CHECK = False
+app.jinja_env.globals["show_interest_check"] = SHOW_INTEREST_CHECK
 def lineup_pack(d, rows):
     mid = me()["id"] if me() else 0
     organizer = can_host_practice() if me() else False

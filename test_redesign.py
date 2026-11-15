@@ -606,7 +606,10 @@ def test_interest_check_ask_answer_results_and_official():
     sql("INSERT INTO lineup_events(kind,title,date,city,venue,start,status,team_intent,team_plan) VALUES('Trip','IGLA Test',?,'Copenhagen','Pool','09:00','published','considering','considering')", (day,))
     eid = sql("SELECT id FROM lineup_events WHERE title='IGLA Test'")[0][0]
     page = boss.get("/lineup/%d" % eid).get_data(as_text=True)
-    assert "Check interest first" in page and "id=icSetup" in page
+    if A.SHOW_INTEREST_CHECK:
+        assert "Check interest first" in page and "id=icSetup" in page
+    else:  # hidden for now
+        assert "Check interest first" not in page
     tok = csrf(boss, "/lineup/%d" % eid)
     boss.post("/lineup/%d/interest" % eid, data=dict(csrf=tok, action="setup", ask="month", option_new="Jun 2027", cost="$1,200", need="2", answer_by="2099-01-15"))
     boss.post("/lineup/%d/interest" % eid, data={"csrf": tok, "action": "setup", "ask": "month", "option": ["Jun 2027"], "option_new": "Jul 2027", "cost": "$1,200", "need": "2"})

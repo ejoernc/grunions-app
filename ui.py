@@ -6764,7 +6764,7 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 <p class=rg-note>You won't be signed up or charged. If it happens, you'll be asked to confirm.</p>
 {% if ic_host %}<a class=rg-calink href="/lineup/{{ e.id }}/interest">See answers →</a>{% endif %}
 </section>
-{% elif ic_host and ic_considering and not ic %}
+{% elif ic_host and ic_considering and not ic and show_interest_check %}
 {{ rg_callout('Check interest first', 'Ask who’s in before dates and cost are set', 'Ask →', '', 'grape', "document.getElementById('icSetup').showModal()") }}
 {% elif ic and ic_host %}<a class=rg-calink href="/lineup/{{ e.id }}/interest">Interest answers →</a>{% endif %}
 {% if ic_host and (ic_considering or ic) %}
