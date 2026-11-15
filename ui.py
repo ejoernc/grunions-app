@@ -769,6 +769,8 @@ div.card.tap.tripcard.lcard.ltall.pinned{min-height:228px}
 .lcard .ldate{display:flex;flex-direction:column;align-items:flex-start;min-width:88px;color:inherit}
 .lcard .ldate b{font:700 104px/.86 var(--r2-font-display);letter-spacing:-.05em;color:inherit}
 .lcard.past .ldate b{font-size:80px}
+.lcard .ldate+.lgrow{padding-top:15.6px}
+.lcard.past .ldate+.lgrow{padding-top:14.3px}
 .lcard .ldate span{font:700 11px/1 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase;color:inherit}
 .lcard .lgrow{min-width:0;flex:1}
 .lcard .ltfoot span,.lcard .lcfoot>span:last-child{font:700 13px/1 var(--r2-font-sans);color:inherit;white-space:nowrap}
