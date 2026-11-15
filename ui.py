@@ -780,6 +780,8 @@ div.card.tap.tripcard.lcard.ltall:not(:has(.ldate)){min-height:0}
 .lcard button.lghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
 .lcard button.lfill{background:var(--ink);color:var(--paper);border:0}
 .lcard button.lghost.on,.lcard button.lghost.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.lcard button.lghost:not(.on):not(.primary) .rsvpcheck{display:none}
+.lcard .ltfoot>.lcounts{display:flex;flex-direction:column;gap:6px;white-space:nowrap}
 .lcard .pastpill{background:var(--graphite);color:var(--paper);border-radius:999px;padding:4px 8px;font:700 11px/1 var(--r2-font-sans)}
 .lcard .cardlink{color:inherit;text-decoration:none;display:flex;flex-direction:column;gap:12px}
 div.card.tap.tripcard.lcard[data-kind] .lctitle,div.card.tap.tripcard.lcard[data-kind] .lttitle,div.card.tap.tripcard.lcard[data-kind] .lcmeta,div.card.tap.tripcard.lcard[data-kind] .ltmeta,div.card.tap.tripcard.lcard[data-kind] .lover,div.card.tap.tripcard.lcard[data-kind] .lcstatus,div.card.tap.tripcard.lcard[data-kind] .ldate,div.card.tap.tripcard.lcard[data-kind] .ldate b{color:inherit}
@@ -1942,7 +1944,7 @@ dialog.memberedit .help a{color:var(--t1)}
   }
   function deselect(btn) {
     var choice = choiceOf(btn);
-    btn.classList.remove("primary", "primary", "is-sweeping");
+    btn.classList.remove("primary", "on", "is-sweeping");
     btn.classList.add("secondary");
     if (choice === "going") {
       var goingLabel = textOf(btn);
@@ -2069,7 +2071,7 @@ dialog.memberedit .help a{color:var(--t1)}
       var freshCard = fresh.closest(".card");
       if (!social && card && freshCard) {
         var a = goingSpan(card), b = goingSpan(freshCard);
-        if (a && b) a.textContent = b.textContent;
+        if (a && b) a.innerHTML = b.innerHTML;
       }
     });
     if (!social && (location.pathname.indexOf("/practices/") === 0 || location.pathname.indexOf("/lineup/") === 0)) {
@@ -2567,10 +2569,10 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=lgrow><b class=lttitle>{{ title }}</b><p class=ltmeta>{{ e.when }}{% if place %} · {{ place }}{% endif %}</p></div></div></a>
 {% if e.status != 'published' %}<p class=ltmeta>{{ e.status_label }}{% if e.review_note %} · {{ e.review_note }}{% endif %}</p>
 {% elif past %}<div class=ltfoot><span>{{ e.going_n }} went</span></div>
-{% else %}<div class=ltfoot><span>{% if e.interested_n and not e.going_n %}{{ e.interested_n }} interested{% else %}{{ e.going_n }} going{% endif %}</span>
+{% else %}<div class=ltfoot><span class=lcounts>{% if e.interested_n %}<span>{{ e.interested_n }} interested</span>{% endif %}{% if e.going_n or not e.interested_n %}<span>{{ e.going_n }} going</span>{% endif %}</span>
 <form method=post action=/lineup class=lacts>{{ csrf_field() }}<input type=hidden name=event_id value={{ e.id }}><input type=hidden name=back value="{{ back }}">{{ rsvp_base('e' ~ e.id) }}
-<button class="lghost{% if e.mine == 'interested' %} on{% endif %}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">Interested</button>
-<button class="lfill{% if e.mine == 'going' %} on{% endif %}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">Going</button>
+<button class="lghost{% if e.mine == 'interested' %} on{% endif %}" name=action value="{{ 'clear' if e.mine == 'interested' else 'interested' }}">{% if e.mine == 'interested' %}<svg class="rsvpcheck" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}Interested</button>
+<button class="lghost{% if e.mine == 'going' %} on{% endif %}" name=action value="{{ 'clear' if e.mine == 'going' else 'going' }}">{% if e.mine == 'going' %}<svg class="rsvpcheck" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}Going</button>
 </form></div>{% endif %}
 </div>{% else %}<a class="lcard lcompact card tap tripcard{% if past %} past{% endif %}{% if e.status == 'canceled' %} cancelled{% endif %}" data-kind="{{ e.event_type or '' }}" data-r2="lineup-card" data-variant="compact" style="background:{{ fill }};color:{{ ink }}" href="/lineup/{{ e.id }}">
 <div class=lctop><span class=lcpill>{{ pill }}</span><span class=lcstatus>{% if e.mine == 'going' %}Registered<svg class=lccheck width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8.2 6.2 11.5 13 4.5" stroke="#0B0B0C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>{% elif e.event_type in ('Volunteer', 'Fundraiser') %}Pick a shift{% elif e.event_type == 'Trip' %}Claim a seat{% else %}RSVP{% endif %}</span></div>
