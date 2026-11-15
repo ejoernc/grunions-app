@@ -911,7 +911,7 @@ a.drivecard:focus-visible{outline:2px solid var(--color-focus);outline-offset:2p
 .rg-field{min-width:0}
 .pagerow{flex-wrap:wrap}
 .pagehead h1{font-size:min(var(--type-t1-size),15vw)}
-.chathead .chatdisplay{min-width:0;font:700 clamp(52px,16vw,80px)/.86 var(--r2-font-display);letter-spacing:-.05em;align-self:flex-start;margin-top:6.34375px}
+.chathead .chatdisplay{min-width:0;font:700 clamp(52px,16vw,80px)/.86 var(--r2-font-display);letter-spacing:-.05em}
 body.profilepage:not(.profile-edit) .infogrid{grid-template-columns:repeat(2,minmax(0,1fr))}
 body.profilepage:not(.profile-edit) .infogrid .prow{min-width:0}
 body.profilepage:not(.profile-edit) .infogrid .prow .v{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
