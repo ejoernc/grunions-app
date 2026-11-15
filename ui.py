@@ -5266,6 +5266,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
  }
  function settle(vy, fromFull){
   var m=metrics(), midUp=(m.half+m.full)/2, midDown=(m.peek+m.half)/2, target=m.half;
+  if(dbgOn) dbg('settle vy='+(+vy).toFixed(2)+' fromFull='+fromFull);
   if(!fromFull && vy<-0.6 && h>midDown){ flingUp(vy); return; }
   if(fromFull && h<m.full-8) target=m.half;
   else if(vy<-0.6 && h>midDown) target=m.full;
@@ -5322,7 +5323,23 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   settle(vy, fromFull);
  }
  var touch=null;
+ // Drawer diagnostics: open Home with ?drawerdebug=1 (turn off with ?drawerdebug=0).
+ var dbgOn=false, dbgBox=null, dbgLog=[];
+ try{
+  var qd=new URLSearchParams(location.search).get('drawerdebug');
+  if(qd==='1') localStorage.setItem('drawerdebug','1'); else if(qd==='0') localStorage.removeItem('drawerdebug');
+  dbgOn=localStorage.getItem('drawerdebug')==='1';
+ }catch(e){}
+ function dbg(tag){
+  if(!dbgOn) return;
+  if(!dbgBox){ dbgBox=document.getElementById('drawerDbg'); if(!dbgBox){ dbgBox=document.createElement('pre'); dbgBox.id='drawerDbg'; dbgBox.style.cssText='position:fixed;left:4px;right:4px;top:4px;z-index:99999;margin:0;padding:6px;background:rgba(0,0,0,.85);color:#c6ff3c;font:11px/1.3 monospace;white-space:pre-wrap;pointer-events:none;max-height:45vh;overflow:hidden'; document.body.appendChild(dbgBox); } }
+  var m=metrics();
+  dbgLog.push(tag+' h='+Math.round(h)+' full='+m.full+' half='+m.half+' cls='+sheet.className.replace('weekdrawer','').trim()+' st='+(scroller?scroller.scrollTop.toFixed(1):'-')+(touch?' vy='+(touch.vy||0).toFixed(2)+' sc='+(touch.scrolled?1:0):''));
+  if(dbgLog.length>18) dbgLog.shift();
+  dbgBox.textContent='iw='+window.innerWidth+' ih='+window.innerHeight+' vv='+(window.visualViewport?Math.round(visualViewport.height):'-')+'\\n'+dbgLog.join('\\n');
+ }
  document.addEventListener('touchstart', function(e){
+  if(dbgOn) dbg('start live='+live()+' wide='+wide()+' t='+(e.target.tagName||'')+'.'+String(e.target.className||'').slice(0,14));
   if(!live()||wide()||e.touches.length!==1) return;
   var t=e.target;
   if(t.closest&&(t.closest('nav,dialog,.mapcontrols')||(t.closest('input,textarea,select')&&!t.closest('#sheetGrab')))) return;
@@ -5344,6 +5361,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   touch.moved=true;
   // The sheet and the list are one surface: we drive both, so the same swipe grows the sheet and then
   // keeps scrolling the cards up under the header like a normal page (no native hand-off that can stall).
+  if(dbgOn) dbg('move dy='+dy.toFixed(1)+' canc='+e.cancelable+' full='+full+' above='+above);
   if(full && scroller && dy<0){ if(more){ scroller.scrollTop-=dy; touch.scrolled=true; } return; }
   if(full && scroller && dy>0 && above){
    // Scroll the list back to the top first; whatever is left of the same swipe lowers the sheet.
@@ -5377,6 +5395,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
  }
  document.addEventListener('touchend', function(){
   if(!touch) return;
+  if(dbgOn) dbg('end');
   var moved=touch.moved, vy=touch.vy||0, fromFull=touch.fromFull, scrolled=touch.scrolled, pulled=touch.pull||0;
   touch=null;
   if(pulled>0){ if(pulled>=PTR_AT) ptrRun(); else ptrHide(); return; }
@@ -5385,6 +5404,13 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   if(sheet.classList.contains('full') && vy>0.05 && scroller && scroller.scrollTop<=1){ settle(Math.max(vy, 0.7), true); return; }
   if(sheet.classList.contains('full') && (scrolled || vy<0)){ glide(vy); return; }
   settle(vy, fromFull);
+ }, {signal:ac.signal});
+ document.addEventListener('touchcancel', function(){
+  if(dbgOn) dbg('cancel');
+  if(!touch) return;
+  var f=touch; touch=null;
+  if(f.pull>0){ ptrHide(); return; }
+  if(f.moved && !sheet.classList.contains('full')) settle(f.vy||0, f.fromFull);
  }, {signal:ac.signal});
  document.addEventListener('pointerup', endDrag, {signal:ac.signal});
  document.addEventListener('pointercancel', endDrag, {signal:ac.signal});
