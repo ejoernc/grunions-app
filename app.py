@@ -1395,15 +1395,19 @@ def calendar():
         out.append(components.callout("Set the days you can usually play", "We mark practices that fit your week", "Edit →", "/setup/week", "lime"))
     else:
         out.append(components.filters(kind_items, kind))
-        last = None
+        last = None; last_month = None
         for day, _start, href, title, sub, tone in items:
             try:
                 parsed = dt.date.fromisoformat(str(day)[:10])
                 label = "%s %d" % (parsed.strftime("%a").upper(), parsed.day)
+                month = parsed.strftime("%B %Y")
             except ValueError:
-                label = str(day)
-            if label != last:
-                out.append(components.day(label)); last = label
+                parsed = None; label = str(day); month = None
+            if month and month != last_month:
+                out.append(Markup('<div class=lmonth>%s</div>' % escape(month))); last_month = month; last = None
+            key = str(day)[:10]
+            if key != last:
+                out.append(components.day(label)); last = key
             out.append(components.event_line(href, title, sub, tone))
         if not items:
             out.append(components.empty("Nothing here yet." if show == "upcoming" else "Nothing yet.",
