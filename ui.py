@@ -754,6 +754,7 @@ details.lineuppast>summary::-webkit-details-marker{display:none}
 .card.tap.tripcard.lcard{color:inherit;padding:22px 20px 20px;border-radius:36px;gap:10px;min-height:156px;box-sizing:border-box;display:flex;flex-direction:column;text-decoration:none;overflow:hidden}
 div.card.tap.tripcard.lcard.ltall{gap:12px;min-height:208px}
 div.card.tap.tripcard.lcard.ltall.pinned{min-height:228px}
+div.card.tap.tripcard.lcard.ltall:not(:has(.ldate)){min-height:0}
 .lcard .lctop,.lcard .ltop,.lcard .ltfoot,.lcard .lcfoot,.lcard .lmain{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .lcard .lcpill{background:var(--ink);color:var(--paper);border-radius:999px;padding:5px 10px;font:700 11px/1 var(--r2-font-sans)}
 .lcard .lcstatus,.lcard .lover{display:inline-flex;align-items:center;gap:4px;font:700 12px/1 var(--r2-font-sans);color:inherit}
@@ -775,9 +776,10 @@ div.card.tap.tripcard.lcard.ltall.pinned{min-height:228px}
 .lcard .lgrow{min-width:0;flex:1}
 .lcard .ltfoot span,.lcard .lcfoot>span:last-child{font:700 13px/1 var(--r2-font-sans);color:inherit;white-space:nowrap}
 .lcard .lacts{display:flex;gap:8px;margin:0}
-.lcard button.lghost,.lcard button.lfill{width:auto;height:auto;min-height:0;padding:8px 12px;border-radius:999px;font:700 12px/1 var(--r2-font-sans)}
+.lcard button.lghost,.lcard button.lfill{width:auto;height:44px;min-height:44px;padding:0 20px;border-radius:999px;font:700 15px/1 var(--r2-font-sans);display:inline-flex;align-items:center;gap:6px}
 .lcard button.lghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
 .lcard button.lfill{background:var(--ink);color:var(--paper);border:0}
+.lcard button.lghost.on,.lcard button.lghost.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .lcard .pastpill{background:var(--graphite);color:var(--paper);border-radius:999px;padding:4px 8px;font:700 11px/1 var(--r2-font-sans)}
 .lcard .cardlink{color:inherit;text-decoration:none;display:flex;flex-direction:column;gap:12px}
 div.card.tap.tripcard.lcard[data-kind] .lctitle,div.card.tap.tripcard.lcard[data-kind] .lttitle,div.card.tap.tripcard.lcard[data-kind] .lcmeta,div.card.tap.tripcard.lcard[data-kind] .ltmeta,div.card.tap.tripcard.lcard[data-kind] .lover,div.card.tap.tripcard.lcard[data-kind] .lcstatus,div.card.tap.tripcard.lcard[data-kind] .ldate,div.card.tap.tripcard.lcard[data-kind] .ldate b{color:inherit}
@@ -1868,6 +1870,8 @@ dialog.memberedit .help a{color:var(--t1)}
     return matchingForms(root, pid, eid).filter(function (f) { return isSocialForm(f) === social; });
   }
   function goingSpan(root) {
+    var foot = root.querySelector(".ltfoot>span");
+    if (foot) return foot;
     var spans = root.querySelectorAll(".nxrow span");
     for (var i = 0; i < spans.length; i++) if (/\\d+ going/.test(spans[i].textContent)) return spans[i];
     return null;
@@ -2211,7 +2215,9 @@ dialog.memberedit .help a{color:var(--t1)}
     var form = button.form;
     var choice = choiceOf(button);
     var posted = button.value;
-    if (choice === "not") posted = "notgoing";
+    var lineupForm = !field(form, "pid") && !!field(form, "event_id");
+    if (lineupForm && button.value === "clear") posted = "clear";  // tapping a selected Lineup choice unselects it
+    else if (choice === "not") posted = "notgoing";
     else if (choice === "going") posted = "going";
     else if (choice === "interested") posted = "interested";
     var pid = field(form, "pid"), eid = field(form, "event_id");
@@ -6660,8 +6666,8 @@ T["lineup"] = """{% macro lineup_months(groups, mode, past=false) %}{% for g in 
 {% if not group %}<div class=lmetrics><div class="lmetric hrs"><b>{{ '%02d'|format(lineup_hours) }}</b><span>SERVICE HRS</span></div><div class="lmetric reg"><b>{{ '%02d'|format(lineup_registered) }}</b><span>REGISTERED</span></div><div class="lmetric dec"><b>{{ '%02d'|format(lineup_decide) }}</b><span>TO DECIDE</span></div></div>{% endif %}
 {% if featured %}<div class=lmonth>Pinned</div>{% for e in featured %}{{ lineup_card(e, '/lineup?group=' ~ group, 'tall') }}{% endfor %}{% endif %}
 {% if empty_public %}<p class=emptyfind>Nothing on the Lineup yet.</p>{% endif %}
-{{ lineup_months(upcoming, 'tall' if group else 'compact') }}
-{% if past %}<details class=lineuppast open><summary>{% if group %}Past{% else %}Past{% endif %} <span class=pastn>{{ past_n }}</span></summary>{{ lineup_months(past, 'tall' if group else 'compact', true) }}</details>{% endif %}"""
+{{ lineup_months(upcoming, 'tall') }}
+{% if past %}<details class=lineuppast open><summary>{% if group %}Past{% else %}Past{% endif %} <span class=pastn>{{ past_n }}</span></summary>{{ lineup_months(past, 'tall', true) }}</details>{% endif %}"""
 T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
 {{ rg_event_hero(e.event_type or 'Event', e.title, [e.when, e.venue, e.city]|select|join(' · '), 'graphite' if e.status == 'canceled' else event_tone(e.event_type, false, e.color), e.status_text if e.status != 'published' else (e.tag or '')) }}
 {% if ic and ic.status == 'open' %}{# Figma 62 · I2 Interest check, member view #}
