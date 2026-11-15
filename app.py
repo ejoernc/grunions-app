@@ -7869,6 +7869,8 @@ def _widget_can_be_framed(resp):
     if request.path == "/widget":
         resp.headers["Content-Security-Policy"] = "frame-ancestors *"
         resp.headers.pop("X-Frame-Options", None)
+    if request.path.startswith("/static/fonts/") or request.path == "/static/email-mark.png":
+        resp.headers["Access-Control-Allow-Origin"] = "*"  # mail clients load the brand fonts cross-origin
     return resp
 def _register_practice(d, raw):
     raw = (raw or "").strip()
@@ -11973,7 +11975,7 @@ def notify_practice_cancelled(d, p):
                 text = "Hi %s,\n\nPractice is cancelled.\n\n%s\n%s\n" % (display_first(m), when, loc)
                 if reason: text += "\n%s\n" % reason
                 text += "\nGrunions Water Polo\n"
-                try: send_email(m["email"], subject, text, html=mailhtml.practice_cancelled_html(app_base(), display_first(m), when, loc, reason, app_base() + url, org_name()))
+                try: send_email(m["email"], subject, text, html=mailhtml.practice_cancelled_html(app_base(), display_first(m), when, loc, reason, app_base() + url, org_name(), p["date"]))
                 except Exception as e:
                     app.logger.error("cancel email to %s failed: %s", m["email"], e); release_notice(d, m["id"], ek)
         if wants_push(m, "practice_cancelled") and claim_notice(d, m["id"], pk):
@@ -12025,7 +12027,7 @@ def deliver_expiry(d, m, kind, date_iso, left):
                         "You can turn off these reminder emails in Notification settings. Practice cancellation emails still send.\n\nGrunions Water Polo\n") % (
                         display_first(m), sentence, app_base(), TRIAL_JOIN_URL)
                 try:
-                    send_email(m["email"], title, text, html=mailhtml.expiry_html(app_base(), display_first(m), title, sentence, app_base() + "/home", org_name(), mailhtml.expiry_eyebrow(kind))); notice_sent(d, m["id"], ek)
+                    send_email(m["email"], title, text, html=mailhtml.expiry_html(app_base(), display_first(m), title, sentence, app_base() + "/home", org_name(), mailhtml.expiry_eyebrow(kind), left)); notice_sent(d, m["id"], ek)
                 except Exception as e:
                     app.logger.error("expiry email failed at %s: %s", getattr(e, "stage", "send"), getattr(e, "cause", e).__class__.__name__)
                     notice_failed(d, m["id"], ek)
@@ -12109,7 +12111,7 @@ def reminder_message(practice, member):
     button = "Sign up for practice"
     sport = practice_sport_name(practice)
     text = "Hi %s,\n\n%s\n\n%s\n%s\n\nTurn off practice reminder emails: %s\n" % (first, sentence, button, url, unsub)
-    html = mailhtml.practice_reminder_html(app_base(), first, subject, sentence, sport, when, place, url, button, unsub, org_name())
+    html = mailhtml.practice_reminder_html(app_base(), first, subject, sentence, sport, when, place, url, button, unsub, org_name(), clock)
     return subject, text, html, "/practices/%d" % practice["id"]
 def _practice_span(practice):
     start = dt.datetime.fromisoformat(practice["date"] + "T" + (practice["start"] or "19:00")[:5]).replace(tzinfo=PT)
@@ -12177,7 +12179,8 @@ def send_practice_signup(d, practice, member):
     ics, google, _title, _where, url = practice_calendar(practice)
     ics_url = url + "/event.ics"
     when = fmt_span(practice["start"] or "19:00", practice["end"] or "20:30")
-    html = mailhtml.practice_signup_html(app_base(), display_first(member), headline, sentence, sport, when, place, url, google, ics_url, org_name())
+    html = mailhtml.practice_signup_html(app_base(), display_first(member), headline, sentence, sport, when, place, url, google, ics_url, org_name(), clock,
+                                      dt.date.fromisoformat(practice["date"][:10]).strftime("%A"))
     text = "Hi %s,\n\n%s\n\nView practice\n%s\n\nAdd to Google Calendar\n%s\n\nDownload calendar file\n%s\n" % (
         display_first(member), sentence, url, google, ics_url)
     delivered = False
