@@ -5332,14 +5332,14 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
  document.addEventListener('touchmove', function(e){
   if(!touch||!live()||wide()) return;
   var y=e.touches[0].clientY, now=performance.now(), dy=y-touch.y;
-  touch.vy=dy/((now-touch.t)||16); touch.y=y; touch.t=now;
+  var inst=dy/((now-touch.t)||16); touch.vy=touch.moved ? touch.vy*0.4+inst*0.6 : inst; touch.y=y; touch.t=now;
   // Claim the gesture from the very first move so the browser never starts its own scroll of the list
   // (a native scroll stops dead at the top instead of handing the rest of the swipe to the sheet).
   if(e.cancelable) e.preventDefault();
   if(!touch.moved && Math.abs(dy)<8){ touch.y-=dy; return; }
   var full=sheet.classList.contains('full');
   var more=scroller && scroller.scrollTop+scroller.clientHeight<scroller.scrollHeight-1;
-  var above=scroller && scroller.scrollTop>0;
+  var above=scroller && scroller.scrollTop>1;
   if(e.cancelable) e.preventDefault();
   touch.moved=true;
   // The sheet and the list are one surface: we drive both, so the same swipe grows the sheet and then
@@ -5348,6 +5348,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   if(full && scroller && dy>0 && above){
    // Scroll the list back to the top first; whatever is left of the same swipe lowers the sheet.
    var take=Math.min(dy, scroller.scrollTop); scroller.scrollTop-=take; touch.scrolled=true; dy-=take;
+   if(scroller.scrollTop<=1){ scroller.scrollTop=0; }
    if(dy<=0) return;
    touch.scrolled=false;
   }
@@ -5368,7 +5369,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
    var before=scroller.scrollTop; scroller.scrollTop-=v*dt;
    if(dt>0 && scroller.scrollTop===before){
     // A downward fling that reaches the top of the list keeps going and lowers the sheet.
-    if(v>0.12 && scroller.scrollTop<=0) settle(Math.max(v, 0.7), true);
+    if(v>0.05 && scroller.scrollTop<=1) settle(Math.max(v, 0.7), true);
     return;
    }
    requestAnimationFrame(step);
@@ -5380,6 +5381,8 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   touch=null;
   if(pulled>0){ if(pulled>=PTR_AT) ptrRun(); else ptrHide(); return; }
   if(!moved) return;
+  // Still moving down with the list already back at the top: lower the sheet rather than stopping there.
+  if(sheet.classList.contains('full') && vy>0.05 && scroller && scroller.scrollTop<=1){ settle(Math.max(vy, 0.7), true); return; }
   if(sheet.classList.contains('full') && (scrolled || vy<0)){ glide(vy); return; }
   settle(vy, fromFull);
  }, {signal:ac.signal});
