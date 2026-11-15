@@ -1119,8 +1119,8 @@ dialog.crestmenu::backdrop{background:rgba(11,11,12,.45)}
 .crestgo,.crestout{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;padding:14px;border-radius:var(--r2-radius-pill);border:2px solid var(--r2-graphite);background:transparent;color:var(--r2-paper);font:700 14px/normal var(--r2-font-sans);text-decoration:none}
 .crestout{border-color:var(--r2-tangerine);color:var(--r2-tangerine)}
 .r2caps{margin:0 0 8px;color:var(--r2-smoke);font:var(--r2-caps);letter-spacing:.08em;text-transform:uppercase}
-main:has(.chathead){padding:16px 16px calc(var(--nav-clear) + 48px + env(safe-area-inset-bottom))}
-.chathead{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:76px;margin:0 0 16px}
+main:has(.chathead){padding:16px 20px calc(var(--nav-clear) + 48px + env(safe-area-inset-bottom))}
+.chathead{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:76px;margin:0 -4px 16px}
 .chatdisplay{margin:0;font:700 88px/.86 var(--r2-font-display);letter-spacing:-.05em;color:var(--r2-paper)}
 .chatplus{width:52px;height:52px;flex:none;border:0;border-radius:999px;background:var(--r2-lime);color:var(--r2-fixed-ink);font:700 24px/1 var(--r2-font-display);letter-spacing:-.03em;cursor:pointer}
 .chatlist{display:flex;flex-direction:column;gap:2px;margin:0 0 18px}
