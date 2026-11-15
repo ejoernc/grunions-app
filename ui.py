@@ -5342,7 +5342,12 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   // The sheet and the list are one surface: we drive both, so the same swipe grows the sheet and then
   // keeps scrolling the cards up under the header like a normal page (no native hand-off that can stall).
   if(full && scroller && dy<0){ if(more){ scroller.scrollTop-=dy; touch.scrolled=true; } return; }
-  if(full && scroller && dy>0 && (above || touch.scrolled)){ scroller.scrollTop-=dy; touch.scrolled=true; return; }
+  if(full && scroller && dy>0 && above){
+   // Scroll the list back to the top first; whatever is left of the same swipe lowers the sheet.
+   var take=Math.min(dy, scroller.scrollTop); scroller.scrollTop-=take; touch.scrolled=true; dy-=take;
+   if(dy<=0) return;
+   touch.scrolled=false;
+  }
   if(!full && !touch.onMap && h<=metrics().half+0.5 && (dy>0 || touch.pull>0)){
    touch.pull=Math.max(0, touch.pull+dy);
    if(touch.pull>0){ ptrShow(touch.pull); return; }
@@ -5358,7 +5363,11 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
    var dt=now-last; last=now; v*=Math.pow(0.996, dt);
    if(Math.abs(v)<0.02 || !sheet.classList.contains('full')) return;
    var before=scroller.scrollTop; scroller.scrollTop-=v*dt;
-   if(dt>0 && scroller.scrollTop===before) return;
+   if(dt>0 && scroller.scrollTop===before){
+    // A downward fling that reaches the top of the list keeps going and lowers the sheet.
+    if(v>0.3 && scroller.scrollTop<=0) settle(v, true);
+    return;
+   }
    requestAnimationFrame(step);
   })(last);
  }
