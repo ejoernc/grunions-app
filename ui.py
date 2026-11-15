@@ -5378,18 +5378,20 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   apply(h-dy);
  }, {passive:false, signal:ac.signal});
  function glide(v){
-  // Momentum after a hand-driven scroll (px per ms), easing out.
+  // Momentum after a hand-driven scroll (px per ms), easing out. Position is tracked as a float so slow
+  // momentum doesn't stall on whole-pixel rounding. A downward fling that reaches the top keeps going and
+  // lowers the sheet back to the map.
   if(!scroller) return;
-  var last=performance.now();
+  var last=performance.now(), pos=scroller.scrollTop;
   (function step(now){
-   var dt=now-last; last=now; v*=Math.pow(0.996, dt);
-   if(Math.abs(v)<0.02 || !sheet.classList.contains('full')) return;
-   var before=scroller.scrollTop; scroller.scrollTop-=v*dt;
-   if(dt>0 && scroller.scrollTop===before){
-    // A downward fling that reaches the top of the list keeps going and lowers the sheet.
-    if(v>0.05 && scroller.scrollTop<=1) settle(Math.max(v, 0.7), true);
-    return;
-   }
+   var dt=now-last; last=now; v*=Math.pow(0.9975, dt);
+   if(!sheet.classList.contains('full')) return;
+   var max=Math.max(0, scroller.scrollHeight-scroller.clientHeight);
+   pos=Math.max(0, Math.min(max, pos-v*dt));
+   scroller.scrollTop=pos;
+   if(dbgOn) dbg('glide v='+v.toFixed(2));
+   if(v>0 && pos<=0.5){ scroller.scrollTop=0; animateTo(metrics().half); return; }
+   if(Math.abs(v)<0.02 || (v<0 && pos>=max)) return;
    requestAnimationFrame(step);
   })(last);
  }
@@ -5401,7 +5403,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   if(pulled>0){ if(pulled>=PTR_AT) ptrRun(); else ptrHide(); return; }
   if(!moved) return;
   // Still moving down with the list already back at the top: lower the sheet rather than stopping there.
-  if(sheet.classList.contains('full') && vy>0.05 && scroller && scroller.scrollTop<=1){ settle(Math.max(vy, 0.7), true); return; }
+  if(sheet.classList.contains('full') && vy>0.05 && scroller && scroller.scrollTop<=1){ animateTo(metrics().half); return; }
   if(sheet.classList.contains('full') && (scrolled || vy<0)){ glide(vy); return; }
   settle(vy, fromFull);
  }, {signal:ac.signal});
