@@ -5325,7 +5325,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
  document.addEventListener('touchstart', function(e){
   if(!live()||wide()||e.touches.length!==1) return;
   var t=e.target;
-  if(t.closest&&(t.closest('nav,dialog,.mapcontrols')||(t.closest('button,input,textarea,select')&&!t.closest('#sheetGrab')))) return;
+  if(t.closest&&(t.closest('nav,dialog,.mapcontrols')||(t.closest('input,textarea,select')&&!t.closest('#sheetGrab')))) return;
   if(anim){ cancelAnimationFrame(anim); anim=0; }
   touch={y:e.touches[0].clientY,t:performance.now(),vy:0,moved:false,fromFull:sheet.classList.contains('full'),onMap:!!(t.closest&&t.closest('#homeMap')),pull:0};
  }, {passive:true, signal:ac.signal});
@@ -5333,7 +5333,10 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   if(!touch||!live()||wide()) return;
   var y=e.touches[0].clientY, now=performance.now(), dy=y-touch.y;
   touch.vy=dy/((now-touch.t)||16); touch.y=y; touch.t=now;
-  if(!touch.moved && Math.abs(dy)<8) return;
+  // Claim the gesture from the very first move so the browser never starts its own scroll of the list
+  // (a native scroll stops dead at the top instead of handing the rest of the swipe to the sheet).
+  if(e.cancelable) e.preventDefault();
+  if(!touch.moved && Math.abs(dy)<8){ touch.y-=dy; return; }
   var full=sheet.classList.contains('full');
   var more=scroller && scroller.scrollTop+scroller.clientHeight<scroller.scrollHeight-1;
   var above=scroller && scroller.scrollTop>0;
