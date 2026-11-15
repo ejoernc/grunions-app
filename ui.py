@@ -4487,7 +4487,11 @@ window.grunionsMountMap=function(el, opts){
     var low=lowerLimit()-box.top;
     var h=box.height||el.clientHeight||1;
     if((count||1)<=1){
-     var target=window.grunionsBandTarget(top, low);
+     // One place: centre it between the bottom of the traffic legend (or header) and the top of the drawer.
+     var leg=document.querySelector('.weekhi .maplegend, header.homehead .maplegend');
+     var lr=leg&&leg.getClientRects().length?leg.getBoundingClientRect():null;
+     var edge=(lr&&lr.height>1?lr.bottom:headerFloor())-box.top;
+     var target=Math.round((edge+low)/2);
      var bottom=Math.round(top+h-2*target);
      if(bottom<24) bottom=24;
      return {top:top, bottom:bottom, left:24, right:24};
