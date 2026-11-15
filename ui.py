@@ -5365,7 +5365,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
    var before=scroller.scrollTop; scroller.scrollTop-=v*dt;
    if(dt>0 && scroller.scrollTop===before){
     // A downward fling that reaches the top of the list keeps going and lowers the sheet.
-    if(v>0.3 && scroller.scrollTop<=0) settle(v, true);
+    if(v>0.12 && scroller.scrollTop<=0) settle(Math.max(v, 0.7), true);
     return;
    }
    requestAnimationFrame(step);
