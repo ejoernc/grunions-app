@@ -5249,8 +5249,24 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   }
   anim=requestAnimationFrame(frame);
  }
+ function flingUp(v){
+  // An upward flick carries on: the sheet rises to full and the same momentum keeps scrolling the list under the header.
+  if(anim) cancelAnimationFrame(anim);
+  var last=performance.now();
+  (function step(now){
+   var dt=now-last; last=now; v*=Math.pow(0.996, dt);
+   var m=metrics();
+   if(h<m.full-0.5){
+    if(Math.abs(v)<0.05){ anim=0; animateTo(m.full); return; }
+    apply(Math.min(m.full, h-v*dt));
+    anim=requestAnimationFrame(step); return;
+   }
+   anim=0; requestAnimationFrame(pinList); glide(v);
+  })(last);
+ }
  function settle(vy, fromFull){
   var m=metrics(), midUp=(m.half+m.full)/2, midDown=(m.peek+m.half)/2, target=m.half;
+  if(!fromFull && vy<-0.6 && h>midDown){ flingUp(vy); return; }
   if(fromFull && h<m.full-8) target=m.half;
   else if(vy<-0.6 && h>midDown) target=m.full;
   else if(vy>0.6 && h<midDown) target=m.peek;
@@ -5342,7 +5358,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
    var dt=now-last; last=now; v*=Math.pow(0.996, dt);
    if(Math.abs(v)<0.02 || !sheet.classList.contains('full')) return;
    var before=scroller.scrollTop; scroller.scrollTop-=v*dt;
-   if(scroller.scrollTop===before) return;
+   if(dt>0 && scroller.scrollTop===before) return;
    requestAnimationFrame(step);
   })(last);
  }
