@@ -6787,7 +6787,7 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.mine == 'notgoing' %}<button class=rg-cant name=action value=clear>You said you can't make it · Undo</button>{% else %}<button class=rg-cant name=action value=notgoing>Can't make it</button>{% endif %}</form>{% endif %}
 {% set _dl = days_left(e.date) if e.precision == 'exact' else none %}
 <div class="rg-tiles3 rg-evtiles">{{ rg_metric('%02d'|format(e.going_n), 'Going', 'lime') }}{{ rg_metric('%02d'|format(e.interested_n), 'Interested', 'carbon') }}{% if e.capacity %}{{ rg_metric('%02d'|format([e.capacity - e.going_n, 0]|max), 'Spots left', 'carbon') }}{% elif _dl is not none and _dl >= 0 %}{{ rg_metric('%02d'|format(_dl), 'Day to go' if _dl == 1 else 'Days to go', 'carbon') }}{% else %}{{ rg_metric('%02d'|format(e.wait_n), 'Waitlist', 'carbon') }}{% endif %}</div>
-{% if e.shift_mine %}{{ rg_callout("You're volunteering", e.shift_mine.title, 'Your shift →', '/lineup/' ~ e.id ~ '/shifts/' ~ e.shift_mine.id, 'bubblegum') }}
+{% if not show_shifts %}{% elif e.shift_mine %}{{ rg_callout("You're volunteering", e.shift_mine.title, 'Your shift →', '/lineup/' ~ e.id ~ '/shifts/' ~ e.shift_mine.id, 'bubblegum') }}
 {% elif e.shifts_n %}{{ rg_callout('Volunteer shifts', (e.shifts_open ~ ' spot' ~ ('' if e.shifts_open == 1 else 's') ~ ' open') if e.shifts_open else 'All shifts are full', 'Pick a shift →', '/lineup/' ~ e.id ~ '/shifts', 'bubblegum') }}
 {% elif e.can_edit %}<a class=rg-calink href="/lineup/{{ e.id }}/shifts">Add volunteer shifts</a>{% endif %}
 <div class=rg-day>Details</div>

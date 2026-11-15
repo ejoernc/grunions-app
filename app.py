@@ -7207,6 +7207,9 @@ def lineup_sport_options(selected=()):
         if s and s not in names: names.append(s)
     return names
 app.jinja_env.globals.update(lineup_sport_options=lineup_sport_options, lineup_sports=lineup_sports)
+# Volunteer shifts on Lineup events are hidden for now; data and routes stay so it can come back.
+SHOW_SHIFTS = False
+app.jinja_env.globals["show_shifts"] = SHOW_SHIFTS
 def lineup_pack(d, rows):
     mid = me()["id"] if me() else 0
     organizer = can_host_practice() if me() else False

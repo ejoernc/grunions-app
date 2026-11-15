@@ -305,7 +305,11 @@ def test_volunteer_shifts_capacity_one_per_event_and_hours():
     done = vol.get("/lineup/%d/shifts/%d" % (eid, s2)).get_data(as_text=True)
     assert "Your service hours" in done and "of 10 hrs" in done and ">03<" in done and "Past cleanup" in done
     assert "BEGIN:VEVENT" in vol.get("/lineup/%d/shifts/%d.ics" % (eid, s2)).get_data(as_text=True)
-    assert "Pick a shift" in vol.get("/lineup/%d" % eid).get_data(as_text=True) or "Your shift" in vol.get("/lineup/%d" % eid).get_data(as_text=True)
+    page = vol.get("/lineup/%d" % eid).get_data(as_text=True)
+    if A.SHOW_SHIFTS:
+        assert "Pick a shift" in page or "Your shift" in page
+    else:  # hidden for now: the event page doesn't offer shifts
+        assert "Pick a shift" not in page and "Add volunteer shifts" not in page
 
 
 def test_people_menu_insurance_membership_board_and_no_auto_lookup():
