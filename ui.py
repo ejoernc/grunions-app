@@ -5237,10 +5237,10 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   if(!scroller || sheet.classList.contains('full')) return;
   scroller.scrollTop=0;
  }
- function animateTo(target){
+ function animateTo(target, ms){
   if(anim) cancelAnimationFrame(anim);
   var reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var from=h, t0=performance.now(), dur=reduced?0:280;
+  var from=h, t0=performance.now(), dur=reduced?0:(ms||280);
   function frame(now){
    var p=dur?Math.min(1,(now-t0)/dur):1, e=1-Math.pow(1-p,3);
    apply(from+(target-from)*e);
@@ -5273,7 +5273,8 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   else if(vy>0.6 && h<midDown) target=m.peek;
   else if(h>=midUp) target=m.full;
   else if(h<=midDown) target=m.peek;
-  animateTo(target);
+  if(target<h){ var sp=Math.max(0.5, Math.abs(vy||0)); animateTo(target, Math.max(320, Math.min(800, 3*(h-target)/sp))); }
+  else animateTo(target);
  }
  function resetWide(){
   if(anim) cancelAnimationFrame(anim);
@@ -5377,6 +5378,12 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   }
   apply(h-dy);
  }, {passive:false, signal:ac.signal});
+ function lowerFrom(v){
+  // Hand the list's momentum to the sheet: start at the speed the finger/list was moving and ease to the map,
+  // instead of a fixed quick snap. Ease-out cubic starts at 3*distance/duration, so solve for that speed.
+  var dist=Math.max(0, h-metrics().half), speed=Math.max(0.5, Math.abs(v||0));
+  animateTo(metrics().half, Math.max(360, Math.min(900, 3*dist/speed)));
+ }
  function glide(v){
   // Momentum after a hand-driven scroll (px per ms), easing out. Position is tracked as a float so slow
   // momentum doesn't stall on whole-pixel rounding. A downward fling that reaches the top keeps going and
@@ -5390,7 +5397,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
    pos=Math.max(0, Math.min(max, pos-v*dt));
    scroller.scrollTop=pos;
    if(dbgOn) dbg('glide v='+v.toFixed(2));
-   if(v>0 && pos<=0.5){ scroller.scrollTop=0; animateTo(metrics().half); return; }
+   if(v>0 && pos<=0.5){ scroller.scrollTop=0; lowerFrom(v); return; }
    if(Math.abs(v)<0.02 || (v<0 && pos>=max)) return;
    requestAnimationFrame(step);
   })(last);
@@ -5403,7 +5410,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   if(pulled>0){ if(pulled>=PTR_AT) ptrRun(); else ptrHide(); return; }
   if(!moved) return;
   // Still moving down with the list already back at the top: lower the sheet rather than stopping there.
-  if(sheet.classList.contains('full') && vy>0.05 && scroller && scroller.scrollTop<=1){ animateTo(metrics().half); return; }
+  if(sheet.classList.contains('full') && vy>0.05 && scroller && scroller.scrollTop<=1){ lowerFrom(vy); return; }
   if(sheet.classList.contains('full') && (scrolled || vy<0)){ glide(vy); return; }
   settle(vy, fromFull);
  }, {signal:ac.signal});
