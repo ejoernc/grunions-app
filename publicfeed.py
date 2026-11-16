@@ -120,7 +120,7 @@ def _days_label(days):
         return "Weekdays"
     if days == [5, 6]:
         return "Weekends"
-    names = [DAY_SHORT[x] for x in days]
+    names = [DAYS[x] + "s" for x in days]  # Tuesdays & Fridays
     return " & ".join(names) if len(names) <= 2 else ", ".join(names[:-1]) + " & " + names[-1]
 
 
