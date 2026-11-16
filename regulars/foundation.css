@@ -1677,3 +1677,7 @@ html body header.homehead,html body header.profilebar,html body .rg-topbar{box-s
 html body.homefull header.homehead{box-shadow:none}
 /* Tablet/desktop: the next place sits bottom-left of the map, clear of the week panel on the right. */
 @media (min-width:768px){html body .mappinchip{top:auto;right:auto;bottom:24px;left:calc(var(--rail-w, 0px) + 24px)}}
+/* Tablet/desktop: the back + title sit against the left edge (beside the rail) and the more menu against the
+   right edge, instead of inside the narrow content column. */
+@media (min-width:768px){html body .rg-topbar{max-width:none;width:auto;margin-left:0;margin-right:0;padding-left:24px;padding-right:24px}
+html body .rg-topbar .rg-tbrow{width:100%;max-width:none;margin:0}}
