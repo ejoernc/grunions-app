@@ -7882,7 +7882,7 @@ def _widget_payload(d, event_limit=None):
     payload["kicker"] = org_name()
     payload["club_title"] = club_display_name() if "club_display_name" in globals() else org_name()
     payload["join_url"] = signup_url()
-    payload["join_label"] = "Join the club"
+    payload["join_label"] = "Join the team"
     return payload
 @app.route("/api/public/feed")
 def public_feed_api():

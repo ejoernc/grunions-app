@@ -1326,14 +1326,13 @@ header.profilebar .authlinks{display:flex}
 :focus-visible{outline:2px solid var(--lime);outline-offset:2px}
 </style></head><body>
 <div id=browse>
-<header class=brandbar><div class=brand><img src="/static/icons/icon-192.png?v=119" alt="" width="44" height="44"><div>%s<h1>%s</h1></div></div><nav class=authlinks aria-label="Account"><a href="/login" target=_top>Sign in</a></nav></header>
+<header class=brandbar><div class=brand><img src="/static/icons/icon-192.png?v=119" alt="" width="44" height="44"><div>%s<h1>%s</h1></div></div><nav class=authlinks aria-label="Account"><a href="/login" target=_top>Sign in</a><a class=join href="%s" target=_top>%s</a></nav></header>
 <div class=chips role=tablist aria-label="Categories">%s</div>
 <main>%s
 <div id=loading class=state role=status><span class=spin aria-hidden=true></span><p>Loading the schedule</p></div>
 <div id=empty class=state hidden><h2>Nothing coming up</h2><p>Published practices and events will show here.</p></div>
 <div id=error class=state hidden><h2>Couldn't load the schedule</h2><p>Check the connection and try again.</p><button type=button id=retry>Try again</button></div>
 <div id=cards>%s</div>
-<a class=joinbtn href="%s" target=_top>%s</a>
 <p class=foot>Tap any event to see details and sign up · Powered by Regulars</p>
 </main>
 </div>
@@ -1454,8 +1453,8 @@ header.profilebar .authlinks{display:flex}
   window.addEventListener("resize", report);
 })();
 </script></body></html>""" % (
-        "preview" if preview else "", e(org), ("<p>%s</p>" % e(payload["kicker"])) if payload.get("kicker") and payload.get("kicker") != (payload.get("club_title") or org) else "", e(payload.get("club_title") or org), chip_buttons(), "".join(offer_bits), cards(),
-        e(join_href), e(payload.get("join_label") or "Join the club"), event_blob,
+        "preview" if preview else "", e(org), ("<p>%s</p>" % e(payload["kicker"])) if payload.get("kicker") and payload.get("kicker") != (payload.get("club_title") or org) else "", e(payload.get("club_title") or org),
+        e(join_href), e(payload.get("join_label") or "Join the team"), chip_buttons(), "".join(offer_bits), cards(), event_blob,
     )
     return html.replace("CLOCK", _CLOCK).replace("PIN", _PIN).replace("PEOPLE", _PEOPLE)
 

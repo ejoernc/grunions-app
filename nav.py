@@ -118,6 +118,7 @@ route("manage_search", "Search", "manage_home", "manage")
 route("manage_area", _area_title, "manage_home", "manage")
 route("manage_schedule", "Schedule", ("manage_area", {"area": "activities"}), "manage")
 route("manage_lineup", "Lineup", ("manage_area", {"area": "activities"}), "manage")
+route("manage_usual_schedule", "Usual schedule", ("manage_area", {"area": "activities"}), "manage")
 route("manage_requests", "Requests", ("manage_area", {"area": "activities"}), "manage")
 route("manage_request", "Reply", "manage_requests", "manage", "sheet")
 route("admin", "Check-in", ("manage_area", {"area": "activities"}), "manage")
@@ -198,7 +199,7 @@ route("find_team", "Discover", "discover", "public", "redirect")
 route("join", "Join", "discover", "public")
 route("login", "Log in", "discover", "public")
 # Files, feeds and endpoints that aren't screens
-for ep in ("avatar", "media", "email_image", "practice_image", "club_doc_pdf", "lineup_image", "practice_ics", "lineup_shift_ics", "practices_csv",
+for ep in ("avatar", "media", "email_image", "practice_image", "public_event_image", "club_doc_pdf", "lineup_image", "practice_ics", "lineup_shift_ics", "practices_csv",
            "members_csv", "payments_csv", "export_all_zip", "qr_svg", "service_worker", "webmanifest", "widget_frame", "auth", "auth_google",
            "auth_google_callback", "logout", "practice_reminder_off", "static"):
     route(ep, "", None, "public", "asset")
