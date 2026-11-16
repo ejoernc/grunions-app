@@ -331,6 +331,10 @@ def decide(d, member, practice, today):
         if cleared["applied"] and cleared["status"] != "Cleared":
             return dict({"plans": [], "body": body, "sport": sport_name, "activity": activity, "slug": slug}, allow=False, scenario="C")
     active, expired = _entitlement_state(d, member["id"], slug, activity, today, practice["date"])
+    if not active:
+        # A pass that applies on its own (coaches of this sport): nothing to sign up for on Club Assistant.
+        auto = clubadmin.auto_passes(d, member["id"], today, slug, activity, practice["date"])
+        if auto: active = auto[0]
     shaped = clubadmin.trial_dict(d)
     trial = publicfeed.normalize_trial(shaped if shaped is not None else (publicfeed.load(d).get("trial") or {}))
     trial_hit = None
@@ -345,6 +349,8 @@ def decide(d, member, practice, today):
         if not clubadmin.pass_covers_date(plan, practice["date"]):
             return False
         keys = plan.keys()
+        if "audience" in keys and plan["audience"] == "coaches":
+            return False  # applied automatically, never picked
         if "audience" in keys and plan["audience"] == "specific":
             if not d.execute("SELECT 1 FROM plan_people WHERE plan_id=? AND member_id=?", (plan["id"], member["id"])).fetchone():
                 return False

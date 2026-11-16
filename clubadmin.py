@@ -833,8 +833,53 @@ def payment_source(kind, provider_kind):
     return "manual"
 
 
+def plan_cents(d, plan, today=None):
+    """What a pass costs today, in cents. Free and trial passes are 0; an unpriced pass counts as 0 too."""
+    if (plan["kind"] or "") in ("trial", "free"):
+        return 0
+    cents, _starts = _shown_price(_price_rows(d, plan["id"]), str(today or dt.date.today().isoformat())[:10])
+    return cents or 0
+
+
+def _is_coach_of(d, member_id, slugs):
+    """Coaches the pass's sport: listed as that sport's coach, on a practice or series of it, or a club coach."""
+    coached = coached_slugs(d, member_id)
+    if coached & set(slugs):
+        return True
+    row = d.execute("SELECT role FROM members WHERE id=?", (member_id,)).fetchone()
+    return bool(row and (row["role"] or "") == "coach" and not coached)
+
+
+def auto_passes(d, member_id, today, slug="", activity="", day=""):
+    """Passes that apply on their own (audience 'coaches'): nobody signs up or pays for them. Cheapest first.
+    With slug/activity/day, only passes that cover that event."""
+    try:
+        rows = d.execute("""SELECT * FROM payment_plans WHERE COALESCE(audience,'')='coaches'
+            AND active=1 AND COALESCE(archived,0)=0""").fetchall()
+    except Exception:
+        return []
+    out = []
+    for plan in rows:
+        if not pass_covers_date(plan, day or today):
+            continue
+        slugs = [r["slug"] for r in d.execute("""SELECT p.slug FROM plan_programs pp JOIN programs p ON p.id=pp.program_id
+            WHERE pp.plan_id=?""", (plan["id"],)).fetchall()]
+        if slug and slug not in slugs:
+            continue
+        acts = _csv(plan["activities"] if "activities" in plan.keys() else "")
+        if activity and acts and activity not in acts:
+            continue
+        if _is_coach_of(d, member_id, slugs):
+            out.append(plan)
+    out.sort(key=lambda p: (plan_cents(d, p, today), p["id"]))
+    return out
+
+
 def has_monthly_membership(d, member_id, today):
-    """An active monthly membership. Trials, drop-ins, and expired or unpaid passes do not count."""
+    """An active monthly membership. Trials, drop-ins, and expired or unpaid passes do not count.
+    A pass that applies on its own (e.g. coaches) counts as membership."""
+    if auto_passes(d, member_id, today):
+        return True
     try:
         rows = d.execute("""SELECT e.status, e.paid_through, e.valid_from, p.kind AS plan_kind
             FROM access_entitlements e LEFT JOIN payment_plans p ON p.id=e.plan_id
@@ -868,6 +913,18 @@ def payment_view(d, member_id, today):
         if current:
             chosen = row
             break
+    # When more than one pass applies, the lower-priced one is the one that counts (a coach's free pass
+    # wins over a paid membership they also hold).
+    auto = auto_passes(d, member_id, today)
+    if auto:
+        best = auto[0]
+        chosen_cents = None
+        if chosen is not None and chosen["plan_id"]:
+            prow = d.execute("SELECT * FROM payment_plans WHERE id=?", (chosen["plan_id"],)).fetchone()
+            chosen_cents = plan_cents(d, prow, today) if prow else None
+        if chosen is None or chosen_cents is None or plan_cents(d, best, today) <= chosen_cents:
+            return {"label": "Paid", "plan": best["name"], "paying": True, "source": "Applied automatically", "start": "", "end": "",
+                    "id": None, "auto": True, "programs": plan_program_names(d, best["id"])}
     if chosen is None:
         for row in rows:
             if row["status"] in ("expired", "inactive") or (str(row["paid_through"] or "")[:10] and str(row["paid_through"] or "")[:10] < today):
@@ -2306,7 +2363,7 @@ def save_pass(d, plan_id, form):
     activities = [a for a, _label in ACTIVITIES if form.get("activity_%s" % a)]
     cats = [a for a, _label in LINEUP_CATS if form.get("lineup_%s" % a)]
     audience = form.get("audience") or "everyone"
-    if audience not in ("everyone", "new", "specific"):
+    if audience not in ("everyone", "new", "specific", "coaches"):
         raise ValueError("Choose who can get this pass.")
     renewal = form.get("renewal") or "indefinite"
     if renewal not in ("indefinite", "fixed"):
@@ -2576,7 +2633,7 @@ def plan_edit_html(d, plan, csrf):
         "".join(program_boxes),
         "".join('<label class=checkline><input type=checkbox name="activity_%s" value=1%s> %s</label>' % (value, " checked" if value in acts else "", label) for value, label in ACTIVITIES),
         "".join('<label class=checkline><input type=checkbox name="lineup_%s" value=1%s> %s</label>' % (value, " checked" if value in cats else "", label) for value, label in LINEUP_CATS),
-        sel((("everyone", "Everyone"), ("new", "New members only"), ("specific", "Specific people")), audience),
+        sel((("everyone", "Everyone"), ("new", "New members only"), ("specific", "Specific people"), ("coaches", "Coaches of these sports (applied automatically)")), audience),
         "".join('<label class=checkline><input type=checkbox name=person value="%s"%s> %s</label>' % (value, " checked" if int(value) in people_on else "", escape(label)) for value, label in person_boxes) or "<p class='ty-muted ty-sm'>No people yet.</p>",
         " checked" if plan and "one_per_person" in plan.keys() and plan["one_per_person"] else "",
         escape(str(plan["uses_per_event"] if plan and "uses_per_event" in plan.keys() else 0)),

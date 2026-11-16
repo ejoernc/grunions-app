@@ -1147,3 +1147,41 @@ def test_sport_page_governing_body_picker_toggle_and_add_body():
         assert d.execute("SELECT 1 FROM requirements WHERE name='IGLA membership number'").fetchone()
         d.execute("UPDATE programs SET active=0, governing_body='none' WHERE slug='pool-swimming'"); d.commit()
     admin.post(url, data={"csrf": tok, "action": "active", "active": "0"})
+
+
+def test_coach_pass_applies_on_its_own_and_the_cheaper_pass_counts():
+    admin, coach, player = client(), client(), client()
+    join(admin, "Ola", "Admin", "ola.coachpass@example.com")
+    join(coach, "Cy", "Coach", "cy.coachpass@example.com")
+    join(player, "Pia", "Player", "pia.coachpass@example.com")
+    with A.app.app_context():
+        d = A.db()
+        d.execute("UPDATE members SET is_admin=1 WHERE email='ola.coachpass@example.com'")
+        d.execute("UPDATE members SET role='coach' WHERE email='cy.coachpass@example.com'")
+        d.commit()
+        cid = d.execute("SELECT id FROM members WHERE email='cy.coachpass@example.com'").fetchone()["id"]
+        pid = d.execute("SELECT id FROM members WHERE email='pia.coachpass@example.com'").fetchone()["id"]
+        wp = d.execute("SELECT id FROM programs WHERE slug='water-polo'").fetchone()["id"]
+        monthly = d.execute("SELECT id FROM payment_plans WHERE kind='monthly'").fetchone()["id"]
+        assert clubadmin.payment_view(d, cid, "2026-11-16")["paying"] is False
+    form = {"csrf": csrf(admin, "/manage/club/plans/new"), "name": "Coach Membership", "kind": "free", "program": str(wp),
+            "activity_practice": "1", "audience": "coaches", "active": "1", "price": "0", "pay": "none"}
+    with A.app.test_request_context(method="POST", data=form):
+        with A.app.app_context():
+            d = A.db()
+            plan = clubadmin.save_pass(d, None, A.request.form); d.commit()
+    with A.app.app_context():
+        d = A.db()
+        view = clubadmin.payment_view(d, cid, "2026-11-16")
+        assert view["paying"] is True and view["plan"] == "Coach Membership" and view.get("auto")
+        assert clubadmin.has_monthly_membership(d, cid, "2026-11-16") is True
+        assert clubadmin.payment_view(d, pid, "2026-11-16")["paying"] is False  # players aren't coaches
+        # The coach also holds the paid monthly membership: the free coach pass is the one that counts.
+        d.execute("INSERT INTO access_entitlements(member_id, plan_id, status, valid_from, paid_through) VALUES(?,?,?,?,?)",
+                  (cid, monthly, "active", "2026-11-01", "2027-01-31")); d.commit()
+        assert clubadmin.payment_view(d, cid, "2026-11-16")["plan"] == "Coach Membership"
+        import sportspay
+        decided = sportspay.decide(d, d.execute("SELECT * FROM members WHERE id=?", (cid,)).fetchone(),
+                                   {"sport": "Water Polo", "activity_type": "practice", "date": "2026-11-17"}, "2026-11-16")
+        assert all(p["id"] != plan for p in decided["plans"])  # never offered to pick or pay
+        d.execute("UPDATE payment_plans SET active=0 WHERE id=?", (plan,)); d.commit()

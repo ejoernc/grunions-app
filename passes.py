@@ -181,7 +181,7 @@ def detail(d, plan):
     progs = ca.plan_program_names(d, plan["id"])
     acts = [l for a, l in ca.ACTIVITIES if a in ca._csv(_k(plan, "activities"))]
     cats = [l for a, l in ca.LINEUP_CATS if a in ca._csv(_k(plan, "lineup_categories"))]
-    aud = {"everyone": "Everyone", "new": "New members only", "specific": "Specific people"}.get(_k(plan, "audience") or "everyone", "Everyone")
+    aud = {"everyone": "Everyone", "new": "New members only", "specific": "Specific people", "coaches": "Coaches of these sports · automatic"}.get(_k(plan, "audience") or "everyone", "Everyone")
     pay = {"external": "Club Assistant link", "manual": "Manual — the board records it", "none": "Free"}[pay_mode(d, plan)]
     sections = [
         ("basics", "Basics", [("Name", plan["name"]), ("Type", dict(ca.PASS_KINDS).get(plan["kind"], plan["kind"])), ("Description", _k(plan, "description") or "—")]),

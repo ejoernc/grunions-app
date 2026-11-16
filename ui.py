@@ -8938,6 +8938,7 @@ T["pass"] = ADMIN_NAV + """<div class="rg-screen rg-passes">
 {{ rg_choice('audience', 'everyone', 'Everyone', '', (plan.audience or 'everyone') == 'everyone') }}
 {{ rg_choice('audience', 'new', 'New members only', '', plan.audience == 'new') }}
 {{ rg_choice('audience', 'specific', 'Specific people', 'Pick them below', plan.audience == 'specific') }}
+{{ rg_choice('audience', 'coaches', 'Coaches of these sports', 'Applied automatically — nothing to sign up for. If someone has more than one pass, the cheaper one counts.', plan.audience == 'coaches') }}
 <div class=rg-seatlist>{% for p in people %}{{ rg_choice('person', p.id|string, (p.preferred_first or p.first) ~ ' ' ~ (p.last or ''), '', (p.id|string) in f.getlist('person'), 'checkbox') }}{% endfor %}</div>
 <h3 class=rg-day>LIMITS</h3>
 <input type=hidden name=one_per_person value=0>{{ rg_toggle('one_per_person', 'One per person', 'Someone can only get it once', plan.one_per_person) }}
