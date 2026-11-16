@@ -9243,7 +9243,10 @@ def _manage_search(d, q, admin):
         refs = {row[0] for row in d.execute("SELECT member_id FROM referee_list")}
         for person in d.execute("""SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY last, first, id"""):
             name = ("%s %s" % (display_first(person), person["last"] or "")).strip()
-            hay = " ".join(part for part in (person["first"], person["preferred_first"], person["last"], person["email"], name) if part)
+            # Names match anywhere; the email address only when the search looks like one, so "eli" doesn't
+            # pull in someone whose address happens to contain those letters.
+            hay = " ".join(part for part in (person["first"], person["preferred_first"], person["last"], name,
+                                             person["email"] if "@" in q or "." in q else "") if part)
             if not _search_hit(hay, needle, words): continue
             roles = []
             if person["is_admin"]: roles.append("Admin")
