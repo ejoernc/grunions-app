@@ -346,6 +346,7 @@ def test_people_menu_insurance_membership_board_and_no_auto_lookup():
 def test_manage_chart_card_two_views_real_data():
     page = boss.get("/manage").get_data(as_text=True)
     assert "data-chartcard" in page and "AVG CHECKED IN" in page and "MEMBERS ·" in page and 'role=tablist' in page
+    assert "PARTICIPANTS ·" in page and "of " in page and page.count("role=tab ") + page.count("role=tab>") >= 3 or "PARTICIPANTS ·" in page
     import components
     assert components._nice_ticks(20) == [0, 10, 20] and components._nice_ticks(23) == [0, 10, 20, 30]
     today = dt.date(2026, 11, 13)

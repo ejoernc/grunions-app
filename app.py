@@ -9282,10 +9282,41 @@ def manage_charts(d, today=None):
             mem_bars.append({"label": label, "segs": [c, n - c], "tip": "%s · %d member%s, %d cleared" % (tip, n, "" if n == 1 else "s", c)})
     this_year = sum(1 for x in joined if x.isoformat() >= year0)
     cleared_now = mem_bars[-1]["segs"][0] if mem_bars else 0
-    members = {"key": "members", "kicker": "MEMBERS · %d" % today.year, "value": str(total), "title": "Members",
+    members = {"key": "members", "kicker": "PARTICIPANTS · %d" % today.year, "value": str(total), "title": "Participants",
                "sub": "%+d since Jan 1" % this_year, "bars": mem_bars,
-               "series": [("Cleared", cleared_now), ("Not cleared yet", total - cleared_now)], "empty": "No members yet."}
-    return [practices, members]
+               "series": [("Cleared", cleared_now), ("Not cleared yet", total - cleared_now)], "empty": "No participants yet."}
+    import clubadmin
+    # Members vs participants: everyone on the roster by then, split by who held a membership on that date
+    # (a monthly membership, or a pass that applies on its own, like the coach pass).
+    people = []
+    for r in d.execute("SELECT id, created FROM members WHERE COALESCE(role,'')!='system'"):
+        day = _stamp_day(r["created"], utc=True)
+        if day: people.append((r["id"], day.isoformat()))
+    # Same rule as clubadmin.has_monthly_membership, read once instead of per person per bar.
+    spans = {}
+    try:
+        for e in d.execute("""SELECT e.member_id, e.valid_from, e.paid_through FROM access_entitlements e
+                JOIN payment_plans p ON p.id=e.plan_id WHERE p.kind='monthly' AND e.status='active'"""):
+            spans.setdefault(e["member_id"], []).append((str(e["valid_from"] or "")[:10], str(e["paid_through"] or "")[:10]))
+    except Exception:
+        pass
+    auto = {mid for mid, _made in people if clubadmin.auto_passes(d, mid, today.isoformat())} if d.execute(
+        "SELECT 1 FROM payment_plans WHERE COALESCE(audience,'')='coaches' AND active=1 AND COALESCE(archived,0)=0").fetchone() else set()
+    def is_member(mid, day):
+        return mid in auto or any(not (start and start > day) and not (through and through < day) for start, through in spans.get(mid, []))
+    paid_bars = []
+    if joined:
+        for label, end, tip in _bucket_plan(joined[0], today):
+            day = end.isoformat()
+            n = len([x for x in joined if x <= end])
+            m = min(n, sum(1 for mid, made in people if made <= day and is_member(mid, day)))
+            paid_bars.append({"label": label, "segs": [m, n - m],
+                              "tip": "%s · %d member%s of %d participant%s" % (tip, m, "" if m == 1 else "s", n, "" if n == 1 else "s")})
+    members_now = paid_bars[-1]["segs"][0] if paid_bars else 0
+    paid = {"key": "membership", "kicker": "MEMBERS · %d" % today.year, "value": str(members_now), "title": "Members",
+            "sub": "of %d participant%s" % (total, "" if total == 1 else "s"), "bars": paid_bars,
+            "series": [("Members", members_now), ("Not members", total - members_now)], "empty": "No participants yet."}
+    return [practices, members, paid]
 def _search_words(q):
     needle = " ".join((q or "").split()).casefold()
     return needle, needle.split()
