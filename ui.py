@@ -8630,13 +8630,13 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 T["leaders"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
 {# Figma 62 · L1 Leaders ‹ Club #}
 {{ rg_page_title('Leaders', 'Groups that run the club. Each has its own chat.') }}
-{{ rg_section_count('Board', ov.board.count) }}
+{{ rg_section_count('Board') }}
 {{ rg_group_card('Board', ov.board.sub, [('Chat on' if ov.board.chat else 'Chat off', ov.board.chat), ('Requests on' if ov.board.requests else 'Requests off', ov.board.requests)], '/manage/club/leaders/board') }}
-{{ rg_section_count('Sport leads', ov.sports|length) }}
+{{ rg_section_count('Sport leads') }}
 <div class=rg-stack8>
 {% for s in ov.sports %}{{ rg_group_card(s.name ~ ' leads', s.sub, [('Chat on' if s.chat else 'Chat off', s.chat), ('Requests on' if s.requests else 'Requests off', s.requests)], '/manage/club/leaders/' ~ s.slug) }}{% else %}<p class=rg-note>Add a sport first, then its leads.</p>{% endfor %}
 </div>
-{{ rg_section_count('Access', access|length) }}
+{{ rg_section_count('Access') }}
 <div class=rg-stack8>
 {% for label, n in access %}{{ rg_settings_row(label, n ~ (' person' if n == 1 else ' people'), '/manage/club/permissions#access') }}{% endfor %}
 </div>
