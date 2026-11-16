@@ -1382,6 +1382,17 @@ header.profilebar .right{display:none}
 .authlinks a{display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 13px/1 var(--font-sans)}
 .authlinks a.join{background:var(--lime);color:var(--fixed-ink)}
 header.profilebar .authlinks{display:flex}
+@media (max-width:560px){
+header.brandbar{flex-wrap:wrap;gap:12px}
+header.brandbar .brand{flex:1 1 100%%;min-width:0;gap:10px}
+.brand img{width:36px;height:36px;border-radius:10px}
+.brand h1{font-size:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header.brandbar .authlinks{display:grid;grid-template-columns:1fr 1fr;width:100%%;margin-left:0}
+header.brandbar .authlinks a{justify-content:center;height:44px;font-size:15px}
+.chips{flex-wrap:nowrap;overflow-x:auto;margin:0 -20px 14px;padding:0 20px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none}
+}
 .evbanner{display:block;width:calc(100%% - 40px);margin:12px 20px 0;aspect-ratio:16/9;object-fit:cover;border-radius:24px;background:var(--graphite)}
 .evbanner[hidden]{display:none}
 .metaline{display:flex;align-items:center;gap:8px;margin:6px 0 0;color:var(--smoke);font-size:15px}
