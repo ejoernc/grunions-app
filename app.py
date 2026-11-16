@@ -179,6 +179,7 @@ def db():
         ensure_referee_req(g.db)
         migrate_messages(g.db)
         migrate_login_tokens(g.db)
+        migrate_checkins(g.db)
         migrate_notices(g.db)
         migrate_lineup(g.db)
         migrate_series(g.db)
@@ -357,6 +358,10 @@ def migrate_notices(d):
         if col in cols: continue
         try: d.execute(sql)
         except sqlite3.OperationalError: pass
+def migrate_checkins(d):
+    """Additive: how a non-member came to this session (drop_in or guest), picked at check-in."""
+    cols = [r[1] for r in d.execute("PRAGMA table_info(checkins)")]
+    if "visit" not in cols: d.execute("ALTER TABLE checkins ADD COLUMN visit TEXT")
 def migrate_login_tokens(d):
     """Additive: the page a login link reopens, so it survives the link opening in another browser or app."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(login_tokens)")]
@@ -6008,7 +6013,7 @@ def admin_people(d, date, event, q):
     """RSVP rows for one event. Check-in stays by calendar day, the way the list already works."""
     q = q or ""
     if event and event["kind"] == "lineup":
-        rows = d.execute("""SELECT m.*, c.id AS cid,
+        rows = d.execute("""SELECT m.*, c.id AS cid, c.visit AS cvisit,
           CASE rv.state WHEN 'going' THEN 1 WHEN 'notgoing' THEN 0 ELSE NULL END AS going,
           (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits,
           (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status,
@@ -6019,7 +6024,7 @@ def admin_people(d, date, event, q):
           (date, event["id"], q, q)).fetchall()
     else:
         pid = event["id"] if event else -1
-        rows = d.execute("""SELECT m.*, c.id AS cid, rv.going AS going,
+        rows = d.execute("""SELECT m.*, c.id AS cid, c.visit AS cvisit, rv.going AS going,
           (SELECT COUNT(*) FROM checkins WHERE member_id=m.id) AS visits,
           (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status,
           (SELECT note FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_note
@@ -10571,26 +10576,29 @@ def checkin_card(d, r, pr, event):
         missing = "Missing: " + missing
     flags = []
     if clear[0] == "Not cleared":
+        # They should have entered their USA Water Polo membership themselves; the coach can fix it here
+        # (USAWP #, SafeSport and the rest live on the same edit screen).
         what = missing.replace("Missing: ", "")
-        if what.startswith("USA Water Polo"):
-            flags.append({"kicker": "NOT CLEARED", "line": "USA Water Polo # is missing — insurance isn't confirmed.",
-                          "fix": "Check insurance now", "hint": "Enter #", "href": "/admin/member/%d?edit=1" % r["id"]})
-        else:
-            flags.append({"kicker": "NOT CLEARED", "line": ("%s is missing or out of date." % what) if what else "Not cleared to play yet.",
-                          "fix": "Update clearance", "hint": "Enter date", "href": "/admin/member/%d?edit=1" % r["id"]})
-    pick, due = "", ""
+        line = "USA Water Polo # is missing — insurance isn't confirmed." if what.startswith("USA Water Polo") else (("%s is missing or out of date." % what) if what else "Not cleared to play yet.")
+        flags.append({"kicker": "USA WATER POLO", "line": line, "fix": "Edit membership", "hint": "",
+                      "href": "/admin/member/%d?edit=1" % r["id"]})
+    pick, due, pick_kind = "", "", ""
     if pr is not None:
         row = d.execute("""SELECT pl.name, pl.kind, c.status FROM payment_checks c LEFT JOIN payment_plans pl ON pl.id=c.plan_id
             WHERE c.member_id=? AND c.practice_id=? ORDER BY c.id DESC LIMIT 1""", (r["id"], pr["id"])).fetchone()
         if row and row["name"]:
-            pick = row["name"]
+            pick, pick_kind = row["name"], row["kind"] or ""
             if (row["status"] or "") == "pending": due = pick
     try: pay = clubadmin.payment_view(d, r["id"], today)
     except Exception: pay = {"label": "Unpaid", "paying": False}
-    if due: pay_chip = ("%s due" % due, "neutral")
-    elif pay.get("paying") and pay.get("label") in ("Trial",): pay_chip = ("Trial", "interested")
-    elif pay.get("paying"): pay_chip = ("Member", "paid")
-    else: pay_chip = ("Unpaid", "neutral")
+    # Who they are to the club, not whether a payment is recorded: a current membership is a Member on every
+    # list (Going and Everyone else alike); a drop-in for this session is a Drop-In; anyone else is a Guest.
+    # Unrecorded payments still show as a PAYMENT flag below.
+    visit = (r["cvisit"] if "cvisit" in r.keys() else "") or ""
+    member = bool(pay.get("paying") and pay.get("label") not in ("Trial", "Drop-in"))
+    if member: pay_chip = ("Member", "paid")
+    elif visit == "drop_in" or pick_kind == "drop_in" or (pay.get("paying") and pay.get("label") == "Drop-in"): pay_chip = ("Drop-In", "neutral")
+    else: pay_chip = ("Guest", "neutral")
     if due:
         flags.append({"kicker": "PAYMENT", "line": "Picked %s. Not recorded yet." % due, "fix": "Record %s" % due, "hint": "Cash · Venmo",
                       "href": "/admin/member/%d#paid" % r["id"]})
@@ -10601,7 +10609,11 @@ def checkin_card(d, r, pr, event):
     line = " · ".join(x for x in (" · ".join(roles), sport) if x) + ((" · picked %s" % pick.lower()) if pick else "")
     return {"id": r["id"], "name": name, "first": display_first(r), "initials": initials(r), "photo": r["photo"] if "photo" in r.keys() else "",
             "roles": line, "chips": [clear, pay_chip], "missing": missing if clear[0] != "Cleared" else "",
-            "flags": flags, "checked": bool(r["cid"])}
+            "flags": flags, "checked": bool(r["cid"]),
+            # Members who are cleared check in with one tap; anyone else gets the sheet (Drop-In or Guest,
+            # then their USA Water Polo membership).
+            "sheet": not (member and clear[0] in ("Cleared", "Expiring")), "ask_visit": not member,
+            "visit": "drop_in" if pay_chip[0] == "Drop-In" else ""}
 def checkin_filter(raw, n_not, n_in):
     """Going is the default. A Not Going or Checked in view with nobody in it falls back."""
     filt = raw if raw in ("not", "in", "look", "else") else "going"
@@ -10669,6 +10681,9 @@ def admin():
                 if who: flash("Undid check-in for %s." % display_first(who), "toast")
             else:
                 d.execute("INSERT OR IGNORE INTO checkins(member_id,practice_date,location) VALUES(?,?,?)", (mid, date, location_for(date)))
+                visit = request.form.get("visit") or ""
+                if visit in ("drop_in", "guest"):
+                    d.execute("UPDATE checkins SET visit=? WHERE member_id=? AND practice_date=?", (visit, mid, date))
                 mark_checked_in_going(d, mid, date, (request.form.get("ev") or "").strip())
                 publicfeed.sync_holds_on_date(d, mid, date, today_pt())
                 if who: flash("Checked in %s." % display_first(who), "toast")

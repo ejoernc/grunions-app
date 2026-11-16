@@ -7959,7 +7959,7 @@ T["admin"] = ADMIN_NAV + """<div class="rg-screen rg-checkin">
 {% if c.missing %}<small class=ckmiss>{{ c.missing }}</small>{% endif %}</a>
 <form method=post class=ckact>{{csrf_field()}}<input type=hidden name=member_id value={{c.id}}><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{filt}}">{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}
 {% if c.checked %}<button class="ckbtn in" name=action value=undo aria-label="Undo check-in for {{ c.name }}">{{ rg_icon('check') }}</button>
-{% elif c.flags %}<button type=button class="ckbtn {{ 'add' if walkin else 'go' }}" data-ckflag='{{ {"id": c.id, "first": c.first, "flags": c.flags}|tojson }}' aria-label="Check in {{ c.name }}">{{ rg_icon('plus' if walkin else 'check') }}</button>
+{% elif c.sheet %}<button type=button class="ckbtn {{ 'add' if walkin else 'go' }}" data-ckflag='{{ {"id": c.id, "first": c.first, "flags": c.flags, "visit": c.ask_visit, "pick": c.visit}|tojson }}' aria-label="Check in {{ c.name }}">{{ rg_icon('plus' if walkin else 'check') }}</button>
 {% else %}<button class="ckbtn {{ 'add' if walkin else 'go' }}" aria-label="Check in {{ c.name }}">{{ rg_icon('plus' if walkin else 'check') }}</button>{% endif %}
 </form></div>
 {%- endmacro %}
@@ -7984,10 +7984,13 @@ T["admin"] = ADMIN_NAV + """<div class="rg-screen rg-checkin">
 </div>
 <dialog id=ckSheet class="botsheet modal"><div class=sheet><div class=grab aria-hidden=true></div>
 <h2 id=ckTitle>Check in?</h2><p class=ty-muted id=ckLead></p>
+<div id=ckVisit hidden><h3 class=rg-day>HERE TODAY AS</h3><div class=ckvisit role=radiogroup aria-label="Here today as">
+<label class=ckvopt><input type=radio name=visit value=drop_in form=ckForm><span>Drop-In</span></label>
+<label class=ckvopt><input type=radio name=visit value=guest form=ckForm><span>Guest</span></label></div></div>
 <div id=ckFlags></div>
 <form method=post class=rg-btnrow id=ckForm>{{csrf_field()}}<input type=hidden name=member_id id=ckMid><input type=hidden name=date value={{date}}><input type=hidden name=q value="{{q}}"><input type=hidden name=filt value="{{filt}}">{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}
-<button type=button class="rg-btn secondary" onclick="this.closest('dialog').close()">Not today</button><button class="rg-btn primary">Check in anyway</button></form>
-<p class=rg-note>Checking in someone who isn't cleared is noted for the board.</p>
+<button type=button class="rg-btn secondary" onclick="this.closest('dialog').close()">Not today</button><button class="rg-btn primary" id=ckGo>Check in</button></form>
+<p class=rg-note id=ckNote>Checking in someone who isn't cleared is noted for the board.</p>
 </div></dialog>
 <script>
 (function(){
@@ -7998,8 +8001,12 @@ T["admin"] = ADMIN_NAV + """<div class="rg-screen rg-checkin">
   var info; try{ info=JSON.parse(b.getAttribute('data-ckflag')); }catch(err){ return; }
   var dlg=document.getElementById('ckSheet'); if(!dlg) return;
   document.getElementById('ckTitle').textContent='Check in '+info.first+'?';
-  var n=info.flags.length; document.getElementById('ckLead').textContent=(n===1?'One thing':(n===2?'Two things':n+' things'))+' before they get in the pool.';
+  var n=info.flags.length; document.getElementById('ckLead').textContent=n?((n===1?'One thing':(n===2?'Two things':n+' things'))+' before they get in the pool.'):'Not a member. How are they here today?';
   document.getElementById('ckMid').value=info.id;
+  var vbox=document.getElementById('ckVisit'); vbox.hidden=!info.visit;
+  vbox.querySelectorAll('input').forEach(function(r){ r.checked=!!info.visit && r.value===(info.pick||''); r.disabled=!info.visit; });
+  document.getElementById('ckGo').textContent=n?'Check in anyway':'Check in';
+  document.getElementById('ckNote').hidden=!n;
   document.getElementById('ckFlags').innerHTML=info.flags.map(function(f){
    return '<h3 class=rg-day>'+esc(f.kicker)+'</h3><p class=ckflagline>'+esc(f.line)+'</p>'+(f.fix?'<a class=rg-srow href="'+esc(f.href)+'"><span class=rg-srlabel>'+esc(f.fix)+'</span><span class=rg-srvalue>'+esc(f.hint||'')+'</span></a>':'');
   }).join('');

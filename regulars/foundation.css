@@ -1239,6 +1239,13 @@ body:has(.rg-authhead)>header{display:none}
 [data-theme="light"] .ckshow{color:var(--paper)}
 .ckwrap{width:100%;margin-top:12px}
 .ckflagline{margin:4px 0 8px;color:var(--paper);font:600 15px/1.35 var(--font-sans)}
+.ckvisit{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 16px}
+.ckvopt{position:relative;display:block;cursor:pointer}
+.ckvopt input{position:absolute;opacity:0;pointer-events:none}
+.ckvopt span{display:flex;align-items:center;justify-content:center;gap:6px;height:48px;border-radius:999px;border:1.5px solid var(--line-strong,rgba(255,255,255,.28));color:var(--paper);font:650 16px/1 var(--font-sans);transition:background .15s,color .15s,border-color .15s}
+.ckvopt input:checked+span{background:var(--paper);border-color:var(--paper);color:var(--ink)}
+.ckvopt input:checked+span::before{content:"";width:14px;height:8px;border:solid currentColor;border-width:0 0 2.5px 2.5px;transform:translateY(-2px) rotate(-45deg)}
+.ckvopt input:focus-visible+span{outline:2px solid var(--lime,#c6ff3c);outline-offset:2px}
 #ckSheet .rg-srow{margin:0 0 8px}
 
 #calPop .sheet{background:var(--carbon);border-color:var(--carbon);padding:16px 12px 12px}
