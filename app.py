@@ -8698,10 +8698,12 @@ def _guest_viewer():
 _PUBLIC_SHELL = """<style>
 nav.nav3,.nav3,#crestMenu,.tabs,.bottomnav{display:none !important}
 body{--rail-w:0px !important;padding-left:0 !important}
-.pubbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:8px;justify-content:flex-end;padding:10px 16px;background:var(--ink,#0B0B0C)}
+.pubbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:8px;justify-content:flex-end;padding:12px 16px;background:var(--ink,#0B0B0C)}
 .pubbar a{display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:999px;background:var(--graphite,#24262A);color:var(--paper,#F6F4EF);font:700 13px/1 var(--font-sans,system-ui);text-decoration:none}
 .pubbar a.join{background:var(--lime,#C8FF3C);color:#0B0B0C}
-.pubbar .pubback{margin-right:auto}
+.pubbar a.pubback{width:44px;height:44px;padding:0;justify-content:center;flex:none}
+.pubbar .pubtitle{margin-right:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 22px/1 var(--font-display,system-ui);letter-spacing:-.03em;color:var(--paper,#F6F4EF)}
+.rg-topbar,header.profilebar{display:none !important}
 </style>
 <script>(function(){
  var GATE=%s, BACK=%s;
@@ -8743,8 +8745,13 @@ def public_event_page(ref):
     if not isinstance(resp, Response) or not resp.mimetype.startswith("text/html"): abort(404)
     html = resp.get_data(as_text=True)
     signin = "/login?next=" + urllib.parse.quote(gate if kind == "p" else "/lineup/%d" % rid, safe="/")
-    bar = ('<div class=pubbar><a href="%s" target=_top>Sign in</a>'
-           '<a class=join href="%s" target=_top>Join the team</a></div>') % (signin, gate if kind == "p" else "/join?next=/lineup/%d" % rid)
+    # One bar: back + page name on the left, Sign in / Join on the right. The app's own top bar is hidden.
+    tm = re.search(r'class=rg-tbtitle[^>]*>([^<]*)<', html) or re.search(r'<header class=profilebar>.*?<h1[^>]*>([^<]*)<', html, re.S)
+    title = tm.group(1) if tm else ("Practice" if kind == "p" else "Event")
+    bar = ('<div class=pubbar><a class=pubback href="%s" aria-label="Back to the schedule"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">'
+           '<path d="M12.5 4.5L7 10l5.5 5.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></a>'
+           '<span class=pubtitle>%s</span><a href="%s" target=_top>Sign in</a>'
+           '<a class=join href="%s" target=_top>Join the team</a></div>') % (back, title, signin, gate if kind == "p" else "/join?next=/lineup/%d" % rid)
     html = re.sub(r"(<body[^>]*>)", lambda mm: mm.group(1) + bar, html, count=1)
     # No launch animation inside the website, and pictures come from the public image route.
     html = html.replace("<head>", "<head><script>try{sessionStorage.setItem('grunionsBoot','1')}catch(e){}</script>", 1)
