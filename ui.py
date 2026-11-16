@@ -4468,8 +4468,16 @@ window.grunionsMountMap=function(el, opts){
     });
     return {above:above+2, left:48, right:Math.max(160, wide-9+24)};
    }
+   // Tablet/desktop: the week is a panel down the right side, not a drawer from the bottom.
+   function sidePanel(){
+    var drawer=document.querySelector('.weekdrawer'); if(!drawer) return null;
+    var d=drawer.getBoundingClientRect(), box=el.getBoundingClientRect();
+    return (d.height>box.height*0.6 && d.left>box.left+box.width*0.3) ? d : null;
+   }
+   function rightLimit(){ var sp=sidePanel(), box=el.getBoundingClientRect(); return sp?sp.left:box.right; }
    function lowerLimit(){
     var box=el.getBoundingClientRect();
+    if(sidePanel()) return box.bottom-56;  // leave the bottom-left place chip clear
     var drawer=document.querySelector('.weekdrawer');
     if(drawer){ var d=drawer.getBoundingClientRect(); if(d.height>1) return d.top; }
     var card=document.querySelector('.nextcard');
@@ -4494,7 +4502,7 @@ window.grunionsMountMap=function(el, opts){
      var target=Math.round((edge+low)/2);
      var bottom=Math.round(top+h-2*target);
      if(bottom<24) bottom=24;
-     return {top:top, bottom:bottom, left:24, right:24};
+     return {top:top, bottom:bottom, left:24, right:Math.max(24, Math.round(box.right-rightLimit()+24))};
     }
     top=Math.round(top+chip.above);
     var floor=lowerLimit()-16;
@@ -4505,7 +4513,7 @@ window.grunionsMountMap=function(el, opts){
      var room=Math.max(0, h-minInner), sum=top+bottomMulti||1;
      top=Math.round(room*top/sum); bottomMulti=room-top;
     }
-    return {top:top, bottom:bottomMulti, left:24, right:24};
+    return {top:top, bottom:bottomMulti, left:24, right:Math.max(24, Math.round(box.right-rightLimit()+24))};
    }
    function staticCredit(){
     var logo=el.querySelector('.mapboxgl-ctrl-logo');
@@ -4686,7 +4694,7 @@ window.grunionsMountMap=function(el, opts){
      var g=groupScreen();
      if(!g) break;
      var box=el.getBoundingClientRect();
-     var band={left:box.left+24, right:box.right-24, top:headerFloor()+24, bottom:lowerLimit()-16};
+     var band={left:box.left+24, right:rightLimit()-24, top:headerFloor()+24, bottom:lowerLimit()-16};
      var roomW=band.right-band.left, roomH=band.bottom-band.top;
      if((g.right-g.left)>roomW+1 || (g.bottom-g.top)>roomH+1){
       cap=Math.max(8, map.getZoom()-0.35);
@@ -4695,6 +4703,12 @@ window.grunionsMountMap=function(el, opts){
       continue;
      }
      var dx=((g.left+g.right)/2)-((band.left+band.right)/2);
+     // Beside the week panel with one place: centre the place itself (its dot), not the dot plus its label.
+     var lone=el.querySelectorAll('.mpin:not(.you)');
+     if(sidePanel() && lone.length===1 && !el._you && !(opts.route||[]).length){
+      var dot=lone[0].querySelector('.pindot')||lone[0], dr=dot.getBoundingClientRect();
+      if(dr.width>0) dx=((dr.left+dr.right)/2)-((band.left+band.right)/2);
+     }
      var leftAfter=g.left-dx;
      if(leftAfter<band.left) dx=g.left-band.left;
      if(g.right-dx>band.right) dx=g.right-band.right;
