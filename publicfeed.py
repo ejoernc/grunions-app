@@ -1138,6 +1138,7 @@ def embed_snippet(base=None):
         '  var f=document.getElementById("regulars-schedule");\n'
         '  if(!f||e.source!==f.contentWindow||!e.data||e.data.type!=="regulars-widget")return;\n'
         '  if(e.data.height)f.style.height=Math.max(320,e.data.height)+"px";\n'
+        '  if(e.data.top){var r=f.getBoundingClientRect();if(r.top<0)window.scrollBy(0,r.top-12);}\n'
         '});\n'
         '</script>'
     ) % WIDGET_URL
@@ -1550,6 +1551,8 @@ header.brandbar .authlinks a{justify-content:center;height:44px;font-size:15px}
     loading.hidden=false; error.hidden=true; empty.hidden=true;
     fetch("/api/public/feed",{credentials:"same-origin"}).then(function(r){if(!r.ok) throw new Error("bad"); return r.json();}).then(function(){ready();}).catch(function(){loading.hidden=true; error.hidden=false; report();});
   });
+  // Back from an event page: the list starts at the top of the frame again.
+  if(document.referrer && document.referrer.indexOf("/e/")>=0 && window.top!==window){ try{ parent.postMessage({type:"regulars-widget",top:true,height:Math.ceil(document.documentElement.scrollHeight)},"*"); }catch(e){} }
   if(cards.children.length) ready();
   else { loading.hidden=true; empty.hidden=false; root.setAttribute("data-ready","1"); report(); }
   var scheme=window.matchMedia("(prefers-color-scheme: light)");

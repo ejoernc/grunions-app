@@ -8731,6 +8731,9 @@ body{--rail-w:0px !important;padding-left:0 !important}
  window.addEventListener('submit', function(e){ e.preventDefault(); e.stopImmediatePropagation(); topGo(GATE); }, true);
  function report(){ try{ parent.postMessage({type:"regulars-widget",height:Math.ceil(document.documentElement.scrollHeight)},"*"); }catch(e){} }
  window.addEventListener('load', report); window.addEventListener('resize', report); setTimeout(report, 600);
+ // Inside the club's website the page was opened from further down the list: bring its top into view.
+ function toTop(){ if(window.top===window) return; try{ parent.postMessage({type:"regulars-widget",top:true,height:Math.ceil(document.documentElement.scrollHeight)},"*"); }catch(e){} try{ document.documentElement.scrollIntoView({block:"start"}); }catch(e){} }
+ if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", toTop); else toTop();
 })();</script>"""
 @app.route("/e/<ref>")
 def public_event_page(ref):
