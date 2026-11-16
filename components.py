@@ -86,8 +86,8 @@ def section(title, action_label="", action_href=""):
 
 
 def section_count(title, count=None, action_label="", action_href="", action_attrs="", chevron=False):
-    """2.0 / Section header with the small (04) count, Figma 62 style. Action is an Edit / + Add link or button."""
-    sup = ('<sup>(%s)</sup>' % (("%02d" % count) if isinstance(count, int) and count < 10 and count >= 0 else _e(count))) if count is not None else ""
+    """2.0 / Section header, Figma 62 style (the small count is no longer shown). Action is an Edit / + Add link or button."""
+    sup = ""  # The (04)-style count after section titles is off everywhere (Nov 16): titles stand alone.
     act = ""
     if action_label:
         lab = _e(action_label) + (Markup(icon("chevron_right", "sm")) if chevron else "")

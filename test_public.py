@@ -214,7 +214,7 @@ def test_widget_is_off_until_an_admin_publishes_it():
         assert A.db().execute("SELECT COUNT(*) FROM practices").fetchone()[0] == before + 1
     admin_page = admin.get("/manage/widget").get_data(as_text=True)
     assert "Events in preview" not in admin_page and "Hide events that already ended" not in admin_page
-    assert "Preview<sup>(" in admin_page and "Free-trial message" in admin_page and "How many are going" in admin_page
+    assert "<h2>Preview</h2>" in admin_page and "Free-trial message" in admin_page and "How many are going" in admin_page
     assert "Open full preview" in admin_page and "id=prevMobile" not in admin_page and "id=prevDesk" not in admin_page
     assert "Copy code" in admin_page and "Email it" in admin_page and "https://grunions.regulars.team/widget" in admin_page
     assert ">Squarespace<" in admin_page and ">WordPress<" in admin_page
