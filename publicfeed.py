@@ -1247,8 +1247,8 @@ def widget_document(payload, theme=None, preview=False):
             e(group.get("sport") or ""), "".join('<p class=usual>%s</p>' % e(line) for line in group.get("lines") or [])) for group in payload["usual"])
         panes.append(("weekly", "Weekly schedule", body))
     if payload.get("dues"):
-        body = "".join('<div class=due><div class=duetop><b>%s</b><span class=dueprice>%s<small>%s</small></span></div><p>%s</p><p class=duemuted>%s</p></div>' % (
-            e(x["name"]), e(x["price"]), (" " + e(x["per"])) if x.get("per") else "", e(x["covers"]), e(x["line"])) for x in payload["dues"])
+        body = "".join('<div class=due><div class=duetop><b>%s</b><span class=dueprice>%s<small>%s</small></span></div><p>%s</p></div>' % (
+            e(x["name"]), e(x["price"]), (" " + e(x["per"])) if x.get("per") else "", e(x["covers"])) for x in payload["dues"])
         panes.append(("dues", "Practice dues", body))
     if panes:
         offer_bits.append('<section class=infobox>')
