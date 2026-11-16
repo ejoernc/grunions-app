@@ -8100,9 +8100,18 @@ def manage_widget():
     if request.method == "POST":
         if request.headers.get("X-Autosave") == "1":
             return _widget_autosave(d)
+        if request.form.get("action") == "message":
+            w = dict(publicfeed.load(d).get("widget") or publicfeed.widget_blank())
+            w["message_title"] = " ".join((request.form.get("message_title") or "").split())[:80]
+            w["message"] = (request.form.get("message") or "").strip().replace("\r\n", "\n")[:600]
+            publicfeed.save_sections(d, widget=w); d.commit()
+            flash("Saved", "toast")
+            return redirect("/manage/widget")
         try:
             parsed = publicfeed.parse_widget(request.form)
             old = (publicfeed.load(d).get("widget") or {})
+            for key in ("message_title", "message", "show_weekly"):
+                if key in old and key not in request.form: parsed[key] = old[key]
             if "hide_past" in old:
                 parsed["hide_past"] = old["hide_past"]
             if "limit" in old:

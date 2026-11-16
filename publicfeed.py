@@ -735,6 +735,7 @@ def widget_blank():
         "chips": [slug for slug, _label in CHIPS], "default_chip": "all",
         "show_pricing": True, "show_trial": True, "show_counts": False,
         "hide_past": True, "limit": 4, "include_schedule": True, "show_weekly": True,
+        "message_title": "", "message": "",
     }
 
 
@@ -948,6 +949,7 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
     except Exception:
         dues = []
     return {
+        "message": {"title": widget.get("message_title") or "", "body": widget.get("message") or ""},
         "dues": dues if show_price else [],
         "usual": regular_public(data, programs) if widget.get("show_weekly", True) else [],
         "org": org,
@@ -1238,6 +1240,11 @@ def widget_document(payload, theme=None, preview=False):
         offer_bits.append('<section class="offer callout"><h2>%s</h2>%s%s</section>' % (
             e(banner_info.get("title") or ""), ('<p>%s</p>' % e(banner_info["body"])) if banner_info.get("body") else "",
             ('<a href="%s" target=_blank rel=noopener>%s</a>' % (e(banner_info["href"]), e(banner_info.get("link") or "Learn more"))) if banner_info.get("href") else ""))
+    msg = payload.get("message") or {}
+    if msg.get("title") or msg.get("body"):
+        offer_bits.append('<section class="infobox msgbox">%s%s</section>' % (
+            ('<h2 class=usualhead>%s</h2>' % e(msg["title"])) if msg.get("title") else "",
+            "".join('<p class=msgp>%s</p>' % e(par) for par in (msg.get("body") or "").split("\n") if par.strip())))
     # Weekly schedule and Practice dues share one box; a segmented control switches between them.
     panes = []
     if payload.get("usual"):
@@ -1310,6 +1317,9 @@ main{width:100%%}
 .segbtn{height:32px;padding:0 14px;border:0;border-radius:999px;background:transparent;color:var(--paper);font:700 13px/1 var(--font-sans);cursor:pointer}
 .segbtn.on{background:var(--lime);color:var(--fixed-ink)}
 .pane[hidden]{display:none}
+.msgbox{padding-bottom:16px}
+.msgp{margin:0 0 6px;font:500 15px/1.45 var(--font-sans);color:var(--paper)}
+.msgp:last-child{margin-bottom:0}
 .due{padding:0 0 12px;margin:0 0 12px;border-bottom:1px solid var(--graphite)}
 .due:last-child{border-bottom:0;margin-bottom:0}
 .duetop{display:flex;justify-content:space-between;align-items:baseline;gap:12px}

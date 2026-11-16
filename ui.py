@@ -8379,6 +8379,7 @@ T["website"] = ADMIN_NAV + """<div class="rg-screen rg-website">
 <div class=rg-stack8>
 {{ rg_settings_row('Tabs', tabs_label, '#', 'data-open-dialog=tabsSheet', 'tabs') }}
 {{ rg_settings_row('Opens on', opens_label, '#', 'data-open-dialog=opensSheet', 'opens') }}
+{{ rg_settings_row('Message', ((w.message_title or w.message)[:28] ~ ('…' if (w.message_title or w.message)|length > 28 else '')) if (w.message_title or w.message) else 'None', '#', 'data-open-dialog=msgSheet') }}
 <form method=post action="/manage/widget" data-autosave class=rg-stack8>{{ csrf_field() }}
 {{ rg_toggle('include_schedule', 'Practices', 'Upcoming practices, scrimmages, and games', w.include_schedule) }}
 {{ rg_toggle('show_weekly', 'Weekly schedule', "Each sport's usual times", w.show_weekly if w.show_weekly is defined else true) }}
@@ -8398,6 +8399,13 @@ T["website"] = ADMIN_NAV + """<div class="rg-screen rg-website">
 </div>
 <p class=rg-note>Changes save as you make them. Your embed updates on its own — paste it once.</p>
 </div>
+<dialog id=msgSheet class="botsheet modal"><form method=post action="/manage/widget" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<input type=hidden name=action value=message>
+<h2>Message.</h2><p class=ty-muted>Shows at the top of your website schedule, under the tabs. Leave both blank to hide it.</p>
+<label class=rg-field><span>TITLE (OPTIONAL)</span><input name=message_title maxlength=80 value="{{ w.message_title or '' }}" placeholder="e.g. New players welcome" autocomplete=off></label>
+<label class=rg-field><span>MESSAGE</span><textarea name=message rows=5 maxlength=600 placeholder="e.g. Your first two practices are free. Bring a suit and a cap.">{{ w.message or '' }}</textarea></label>
+<button class="rg-btn primary" style="width:100%">Save</button>
+</form></dialog>
 <dialog id=tabsSheet class="botsheet modal"><form method=post action="/manage/widget" data-autosave class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
 <input type=hidden name=chips_present value=1>
 <h2>Tabs.</h2><p class=ty-muted>Which tabs visitors can switch between. All is always there.</p>
