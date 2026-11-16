@@ -51,3 +51,22 @@ def test_security_headers():
     assert "Strict-Transport-Security" in browser.get("/login", base_url="https://example.com").headers
     w = browser.get("/widget?preview=1")
     assert "X-Frame-Options" not in w.headers
+
+
+def test_login_link_reopens_the_event_in_another_browser():
+    A._link_hits.clear()
+    with A.app.app_context():
+        d = A.db()
+        d.execute("INSERT OR IGNORE INTO members(first, last, email) VALUES('Rae','K','rae@example.com')")
+        d.execute("INSERT INTO practices(date, title) VALUES('2099-01-01', 'Far practice')")
+        pid = d.execute("SELECT MAX(id) FROM practices").fetchone()[0]; d.commit()
+    visitor = A.app.test_client()
+    visitor.get("/register?event=p-%d" % pid)
+    page = visitor.post("/login", data=dict(email="rae@example.com", csrf=_csrf(visitor)), follow_redirects=True).get_data(as_text=True)
+    link = re.search(r'href="([^"]*/auth/[^"]+)"', page).group(1)
+    other = A.app.test_client()  # e.g. the email app's browser, which never saw the event
+    r = other.get(link[link.index("/auth/"):])
+    assert r.headers["Location"].endswith("/register?event=p-%d" % pid)
+    # No free-trial offer applies, so the event opens as the practice itself, ready for Going.
+    assert other.get("/register?event=p-%d" % pid).headers["Location"].endswith("/practices/%d" % pid)
+    A._link_hits.clear()

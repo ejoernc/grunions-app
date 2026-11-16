@@ -178,6 +178,7 @@ def db():
         drop_concussion_rule(g.db)
         ensure_referee_req(g.db)
         migrate_messages(g.db)
+        migrate_login_tokens(g.db)
         migrate_notices(g.db)
         migrate_lineup(g.db)
         migrate_series(g.db)
@@ -356,6 +357,10 @@ def migrate_notices(d):
         if col in cols: continue
         try: d.execute(sql)
         except sqlite3.OperationalError: pass
+def migrate_login_tokens(d):
+    """Additive: the page a login link reopens, so it survives the link opening in another browser or app."""
+    cols = [r[1] for r in d.execute("PRAGMA table_info(login_tokens)")]
+    if "next_path" not in cols: d.execute("ALTER TABLE login_tokens ADD COLUMN next_path TEXT")
 def migrate_messages(d):
     """Add chat columns missing from a database created by an older version (production SQLite on DATA_DIR)."""
     cols = [r[1] for r in d.execute("PRAGMA table_info(messages)")]
@@ -1486,6 +1491,10 @@ def join():
             d.execute("UPDATE members SET gender_identity=?, gender_self=? WHERE id=?", (gid, (request.form.get("gender_self") or "").strip()[:40] if gid == "self" else None, cur.lastrowid))
         d.commit(); sync_practice_sheets(d)
         dest = auth_destination(cur.lastrowid)
+        if dest.startswith("/register?"):
+            # Came from a public event: straight back to it so they can say they're going. Their week can wait.
+            flash(f"Welcome to the Grunions, {pref or f['first']}!", "toast")
+            return redirect(dest)
         session["setup_next"] = dest
         dest = "/setup/week"
         flash(f"Welcome to the Grunions, {pref or f['first']}! Find a coach on deck to get checked in.")
@@ -1578,8 +1587,9 @@ def send_link(email):
         m = None
     if m:
         tok = secrets.token_urlsafe(32)
-        db().execute("INSERT INTO login_tokens VALUES(?,?,?,0)", (hashlib.sha256(tok.encode()).hexdigest(), m["id"],
-                     (dt.datetime.utcnow() + dt.timedelta(minutes=LINK_MINUTES)).isoformat())); db().commit()
+        db().execute("INSERT INTO login_tokens(token_hash, member_id, expires, used, next_path) VALUES(?,?,?,0,?)",
+                     (hashlib.sha256(tok.encode()).hexdigest(), m["id"], (dt.datetime.utcnow() + dt.timedelta(minutes=LINK_MINUTES)).isoformat(),
+                      safe_return_path(session.get("next") or "") or None)); db().commit()
         link = (PUBLIC_URL.rstrip("/") if PUBLIC_URL else request.host_url.rstrip("/")) + "/auth/" + tok
         if smtp_ready():
             try:
@@ -1610,6 +1620,10 @@ def auth(tok):
     if not r or r["used"] or r["expires"] < dt.datetime.utcnow().isoformat():
         flash("That login link is invalid or expired. Request a new one."); return redirect("/login")
     d.execute("UPDATE login_tokens SET used=1 WHERE token_hash=?", (h,)); d.commit()
+    # The link may open in a different browser (an email app's) that never saw the event page, so the
+    # token carries the page the visitor was on.
+    saved = safe_return_path((r["next_path"] if "next_path" in r.keys() else "") or "")
+    if saved: session["next"] = saved
     return redirect(auth_destination(r["member_id"]))
 # ---------- Sign in with Google (OpenID Connect) ----------
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID"); GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
@@ -7940,6 +7954,11 @@ def register_for_event():
     going = None
     if who:
         going = d.execute("SELECT going FROM rsvps WHERE practice_id=? AND member_id=?", (practice["id"], who["id"])).fetchone()
+    if request.method == "GET" and who and found["status"] == "ineligible" and not (going and going["going"]):
+        # The free-trial path doesn't apply to this member, so this page would dead-end. Open the practice
+        # itself, where they can say they're going like any other member.
+        session.pop("next", None)
+        return redirect("/practices/%d" % practice["id"])
     if request.method == "POST":
         if not who:
             return redirect("/login")

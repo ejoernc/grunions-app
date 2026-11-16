@@ -372,9 +372,8 @@ def test_registration_checks_eligibility_and_does_not_charge_or_email():
             again = A.db().execute("SELECT usawp_status, trial_acknowledged_at, usawp_valid_until FROM members WHERE email='nia.reg@example.com'").fetchone()
             assert tuple(again) == tuple(snapshot)
         created = guest.post("/join", data=dict(birth_date="1990-03-04", csrf=csrf(guest, "/join"), first="Rio", last="Visitor", email="rio.reg@example.com", phone="555-0199"))
-        assert created.status_code == 302 and created.headers["Location"].endswith("/setup/week")  # 2.0 asks for the usual week first
-        with guest.session_transaction() as sess:
-            assert sess.get("setup_next", "").endswith("/register?event=%s" % event)  # then continues to registration
+        # Joining from a public event goes straight back to it; the usual-week question can wait.
+        assert created.status_code == 302 and created.headers["Location"].endswith("/register?event=%s" % event)
         claim = guest.get("/register?event=%s" % event).get_data(as_text=True)
         assert "<h2>USA Water Polo trial</h2>" in claim and "Submit for verification" in claim
         guest.post("/register?event=%s" % event, data={
