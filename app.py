@@ -1227,7 +1227,7 @@ def safe_return_path(raw):
         return ""
     if raw.startswith("/register?event="):
         return raw
-    if re.fullmatch(r"/practices/\d+(/event\.ics)?", raw):
+    if re.fullmatch(r"/practices/\d+(/event\.ics)?", raw) or re.fullmatch(r"/lineup/\d+", raw):
         return raw
     return ""
 def auth_destination(mid):
@@ -1496,7 +1496,7 @@ def join():
             d.execute("UPDATE members SET gender_identity=?, gender_self=? WHERE id=?", (gid, (request.form.get("gender_self") or "").strip()[:40] if gid == "self" else None, cur.lastrowid))
         d.commit(); sync_practice_sheets(d)
         dest = auth_destination(cur.lastrowid)
-        if dest.startswith("/register?"):
+        if dest.startswith("/register?") or dest.startswith("/lineup/"):
             # Came from a public event: straight back to it so they can say they're going. Their week can wait.
             flash(f"Welcome to the Grunions, {pref or f['first']}!", "toast")
             return redirect(dest)
@@ -1504,6 +1504,8 @@ def join():
         dest = "/setup/week"
         flash(f"Welcome to the Grunions, {pref or f['first']}! Find a coach on deck to get checked in.")
         return redirect(dest)
+    nxt = safe_return_path(request.args.get("next") or "")
+    if nxt: session["next"] = nxt  # from the public schedule: come back to that event after joining
     t = today_pt()
     return page(T["join"], tab="auth", join_card=_join_card(), dob_max="%04d-%02d-%02d" % (t.year - 18, t.month, min(t.day, 28)))
 
@@ -8670,6 +8672,23 @@ def lineup_edit(eid):
     ctx["show_cancel"] = can_host_practice() and (row["status"] or "") == "published" and not ended
     ctx["show_delete"] = (not ended) and (can_host_practice() or (row["created_by"] == me()["id"] and (row["status"] or "") in ("draft", "declined", "changes_requested")))
     return page(T["lineup_edit"], tab="lineup_edit", action="/lineup/%d/edit" % eid, **ctx)
+@app.route("/public-image/<kind>/<int:rid>")
+def public_event_image(kind, rid):
+    """Banner for the public schedule: only for events the public schedule shows (upcoming practices and
+    published Lineup events). Nothing else is reachable here."""
+    d = db()
+    if kind == "p":
+        r = d.execute("SELECT image AS f, date FROM practices WHERE id=? AND COALESCE(skipped,0)=0", (rid,)).fetchone()
+        if r and str(r["date"] or "") < (today_pt() - dt.timedelta(days=1)).isoformat(): r = None
+    elif kind == "e":
+        r = d.execute("SELECT banner AS f FROM lineup_events WHERE id=? AND status='published'", (rid,)).fetchone()
+    else:
+        r = None
+    fn = _stored_file(r["f"] if r else "")
+    if not fn: abort(404)
+    resp = send_from_directory(UPLOADS, fn, max_age=3600)
+    resp.headers["Cache-Control"] = "public, max-age=3600"
+    return resp
 @app.route("/lineup-image/<int:eid>")
 @login_required
 def lineup_image(eid):

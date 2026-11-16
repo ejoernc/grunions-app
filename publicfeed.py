@@ -745,9 +745,17 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
     pcols = _cols(d, "practices")
     if "date" in pcols and widget.get("include_schedule", True):
         rows = d.execute("""SELECT id, date, start, end, location, note, cancelled, cancel_reason,
-            activity_type, sport, title, opponent, segments FROM practices
-            WHERE COALESCE(date_precision,'exact')!='month' ORDER BY date, start, id""").fetchall()
+            activity_type, sport, title, opponent, segments, %s AS image FROM practices
+            WHERE COALESCE(date_precision,'exact')!='month' ORDER BY date, start, id""" % ("image" if "image" in pcols else "''")).fetchall()
         ids = [row["id"] for row in rows]
+        # Coaches are named on the public page; athletes never are.
+        staff = {}
+        if ids and "practice_coaches" in {r[0] for r in d.execute("SELECT name FROM sqlite_master WHERE type='table'")}:
+            marks = ",".join("?" * len(ids))
+            for r in d.execute("""SELECT pc.practice_id, m.first, m.preferred_first, m.last FROM practice_coaches pc
+                    JOIN members m ON m.id=pc.member_id WHERE pc.practice_id IN (%s) ORDER BY m.first""" % marks, ids):
+                name = " ".join(x for x in ((r["preferred_first"] or r["first"] or "").strip(), (r["last"] or "").strip()) if x)
+                if name: staff.setdefault(r["practice_id"], []).append(name)
         counts = {}
         if show_counts and ids:
             marks = ",".join("?" * len(ids))
@@ -777,13 +785,16 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
                 "signup": covered,
                 "trial_line": ((offer.get("trial") or {}).get("banner") or {}).get("title") or "" if covered and show_trial else "",
                 "count": counts.get(row["id"]) if show_counts else None,
+                "image": ("/public-image/p/%d" % row["id"]) if row["image"] else "",
+                "staff": staff.get(row["id"], []),
+                "chat": "Practice chat",
                 "sort": _stamp(row["date"], row["start"]),
             }
             events.append(item)
     lcols = _cols(d, "lineup_events")
     if "title" in lcols and "status" in lcols:
         for row in d.execute("""SELECT id, title, date, end_date, city, venue, start_time, end_time,
-            description, event_type, status, capacity, cost FROM lineup_events WHERE status='published'"""):
+            description, event_type, status, capacity, cost, %s AS banner FROM lineup_events WHERE status='published'""" % ("banner" if "banner" in lcols else "''")):
             end_day = row["end_date"] or row["date"]
             if hide_past and _ended(end_day, row["end_time"] or "23:59", now):
                 continue
@@ -810,6 +821,9 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
                 "signup": False,
                 "count": None,
                 "capacity": row["capacity"] if row["capacity"] else None,
+                "image": ("/public-image/e/%d" % row["id"]) if row["banner"] else "",
+                "staff": [],
+                "chat": "Event chat",
                 "sort": _stamp(row["date"], row["start_time"]),
             })
     events.sort(key=lambda item: (item["sort"], item["id"]))
@@ -1040,8 +1054,22 @@ def widget_document(payload, theme=None, preview=False):
         return "".join(parts)
 
     def public_event(item):
-        href = "/register?event=%s" % item["id"] if item.get("signup") else ""
+        # Every action on the public page leads to joining or signing in, then back to this event.
+        iid = item.get("id") or ""
+        if iid.startswith("p-"):
+            back = "/register?event=%s" % iid
+            href = back
+        else:
+            back = "/lineup/%s" % iid[2:]
+            href = "/join?next=" + back
+        if item.get("cancelled"):
+            href = ""
         return {
+            "kind": "practice" if iid.startswith("p-") else "lineup",
+            "image": item.get("image") or "",
+            "staff": item.get("staff") or [],
+            "chat": item.get("chat") or "",
+            "signin": "/login?next=" + back.replace("?", "%3F").replace("=", "%3D"),
             "id": item.get("id") or "",
             "title": item.get("title") or "Event",
             "category": item.get("category") or "Event",
@@ -1136,7 +1164,6 @@ h1,.nxtitle{font-family:var(--font-display)}
 button{font:inherit;color:inherit}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
 .chip{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;border:0;background:var(--graphite);color:var(--paper);font:700 13px/1 var(--font-sans);white-space:nowrap;cursor:pointer}
-.chip:before{content:"";width:6px;height:6px;border-radius:50%%;background:currentColor}
 .chip.on{background:var(--lime);color:var(--fixed-ink)}
 main{width:100%%}
 .callout{margin:0 0 12px;padding:16px 20px;border-radius:24px;background:var(--lime);color:var(--fixed-ink)}
@@ -1200,11 +1227,27 @@ header.profilebar .right{display:none}
 .state p{margin:0}
 .spin{width:22px;height:22px;border:2px solid var(--graphite);border-top-color:var(--lime);border-radius:50%%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.authlinks{display:flex;gap:8px;margin-left:auto;flex:none}
+.authlinks a{display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 13px/1 var(--font-sans)}
+.authlinks a.join{background:var(--lime);color:var(--fixed-ink)}
+header.profilebar .authlinks{display:flex}
+.evbanner{display:block;width:calc(100%% - 40px);margin:12px 20px 0;aspect-ratio:16/9;object-fit:cover;border-radius:24px;background:var(--graphite)}
+.evbanner[hidden]{display:none}
+.metaline{display:flex;align-items:center;gap:8px;margin:6px 0 0;color:var(--smoke);font-size:15px}
+.metaline svg{flex:none}
+.rsvp{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 20px 0}
+.rsvp a{display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:999px;border:1.5px solid var(--smoke);color:var(--paper);font:700 15px/1 var(--font-sans)}
+.rsvphint{margin:10px 20px 0;color:var(--smoke);font:500 13px/1.4 var(--font-sans)}
+.rsvphint a{color:var(--paper);text-decoration:underline}
+.chatrow{display:flex;align-items:center;gap:12px}
+.chatrow b{display:block;font-weight:700}
+.chatrow small{display:block;color:var(--smoke);font-size:13px}
+.lock{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%%;background:var(--graphite);flex:none}
 #retry{height:40px;padding:0 16px;border-radius:999px;border:0;background:var(--graphite);cursor:pointer}
 :focus-visible{outline:2px solid var(--lime);outline-offset:2px}
 </style></head><body>
 <div id=browse>
-<header class=brandbar><div class=brand><img src="/static/icons/icon-192.png?v=119" alt="" width="44" height="44"><div>%s<h1>%s</h1></div></div></header>
+<header class=brandbar><div class=brand><img src="/static/icons/icon-192.png?v=119" alt="" width="44" height="44"><div>%s<h1>%s</h1></div></div><nav class=authlinks aria-label="Account"><a href="/login" target=_top>Sign in</a></nav></header>
 <div class=chips role=tablist aria-label="Categories">%s</div>
 <main>%s
 <div id=loading class=state role=status><span class=spin aria-hidden=true></span><p>Loading the schedule</p></div>
@@ -1216,15 +1259,19 @@ header.profilebar .right{display:none}
 </main>
 </div>
 <div id=sheet hidden>
-<header class=profilebar><div class=left><button type=button class=profileback id=sheetBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button></div><h1 id=sheetKind>Practice</h1><div class=right></div></header>
+<header class=profilebar><div class=left><button type=button class=profileback id=sheetBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button></div><h1 id=sheetKind>Practice</h1><nav class=authlinks aria-label="Account"><a id=sheetSignin href="/login" target=_top>Sign in</a></nav></header>
+<img class=evbanner id=sheetBanner alt="" hidden>
 <div class=profilehero>
 <div class=profilename id=sheetTitle></div>
 <p class=pracemeta id=sheetWhen></p>
 <p class=pracemeta id=sheetWhere></p>
-<div class=nxrow id=sheetCountRow hidden>PEOPLE<span id=sheetCount></span></div>
+<p class=metaline id=sheetStaffRow hidden><span id=sheetStaff></span></p>
+<div class=metaline id=sheetCountRow hidden>PEOPLE<span id=sheetCount></span></div>
 <div class=pracestatus><span class="st st-ok" id=sheetStatus><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg><span id=sheetStatusText>Scheduled</span></span></div>
 </div>
-<div class=pills id=sheetActions><a id=sheetSignup class="btn btn-primary" target=_top>Sign up</a></div>
+<div class=rsvp id=sheetActions><a id=sheetA target=_top></a><a id=sheetB target=_top></a></div>
+<p class=rsvphint id=sheetHint>Join the club to RSVP. Already a member? <a id=sheetHintIn target=_top>Sign in</a></p>
+<div id=sheetChat hidden><div class=seclabel id=sheetChatLabel>Chat</div><div class=list><a class="li chatrow" id=sheetChatLink target=_top><span class=lock aria-hidden=true><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M208,80H176V56a48,48,0,0,0-96,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM96,56a32,32,0,0,1,64,0V80H96ZM208,208H48V96H208V208Z"/></svg></span><span class=grow><b id=sheetChatName>Chat</b><small>Join the club to read and reply</small></span><span aria-hidden=true>›</span></a></div></div>
 <div id=sheetNotes hidden>
 <div class=seclabel>Details</div>
 <div class=list>
@@ -1278,8 +1325,19 @@ header.profilebar .right{display:none}
     var status=document.getElementById("sheetStatus");
     document.getElementById("sheetStatusText").textContent=ev.cancelled?(ev.reason?("Cancelled · "+ev.reason):"Cancelled"):"Scheduled";
     status.className=ev.cancelled?"st st-bad":"st st-ok";
-    var go=document.getElementById("sheetSignup");
-    if(ev.signup){ go.href=ev.signup; go.hidden=false; } else { go.hidden=true; go.removeAttribute("href"); }
+    var img=document.getElementById("sheetBanner");
+    if(ev.image){ img.src=ev.image; img.hidden=false; img.onerror=function(){ img.hidden=true; report(); }; img.onload=report; } else { img.hidden=true; img.removeAttribute("src"); }
+    var staff=ev.staff||[];
+    showRow("sheetStaff", staff.length ? (staff.length===1?"Coach ":"Coaches ")+staff.join(", ") : "");
+    document.getElementById("sheetStaffRow").hidden=!staff.length;
+    document.getElementById("sheetSignin").href=ev.signin||"/login";
+    document.getElementById("sheetHintIn").href=ev.signin||"/login";
+    var a=document.getElementById("sheetA"), b=document.getElementById("sheetB"), acts=document.getElementById("sheetActions"), hint=document.getElementById("sheetHint");
+    var labels=ev.kind==="lineup"?["Interested","Going"]:["Going","Not going"];
+    a.textContent=labels[0]; b.textContent=labels[1];
+    if(ev.signup){ a.href=ev.signup; b.href=ev.signup; acts.hidden=false; hint.hidden=false; } else { acts.hidden=true; hint.hidden=true; }
+    var chat=document.getElementById("sheetChat");
+    if(ev.chat && ev.signup){ document.getElementById("sheetChatLabel").textContent=ev.chat; document.getElementById("sheetChatName").textContent=ev.chat; document.getElementById("sheetChatLink").href=ev.signup; chat.hidden=false; } else chat.hidden=true;
     browse.hidden=true; sheet.hidden=false; back.focus(); report();
   }
   function closeDetail(){ sheet.hidden=true; browse.hidden=false; if(opener) opener.focus(); report(); }

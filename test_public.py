@@ -192,7 +192,7 @@ def test_widget_is_off_until_an_admin_publishes_it():
     assert frame.count("<h2>Try Water Polo Free for 2 Weeks</h2>") == 1 and "Get 2 Free Practices" not in frame
     assert "A valid USA Water Polo trial membership is required" in frame
     assert "https://usawp.sport80.com/public/widget/1" in frame
-    assert '"/register?event=p-' in frame and "Harbor Cup" in frame and 'id=sheetSignup' in frame and "Sign up" in frame
+    assert '"/register?event=p-' in frame and "Harbor Cup" in frame and 'id=sheetA' in frame and 'Sign in' in frame and 'next=/lineup/' in frame
     assert "Loading the schedule" in frame and "Nothing coming up" in frame and "Couldn't load the schedule" in frame
     assert "Drop-in $15" in frame and "@media (min-width:500px){#cards{grid-template-columns:1fr 1fr}}" in frame
     assert "Mia" not in frame and "secret drill" not in frame
@@ -239,7 +239,7 @@ def test_widget_is_off_until_an_admin_publishes_it():
     preview_cards = preview_frame.split('<script type="application/json"', 1)[0]
     assert "Extra session" in public_frame and preview_cards.count("Extra session") == 2
     assert preview_frame.count("<article") == 4 and "id=sheet" in preview_frame and "Back" in preview_frame
-    assert "profilehero" in preview_frame and "btn-primary" in preview_frame and "Who's going" not in preview_frame and "Checked in" not in preview_frame and "Not going" not in preview_frame
+    assert "profilehero" in preview_frame and "id=sheetA" in preview_frame and "Who's going" not in preview_frame and "Checked in" not in preview_frame
     payload = preview_frame.split('id=eventData>', 1)[1].split("</script>", 1)[0]
     assert "declined" not in payload and "attendees" not in payload and "Mia" not in payload
     assert public_frame.count("<h2>Try Water Polo Free for 2 Weeks</h2>") == preview_frame.count("<h2>Try Water Polo Free for 2 Weeks</h2>") == 1
