@@ -1210,7 +1210,7 @@ def widget_document(payload, theme=None, preview=False):
                 kicker = item.get("category")
             meta = " · ".join(x for x in (item.get("when") or item.get("date"), item.get("place"), item.get("price")) if x)
             if item.get("cancelled"):
-                meta = "Cancelled" + ((" · " + item["reason"]) if item.get("reason") else "")
+                meta = " · ".join(x for x in (item.get("date"), "Cancelled", item.get("reason")) if x)
             count = item.get("count")
             right = ('<span class=ercount><i aria-hidden=true>›</i><b>%s</b><small>GOING</small></span>' % e(str(count))) if count is not None \
                 else '<span class=ercount><i aria-hidden=true>›</i></span>'
@@ -1358,7 +1358,7 @@ header.profilebar .authlinks{display:flex}
 :focus-visible{outline:2px solid var(--lime);outline-offset:2px}
 </style></head><body>
 <div id=browse>
-<header class=brandbar><div class=brand><img src="/static/icons/icon-192.png?v=119" alt="" width="44" height="44"><div>%s<h1>%s</h1></div></div><nav class=authlinks aria-label="Account"><a href="/login" target=_top>Sign in</a><a class=join href="%s" target=_top>%s</a></nav></header>
+<header class=brandbar><div class=brand><img src="/static/icons/icon-192.png?v=120" alt="" width="44" height="44"><div>%s<h1>%s</h1></div></div><nav class=authlinks aria-label="Account"><a href="/login" target=_top>Sign in</a><a class=join href="%s" target=_top>%s</a></nav></header>
 <div class=chips role=tablist aria-label="Categories">%s</div>
 <main>%s
 <div id=loading class=state role=status><span class=spin aria-hidden=true></span><p>Loading the schedule</p></div>

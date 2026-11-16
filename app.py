@@ -1311,9 +1311,9 @@ def webmanifest():
         "name": "Regulars", "short_name": "Regulars", "start_url": "/", "scope": "/", "display": "standalone",
         "background_color": "#0B0B0C", "theme_color": "#0B0B0C",
         "icons": [
-            {"src": "/static/icons/icon-192.png?v=119", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-            {"src": "/static/icons/icon-512.png?v=119", "sizes": "512x512", "type": "image/png", "purpose": "any"},
-            {"src": "/static/icons/maskable-512.png?v=119", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+            {"src": "/static/icons/icon-192.png?v=120", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/icon-512.png?v=120", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/maskable-512.png?v=120", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
         ],
     }), mimetype="application/manifest+json")
     resp.headers["Cache-Control"] = "no-cache"
@@ -12608,7 +12608,7 @@ self.addEventListener('push', function(event) {
   var data = {title: 'Regulars', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
   var tasks = [self.registration.showNotification(data.title || 'Regulars', {
-    body: data.body || '', icon: '/static/icons/icon-192.png?v=119', badge: '/static/icons/icon-192.png?v=119', data: {url: data.url || '/'}
+    body: data.body || '', icon: '/static/icons/icon-192.png?v=120', badge: '/static/icons/icon-192.png?v=120', data: {url: data.url || '/'}
   })];
   if (typeof data.badge === 'number' && navigator.setAppBadge) {
     try {
