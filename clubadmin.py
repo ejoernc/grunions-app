@@ -2070,6 +2070,7 @@ def division_edit_html(d, program, row, csrf):
 
 PASS_COLUMNS = (
     ("applied_since", "TEXT NOT NULL DEFAULT ''"),  # first day an automatic (coaches) pass was on
+    ("show_public", "INTEGER NOT NULL DEFAULT 0"),  # listed under Practice dues on the website embed  # first day an automatic (coaches) pass was on
     ("description", "TEXT NOT NULL DEFAULT ''"),
     ("currency", "TEXT NOT NULL DEFAULT 'USD'"),
     ("renewal", "TEXT NOT NULL DEFAULT 'indefinite'"),

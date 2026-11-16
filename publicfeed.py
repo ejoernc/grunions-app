@@ -94,7 +94,7 @@ def regular_summary(reg):
 
 
 def parse_regular(form, slugs):
-    """The Usual schedule form. Rows with no day or no start time are dropped."""
+    """The Weekly schedule form. Rows with no day or no start time are dropped."""
     out = {}
     for slug in slugs:
         slots = []
@@ -736,7 +736,7 @@ def widget_blank():
         "enabled": False, "theme": "night", "visitor_theme": True,
         "chips": [slug for slug, _label in CHIPS], "default_chip": "all",
         "show_pricing": True, "show_trial": True, "show_counts": False,
-        "hide_past": True, "limit": 4, "include_schedule": True,
+        "hide_past": True, "limit": 4, "include_schedule": True, "show_weekly": True,
     }
 
 
@@ -759,6 +759,7 @@ def parse_widget(form):
     data["show_trial"] = _get(form, "show_trial") == "1"
     data["show_counts"] = _get(form, "show_counts") == "1"
     data["include_schedule"] = _get(form, "include_schedule") == "1"
+    data["show_weekly"] = _get(form, "show_weekly") == "1"
     return data
 
 
@@ -938,8 +939,19 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
             "SELECT slug, name, public_name FROM programs WHERE COALESCE(active,0)=1 ORDER BY name")]
     except Exception:
         programs = []
+    dues = []
+    try:
+        import clubadmin, passes
+        clubadmin.ensure(d)
+        for plan in d.execute("""SELECT * FROM payment_plans WHERE COALESCE(show_public,0)=1 AND active=1
+                AND COALESCE(archived,0)=0 AND COALESCE(audience,'')!='coaches' ORDER BY name""").fetchall():
+            c = passes.card(d, plan)
+            dues.append({"name": c["name"], "price": c["price"], "per": c["per"], "covers": c["covers"], "line": c["line"]})
+    except Exception:
+        dues = []
     return {
-        "usual": regular_public(data, programs) if widget.get("include_schedule", True) else [],
+        "dues": dues if show_price else [],
+        "usual": regular_public(data, programs) if widget.get("show_weekly", True) else [],
         "org": org,
         "theme": widget.get("theme") if widget.get("theme") in ("night", "day") else "night",
         "visitor_theme": bool(widget.get("visitor_theme")),
@@ -1228,13 +1240,28 @@ def widget_document(payload, theme=None, preview=False):
         offer_bits.append('<section class="offer callout"><h2>%s</h2>%s%s</section>' % (
             e(banner_info.get("title") or ""), ('<p>%s</p>' % e(banner_info["body"])) if banner_info.get("body") else "",
             ('<a href="%s" target=_blank rel=noopener>%s</a>' % (e(banner_info["href"]), e(banner_info.get("link") or "Learn more"))) if banner_info.get("href") else ""))
+    # Weekly schedule and Practice dues share one box; a segmented control switches between them.
+    panes = []
     if payload.get("usual"):
-        offer_bits.append('<section class=usualbox><h2 class=usualhead>Usual schedule</h2>')
-        for group in payload["usual"]:
-            offer_bits.append('<div class=usualsport><span class=ek>%s</span>%s</div>' % (
-                e(group.get("sport") or ""), "".join('<p class=usual>%s</p>' % e(line) for line in group.get("lines") or [])))
+        body = "".join('<div class=usualsport><span class=ek>%s</span>%s</div>' % (
+            e(group.get("sport") or ""), "".join('<p class=usual>%s</p>' % e(line) for line in group.get("lines") or [])) for group in payload["usual"])
+        panes.append(("weekly", "Weekly schedule", body))
+    if payload.get("dues"):
+        body = "".join('<div class=due><div class=duetop><b>%s</b><span class=dueprice>%s<small>%s</small></span></div><p>%s</p><p class=duemuted>%s</p></div>' % (
+            e(x["name"]), e(x["price"]), (" " + e(x["per"])) if x.get("per") else "", e(x["covers"]), e(x["line"])) for x in payload["dues"])
+        panes.append(("dues", "Practice dues", body))
+    if panes:
+        offer_bits.append('<section class=infobox>')
+        if len(panes) > 1:
+            offer_bits.append('<div class=seg role=tablist aria-label="Club info">%s</div>' % "".join(
+                '<button type=button role=tab class="segbtn%s" aria-selected="%s" data-pane="%s">%s</button>' % (
+                    " on" if i == 0 else "", "true" if i == 0 else "false", key, label) for i, (key, label, _b) in enumerate(panes)))
+        else:
+            offer_bits.append('<h2 class=usualhead>%s</h2>' % panes[0][1])
+        for i, (key, label, body) in enumerate(panes):
+            offer_bits.append('<div class=pane data-pane="%s"%s>%s</div>' % (key, "" if i == 0 else " hidden", body))
         offer_bits.append("</section>")
-    if (payload.get("overview") and not payload.get("usual")) or payload.get("prices"):
+    if (payload.get("overview") and not payload.get("usual")) or (payload.get("prices") and not payload.get("dues")):
         offer_bits.append('<section class=usualbox>')
         for line in ([] if payload.get("usual") else payload.get("overview") or []):
             text = e(line.get("when") or "")
@@ -1278,6 +1305,19 @@ main{width:100%%}
 .callout p{margin:4px 0 0;font:500 13px/1.35 var(--font-sans)}
 .callout a{display:inline-block;margin-top:6px;font:700 13px/1 var(--font-sans);text-decoration:underline}
 .usualbox{margin:0 0 12px}
+.infobox{margin:0 0 14px;padding:16px 20px 6px;border-radius:24px;background:var(--carbon)}
+.seg{display:inline-flex;gap:4px;margin:0 0 14px;padding:4px;border-radius:999px;background:var(--graphite)}
+.segbtn{height:32px;padding:0 14px;border:0;border-radius:999px;background:transparent;color:var(--paper);font:700 13px/1 var(--font-sans);cursor:pointer}
+.segbtn.on{background:var(--lime);color:var(--fixed-ink)}
+.pane[hidden]{display:none}
+.due{padding:0 0 12px;margin:0 0 12px;border-bottom:1px solid var(--graphite)}
+.due:last-child{border-bottom:0;margin-bottom:0}
+.duetop{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.duetop b{font:700 16px/1.2 var(--font-sans)}
+.dueprice{font:700 20px/1 var(--font-display);white-space:nowrap}
+.dueprice small{margin-left:4px;color:var(--smoke);font:600 12px/1 var(--font-sans)}
+.due p{margin:4px 0 0;font:500 13px/1.35 var(--font-sans)}
+.due p.duemuted{color:var(--smoke)}
 .usualhead{margin:0 0 8px;font:700 18px/1.1 var(--font-display);letter-spacing:-.02em}
 .usualsport{margin:0 0 10px}
 .usualsport .ek{display:block;margin:0 0 4px;color:var(--smoke)}
@@ -1466,6 +1506,14 @@ header.profilebar .authlinks{display:flex}
   chips.forEach(function(btn){btn.addEventListener("click",function(){show(btn.getAttribute("data-chip"));});});
   // An event opens its full public page (the same page members see, without anyone's names).
   function openPage(id){ if(!id) return; location.href="/e/"+encodeURIComponent(id); }
+  [].forEach.call(document.querySelectorAll(".infobox .segbtn"), function(btn){
+    btn.addEventListener("click", function(){
+      var box=btn.closest(".infobox"), key=btn.getAttribute("data-pane");
+      [].forEach.call(box.querySelectorAll(".segbtn"), function(b){ var on=b===btn; b.classList.toggle("on",on); b.setAttribute("aria-selected",on?"true":"false"); });
+      [].forEach.call(box.querySelectorAll(".pane"), function(p){ p.hidden=p.getAttribute("data-pane")!==key; });
+      report();
+    });
+  });
   cards.addEventListener("click", function(ev){ var card=ev.target.closest("article.card"); if(card) openPage(card.getAttribute("data-id")); });
   cards.addEventListener("keydown", function(ev){
     if(ev.key!=="Enter" && ev.key!==" ") return;

@@ -8045,7 +8045,7 @@ WIDGET_STEPS = (
     ("wordpress", "WordPress", ("In WordPress, add a Custom HTML block where the schedule goes.", "Paste, then update the page.", "Done. You never need to paste it again.")),
     ("other", "Other site", ("Open the page where the schedule goes, in HTML or code view.", "Paste the code and save.", "Done. You never need to paste it again.")),
 )
-_WIDGET_TOGGLES = ("widget_on", "include_schedule", "show_pricing", "show_trial", "show_counts")
+_WIDGET_TOGGLES = ("widget_on", "include_schedule", "show_weekly", "show_pricing", "show_trial", "show_counts")
 
 
 def _widget_autosave(d):
@@ -9216,7 +9216,7 @@ def _manage_catalog(d):
     if staff or admin:
         add("activities", "Schedule", "Practices, scrimmages, and games", "/admin", "cal", "practice scrimmage game schedule")
     if admin:
-        add("activities", "Usual schedule", "Each sport's regular weekly times, for your website", "/manage/usual-schedule", "cal", "usual regular weekly hours times general schedule website embed")
+        add("activities", "Weekly schedule", "Each sport's regular weekly times, for your website", "/manage/usual-schedule", "cal", "usual regular weekly hours times general schedule website embed")
     if host:
         add("activities", "Lineup", "Events, tournaments, camps, and socials", "/manage/lineup", "people", "event tournament camp trip lineup")
         # Bulletin hidden for now (Nov 13).
@@ -10150,6 +10150,8 @@ def club_plan(plan_id):
                     d.execute("INSERT INTO payment_prices(plan_id, amount_cents, effective_on) VALUES(?,?,?)", (new_id, r["amount_cents"], r["effective_on"]))
                 d.commit(); flash("Duplicated · the copy is off", "toast")
                 return redirect("/manage/club/plans/%d" % new_id)
+            elif section == "public":
+                d.execute("UPDATE payment_plans SET show_public=? WHERE id=?", (1 if request.form.get("show_public") else 0, plan_id))
             elif section == "archive":
                 d.execute("UPDATE payment_plans SET archived=1, active=0 WHERE id=?", (plan_id,))
                 d.commit(); flash("Pass removed. Anyone who has it keeps it.", "toast")
@@ -10277,7 +10279,7 @@ def manage_usual_sport(slug):
         return redirect("/manage/usual-schedule/" + slug)
     reg = publicfeed.regular_for(publicfeed.load(d), slug)
     rows = reg["slots"] or [{"days": [], "start": "", "end": "", "venue": ""}]
-    return page(T["manage_usual_sport"], tab="admin", admin_back="/manage/usual-schedule", admin_back_title="Usual schedule",
+    return page(T["manage_usual_sport"], tab="admin", admin_back="/manage/usual-schedule", admin_back_title="Weekly schedule",
                 sp={"slug": slug, "name": r["public_name"] or r["name"], "reg": reg, "rows": [dict(x, i=i) for i, x in enumerate(rows)]},
                 day_items=[(str(i), n) for i, n in enumerate(publicfeed.DAY_SHORT)], max_slots=publicfeed.REGULAR_MAX)
 @app.route("/manage/schedule")

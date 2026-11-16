@@ -7013,7 +7013,7 @@ T["manage"] = ADMIN_NAV + """<div class=managehome id=manageHome>
 T["manage_area"] = ADMIN_NAV + """{{ admin_page(title, subtitle) }}
 {% if tiles %}<div class=rg-tilestack>{% for href, t, sub, n, tone in tiles %}{{ rg_stack_tile(href, t, sub, n, tone) }}{% endfor %}</div>{% endif %}
 <div class=mlist style="margin-bottom:120px">{% for row in rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone, row.tile, row.num) }}{% endfor %}</div>"""
-T["manage_usual"] = ADMIN_NAV + """{{ rg_page_title('Usual schedule', "Each sport's regular weekly times. Pick a sport to set its times and places.") }}
+T["manage_usual"] = ADMIN_NAV + """{{ rg_page_title('Weekly schedule', "Each sport's regular weekly times. Pick a sport to set its times and places.") }}
 <a class="rg-btn secondary" href="/manage/widget" style="width:100%;margin:4px 0 16px">See the website embed</a>
 {% if sports %}<div class=rg-stack8>{% for sp in sports %}{{ rg_settings_row(sp.name, sp.summary, '/manage/usual-schedule/' ~ sp.slug) }}{% endfor %}</div>
 {% else %}<p class=ty-muted>No sports are on yet. Turn one on in Club › Sports.</p>{% endif %}
@@ -7025,7 +7025,7 @@ T["manage_usual_sport"] = ADMIN_NAV + """{% macro usual_slot(i, slot) -%}<div cl
 <label class=rg-field><span>ENDS</span><input data-native type=time name="s{{ i }}_end" value="{{ slot.end }}"></label></div>
 <label class=rg-field><span>PLACE</span><input name="s{{ i }}_venue" value="{{ slot.venue }}" placeholder="e.g. Marina High School" autocomplete=off></label>
 </div>{%- endmacro %}
-{{ rg_page_title(sp.name, 'Usual weekly times and places.') }}
+{{ rg_page_title(sp.name, 'Weekly times and places.') }}
 <form method=post id=usualForm>{{ csrf_field() }}
 {{ rg_toggle('public', 'Show on website embed', 'Visitors see these times' if sp.reg.public else 'Hidden from visitors', sp.reg.public) }}
 <div id=usualSlots class=rg-stack8 style="margin-top:8px">
@@ -8375,16 +8375,21 @@ T["website"] = ADMIN_NAV + """<div class="rg-screen rg-website">
 {% for ev in events[:2] %}{{ rg_event_row('', ev.kicker, ev.title, ev.meta, ev.count, 'GOING', ev.tone) }}{% else %}<p class=rg-note>Nothing coming up yet. Published practices and Lineup events show here.</p>{% endfor %}
 <a class="rg-btn secondary" href="/widget?preview=1" target=_blank rel=noopener>Open full preview</a>
 </div>
-{{ rg_section_count('What visitors see', 6) }}
+{{ rg_section_count('What visitors see', 7) }}
 <div class=rg-stack8>
 {{ rg_settings_row('Tabs', tabs_label, '#', 'data-open-dialog=tabsSheet', 'tabs') }}
 {{ rg_settings_row('Opens on', opens_label, '#', 'data-open-dialog=opensSheet', 'opens') }}
 <form method=post action="/manage/widget" data-autosave class=rg-stack8>{{ csrf_field() }}
-{{ rg_toggle('include_schedule', 'Regular schedule', '', w.include_schedule) }}
-{{ rg_toggle('show_pricing', 'Prices', 'Only ones you filled in', w.show_pricing) }}
+{{ rg_toggle('include_schedule', 'Practices', 'Upcoming practices, scrimmages, and games', w.include_schedule) }}
+{{ rg_toggle('show_weekly', 'Weekly schedule', "Each sport's usual times", w.show_weekly if w.show_weekly is defined else true) }}
+{{ rg_toggle('show_pricing', 'Practice dues', 'Passes you choose to show', w.show_pricing) }}
 {{ rg_toggle('show_trial', 'Free-trial message', '', w.show_trial) }}
 {{ rg_toggle('show_counts', 'How many are going', 'Numbers only — never names or photos', w.show_counts) }}
 </form>
+</div>
+<div class=rg-stack8 style="margin-top:8px">
+{{ rg_settings_row('Set weekly times', 'Weekly schedule', '/manage/usual-schedule') }}
+{{ rg_settings_row('Choose passes to show', 'Plans & payments', '/manage/club/plans') }}
 </div>
 {{ rg_section_count('Add to your site', 2) }}
 <div class=rg-stack8>
@@ -8928,6 +8933,7 @@ T["pass"] = ADMIN_NAV + """<div class="rg-screen rg-passes">
 {{ rg_page_title('Pass', 'Every setting, in plain words.') }}
 {{ rg_pass(c.name, c.on, c.price, c.per, c.covers, c.line, '', true, 'Get it on Club Assistant' if pay == 'external' and plan.external_url else '', plan.external_url if pay == 'external' else '') }}
 <form method=post data-autosave style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=section value=status>{{ rg_toggle('active', 'Pass is on', 'Members can get it now' if c.on else "Members can't see it", c.on) }}</form>
+{% if plan.audience != 'coaches' %}<form method=post data-autosave style="margin-top:8px">{{ csrf_field() }}<input type=hidden name=section value=public>{{ rg_toggle('show_public', 'Show on website embed', 'Listed under Practice dues when the pass is on' if plan.show_public else 'Not on your website or share link', plan.show_public) }}</form>{% endif %}
 <div class=rg-stack8 style="margin-top:8px">
 {% for key, title, rows in sections %}{{ rg_detail_group(title, none, 'Edit', '', 'data-open-dialog=ps_' ~ key, rg_kv(rows)) }}{% endfor %}
 </div>
