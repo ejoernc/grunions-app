@@ -7014,11 +7014,12 @@ T["manage_area"] = ADMIN_NAV + """{{ admin_page(title, subtitle) }}
 {% if tiles %}<div class=rg-tilestack>{% for href, t, sub, n, tone in tiles %}{{ rg_stack_tile(href, t, sub, n, tone) }}{% endfor %}</div>{% endif %}
 <div class=mlist style="margin-bottom:120px">{% for row in rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone, row.tile, row.num) }}{% endfor %}</div>"""
 T["manage_usual"] = ADMIN_NAV + """{{ rg_page_title('Usual schedule', "Each sport's regular weekly times. They show on your website above upcoming events.") }}
+<a class="rg-btn secondary" href="/manage/widget" style="width:100%;margin:4px 0 8px">See the website embed</a>
 <form method=post>{{ csrf_field() }}
 {% for sp in sports %}
 <h3 class=rg-day style="margin-top:24px">{{ sp.name|upper }}</h3>
 <div class=rg-stack8>
-{{ rg_toggle(sp.slug ~ '_public', 'Show on website', 'Visitors see these times' if sp.reg.public else 'Hidden from visitors', sp.reg.public) }}
+{{ rg_toggle(sp.slug ~ '_public', 'Show on website embed', 'Visitors see these times' if sp.reg.public else 'Hidden from visitors', sp.reg.public) }}
 {% for slot in sp.rows %}
 <div class=usualrow>
 <p class=ty-muted style="margin:0 0 8px">Time {{ loop.index }}</p>
