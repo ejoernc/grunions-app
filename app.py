@@ -10163,28 +10163,34 @@ def manage_area(area):
     tiles = [(row["href"], row["title"], row["desc"], (row["count"] or None), components.DECK_TONES[i % len(components.DECK_TONES)])
              for i, row in enumerate(rows)]
     return page(T["manage_area"], tab="admin", admin_back="/manage", title=title, subtitle=subtitle, rows=[], tiles=tiles)
-@app.route("/manage/usual-schedule", methods=["GET", "POST"])
+@app.route("/manage/usual-schedule")
 @admin_required
 def manage_usual_schedule():
-    """General weekly times per sport for the website (not sessions). Kept in org settings, beside the widget's."""
+    """General weekly times per sport for the website (not sessions). Sports that are on, each opens its own page."""
     d = db()
-    sports = d.execute("SELECT slug, name, public_name FROM programs WHERE COALESCE(active,0)=1 ORDER BY name").fetchall()
-    slugs = [r["slug"] for r in sports]
+    data = publicfeed.load(d)
+    rows = []
+    for r in d.execute("SELECT slug, name, public_name FROM programs WHERE COALESCE(active,0)=1 ORDER BY name").fetchall():
+        rows.append({"slug": r["slug"], "name": r["public_name"] or r["name"], "summary": publicfeed.regular_summary(publicfeed.regular_for(data, r["slug"]))})
+    return page(T["manage_usual"], tab="admin", admin_back="/manage/area/activities", sports=rows)
+@app.route("/manage/usual-schedule/<slug>", methods=["GET", "POST"])
+@admin_required
+def manage_usual_sport(slug):
+    d = db()
+    r = d.execute("SELECT slug, name, public_name FROM programs WHERE slug=? AND COALESCE(active,0)=1", (slug,)).fetchone()
+    if not r: abort(404)
     if request.method == "POST":
         data = publicfeed.load(d)
         regular = dict(data.get("regular") or {})
-        regular.update(publicfeed.parse_regular(request.form, slugs))
+        regular[slug] = publicfeed.parse_regular_one(request.form)
         publicfeed.save_sections(d, regular=regular); d.commit()
-        flash("Usual schedule saved.", "toast")
-        return redirect("/manage/usual-schedule")
-    data = publicfeed.load(d)
-    rows = []
-    for r in sports:
-        reg = publicfeed.regular_for(data, r["slug"])
-        slots = reg["slots"] + [{"days": [], "start": "", "end": "", "venue": ""}] * (publicfeed.REGULAR_SLOTS - len(reg["slots"]))
-        rows.append({"slug": r["slug"], "name": r["public_name"] or r["name"], "reg": reg, "rows": slots[:publicfeed.REGULAR_SLOTS]})
-    return page(T["manage_usual"], tab="admin", admin_back="/manage/area/activities", sports=rows,
-                day_items=[(str(i), n) for i, n in enumerate(publicfeed.DAY_SHORT)])
+        flash("Saved.", "toast")
+        return redirect("/manage/usual-schedule/" + slug)
+    reg = publicfeed.regular_for(publicfeed.load(d), slug)
+    rows = reg["slots"] or [{"days": [], "start": "", "end": "", "venue": ""}]
+    return page(T["manage_usual_sport"], tab="admin", admin_back="/manage/usual-schedule", admin_back_title="Usual schedule",
+                sp={"slug": slug, "name": r["public_name"] or r["name"], "reg": reg, "rows": [dict(x, i=i) for i, x in enumerate(rows)]},
+                day_items=[(str(i), n) for i, n in enumerate(publicfeed.DAY_SHORT)], max_slots=publicfeed.REGULAR_MAX)
 @app.route("/manage/schedule")
 @login_required
 def manage_schedule():

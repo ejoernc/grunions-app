@@ -1102,7 +1102,6 @@ button.rg-secact{border:0;background:transparent;padding:0;cursor:pointer;color:
 .rg-chipset label{position:relative;margin:0;text-transform:none;letter-spacing:0}
 .rg-chipset input{position:absolute;opacity:0;width:1px;height:1px}
 .rg-chipset span{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 13px/1 var(--font-sans);cursor:pointer}
-.rg-chipset span::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
 .rg-chipset input:checked+span{background:var(--lime);color:var(--fixed-ink)}
 .rg-chipset input:focus-visible+span{outline:2px solid var(--lime);outline-offset:2px}
 .rg-dim{opacity:.4;pointer-events:none}

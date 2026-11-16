@@ -54,6 +54,7 @@ def blank():
 
 
 REGULAR_SLOTS = 4
+REGULAR_MAX = 12
 
 
 def regular_for(data, slug):
@@ -66,6 +67,30 @@ def regular_for(data, slug):
                           "start": str(slot.get("start") or "")[:5], "end": str(slot.get("end") or "")[:5],
                           "venue": str(slot.get("venue") or "")[:120]})
     return {"public": bool(raw.get("public")), "slots": slots}
+
+
+def parse_regular_one(form):
+    """One sport's page: slots keyed by the hidden 'slot' inputs, in the order shown."""
+    slots = []
+    for key in form.getlist("slot")[:REGULAR_MAX]:
+        key = re.sub(r"[^A-Za-z0-9]", "", key or "")[:12]
+        days = sorted({int(x) for x in form.getlist("s%s_day" % key) if str(x).isdigit() and 0 <= int(x) <= 6})
+        start = (form.get("s%s_start" % key) or "").strip()[:5]
+        end = (form.get("s%s_end" % key) or "").strip()[:5]
+        venue = (form.get("s%s_venue" % key) or "").strip()[:120]
+        if not days:
+            continue
+        if not re.fullmatch(r"\d\d:\d\d", start): start = ""
+        if not re.fullmatch(r"\d\d:\d\d", end): end = ""
+        slots.append({"days": days, "start": start, "end": end, "venue": venue})
+    return {"public": bool(form.get("public")), "slots": slots}
+
+
+def regular_summary(reg):
+    n = len(reg["slots"])
+    if not n:
+        return "Not set"
+    return "%d time%s · %s" % (n, "" if n == 1 else "s", "On website" if reg["public"] else "Hidden")
 
 
 def parse_regular(form, slugs):

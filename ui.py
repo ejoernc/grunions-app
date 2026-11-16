@@ -7013,28 +7013,38 @@ T["manage"] = ADMIN_NAV + """<div class=managehome id=manageHome>
 T["manage_area"] = ADMIN_NAV + """{{ admin_page(title, subtitle) }}
 {% if tiles %}<div class=rg-tilestack>{% for href, t, sub, n, tone in tiles %}{{ rg_stack_tile(href, t, sub, n, tone) }}{% endfor %}</div>{% endif %}
 <div class=mlist style="margin-bottom:120px">{% for row in rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone, row.tile, row.num) }}{% endfor %}</div>"""
-T["manage_usual"] = ADMIN_NAV + """{{ rg_page_title('Usual schedule', "Each sport's regular weekly times. They show on your website above upcoming events.") }}
-<a class="rg-btn secondary" href="/manage/widget" style="width:100%;margin:4px 0 8px">See the website embed</a>
-<form method=post>{{ csrf_field() }}
-{% for sp in sports %}
-<h3 class=rg-day style="margin-top:24px">{{ sp.name|upper }}</h3>
-<div class=rg-stack8>
-{{ rg_toggle(sp.slug ~ '_public', 'Show on website embed', 'Visitors see these times' if sp.reg.public else 'Hidden from visitors', sp.reg.public) }}
-{% for slot in sp.rows %}
-<div class=usualrow>
-<p class=ty-muted style="margin:0 0 8px">Time {{ loop.index }}</p>
-{{ rg_choice_chips(sp.slug ~ '_' ~ loop.index0 ~ '_day', day_items, slot.days|map('string')|list, multi=true) }}
-<div class=rg-fieldpair><label class=rg-field><span>STARTS</span><input data-native type=time name="{{ sp.slug }}_{{ loop.index0 }}_start" value="{{ slot.start }}"></label>
-<label class=rg-field><span>ENDS</span><input data-native type=time name="{{ sp.slug }}_{{ loop.index0 }}_end" value="{{ slot.end }}"></label></div>
-<label class=rg-field><span>PLACE</span><input name="{{ sp.slug }}_{{ loop.index0 }}_venue" value="{{ slot.venue }}" placeholder="e.g. Marina High School" autocomplete=off></label>
+T["manage_usual"] = ADMIN_NAV + """{{ rg_page_title('Usual schedule', "Each sport's regular weekly times. Pick a sport to set its times and places.") }}
+<a class="rg-btn secondary" href="/manage/widget" style="width:100%;margin:4px 0 16px">See the website embed</a>
+{% if sports %}<div class=rg-stack8>{% for sp in sports %}{{ rg_settings_row(sp.name, sp.summary, '/manage/usual-schedule/' ~ sp.slug) }}{% endfor %}</div>
+{% else %}<p class=ty-muted>No sports are on yet. Turn one on in Club › Sports.</p>{% endif %}
+<p class=rg-note style="margin-bottom:120px">Only sports that are on are listed. This is general info for visitors — it doesn't add practices.</p>"""
+T["manage_usual_sport"] = ADMIN_NAV + """{% macro usual_slot(i, slot) -%}<div class=usualrow><div class=usualhead><p class="ty-muted usualnum" style="margin:0">Time</p><button type=button data-remove-slot>Remove</button></div>
+<input type=hidden name=slot value="{{ i }}">
+{{ rg_choice_chips('s' ~ i ~ '_day', day_items, slot.days|map('string')|list, multi=true) }}
+<div class=rg-fieldpair><label class=rg-field><span>STARTS</span><input data-native type=time name="s{{ i }}_start" value="{{ slot.start }}"></label>
+<label class=rg-field><span>ENDS</span><input data-native type=time name="s{{ i }}_end" value="{{ slot.end }}"></label></div>
+<label class=rg-field><span>PLACE</span><input name="s{{ i }}_venue" value="{{ slot.venue }}" placeholder="e.g. Marina High School" autocomplete=off></label>
+</div>{%- endmacro %}
+{{ rg_page_title(sp.name, 'Usual weekly times and places.') }}
+<form method=post id=usualForm>{{ csrf_field() }}
+{{ rg_toggle('public', 'Show on website embed', 'Visitors see these times' if sp.reg.public else 'Hidden from visitors', sp.reg.public) }}
+<div id=usualSlots class=rg-stack8 style="margin-top:8px">
+{% for slot in sp.rows %}{{ usual_slot(loop.index0, slot) }}{% endfor %}
 </div>
-{% endfor %}
-</div>
-{% else %}<p class=ty-muted>Turn on a sport in Club › Sports first.</p>{% endfor %}
-<p class=rg-note>Leave a time's days blank to skip it. This is general info for visitors — it doesn't add practices. Create those in Schedule.</p>
-<button class="rg-btn primary" style="width:100%;margin:12px 0 120px">Save</button>
+<button type=button class="rg-btn secondary" id=usualAdd style="width:100%;margin:8px 0 0">Add a time</button>
+<template id=usualTpl>{{ usual_slot('__N__', {'days': [], 'start': '', 'end': '', 'venue': ''}) }}</template>
+<p class=rg-note>A time with no days picked is skipped. This doesn't add practices — create those in Schedule.</p>
+<button class="rg-btn primary" style="width:100%;margin:12px 0 8px">Save</button>
+<a class="rg-btn ghost" href="/manage/widget" style="width:100%;margin:0 0 120px">See the website embed</a>
 </form>
-<style>.usualrow{padding:16px;border-radius:20px;background:var(--color-surface,#17181A)}.usualrow .rg-chipset{margin-bottom:12px}</style>"""
+<style>.usualrow{padding:16px;border-radius:20px;background:var(--color-surface,#17181A)}.usualrow .rg-chipset{margin-bottom:12px}.usualhead{display:flex;justify-content:space-between;align-items:center;margin:0 0 8px}.usualhead button{height:32px;padding:0 12px;border:0;border-radius:999px;background:var(--graphite,#24262A);color:var(--paper);font:600 13px/1 var(--font-sans);cursor:pointer}</style>
+<script>(function(){
+ var box=document.getElementById('usualSlots'), tpl=document.getElementById('usualTpl'), add=document.getElementById('usualAdd'); if(!box||!tpl||!add) return;
+ function renumber(){ [].forEach.call(box.querySelectorAll('.usualrow'), function(row,i){ var t=row.querySelector('.usualnum'); if(t) t.textContent='Time '+(i+1); }); add.hidden=box.querySelectorAll('.usualrow').length>={{ max_slots }}; }
+ add.addEventListener('click', function(){ var n=Date.now()%100000; var html=tpl.innerHTML.replace(/__N__/g, 'n'+n); var wrap=document.createElement('div'); wrap.innerHTML=html; var row=wrap.firstElementChild; box.appendChild(row); renumber(); var f=row.querySelector('input'); if(f) f.focus(); });
+ box.addEventListener('click', function(e){ var b=e.target.closest('[data-remove-slot]'); if(!b) return; b.closest('.usualrow').remove(); renumber(); });
+ renumber();
+})();</script>"""
 T["manage_schedule"] = ADMIN_NAV + """{{ admin_page('Schedule', 'Practices, scrimmages, and games.') }}
 {% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="ty-muted ty-sm sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
 T["manage_lineup"] = ADMIN_NAV + """{{ rg_page_title('Lineup', 'Events, tournaments, camps, and socials.', rg_plus('/events/new?lane=lineup', 'New lineup event')) }}
