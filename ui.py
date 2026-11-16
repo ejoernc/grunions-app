@@ -5216,26 +5216,38 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   sheet.classList.toggle('full', atFull);
   sheet.classList.remove('peek');
   sheet.classList.toggle('half', !atFull && Math.abs(h-m.half)<1.5);
-  document.body.style.setProperty('--drawer-h', Math.round(h)+'px');
   var morph=(h-m.half)/((m.full-m.half)||1);
   if(morph<0) morph=0; if(morph>1) morph=1;
-  var hi=document.querySelector('.weekhi');
-  if(hi){
-   hi.style.setProperty('--titlefade', Math.min(1, morph*2.5).toFixed(3));  // same curve as the map: done when the map is gone
-   // The map is gone in the first ~40% of the pull; padding and corners follow the whole pull, so nothing snaps.
-   var mf=Math.min(1, morph*2.5);
-   document.body.style.setProperty('--mapfade', mf.toFixed(3));
-   document.body.style.setProperty('--mapdone', mf>=0.999?'1':'0');
-   document.body.style.setProperty('--sheetp', morph.toFixed(3));
-   var big=hi.querySelector('.hititle'), small=hi.querySelector('.schedtitle');
-   if(big) big.setAttribute('aria-hidden', morph*2.5>=0.5?'true':'false');
-   if(small) small.setAttribute('aria-hidden', morph*2.5>=0.5?'false':'true');
-   var wp=hi.querySelector('.weekplus'); if(wp) wp.classList.toggle('on', morph*2.5>=0.5);
-  }
-  document.body.classList.toggle('mapcovered', !wide() && (m.vh-h)<120);
+  paintMorph=morph; paintCovered=!wide() && (m.vh-h)<120;
+  // Style writes go out once per frame: touch events can fire faster than the screen draws, and every
+  // custom-property change restyles the page, which is what made the drag feel a little stepped.
+  if(!paintQ) paintQ=requestAnimationFrame(paint);
   if(scroller && !atFull && scroller.scrollTop) scroller.scrollTop=0;
   else if(scroller && atFull!==wasFull) scroller.scrollTop=0;
   wasFull=atFull;
+ }
+ var paintQ=0, paintMorph=0, paintCovered=false, painted={}, hiEl=null;
+ function setVar(el, k, v){ if(painted[k]===v) return; painted[k]=v; el.style.setProperty(k, v); }
+ function paint(){
+  paintQ=0;
+  var b=document.body, morph=paintMorph, mf=Math.min(1, morph*2.5), over=mf>=0.5;
+  setVar(b, '--drawer-h', Math.round(h)+'px');
+  if(!hiEl || !hiEl.isConnected) { hiEl=document.querySelector('.weekhi'); painted={}; painted['--drawer-h']=Math.round(h)+'px'; }
+  if(hiEl){
+   setVar(hiEl, '--titlefade', mf.toFixed(3));  // same curve as the map: done when the map is gone
+   // The map is gone in the first ~40% of the pull; padding and corners follow the whole pull, so nothing snaps.
+   setVar(b, '--mapfade', mf.toFixed(3));
+   setVar(b, '--mapdone', mf>=0.999?'1':'0');
+   setVar(b, '--sheetp', morph.toFixed(3));
+   if(painted.over!==over){
+    painted.over=over;
+    var big=hiEl.querySelector('.hititle'), small=hiEl.querySelector('.schedtitle'), wp=hiEl.querySelector('.weekplus');
+    if(big) big.setAttribute('aria-hidden', over?'true':'false');
+    if(small) small.setAttribute('aria-hidden', over?'false':'true');
+    if(wp) wp.classList.toggle('on', over);
+   }
+  }
+  if(painted.covered!==paintCovered){ painted.covered=paintCovered; b.classList.toggle('mapcovered', paintCovered); }
  }
  function pinList(){
   if(!scroller || sheet.classList.contains('full')) return;
@@ -5288,6 +5300,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   document.body.classList.remove('mapcovered','sheetdrag');
   var hi=document.querySelector('.weekhi'); if(hi) hi.style.setProperty('--titlefade','0');
   ['--mapfade','--mapdone','--sheetp'].forEach(function(k){ document.body.style.removeProperty(k); });
+  if(paintQ){ cancelAnimationFrame(paintQ); paintQ=0; } painted={};
  }
  function blocked(el){
   if(!el||!el.closest) return true;
@@ -5349,16 +5362,21 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   var t=e.target;
   if(t.closest&&(t.closest('nav,dialog,.mapcontrols')||(t.closest('input,textarea,select')&&!t.closest('#sheetGrab')))) return;
   if(anim){ cancelAnimationFrame(anim); anim=0; }
-  touch={y:e.touches[0].clientY,t:performance.now(),vy:0,moved:false,fromFull:sheet.classList.contains('full'),onMap:!!(t.closest&&t.closest('#homeMap')),pull:0};
+  var y0=e.touches[0].clientY, t0=performance.now();
+  touch={y:y0,t:t0,vy:0,moved:false,fromFull:sheet.classList.contains('full'),onMap:!!(t.closest&&t.closest('#homeMap')),pull:0,trail:[[t0,y0]]};
  }, {passive:true, signal:ac.signal});
  document.addEventListener('touchmove', function(e){
   if(!touch||!live()||wide()) return;
   var y=e.touches[0].clientY, now=performance.now(), dy=y-touch.y;
-  var inst=dy/((now-touch.t)||16); touch.vy=touch.moved ? touch.vy*0.4+inst*0.6 : inst; touch.y=y; touch.t=now;
+  // Release speed = distance over the last ~80ms of samples. A single event's speed jumps around, which made
+  // flings land a little too short or too long.
+  var trail=touch.trail; trail.push([now,y]); while(trail.length>2 && now-trail[0][0]>80) trail.shift();
+  var span=now-trail[0][0]; touch.vy=span>0 ? (y-trail[0][1])/span : 0; touch.y=y; touch.t=now;
   // Claim the gesture from the very first move so the browser never starts its own scroll of the list
   // (a native scroll stops dead at the top instead of handing the rest of the swipe to the sheet).
   if(e.cancelable) e.preventDefault();
   if(!touch.moved && Math.abs(dy)<8){ touch.y-=dy; return; }
+  if(!touch.moved) dy-=(dy>0?8:-8);  // start from where the finger crossed the threshold, so the sheet doesn't hop
   var full=sheet.classList.contains('full');
   var more=scroller && scroller.scrollTop+scroller.clientHeight<scroller.scrollHeight-1;
   var above=scroller && scroller.scrollTop>1;
@@ -5395,7 +5413,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   if(!scroller) return;
   var last=performance.now(), pos=scroller.scrollTop;
   (function step(now){
-   var dt=now-last; last=now; v*=Math.pow(0.9975, dt);
+   var dt=now-last; last=now; v*=Math.pow(0.998, dt);
    if(!sheet.classList.contains('full')) return;
    var max=Math.max(0, scroller.scrollHeight-scroller.clientHeight);
    pos=Math.max(0, Math.min(max, pos-v*dt));
@@ -5410,6 +5428,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
   if(!touch) return;
   if(dbgOn) dbg('end');
   var moved=touch.moved, vy=touch.vy||0, fromFull=touch.fromFull, scrolled=touch.scrolled, pulled=touch.pull||0;
+  if(performance.now()-touch.t>90) vy=0;  // the finger stopped before lifting: stay put, no fling
   touch=null;
   if(pulled>0){ if(pulled>=PTR_AT) ptrRun(); else ptrHide(); return; }
   if(!moved) return;
