@@ -9074,13 +9074,27 @@ def _request_rows(d, view):
     rows.sort(key=lambda e: (e.get("submitted") or e.get("sort_date") or effective_sort_date(e), e["id"]), reverse=(view != "pending"))
     return view, rows
 def signup_days(d):
-    joined, verified = [], []
-    for r in d.execute("SELECT created, usawp_verified_at FROM members WHERE COALESCE(role,'')!='system'"):
-        day = _stamp_day(r["created"], utc=True)
-        if day: joined.append(day)
+    """(first seen, cleared) days. First seen = the account being made, their first check-in, or the first
+    practice they said they were going to, whichever is earliest (see first_seen_days)."""
+    joined = list(first_seen_days(d).values())
+    verified = []
+    for r in d.execute("SELECT usawp_verified_at FROM members WHERE COALESCE(role,'')!='system'"):
         vday = _stamp_day(r["usawp_verified_at"], utc=False)
         if vday: verified.append(vday)
     return joined, verified
+def first_seen_days(d):
+    """{member_id: first day seen}: the earliest of the account being made, their first check-in, or the first
+    practice they said they were going to. People who came before the app count from their first practice."""
+    first = {}
+    for r in d.execute("SELECT id, created FROM members WHERE COALESCE(role,'')!='system'"):
+        first[r["id"]] = _stamp_day(r["created"], utc=True)
+    for sql in ("SELECT member_id, MIN(practice_date) AS day FROM checkins GROUP BY member_id",
+                """SELECT v.member_id, MIN(p.date) AS day FROM rsvps v JOIN practices p ON p.id=v.practice_id WHERE v.going=1 GROUP BY v.member_id"""):
+        for r in d.execute(sql):
+            try: day = dt.date.fromisoformat(str(r["day"] or "")[:10])
+            except ValueError: continue
+            if r["member_id"] in first and (first[r["member_id"]] is None or day < first[r["member_id"]]): first[r["member_id"]] = day
+    return {mid: day for mid, day in first.items() if day}
 def _manage_catalog(d):
     """Destinations the signed-in person may open. Counts stay off when they are zero."""
     host, staff, admin = can_host_practice(), is_staff(), is_club_admin()
@@ -9288,22 +9302,28 @@ def manage_charts(d, today=None):
     import clubadmin
     # Members vs participants: everyone on the roster by then, split by who held a membership on that date
     # (a monthly membership, or a pass that applies on its own, like the coach pass).
-    people = []
-    for r in d.execute("SELECT id, created FROM members WHERE COALESCE(role,'')!='system'"):
-        day = _stamp_day(r["created"], utc=True)
-        if day: people.append((r["id"], day.isoformat()))
-    # Same rule as clubadmin.has_monthly_membership, read once instead of per person per bar.
+    people = [(mid, day.isoformat()) for mid, day in first_seen_days(d).items()]
+    # Members count from the day their membership started (valid from; else when it was recorded or first
+    # paid; else today, so an undated membership never fills in the past). Same rule as
+    # clubadmin.has_monthly_membership otherwise, read once instead of per person per bar.
     spans = {}
     try:
-        for e in d.execute("""SELECT e.member_id, e.valid_from, e.paid_through FROM access_entitlements e
+        paid_at = {r["entitlement_id"]: str(r["at"] or "")[:10] for r in d.execute(
+            "SELECT entitlement_id, MIN(at) AS at FROM payment_records WHERE entitlement_id IS NOT NULL GROUP BY entitlement_id")}
+        for e in d.execute("""SELECT e.id, e.member_id, e.valid_from, e.paid_through, e.created_at FROM access_entitlements e
                 JOIN payment_plans p ON p.id=e.plan_id WHERE p.kind='monthly' AND e.status='active'"""):
-            spans.setdefault(e["member_id"], []).append((str(e["valid_from"] or "")[:10], str(e["paid_through"] or "")[:10]))
+            start = str(e["valid_from"] or "")[:10] or str(e["created_at"] or "")[:10] or paid_at.get(e["id"], "") or today.isoformat()
+            spans.setdefault(e["member_id"], []).append((start, str(e["paid_through"] or "")[:10]))
     except Exception:
         pass
-    auto = {mid for mid, _made in people if clubadmin.auto_passes(d, mid, today.isoformat())} if d.execute(
-        "SELECT 1 FROM payment_plans WHERE COALESCE(audience,'')='coaches' AND active=1 AND COALESCE(archived,0)=0").fetchone() else set()
+    # Coaches on an automatic pass count from the day that pass started applying.
+    if d.execute("SELECT 1 FROM payment_plans WHERE COALESCE(audience,'')='coaches' AND active=1 AND COALESCE(archived,0)=0").fetchone():
+        for mid, _made in people:
+            got = clubadmin.auto_passes(d, mid, today.isoformat())
+            if got:
+                spans.setdefault(mid, []).append((min(clubadmin.auto_pass_since(d, p, today.isoformat()) for p in got), ""))
     def is_member(mid, day):
-        return mid in auto or any(not (start and start > day) and not (through and through < day) for start, through in spans.get(mid, []))
+        return any(not (start and start > day) and not (through and through < day) for start, through in spans.get(mid, []))
     paid_bars = []
     if joined:
         for label, end, tip in _bucket_plan(joined[0], today):

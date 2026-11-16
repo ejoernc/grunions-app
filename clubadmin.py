@@ -850,6 +850,18 @@ def _is_coach_of(d, member_id, slugs):
     return bool(row and (row["role"] or "") == "coach" and not coached)
 
 
+def auto_pass_since(d, plan, today):
+    """The day an automatic pass started applying. Recorded the first time it's seen on; never moved later."""
+    since = str(plan["applied_since"] if "applied_since" in plan.keys() else "")[:10]
+    if not since:
+        since = str(today)[:10]
+        try:
+            d.execute("UPDATE payment_plans SET applied_since=? WHERE id=? AND COALESCE(applied_since,'')=''", (since, plan["id"])); d.commit()
+        except Exception:
+            pass
+    return since
+
+
 def auto_passes(d, member_id, today, slug="", activity="", day=""):
     """Passes that apply on their own (audience 'coaches'): nobody signs up or pays for them. Cheapest first.
     With slug/activity/day, only passes that cover that event."""
@@ -2057,6 +2069,7 @@ def division_edit_html(d, program, row, csrf):
 
 
 PASS_COLUMNS = (
+    ("applied_since", "TEXT NOT NULL DEFAULT ''"),  # first day an automatic (coaches) pass was on
     ("description", "TEXT NOT NULL DEFAULT ''"),
     ("currency", "TEXT NOT NULL DEFAULT 'USD'"),
     ("renewal", "TEXT NOT NULL DEFAULT 'indefinite'"),
