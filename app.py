@@ -8713,6 +8713,9 @@ body{--rail-w:0px !important;padding-left:0 !important}
 .pubbar a.pubback{width:44px;height:44px;padding:0;justify-content:center;flex:none}
 .pubbar .pubtitle{margin-right:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 22px/1 var(--font-display,system-ui);letter-spacing:-.03em;color:var(--paper,#F6F4EF)}
 .rg-topbar,header.profilebar{display:none !important}
+/* Inside the club's website the frame is sized to the page, so nothing may stretch to the frame's height. */
+html,body,main{min-height:0 !important}
+main,body{padding-bottom:16px !important}
 </style>
 <script>(function(){
  var GATE=%s, BACK=%s;
@@ -8729,10 +8732,12 @@ body{--rail-w:0px !important;padding-left:0 !important}
  }
  window.addEventListener('click', gate, true);
  window.addEventListener('submit', function(e){ e.preventDefault(); e.stopImmediatePropagation(); topGo(GATE); }, true);
- function report(){ try{ parent.postMessage({type:"regulars-widget",height:Math.ceil(document.documentElement.scrollHeight)},"*"); }catch(e){} }
+ // Height of what's actually on the page (not the frame), so the frame shrinks back after the long list.
+ function pageH(){ var h=0; [].forEach.call(document.body.children, function(el){ if(el.tagName==="SCRIPT"||el.tagName==="STYLE"||el.tagName==="DIALOG") return; var cs=getComputedStyle(el); if(cs.display==="none"||cs.position==="fixed") return; var r=el.getBoundingClientRect(); if(r.height) h=Math.max(h, r.bottom+window.scrollY); }); return Math.ceil(h+24); }
+ function report(){ try{ parent.postMessage({type:"regulars-widget",height:pageH()},"*"); }catch(e){} }
  window.addEventListener('load', report); window.addEventListener('resize', report); setTimeout(report, 600);
  // Inside the club's website the page was opened from further down the list: bring its top into view.
- function toTop(){ if(window.top===window) return; try{ parent.postMessage({type:"regulars-widget",top:true,height:Math.ceil(document.documentElement.scrollHeight)},"*"); }catch(e){} try{ document.documentElement.scrollIntoView({block:"start"}); }catch(e){} }
+ function toTop(){ if(window.top===window) return; try{ parent.postMessage({type:"regulars-widget",top:true,height:pageH()},"*"); }catch(e){} try{ document.documentElement.scrollIntoView({block:"start"}); }catch(e){} }
  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", toTop); else toTop();
 })();</script>"""
 @app.route("/e/<ref>")

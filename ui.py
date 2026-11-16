@@ -7847,7 +7847,7 @@ T["practice"] = """{% set p = x.p %}
 <p class="pqtext smoke">{{ p.coaching_plan or 'No plan yet.' }}</p>{% endif %}
 {% if x.coaches or host %}{{ rg_section_count('Coaches', none, ('+ Add · Head' if host else ''), '', 'data-open-dialog=pqCoaches' if host else '', true) }}
 <div class=rg-plist>{% for c in x.coaches %}{{ rg_person(display_first(c) ~ ' ' ~ c.last, ('Head coach' if c.is_lead else 'Coach') ~ ((' · ' ~ c.focus) if host and c.focus else ''), initials(c), 'Head' if c.is_lead else '', 'going', '', '', 'sun', ('/avatar/' ~ c.id ~ '?v=' ~ c.photo) if c.photo else '') }}{% else %}<p class="pqtext smoke">No coaches yet.</p>{% endfor %}</div>{% endif %}
-{% if x.notgoing %}{{ rg_section("Can't make it") }}<p class="pqtext smoke">{% for r in x.notgoing %}{{ display_first(r) }} {{ r.last }}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+{% if x.notgoing and not g.public_view %}{{ rg_section("Can't make it") }}<p class="pqtext smoke">{% for r in x.notgoing %}{{ display_first(r) }} {{ r.last }}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
 {% if admin %}{{ rg_section('Details') }}
 <div class=rg-stack8>
 {{ rg_settings_row('Skill level', sports_now.levels or 'Not set', '#', 'data-open-dialog=pqLevels') }}
