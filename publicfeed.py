@@ -945,7 +945,9 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
         for plan in d.execute("""SELECT * FROM payment_plans WHERE COALESCE(show_public,0)=1 AND active=1
                 AND COALESCE(archived,0)=0 AND COALESCE(audience,'')!='coaches' ORDER BY name""").fetchall():
             c = passes.card(d, plan)
-            dues.append({"name": c["name"], "price": c["price"], "per": c["per"], "covers": c["covers"], "line": c["line"]})
+            # Sports only (Water Polo), not the activity list.
+            dues.append({"name": c["name"], "price": c["price"], "per": c["per"],
+                         "covers": ", ".join(clubadmin.plan_program_names(d, plan["id"])), "line": c["line"]})
     except Exception:
         dues = []
     return {
@@ -1255,7 +1257,7 @@ def widget_document(payload, theme=None, preview=False):
         panes.append(("weekly", "Weekly schedule", body))
     if payload.get("dues"):
         body = "".join('<div class=due><div class=duetop><b>%s</b><span class=dueprice>%s<small>%s</small></span></div><p>%s</p></div>' % (
-            e(x["name"]), e(x["price"]), (" " + e(x["per"])) if x.get("per") else "", e(x["covers"])) for x in payload["dues"])
+            e(x["name"]), e(x["price"]), (" " + e(x["per"])) if x.get("per") else "", e(x["covers"]) if x.get("covers") else "") for x in payload["dues"])
         panes.append(("dues", "Practice dues", body))
     if panes:
         offer_bits.append('<section class=infobox>')
