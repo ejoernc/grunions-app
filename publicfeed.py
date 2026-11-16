@@ -49,7 +49,68 @@ def blank():
             "includes": "", "visits": "", "days": "", "conditions": "", "message": "",
         },
         "widget": widget_blank(),
+        "regular": {},
     }
+
+
+REGULAR_SLOTS = 4
+
+
+def regular_for(data, slug):
+    """One sport's usual weekly times: {"public": bool, "slots": [{days, start, end, venue}]}."""
+    raw = ((data.get("regular") or {}).get(slug)) or {}
+    slots = []
+    for slot in raw.get("slots") or []:
+        if isinstance(slot, dict):
+            slots.append({"days": [int(x) for x in slot.get("days") or [] if str(x).isdigit() and 0 <= int(x) <= 6],
+                          "start": str(slot.get("start") or "")[:5], "end": str(slot.get("end") or "")[:5],
+                          "venue": str(slot.get("venue") or "")[:120]})
+    return {"public": bool(raw.get("public")), "slots": slots}
+
+
+def parse_regular(form, slugs):
+    """The Usual schedule form. Rows with no day or no start time are dropped."""
+    out = {}
+    for slug in slugs:
+        slots = []
+        for i in range(REGULAR_SLOTS):
+            days = sorted({int(x) for x in form.getlist("%s_%d_day" % (slug, i)) if str(x).isdigit() and 0 <= int(x) <= 6})
+            start = (form.get("%s_%d_start" % (slug, i)) or "").strip()[:5]
+            end = (form.get("%s_%d_end" % (slug, i)) or "").strip()[:5]
+            venue = (form.get("%s_%d_venue" % (slug, i)) or "").strip()[:120]
+            if not days or not re.fullmatch(r"\d\d:\d\d", start):
+                continue
+            if end and not re.fullmatch(r"\d\d:\d\d", end):
+                end = ""
+            slots.append({"days": days, "start": start, "end": end, "venue": venue})
+        out[slug] = {"public": bool(form.get("%s_public" % slug)), "slots": slots}
+    return out
+
+
+def _days_label(days):
+    days = list(days or [])
+    if len(days) == 7:
+        return "Every day"
+    if days == [0, 1, 2, 3, 4]:
+        return "Weekdays"
+    if days == [5, 6]:
+        return "Weekends"
+    names = [DAY_SHORT[x] for x in days]
+    return " & ".join(names) if len(names) <= 2 else ", ".join(names[:-1]) + " & " + names[-1]
+
+
+def regular_public(data, programs):
+    """For the website: [{"sport": name, "lines": [text]}] for sports set to show, in program order."""
+    out = []
+    for slug, name in programs:
+        reg = regular_for(data, slug)
+        if not reg["public"] or not reg["slots"]:
+            continue
+        lines = []
+        for slot in reg["slots"]:
+            lines.append(" · ".join(x for x in (_days_label(slot["days"]), _span(slot), slot["venue"]) if x))
+        out.append({"sport": name, "lines": lines})
+    return out
 
 
 def _words(value, limit):
@@ -262,6 +323,8 @@ def load(d):
     if raw.get("mode") not in ("duration", "sessions"):
         data["trial"]["mode"] = ""
     data["trial"] = normalize_trial(data["trial"])
+    if isinstance(stored.get("regular"), dict):
+        data["regular"] = stored["regular"]
     return data
 
 
@@ -838,7 +901,13 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
     chips = [slug for slug in widget.get("chips") or ["all"] if slug in dict(CHIPS)]
     if "all" not in chips:
         chips.insert(0, "all")
+    try:
+        programs = [(r["slug"], r["public_name"] or r["name"]) for r in d.execute(
+            "SELECT slug, name, public_name FROM programs WHERE COALESCE(active,0)=1 ORDER BY name")]
+    except Exception:
+        programs = []
     return {
+        "usual": regular_public(data, programs) if widget.get("include_schedule", True) else [],
         "org": org,
         "theme": widget.get("theme") if widget.get("theme") in ("night", "day") else "night",
         "visitor_theme": bool(widget.get("visitor_theme")),
@@ -1127,9 +1196,15 @@ def widget_document(payload, theme=None, preview=False):
         offer_bits.append('<section class="offer callout"><h2>%s</h2>%s%s</section>' % (
             e(banner_info.get("title") or ""), ('<p>%s</p>' % e(banner_info["body"])) if banner_info.get("body") else "",
             ('<a href="%s" target=_blank rel=noopener>%s</a>' % (e(banner_info["href"]), e(banner_info.get("link") or "Learn more"))) if banner_info.get("href") else ""))
-    if payload.get("overview") or payload.get("prices"):
+    if payload.get("usual"):
+        offer_bits.append('<section class=usualbox><h2 class=usualhead>Usual schedule</h2>')
+        for group in payload["usual"]:
+            offer_bits.append('<div class=usualsport><span class=ek>%s</span>%s</div>' % (
+                e(group.get("sport") or ""), "".join('<p class=usual>%s</p>' % e(line) for line in group.get("lines") or [])))
+        offer_bits.append("</section>")
+    if (payload.get("overview") and not payload.get("usual")) or payload.get("prices"):
         offer_bits.append('<section class=usualbox>')
-        for line in payload.get("overview") or []:
+        for line in ([] if payload.get("usual") else payload.get("overview") or []):
             text = e(line.get("when") or "")
             if line.get("place"):
                 text += " · " + e(line["place"])
@@ -1171,6 +1246,10 @@ main{width:100%%}
 .callout p{margin:4px 0 0;font:500 13px/1.35 var(--font-sans)}
 .callout a{display:inline-block;margin-top:6px;font:700 13px/1 var(--font-sans);text-decoration:underline}
 .usualbox{margin:0 0 12px}
+.usualhead{margin:0 0 8px;font:700 18px/1.1 var(--font-display);letter-spacing:-.02em}
+.usualsport{margin:0 0 10px}
+.usualsport .ek{display:block;margin:0 0 4px;color:var(--smoke)}
+.usualsport .usual{color:var(--paper);font-size:14px}
 .usual{margin:0 0 4px;color:var(--smoke);font:600 13px/1.35 var(--font-sans)}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .chip-info{display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:999px;background:var(--graphite);color:var(--paper);font:700 12px/1 var(--font-sans)}

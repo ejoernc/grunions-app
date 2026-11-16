@@ -7013,6 +7013,27 @@ T["manage"] = ADMIN_NAV + """<div class=managehome id=manageHome>
 T["manage_area"] = ADMIN_NAV + """{{ admin_page(title, subtitle) }}
 {% if tiles %}<div class=rg-tilestack>{% for href, t, sub, n, tone in tiles %}{{ rg_stack_tile(href, t, sub, n, tone) }}{% endfor %}</div>{% endif %}
 <div class=mlist style="margin-bottom:120px">{% for row in rows %}{{ manage_row(row.href, row.title, row.desc, row.icon, row.count, row.tone, row.tile, row.num) }}{% endfor %}</div>"""
+T["manage_usual"] = ADMIN_NAV + """{{ rg_page_title('Usual schedule', "Each sport's regular weekly times. They show on your website above upcoming events.") }}
+<form method=post>{{ csrf_field() }}
+{% for sp in sports %}
+<h3 class=rg-day style="margin-top:24px">{{ sp.name|upper }}</h3>
+<div class=rg-stack8>
+{{ rg_toggle(sp.slug ~ '_public', 'Show on website', 'Visitors see these times' if sp.reg.public else 'Hidden from visitors', sp.reg.public) }}
+{% for slot in sp.rows %}
+<div class=usualrow>
+<p class=ty-muted style="margin:0 0 8px">Time {{ loop.index }}</p>
+{{ rg_choice_chips(sp.slug ~ '_' ~ loop.index0 ~ '_day', day_items, slot.days|map('string')|list, multi=true) }}
+<div class=rg-fieldpair><label class=rg-field><span>STARTS</span><input data-native type=time name="{{ sp.slug }}_{{ loop.index0 }}_start" value="{{ slot.start }}"></label>
+<label class=rg-field><span>ENDS</span><input data-native type=time name="{{ sp.slug }}_{{ loop.index0 }}_end" value="{{ slot.end }}"></label></div>
+<label class=rg-field><span>PLACE</span><input name="{{ sp.slug }}_{{ loop.index0 }}_venue" value="{{ slot.venue }}" placeholder="e.g. Marina High School" autocomplete=off></label>
+</div>
+{% endfor %}
+</div>
+{% else %}<p class=ty-muted>Turn on a sport in Club › Sports first.</p>{% endfor %}
+<p class=rg-note>Leave a time's days blank to skip it. This is general info for visitors — it doesn't add practices. Create those in Schedule.</p>
+<button class="rg-btn primary" style="width:100%;margin:12px 0 120px">Save</button>
+</form>
+<style>.usualrow{padding:16px;border-radius:20px;background:var(--color-surface,#17181A)}.usualrow .rg-chipset{margin-bottom:12px}</style>"""
 T["manage_schedule"] = ADMIN_NAV + """{{ admin_page('Schedule', 'Practices, scrimmages, and games.') }}
 {% if coming %}<div class=list>{% for item in coming %}<a class=li href="{{ item.href }}" style="color:inherit;text-decoration:none"><span class=grow><span class=ell style="display:block;font-weight:600">{{ item.title }}</span><span class="ty-muted ty-sm sm">{{ item.when }}{% if item.place %} · {{ item.place }}{% endif %}</span></span></a>{% endfor %}</div>{% else %}<p class=emptyfind>Nothing coming up.</p>{% endif %}"""
 T["manage_lineup"] = ADMIN_NAV + """{{ rg_page_title('Lineup', 'Events, tournaments, camps, and socials.', rg_plus('/events/new?lane=lineup', 'New lineup event')) }}

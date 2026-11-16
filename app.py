@@ -9126,6 +9126,8 @@ def _manage_catalog(d):
         add("activities", "Board chat", "Private to the board. It can't be deleted.", "/chat?c=board", "tray", "board chat room")
     if staff or admin:
         add("activities", "Schedule", "Practices, scrimmages, and games", "/admin", "cal", "practice scrimmage game schedule")
+    if admin:
+        add("activities", "Usual schedule", "Each sport's regular weekly times, for your website", "/manage/usual-schedule", "cal", "usual regular weekly hours times general schedule website embed")
     if host:
         add("activities", "Lineup", "Events, tournaments, camps, and socials", "/manage/lineup", "people", "event tournament camp trip lineup")
         # Bulletin hidden for now (Nov 13).
@@ -10161,6 +10163,28 @@ def manage_area(area):
     tiles = [(row["href"], row["title"], row["desc"], (row["count"] or None), components.DECK_TONES[i % len(components.DECK_TONES)])
              for i, row in enumerate(rows)]
     return page(T["manage_area"], tab="admin", admin_back="/manage", title=title, subtitle=subtitle, rows=[], tiles=tiles)
+@app.route("/manage/usual-schedule", methods=["GET", "POST"])
+@admin_required
+def manage_usual_schedule():
+    """General weekly times per sport for the website (not sessions). Kept in org settings, beside the widget's."""
+    d = db()
+    sports = d.execute("SELECT slug, name, public_name FROM programs WHERE COALESCE(active,0)=1 ORDER BY name").fetchall()
+    slugs = [r["slug"] for r in sports]
+    if request.method == "POST":
+        data = publicfeed.load(d)
+        regular = dict(data.get("regular") or {})
+        regular.update(publicfeed.parse_regular(request.form, slugs))
+        publicfeed.save_sections(d, regular=regular); d.commit()
+        flash("Usual schedule saved.", "toast")
+        return redirect("/manage/usual-schedule")
+    data = publicfeed.load(d)
+    rows = []
+    for r in sports:
+        reg = publicfeed.regular_for(data, r["slug"])
+        slots = reg["slots"] + [{"days": [], "start": "", "end": "", "venue": ""}] * (publicfeed.REGULAR_SLOTS - len(reg["slots"]))
+        rows.append({"slug": r["slug"], "name": r["public_name"] or r["name"], "reg": reg, "rows": slots[:publicfeed.REGULAR_SLOTS]})
+    return page(T["manage_usual"], tab="admin", admin_back="/manage/area/activities", sports=rows,
+                day_items=[(str(i), n) for i, n in enumerate(publicfeed.DAY_SHORT)])
 @app.route("/manage/schedule")
 @login_required
 def manage_schedule():
