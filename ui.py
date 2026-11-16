@@ -1308,7 +1308,7 @@ button.switchrow{width:100%;border:0;background:transparent;text-align:left;curs
  nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs{gap:4px}
  .nav3-slide{border-radius:var(--r2-radius-pill)}
  .nav3-tabs a,.nav3-tabs a.on,nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a,nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a.on{width:100%;flex:none;flex-basis:auto;min-width:0;height:auto;flex-direction:row;justify-content:flex-start;gap:10px;padding:10px 14px;border-radius:var(--r2-radius-pill);background:transparent;color:var(--r2-paper);font:700 14px/normal var(--r2-font-sans)}
- .nav3-dot{display:block;width:14px;height:14px;box-sizing:border-box;border:2px solid var(--r2-smoke);border-radius:var(--r2-radius-pill);flex:none}
+ .nav3-dot{display:none}
  .nav3-tabs a.on{background:transparent;color:var(--r2-fixed-ink)}
  .nav3-tabs a.on .nav3-dot{border-color:var(--r2-fixed-ink)}
  nav.nav3 .nav3-tabs a.on,nav.nav3:has(.nav3-tabs>a:nth-child(5)) .nav3-tabs a.on{color:var(--r2-fixed-ink)}
