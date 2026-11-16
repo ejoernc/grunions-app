@@ -6245,8 +6245,14 @@ def rsvp_seq_fresh(key):
     try: seq = int(raw)
     except (TypeError, ValueError): return True
     book = session.get("rsvp_seq") or {}
-    if seq <= int(book.get(key) or 0): return False
-    book[key] = seq
+    # Taps are ordered within one page view. A page drawn from cache (or another tab) starts its count again,
+    # so the count only rejects an older tap from the same page view; a new view always wins.
+    page_id = (request.form.get("rsvp_page") or "")[:24]
+    prev = book.get(key)
+    if isinstance(prev, dict):
+        if page_id and prev.get("p") == page_id and seq <= int(prev.get("s") or 0): return False
+    elif not page_id and seq <= int(prev or 0): return False
+    book[key] = {"p": page_id, "s": seq} if page_id else seq
     session["rsvp_seq"] = book
     session.modified = True
     return True

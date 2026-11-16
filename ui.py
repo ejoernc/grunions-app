@@ -1951,8 +1951,11 @@ dialog.memberedit .help a{color:var(--t1)}
   }
   function deselect(btn) {
     var choice = choiceOf(btn);
-    btn.classList.remove("primary", "on", "is-sweeping");
-    btn.classList.add("secondary");
+    // Buttons come as .primary/.secondary or .btn-primary/.btn-secondary: clear both, or a deselected
+    // button stays lime next to the one just picked.
+    var styled = btn.classList.contains("btn-primary") || btn.classList.contains("btn-secondary");
+    btn.classList.remove("primary", "btn-primary", "on", "is-sweeping");
+    btn.classList.add(styled ? "btn-secondary" : "secondary");
     if (choice === "going") {
       var goingLabel = textOf(btn);
       if (goingLabel === "Waitlist") goingLabel = "Join waitlist";
@@ -1968,8 +1971,9 @@ dialog.memberedit .help a{color:var(--t1)}
   }
   function selectVisual(btn) {
     var choice = choiceOf(btn);
-    btn.classList.remove("secondary", "primary", "is-sweeping");
-    btn.classList.add("primary");
+    var styled = btn.classList.contains("btn-primary") || btn.classList.contains("btn-secondary");
+    btn.classList.remove("secondary", "primary", "btn-secondary", "btn-primary", "is-sweeping");
+    btn.classList.add(styled ? "btn-primary" : "primary");
     btn.removeAttribute("data-sweep");
     btn.value = choice === "social" ? "social_leave" : "clear";
     var current = textOf(btn);
@@ -2225,7 +2229,7 @@ dialog.memberedit .help a{color:var(--t1)}
     var choice = choiceOf(button);
     var posted = button.value;
     var lineupForm = !field(form, "pid") && !!field(form, "event_id");
-    if (lineupForm && button.value === "clear") posted = "clear";  // tapping a selected Lineup choice unselects it
+    if (button.value === "clear") posted = "clear";  // tapping the selected choice (practice or Lineup) unselects it: no answer
     else if (choice === "not") posted = "notgoing";
     else if (choice === "going") posted = "going";
     else if (choice === "interested") posted = "interested";
@@ -2252,6 +2256,8 @@ dialog.memberedit .help a{color:var(--t1)}
     var data = new FormData(form);
     if (button.name) data.set(button.name, posted);
     data.set("rsvp_seq", String(gen));
+    if (!window.grunionsRsvpPage) window.grunionsRsvpPage = Math.random().toString(36).slice(2, 12);
+    data.set("rsvp_page", window.grunionsRsvpPage);
     var action = form.getAttribute("action") || location.href;
     var pending = {ok: false, html: "", done: false};
     if (rsvpAbort[key]) rsvpAbort[key].abort();
@@ -2447,7 +2453,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <button class="btn {{ 'btn-primary' if selected else 'btn-secondary' }}"{% if sweep %} data-sweep{% endif %} name=action value="{{ 'clear' if selected else on_value }}">{% if selected %}<svg class=rsvpcheck width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>{% endif %}{{ label }}</button>
 {%- endmacro %}
 {# Regulars 2.0 components live in components.py (Jinja globals rg_*). Don't add one-off card or row markup here. #}
-{% macro rsvp_base(key) -%}<input type=hidden name=rsvp_base value="{{ (session.get('rsvp_seq') or {}).get(key, 0) }}">{%- endmacro %}
+{% macro rsvp_base(key) -%}{% set _rb = (session.get('rsvp_seq') or {}).get(key, 0) %}<input type=hidden name=rsvp_base value="{{ _rb.s if _rb is mapping else _rb }}">{%- endmacro %}
 {% macro glyph_clock() %}<svg class="nxglyph" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg>{% endmacro %}
 {% macro glyph_pin() %}<svg class="nxglyph" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,64a40,40,0,1,0,40,40A40,40,0,0,0,128,64Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,128Zm0-112a88.1,88.1,0,0,0-88,88c0,31.4,14.51,64.68,42,96.25a254.19,254.19,0,0,0,41.45,38.3,8,8,0,0,0,9.18,0A254.19,254.19,0,0,0,174,200.25c27.45-31.57,42-64.85,42-96.25A88.1,88.1,0,0,0,128,16Zm0,206c-16.53-13-72-60.75-72-118a72,72,0,0,1,144,0C200,161.23,144.53,209,128,222Z"/></svg>{% endmacro %}
 {% macro glyph_people() %}<svg class="nxglyph" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.7a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,37.71A8,8,0,0,1,250.14,206.7Z"/></svg>{% endmacro %}
@@ -7846,7 +7852,7 @@ T["practice"] = """{% set p = x.p %}
 <span class=pqchips>{{ rg_chip('Coaches only', 'neutral') }}</span>
 <p class="pqtext smoke">{{ p.coaching_plan or 'No plan yet.' }}</p>{% endif %}
 {% if x.coaches or host %}{{ rg_section_count('Coaches', none, ('+ Add · Head' if host else ''), '', 'data-open-dialog=pqCoaches' if host else '', true) }}
-<div class=rg-plist>{% for c in x.coaches %}{{ rg_person(display_first(c) ~ ' ' ~ c.last, ('Head coach' if c.is_lead else 'Coach') ~ ((' · ' ~ c.focus) if host and c.focus else ''), initials(c), 'Head' if c.is_lead else '', 'going', '', '', 'sun', ('/avatar/' ~ c.id ~ '?v=' ~ c.photo) if c.photo else '') }}{% else %}<p class="pqtext smoke">No coaches yet.</p>{% endfor %}</div>{% endif %}
+<div class="rg-plist pqcoaches">{% for c in x.coaches|sort(attribute='is_lead', reverse=true) %}{{ rg_person(display_first(c) ~ ' ' ~ c.last, ('Head coach' if c.is_lead else 'Coach') ~ ((' · ' ~ c.focus) if host and c.focus else ''), initials(c), 'Head' if c.is_lead else '', 'going', '', '', 'sun', ('/avatar/' ~ c.id ~ '?v=' ~ c.photo) if c.photo else '') }}{% else %}<p class="pqtext smoke">No coaches yet.</p>{% endfor %}</div>{% endif %}
 {% if x.notgoing and not g.public_view %}{{ rg_section("Can't make it") }}<p class="pqtext smoke">{% for r in x.notgoing %}{{ display_first(r) }} {{ r.last }}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
 {% if admin %}{{ rg_section('Details') }}
 <div class=rg-stack8>

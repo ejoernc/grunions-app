@@ -1680,3 +1680,12 @@ html body.homefull header.homehead{box-shadow:none}
    right edge, instead of inside the narrow content column. */
 @media (min-width:768px){html body .rg-topbar{max-width:none;width:auto;margin-left:0;margin-right:0;padding-left:24px;padding-right:24px}
 html body .rg-topbar .rg-tbrow{width:100%;max-width:none;margin:0}}
+
+/* Practice page coaches: a grid of tiles, head coach first. */
+.pq .rg-plist.pqcoaches,.rg-plist.pqcoaches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (min-width:600px){.pq .rg-plist.pqcoaches,.rg-plist.pqcoaches{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.pq .rg-plist.pqcoaches>div.rg-person,.rg-plist.pqcoaches>.rg-person{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8px;padding:16px 8px;border-radius:24px;background:var(--carbon);text-align:center;min-width:0}
+.pq .rg-plist.pqcoaches .rg-txt{display:flex;flex-direction:column;align-items:center;min-width:0;max-width:100%}
+.rg-plist.pqcoaches .rg-txt b,.rg-plist.pqcoaches .rg-txt small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pq .rg-plist.pqcoaches .rg-chip{display:none}
+.rg-plist.pqcoaches>p{grid-column:1/-1}
