@@ -1,5 +1,5 @@
 """Grunions Water Polo team app prototype: member login, team chat, admin check-in tools. Flask + SQLite."""
-import csv, io, os, re, sqlite3, secrets, hashlib, datetime as dt, functools, base64, threading, logging
+import time, csv, io, os, re, sqlite3, secrets, hashlib, datetime as dt, functools, base64, threading, logging
 import json, urllib.request, urllib.parse, urllib.error
 import gspread
 from google.oauth2.service_account import Credentials
@@ -1546,9 +1546,36 @@ def send_email(to, subject, text, html=None, ics=None):
             except Exception:
                 try: srv.close()
                 except Exception: pass
+# Login-link throttle: stops anyone from spamming members (or burning the Gmail send quota) by
+# requesting links over and over. Per address it counts links issued in the window; per device (IP)
+# it keeps a small in-memory log. Throttled requests get the same message, so nothing is revealed.
+LINK_WINDOW_MIN = 15
+LINK_MAX_PER_EMAIL = int(os.environ.get("LINK_MAX_PER_EMAIL", "3"))
+LINK_MAX_PER_IP = int(os.environ.get("LINK_MAX_PER_IP", "10"))
+_link_hits = {}
+_link_lock = threading.Lock()
+def _ip_throttled():
+    ip = request.remote_addr or "?"
+    now = time.time(); cutoff = now - LINK_WINDOW_MIN * 60
+    with _link_lock:
+        if len(_link_hits) > 5000:
+            for key in [k for k, v in _link_hits.items() if not v or v[-1] < cutoff]: _link_hits.pop(key, None)
+        hits = [t for t in _link_hits.get(ip, []) if t >= cutoff]
+        limited = len(hits) >= LINK_MAX_PER_IP
+        if not limited: hits.append(now)
+        _link_hits[ip] = hits
+    return limited
+def _email_throttled(member_id):
+    # Tokens store their expiry; one issued in the last window expires after now + LINK_MINUTES - window.
+    since = (dt.datetime.utcnow() + dt.timedelta(minutes=LINK_MINUTES - LINK_WINDOW_MIN)).isoformat()
+    n = db().execute("SELECT COUNT(*) FROM login_tokens WHERE member_id=? AND expires>?", (member_id, since)).fetchone()[0]
+    return n >= LINK_MAX_PER_EMAIL
 def send_link(email):
     m = db().execute("SELECT id, first, preferred_first FROM members WHERE email=? AND COALESCE(role,'')!='system'", (email,)).fetchone()
     link = None
+    if _ip_throttled() or (m and _email_throttled(m["id"])):
+        app.logger.warning("login link throttled")
+        m = None
     if m:
         tok = secrets.token_urlsafe(32)
         db().execute("INSERT INTO login_tokens VALUES(?,?,?,0)", (hashlib.sha256(tok.encode()).hexdigest(), m["id"],
@@ -7863,6 +7890,18 @@ def widget_frame():
     resp = Response(html, mimetype="text/html; charset=utf-8")
     resp.headers["Content-Security-Policy"] = "frame-ancestors *"
     resp.headers["Cache-Control"] = "private, no-store" if preview else "public, max-age=30"
+    return resp
+@app.after_request
+def _security_headers(resp):
+    """Standard browser protections. The widget sets its own framing rules, so leave those alone."""
+    h = resp.headers
+    if request.is_secure: h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    h.setdefault("Permissions-Policy", "camera=(), microphone=(), payment=(), geolocation=(self)")
+    if request.path != "/widget":
+        h.setdefault("X-Frame-Options", "SAMEORIGIN")
+        h.setdefault("Content-Security-Policy", "base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self' https://accounts.google.com")
     return resp
 @app.after_request
 def _widget_can_be_framed(resp):
