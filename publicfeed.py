@@ -872,7 +872,7 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
                 "price": price_line("Drop-in", drop_in) if drop_in else "",
                 "signup": covered,
                 "trial_line": ((offer.get("trial") or {}).get("banner") or {}).get("title") or "" if covered and show_trial else "",
-                "count": counts.get(row["id"]) if show_counts else None,
+                "count": counts.get(row["id"]) if show_counts and not row["cancelled"] else None,
                 "image": ("/public-image/p/%d" % row["id"]) if row["image"] else "",
                 "staff": staff.get(row["id"], []),
                 "chat": "Practice chat",
