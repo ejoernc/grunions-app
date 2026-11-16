@@ -882,17 +882,24 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
     lcols = _cols(d, "lineup_events")
     if "title" in lcols and "status" in lcols:
         for row in d.execute("""SELECT id, title, date, end_date, city, venue, start_time, end_time,
-            description, event_type, status, capacity, cost, %s AS banner FROM lineup_events WHERE status='published'""" % ("banner" if "banner" in lcols else "''")):
+            description, event_type, status, capacity, cost, %s AS banner, %s AS sport FROM lineup_events WHERE status='published'""" % (
+                "banner" if "banner" in lcols else "''", "sport" if "sport" in lcols else "''")):
             end_day = row["end_date"] or row["date"]
             if hide_past and _ended(end_day, row["end_time"] or "23:59", now):
                 continue
             chip = _LINEUP_CHIP.get(row["event_type"] or "", "community")
             place = " · ".join(part for part in ((row["venue"] or "").strip(), (row["city"] or "").strip()) if part)
             cost = _words(row["cost"], 40) if show_price else ""
+            # Same label as the Lineup cards in the app: "Water Polo Tournament", "Multi-sport Tournament".
+            over = {"Tournament": "Tournament", "Competition": "Tournament", "Clinic": "Clinic", "Trip": "Trip",
+                    "Volunteer": "Volunteer", "Fundraiser": "Fundraiser"}.get(row["event_type"] or "", "Social")
+            picked = [x.strip() for x in (row["sport"] or "").split(",") if x.strip()]
+            if len(picked) > 1: over = "Multi-sport " + over
+            elif picked: over = picked[0] + " " + over
             events.append({
                 "id": "e-%d" % row["id"],
                 "chip": chip,
-                "category": _CHIP_LABEL.get(chip, "Community"),
+                "category": over,
                 "sport": "",
                 "activity": row["event_type"] or _CHIP_LABEL.get(chip, "Event"),
                 "date": _short_day(row["date"]),
@@ -1457,11 +1464,13 @@ header.profilebar .authlinks{display:flex}
   }
   function ready(){loading.hidden=true; error.hidden=true; root.setAttribute("data-ready","1"); show(document.querySelector(".chips button.on") ? document.querySelector(".chips button.on").getAttribute("data-chip") : "all");}
   chips.forEach(function(btn){btn.addEventListener("click",function(){show(btn.getAttribute("data-chip"));});});
-  cards.addEventListener("click", function(ev){ var card=ev.target.closest("article.card"); if(card) openDetail(card.getAttribute("data-id"), card); });
+  // An event opens its full public page (the same page members see, without anyone's names).
+  function openPage(id){ if(!id) return; location.href="/e/"+encodeURIComponent(id); }
+  cards.addEventListener("click", function(ev){ var card=ev.target.closest("article.card"); if(card) openPage(card.getAttribute("data-id")); });
   cards.addEventListener("keydown", function(ev){
     if(ev.key!=="Enter" && ev.key!==" ") return;
     var card=ev.target.closest("article.card"); if(!card) return;
-    ev.preventDefault(); openDetail(card.getAttribute("data-id"), card);
+    ev.preventDefault(); openPage(card.getAttribute("data-id"));
   });
   back.addEventListener("click", closeDetail);
   document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !sheet.hidden) closeDetail(); });

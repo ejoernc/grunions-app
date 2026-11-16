@@ -2108,7 +2108,7 @@ def chat_unread_n(d, mid, channel):
 def practice_chat_unread(pid):
     """New messages from others in this practice's chat since I last opened it (all of them if I never have)."""
     m = me()
-    if not m: return 0
+    if not m or g.get("public_view"): return 0
     d = db(); ch = "practice:%d" % int(pid)
     row = d.execute("SELECT last_read FROM chat_reads WHERE member_id=? AND channel=?", (m["id"], ch)).fetchone()
     return d.execute("SELECT COUNT(*) FROM messages WHERE COALESCE(NULLIF(channel,''),'team')=? AND id>? AND member_id!=?",
@@ -7004,12 +7004,14 @@ def practice_page(pid):
     p = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone()
     if not p: abort(404)
     p = ensure_map_coords(d, p)
-    mark_practice_seen(d, me()["id"], pid); d.commit()
+    if not g.get("public_view"): mark_practice_seen(d, me()["id"], pid); d.commit()
     g._unread_mid = None
     host = can_host_practice()
     editing = request.args.get("edit") == "1" and bool(me()["is_admin"])
     plan_editing = request.args.get("edit") == "1" and host and not me()["is_admin"]
     bundle = practice_bundle(d, p)
+    if g.get("public_view"):
+        for key in ("going", "notgoing", "checked"): bundle[key] = _anon_people(bundle[key])
     going_ids = [r["id"] for r in bundle["going"]]
     to_play = {"ok": 0, "not": 0}
     if host and going_ids:
@@ -7920,13 +7922,15 @@ def _security_headers(resp):
     h.setdefault("X-Content-Type-Options", "nosniff")
     h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     h.setdefault("Permissions-Policy", "camera=(), microphone=(), payment=(), geolocation=(self)")
-    if request.path != "/widget":
+    if request.path != "/widget" and not request.path.startswith("/e/"):
         h.setdefault("X-Frame-Options", "SAMEORIGIN")
         h.setdefault("Content-Security-Policy", "base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self' https://accounts.google.com")
     return resp
 @app.after_request
 def _widget_can_be_framed(resp):
-    if request.path == "/widget":
+    # The public schedule and its signed-out event pages live inside the club's website. Neither has anything
+    # a signed-in person can act on (a signed-in visitor to /e/ is sent to the real page, which can't be framed).
+    if request.path == "/widget" or (request.path.startswith("/e/") and resp.status_code == 200):
         resp.headers["Content-Security-Policy"] = "frame-ancestors *"
         resp.headers.pop("X-Frame-Options", None)
     if request.path.startswith("/static/fonts/") or request.path == "/static/email-mark.png":
@@ -8480,6 +8484,10 @@ def lineup_detail(eid):
         d.commit(); return redirect("/lineup/%d" % eid)
     row = ensure_lineup_coords(d, row)
     packed = lineup_pack(d, [row])[0]
+    if g.get("public_view"):
+        for key, val in list(packed.items()):
+            if key not in ("hosts", "host_line") and isinstance(val, list) and val and all(hasattr(v, "keys") and ("first" in v.keys() or "initials" in v.keys()) for v in val):
+                packed[key] = _anon_people(val)
     sh = flows2.shifts_for(d, eid, me()["id"])
     packed["shifts_open"] = sum(x["open"] for x in sh); packed["shifts_n"] = len(sh); packed["shift_mine"] = next((x for x in sh if x["mine"]), None)
     import interest
@@ -8672,6 +8680,80 @@ def lineup_edit(eid):
     ctx["show_cancel"] = can_host_practice() and (row["status"] or "") == "published" and not ended
     ctx["show_delete"] = (not ended) and (can_host_practice() or (row["created_by"] == me()["id"] and (row["status"] or "") in ("draft", "declined", "changes_requested")))
     return page(T["lineup_edit"], tab="lineup_edit", action="/lineup/%d/edit" % eid, **ctx)
+def _anon_people(rows):
+    """Same count, no one in it: for the public event page, which never names athletes."""
+    out = []
+    for i, r in enumerate(rows or []):
+        item = {k: "" for k in (r.keys() if hasattr(r, "keys") else [])}
+        item.update({"id": -(i + 1), "first": "", "last": "", "preferred_first": "", "photo": "", "name": "", "initials": ""})
+        out.append(item)
+    return out
+def _guest_viewer():
+    """A stand-in for a visitor who isn't signed in: an ordinary participant with no id, so every page renders
+    the participant view and nothing of anyone's own (RSVPs, chats, unread) can match."""
+    cols = [r[1] for r in db().execute("PRAGMA table_info(members)")]
+    me_row = {c: None for c in cols}
+    me_row.update({"id": 0, "first": "Guest", "last": "", "role": "guest", "is_admin": 0, "joined": 1, "email": ""})
+    return me_row
+_PUBLIC_SHELL = """<style>
+nav.nav3,.nav3,#crestMenu,.tabs,.bottomnav{display:none !important}
+body{--rail-w:0px !important;padding-left:0 !important}
+.pubbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:8px;justify-content:flex-end;padding:10px 16px;background:var(--ink,#0B0B0C)}
+.pubbar a{display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:999px;background:var(--graphite,#24262A);color:var(--paper,#F6F4EF);font:700 13px/1 var(--font-sans,system-ui);text-decoration:none}
+.pubbar a.join{background:var(--lime,#C8FF3C);color:#0B0B0C}
+.pubbar .pubback{margin-right:auto}
+</style>
+<script>(function(){
+ var GATE=%s, BACK=%s;
+ function topGo(u){ try{ if(window.top!==window){ window.top.location.href=new URL(u, location.href).href; return; } }catch(e){} location.href=u; }
+ // Every tap on the page goes to joining or signing in, then back to this event. Only the bar's own links work.
+ function gate(e){
+  var t=e.target; if(!t||!t.closest) return;
+  if(t.closest('.pubbar')) return;
+  var hit=t.closest('a,button,[role=button],input,select,textarea,label,summary,.mpin,[data-open-dialog],[data-sheet]');
+  if(!hit) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  if(hit.closest('.rg-topbar') && hit.matches('.rg-tbdisc:first-child,.rg-tbtitle')){ location.href=BACK; return; }
+  topGo(GATE);
+ }
+ window.addEventListener('click', gate, true);
+ window.addEventListener('submit', function(e){ e.preventDefault(); e.stopImmediatePropagation(); topGo(GATE); }, true);
+ function report(){ try{ parent.postMessage({type:"regulars-widget",height:Math.ceil(document.documentElement.scrollHeight)},"*"); }catch(e){} }
+ window.addEventListener('load', report); window.addEventListener('resize', report); setTimeout(report, 600);
+})();</script>"""
+@app.route("/e/<ref>")
+def public_event_page(ref):
+    """The event page as a participant sees it, for anyone (the website embed opens it). Athletes are never
+    named; coaches are. Every action leads to joining or signing in and back here, then to the real page."""
+    m = re.fullmatch(r"([pe])-(\d+)", ref or "")
+    if not m: abort(404)
+    kind, rid = m.group(1), int(m.group(2))
+    d = db()
+    if me():
+        return redirect(("/practices/%d" % rid) if kind == "p" else ("/lineup/%d" % rid))
+    if kind == "p":
+        row = d.execute("SELECT id FROM practices WHERE id=? AND COALESCE(skipped,0)=0", (rid,)).fetchone()
+        gate, back = "/register?event=p-%d" % rid, "/widget"
+    else:
+        row = d.execute("SELECT id FROM lineup_events WHERE id=? AND status='published'", (rid,)).fetchone()
+        gate, back = "/join?next=/lineup/%d" % rid, "/widget"
+    if not row: abort(404)
+    g.me = _guest_viewer(); g.public_view = True
+    resp = practice_page.__wrapped__(rid) if kind == "p" else lineup_detail.__wrapped__(rid)
+    if not isinstance(resp, Response) or not resp.mimetype.startswith("text/html"): abort(404)
+    html = resp.get_data(as_text=True)
+    signin = "/login?next=" + urllib.parse.quote(gate if kind == "p" else "/lineup/%d" % rid, safe="/")
+    bar = ('<div class=pubbar><a href="%s" target=_top>Sign in</a>'
+           '<a class=join href="%s" target=_top>Join the team</a></div>') % (signin, gate if kind == "p" else "/join?next=/lineup/%d" % rid)
+    html = re.sub(r"(<body[^>]*>)", lambda mm: mm.group(1) + bar, html, count=1)
+    # No launch animation inside the website, and pictures come from the public image route.
+    html = html.replace("<head>", "<head><script>try{sessionStorage.setItem('grunionsBoot','1')}catch(e){}</script>", 1)
+    html = re.sub(r"/practice-image/(\d+)(\?v=[^\"' )]*)?", lambda mm: "/public-image/p/" + mm.group(1), html)
+    html = re.sub(r"/lineup-image/(\d+)(\?v=[^\"' )]*)?", lambda mm: "/public-image/e/" + mm.group(1), html)
+    html = html.replace("</body>", (_PUBLIC_SHELL % (json.dumps(gate), json.dumps(back))) + "</body>", 1)
+    out = Response(html, mimetype="text/html; charset=utf-8")
+    out.headers["Cache-Control"] = "no-store"
+    return out
 @app.route("/public-image/<kind>/<int:rid>")
 def public_event_image(kind, rid):
     """Banner for the public schedule: only for events the public schedule shows (upcoming practices and

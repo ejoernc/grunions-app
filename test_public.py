@@ -576,3 +576,25 @@ def test_home_hides_sport_chips_and_keeps_card_status():
     assert "id=sportFilters" not in home and 'aria-label="Sport"' not in home
     assert "Eligible to register" in home or "Going" in home
     assert "Water Polo" in home
+
+
+def test_public_event_page_hides_athletes_and_gates_actions():
+    import app as A
+    with A.app.app_context():
+        d = A.db()
+        pid = d.execute("SELECT id FROM practices ORDER BY id LIMIT 1").fetchone()
+        going = [r[0] for r in d.execute("""SELECT trim(COALESCE(NULLIF(m.preferred_first,''), m.first) || ' ' || m.last) FROM rsvps r JOIN members m ON m.id=r.member_id
+            WHERE r.practice_id=? AND r.going=1 AND trim(COALESCE(m.last,''))!=''""", (pid[0],))] if pid else []
+    if not pid:
+        return
+    guest = A.app.test_client()
+    page = guest.get("/e/p-%d" % pid[0])
+    assert page.status_code == 200
+    html = page.get_data(as_text=True)
+    assert "Join the team" in html and "/register?event=p-%d" % pid[0] in html and "frame-ancestors *" in page.headers.get("Content-Security-Policy", "")
+    coaches = set()
+    with A.app.app_context():
+        coaches = {r[0] for r in A.db().execute("""SELECT trim(COALESCE(NULLIF(m.preferred_first,''), m.first) || ' ' || m.last) FROM practice_coaches c JOIN members m ON m.id=c.member_id WHERE c.practice_id=?""", (pid[0],))}
+    for last in going:
+        if last not in coaches:
+            assert last not in html
