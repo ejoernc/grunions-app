@@ -131,10 +131,8 @@ def regular_public(data, programs):
         reg = regular_for(data, slug)
         if not reg["public"] or not reg["slots"]:
             continue
-        lines = []
-        for slot in reg["slots"]:
-            lines.append(" · ".join(x for x in (_days_label(slot["days"]), _span(slot), slot["venue"]) if x))
-        out.append({"sport": name, "lines": lines})
+        rows = [{"days": _days_label(slot["days"]), "time": _span(slot), "place": slot["venue"]} for slot in reg["slots"]]
+        out.append({"sport": name, "rows": rows})
     return out
 
 
@@ -1243,8 +1241,10 @@ def widget_document(payload, theme=None, preview=False):
     # Weekly schedule and Practice dues share one box; a segmented control switches between them.
     panes = []
     if payload.get("usual"):
+        # Same rows as Practice dues: day on the left, time on the right, the place under it. Grouped by sport.
         body = "".join('<div class=usualsport><span class=ek>%s</span>%s</div>' % (
-            e(group.get("sport") or ""), "".join('<p class=usual>%s</p>' % e(line) for line in group.get("lines") or [])) for group in payload["usual"])
+            e(group.get("sport") or ""), "".join('<div class=due><div class=duetop><b>%s</b><span class=dueprice>%s</span></div>%s</div>' % (
+                e(r["days"]), e(r["time"]), ('<p>%s</p>' % e(r["place"])) if r.get("place") else "") for r in group.get("rows") or [])) for group in payload["usual"])
         panes.append(("weekly", "Weekly schedule", body))
     if payload.get("dues"):
         body = "".join('<div class=due><div class=duetop><b>%s</b><span class=dueprice>%s<small>%s</small></span></div><p>%s</p></div>' % (
@@ -1320,7 +1320,8 @@ main{width:100%%}
 .due p.duemuted{color:var(--smoke)}
 .usualhead{margin:0 0 8px;font:700 18px/1.1 var(--font-display);letter-spacing:-.02em}
 .usualsport{margin:0 0 10px}
-.usualsport .ek{display:block;margin:0 0 4px;color:var(--smoke)}
+.usualsport .ek{display:block;margin:0 0 10px;color:var(--smoke)}
+.usualsport .dueprice{font-size:18px}
 .usualsport .usual{color:var(--paper);font-size:14px}
 .usual{margin:0 0 4px;color:var(--smoke);font:600 13px/1.35 var(--font-sans)}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
