@@ -741,7 +741,7 @@ pushsub(eli, "https://push.example/eli"); pushsub(john, "https://push.example/jo
 pushes = []; emails = []
 A.send_push = lambda sub, payload: pushes.append((sub["member_id"], payload))
 A.smtp_ready = lambda: True
-A.send_email = lambda to, subj, text, html=None: emails.append((to, subj, text))
+A.send_email = lambda to, subj, text, html=None, ics=None, sender=None: emails.append((to, subj, text))
 D.execute("UPDATE members SET role='coach', is_admin=0 WHERE email='john@example.com'"); D.commit()
 jane.post("/notifications", data={"csrf": csrf(jane, "/notifications"), "email_reminders": "1", "push": keep + ["team_chat"]})
 eli.post("/api/messages", json={"body": "See you at the pool"}, headers={"X-CSRF": csrf(eli, "/chat")})
@@ -828,7 +828,7 @@ def _make_due(email):
 keeper = A.send_email
 state = {"retry": 0, "cap": 0}
 sent_retry = []
-def flaky(to, subj, text, html=None):
+def flaky(to, subj, text, html=None, ics=None, sender=None):
     if to == "retry.notice@example.com":
         state["retry"] += 1
         if state["retry"] < 3: raise RuntimeError("Connection unexpectedly closed")

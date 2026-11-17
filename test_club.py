@@ -786,7 +786,7 @@ def test_practice_reminders_stay_off_and_use_the_branded_mail():
     assert "Practice reminders" in settings and 'value="both"' in settings and "checked" in settings
     sent = []
     real_send, real_ready = A.send_email, A.smtp_ready
-    A.send_email = lambda to, subj, text, html=None: sent.append((to, subj, text, html))
+    A.send_email = lambda to, subj, text, html=None, ics=None, sender=None: sent.append((to, subj, text, html))
     A.smtp_ready = lambda: True
     start = __import__("datetime").datetime.fromisoformat(day + "T19:00")
     try:
@@ -824,7 +824,7 @@ def test_practice_reminders_stay_off_and_use_the_branded_mail():
         d.execute("DELETE FROM sent_notices WHERE kind LIKE 'email:practice_%'")
         d.commit()
     sent.clear()
-    A.send_email = lambda to, subj, text, html=None: sent.append((to, subj, text, html))
+    A.send_email = lambda to, subj, text, html=None, ics=None, sender=None: sent.append((to, subj, text, html))
     A.smtp_ready = lambda: True
     try:
         nd = A.open_db()
