@@ -2712,7 +2712,7 @@ TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and not (nav_kind 
 <a class="crestout" href="/logout">Log out</a>
 </dialog>{% endif %}
 <script>
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=121');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=122');
 /* Seen it: close notifications for the page you're on (a chat, a practice). Runs on open and when the app comes back. */
 window.grunionsClearNotes=function(match){
  try{ if(!('serviceWorker' in navigator)) return;

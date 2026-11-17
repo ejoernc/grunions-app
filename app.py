@@ -12990,7 +12990,7 @@ self.addEventListener('push', function(event) {
       } catch (e) {}
     }
     return self.registration.showNotification(data.title || 'Regulars', {
-      body: data.body || '', icon: '/static/icons/icon-192.png?v=120', badge: '/static/icons/icon-192.png?v=120',
+      body: data.body || '', icon: '/static/icons/icon-192.png?v=120', badge: '/static/icons/badge-96.png?v=1',
       tag: target, renotify: true, data: {url: target}
     });
   })];
