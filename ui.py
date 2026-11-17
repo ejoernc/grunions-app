@@ -5701,7 +5701,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 </div></dialog>
 <div id=photoDragCard class=dropcard hidden><div class="attachdrop over"><span class=attachico><img src="/static/nav/attach-upload.svg" width="24" height="24" alt=""></span><b>Drop to add</b><p class=attachcount id=photoDragCount>1 image</p></div></div>
 <div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
-<div class=profilerow><span class=rolechip>{{ role_label(m)|capitalize }}</span><p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p></div>
+
 <div class=metrics><div class="metric sun"><b>{{ '%02d'|format(hist|length) }}</b><span>Attended</span></div><div class="metric sky"><b>{{ '%02d'|format(nmonth or 0) }}</b><span>This month</span></div></div>
 
 </div>
@@ -6168,7 +6168,6 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 <span class="avatar hero">{% if m.photo %}<img src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="" width="112" height="112">{% else %}{{ initials(m) }}{% endif %}</span>
 </div>
 <div class=profilename>{{ display_first(m) }} {{ m.last }}</div>
-<p class=profilesub>{{ hist|length }} practice{{ '' if hist|length == 1 else 's' }} attended{% if nmonth %} · {{ nmonth }} this month{% endif %}</p>
 <div class=stats><div class=stattile><b>{{ hist|length }}</b><span>Attended</span></div><div class=stattile><b>{{ nmonth }}</b><span>This month</span></div></div>
 </div>
 {{ memhead(m) }}

@@ -1731,3 +1731,6 @@ html body dialog.botsheet:not(.profmenu):not(.pickpeople):not(.attachsheet):not(
 html body .cheadname small{white-space:normal;overflow:visible;text-overflow:clip;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 
 .rg-btn.ghost.rg-danger-text{color:var(--team-cherry,#FF3D57)}
+
+/* Profile: tiles sit under the name now that the role/attendance line is gone. */
+html body .profilename+.metrics,html body .profilename+.stats{margin-top:20px}
