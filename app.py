@@ -3996,6 +3996,18 @@ def _inbox_role_sections(d, m):
         n = _open_scoped(d, m, "coaches", sport["slug"])
         coach_rows.append(_chat_row("/chat?c=requests&sport=%s" % escape(sport["slug"]), "R", "%s requests" % sport["name"],
                                     "%d open" % n if n else "No open requests — nice.", "", n, "sun", False))
+    if is_club_admin(m):
+        # Admins and the board see every sport's coaches chat with its unread badge. They aren't notified.
+        shown = {coach_channel(d, sp["slug"]) for sp in assigned}
+        if not assigned and is_active_coach(m): shown.add(coach_channel(d, legacy_coach_slug(d)))
+        for sport in club_sports(d):
+            ch = coach_channel(d, sport["slug"])
+            if ch in shown or not chat_enabled(d, ch) or not coach_room_members(d, sport["slug"]):
+                continue
+            shown.add(ch)
+            preview, when = channel_preview(d, ch)
+            coach_rows.append(_chat_row("/chat?c=%s" % ch, "C", "%s coaches" % sport["name"], preview or "Coaches chat · you can view it", when,
+                                        chat_unread_n(d, m["id"], ch), "sky", chat_muted(d, m["id"], ch)))
     parts.append(_section("Coaches", coach_rows))
     admin_rows = []
     if is_board(m) and chat_enabled(d, "board"):
@@ -12493,8 +12505,6 @@ def notify_chat(d, channel, sender, body, has_image):
         title, line = who, text
     elif ch == "team":
         title, line = "#everyone", "%s: %s" % (who, text)
-    elif ch == "coaches":
-        title, line = "Coaches chat", "%s: %s" % (who, text)
     else:
         try: title = _plain_chat_title(_thread_title(d, sender, ch)) or "Chat"
         except Exception: title = "Chat"

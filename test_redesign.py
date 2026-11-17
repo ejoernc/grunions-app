@@ -499,7 +499,7 @@ def test_leaders_board_roles_assign_replace_and_requests_switch():
     assert "Staff." in page and "/manage/club/leaders/board" in page
     tok = csrf(boss, "/manage/club/leaders/board")
     boss.post("/manage/club/leaders/board", data=dict(csrf=tok, action="add_role", name="Treasurer"))
-    rid = sql("SELECT id FROM leadership_roles WHERE program_id IS NULL AND name='Treasurer'")[0][0]
+    rid = sql("SELECT MAX(id) FROM leadership_roles WHERE program_id IS NULL AND name LIKE 'Treasurer%'")[0][0]  # numbered if one exists
     boss.post("/manage/club/leaders/board", data=dict(csrf=tok, action="assign", role_id=rid, person=RAE))
     assert sql("SELECT board_member FROM members WHERE id=?", (RAE,))[0][0] == 1
     page = boss.get("/manage/club/leaders/board").get_data(as_text=True)
