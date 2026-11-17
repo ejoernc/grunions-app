@@ -262,3 +262,20 @@ def test_chat_list_line_shows_active_poll_until_it_closes():
         d.commit()
         line, _when = A.channel_preview(d, "coaches")
         assert "Active Poll" not in line and line.endswith("Line test")
+
+
+def test_poll_email_has_answer_button_and_push_opens_the_poll():
+    html_sent, pushes = [], []
+    A.send_email = lambda to, subject, text, html=None, ics=None: (SENT.append((to, subject, text)), html_sent.append(html))
+    real_push = A.push_member
+    A.push_member = lambda d, m, kind, title, line, url: pushes.append(url)
+    try:
+        admin = _as(ADMIN)
+        _new_poll(admin, title="Button poll", ends_at="2099-01-01T18:00")
+        p = _latest_poll()
+        assert html_sent and all(h and "Answer the poll" in h and "/polls/%d" % p["id"] in h and "Turn off poll emails" in h for h in html_sent)
+        assert "Jan 1, 6 PM" in html_sent[0]
+        assert pushes and all(u == "/polls/%d" % p["id"] for u in pushes)
+    finally:
+        A.push_member = real_push
+        A.send_email = lambda to, subject, text, html=None, ics=None: SENT.append((to, subject, text))

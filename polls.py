@@ -9,6 +9,17 @@ MAX_QUESTIONS = 10
 MAX_OPTIONS = 12
 
 
+def when_label(iso):
+    """'Nov 20, 6 PM' for an end time; '' if it can't be read."""
+    try:
+        e = dt.datetime.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return ""
+    hour = e.hour % 12 or 12
+    clock = ("%d %s" % (hour, "AM" if e.hour < 12 else "PM")) if e.minute == 0 else ("%d:%02d %s" % (hour, e.minute, "AM" if e.hour < 12 else "PM"))
+    return "%s %d, %s" % (e.strftime("%b"), e.day, clock)
+
+
 def enabled(ch):
     """Where polls are available: #everyone, club channels, practice chats, the board chat and coaches chats.
     Not personal messages, personal groups, requests or ask threads."""
@@ -208,15 +219,7 @@ def summary(d, p, viewer_id, now, name_of, can_end=False):
                          "who": [] if p["anonymous"] else [name_of(i) for i in ids]})
         out_q.append({"id": q["id"], "text": q["text"], "multi": q["multi"], "options": opts})
     closed = is_closed(p, now)
-    ends = ""
-    if p["ends_at"] and not closed:
-        try:
-            e = dt.datetime.fromisoformat(p["ends_at"])
-            hour = e.hour % 12 or 12
-            clock = ("%d %s" % (hour, "AM" if e.hour < 12 else "PM")) if e.minute == 0 else ("%d:%02d %s" % (hour, e.minute, "AM" if e.hour < 12 else "PM"))
-            ends = "Ends %s %d, %s" % (e.strftime("%b"), e.day, clock)
-        except ValueError:
-            ends = ""
+    ends = ("Ends " + when_label(p["ends_at"])) if p["ends_at"] and not closed and when_label(p["ends_at"]) else ""
     return {"id": p["id"], "title": p["title"], "anonymous": bool(p["anonymous"]), "closed": closed, "ends": ends,
             "voters": voters, "voted": bool(mine), "questions": out_q, "can_end": bool(can_end and not closed), "can_edit": bool(can_end),
             "allow_add": bool(p["allow_add"]) if "allow_add" in p.keys() else False,

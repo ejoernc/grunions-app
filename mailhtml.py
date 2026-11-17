@@ -324,3 +324,10 @@ def preview_catalog(base, org=ORG_NAME):
             out.append(("11.%02d" % n, head, expiry_html(base, "Eli", head, line, home, org, expiry_eyebrow(kind), left)))
             n += 1
     return out
+
+
+def poll_html(base, first, who, where, title, rows, url, unsub, org=ORG_NAME):
+    """New poll in a chat. Emails 2.0 layout; the button opens the poll's vote page."""
+    return render_v2(base, "lime", "NEW POLL", "Poll", title, first,
+                     ["%s posted a poll in %s." % (who, where)], org=org, rows=rows, cta=("Answer the poll", url),
+                     fallback=url, footer_link=("Turn off poll emails", unsub), preheader="%s posted a poll: %s" % (who, title))

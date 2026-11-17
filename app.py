@@ -4831,14 +4831,14 @@ def _own_board(rows, ch):
         return rows
     mid = me()["id"]
     return [r for r in rows if r["member_id"] == mid]
-def _notify_chat_later(ch, sender, body, has_image):
+def _notify_chat_later(ch, sender, body, has_image, url=None):
     import threading
     sender = dict(sender) if sender is not None else None
     def run():
         try:
             with app.app_context():
                 d2 = open_db()
-                try: notify_chat(d2, ch, d2.execute("SELECT * FROM members WHERE id=?", (sender["id"],)).fetchone(), body, has_image); d2.commit()
+                try: notify_chat(d2, ch, d2.execute("SELECT * FROM members WHERE id=?", (sender["id"],)).fetchone(), body, has_image, url); d2.commit()
                 finally: d2.close()
         except Exception as e:
             app.logger.warning("chat push failed: %s", e)
@@ -4908,7 +4908,8 @@ def api_messages():
         if draft:
             _poll_emails_later(ch, draft["id"], me())
         mark_chat_read(d, me()["id"], ch)
-        _notify_chat_later(ch, me(), body, bool(image))  # pushes go out after the reply, so sending feels instant
+        # A poll's push opens the poll to vote; other messages open the chat.
+        _notify_chat_later(ch, me(), body, bool(image), "/polls/%d" % draft["id"] if draft else None)  # pushes go out after the reply, so sending feels instant
         return jsonify(ok=True)
     mark_chat_read(d, me()["id"], ch)
     info = latest_seen(d, ch)
@@ -12569,7 +12570,7 @@ def chat_push_recipients(d, channel, sender_id):
         except ValueError: row = None
         return [m for m in d.execute(base, (sender_id,)) if row and _request_visible(row, m)] if row else []
     return []  # coach:<sport>, ask:… and anything new: no push until its audience is defined
-def notify_chat(d, channel, sender, body, has_image):
+def notify_chat(d, channel, sender, body, has_image, url=None):
     ch = channel or "team"
     kind = "coaches_chat" if (ch == "coaches" or ch.startswith("coach:")) else "team_chat"
     text = (body or "").strip()
@@ -12585,7 +12586,7 @@ def notify_chat(d, channel, sender, body, has_image):
         try: title = _plain_chat_title(_thread_title(d, sender, ch)) or "Chat"
         except Exception: title = "Chat"
         line = "%s: %s" % (who, text)
-    url = "/chat?c=" + ch
+    url = url or ("/chat?c=" + ch)
     try: left = {r[0] for r in d.execute("SELECT member_id FROM chat_hidden WHERE channel=? AND reason='leave'", (ch,))}
     except Exception: left = set()
     watching = chat_viewers(d, ch)  # already looking at this chat: no notification
@@ -13099,12 +13100,17 @@ def send_poll_emails(d, ch, p, sender, base=None):
     who = "%s %s." % (display_first(sender), (sender["last"] or "")[:1])
     where = _thread_title(d, sender, ch)
     subject = "New poll in %s: %s" % (where, p["title"])
-    text = "%s posted a poll in %s.\n\n%s\n\n%s\n\nVote: %s\n\nTurn poll emails off: %s/notifications" % (
+    text = "%s posted a poll in %s.\n\n%s\n\n%s\n\nAnswer the poll: %s\n\nTurn poll emails off: %s/notifications" % (
         who, where, p["title"], "\n".join(lines), link, base)
+    rows = [("PICK ANY" if q["multi"] else "PICK ONE", q["text"]) for q in qs]
+    if p["ends_at"]:
+        if polls.when_label(p["ends_at"]): rows.append(("CLOSES", polls.when_label(p["ends_at"])))
     for m in chat_push_recipients(d, ch, sender["id"]):
         if not m["email"] or ("poll_email" in m.keys() and m["poll_email"] == 0): continue
         try:
-            send_email(m["email"], subject, text)
+            html = mailhtml.poll_html(base, display_first(m), who, _plain_chat_title(where) or "the chat", p["title"], rows, link,
+                                      base + "/notifications", org_name())
+            send_email(m["email"], subject, text, html=html)
         except Exception as exc:
             app.logger.warning("poll email to member %s failed: %s", m["id"], exc)
 @app.route("/polls/new", methods=["GET", "POST"])
