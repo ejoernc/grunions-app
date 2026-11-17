@@ -97,7 +97,9 @@ def overview(d, programs):
     board = roles(d)
     held = [r for r in board if not r["open"]]
     names = [r["role"] for r in board if r["role_id"]]
-    out = {"board": {"sub": ("%s · %d of %d filled" % (", ".join(dict.fromkeys(names)), len({r["role_id"] for r in held if r["role_id"]}), len({r["role_id"] for r in board if r["role_id"]})))
+    n_pos = len({r["role_id"] for r in board if r["role_id"]})
+    n_filled = len({r["role_id"] for r in held if r["role_id"]})
+    out = {"board": {"sub": ("%d board position%s · %d filled" % (n_pos, "" if n_pos == 1 else "s", n_filled))
                      if names else ("%d on the board · no titles yet" % len(held) if held else "No roles yet"),
                      "chat": bool(board_people(d)) and chat_on(d, "board"), "requests": board_requests_on(d) and bool(board_people(d)), "count": len({r["role_id"] for r in board if r["role_id"]})},
            "sports": []}
