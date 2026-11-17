@@ -8385,6 +8385,7 @@ T["website"] = ADMIN_NAV + """<div class="rg-screen rg-website">
 <div class=rg-stack8>
 {{ rg_settings_row('Tabs', tabs_label, '#', 'data-open-dialog=tabsSheet', 'tabs') }}
 {{ rg_settings_row('Opens on', opens_label, '#', 'data-open-dialog=opensSheet', 'opens') }}
+{{ rg_settings_row('Color', accent_label, '#', 'data-open-dialog=colorSheet', 'accent') }}
 {{ rg_settings_row('Message', ((w.message_title or w.message)[:28] ~ ('…' if (w.message_title or w.message)|length > 28 else '')) if (w.message_title or w.message) else 'None', '#', 'data-open-dialog=msgSheet') }}
 <form method=post action="/manage/widget" data-autosave class=rg-stack8>{{ csrf_field() }}
 {{ rg_toggle('include_schedule', 'Practices', 'Upcoming practices, scrimmages, and games', w.include_schedule) }}
@@ -8421,6 +8422,11 @@ T["website"] = ADMIN_NAV + """<div class="rg-screen rg-website">
 <dialog id=opensSheet class="botsheet modal"><form method=post action="/manage/widget" data-autosave class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
 <h2>Opens on.</h2><p class=ty-muted>The tab visitors see first.</p>
 {% for slug, label in chip_choices if slug in w.chips %}{{ rg_choice('default_chip', slug, label, '', w.default_chip == slug) }}{% endfor %}
+<button type=button class="rg-btn primary" onclick="this.closest('dialog').close()">Done</button>
+</form></dialog>
+<dialog id=colorSheet class="botsheet modal"><form method=post action="/manage/widget" data-autosave class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div>
+<h2>Color.</h2><p class=ty-muted>Buttons, tabs, and the logo on your website schedule. Pick one that matches your site.</p>
+{{ rg_color_dots('accent', w.accent or 'lime', 'Color') }}
 <button type=button class="rg-btn primary" onclick="this.closest('dialog').close()">Done</button>
 </form></dialog>
 <dialog id=embedSheet class="botsheet modal" data-sheet-name=embed><div class=sheet><div class=grab aria-hidden=true></div>

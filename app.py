@@ -8069,6 +8069,9 @@ def _widget_autosave(d):
         w["chips"] = chosen
         if w.get("default_chip") not in chosen:
             w["default_chip"] = "all"
+    elif field == "accent":
+        pick = (request.form.get("accent") or "lime").strip().lower()
+        w["accent"] = pick if pick in publicfeed.ACCENT_HEX else "lime"
     elif field == "default_chip":
         pick = request.form.get("default_chip") or "all"
         w["default_chip"] = pick if pick in (w.get("chips") or ["all"]) else "all"
@@ -8078,7 +8081,8 @@ def _widget_autosave(d):
     d.commit()
     labels = dict(publicfeed.CHIPS)
     return jsonify(ok=True, toast=("Published" if field == "widget_on" and w["enabled"] else "Unpublished" if field == "widget_on" else "Saved"),
-                   reload=field == "widget_on", set={"tabs": _tabs_label(w), "opens": labels.get(w.get("default_chip"), "All")})
+                   reload=field == "widget_on", set={"tabs": _tabs_label(w), "opens": labels.get(w.get("default_chip"), "All"),
+                        "accent": dict(components.EVENT_COLORS).get(w.get("accent") or "lime", "Lime")})
 
 
 def _tabs_label(w):
@@ -8116,7 +8120,7 @@ def manage_widget():
         try:
             parsed = publicfeed.parse_widget(request.form)
             old = (publicfeed.load(d).get("widget") or {})
-            for key in ("message_title", "message", "show_weekly"):
+            for key in ("message_title", "message", "show_weekly", "accent"):
                 if key in old and key not in request.form: parsed[key] = old[key]
             if "hide_past" in old:
                 parsed["hide_past"] = old["hide_past"]
@@ -8140,7 +8144,7 @@ def manage_widget():
                        "tone": "graphite" if item.get("cancelled") else tones.get(kind) or tones.get(item.get("chip"), "sun")})
     host = (urllib.parse.urlparse(publicfeed.WIDGET_URL).netloc or "").strip() or "your website"
     return page(ui.T["website"], tab="admin", w=w, events=events, host=host, changed=_changed_label(d),
-        chip_choices=publicfeed.CHIPS, tabs_label=_tabs_label(w), opens_label=dict(publicfeed.CHIPS).get(w.get("default_chip"), "All"),
+        chip_choices=publicfeed.CHIPS, tabs_label=_tabs_label(w), accent_label=dict(components.EVENT_COLORS).get(w.get("accent") or "lime", "Lime"), opens_label=dict(publicfeed.CHIPS).get(w.get("default_chip"), "All"),
         embed=publicfeed.embed_snippet(), platforms=WIDGET_PLATFORMS, platform_steps=WIDGET_STEPS, share_url=public_schedule_url())
 # ---- Email (Figma 62 · E1–E5) -------------------------------------------------------------
 def _email_practices(d):
@@ -8781,6 +8785,9 @@ def public_event_page(ref):
     html = re.sub(r"/practice-image/(\d+)(\?v=[^\"' )]*)?", lambda mm: "/public-image/p/" + mm.group(1), html)
     html = re.sub(r"/lineup-image/(\d+)(\?v=[^\"' )]*)?", lambda mm: "/public-image/e/" + mm.group(1), html)
     html = html.replace("</body>", (_PUBLIC_SHELL % (json.dumps(gate), json.dumps(back))) + "</body>", 1)
+    accent = publicfeed.accent_hex(publicfeed.load(d).get("widget"))
+    if accent != publicfeed.ACCENT_HEX["lime"]:
+        html = html.replace("</body>", "<style>:root,html body{--lime:%s;--color-lime:%s;--accent-text:%s;--team-lime:%s}</style></body>" % ((accent,) * 4), 1)
     out = Response(html, mimetype="text/html; charset=utf-8")
     out.headers["Cache-Control"] = "no-store"
     return out

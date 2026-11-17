@@ -735,8 +735,17 @@ def widget_blank():
         "chips": [slug for slug, _label in CHIPS], "default_chip": "all",
         "show_pricing": True, "show_trial": True, "show_counts": False,
         "hide_past": True, "limit": 4, "include_schedule": True, "show_weekly": True,
-        "message_title": "", "message": "",
+        "message_title": "", "message": "", "accent": "lime",
     }
+
+
+# Widget color: the same team palette as Event color. Lime is the app default.
+ACCENT_HEX = {"sun": "#FFC61A", "sky": "#7CC8F4", "tangerine": "#FF5A1F", "lime": "#C8FF3C", "aqua": "#2EE6C8",
+              "cobalt": "#4F7BFF", "bubblegum": "#FF5FB8", "cherry": "#FF3D57", "lavender": "#A89CFF"}
+
+
+def accent_hex(widget):
+    return ACCENT_HEX.get((widget or {}).get("accent") or "lime", ACCENT_HEX["lime"])
 
 
 def parse_widget(form):
@@ -956,6 +965,7 @@ def build_feed(d, data, practice_title, now, org, event_limit=None):
         "usual": regular_public(data, programs) if widget.get("show_weekly", True) else [],
         "org": org,
         "theme": widget.get("theme") if widget.get("theme") in ("night", "day") else "night",
+        "accent": accent_hex(widget),
         "visitor_theme": bool(widget.get("visitor_theme")),
         "chips": chips,
         "default_chip": widget.get("default_chip") if widget.get("default_chip") in chips else "all",
@@ -1144,6 +1154,7 @@ def embed_snippet(base=None):
     ) % WIDGET_URL
 
 
+_LOGO_PATH = 'M120.956 134.227C121.459 134.224 121.964 134.221 122.467 134.217C123.814 134.211 125.163 134.214 126.51 134.221C127.931 134.224 129.352 134.221 130.772 134.217C133.153 134.214 135.531 134.217 137.912 134.227C140.656 134.233 143.401 134.23 146.146 134.224C148.517 134.214 150.885 134.214 153.253 134.217C154.661 134.221 156.072 134.221 157.48 134.217C158.804 134.211 160.128 134.214 161.452 134.224C161.935 134.227 162.419 134.224 162.902 134.221C165.714 134.204 168.047 134.388 170.421 136.047C171.884 137.507 172.448 139.027 172.477 141.079C172.483 141.382 172.493 141.685 172.502 141.998C171.997 145.86 169.738 149.395 167.966 152.8C167.686 153.335 167.409 153.873 167.132 154.411C165.627 157.326 164.104 160.229 162.576 163.128C161.346 165.461 160.141 167.803 158.939 170.145C158.314 171.366 157.686 172.581 157.061 173.799C156.939 174.043 156.813 174.285 156.684 174.536C155.012 177.79 153.324 181.038 151.639 184.282C151.072 185.377 150.502 186.476 149.935 187.571C149.745 187.942 149.551 188.312 149.355 188.692C148.971 189.427 148.591 190.161 148.211 190.899C147.332 192.597 146.446 194.295 145.544 195.983C145.383 196.289 145.221 196.592 145.054 196.907C144.754 197.468 144.455 198.025 144.152 198.583C143.269 200.245 142.605 201.898 142.071 203.702C145.315 200.119 148.285 196.35 151.194 192.497C151.7 191.827 152.212 191.163 152.725 190.5C155.421 186.956 157.87 183.257 160.315 179.539C160.482 179.282 160.65 179.027 160.824 178.763C164.194 173.631 167.547 168.486 170.582 163.148C170.785 162.797 170.985 162.445 171.194 162.085C172.161 160.4 173.118 158.708 174.075 157.017C180.176 146.228 187.109 138.592 199.345 135.036C203.169 134.043 207.132 134.259 211.053 134.275C211.929 134.272 212.805 134.272 213.678 134.269C215.798 134.266 217.918 134.266 220.041 134.272C222.512 134.275 224.983 134.275 227.457 134.275C231.868 134.272 236.278 134.279 240.692 134.285C244.967 134.291 249.242 134.295 253.517 134.291C258.182 134.288 262.847 134.288 267.515 134.291C268.011 134.291 268.511 134.295 269.007 134.295C269.129 134.295 269.129 134.295 269.748 134.295C271.471 134.295 273.192 134.295 274.915 134.295C277.012 134.291 279.107 134.295 281.204 134.301C282.273 134.304 283.343 134.304 284.413 134.304C285.572 134.301 286.732 134.304 287.892 134.311C288.06 134.311 288.06 134.311 288.91 134.304C291.146 134.324 292.992 134.581 294.854 135.922C296.729 137.874 297.093 139.443 297.18 142.114C296.735 145.174 294.947 147.945 293.488 150.625C293.272 151.025 293.053 151.427 292.837 151.83C292.196 153.012 291.555 154.195 290.911 155.377C290.579 155.989 290.247 156.601 289.915 157.213C288.965 158.966 288.005 160.715 287.045 162.465C286.945 162.645 286.945 162.645 286.445 163.557C285.038 166.121 283.62 168.683 282.203 171.244C281.9 171.791 281.597 172.339 281.294 172.887C277.296 180.126 277.296 180.126 275.125 182.761C274.912 183.029 274.703 183.296 274.484 183.57C269.925 189.014 263.137 192.126 256.117 192.748C254.973 192.79 253.833 192.79 252.686 192.79C252.351 192.79 252.013 192.79 251.665 192.79C250.534 192.793 249.406 192.793 248.279 192.793C247.467 192.793 246.655 192.797 245.846 192.797C244.1 192.8 242.354 192.8 240.608 192.803C237.844 192.803 235.076 192.809 232.312 192.816C231.365 192.816 230.415 192.819 229.467 192.822C229.229 192.822 228.994 192.822 228.749 192.822C226.053 192.829 223.359 192.832 220.663 192.838C220.54 192.838 220.54 192.838 219.915 192.838C215.937 192.848 211.958 192.851 207.979 192.851C203.881 192.855 199.783 192.864 195.689 192.874C193.166 192.88 190.647 192.884 188.127 192.884C186.188 192.88 184.248 192.887 182.309 192.896C181.52 192.896 180.73 192.896 179.944 192.896C166.085 192.858 154.403 197.326 144.497 207.075C143.52 208.051 142.625 209.079 141.749 210.145C141.12 210.886 140.489 211.621 139.857 212.358C139.69 212.555 139.522 212.751 139.348 212.951C133.907 219.291 128.16 224.527 119.519 225.609C116.082 225.835 112.628 225.786 109.181 225.77C107.834 225.767 106.488 225.767 105.138 225.77C102.879 225.77 100.621 225.767 98.3626 225.757C95.7563 225.751 93.1532 225.751 90.5501 225.754C88.0308 225.757 85.5115 225.754 82.9921 225.751C81.9258 225.748 80.8594 225.748 79.793 225.751C78.5366 225.751 77.2802 225.748 76.0237 225.741C75.5662 225.738 75.1088 225.738 74.6513 225.741C70.824 225.754 67.6217 225.425 64.7512 222.71C63.2531 220.893 62.7119 218.985 62.8375 216.669C63.3304 213.183 65.2956 209.932 66.8614 206.827C67.0643 206.427 67.2641 206.025 67.4638 205.625C67.9889 204.575 68.5173 203.531 69.0424 202.484C69.5708 201.434 70.0991 200.384 70.6242 199.33C71.4329 197.722 72.2383 196.115 73.0469 194.507C74.7254 191.17 76.3942 187.826 78.063 184.481C78.7525 183.099 79.4419 181.717 80.1313 180.335C80.4825 179.633 80.8336 178.927 81.1848 178.222C83.0115 174.549 84.8542 170.886 86.7808 167.262C88.3079 164.375 89.7576 161.447 91.2106 158.518C99.2969 142.214 99.2969 142.214 107.599 137.336C107.821 137.201 108.04 137.065 108.269 136.924C112.158 134.739 116.584 134.195 120.956 134.227Z'
 _CLOCK = '<svg class=nxglyph width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg>'
 _PIN = '<svg class=nxglyph width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,64a40,40,0,1,0,40,40A40,40,0,0,0,128,64Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,128Zm0-112a88.1,88.1,0,0,0-88,88c0,31.4,14.51,64.68,42,96.25a254.19,254.19,0,0,0,41.45,38.3,8,8,0,0,0,9.18,0A254.19,254.19,0,0,0,174,200.25c27.45-31.57,42-64.85,42-96.25A88.1,88.1,0,0,0,128,16Zm0,206c-16.53-13-72-60.75-72-118a72,72,0,0,1,144,0C200,161.23,144.53,209,128,222Z"/></svg>'
 _PEOPLE = '<svg class=nxglyph width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.7a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,37.71A8,8,0,0,1,250.14,206.7Z"/></svg>'
@@ -1300,7 +1311,7 @@ html.preview,html.preview body{overflow:hidden}
 body{font:400 16px/1.5 var(--font-sans);padding:0 0 16px}
 #browse{padding:20px 20px 4px}
 header.brandbar{display:flex;align-items:center;gap:14px;margin:0 0 14px}
-.brand img{width:44px;height:44px;border-radius:12px;flex:none}
+.brand img,.brand svg.logo{width:44px;height:44px;border-radius:12px;flex:none}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
 .brand p{margin:0;color:var(--smoke);font:700 11px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase}
 h1,.nxtitle{font-family:var(--font-display)}
@@ -1399,7 +1410,7 @@ header.profilebar .authlinks{display:flex}
 @media (max-width:560px){
 header.brandbar{flex-wrap:wrap;gap:12px}
 header.brandbar .brand{flex:1 1 100%%;min-width:0;gap:10px}
-.brand img{width:36px;height:36px;border-radius:10px}
+.brand img,.brand svg.logo{width:36px;height:36px;border-radius:10px}
 .brand h1{font-size:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header.brandbar .authlinks{display:grid;grid-template-columns:1fr 1fr;width:100%%;margin-left:0}
 header.brandbar .authlinks a{justify-content:center;height:44px;font-size:15px}
@@ -1423,7 +1434,7 @@ header.brandbar .authlinks a{justify-content:center;height:44px;font-size:15px}
 :focus-visible{outline:2px solid var(--lime);outline-offset:2px}
 </style></head><body>
 <div id=browse>
-<header class=brandbar><div class=brand><img src="/static/icons/icon-192.png?v=120" alt="" width="44" height="44"><div>%s<h1>%s</h1></div></div><nav class=authlinks aria-label="Account"><a href="/login" target=_top>Sign in</a><a class=join href="%s" target=_top>%s</a></nav></header>
+<header class=brandbar><div class=brand><svg class=logo viewBox="0 0 360 360" width="44" height="44" aria-hidden="true"><rect width="360" height="360" rx="82" fill="#0B0B0C"/><path fill="var(--lime)" d="LOGOPATH"/></svg><div>%s<h1>%s</h1></div></div><nav class=authlinks aria-label="Account"><a href="/login" target=_top>Sign in</a><a class=join href="%s" target=_top>%s</a></nav></header>
 <div class=chips role=tablist aria-label="Categories">%s</div>
 <main>%s
 <div id=loading class=state role=status><span class=spin aria-hidden=true></span><p>Loading the schedule</p></div>
@@ -1565,6 +1576,10 @@ header.brandbar .authlinks a{justify-content:center;height:44px;font-size:15px}
         "preview" if preview else "", e(org), ("<p>%s</p>" % e(payload["kicker"])) if payload.get("kicker") and payload.get("kicker") != (payload.get("club_title") or org) else "", e(payload.get("club_title") or org),
         e(join_href), e(payload.get("join_label") or "Join the team"), chip_buttons(), "".join(offer_bits), cards(), event_blob,
     )
+    accent = payload.get("accent") or ACCENT_HEX["lime"]
+    if accent != ACCENT_HEX["lime"]:
+        html = html.replace("</head>", "<style>:root{--lime:%s}</style></head>" % accent, 1)
+    html = html.replace("LOGOPATH", _LOGO_PATH)
     return html.replace("CLOCK", _CLOCK).replace("PIN", _PIN).replace("PEOPLE", _PEOPLE)
 
 
