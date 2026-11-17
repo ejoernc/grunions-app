@@ -9010,7 +9010,9 @@ def roster_sets(d, rows=None):
     referees = {r[0] for r in d.execute("SELECT member_id FROM referee_list")}
     coach_ids = {r["id"] for r in rows if coach_eligibility(d, r)["eligible"]}
     ref_ids = {r["id"] for r in rows if referee_eligibility(d, r)["eligible"]}
-    coaches = {r["id"] for r in rows if (r["role"] or "") == "coach" or r["id"] in listed or r["id"] in coach_ids}
+    # Coaches = people whose Coach switch is on. Being eligible (credentials done) or on the old coaching list
+    # doesn't put someone on the Coaches list; turning Coach off takes them off it.
+    coaches = {r["id"] for r in rows if (r["role"] or "") == "coach"}
     refs = {r["id"] for r in rows if r["id"] in referees or r["id"] in ref_ids}
     admins = {r["id"] for r in rows if r["is_admin"] or (r["board_member"] if "board_member" in r.keys() else 0)}
     return {"rows": rows, "listed": listed, "referees": referees, "coach_ids": coach_ids, "ref_ids": ref_ids,
@@ -9027,7 +9029,7 @@ def manage_home_groups(d):
     if admin:
         sets = roster_sets(d)
         people.append(_manage_row("Members", "Everyone on the roster", "/members", "people", len(sets["rows"])))
-        people.append(_manage_row("Coaches", "Active coaches and coach eligible", "/members?view=coaches", "user", len(sets["coaches"])))
+        people.append(_manage_row("Coaches", "Active coaches", "/members?view=coaches", "user", len(sets["coaches"])))
         people.append(_manage_row("Admins", "Club administrators", "/members?view=admins", "seal", len(sets["admins"])))
         people.append(_manage_row("Referees", "Referee list and referee eligible", "/members?view=referees", "flag", len(sets["refs"])))
         people.append(_manage_row("Compliance", "Memberships & certifications", "/expiring", "shield", expiring_people_count(d), "warn"))
@@ -11885,7 +11887,9 @@ def _member_status_html(d, mid, note=""):
     name = ("%s %s" % (display_first(m), m["last"] or "")).strip()
     kind = "Coach" if (m["role"] or "") == "coach" else "Player"
     import leaders
-    return render_template_string(T["member_status"], m=m, name=name, sub=leaders.member_line(d, mid, kind), rows=rows, pay=pay, plans=plans,
+    # Mark paid opens on the regular monthly membership (not a coaches pass).
+    default_plan_id = next((p["id"] for p in plans if p["kind"] == "monthly" and "coach" not in (p["name"] or "").lower()), plans[0]["id"] if plans else None)
+    return render_template_string(T["member_status"], m=m, name=name, sub=leaders.member_line(d, mid, kind), rows=rows, pay=pay, plans=plans, default_plan_id=default_plan_id,
                                   dm=dm_channel(me()["id"], mid) if me()["id"] != mid else "", today_iso=today,
                                   roles=_member_roles(d, m) if is_club_admin() else None, note=note)
 def _people_sheets(d):
@@ -13272,7 +13276,7 @@ def membership_prompt_for(d, m, practice):
     price = ("$%d/mo" % (cents // 100)) if cents and cents % 100 == 0 else (("$%.2f/mo" % (cents / 100)) if cents else "")
     start = "%s %d, %d" % (MEMBERSHIP_START.strftime("%B"), MEMBERSHIP_START.day, MEMBERSHIP_START.year)
     return {"show": True, "plan_id": plan["id"], "url": plan["external_url"], "price": price, "start": start,
-            "before_start": today < MEMBERSHIP_START}
+            "before_start": today < MEMBERSHIP_START, "due_now": "Membership fees are due now."}
 @app.context_processor
 def membership_drawer_context():
     """The Going drawer is only on the page for people who may need it (no membership, not yet answered)."""
@@ -13288,13 +13292,17 @@ def membership_drawer_context():
         return {"membership_maybe": g._mem_maybe}
     except Exception:
         return {"membership_maybe": False}
+_MEMBERSHIP_DRAWER = '<dialog id=goingMemSheet class="botsheet modal"><div class=sheet><div class=grab aria-hidden=true></div>\n<p class="ty-caps rg-memkick">MEMBERSHIP</p>\n<h2 class=rg-memtitle>Membership fees are due <span data-mem-start>December 1, 2026</span>.</h2>\n<p class=rg-memcopy>Please enable the <b data-mem-price>$45/mo</b> membership now. <span data-mem-when></span></p>\n<p class=rg-memcopy>Club Assistant is only used for membership fees. You\'ll be marked Going either way.</p>\n<a class="rg-btn primary rg-wide" data-mem-enable href="#" target=_blank rel=noopener><span>Enable membership</span></a>\n<button type=button class="rg-btn secondary rg-wide" data-mem-registered>I\'ve already registered</button>\n<button type=button class="rg-btn ghost rg-wide" data-mem-later>Not now</button>\n</div></dialog>'
 @app.route("/api/membership/prompt")
 @login_required
 def membership_prompt():
     d = db()
     pid = request.args.get("pid", type=int)
     practice = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone() if pid else None
-    return jsonify(membership_prompt_for(d, me(), practice) or {"show": False})
+    out = membership_prompt_for(d, me(), practice)
+    if not out: return jsonify({"show": False})
+    out["html"] = _MEMBERSHIP_DRAWER
+    return jsonify(out)
 @app.route("/membership/ack", methods=["POST"])
 @login_required
 def membership_ack():
