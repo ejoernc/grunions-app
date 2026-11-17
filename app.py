@@ -863,6 +863,19 @@ def legacy_coach_slug(d):
     (channel 'coaches'); the sport chat reads and writes there, so nothing is moved or rewritten."""
     slugs = [s["slug"] for s in club_sports(d)]
     return "water-polo" if "water-polo" in slugs or not slugs else slugs[0]
+def chat_enabled(d, ch):
+    """Board chat and coaches chats can be turned off in Staff. Off: hidden and unreadable; messages kept."""
+    try:
+        import leaders
+        if ch == "board":
+            return leaders.chat_on(d, "board")
+        if ch == "coaches":
+            return leaders.chat_on(d, "coach:" + legacy_coach_slug(d))
+        if ch.startswith("coach:"):
+            return leaders.chat_on(d, ch)
+    except Exception:
+        return True
+    return True
 def coach_channel(d, slug):
     return "coaches" if slug == legacy_coach_slug(d) else "coach:" + slug
 def coach_room_members(d, slug, include_readers=False):
@@ -2164,7 +2177,9 @@ def compute_unread(d, member):
     team = chat_unread_n(d, mid, "team")
     rooms = {coach_channel(d, sport["slug"]) for sport in coach_sports(d, member)}
     coaches = sum(chat_unread_n(d, mid, ch) for ch in rooms)
-    if is_board(member):
+    rooms = {ch for ch in rooms if chat_enabled(d, ch)}
+    coaches = sum(chat_unread_n(d, mid, ch) for ch in rooms)
+    if is_board(member) and chat_enabled(d, "board"):
         coaches += chat_unread_n(d, mid, "board")
     rows = d.execute("""SELECT n.practice_id AS practice_id, COUNT(*) AS cnt FROM practice_notices n
         JOIN practices p ON p.id=n.practice_id
@@ -2256,6 +2271,8 @@ def can_read(ch):
     ch = parse_channel(ch)
     if not ch or not me():
         return False
+    if ch in ("coaches", "board") or ch.startswith("coach:"):
+        if not chat_enabled(db(), ch): return False
     if ch == "coaches":
         return is_club_admin() or any(m["id"] == me()["id"] for m in coach_room_members(db(), legacy_coach_slug(db())))
     if ch == "board":
@@ -3000,10 +3017,10 @@ def chat_tab_unread(d, mid, staff):
     """Unread across chats the person can see, skipping muted ones."""
     channels = ["team"]
     person = d.execute("SELECT * FROM members WHERE id=?", (mid,)).fetchone()
-    if person and is_board(person):
+    if person and is_board(person) and chat_enabled(d, "board"):
         channels.append("board")
     if person:
-        channels.extend(c for c in (coach_channel(d, sport["slug"]) for sport in coach_sports(d, person)) if c not in channels)
+        channels.extend(c for c in (coach_channel(d, sport["slug"]) for sport in coach_sports(d, person)) if c not in channels and chat_enabled(d, c))
     channels.extend(row["channel"] for row in d.execute("""SELECT DISTINCT channel FROM messages
             WHERE channel LIKE 'practice:%' OR channel LIKE 'ch:%' OR channel LIKE 'ask:%' OR channel LIKE 'grp:%' OR channel LIKE 'req:%' OR channel LIKE 'coach:%'"""))
     channels.extend(row[0] for row in _dm_unread(d, mid)[1])
@@ -3234,7 +3251,7 @@ def _new_chat_sheet(d, m, team):
                     '<span class=grow><b>Ask the coaches</b><small>A request to one sport\'s coaches</small></span><span class=chatgo>›</span></button>'
                     '<button type=button class=newrow data-open-request data-to=board data-lock=board data-about=other><span class="mark grape" aria-hidden=true>B</span>'
                     '<span class=grow><b>Ask the board</b><small>Membership, waivers, anything club-wide</small></span><span class=chatgo>›</span></button>')
-        if is_board():
+        if is_board() and chat_enabled(db(), "board"):
             rows += ('<a class=newrow href="/chat?c=board"><span class="mark grape" aria-hidden=true>'
                      '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3.5 13.6 8H18l-3.6 2.6 1.4 4.4L12 12.4 8.2 15l1.4-4.4L6 8h4.4Z"/></svg></span>'
                      '<span class=grow><b>Board room</b><small>Board only · it can\'t be deleted</small></span><span class=mini>Board</span><span class=chatgo>›</span></a>')
@@ -3464,7 +3481,7 @@ def personal_chat_html(d, m):
     roster = d.execute("SELECT COUNT(*) FROM members WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1").fetchone()[0]
     teams = _chat_row("/chat?view=list", "G", "Grunions <span class=count>%d</span>" % roster, blurb, when, total, "lime")
     directs = []
-    if is_board():
+    if is_board() and chat_enabled(d, "board"):
         n = chat_unread_n(d, mid, "board")
         latest = d.execute("SELECT MAX(id) FROM messages WHERE channel='board'").fetchone()[0] or 0
         preview, when = channel_preview(d, "board")
@@ -3734,7 +3751,7 @@ def chat():
         join_practice_chat(d, int(ch.split(":", 1)[1]), me()["id"])
         d.commit()
     mark_chat_read(d, me()["id"], ch)
-    label = "#everyone" if ch == "team" else ("the board" if ch == "coaches" else "this chat")
+    label = "#everyone" if ch == "team" else ("the coaches" if (ch == "coaches" or ch.startswith("coach:")) else ("the board" if ch == "board" else "this chat"))
     if ch.startswith("practice:"):
         head = practice_switcher(d, me(), ch) + _request_dialog(d)
     elif ch.startswith("req:"):
@@ -3967,10 +3984,13 @@ def _inbox_role_sections(d, m):
         legacy = [s for s in club_sports(d) if s["slug"] == legacy_coach_slug(d)]
         for sport in legacy:
             ch = coach_channel(d, sport["slug"])
+            if not chat_enabled(d, ch): continue
             preview, when = channel_preview(d, ch)
             coach_rows.append(_chat_row("/chat?c=%s" % ch, "C", "%s coaches" % sport["name"], preview or "Coaches only · can't be deleted", when, chat_unread_n(d, m["id"], ch), "sky", chat_muted(d, m["id"], ch)))
     for sport in assigned:
         ch = coach_channel(d, sport["slug"])
+        if not chat_enabled(d, ch):
+            continue
         preview, when = channel_preview(d, ch)
         coach_rows.append(_chat_row("/chat?c=%s" % ch, "C", "%s coaches" % sport["name"], preview or "Coaches only · can't be deleted", when, chat_unread_n(d, m["id"], ch), "sky", chat_muted(d, m["id"], ch)))
         n = _open_scoped(d, m, "coaches", sport["slug"])
@@ -3978,7 +3998,7 @@ def _inbox_role_sections(d, m):
                                     "%d open" % n if n else "No open requests — nice.", "", n, "sun", False))
     parts.append(_section("Coaches", coach_rows))
     admin_rows = []
-    if is_board(m):
+    if is_board(m) and chat_enabled(d, "board"):
         preview, when = channel_preview(d, "board")
         admin_rows.append(_chat_row("/chat?c=board", "B", "Board room", preview or "Private to board members", when, chat_unread_n(d, m["id"], "board"), "grape", chat_muted(d, m["id"], "board")))
         n = _open_scoped(d, m, "board")
@@ -4038,7 +4058,7 @@ def _thread_subtitle(d, ch):
         return "Direct"
     if ch == "coaches" or ch.startswith("coach:"):
         n = _thread_people(d, ch)
-        return "%d %s · Admins & board can see it" % (n, "coach" if n == 1 else "coaches")
+        return "%d %s · Admins & Board can view" % (n, "coach" if n == 1 else "coaches")
     if ch.startswith("grp:"):
         return "Group · Grunions Aquatics"
     n = _thread_people(d, ch)
@@ -4151,7 +4171,7 @@ def _actions_bundle():
         'var sub=document.getElementById("actSub");'
         'if(kind==="everyone") sub.textContent=people+" people · the whole team";'
         'else if(kind==="direct") sub.textContent="Direct chat · Me › Chat";'
-        'else if(src.getAttribute("data-permanent")==="coaches") sub.textContent=people+(people==="1"?" coach":" coaches")+" · Admins & board can see it";'
+        'else if(src.getAttribute("data-permanent")==="coaches") sub.textContent=people+(people==="1"?" coach":" coaches")+" · Admins & Board can view";'
         'else sub.textContent=people+" people · Grunions Aquatics";'
         'var mark=document.getElementById("actMark");'
         'mark.textContent=kind==="direct"?((title.match(/[A-Za-z]/g)||["?"]).slice(0,2).join("").toUpperCase()):"#";'
@@ -9927,7 +9947,7 @@ def club_leaders():
         n_coach = len(sport_coach_list(d, p))
         n_ref = len(sport_ref_list(d, p))
         sub = " · ".join(["%d lead%s" % (n_lead, "" if n_lead == 1 else "s"), "%d coach%s" % (n_coach, "" if n_coach == 1 else "es"), "%d referee%s" % (n_ref, "" if n_ref == 1 else "s")])
-        sport_cards.append({"slug": p["slug"], "name": p["public_name"] or p["name"], "sub": sub, "chat": bool(n_coach), "requests": leaders.leads_requests_on(d, p["slug"]) and bool(n_coach)})
+        sport_cards.append({"slug": p["slug"], "name": p["public_name"] or p["name"], "sub": sub, "chat": bool(n_coach) and leaders.chat_on(d, "coach:" + p["slug"]), "requests": leaders.leads_requests_on(d, p["slug"]) and bool(n_coach)})
     return page(T["leaders"], tab="admin", ov=leaders.overview(d, progs), access=leaders.access_counts(d), sport_cards=sport_cards)
 def sport_coach_list(d, program):
     """A sport's coaches: assigned to the sport here, or coaching it on the schedule (series or practice).
@@ -9986,6 +10006,10 @@ def _leaders_group(slug):
     back = request.path
     if request.method == "POST":
         if request.headers.get("X-Autosave") == "1":
+            if request.form.get("field") == "chat":
+                on = request.form.get("chat") == "1"
+                leaders.set_flag(d, "chat:" + (("coach:" + program["slug"]) if program else "board"), on); d.commit()
+                return jsonify({"ok": True, "toast": ("Chat on" if on else "Chat off · messages kept")})
             on = request.form.get("requests") == "1"
             leaders.set_flag(d, flag_key, on); d.commit()
             return jsonify({"ok": True, "toast": "Member requests on" if on else "Member requests off"})
@@ -10055,6 +10079,7 @@ def _leaders_group(slug):
     refs = sport_ref_list(d, program) if program else []
     return page(T["leaders_group"], tab="admin", rows=rows, n_roles=len(rows), program=program, chat=chat, info=info,
                 requests_on=leaders.flag(d, flag_key), people=leaders.people_for_pick(d), back_label="Staff",
+                chat_on=leaders.chat_on(d, ("coach:" + program["slug"]) if program else "board"),
                 coaches=coaches, refs=refs,
                 coach_pick=_sport_pick_people(d, {c["id"] for c in coaches if c["assigned"]}) if program else [],
                 ref_pick=_sport_pick_people(d, {r["id"] for r in refs}) if program else [])

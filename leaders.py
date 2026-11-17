@@ -32,6 +32,12 @@ def leads_requests_on(d, slug):
     return flag(d, "leads_requests:" + slug)
 
 
+def chat_on(d, key):
+    """Board chat ('board') and each sport's coaches chat ('coach:<slug>') can be turned off.
+    Off hides the chat; its messages are kept and come back when it's turned on."""
+    return flag(d, "chat:" + key)
+
+
 def _name(m):
     return ("%s %s" % ((m["preferred_first"] or "").strip() or m["first"], m["last"] or "")).strip()
 
@@ -93,7 +99,7 @@ def overview(d, programs):
     names = [r["role"] for r in board if r["role_id"]]
     out = {"board": {"sub": ("%s · %d of %d filled" % (", ".join(dict.fromkeys(names)), len({r["role_id"] for r in held if r["role_id"]}), len({r["role_id"] for r in board if r["role_id"]})))
                      if names else ("%d on the board · no titles yet" % len(held) if held else "No roles yet"),
-                     "chat": bool(board_people(d)), "requests": board_requests_on(d) and bool(board_people(d)), "count": len({r["role_id"] for r in board if r["role_id"]})},
+                     "chat": bool(board_people(d)) and chat_on(d, "board"), "requests": board_requests_on(d) and bool(board_people(d)), "count": len({r["role_id"] for r in board if r["role_id"]})},
            "sports": []}
     for p in programs:
         rs = roles(d, p["id"])
@@ -145,21 +151,37 @@ def _sync_board_flag(d, member_id):
 
 
 def add_role(d, name, program_id=None, permission="none", board=False):
+    """Add a role. A name that's already used in the same group gets numbered: the first becomes
+    'Co-Captain (1)' and the new one 'Co-Captain (2)', then (3) and so on."""
+    import re
     name = " ".join((name or "").split())[:80]
     if len(name) < 2:
         raise ValueError("Add a role name.")
+    base = re.sub(r"\s*\(\d+\)$", "", name).strip() or name
     if program_id:
         if permission not in SPORT_ACCESS: permission = "none"
-        hit = d.execute("SELECT id FROM leadership_roles WHERE program_id=? AND lower(name)=lower(?)", (program_id, name)).fetchone()
+        same = d.execute("SELECT id, name FROM leadership_roles WHERE program_id=?", (program_id,)).fetchall()
     else:
         permission = "none"
-        hit = d.execute("SELECT id FROM leadership_roles WHERE program_id IS NULL AND lower(name)=lower(?)", (name,)).fetchone()
-    if hit:
-        if not program_id: d.execute("UPDATE leadership_roles SET board=1 WHERE id=?", (hit["id"],))
-        return hit["id"]
+        same = d.execute("SELECT id, name FROM leadership_roles WHERE program_id IS NULL", ()).fetchall()
+    taken = []
+    plain = None
+    for r in same:
+        nm = (r["name"] or "").strip()
+        if nm.lower() == base.lower():
+            plain = r; taken.append(1)
+        else:
+            m = re.match(r"^(.*?)\s*\((\d+)\)$", nm)
+            if m and m.group(1).strip().lower() == base.lower():
+                taken.append(int(m.group(2)))
+    if taken:
+        if plain is not None:
+            base = (plain["name"] or base).strip()  # keep how the existing role is written
+            d.execute("UPDATE leadership_roles SET name=? WHERE id=?", ("%s (1)" % base, plain["id"]))
+        name = "%s (%d)" % (base, max(taken) + 1)
     sort = d.execute("SELECT COALESCE(MAX(sort),0)+1 FROM leadership_roles WHERE COALESCE(program_id,0)=COALESCE(?,0)", (program_id,)).fetchone()[0]
     return d.execute("INSERT INTO leadership_roles(program_id, name, permission, sort, board) VALUES(?,?,?,?,?)",
-                     (program_id, name, permission, sort, (1 if board else 0) if program_id else 1)).lastrowid
+                     (program_id, name[:80], permission, sort, (1 if board else 0) if program_id else 1)).lastrowid
 
 
 def set_board(d, role_id, on):

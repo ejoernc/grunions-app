@@ -8767,7 +8767,8 @@ T["leaders_group"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
 {% endif %}
 {{ rg_section_count('Chat & requests', 2) }}
 <div class=rg-stack8>
-{% if chat.n %}{{ rg_settings_row(chat.label, chat.n ~ (' person' if chat.n == 1 else ' people'), chat.href) }}
+{% if chat.n %}<form method=post data-autosave>{{ csrf_field() }}{{ rg_toggle('chat', ('Board chat' if not program else (program.public_name or program.name) ~ ' coaches chat'), "Off hides it. Messages are kept, and people removed from the group lose access but their messages stay.", chat_on) }}</form>
+{% if chat_on %}{{ rg_settings_row(chat.label, chat.n ~ (' person' if chat.n == 1 else ' people'), chat.href) }}{% endif %}
 <form method=post data-autosave>{{ csrf_field() }}{{ rg_toggle('requests', info.toggle, info.toggle_sub, requests_on) }}</form>
 {% else %}<div class=rg-dim>{{ rg_settings_row(chat.label, 'Off') }}{{ rg_settings_row('Member requests', 'Off') }}</div><p class=rg-note>{{ 'Turns on when someone holds a board role.' if not program else 'Turns on when this sport has coaches.' }}</p>{% endif %}
 </div>
