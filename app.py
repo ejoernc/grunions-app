@@ -2945,9 +2945,25 @@ def channel_preview(d, channel):
     text = (row["body"] or "").strip()
     if text.startswith("Preview: "):
         text = text[9:]
+    for tag in ("📊 Poll: ", "📊 Results: "):  # a poll sent without a message reads as its title
+        if text.startswith(tag):
+            text = ("Results: " if "Results" in tag else "") + text[len(tag):]
     who = display_first(row) if row["first"] else ""
     line = ("%s: %s" % (who, text)).strip(": ") if who else text
-    return line[:90], chat_clock(row["at"])
+    live = _active_polls(d, channel)
+    if live:
+        line = ("📊 Active Poll · " if live == 1 else "📊 %d Active Polls · " % live) + line
+    return line[:110], chat_clock(row["at"])
+def _active_polls(d, channel):
+    """How many posted polls are still open in this chat (0 where polls are off)."""
+    try:
+        import polls
+        if not polls.enabled(channel): return 0
+        polls.ensure(d)
+        now = wall_pt()
+        return sum(1 for p in polls.for_channel(d, channel) if not polls.is_closed(p, now))
+    except Exception:
+        return 0
 def _unread_bits(d, mid):
     """Short line for the Grunions row: name the chats that still have unread messages."""
     bits = []

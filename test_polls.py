@@ -249,3 +249,18 @@ def test_preview_is_private_until_sent_and_title_can_be_the_question():
     # A sent poll can't be sent again.
     again = admin.post("/api/messages?c=coaches", json={"body": "x", "poll_id": pid}, headers={"X-CSRF": token})
     assert again.status_code == 400
+
+
+def test_chat_list_line_shows_active_poll_until_it_closes():
+    admin = _as(ADMIN)
+    _new_poll(admin, title="Line test")
+    p = _latest_poll()
+    with A.app.app_context():
+        d = A.db()
+        line, _when = A.channel_preview(d, "coaches")
+        assert line.startswith("📊 ") and "Active Poll" in line and "Line test" in line and "📊 Poll:" not in line
+        for q in d.execute("SELECT id FROM polls WHERE closed_at=''").fetchall():
+            d.execute("UPDATE polls SET closed_at='2026-01-01T00:00:00' WHERE id=?", (q[0],))
+        d.commit()
+        line, _when = A.channel_preview(d, "coaches")
+        assert "Active Poll" not in line and line.endswith("Line test")
