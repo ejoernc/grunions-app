@@ -8964,6 +8964,10 @@ T["participants"] = ADMIN_NAV + """<div class="rg-screen rg-parts">
   var i=e.target; if(!i.matches||!i.matches('#statusBody input[data-role-act]')) return;
   roleSave({action:i.getAttribute('data-role-act'), on:i.checked?'1':'0', slug:i.getAttribute('data-slug')||''});
  });
+ document.addEventListener('change',function(e){
+  var i=e.target; if(!i.matches||!i.matches('#statusBody input[name=no_end]')) return;
+  var f=i.form, w=f.querySelector('[data-paidthrough]'); w.hidden=i.checked; f.paid_through.required=!i.checked; if(i.checked) f.paid_through.value='';
+ });
  document.addEventListener('submit',function(e){
   var f=e.target; if(!f.matches||!f.matches('#statusBody [data-role-form]')) return; e.preventDefault();
   roleSave({action:'lead_add', role_id:f.role_id.value});
@@ -8982,8 +8986,12 @@ T["member_status"] = """<div class=rg-sthead><span class="rg-pav tone-sky{% if m
 {{ rg_status_list(pay) }}
 {% if plans %}<form method=post action=/members id=slPaid class=rg-slform hidden>{{ csrf_field() }}<input type=hidden name=member_id value="{{ m.id }}"><input type=hidden name=action value=membership>
 <label class=rg-field><span>PLAN</span><select name=plan_id>{% for p in plans %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></label>
-<label class=rg-field><span>PAID THROUGH</span><input type=date name=paid_through min="{{ today_iso }}" required></label>
+<label class=rg-field data-paidthrough><span>PAID THROUGH</span><input type=date name=paid_through min="{{ today_iso }}" required></label>
+{{ rg_toggle('no_end', 'No end date', 'Stays paid until you turn it off') }}
 <button class="rg-btn primary">Mark paid</button></form>{% endif %}
+<form method=post action=/members id=slPayOff class=rg-slform hidden>{{ csrf_field() }}<input type=hidden name=member_id value="{{ m.id }}"><input type=hidden name=action value=membership_off>
+<p class=rg-note>Ends their membership as of yesterday. Their payment history stays.</p>
+<button class="rg-btn secondary">Turn off membership</button></form>
 {% if roles %}<h3 class=rg-day>ROLES</h3>{% if note %}<p class="rg-note rg-rolenote">{{ note }}</p>{% endif %}
 <div class=rg-roles data-roles="{{ m.id }}">
 {{ rg_toggle('admin', 'Admin', 'Full Manage access', roles.is_admin, attrs='data-role-act=admin') }}

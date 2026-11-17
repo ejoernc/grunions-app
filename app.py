@@ -11493,14 +11493,25 @@ def members():
         elif act == "membership":
             plan = d.execute("SELECT * FROM payment_plans WHERE id=? AND active=1 AND kind IN ('monthly','annual')", (request.form.get("plan_id", type=int) or 0,)).fetchone()
             through = parse_date(request.form.get("paid_through"))
+            no_end = request.form.get("no_end") == "1"
             if not plan: flash("Choose a membership plan.", "toast")
-            elif not through or through < today_pt(): flash("Enter a paid-through date from today on.", "toast")
+            elif not no_end and (not through or through < today_pt()): flash("Enter a paid-through date from today on, or pick No end date.", "toast")
             else:
                 before = d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0]
-                sportspay.save_entitlement(d, mid, me(), plan["id"], "active", today_pt().isoformat(), through.isoformat(), "Marked paying from People")
+                sportspay.save_entitlement(d, mid, me(), plan["id"], "active", today_pt().isoformat(), "" if no_end else through.isoformat(),
+                                           "Marked paying from People" + (" · no end date" if no_end else ""))
                 if d.execute("SELECT COUNT(*) FROM rsvps").fetchone()[0] != before: raise RuntimeError("paid membership must not change RSVPs")
                 d.commit()
-                flash("%s is paying · %s through %s" % (name, plan["name"], fmt_d(through.isoformat())), "toast")
+                flash(("%s is paying · %s · no end date" % (name, plan["name"])) if no_end else ("%s is paying · %s through %s" % (name, plan["name"], fmt_d(through.isoformat()))), "toast")
+        elif act == "membership_off":
+            # Ends open-ended memberships as of yesterday. The rows stay (history); only the end date is filled in.
+            yday = (today_pt() - dt.timedelta(days=1)).isoformat()
+            n = d.execute("""UPDATE access_entitlements SET paid_through=? WHERE member_id=? AND status='active'
+                AND COALESCE(paid_through,'')=''""", (yday, mid)).rowcount
+            if n:
+                sportspay.audit(d, mid, me(), "paid membership", "Turned off · ended %s" % yday)
+            d.commit()
+            flash("%s is no longer paying" % name if n else "Nothing to turn off", "toast")
         elif act == "add_board":
             import clubadmin
             clubadmin.ensure(d)
@@ -11756,7 +11767,11 @@ def _member_status_html(d, mid, note=""):
     pay = []
     paid = clubadmin.has_monthly_membership(d, mid, today)
     plans = _people_sheets(d)["member_plans"]
-    if paid:
+    open_ended = d.execute("""SELECT p.name FROM access_entitlements e LEFT JOIN payment_plans p ON p.id=e.plan_id
+        WHERE e.member_id=? AND e.status='active' AND COALESCE(e.paid_through,'')='' ORDER BY e.id DESC LIMIT 1""", (mid,)).fetchone()
+    if paid and open_ended:
+        pay.append({"title": "Paying member", "sub": "%s · no end date" % (open_ended["name"] or "Paid"), "action": "Turn off", "attrs": "data-sl-open=slPayOff"})
+    elif paid:
         pay.append({"title": "Paying member", "sub": "Membership is current", "chip": ("Paid", "paid")})
     else:
         pay.append({"title": "Paying member", "sub": "Not paying · the board marks it", "action": "Mark paid" if plans else "", "attrs": "data-sl-open=slPaid"})
