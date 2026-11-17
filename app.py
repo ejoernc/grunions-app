@@ -13257,19 +13257,20 @@ def _membership_plan(d, practice):
                 continue
             return plan
     return None
-def membership_prompt_for(d, m, practice):
+def membership_prompt_for(d, m, practice, force=False):
     """What the Going drawer shows, or None. Skips anyone with a membership (or a pass that applies on its own)
     and anyone who already enabled it or said they're registered."""
     import clubadmin
     if not m or not practice or (m["role"] or "") == "system": return None
     _ensure_membership_ack(d)
     row = d.execute("SELECT membership_ack FROM members WHERE id=?", (m["id"],)).fetchone()
-    if row and (row["membership_ack"] or ""): return None
     today = today_pt()
-    try:
-        if clubadmin.has_monthly_membership(d, m["id"], today.isoformat()): return None
-    except Exception:
-        pass
+    if not force:  # admins can preview the drawer (?try=membership) even with a membership
+        if row and (row["membership_ack"] or ""): return None
+        try:
+            if clubadmin.has_monthly_membership(d, m["id"], today.isoformat()): return None
+        except Exception:
+            pass
     plan = _membership_plan(d, practice)
     if not plan: return None
     cents = clubadmin.plan_cents(d, plan, max(today, MEMBERSHIP_START)) or 0
@@ -13299,8 +13300,10 @@ def membership_prompt():
     d = db()
     pid = request.args.get("pid", type=int)
     practice = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone() if pid else None
-    out = membership_prompt_for(d, me(), practice)
+    force = request.args.get("try") == "membership" and is_club_admin()
+    out = membership_prompt_for(d, me(), practice, force=force)
     if not out: return jsonify({"show": False})
+    if force: out["preview"] = True
     out["html"] = _MEMBERSHIP_DRAWER
     return jsonify(out)
 @app.route("/membership/ack", methods=["POST"])

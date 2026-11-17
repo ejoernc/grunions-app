@@ -2717,7 +2717,7 @@ TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and not (nav_kind 
 </dialog>{% endif %}
 <script>
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=122');
-window.GRUNIONS_MEMBERSHIP={{ 'true' if membership_maybe else 'false' }};
+window.GRUNIONS_MEMBERSHIP={{ 'true' if (membership_maybe or request.args.get('try') == 'membership') else 'false' }};
 window.grunionsDuesGate=function(pid, proceed){
  var cache=window.__memPrompt||(window.__memPrompt={});
  function open(j){
@@ -2728,14 +2728,14 @@ window.grunionsDuesGate=function(pid, proceed){
   dlg.querySelector('[data-mem-when]').textContent=j.before_start?("You won't be charged until "+j.start+"."):(j.due_now||"");
   function ack(action){var fd=new FormData();var t=document.querySelector('input[name=csrf]');if(t)fd.append('csrf',t.value);fd.append('action',action);fd.append('pid',pid);
    return fetch('/membership/ack',{method:'POST',body:fd,credentials:'same-origin'}).catch(function(){})}
-  function done(action){window.GRUNIONS_MEMBERSHIP=false;ack(action);try{dlg.close()}catch(_){}proceed()}
+  function done(action){if(j.preview){try{dlg.close()}catch(_){}return}window.GRUNIONS_MEMBERSHIP=false;ack(action);try{dlg.close()}catch(_){}proceed()}
   go.onclick=function(){done('enabled')};  /* the link opens Club Assistant in a new tab; Going saves here */
   dlg.querySelector('[data-mem-registered]').onclick=function(){done('registered')};
   dlg.querySelector('[data-mem-later]').onclick=function(){try{dlg.close()}catch(_){}};
   if(window.grunionsOpenSheet)grunionsOpenSheet(dlg);else dlg.showModal();
  }
  if(cache[pid]){cache[pid].show?open(cache[pid]):proceed();return}
- fetch('/api/membership/prompt?pid='+encodeURIComponent(pid),{credentials:'same-origin'}).then(function(r){return r.json()})
+ fetch('/api/membership/prompt?pid='+encodeURIComponent(pid)+(/[?&]try=membership/.test(location.search)?'&try=membership':''),{credentials:'same-origin'}).then(function(r){return r.json()})
   .then(function(j){cache[pid]=j;if(j&&j.show)open(j);else proceed()}).catch(function(){proceed()});
 };
 /* Seen it: close notifications for the page you're on (a chat, a practice). Runs on open and when the app comes back. */
