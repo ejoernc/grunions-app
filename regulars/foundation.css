@@ -1719,3 +1719,6 @@ dialog .pickgo:disabled{opacity:.45}
 .coachpick>.rg-person{flex:1;min-width:0;background:transparent}
 .coachpick>i{flex:none;width:24px;height:24px;margin-right:8px;border-radius:999px;border:2px solid var(--smoke)}
 .coachpick input:checked~i{border-color:var(--lime);background:var(--lime);box-shadow:inset 0 0 0 4px var(--carbon)}
+/* People pages: chips without the dot (Participants, Coaches, Admins, Referees, Compliance, the drawer, Leaders). */
+html body .rg-parts .rg-chip i,html body #statusSheet .rg-chip i,html body .rg-leaders .rg-chip i{display:none}
+html body .rg-parts .rg-chip,html body #statusSheet .rg-chip,html body .rg-leaders .rg-chip{gap:0}
