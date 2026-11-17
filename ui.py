@@ -6358,7 +6358,7 @@ T["poll_page"] = """<div class="rg-screen rg-pollpage">
 {{ rg_page_title(p.title, ('By ' ~ by ~ ' · ' if by else '') ~ s.voters ~ ' voted' ~ (' · Anonymous' if s.anonymous else ' · Votes are visible') ~ (' · ' ~ s.ends if s.ends else '') ~ (' · Closed' if closed else '')) }}
 {% if error %}<p class=rg-note role=alert>{{ error }}</p>{% endif %}
 {% if not closed %}<form method=post>{{ csrf_field() }}
-{% for q in qs %}{{ rg_label(q.text ~ (' · pick any' if q.multi else ' · pick one')) }}
+{% for q in qs %}<h3 class=rg-pollvq><span>{{ q.text }}</span><small>{{ 'Pick any' if q.multi else 'Pick one' }}</small></h3>
 <div class=rg-stack8>{% for o in q.options %}{{ rg_choice('q' ~ q.id, o.id, o.text, '', ((q.id, o.id) in mine), 'checkbox' if q.multi else 'radio') }}{% endfor %}
 {% if s.allow_add %}<label class="rg-field rg-polladd"><input name="add{{ q.id }}" maxlength=120 placeholder="Add an option" aria-label="Add an option to {{ q.text }}"><small>Counts as your answer.</small></label>{% endif %}</div>
 {% endfor %}

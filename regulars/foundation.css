@@ -1740,6 +1740,8 @@ html body .profilename+.metrics,html body .profilename+.stats{margin-top:20px}
 .rg-pollkick{margin:0;color:var(--smoke)}
 .rg-polltitle{margin:-8px 0 0;font:700 22px/1.1 var(--font-display);letter-spacing:-.02em;color:var(--paper)}
 .rg-pollq{display:grid;gap:10px}
+.rg-pollvq{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:24px 0 12px;color:var(--paper);font:700 16px/1.2 var(--font-sans);text-transform:none;letter-spacing:0}
+.rg-pollvq small{flex:none;color:var(--smoke);font:600 11px/1.6 var(--font-sans);letter-spacing:.06em;text-transform:uppercase}
 .rg-pollqt{margin:4px 0 0;font:var(--type-body-semi);display:flex;justify-content:space-between;gap:8px}
 .rg-pollqt small{color:var(--smoke);font:600 11px/1.6 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;flex:none}
 .rg-pollrow{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"label n" "track track" "who who";column-gap:12px;row-gap:6px}
