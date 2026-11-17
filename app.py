@@ -9616,7 +9616,7 @@ def manage_charts(d, today=None):
             paid_bars.append({"label": label, "segs": [m, n - m],
                               "tip": "%s · %d member%s of %d participant%s" % (tip, m, "" if m == 1 else "s", n, "" if n == 1 else "s")})
     members_now = paid_bars[-1]["segs"][0] if paid_bars else 0
-    paid = {"key": "membership", "kicker": "MEMBERS · %d" % today.year, "value": str(members_now), "title": "Members",
+    paid = {"key": "membership", "kicker": "MEMBERS · %d" % today.year, "value": str(members_now), "title": "Dues-Paying Members",
             "sub": "of %d participant%s" % (total, "" if total == 1 else "s"), "bars": paid_bars,
             "series": [("Members", members_now), ("Not members", total - members_now)], "empty": "No participants yet."}
     return [practices, members, paid]
