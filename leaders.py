@@ -67,7 +67,7 @@ def roles(d, program_id=None):
             access = SPORT_ACCESS.get(r["permission"], "")
         label = r["name"] if (program_id or not r["program_id"]) else "%s · %s" % (r["name"], r["sport"] or "")
         if not people:
-            out.append({"role_id": r["id"], "role": label, "member_id": None, "name": "Open", "initials": "+", "access": "Assign", "open": True, "permission": r["permission"], "board": board})
+            out.append({"role_id": r["id"], "role": label, "member_id": None, "name": "Open", "initials": "+", "access": "", "open": True, "permission": r["permission"], "board": board})
         for p in people:
             name = _name(p)
             out.append({"role_id": r["id"], "role": label, "member_id": p["id"], "name": name, "initials": _initials(name),
@@ -239,8 +239,10 @@ def clear(d, role_id, member_id):
 
 
 def delete_role(d, role_id):
-    if d.execute("SELECT 1 FROM leadership_members WHERE role_id=? LIMIT 1", (role_id,)).fetchone():
-        raise ValueError("Clear the role first.")
+    """Remove a role, held or open. Whoever holds it comes off it first (the last admin stays protected);
+    any other roles they hold, and their chat messages, are untouched."""
+    for row in d.execute("SELECT member_id FROM leadership_members WHERE role_id=?", (role_id,)).fetchall():
+        clear(d, role_id, row["member_id"])
     d.execute("DELETE FROM leadership_roles WHERE id=?", (role_id,))
 
 

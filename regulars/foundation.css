@@ -1729,3 +1729,5 @@ html body dialog.botsheet:not(.profmenu):not(.pickpeople):not(.attachsheet):not(
 html body dialog.botsheet:not(.profmenu):not(.pickpeople):not(.attachsheet):not(.newchat):not(.msgactions):not(#chatActions) .sheet>.grab::after{top:22px}
 /* Chat header: a coaches chat's line (count + who can see it) may wrap to two lines instead of cutting off. */
 html body .cheadname small{white-space:normal;overflow:visible;text-overflow:clip;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+
+.rg-btn.ghost.rg-danger-text{color:var(--team-cherry,#FF3D57)}

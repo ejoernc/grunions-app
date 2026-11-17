@@ -8783,11 +8783,15 @@ T["leaders_group"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
 {{ rg_choice('access', 'sport_admin', 'Sport admin', 'A title for this sport') }}
 {{ rg_choice('access', 'none', 'No access', "Title only — can't change settings") }}{% endif %}
 <p class=rg-note id=seatFoot>{% if not program %}They join #board and can open Manage when you save.{% else %}Saving replaces whoever holds this role now.{% endif %}</p>
+{% if program %}{{ rg_toggle('board', 'Board role', 'Whoever holds it is also on the board, in #board, and can open Manage', false, attrs='form=seatBoardForm onchange="this.form.submit()"') }}{% endif %}
 <button class="rg-btn primary" id=seatSave>Assign</button>
+<button class="rg-btn ghost rg-wide" form=seatClearForm id=seatClearBtn>Remove person from role</button>
+<p class=rg-note id=seatDeleteNote hidden></p>
+<button class="rg-btn ghost rg-wide rg-danger-text" form=seatDeleteForm>Remove this role</button>
 </form>
-<form method=post id=seatClearForm hidden>{{ csrf_field() }}<input type=hidden name=action value=clear><input type=hidden name=role_id><input type=hidden name=member_id><button class="rg-btn ghost rg-wide">Clear this role</button></form>
-{% if program %}<form method=post id=seatBoardForm>{{ csrf_field() }}<input type=hidden name=action value=role_board><input type=hidden name=role_id>{{ rg_toggle('board', 'Board role', 'Whoever holds it is also on the board, in #board, and can open Manage', false, attrs='onchange="this.form.submit()"') }}</form>{% endif %}
-<form method=post id=seatDeleteForm hidden>{{ csrf_field() }}<input type=hidden name=action value=delete_role><input type=hidden name=role_id><button class="rg-btn ghost rg-wide">Remove this role</button></form>
+<form method=post id=seatClearForm hidden>{{ csrf_field() }}<input type=hidden name=action value=clear><input type=hidden name=role_id><input type=hidden name=member_id></form>
+{% if program %}<form method=post id=seatBoardForm hidden>{{ csrf_field() }}<input type=hidden name=action value=role_board><input type=hidden name=role_id></form>{% endif %}
+<form method=post id=seatDeleteForm hidden>{{ csrf_field() }}<input type=hidden name=action value=delete_role><input type=hidden name=role_id></form>
 </dialog>
 
 <dialog id=roleAdd class="botsheet modal"><form method=post class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=action value=add_role>
@@ -8804,8 +8808,10 @@ T["leaders_group"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
   sheet.querySelectorAll('input[name=person]').forEach(function(i){ i.checked=(i.value===member); });
   sheet.querySelectorAll('input[name=access]').forEach(function(i){ i.checked=(i.value===(perm==='sport_admin'?'sport_admin':'none')); });
   var c=document.getElementById('seatClearForm'), dl=document.getElementById('seatDeleteForm');
-  c.hidden=!member; c.role_id.value=role; c.member_id.value=member||'';
-  dl.hidden=!!member; dl.role_id.value=role;
+  c.role_id.value=role; c.member_id.value=member||''; document.getElementById('seatClearBtn').hidden=!member;
+  dl.role_id.value=role;
+  var dn=document.getElementById('seatDeleteNote'), who=(b.querySelector('.rg-txt b')||{}).textContent||'';
+  dn.hidden=!member; dn.textContent=member?('Removing it takes '+who+' off this role. Their other roles and messages stay.'):'';
   var bf=document.getElementById('seatBoardForm'); if(bf){ bf.role_id.value=role; bf.board.checked=b.getAttribute('data-board')==='1'; }
   var q=document.getElementById('seatSearch'); if(q){ q.value=''; filter(''); }
   if(window.grunionsOpenSheet) grunionsOpenSheet(sheet); else sheet.showModal();
