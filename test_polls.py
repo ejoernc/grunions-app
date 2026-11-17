@@ -187,9 +187,9 @@ def test_edit_keeps_votes_and_others_can_add_options_without_new_emails():
         assert not A.db().execute("SELECT 1 FROM poll_options WHERE question_id=? AND text='Sneaky'", (a0,)).fetchone()
 
 
-def test_results_post_once_when_poll_closes_and_tracker_bar():
+def test_closing_keeps_the_original_card_and_tracker_bar():
     admin = _as(ADMIN)
-    _new_poll(admin, title="Auto results", post_results="1")
+    _new_poll(admin, title="Auto results")
     p = _latest_poll()
     (q0, o0), (q1, o1) = _qopts(p["id"])
     coach = _as(COACH)
@@ -203,20 +203,15 @@ def test_results_post_once_when_poll_closes_and_tracker_bar():
     admin.post("/polls/%d/end" % p["id"], data={"csrf": _csrf(admin, "/polls/%d" % p["id"])})
     with A.app.app_context():
         d = A.db()
+        # Closing doesn't repost: the original card just shows Closed.
         rows = d.execute("SELECT body FROM messages WHERE poll_id=? ORDER BY id", (p["id"],)).fetchall()
-        assert [r[0] for r in rows] == ["📊 Poll: Auto results", "📊 Results: Auto results"]
-        A.post_poll_results(d)  # running again doesn't post twice
-        assert d.execute("SELECT COUNT(*) FROM messages WHERE poll_id=?", (p["id"],)).fetchone()[0] == 2
-    # By end time: the scheduled job posts once the time passes.
-    _new_poll(admin, title="Timed results", post_results="1", ends_at="2099-01-01T09:00")
+        assert [r[0] for r in rows] == ["📊 Poll: Auto results"]
+        assert polls.is_closed(polls.get(d, p["id"]), A.wall_pt())
+    _new_poll(admin, title="Timed results", ends_at="2099-01-01T09:00")
     p2 = _latest_poll()
     with A.app.app_context():
         d = A.db()
-        A.post_poll_results(d)
-        assert d.execute("SELECT COUNT(*) FROM messages WHERE poll_id=?", (p2["id"],)).fetchone()[0] == 1
         d.execute("UPDATE polls SET ends_at='2001-01-01T09:00' WHERE id=?", (p2["id"],)); d.commit()
-        A.post_poll_results(d)
-        assert d.execute("SELECT COUNT(*) FROM messages WHERE poll_id=?", (p2["id"],)).fetchone()[0] == 2
     # Closed polls drop off the sticky bar.
     assert "Timed results" not in coach.get("/api/polls/sticky?c=coaches").get_json()["html"]
 

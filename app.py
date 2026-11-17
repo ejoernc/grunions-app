@@ -12919,7 +12919,6 @@ def run_notify_jobs():
     d = open_db()
     try:
         if not claim_job(d, "notify_scan", 90): return
-        post_poll_results(d)
         run_practice_reminders(d); run_expiry_notices(d); nudge_stale_requests(d); run_auto_rsvp_asks(d); run_leave_alerts(d); run_scheduled_emails(d)
     except Exception:
         app.logger.exception("notification job failed")
@@ -13065,24 +13064,6 @@ def _poll_or_404(pid):
     p = polls.get(d, pid)
     if not p or not polls.enabled(p["channel"]) or not can_read(p["channel"]): abort(404)
     return d, p
-def post_poll_results(d, now=None):
-    """Polls set to post their results do it once, when they close (ended by hand or by their end time).
-    The results go into the chat as a new message from the poll's creator, with the final results card."""
-    import polls
-    polls.ensure(d)
-    for p in polls.due_results(d, wall_pt(now)):
-        claimed = d.execute("UPDATE polls SET results_posted_at=? WHERE id=? AND results_posted_at=''", (stamp_pt(), p["id"])).rowcount
-        if not claimed:
-            continue
-        body = "📊 Results: %s" % p["title"]
-        d.execute("INSERT INTO messages(member_id, body, channel, poll_id) VALUES(?,?,?,?)", (p["creator_id"], body, p["channel"], p["id"]))
-        d.commit()
-        sender = d.execute("SELECT * FROM members WHERE id=?", (p["creator_id"],)).fetchone()
-        if sender:
-            try:
-                notify_chat(d, p["channel"], sender, body, False)
-            except Exception as exc:
-                app.logger.warning("poll results notify failed: %s", exc)
 def public_base_url():
     return PUBLIC_URL.rstrip("/") if PUBLIC_URL else request.host_url.rstrip("/")
 def _poll_emails_later(ch, pid, sender):
@@ -13202,7 +13183,6 @@ def poll_end(pid):
     d, p = _poll_or_404(pid)
     if not (p["creator_id"] == me()["id"] or is_club_admin()): abort(403)
     d.execute("UPDATE polls SET closed_at=? WHERE id=? AND closed_at=''", (stamp_pt(), pid)); d.commit()
-    post_poll_results(d)
     flash("Poll ended", "toast")
     return redirect("/polls/%d" % pid)
 @app.route("/chat/polls")

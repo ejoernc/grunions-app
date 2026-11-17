@@ -141,8 +141,8 @@ def edit_texts(d, pid, form):
     """Rename the title, questions, and options, and add options. Nothing is removed, so every vote stays."""
     p = get(d, pid)
     title = _clean(form.get("title"), 140) or p["title"]
-    d.execute("UPDATE polls SET title=?, allow_add=?, post_results=? WHERE id=?",
-              (title, 1 if form.get("allow_add") == "1" else 0, 1 if form.get("post_results") == "1" else 0, pid))
+    d.execute("UPDATE polls SET title=?, allow_add=? WHERE id=?",
+              (title, 1 if form.get("allow_add") == "1" else 0, pid))
     for q in questions(d, pid):
         qt = _clean(form.get("qt%d" % q["id"]), 200)
         if qt:
@@ -234,10 +234,3 @@ def draft_for(d, pid, member_id, ch):
     return None
 
 
-def due_results(d, now):
-    """Closed polls that should post their results and haven't yet."""
-    out = []
-    for p in d.execute("SELECT * FROM polls WHERE post_results=1 AND results_posted_at=''"):
-        if is_closed(p, now):
-            out.append(p)
-    return out

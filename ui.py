@@ -6322,7 +6322,6 @@ T["poll_new"] = """<div class="rg-screen rg-pollnew">
 {{ rg_label('Settings') }}
 {{ rg_toggle('anonymous', 'Anonymous', "Shows counts only. Off: everyone can see who voted for what.", form.get('anonymous') == '1') }}
 {{ rg_toggle('allow_add', 'Let people add options', "Voters can add their own answer. It doesn't send the poll again.", form.get('allow_add') == '1') }}
-{{ rg_toggle('post_results', 'Post results when it closes', 'Final results go into the chat as a new message.', form.get('post_results') == '1') }}
 <label class=rg-field><span>ENDS</span><input type=datetime-local name=ends_at value="{{ form.get('ends_at','') }}"><small>Optional. Leave empty to end it yourself.</small></label>
 {{ rg_button('Preview poll', 'primary') }}
 <p class="ty-muted ty-sm">Preview attaches it to your message. It posts when you hit send.</p>
@@ -6382,7 +6381,6 @@ T["poll_edit"] = """<div class="rg-screen rg-pollnew">
 <button type=button class="rg-btn ghost" data-addnew="{{ q.id }}">Add an option</button>
 </div>{% endfor %}
 {{ rg_toggle('allow_add', 'Let people add options', "Voters can add their own answer. It doesn't send the poll again.", p.allow_add) }}
-{{ rg_toggle('post_results', 'Post results when it closes', 'Final results go into the chat as a new message.', p.post_results) }}
 {{ rg_button('Save', 'primary') }}
 </form>
 <script>document.querySelectorAll('[data-addnew]').forEach(function(b){b.onclick=function(){var box=document.querySelector('[data-new="'+b.dataset.addnew+'"]');var i=document.createElement('input');i.name='new'+b.dataset.addnew;i.maxLength=120;i.placeholder='New option';i.setAttribute('aria-label','New option');box.appendChild(i);i.focus()}})</script>
