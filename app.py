@@ -865,16 +865,17 @@ def legacy_coach_slug(d):
     return "water-polo" if "water-polo" in slugs or not slugs else slugs[0]
 def coach_channel(d, slug):
     return "coaches" if slug == legacy_coach_slug(d) else "coach:" + slug
-def coach_room_members(d, slug):
-    """Everyone in a sport's coaches chat: active coaches of that sport (program, series, or practice),
-    plus admins. The original room also keeps coaches who have no sport assigned yet, as before 2.0."""
+def coach_room_members(d, slug, include_readers=False):
+    """The coaches in a sport's coaches chat: active coaches of that sport (program, series, or practice).
+    The original room also keeps coaches who have no sport assigned yet, as before 2.0.
+    Admins and the board can read it (include_readers) but aren't counted or notified."""
     import clubadmin
     legacy = slug == legacy_coach_slug(d)
     out = []
     for m in d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1 ORDER BY id"):
-        if m["is_admin"]:
-            out.append(m); continue
         if (m["role"] or "") != "coach":
+            if include_readers and (m["is_admin"] or is_board_member(m)):
+                out.append(m)
             continue
         try:
             slugs = clubadmin.coached_slugs(d, m["id"])
@@ -2256,7 +2257,7 @@ def can_read(ch):
     if not ch or not me():
         return False
     if ch == "coaches":
-        return bool(me()["is_admin"]) or any(m["id"] == me()["id"] for m in coach_room_members(db(), legacy_coach_slug(db())))
+        return is_club_admin() or any(m["id"] == me()["id"] for m in coach_room_members(db(), legacy_coach_slug(db())))
     if ch == "board":
         return is_board()
     if ch.startswith("coach:"):
@@ -4035,6 +4036,9 @@ def _thread_people(d, ch):
 def _thread_subtitle(d, ch):
     if ch.startswith("dm:"):
         return "Direct"
+    if ch == "coaches" or ch.startswith("coach:"):
+        n = _thread_people(d, ch)
+        return "%d %s · Admins & board can see it" % (n, "coach" if n == 1 else "coaches")
     if ch.startswith("grp:"):
         return "Group · Grunions Aquatics"
     n = _thread_people(d, ch)
@@ -4147,6 +4151,7 @@ def _actions_bundle():
         'var sub=document.getElementById("actSub");'
         'if(kind==="everyone") sub.textContent=people+" people · the whole team";'
         'else if(kind==="direct") sub.textContent="Direct chat · Me › Chat";'
+        'else if(src.getAttribute("data-permanent")==="coaches") sub.textContent=people+(people==="1"?" coach":" coaches")+" · Admins & board can see it";'
         'else sub.textContent=people+" people · Grunions Aquatics";'
         'var mark=document.getElementById("actMark");'
         'mark.textContent=kind==="direct"?((title.match(/[A-Za-z]/g)||["?"]).slice(0,2).join("").toUpperCase()):"#";'
@@ -10034,7 +10039,7 @@ def _leaders_group(slug):
     rows = leaders.roles(d, pid)
     if program:
         name = program["public_name"] or program["name"]
-        chat_n = len(leaders.sport_coaches(d, pid))
+        chat_n = len(coach_room_members(d, program["slug"]))
         chat = {"label": "%s coaches" % name, "n": chat_n, "href": ("/chat?c=%s" % coach_channel(d, program["slug"])) if program["slug"] in {s["slug"] for s in _assigned_sports(d, me())} else ""}
         info = {"title": name, "sub": "Leadership, coaches, and referees for %s." % name,
                 "toggle": "Members can ask %s leads" % name, "toggle_sub": "Questions about practices, gear, teams",
