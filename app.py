@@ -13106,13 +13106,22 @@ def poll_new():
             return redirect("/chat?c=%s&poll=%d" % (ch, pid))
         except ValueError as exc:
             error = str(exc)
+    form = request.form
     keep = []
+    src = request.args.get("from", type=int) if request.method == "GET" else None
+    if src:
+        # Edit before posting: reopen the builder filled in from the preview (only your own, unsent).
+        draft = polls.draft_for(d, src, me()["id"], ch)
+        if draft:
+            form = {"title": draft["title"], "anonymous": "1" if draft["anonymous"] else "", "ends_at": draft["ends_at"] or "",
+                    "allow_add": "1" if draft["allow_add"] else "", "post_results": "1" if draft["post_results"] else ""}
+            keep = [{"text": q["text"], "multi": q["multi"], "opts": [o["text"] for o in q["options"]]} for q in polls.questions(d, src)]
     for i in range(polls.MAX_QUESTIONS):
         t = request.form.get("q%d_text" % i, "")
         o = request.form.getlist("q%d_opt" % i)
         if t or any(o):
             keep.append({"text": t, "multi": request.form.get("q%d_multi" % i) == "1", "opts": o})
-    return page(T["poll_new"], tab="chat", ch=ch, where=_thread_title(d, me(), ch), error=error, form=request.form, keep=keep,
+    return page(T["poll_new"], tab="chat", ch=ch, where=_thread_title(d, me(), ch), error=error, form=form, keep=keep,
                 admin_back="/chat?c=%s" % ch)
 @app.route("/polls/<int:pid>", methods=["GET", "POST"])
 @login_required

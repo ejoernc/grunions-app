@@ -6804,7 +6804,7 @@ var earlierBtn=document.getElementById('earlier');if(earlierBtn){earlierBtn.addE
 box.addEventListener('load',function(e){if(e.target&&e.target.tagName==='IMG'&&stick)pinBottom()},true);
 function syncComposer(){var c=document.querySelector('.composer');if(!c)return;var h=c.offsetHeight+'px';if(document.documentElement.style.getPropertyValue('--composer-h')===h)return;document.documentElement.style.setProperty('--composer-h',h);if(stick)pinBottom()}
 function filesNow(){return [].slice.call(file.files||[])}
-function composeReady(){return !ta.disabled && (!!ta.value.trim() || filesNow().length);}
+function composeReady(){return !ta.disabled && (!!ta.value.trim() || filesNow().length || !!pollDraft);}
 function paintCompose(){var act=document.getElementById('attach');if(!act)return;if(ta.disabled){act.disabled=true;act.textContent='↑';act.classList.add('ready');act.setAttribute('aria-label','Read only');return}act.disabled=false;if(composeReady()){act.textContent='↑';act.classList.add('ready');act.setAttribute('aria-label','Send')}else{act.textContent='+';act.classList.remove('ready');act.setAttribute('aria-label','Add photo')}}
 function paintThumbs(){
  var files=filesNow();
@@ -6852,12 +6852,12 @@ ta.addEventListener('paste',function(e){var list=[].slice.call((e.clipboardData&
 document.getElementById('quoteX').onclick=()=>{replyTo=null;quoteBar.hidden=true};
 document.getElementById('editX').onclick=()=>{editId=null;editBar.hidden=true;ta.value='';grow()};
 /* A previewed poll rides on the next message, like an attached photo. */
-var pollDraft=null;
-function dropPollDraft(){pollDraft=null;var el=document.getElementById('pollAttach');if(el){el.hidden=true;el.innerHTML=''}try{var u=new URL(location.href);u.searchParams.delete('poll');history.replaceState(history.state,'',u.pathname+u.search)}catch(_){}}
+var pollDraft=null;const PENCIL={{ rg_icon('edit', 'md')|string|tojson }};
+function dropPollDraft(){pollDraft=null;var el=document.getElementById('pollAttach');if(el){el.hidden=true;el.innerHTML=''}try{paintCompose();syncComposer()}catch(_){}try{var u=new URL(location.href);u.searchParams.delete('poll');history.replaceState(history.state,'',u.pathname+u.search)}catch(_){}}
 (async function(){var id=new URLSearchParams(location.search).get('poll');var el=document.getElementById('pollAttach');if(!id||!el)return;
  try{var r=await fetch('/api/polls/'+encodeURIComponent(id)+'/draft?c='+encodeURIComponent(CH));if(!r.ok){dropPollDraft();return}var j=await r.json();
-  pollDraft=j.id;el.innerHTML='<div class=pollattachhead><span>Poll attached · add a message or just send</span><button type=button id=pollAttachX aria-label="Remove poll">✕</button></div>'+j.html;el.hidden=false;
-  document.getElementById('pollAttachX').onclick=dropPollDraft;ta.focus()}catch(_){}})();
+  pollDraft=j.id;el.innerHTML='<div class=pollattachhead><span>Poll attached · add a message or just send</span><span class=pollattachact><a class=pollattachbtn href="/polls/new?c='+encodeURIComponent(CH)+'&from='+j.id+'" aria-label="Edit poll">'+PENCIL+'</a><button type=button class=pollattachbtn id=pollAttachX aria-label="Remove poll">✕</button></span></div>'+j.html;el.hidden=false;
+  document.getElementById('pollAttachX').onclick=dropPollDraft;paintCompose();syncComposer()}catch(_){}})();
 let sending=false;
 document.getElementById('f').onsubmit=async e=>{e.preventDefault();if(sending)return;const f=file.files[0];const text=ta.value;
  if(editId){const m=msgs[editId];if(!text.trim()&&!(m&&m.image))return;sending=true;
