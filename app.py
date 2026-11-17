@@ -3206,7 +3206,7 @@ def _ask_rows(d, m):
         if p["slug"] in coached or not leaders.leads_requests_on(d, p["slug"]) or not leaders.sport_coaches(d, p["id"]):
             continue
         name = p["public_name"] or p["name"]
-        rows.append(str(components.person_row("%s leads" % name, "Practices, gear, teams", name[:1].upper(),
+        rows.append(str(components.person_row("Ask the %s Coaches" % name, "Practices, gear, teams", name[:1].upper(),
                     attrs='data-open-request data-to=coaches data-lock=sport data-sport="%s" data-about=other' % escape(p["slug"]))))
     return rows
 def _pick_people(d, m, ask=False):
