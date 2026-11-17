@@ -4817,11 +4817,34 @@ def _notify_chat_later(ch, sender, body, has_image):
         run()
     else:
         threading.Thread(target=run, daemon=True).start()
+_PRESENCE_WROTE = {}
+def mark_chat_present(d, member_id, ch):
+    """Someone has this chat open and on screen (the page polls every few seconds while visible).
+    Notifications skip them. Additive table; one row per person per chat, overwritten in place."""
+    import time
+    now = time.time()
+    if now - _PRESENCE_WROTE.get((member_id, ch), 0) < 5:
+        return
+    _PRESENCE_WROTE[(member_id, ch)] = now
+    try:
+        d.execute("CREATE TABLE IF NOT EXISTS chat_presence(member_id INTEGER NOT NULL, channel TEXT NOT NULL, at REAL NOT NULL, PRIMARY KEY(member_id, channel))")
+        d.execute("INSERT INTO chat_presence(member_id, channel, at) VALUES(?,?,?) ON CONFLICT(member_id, channel) DO UPDATE SET at=excluded.at", (member_id, ch, now))
+        d.commit()
+    except sqlite3.Error:
+        pass
+def chat_viewers(d, ch, within=15):
+    import time
+    try:
+        return {r[0] for r in d.execute("SELECT member_id FROM chat_presence WHERE channel=? AND at>=?", (ch, time.time() - within))}
+    except sqlite3.Error:
+        return set()
 @app.route("/api/messages", methods=["GET", "POST"])
 @login_required
 def api_messages():
     d = db(); ch = parse_channel(request.args.get("c", "team"))
     if not can_read(ch): abort(403)
+    if request.method == "GET" and request.args.get("v") == "1":
+        mark_chat_present(d, me()["id"], ch)
     if request.method == "POST" and practice_chat_locked(d, ch):
         return jsonify(error="This practice chat is read-only. It closed 7 days after the practice."), 403
     if request.method == "POST":
@@ -12514,8 +12537,9 @@ def notify_chat(d, channel, sender, body, has_image):
     url = "/chat?c=" + ch
     try: left = {r[0] for r in d.execute("SELECT member_id FROM chat_hidden WHERE channel=? AND reason='leave'", (ch,))}
     except Exception: left = set()
+    watching = chat_viewers(d, ch)  # already looking at this chat: no notification
     for m in chat_push_recipients(d, ch, sender["id"]):
-        if m["id"] in left or chat_muted(d, m["id"], ch): continue
+        if m["id"] in left or m["id"] in watching or chat_muted(d, m["id"], ch): continue
         push_member(d, m, kind, title, line, url)
 def notify_practice_cancelled(d, p):
     when = "%s, %s-%s" % (fmt_d(p["date"]), fmt_t(p["start"]), fmt_t(p["end"]))
@@ -12908,8 +12932,19 @@ self.addEventListener('fetch', function(event) {
 self.addEventListener('push', function(event) {
   var data = {title: 'Regulars', body: '', url: '/'};
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
-  var tasks = [self.registration.showNotification(data.title || 'Regulars', {
-    body: data.body || '', icon: '/static/icons/icon-192.png?v=120', badge: '/static/icons/icon-192.png?v=120', data: {url: data.url || '/'}
+  var target = data.url || '/';
+  // Skip it if that chat (or page) is already open and on screen; otherwise one notification per chat, newest on top.
+  var tasks = [clients.matchAll({type: 'window', includeUncontrolled: true}).then(function(list) {
+    for (var i = 0; i < list.length; i++) {
+      try {
+        var u = new URL(list[i].url);
+        if (list[i].visibilityState === 'visible' && (u.pathname + u.search) === target) return;
+      } catch (e) {}
+    }
+    return self.registration.showNotification(data.title || 'Regulars', {
+      body: data.body || '', icon: '/static/icons/icon-192.png?v=120', badge: '/static/icons/icon-192.png?v=120',
+      tag: target, renotify: true, data: {url: target}
+    });
   })];
   if (typeof data.badge === 'number' && navigator.setAppBadge) {
     try {
