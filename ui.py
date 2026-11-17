@@ -2724,7 +2724,7 @@ window.grunionsDuesGate=function(pid, proceed){
   var dlg=document.getElementById('goingMemSheet'); if(!dlg&&j.html){var wrap=document.createElement('div');wrap.innerHTML=j.html;dlg=wrap.firstElementChild;document.body.appendChild(dlg)} if(!dlg){proceed();return}
   dlg.querySelector('[data-mem-price]').textContent=j.price||'monthly';
   dlg.querySelectorAll('[data-mem-start]').forEach(function(n){n.textContent=j.start});
-  var go=dlg.querySelector('[data-mem-enable]'); go.href=j.url; go.querySelector('span').textContent='Enable '+(j.price||'monthly')+' membership';
+  var go=dlg.querySelector('[data-mem-enable]'); go.href=j.url; go.querySelector('span').textContent='Enroll in '+(j.price||'monthly')+' membership';
   dlg.querySelector('[data-mem-when]').textContent=j.before_start?("You won't be charged until "+j.start+"."):(j.due_now||"");
   function ack(action){var fd=new FormData();var t=document.querySelector('input[name=csrf]');if(t)fd.append('csrf',t.value);fd.append('action',action);fd.append('pid',pid);
    return fetch('/membership/ack',{method:'POST',body:fd,credentials:'same-origin'}).catch(function(){})}
