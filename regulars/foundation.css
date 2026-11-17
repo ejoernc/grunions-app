@@ -1689,3 +1689,12 @@ html body .rg-topbar .rg-tbrow{width:100%;max-width:none;margin:0}}
 .rg-plist.pqcoaches .rg-txt b,.rg-plist.pqcoaches .rg-txt small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pq .rg-plist.pqcoaches .rg-chip{display:none}
 .rg-plist.pqcoaches>p{grid-column:1/-1}
+
+/* Schedule list: back to My week (map + week) above the big title, styled like the compact top bar. */
+header.homehead .displayhead .schedback{margin:0 0 12px}
+header.homehead .displayhead .schedback .rg-tbtitle{min-width:0;font:700 22px/.95 var(--font-display);letter-spacing:-.03em;color:var(--paper);text-decoration:none}
+header.homehead .headmain:has(.schedback){display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px}
+header.homehead .headmain:has(.schedback)>.displayhead{display:contents}
+header.homehead .headmain:has(.schedback) .schedback{grid-column:1/-1;grid-row:1}
+header.homehead .headmain:has(.schedback) h1{grid-column:1;grid-row:2}
+header.homehead .headmain:has(.schedback)>:not(.displayhead){grid-column:2;grid-row:2;align-self:center}
