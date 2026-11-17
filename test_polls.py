@@ -104,9 +104,12 @@ def test_create_vote_results_and_access():
 
     player = _as(PLAYER)
     assert player.get("/polls/%d" % p["id"]).status_code == 404
-    assert player.get("/polls/new?c=team").status_code == 404  # polls are only on in coaches chats for now
-    assert admin.get("/polls/new?c=team").status_code == 404
-    assert polls.enabled("coaches") and polls.enabled("coach:swimming") and not polls.enabled("team")
+    assert player.get("/polls/new?c=team").status_code == 200  # #everyone has polls
+    for ch in ("team", "board", "coaches", "coach:swimming", "ch:announcements", "practice:5"):
+        assert polls.enabled(ch), ch
+    for ch in ("dm:1:2", "grp:friends", "req:3", "ask:water-polo", "ask:board", ""):
+        assert not polls.enabled(ch), ch
+    assert player.get("/polls/new?c=dm:1:2").status_code == 404
 
 
 def test_anonymous_hides_names_and_end_poll():

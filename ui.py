@@ -6419,11 +6419,11 @@ T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template>{% if poll
 <dialog id=attachSheet class="botsheet attachsheet"><div class=sheet>
 <div class=grab aria-hidden=true></div>
 <div class=attachphone>
-<div class=attachhead>{% if polls_enabled(ch) %}<h2>Add to chat</h2><p class=attachsub>A photo, or a poll for the coaches</p>{% else %}<h2>Add an image</h2><p class=attachsub>Up to 10 · JPG, PNG, HEIC</p>{% endif %}</div>
+<div class=attachhead>{% if polls_enabled(ch) %}<h2>Add to chat</h2><p class=attachsub>A photo or a poll</p>{% else %}<h2>Add an image</h2><p class=attachsub>Up to 10 · JPG, PNG, HEIC</p>{% endif %}</div>
 <div class=attachtiles>
 <button type=button class=attachtile id=takePhoto><span class=attachico><img src="/static/nav/attach-camera.svg" width="24" height="24" alt=""></span>Take photo</button>
 <button type=button class=attachtile id=choosePhotos><span class=attachico><img src="/static/nav/attach-image.svg" width="24" height="24" alt=""></span>Choose photos</button>
-{% if polls_enabled(ch) %}<a class=attachtile href="/polls/new?c={{ ch }}"><span class=attachico><img src="/static/nav/attach-poll.svg" width="24" height="24" alt=""></span>Poll</a>{% endif %}
+{% if polls_enabled(ch) and not chat_locked %}<a class=attachtile href="/polls/new?c={{ ch }}"><span class=attachico><img src="/static/nav/attach-poll.svg" width="24" height="24" alt=""></span>Poll</a>{% endif %}
 </div>
 <button type=button class=attachcancel id=attachCancel>Cancel</button>
 </div>
@@ -6434,7 +6434,7 @@ T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template>{% if poll
 <div class=hot><span class=attachico><img src="/static/nav/attach-upload.svg" width="24" height="24" alt=""></span><b>Drop to add</b><p class=attachcount id=attachCount>1 image</p></div>
 </div>
 <p class=attachnote>Up to 10 · JPG, PNG, HEIC, GIF · 20 MB each. You can also paste (⌘V) or drag straight into the chat.</p>
-{% if polls_enabled(ch) %}<a class="rg-btn secondary rg-wide attachpoll" href="/polls/new?c={{ ch }}"><img src="/static/nav/attach-poll.svg" width="20" height="20" alt="" style="filter:invert(1)"> New poll</a>{% endif %}
+{% if polls_enabled(ch) and not chat_locked %}<a class="rg-btn secondary rg-wide attachpoll" href="/polls/new?c={{ ch }}"><img src="/static/nav/attach-poll.svg" width="20" height="20" alt="" style="filter:invert(1)"> New poll</a>{% endif %}
 </div>
 <p class=attacherr id=attachErr hidden></p>
 </div></dialog>

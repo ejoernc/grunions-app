@@ -13046,7 +13046,7 @@ def push_subscribe():
         ON CONFLICT(endpoint) DO UPDATE SET member_id=excluded.member_id, p256dh=excluded.p256dh, auth=excluded.auth, created=excluded.created""",
         (me()["id"], endpoint, p256dh, authk, now))
     d.commit(); return jsonify(ok=True)
-# ---------- Polls (coaches chats first; polls.enabled decides where) ----------
+# ---------- Polls (polls.enabled decides which chats have them) ----------
 def _poll_name(d):
     cache = {}
     def name(mid):
@@ -13114,6 +13114,7 @@ def poll_new():
     d = db(); polls.ensure(d)
     ch = parse_channel(request.values.get("c", ""))
     if not polls.enabled(ch) or not can_read(ch): abort(404)
+    if practice_chat_locked(d, ch): abort(403)
     error = ""
     if request.method == "POST":
         try:

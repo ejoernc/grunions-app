@@ -2,7 +2,7 @@
 Anonymous polls show counts only; open polls can show who voted for what.
 Voting happens on the poll's own page; results show in the chat as a card.
 
-Additive tables only. Turned on for coaches chats first (see enabled())."""
+Additive tables only. Which chats have polls: see enabled()."""
 import datetime as dt
 
 MAX_QUESTIONS = 10
@@ -10,8 +10,10 @@ MAX_OPTIONS = 12
 
 
 def enabled(ch):
-    """Where polls are available. Coaches chats first, to test; widen this to open them up."""
-    return ch == "coaches" or (ch or "").startswith("coach:")
+    """Where polls are available: #everyone, club channels, practice chats, the board chat and coaches chats.
+    Not personal messages, personal groups, requests or ask threads."""
+    ch = ch or ""
+    return ch in ("team", "board", "coaches") or ch.startswith(("ch:", "practice:", "coach:"))
 
 
 def ensure(d):
