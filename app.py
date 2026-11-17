@@ -4868,15 +4868,33 @@ def api_messages():
             except ValueError as e: return jsonify(error=str(e)), 400
         else: j = request.get_json(silent=True) or {}
         body = (j.get("body") or "").strip()[:2000]
+        draft = None
+        if j.get("poll_id"):
+            import polls
+            polls.ensure(d)
+            try: draft = polls.draft_for(d, int(j.get("poll_id")), me()["id"], ch)
+            except (TypeError, ValueError): draft = None
+            if not draft or not polls.enabled(ch):
+                return jsonify(error="That poll can't be posted here."), 400
+            if not body: body = "📊 Poll: %s" % draft["title"]
         if not body and not image: abort(400)
         if ch.startswith("dm:") and _dm_blocked(d, me()["id"], ch):
             return jsonify(error="This chat is blocked."), 403
         ann = 1 if (j.get("announcement") in (True, "true", "1") and me()["is_admin"] and ch == "team") else 0
         iw, ih = chat_thumb_size(image) if image else (None, None)
-        d.execute("INSERT INTO messages(member_id,body,announcement,channel,image,image_w,image_h,reply_to) VALUES(?,?,?,?,?,?,?,?)",
+        cur = d.execute("INSERT INTO messages(member_id,body,announcement,channel,image,image_w,image_h,reply_to) VALUES(?,?,?,?,?,?,?,?)",
                   (me()["id"], body, ann, ch, image, iw, ih, reply_target(d, ch, j.get("reply_to"))))
+        if draft:
+            d.execute("UPDATE messages SET poll_id=? WHERE id=?", (draft["id"], cur.lastrowid))
+            d.execute("UPDATE polls SET message_id=? WHERE id=? AND message_id IS NULL", (cur.lastrowid, draft["id"]))
         _touch_request(d, ch, me())
         d.commit()
+        if draft:
+            try:
+                import polls
+                send_poll_emails(d, ch, polls.get(d, draft["id"]), me())
+            except Exception as exc:
+                app.logger.warning("poll emails failed: %s", exc)
         mark_chat_read(d, me()["id"], ch)
         _notify_chat_later(ch, me(), body, bool(image))  # pushes go out after the reply, so sending feels instant
         return jsonify(ok=True)
@@ -13083,19 +13101,18 @@ def poll_new():
             if ends_at and dt.datetime.fromisoformat(ends_at) <= wall_pt():
                 raise ValueError("Pick an end time in the future.")
             pid = polls.create(d, ch, me()["id"], title, anon, ends_at, qs, stamp_pt(), allow_add, post_results)
-            body = "📊 Poll: %s" % title
-            mid = d.execute("INSERT INTO messages(member_id, body, channel, poll_id) VALUES(?,?,?,?)", (me()["id"], body, ch, pid)).lastrowid
-            d.execute("UPDATE polls SET message_id=? WHERE id=?", (mid, pid))
             d.commit()
-            _notify_chat_later(ch, me(), body, False)
-            try:
-                send_poll_emails(d, ch, polls.get(d, pid), me())
-            except Exception as exc:
-                app.logger.warning("poll emails failed: %s", exc)
-            return redirect("/chat?c=%s" % ch)
+            # A preview: back to the chat with the poll attached to the message box. It posts when they send.
+            return redirect("/chat?c=%s&poll=%d" % (ch, pid))
         except ValueError as exc:
             error = str(exc)
-    return page(T["poll_new"], tab="chat", ch=ch, where=_thread_title(d, me(), ch), error=error, form=request.form,
+    keep = []
+    for i in range(polls.MAX_QUESTIONS):
+        t = request.form.get("q%d_text" % i, "")
+        o = request.form.getlist("q%d_opt" % i)
+        if t or any(o):
+            keep.append({"text": t, "multi": request.form.get("q%d_multi" % i) == "1", "opts": o})
+    return page(T["poll_new"], tab="chat", ch=ch, where=_thread_title(d, me(), ch), error=error, form=request.form, keep=keep,
                 admin_back="/chat?c=%s" % ch)
 @app.route("/polls/<int:pid>", methods=["GET", "POST"])
 @login_required
@@ -13151,6 +13168,15 @@ def chat_polls():
     open_ = sorted([s for s in rows if not s["closed"]], key=lambda s: s["voted"])
     done = [s for s in rows if s["closed"]]
     return page(T["chat_polls"], tab="chat", ch=ch, where=_thread_title(d, me(), ch), open_polls=open_, closed_polls=done, admin_back="/chat?c=%s" % ch)
+@app.route("/api/polls/<int:pid>/draft")
+@login_required
+def poll_draft(pid):
+    import polls, components
+    d = db(); polls.ensure(d)
+    ch = parse_channel(request.args.get("c", ""))
+    p = polls.draft_for(d, pid, me()["id"], ch)
+    if not p or not polls.enabled(ch) or not can_read(ch): return jsonify(error="gone"), 404
+    return jsonify(id=p["id"], title=p["title"], html=str(components.poll_card(poll_summary(d, p), compact=True, vote=False)))
 @app.route("/api/polls/sticky")
 @login_required
 def poll_sticky():

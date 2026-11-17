@@ -6289,7 +6289,7 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 
 T["poll_new"] = """<div class="rg-screen rg-pollnew">
 {{ rg_page_title('New poll', 'Posts to ' ~ where ~ '. People vote on its own page; results show in the chat.') }}
-{% if error %}<p class=rg-note role=alert>{{ error }}</p>{% endif %}
+{% if error %}<p class="rg-note rg-pollerr" role=alert>{{ error }}</p>{% endif %}
 <form method=post id=pollForm>{{ csrf_field() }}<input type=hidden name=c value="{{ ch }}">
 <label class=rg-field><span>TITLE</span><input name=title maxlength=140 placeholder="e.g. Sunday practice?" value="{{ form.get('title','') }}"></label>
 <div id=pollQs></div>
@@ -6299,11 +6299,12 @@ T["poll_new"] = """<div class="rg-screen rg-pollnew">
 {{ rg_toggle('allow_add', 'Let people add options', "Voters can add their own answer. It doesn't send the poll again.", form.get('allow_add') == '1') }}
 {{ rg_toggle('post_results', 'Post results when it closes', 'Final results go into the chat as a new message.', form.get('post_results') == '1') }}
 <label class=rg-field><span>ENDS</span><input type=datetime-local name=ends_at value="{{ form.get('ends_at','') }}"><small>Optional. Leave empty to end it yourself.</small></label>
-{{ rg_button('Post poll', 'primary') }}
+{{ rg_button('Preview poll', 'primary') }}
+<p class="ty-muted ty-sm">Preview attaches it to your message. It posts when you hit send.</p>
 </form>
 <template id=qTpl><div class="rg-chartcard rg-pollqedit" data-q>
 <div class=rg-pollqhead><p class="ty-caps">QUESTION <span data-qn></span></p><button type=button class=rg-dgact data-qx>Remove</button></div>
-<label class=rg-field><input data-qtext maxlength=200 placeholder="Ask something" aria-label="Question"></label>
+<label class=rg-field><input data-qtext maxlength=200 placeholder="Ask something (or leave empty to use the title)" aria-label="Question"></label>
 {{ rg_seg_choice('__multi', [('0','Pick one'),('1','Pick any')], '0') }}
 <div class=rg-pollopts data-opts></div>
 <button type=button class="rg-btn ghost" data-addopt>Add an option</button>
@@ -6319,10 +6320,13 @@ T["poll_new"] = """<div class="rg-screen rg-pollnew">
  function addOpt(q,val){var box=q.querySelector('[data-opts]');var row=document.createElement('div');row.className='rg-pollopt';
    row.innerHTML='<input data-opt maxlength=120 placeholder="Option '+(box.children.length+1)+'"><button type=button class=rg-dgact aria-label="Remove option">✕</button>';
    row.querySelector('input').value=val||'';row.querySelector('button').onclick=function(){if(box.children.length>2){row.remove();renumber()}};box.appendChild(row);renumber();}
- function addQ(){var q=tpl.content.firstElementChild.cloneNode(true);wrap.appendChild(q);n++;
+ function addQ(pre){var q=tpl.content.firstElementChild.cloneNode(true);wrap.appendChild(q);n++;
    q.querySelector('[data-addopt]').onclick=function(){addOpt(q)};q.querySelector('[data-qx]').onclick=function(){q.remove();renumber()};
-   addOpt(q);addOpt(q);renumber();}
- document.getElementById('addQ').onclick=addQ;addQ();
+   if(pre){q.querySelector('[data-qtext]').value=pre.text||'';var radios=q.querySelectorAll('input[type=radio]');radios.forEach(function(r){r.checked=(r.value==='1')===!!pre.multi});
+     (pre.opts&&pre.opts.length?pre.opts:['','']).forEach(function(v){addOpt(q,v)});if((pre.opts||[]).length<2)addOpt(q);}
+   else{addOpt(q);addOpt(q);}renumber();}
+ document.getElementById('addQ').onclick=function(){addQ()};
+ var KEEP={{ keep|tojson }};if(KEEP.length)KEEP.forEach(function(k){addQ(k)});else addQ();
 })();</script>
 </div>"""
 
@@ -6384,7 +6388,7 @@ T["notifications"] = """<div class=rg-screen>
 </form></div>"""
 
 T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template>{% if polls_enabled(ch) %}<div class=rg-pollstickies id=pollSticky hidden></div>{% endif %}<div class=chat id=chat><div class=chatin><button type=button id=earlier class=earlier hidden>Load earlier messages</button></div></div><div class=chatpad></div>
-{% if chat_locked %}<p class=chatlock>read-only · this practice ended.</p>{% endif %}<div class="composer noprint"><div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=thumbs id=prev hidden></div>
+{% if chat_locked %}<p class=chatlock>read-only · this practice ended.</p>{% endif %}<div class="composer noprint">{% if polls_enabled(ch) %}<div class=pollattach id=pollAttach hidden></div>{% endif %}<div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=thumbs id=prev hidden></div>
 <form id=f data-nonav><input class=fileclip type=file id=file accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif,.gif,.png,.jpg,.jpeg,.webp" multiple>
 <textarea id=body rows=1 maxlength=2000 placeholder="{{ chat_placeholder or 'Message' }}" {% if chat_locked %}disabled{% endif %}></textarea>
 <button type=button class="iconbtn send" id=attach aria-label="Add photo">+</button>
@@ -6525,7 +6529,7 @@ function linkify(raw){
 }
 function bodyHtml(m){
  if(m.deleted) return '<div class="txt deleted">Message deleted</div>';
- if(m.poll) return m.poll;
+ if(m.poll){var said=(m.body&&m.body.indexOf('📊 ')!==0)?`<div class="txt pollsaid">${linkify(m.body)}</div>`:'';return said+m.poll}
  let h='';
  if(m.reply) h+=`<div class=quotechip><b>${esc(m.reply.who||'')}</b><span>${esc(m.reply.body||'')}</span></div>`;
  var text=m.body?`<div class=txt>${linkify(m.body)}${m.edited?' <span class=edited>(edited)</span>':''}</div>`:'';
@@ -6847,13 +6851,20 @@ document.addEventListener('drop',function(e){if(!fileDrag(e))return;e.preventDef
 ta.addEventListener('paste',function(e){var list=[].slice.call((e.clipboardData&&e.clipboardData.files)||[]);if(list.length){e.preventDefault();takePhotos(list)}});
 document.getElementById('quoteX').onclick=()=>{replyTo=null;quoteBar.hidden=true};
 document.getElementById('editX').onclick=()=>{editId=null;editBar.hidden=true;ta.value='';grow()};
+/* A previewed poll rides on the next message, like an attached photo. */
+var pollDraft=null;
+function dropPollDraft(){pollDraft=null;var el=document.getElementById('pollAttach');if(el){el.hidden=true;el.innerHTML=''}try{var u=new URL(location.href);u.searchParams.delete('poll');history.replaceState(history.state,'',u.pathname+u.search)}catch(_){}}
+(async function(){var id=new URLSearchParams(location.search).get('poll');var el=document.getElementById('pollAttach');if(!id||!el)return;
+ try{var r=await fetch('/api/polls/'+encodeURIComponent(id)+'/draft?c='+encodeURIComponent(CH));if(!r.ok){dropPollDraft();return}var j=await r.json();
+  pollDraft=j.id;el.innerHTML='<div class=pollattachhead><span>Poll attached · add a message or just send</span><button type=button id=pollAttachX aria-label="Remove poll">✕</button></div>'+j.html;el.hidden=false;
+  document.getElementById('pollAttachX').onclick=dropPollDraft;ta.focus()}catch(_){}})();
 let sending=false;
 document.getElementById('f').onsubmit=async e=>{e.preventDefault();if(sending)return;const f=file.files[0];const text=ta.value;
  if(editId){const m=msgs[editId];if(!text.trim()&&!(m&&m.image))return;sending=true;
   try{const r=await fetch('/api/messages/'+editId,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:text})});
   const j=await r.json().catch(()=>({}));if(!r.ok){alert(j.error||'Could not save.');return}clearCompose();if(j.message)upsert(j.message,true)}finally{sending=false}return}
  var batch=filesNow();
- if(!text.trim()&&!batch.length)return;sending=true;
+ if(!text.trim()&&!batch.length&&!pollDraft)return;sending=true;
  try{let r;if(batch.length){for(var i=0;i<batch.length;i++){const fd=new FormData();fd.append('body',i?'':text);fd.append('image',batch[i]);if(replyTo)fd.append('reply_to',replyTo);
   r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'X-CSRF':CSRF},body:fd});
   if(!r.ok){const j=await r.json().catch(()=>({}));toast(j.error||'Could not send.',4500);return}}}
@@ -6861,7 +6872,8 @@ document.getElementById('f').onsubmit=async e=>{e.preventDefault();if(sending)re
   // Show it right away; the real message replaces it when the server answers.
   var pend=null;try{pend=document.createElement('div');pend.className='m mine pending';var bh='';try{bh=bodyHtml({id:0,body:text,mine:true,rx:{}})}catch(_){bh='<div class=b>'+esc(text)+'</div>'}
    pend.innerHTML='<div class=mstack>'+bh+'<div class=msgfoot><span class="exact msgtime">Sending…</span></div></div>';thread().appendChild(pend);var rt=replyTo;clearCompose();replyTo=rt;stick=true;pinBottom()}catch(_){}
-  r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({body:text,reply_to:replyTo})});
+  r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify(pollDraft?{body:text,reply_to:replyTo,poll_id:pollDraft}:{body:text,reply_to:replyTo})});
+  if(r&&r.ok&&pollDraft)dropPollDraft();
   if(pend&&r&&!r.ok){pend.remove();ta.value=text;grow()}
   if(pend&&r&&r.ok){replyTo=null;quoteBar.hidden=true}
   if(r&&r.ok){const epoch=window.grunionsNavEpoch|0;await poll();if(pend)pend.remove();if((window.grunionsNavEpoch|0)!==epoch)return;stick=true;pinBottom();return}}

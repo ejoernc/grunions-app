@@ -47,11 +47,14 @@ def parse_form(form):
     Fields: title, anonymous, ends_at (YYYY-MM-DDTHH:MM, optional), q<i>_text, q<i>_multi, q<i>_opt (repeated)."""
     title = _clean(form.get("title"), 140)
     questions = []
+    filled = [i for i in range(MAX_QUESTIONS) if _clean(form.get("q%d_text" % i), 200) or any(_clean(x, 120) for x in form.getlist("q%d_opt" % i))]
     for i in range(MAX_QUESTIONS):
         text = _clean(form.get("q%d_text" % i), 200)
         opts = [o for o in (_clean(x, 120) for x in form.getlist("q%d_opt" % i)) if o]
         if not text and not opts:
             continue
+        if not text and title and len(filled) == 1:
+            text = title  # one question: the title is the question
         if not text:
             raise ValueError("Question %d needs a question." % (len(questions) + 1))
         seen, uniq = set(), []
@@ -219,7 +222,16 @@ def summary(d, p, viewer_id, now, name_of, can_end=False):
 
 
 def for_channel(d, ch):
-    return d.execute("SELECT * FROM polls WHERE channel=? ORDER BY id DESC", (ch,)).fetchall()
+    """Posted polls only. A previewed poll that was never sent stays out of the chat."""
+    return d.execute("SELECT * FROM polls WHERE channel=? AND message_id IS NOT NULL ORDER BY id DESC", (ch,)).fetchall()
+
+
+def draft_for(d, pid, member_id, ch):
+    """A poll previewed but not yet sent, by this person, for this chat."""
+    p = get(d, pid)
+    if p and p["creator_id"] == member_id and p["channel"] == ch and p["message_id"] is None:
+        return p
+    return None
 
 
 def due_results(d, now):

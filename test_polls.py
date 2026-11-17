@@ -41,7 +41,15 @@ def _new_poll(c, ch="coaches", **extra):
     data = {"csrf": _csrf(c, "/polls/new?c=" + ch), "c": ch, "title": "Sunday?", "q0_text": "Add a Sunday practice?",
             "q0_multi": "0", "q0_opt": ["9am", "4pm", "No"], "q1_text": "Drills", "q1_multi": "1", "q1_opt": ["6 on 5", "Shooting"]}
     data.update(extra)
-    return c.post("/polls/new", data=data)
+    r = c.post("/polls/new", data=data)
+    if r.status_code != 302:
+        return r
+    # Preview -> back in the chat with the poll attached; it posts when they send.
+    pid = int(r.headers["Location"].split("poll=")[1])
+    token = _csrf(c, "/notifications")
+    sent = c.post("/api/messages?c=" + ch, json={"body": "", "poll_id": pid}, headers={"X-CSRF": token})
+    assert sent.status_code == 200, sent.get_data(as_text=True)
+    return r
 
 
 def _latest_poll():
@@ -66,7 +74,7 @@ def test_create_vote_results_and_access():
     SENT.clear()
     admin = _as(ADMIN)
     r = _new_poll(admin)
-    assert r.status_code == 302 and "/chat?c=coaches" in r.headers["Location"]
+    assert r.status_code == 302 and "/chat?c=coaches&poll=" in r.headers["Location"]
     p = _latest_poll()
     assert p["channel"] == "coaches" and p["title"] == "Sunday?"
     with A.app.app_context():
@@ -211,3 +219,33 @@ def test_results_post_once_when_poll_closes_and_tracker_bar():
         assert d.execute("SELECT COUNT(*) FROM messages WHERE poll_id=?", (p2["id"],)).fetchone()[0] == 2
     # Closed polls drop off the sticky bar.
     assert "Timed results" not in coach.get("/api/polls/sticky?c=coaches").get_json()["html"]
+
+
+def test_preview_is_private_until_sent_and_title_can_be_the_question():
+    admin = _as(ADMIN)
+    SENT.clear()
+    r = admin.post("/polls/new", data={"csrf": _csrf(admin, "/polls/new?c=coaches"), "c": "coaches",
+                                         "title": "Sunday practice at 9am?", "q0_text": "", "q0_multi": "0", "q0_opt": ["Yes", "No"]})
+    assert r.status_code == 302 and "poll=" in r.headers["Location"]
+    pid = int(r.headers["Location"].split("poll=")[1])
+    with A.app.app_context():
+        d = A.db()
+        assert polls.questions(d, pid)[0]["text"] == "Sunday practice at 9am?"  # title used as the question
+        assert polls.get(d, pid)["message_id"] is None
+    assert SENT == []  # nothing goes out on preview
+    coach = _as(COACH)
+    assert "Sunday practice at 9am?" not in coach.get("/api/polls/sticky?c=coaches").get_json()["html"]
+    assert coach.get("/api/polls/%d/draft?c=coaches" % pid).status_code == 404  # only the creator sees the preview
+    assert admin.get("/api/polls/%d/draft?c=coaches" % pid).status_code == 200
+    token = _csrf(admin, "/notifications")
+    r = admin.post("/api/messages?c=coaches", json={"body": "Thoughts on adding Sundays?", "poll_id": pid}, headers={"X-CSRF": token})
+    assert r.status_code == 200
+    with A.app.app_context():
+        d = A.db()
+        p = polls.get(d, pid)
+        msg = d.execute("SELECT body, poll_id FROM messages WHERE id=?", (p["message_id"],)).fetchone()
+        assert msg["body"] == "Thoughts on adding Sundays?" and msg["poll_id"] == pid
+    assert "cara@example.com" in {t for t, _s, _x in SENT}  # emails go out when it's sent (Cole opted out earlier)
+    # A sent poll can't be sent again.
+    again = admin.post("/api/messages?c=coaches", json={"body": "x", "poll_id": pid}, headers={"X-CSRF": token})
+    assert again.status_code == 400
