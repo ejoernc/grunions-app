@@ -90,7 +90,7 @@ def reminder_settings(d):
     return {"enabled": _meta(d, "practice_reminders") == "1", "hours": hours, "when": when, "who": who if who in ("going", "team") else "team"}
 
 
-REMINDER_WHEN = (("1h", "1 hour before"), ("3h", "3 hours before"), ("morning", "Morning of"), ("day", "Day before"))
+REMINDER_WHEN = (("1h", "1 hour before"), ("3h", "3 hours before"), ("morning", "Morning of (8 AM)"), ("day", "Day before"))
 REMINDER_WHO = (("going", "People going"), ("team", "Everyone on the team"))
 
 
