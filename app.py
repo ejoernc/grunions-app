@@ -2952,7 +2952,7 @@ def channel_preview(d, channel):
     line = ("%s: %s" % (who, text)).strip(": ") if who else text
     live = _active_polls(d, channel)
     if live:
-        line = ("📊 Active Poll · " if live == 1 else "📊 %d Active Polls · " % live) + line
+        line = ("📊 Active Poll | " if live == 1 else "📊 %d Active Polls | " % live) + line
     return line[:110], chat_clock(row["at"])
 def _active_polls(d, channel):
     """How many posted polls are still open in this chat (0 where polls are off)."""
