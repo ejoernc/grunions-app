@@ -1350,8 +1350,7 @@ button.earlier{width:100%;height:auto;min-height:0;margin:0;padding:8px 0 4px;ba
 .exact{display:none;margin-top:3px;color:var(--smoke);font:700 11px/1.2 var(--r2-font-sans)}
 .m.showtime .exact{display:block}
 @media (hover:hover) and (pointer:fine){.m:hover .exact{display:block}}
-.m:not(.mine) .rx{justify-content:flex-end}
-.m.mine .rx{justify-content:flex-start}
+.m .rx{justify-content:flex-start}
 .reqbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;background:var(--team-lavender);color:var(--graphite);border-radius:20px;padding:12px 14px;margin:0 0 8px}
 .reqbar button,.reqbar a{color:var(--graphite);font:700 17px/1.2 var(--r2-font-sans);text-decoration:none}
 .reqbar .reqback{flex:none;font:700 13px/1 var(--r2-font-sans)}
@@ -6610,7 +6609,22 @@ async function savePhoto(url){
 function clearCompose(){const field=document.getElementById('body');field.value='';document.getElementById('file').value='';document.getElementById('prev').hidden=true;document.getElementById('prev').innerHTML='';replyTo=null;editId=null;quoteBar.hidden=true;editBar.hidden=true;grow()}
 function startReply(id){const m=msgs[id];if(!m||m.deleted)return;editId=null;editBar.hidden=true;replyTo=id;document.getElementById('quoteWho').textContent=m.who;document.getElementById('quoteTxt').textContent=(m.body||'Photo').slice(0,140);quoteBar.hidden=false;document.getElementById('body').focus()}
 function startEdit(id){const m=msgs[id];if(!m||m.deleted||!m.mine)return;replyTo=null;quoteBar.hidden=true;editId=id;const field=document.getElementById('body');field.value=m.body||'';grow();document.getElementById('editHint').textContent=(m.body||'Photo').slice(0,80);editBar.hidden=false;field.focus()}
-async function reactWith(id,emoji){pollGen++;await fetch('/api/messages/'+id+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:emoji})});closeSheet();poll()}
+function paintRx(id,rx){var m=msgs[id];if(m)m.rx=rx;var el=document.getElementById('msg'+id),box=el&&el.querySelector('.rx');if(box)box.innerHTML=rxHtml(id,rx)}
+function toggleRxLocal(id,emoji){
+ /* One reaction per person: tapping your own removes it; a new one replaces your old one. Shown right away. */
+ var m=msgs[id],cur=(m&&m.rx)||{},rx={};
+ Object.keys(cur).forEach(function(k){rx[k]={n:cur[k].n,mine:!!cur[k].mine}});
+ var had=rx[emoji]&&rx[emoji].mine;
+ Object.keys(rx).forEach(function(k){if(rx[k].mine){rx[k].n--;rx[k].mine=false;if(rx[k].n<=0)delete rx[k]}});
+ if(!had){if(!rx[emoji])rx[emoji]={n:0,mine:false};rx[emoji].n++;rx[emoji].mine=true}
+ paintRx(id,rx);
+}
+async function sendReact(id,emoji){
+ pollGen++;toggleRxLocal(id,emoji);
+ try{const r=await fetch('/api/messages/'+id+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:emoji})});
+  if(r.ok){const j=await r.json().catch(()=>null);if(j&&typeof j==='object'&&!j.error)paintRx(id,j)}}catch(_){}
+ poll()}
+async function reactWith(id,emoji){closeSheet();sendReact(id,emoji)}
 async function showWho(pill){const r=await fetch('/api/messages/'+pill.dataset.m+'/reactors?emoji='+encodeURIComponent(pill.dataset.e));const j=await r.json().catch(()=>({}));document.getElementById('whoTitle').textContent=pill.dataset.e||'';document.getElementById('whoList').innerHTML=(j.people||[]).map(personRow).join('')||'<p class="ty-muted ty-sm sm">No one</p>';grunionsOpenSheet(document.getElementById('whoSheet'))}
 function toast(msg, ms){const el=document.createElement('div');el.className='toast noprint';el.setAttribute('role','status');el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),ms||2000)}
 function photoKind(f){
@@ -6675,7 +6689,7 @@ box.addEventListener('click',async e=>{
  if(b.classList.contains('seenline')){if(seenInfo)openSeen(seenInfo);return}
  if(b.matches('a.img')){e.preventDefault();const lb=document.createElement('div');lb.className='lightbox';const full=b.dataset.full;lb.innerHTML=`<img src="${full}" alt=""><button type=button class="rg-btn secondary savephoto">Save photo</button>`;lb.querySelector('.savephoto').onclick=function(ev){ev.stopPropagation();savePhoto(full)};lb.addEventListener('click',function(ev){if(ev.target===lb||ev.target.tagName==='IMG')lb.remove()});document.body.appendChild(lb);return}
  if(b.dataset.act){openSheet(+b.dataset.act);return}
- if(b.dataset.e){if(b.dataset.held){delete b.dataset.held;return}pollGen++;await fetch('/api/messages/'+b.dataset.m+'/react',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({emoji:b.dataset.e})});poll()}});
+ if(b.dataset.e){if(b.dataset.held){delete b.dataset.held;return}sendReact(+b.dataset.m,b.dataset.e)}});
 const ta=document.getElementById('body'),file=document.getElementById('file'),prev=document.getElementById('prev');
 let stick=true,anchoring=false;
 function nearBottom(){return box.scrollHeight-box.scrollTop-box.clientHeight<=80}

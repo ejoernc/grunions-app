@@ -3763,7 +3763,9 @@ def chat():
         extra = _request_resolve_bar(d, me(), ch) + _request_dialog(d) + extra
     if ch == "team":
         prompt = "Message the team"
-    elif ch == "coaches":
+    elif ch == "coaches" or ch.startswith("coach:"):
+        prompt = "Message the coaches"
+    elif ch == "board":
         prompt = "Message the board"
     elif ch.startswith("practice:"):
         prompt = "Message tonight's practice"
