@@ -12912,7 +12912,9 @@ def start_scheduler():
     if _scheduler is not None or os.environ.get("GRUNIONS_SCHEDULER", "1") != "1": return
     from apscheduler.schedulers.background import BackgroundScheduler
     _scheduler = BackgroundScheduler(daemon=True)
-    _scheduler.add_job(run_notify_jobs, "interval", minutes=15, start_date=dt.datetime.now() + dt.timedelta(minutes=15),
+    # First scan a minute after boot, so a deploy never delays a due reminder by 15 minutes. Sends are claimed per
+    # person per practice (claim_notice) and the scan itself is claimed (claim_job), so an extra scan never double-sends.
+    _scheduler.add_job(run_notify_jobs, "interval", minutes=15, start_date=dt.datetime.now() + dt.timedelta(minutes=1),
                        id="notify", max_instances=1, coalesce=True, misfire_grace_time=120)
     _scheduler.add_job(run_daily_sheet_sync, "cron", hour=3, minute=15, timezone=PT,
                        id="sheet_daily", max_instances=1, coalesce=True, misfire_grace_time=3600)
