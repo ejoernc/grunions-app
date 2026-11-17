@@ -1383,7 +1383,7 @@ button.newrow.actdanger,button.newrow.actdanger b{background:transparent;color:v
 .attachhead h2,.attachwidehead h2{margin:0;font:700 20px/1.2 var(--r2-font-display);color:var(--r2-paper);letter-spacing:0}
 .attachsub{margin:4px 0 0;color:var(--r2-smoke);font:500 13px/1.3 var(--r2-font-sans)}
 .attachtiles{display:flex;gap:12px;margin:0}
-dialog.attachsheet button.attachtile{flex:1;min-width:0;height:auto;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px 16px;border:0;border-radius:20px;background:var(--r2-graphite);color:var(--r2-paper);font:600 15px/1.2 var(--r2-font-sans)}
+dialog.attachsheet .attachtile{flex:1;min-width:0;height:auto;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px 16px;border:0;border-radius:20px;background:var(--r2-graphite);color:var(--r2-paper);font:600 15px/1.2 var(--r2-font-sans)}
 .attachico{width:48px;height:48px;border-radius:24px;background:var(--r2-lime);display:flex;align-items:center;justify-content:center;flex:none}
 .attachico img,.attachbrowse img{width:24px;height:24px;display:block}
 dialog.attachsheet button.attachcancel{width:100%;height:52px;min-height:52px;padding:0;border:0;border-radius:999px;background:var(--r2-graphite);color:var(--r2-paper);font:600 16px/1 var(--r2-font-sans)}
@@ -2672,6 +2672,7 @@ _NAV3_GLYPHS = {
     "chevron_left": ("M12.5 4.5L7 10L12.5 15.5",),
     "chevron_right": ("M7.5 4.5L13 10L7.5 15.5",),
     "plus": ("M10 4V16M4 10H16",),
+    "poll": ("M4 6H11", "M4 10H16", "M4 14H8"),
     "check": ("M4.5 10.5L8.25 14.25L15.5 6.5",),
     "edit": ("M4 16L4.5 13L13.5 4L16 6.5L7 15.5L4 16Z", "M12 5.5L14.5 8"),
     "more": ("M5 10H5.01M10 10H10.01M15 10H15.01",),
@@ -6286,6 +6287,86 @@ T["member"] = """{% set cl = clearance(m) %}{% set cred = credential_dates(m) %}
 })();
 </script>"""
 
+T["poll_new"] = """<div class="rg-screen rg-pollnew">
+{{ rg_page_title('New poll', 'Posts to ' ~ where ~ '. People vote on its own page; results show in the chat.') }}
+{% if error %}<p class=rg-note role=alert>{{ error }}</p>{% endif %}
+<form method=post id=pollForm>{{ csrf_field() }}<input type=hidden name=c value="{{ ch }}">
+<label class=rg-field><span>TITLE</span><input name=title maxlength=140 placeholder="e.g. Sunday practice?" value="{{ form.get('title','') }}"></label>
+<div id=pollQs></div>
+<button type=button class="rg-btn secondary rg-wide" id=addQ>Add a question</button>
+{{ rg_label('Settings') }}
+{{ rg_toggle('anonymous', 'Anonymous', "Shows counts only. Off: everyone can see who voted for what.", form.get('anonymous') == '1') }}
+{{ rg_toggle('allow_add', 'Let people add options', "Voters can add their own answer. It doesn't send the poll again.", form.get('allow_add') == '1') }}
+{{ rg_toggle('post_results', 'Post results when it closes', 'Final results go into the chat as a new message.', form.get('post_results') == '1') }}
+<label class=rg-field><span>ENDS</span><input type=datetime-local name=ends_at value="{{ form.get('ends_at','') }}"><small>Optional. Leave empty to end it yourself.</small></label>
+{{ rg_button('Post poll', 'primary') }}
+</form>
+<template id=qTpl><div class="rg-chartcard rg-pollqedit" data-q>
+<div class=rg-pollqhead><p class="ty-caps">QUESTION <span data-qn></span></p><button type=button class=rg-dgact data-qx>Remove</button></div>
+<label class=rg-field><input data-qtext maxlength=200 placeholder="Ask something" aria-label="Question"></label>
+{{ rg_seg_choice('__multi', [('0','Pick one'),('1','Pick any')], '0') }}
+<div class=rg-pollopts data-opts></div>
+<button type=button class="rg-btn ghost" data-addopt>Add an option</button>
+</div></template>
+<script>(function(){
+ var wrap=document.getElementById('pollQs'),tpl=document.getElementById('qTpl'),n=0;
+ function renumber(){[].forEach.call(wrap.querySelectorAll('[data-q]'),function(q,i){
+   q.querySelector('[data-qn]').textContent=i+1;
+   q.querySelector('[data-qtext]').name='q'+i+'_text';
+   q.querySelectorAll('input[type=radio]').forEach(function(r){r.name='q'+i+'_multi'});
+   q.querySelectorAll('[data-opt]').forEach(function(o){o.name='q'+i+'_opt'});
+   q.querySelector('[data-qx]').hidden=wrap.children.length<2;});}
+ function addOpt(q,val){var box=q.querySelector('[data-opts]');var row=document.createElement('div');row.className='rg-pollopt';
+   row.innerHTML='<input data-opt maxlength=120 placeholder="Option '+(box.children.length+1)+'"><button type=button class=rg-dgact aria-label="Remove option">✕</button>';
+   row.querySelector('input').value=val||'';row.querySelector('button').onclick=function(){if(box.children.length>2){row.remove();renumber()}};box.appendChild(row);renumber();}
+ function addQ(){var q=tpl.content.firstElementChild.cloneNode(true);wrap.appendChild(q);n++;
+   q.querySelector('[data-addopt]').onclick=function(){addOpt(q)};q.querySelector('[data-qx]').onclick=function(){q.remove();renumber()};
+   addOpt(q);addOpt(q);renumber();}
+ document.getElementById('addQ').onclick=addQ;addQ();
+})();</script>
+</div>"""
+
+T["poll_page"] = """<div class="rg-screen rg-pollpage">
+{{ rg_page_title(p.title, ('By ' ~ by ~ ' · ' if by else '') ~ s.voters ~ ' voted' ~ (' · Anonymous' if s.anonymous else ' · Votes are visible') ~ (' · ' ~ s.ends if s.ends else '') ~ (' · Closed' if closed else '')) }}
+{% if error %}<p class=rg-note role=alert>{{ error }}</p>{% endif %}
+{% if not closed %}<form method=post>{{ csrf_field() }}
+{% for q in qs %}{{ rg_label(q.text ~ (' · pick any' if q.multi else ' · pick one')) }}
+<div class=rg-stack8>{% for o in q.options %}{{ rg_choice('q' ~ q.id, o.id, o.text, '', ((q.id, o.id) in mine), 'checkbox' if q.multi else 'radio') }}{% endfor %}
+{% if s.allow_add %}<label class="rg-field rg-polladd"><input name="add{{ q.id }}" maxlength=120 placeholder="Add an option" aria-label="Add an option to {{ q.text }}"><small>Counts as your answer.</small></label>{% endif %}</div>
+{% endfor %}
+<div class=rg-pollsubmit>{{ rg_button('Change vote' if s.voted else 'Vote', 'primary') }}</div>
+</form>{% endif %}
+{% if s.voted or closed %}{{ rg_label('Results') }}{{ rg_poll(s, compact=false, vote=false) }}{% endif %}
+{% if s.can_edit %}<div class=rg-polladmin><a class="rg-btn secondary" href="/polls/{{ p.id }}/edit">Edit poll</a>
+{% if s.can_end %}<form method=post action="/polls/{{ p.id }}/end">{{ csrf_field() }}{{ rg_button('End poll now', 'ghost') }}</form>{% endif %}</div>{% endif %}
+</div>"""
+
+T["poll_edit"] = """<div class="rg-screen rg-pollnew">
+{{ rg_page_title('Edit poll', "Rename anything or add options. Answers can't be removed, so every vote stays.") }}
+<form method=post>{{ csrf_field() }}
+<label class=rg-field><span>TITLE</span><input name=title maxlength=140 value="{{ p.title }}"></label>
+{% for q in qs %}<div class="rg-chartcard rg-pollqedit">
+<p class="ty-caps">QUESTION {{ loop.index }} · {{ 'PICK ANY' if q.multi else 'PICK ONE' }}</p>
+<label class=rg-field><input name="qt{{ q.id }}" maxlength=200 value="{{ q.text }}" aria-label="Question"></label>
+<div class=rg-pollopts>{% for o in q.options %}<input name="ot{{ o.id }}" maxlength=120 value="{{ o.text }}" aria-label="Option">{% endfor %}
+<div data-new="{{ q.id }}"></div></div>
+<button type=button class="rg-btn ghost" data-addnew="{{ q.id }}">Add an option</button>
+</div>{% endfor %}
+{{ rg_toggle('allow_add', 'Let people add options', "Voters can add their own answer. It doesn't send the poll again.", p.allow_add) }}
+{{ rg_toggle('post_results', 'Post results when it closes', 'Final results go into the chat as a new message.', p.post_results) }}
+{{ rg_button('Save', 'primary') }}
+</form>
+<script>document.querySelectorAll('[data-addnew]').forEach(function(b){b.onclick=function(){var box=document.querySelector('[data-new="'+b.dataset.addnew+'"]');var i=document.createElement('input');i.name='new'+b.dataset.addnew;i.maxLength=120;i.placeholder='New option';i.setAttribute('aria-label','New option');box.appendChild(i);i.focus()}})</script>
+</div>"""
+
+T["chat_polls"] = """<div class="rg-screen rg-pollist">
+{{ rg_page_title('Polls', where) }}
+{% if open_polls %}{{ rg_section_count('Open') }}<div class=rg-stack8>{% for s in open_polls %}{{ rg_poll(s, compact=true) }}{% endfor %}</div>{% endif %}
+{% if closed_polls %}{{ rg_section_count('Closed') }}<div class=rg-stack8>{% for s in closed_polls %}{{ rg_poll(s, compact=true) }}{% endfor %}</div>{% endif %}
+{% if not open_polls and not closed_polls %}<p class=rg-note>No polls yet. Start one from the + in the chat.</p>{% endif %}
+<a class="rg-btn primary rg-wide" href="/polls/new?c={{ ch }}" style="margin-top:16px">New poll</a>
+</div>"""
+
 T["notifications"] = """<div class=rg-screen>
 {{ rg_page_title('Notifications', 'Pushes go to this device once you allow them.') }}
 {{ push_card() }}
@@ -6297,11 +6378,12 @@ T["notifications"] = """<div class=rg-screen>
 {{ rg_seg_choice('practice_reminder', [('both','Both'),('email','Email'),('inapp','In-app'),('off','Off')], practice_reminder) }}
 <p class="ty-muted ty-sm">In-app uses the push you allow above. Emails include a link to turn practice reminder emails off.</p>
 {{ rg_label('Email') }}
+{{ rg_toggle('poll_email', 'Polls', 'An email when a poll is posted in a chat you are in, with a link to vote.', poll_email) }}
 <label class=rg-toggle><span><b>Membership, SafeSport and trial reminders</b><small>7 days before, 1 day before, and on the day it expires. Practice cancellation emails always send.</small></span><input type=checkbox name=email_reminders value=1 {% if email_on %}checked{% endif %}><i aria-hidden=true></i></label>
 {{ rg_button('Save', 'primary') }}
 </form></div>"""
 
-T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template><div class=chat id=chat><div class=chatin><button type=button id=earlier class=earlier hidden>Load earlier messages</button></div></div><div class=chatpad></div>
+T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template>{% if polls_enabled(ch) %}<div class=rg-pollstickies id=pollSticky hidden></div>{% endif %}<div class=chat id=chat><div class=chatin><button type=button id=earlier class=earlier hidden>Load earlier messages</button></div></div><div class=chatpad></div>
 {% if chat_locked %}<p class=chatlock>read-only · this practice ended.</p>{% endif %}<div class="composer noprint"><div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=thumbs id=prev hidden></div>
 <form id=f data-nonav><input class=fileclip type=file id=file accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif,.gif,.png,.jpg,.jpeg,.webp" multiple>
 <textarea id=body rows=1 maxlength=2000 placeholder="{{ chat_placeholder or 'Message' }}" {% if chat_locked %}disabled{% endif %}></textarea>
@@ -6310,10 +6392,11 @@ T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template><div class
 <dialog id=attachSheet class="botsheet attachsheet"><div class=sheet>
 <div class=grab aria-hidden=true></div>
 <div class=attachphone>
-<div class=attachhead><h2>Add an image</h2><p class=attachsub>Up to 10 · JPG, PNG, HEIC</p></div>
+<div class=attachhead>{% if polls_enabled(ch) %}<h2>Add to chat</h2><p class=attachsub>A photo, or a poll for the coaches</p>{% else %}<h2>Add an image</h2><p class=attachsub>Up to 10 · JPG, PNG, HEIC</p>{% endif %}</div>
 <div class=attachtiles>
 <button type=button class=attachtile id=takePhoto><span class=attachico><img src="/static/nav/attach-camera.svg" width="24" height="24" alt=""></span>Take photo</button>
 <button type=button class=attachtile id=choosePhotos><span class=attachico><img src="/static/nav/attach-image.svg" width="24" height="24" alt=""></span>Choose photos</button>
+{% if polls_enabled(ch) %}<a class=attachtile href="/polls/new?c={{ ch }}"><span class=attachico>{{ rg_icon('poll', 'lg') }}</span>Poll</a>{% endif %}
 </div>
 <button type=button class=attachcancel id=attachCancel>Cancel</button>
 </div>
@@ -6324,6 +6407,7 @@ T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template><div class
 <div class=hot><span class=attachico><img src="/static/nav/attach-upload.svg" width="24" height="24" alt=""></span><b>Drop to add</b><p class=attachcount id=attachCount>1 image</p></div>
 </div>
 <p class=attachnote>Up to 10 · JPG, PNG, HEIC, GIF · 20 MB each. You can also paste (⌘V) or drag straight into the chat.</p>
+{% if polls_enabled(ch) %}<a class="rg-btn secondary rg-wide attachpoll" href="/polls/new?c={{ ch }}">{{ rg_icon('poll', 'md') }} New poll</a>{% endif %}
 </div>
 <p class=attacherr id=attachErr hidden></p>
 </div></dialog>
@@ -6441,6 +6525,7 @@ function linkify(raw){
 }
 function bodyHtml(m){
  if(m.deleted) return '<div class="txt deleted">Message deleted</div>';
+ if(m.poll) return m.poll;
  let h='';
  if(m.reply) h+=`<div class=quotechip><b>${esc(m.reply.who||'')}</b><span>${esc(m.reply.body||'')}</span></div>`;
  var text=m.body?`<div class=txt>${linkify(m.body)}${m.edited?' <span class=edited>(edited)</span>':''}</div>`:'';
@@ -6528,7 +6613,7 @@ function sameBubble(a,b){
  if(!a||!b) return false;
  var img=function(x){return x&&x.image?x.image.full+'|'+x.image.thumb:''};
  var rep=function(x){return x&&x.reply?x.reply.id+'|'+x.reply.who+'|'+x.reply.body:''};
- return a.body===b.body&&!!a.deleted===!!b.deleted&&!!a.edited===!!b.edited&&!!a.ann===!!b.ann&&a.who===b.who&&!!a.mine===!!b.mine&&a.uid===b.uid&&img(a)===img(b)&&rep(a)===rep(b)}
+ return (a.poll||'')===(b.poll||'')&&a.body===b.body&&!!a.deleted===!!b.deleted&&!!a.edited===!!b.edited&&!!a.ann===!!b.ann&&a.who===b.who&&!!a.mine===!!b.mine&&a.uid===b.uid&&img(a)===img(b)&&rep(a)===rep(b)}
 function upsert(m,force){m=mergeSeen(m);if(expiredDelete(m)){dropMessage(m.id);if(!grouping)groupMessages();return}var prev=msgs[m.id];msgs[m.id]=m;const d=document.getElementById('msg'+m.id);if(!d){if(!oldest||m.id>=oldest)add(m);return}last=Math.max(last,m.id);if(!force&&d.querySelector('.editbox'))return;if(!force&&sameBubble(prev,m))return;fill(d,m);if(!grouping)groupMessages()}
 function paintRx(map){var floor=last-300,rows=[].slice.call(box.querySelectorAll('.m')),pending=[];rows.forEach(function(el){var id=el.id.slice(3),rx=el.querySelector('.rx');if(!rx)return;var known=Object.prototype.hasOwnProperty.call(map,id);if(!known&&+id<=floor)return;var data=known?map[id]:{};if(msgs[id])msgs[id].rx=data;var h=rxHtml(id,data);if(rx.dataset.h===h)return;pending.push(rx,h)});if(!pending.length)return;var anchor=null,before=0,edge=box.getBoundingClientRect().top+4,follow=stick;for(var i=0;i<rows.length;i++){if(rows[i].getBoundingClientRect().bottom>edge){anchor=rows[i];before=anchor.getBoundingClientRect().top;break}}anchoring=true;box.style.overflowAnchor='none';for(var p=0;p<pending.length;p+=2){pending[p].innerHTML=pending[p+1];pending[p].dataset.h=pending[p+1]}if(follow)pinBottom();else if(anchor){var dy=anchor.getBoundingClientRect().top-before;if(dy)box.scrollTop+=dy}box.style.overflowAnchor='';requestAnimationFrame(function(){anchoring=false;if(!follow)stick=nearBottom()})}
 let pollGen=0;
@@ -6547,7 +6632,9 @@ function receipt(res, rows){
 }
 function paintEarlier(){var btn=document.getElementById('earlier');if(btn)btn.hidden=!more}
 async function loadEarlier(){if(!more||loadingOlder||!oldest)return;loadingOlder=true;stick=false;try{const r=await fetch('/api/messages?c='+CH+'&before='+oldest+'&limit='+PAGE);const j=await r.json();if(!Array.isArray(j)||j.length<PAGE)more=false;var frag=document.createDocumentFragment(),home=thread();grouping=true;(j||[]).forEach(function(m){m=mergeSeen(m);if(!m||expiredDelete(m)||document.getElementById('msg'+m.id))return;msgs[m.id]=m;track(m);var d=document.createElement('div');d.id='msg'+m.id;fill(d,m);frag.appendChild(d)});var rows=home.querySelectorAll('.m'),anchor=rows[0]||null,edge=box.getBoundingClientRect().top+4;for(var i=0;i<rows.length;i++){if(rows[i].getBoundingClientRect().bottom>edge){anchor=rows[i];break}}var before=anchor?anchor.getBoundingClientRect().top:0;box.style.overflowAnchor='none';var firstMsg=rows[0];if(firstMsg)home.insertBefore(frag,firstMsg);else home.appendChild(frag);grouping=false;groupMessages();paintEarlier();function hold(){if(!anchor)return;var dy=anchor.getBoundingClientRect().top-before;if(dy)box.scrollTop+=dy}if(anchor){anchoring=true;hold();requestAnimationFrame(function(){hold();box.style.overflowAnchor='';anchoring=false;stick=nearBottom()})}else{box.style.overflowAnchor='';stick=nearBottom()}}catch(e){grouping=false;box.style.overflowAnchor=''}loadingOlder=false}
-async function refreshOpen(gen,epoch){try{const rs=await fetch('/api/messages?c='+CH+'&sync=1');const sync=await rs.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;grouping=true;sync.forEach(function(m){if(gen===pollGen)upsert(m)});grouping=false;groupMessages();const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;paintRx(rx);sweepDeleted();var info=receipt(rs,sync);if(info)paintSeen([{id:info.id,seen:info}]);else if(info===null)clearSeen();if(window.grunionsRefresh)grunionsRefresh()}catch(e){grouping=false}}
+async function refreshOpen(gen,epoch){try{const rs=await fetch('/api/messages?c='+CH+'&sync=1');const sync=await rs.json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;grouping=true;sync.forEach(function(m){if(gen===pollGen)upsert(m)});grouping=false;groupMessages();const rx=await (await fetch('/api/reactions?c='+CH)).json();if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;paintRx(rx);sweepDeleted();var info=receipt(rs,sync);if(info)paintSeen([{id:info.id,seen:info}]);else if(info===null)clearSeen();if(window.grunionsRefresh)grunionsRefresh();loadPollSticky()}catch(e){grouping=false}}
+async function loadPollSticky(){var el=document.getElementById('pollSticky');if(!el)return;try{const j=await (await fetch('/api/polls/sticky?c='+CH)).json();if(el.dataset.h!==j.html){el.innerHTML=j.html||'';el.dataset.h=j.html||''}el.hidden=!j.html}catch(_){}}
+loadPollSticky();
 let pollN=0;
 async function poll(){const gen=++pollGen,epoch=window.grunionsNavEpoch|0;try{const first=!box.querySelector('.m');var r=null,j;if(first&&window.GRUNIONS_CHAT_SEED){j=window.GRUNIONS_CHAT_SEED;window.GRUNIONS_CHAT_SEED=null;}else{r=await fetch('/api/messages?c='+CH+'&after='+last+(first?'&limit='+PAGE:'')+(document.visibilityState==='visible'?'&v=1':''));j=await r.json();}if(gen!==pollGen||(window.grunionsNavEpoch|0)!==epoch)return;const follow=stick;
  if(first)box.style.visibility='hidden';

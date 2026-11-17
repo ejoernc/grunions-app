@@ -514,6 +514,8 @@ def _membership_body_name():
 def _rg_membership_sex(current="", body=None, name="membership_sex"):
     return components.membership_sex(current, body or _membership_body_name(), name, membership_sexes())
 app.jinja_env.globals.update(rg_membership_sex=_rg_membership_sex, membership_sexes=membership_sexes, membership_sex_label=membership_sex_label)
+import polls as _polls_mod
+app.jinja_env.globals.update(polls_enabled=_polls_mod.enabled)
 app.jinja_env.globals.update(display_first=display_first, initials=initials, fmt_phone=fmt_phone, nav_context=nav_context, nav_icon=ui.nav_icon)
 app.jinja_env.globals.update(GENDER_IDENTITIES=flows2.GENDER_IDENTITIES, LEGAL_GENDERS=flows2.LEGAL_GENDERS)
 # applies_to: all | athlete | coach. keywords: normalized substrings to find this item's columns in a Sport:80 export.
@@ -2610,9 +2612,18 @@ def with_seen(d, channel, rows, info=None):
     if info is None: info = latest_seen(d, channel)
     rx = reactions_for_ids(d, [r["id"] for r in rows])
     out = []
+    poll_ids = [r["poll_id"] for r in rows if "poll_id" in r.keys() and r["poll_id"]]
+    poll_html = {}
+    if poll_ids:
+        import polls, components
+        for pid in set(poll_ids):
+            p = polls.get(d, pid)
+            if p: poll_html[pid] = str(components.poll_card(poll_summary(d, p), compact=True))
     for r in rows:
         item = msg_dict(r)
         item["rx"] = {} if item["deleted"] else rx.get(str(item["id"]), {})
+        if "poll_id" in r.keys() and r["poll_id"] and not item["deleted"] and r["poll_id"] in poll_html:
+            item["poll"] = poll_html[r["poll_id"]]
         if info and int(item["id"]) == int(info["id"]): item["seen"] = info
         out.append(item)
     return out
@@ -4141,6 +4152,7 @@ def _actions_bundle():
         '<button class=newrow name=pin value=on id=actPin>' + pin + '<span class=grow><b id=actPinLabel>Pin to top</b></span></button></form>'
         '<form method=post action=/chat/read>' + token + '<input type=hidden name=c>'
         '<button class=newrow name=read value=1>' + check + '<span class=grow><b>Mark as read</b></span></button></form>'
+        '<a class=newrow id=actPolls href="/chat/polls" hidden>' + ico("M5 7h9M5 12h14M5 17h5") + '<span class=grow><b>Polls</b><small>Open and past polls in this chat</small></span><span class=chatgo>›</span></a>'
         '<a class=newrow id=actInfo href="/chat/info">' + info + '<span class=grow><b>Channel info</b><small>Members, notifications, who can post</small></span><span class=chatgo>›</span></a>'
         '<a class=newrow id=actProfile href="/" hidden>' + user + '<span class=grow><b>View profile</b></span></a>'
         '</div>'
@@ -4192,6 +4204,7 @@ def _actions_bundle():
         'document.getElementById("actMutes").hidden=true;document.getElementById("actMain").hidden=false;document.getElementById("actDeleteForm").hidden=true;'
         'var channel=kind==="channel"||kind==="everyone"||kind==="group";'
         'show("actInfo", channel);'
+        'show("actPolls", permanent==="coaches");var pl=document.getElementById("actPolls");if(pl)pl.href="/chat/polls?c="+encodeURIComponent(ch);'
         'var info=document.getElementById("actInfo");if(info)info.href="/chat/info?c="+encodeURIComponent(ch)+(document.getElementById("threadName")?"&from=thread":"&from=list");'
         'show("actProfile", kind==="direct"&&!!profile);var prof=document.getElementById("actProfile");if(prof)prof.href=profile||"#";'
         'var everyone=kind==="everyone";'
@@ -12870,6 +12883,7 @@ def run_notify_jobs():
     d = open_db()
     try:
         if not claim_job(d, "notify_scan", 90): return
+        post_poll_results(d)
         run_practice_reminders(d); run_expiry_notices(d); nudge_stale_requests(d); run_auto_rsvp_asks(d); run_leave_alerts(d); run_scheduled_emails(d)
     except Exception:
         app.logger.exception("notification job failed")
@@ -12995,6 +13009,160 @@ def push_subscribe():
         ON CONFLICT(endpoint) DO UPDATE SET member_id=excluded.member_id, p256dh=excluded.p256dh, auth=excluded.auth, created=excluded.created""",
         (me()["id"], endpoint, p256dh, authk, now))
     d.commit(); return jsonify(ok=True)
+# ---------- Polls (coaches chats first; polls.enabled decides where) ----------
+def _poll_name(d):
+    cache = {}
+    def name(mid):
+        if mid not in cache:
+            r = d.execute("SELECT first, last, preferred_first FROM members WHERE id=?", (mid,)).fetchone()
+            cache[mid] = ("%s %s." % (display_first(r), (r["last"] or "")[:1])).strip() if r else "Someone"
+        return cache[mid]
+    return name
+def poll_summary(d, p):
+    import polls
+    return polls.summary(d, p, me()["id"], wall_pt(), _poll_name(d), can_end=(p["creator_id"] == me()["id"] or is_club_admin()))
+def _poll_or_404(pid):
+    import polls
+    d = db(); polls.ensure(d)
+    p = polls.get(d, pid)
+    if not p or not polls.enabled(p["channel"]) or not can_read(p["channel"]): abort(404)
+    return d, p
+def post_poll_results(d, now=None):
+    """Polls set to post their results do it once, when they close (ended by hand or by their end time).
+    The results go into the chat as a new message from the poll's creator, with the final results card."""
+    import polls
+    polls.ensure(d)
+    for p in polls.due_results(d, wall_pt(now)):
+        claimed = d.execute("UPDATE polls SET results_posted_at=? WHERE id=? AND results_posted_at=''", (stamp_pt(), p["id"])).rowcount
+        if not claimed:
+            continue
+        body = "📊 Results: %s" % p["title"]
+        d.execute("INSERT INTO messages(member_id, body, channel, poll_id) VALUES(?,?,?,?)", (p["creator_id"], body, p["channel"], p["id"]))
+        d.commit()
+        sender = d.execute("SELECT * FROM members WHERE id=?", (p["creator_id"],)).fetchone()
+        if sender:
+            try:
+                notify_chat(d, p["channel"], sender, body, False)
+            except Exception as exc:
+                app.logger.warning("poll results notify failed: %s", exc)
+def public_base_url():
+    return PUBLIC_URL.rstrip("/") if PUBLIC_URL else request.host_url.rstrip("/")
+def send_poll_emails(d, ch, p, sender):
+    """Email everyone in the chat about a new poll (not the person who made it). Each person can turn these off."""
+    import polls
+    qs = polls.questions(d, p["id"])
+    link = public_base_url() + "/polls/%d" % p["id"]
+    lines = []
+    for q in qs:
+        lines.append("%s (%s)" % (q["text"], "pick any" if q["multi"] else "pick one"))
+        lines += ["  - %s" % o["text"] for o in q["options"]]
+    who = "%s %s." % (display_first(sender), (sender["last"] or "")[:1])
+    where = _thread_title(d, me(), ch)
+    subject = "New poll in %s: %s" % (where, p["title"])
+    text = "%s posted a poll in %s.\n\n%s\n\n%s\n\nVote: %s\n\nTurn poll emails off: %s/notifications" % (
+        who, where, p["title"], "\n".join(lines), link, public_base_url())
+    for m in chat_push_recipients(d, ch, sender["id"]):
+        if not m["email"] or ("poll_email" in m.keys() and m["poll_email"] == 0): continue
+        try:
+            send_email(m["email"], subject, text)
+        except Exception as exc:
+            app.logger.warning("poll email to member %s failed: %s", m["id"], exc)
+@app.route("/polls/new", methods=["GET", "POST"])
+@login_required
+def poll_new():
+    import polls
+    d = db(); polls.ensure(d)
+    ch = parse_channel(request.values.get("c", ""))
+    if not polls.enabled(ch) or not can_read(ch): abort(404)
+    error = ""
+    if request.method == "POST":
+        try:
+            title, anon, ends_at, qs, allow_add, post_results = polls.parse_form(request.form)
+            if ends_at and dt.datetime.fromisoformat(ends_at) <= wall_pt():
+                raise ValueError("Pick an end time in the future.")
+            pid = polls.create(d, ch, me()["id"], title, anon, ends_at, qs, stamp_pt(), allow_add, post_results)
+            body = "📊 Poll: %s" % title
+            mid = d.execute("INSERT INTO messages(member_id, body, channel, poll_id) VALUES(?,?,?,?)", (me()["id"], body, ch, pid)).lastrowid
+            d.execute("UPDATE polls SET message_id=? WHERE id=?", (mid, pid))
+            d.commit()
+            _notify_chat_later(ch, me(), body, False)
+            try:
+                send_poll_emails(d, ch, polls.get(d, pid), me())
+            except Exception as exc:
+                app.logger.warning("poll emails failed: %s", exc)
+            return redirect("/chat?c=%s" % ch)
+        except ValueError as exc:
+            error = str(exc)
+    return page(T["poll_new"], tab="chat", ch=ch, where=_thread_title(d, me(), ch), error=error, form=request.form,
+                admin_back="/chat?c=%s" % ch)
+@app.route("/polls/<int:pid>", methods=["GET", "POST"])
+@login_required
+def poll_page(pid):
+    import polls
+    d, p = _poll_or_404(pid)
+    closed = polls.is_closed(p, wall_pt())
+    error = ""
+    if request.method == "POST":
+        if closed:
+            flash("This poll has ended.", "toast"); return redirect(request.path)
+        try:
+            polls.vote(d, pid, me()["id"], request.form, stamp_pt(), allow_add=bool(p["allow_add"])); d.commit()  # added options: no new notifications
+            flash("Vote saved", "toast")
+            return redirect("/chat?c=%s" % p["channel"])
+        except ValueError as exc:
+            error = str(exc)
+    s = poll_summary(d, p)
+    mine = polls.my_votes(d, pid, me()["id"])
+    creator = d.execute("SELECT first, last, preferred_first FROM members WHERE id=?", (p["creator_id"],)).fetchone()
+    return page(T["poll_page"], tab="chat", p=p, s=s, qs=polls.questions(d, pid), mine=mine, closed=closed, error=error,
+                by=("%s %s." % (display_first(creator), (creator["last"] or "")[:1])) if creator else "", admin_back="/chat?c=%s" % p["channel"])
+@app.route("/polls/<int:pid>/edit", methods=["GET", "POST"])
+@login_required
+def poll_edit(pid):
+    """Creator or admin: rename the title, questions, and options, add options, and turn adding by others on or off.
+    Nothing can be removed, so every vote stays. Edits don't send notifications."""
+    import polls
+    d, p = _poll_or_404(pid)
+    if not (p["creator_id"] == me()["id"] or is_club_admin()): abort(403)
+    if request.method == "POST":
+        polls.edit_texts(d, pid, request.form); d.commit()
+        flash("Poll updated", "toast")
+        return redirect("/polls/%d" % pid)
+    return page(T["poll_edit"], tab="chat", p=p, qs=polls.questions(d, pid), admin_back="/polls/%d" % pid)
+@app.route("/polls/<int:pid>/end", methods=["POST"])
+@login_required
+def poll_end(pid):
+    d, p = _poll_or_404(pid)
+    if not (p["creator_id"] == me()["id"] or is_club_admin()): abort(403)
+    d.execute("UPDATE polls SET closed_at=? WHERE id=? AND closed_at=''", (stamp_pt(), pid)); d.commit()
+    post_poll_results(d)
+    flash("Poll ended", "toast")
+    return redirect("/polls/%d" % pid)
+@app.route("/chat/polls")
+@login_required
+def chat_polls():
+    import polls
+    d = db(); polls.ensure(d)
+    ch = parse_channel(request.args.get("c", ""))
+    if not polls.enabled(ch) or not can_read(ch): abort(404)
+    rows = [poll_summary(d, p) for p in polls.for_channel(d, ch)]
+    open_ = sorted([s for s in rows if not s["closed"]], key=lambda s: s["voted"])
+    done = [s for s in rows if s["closed"]]
+    return page(T["chat_polls"], tab="chat", ch=ch, where=_thread_title(d, me(), ch), open_polls=open_, closed_polls=done, admin_back="/chat?c=%s" % ch)
+@app.route("/api/polls/sticky")
+@login_required
+def poll_sticky():
+    """The bar(s) at the top of a chat: open polls, unanswered first."""
+    import polls, components
+    d = db(); polls.ensure(d)
+    ch = parse_channel(request.args.get("c", ""))
+    if not polls.enabled(ch) or not can_read(ch): return jsonify(html="")
+    rows = [poll_summary(d, p) for p in polls.for_channel(d, ch)]
+    rows = [s for s in rows if not s["closed"]]
+    rows.sort(key=lambda s: s["voted"])
+    unanswered = [s for s in rows if not s["voted"]]
+    show = unanswered[:2] if unanswered else rows[:1]
+    return jsonify(html="".join(str(components.poll_bar(s)) for s in show))
 @app.route("/notifications", methods=["GET", "POST"])
 @login_required
 def notifications():
@@ -13009,8 +13177,12 @@ def notifications():
                       (json.dumps(prefs), 1 if request.form.get("email_reminders") else 0, choice, m["id"]))
         else:
             d.execute("UPDATE members SET notify_prefs=?, email_reminders=? WHERE id=?", (json.dumps(prefs), 1 if request.form.get("email_reminders") else 0, m["id"]))
+        import polls
+        polls.ensure(d)
+        d.execute("UPDATE members SET poll_email=? WHERE id=?", (1 if request.form.get("poll_email") else 0, m["id"]))
         d.commit(); flash("Notification settings saved."); return redirect("/notifications")
-    return page(T["notifications"], tab="notifications", types=notify_types_for(m), prefs=notify_prefs(m), email_on=wants_email_reminders(m), practice_reminder=practice_reminder_choice(m))
+    poll_email = not ("poll_email" in m.keys() and m["poll_email"] == 0)
+    return page(T["notifications"], tab="notifications", types=notify_types_for(m), prefs=notify_prefs(m), email_on=wants_email_reminders(m), practice_reminder=practice_reminder_choice(m), poll_email=poll_email)
 
 # ---------- Regulars 2.0 flows (flows2.py) ----------
 def _trial_active(m):

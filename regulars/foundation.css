@@ -1734,3 +1734,61 @@ html body .cheadname small{white-space:normal;overflow:visible;text-overflow:cli
 
 /* Profile: tiles sit under the name now that the role/attendance line is gone. */
 html body .profilename+.metrics,html body .profilename+.stats{margin-top:20px}
+/* Poll results: the chart card turned sideways (same card, caps kicker, lime bars, hairline track). */
+.rg-poll{gap:16px;padding:24px;border-radius:32px}
+.rg-poll.compact{border-radius:28px;padding:20px}
+.rg-pollkick{margin:0;color:var(--smoke)}
+.rg-polltitle{margin:-8px 0 0;font:700 22px/1.1 var(--font-display);letter-spacing:-.02em;color:var(--paper)}
+.rg-pollq{display:grid;gap:10px}
+.rg-pollqt{margin:4px 0 0;font:var(--type-body-semi);display:flex;justify-content:space-between;gap:8px}
+.rg-pollqt small{color:var(--smoke);font:600 11px/1.6 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;flex:none}
+.rg-pollrow{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"label n" "track track" "who who";column-gap:12px;row-gap:6px}
+.rg-polllabel{grid-area:label;min-width:0;font:600 14px/1.3 var(--font-sans);color:var(--paper)}
+.rg-polllabel em{font-style:normal;color:var(--accent-text)}
+.rg-polln{grid-area:n;font:700 16px/1.2 var(--font-display);color:var(--paper)}
+.rg-polltrack{grid-area:track;position:relative;height:20px;border-left:1px solid color-mix(in srgb,var(--paper) 40%,transparent);background:linear-gradient(90deg,transparent calc(25% - .5px),color-mix(in srgb,var(--paper) 10%,transparent) 0 calc(25% + .5px),transparent 0 calc(50% - .5px),color-mix(in srgb,var(--paper) 10%,transparent) 0 calc(50% + .5px),transparent 0 calc(75% - .5px),color-mix(in srgb,var(--paper) 10%,transparent) 0 calc(75% + .5px),transparent 0)}
+.rg-pollbar{position:absolute;left:0;top:0;bottom:0;display:block;min-width:2px;border-radius:0 4px 4px 0;background:var(--cc-1)}
+.rg-pollbar.zero{width:2px!important;background:var(--smoke);border-radius:1px}
+.rg-pollrow:not(.top) .rg-pollbar:not(.zero){opacity:.55}
+.rg-pollwho{grid-area:who;color:var(--smoke);font-size:12px;line-height:1.3}
+.rg-poll .rg-btn{margin-top:4px}
+.m .rg-poll{width:min(100%,360px)}
+.rg-pollstickies{position:sticky;top:0;z-index:5;display:grid;gap:8px;padding:8px 16px;background:var(--ink)}
+.rg-pollsticky{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 20px;border-radius:24px;background:var(--graphite);color:var(--paper);text-decoration:none}
+.rg-pollsticky.done{padding:10px 16px 10px 20px;background:var(--carbon)}
+.rg-pollstx{flex:1;min-width:0;display:grid;gap:2px}
+.rg-pollstx b{font:var(--type-body-semi);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rg-pollstx small{color:var(--smoke);font:600 11px/1.3 var(--font-sans);letter-spacing:.04em}
+.rg-pollsticky .rg-btn{flex:none;height:40px;min-height:40px;padding:0 18px}
+.rg-pollsticky.done .rg-pollgo{flex:none;color:var(--accent-text);font:600 14px/1 var(--font-sans)}
+
+.rg-pollqedit{gap:12px;padding:20px;border-radius:28px;margin-bottom:12px}
+.rg-pollqhead{display:flex;align-items:center;justify-content:space-between}
+.rg-pollqhead .ty-caps{margin:0;color:var(--smoke)}
+.rg-pollopts{display:grid;gap:8px}
+.rg-pollopt{display:flex;gap:8px;align-items:center}
+.rg-pollopt input{flex:1;min-width:0}
+.rg-pollnew .rg-segform{margin-bottom:4px}
+a.attachtile{text-decoration:none}
+
+.rg-poll,.rg-poll *{text-align:left}
+.rg-poll .rg-btn{text-align:center;justify-content:center}
+.rg-poll .rg-btn.secondary{background:var(--carbon);color:var(--paper)}
+.m .rg-poll{margin:0}
+.rg-pollnew .rg-field+#pollQs{margin-top:8px}
+.rg-pollqedit .rg-field{margin:0}
+.rg-pollsubmit{margin-top:16px}
+.rg-pollsubmit .rg-btn{width:100%}
+
+.attachpoll{display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;text-decoration:none}
+
+.rg-polladd{margin:4px 0 0}
+.rg-polladmin{display:flex;gap:8px;align-items:center;margin-top:16px;flex-wrap:wrap}
+.rg-polladmin form{margin:0}
+.rg-pollopts [data-new]{display:grid;gap:8px}
+.rg-pollopts [data-new]:empty{display:none}
+
+.rg-polltrk{display:flex;align-items:center;gap:8px;min-width:0}
+.rg-polltrkbar{flex:1;min-width:48px;height:8px;border-radius:4px;background:color-mix(in srgb,var(--paper) 12%,transparent);overflow:hidden}
+.rg-polltrkbar i{display:block;height:100%;min-width:2px;border-radius:0 4px 4px 0;background:var(--lime)}
+.rg-polltrk small{flex:none;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--paper)}

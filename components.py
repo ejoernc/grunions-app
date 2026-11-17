@@ -812,4 +812,59 @@ def drive_card(minutes, note="", leave="", kicker="YOUR DRIVE", href=""):
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, rg_person=person_row, rg_group_card=group_card, rg_detail_group=detail_group, rg_doc_card=doc_card, rg_notif=notif_preview, rg_person_status=person_status, rg_status_list=status_list, rg_pass=pass_card, rg_kv=kv_rows, rg_progress=progress_card, rg_drive=drive_card, rg_color_dots=color_dots, event_tone=event_tone, row_color=row_color, EVENT_COLORS=EVENT_COLORS)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, rg_person=person_row, rg_group_card=group_card, rg_detail_group=detail_group, rg_doc_card=doc_card, rg_notif=notif_preview, rg_person_status=person_status, rg_status_list=status_list, rg_pass=pass_card, rg_kv=kv_rows, rg_progress=progress_card, rg_drive=drive_card, rg_color_dots=color_dots, rg_poll=poll_card, rg_poll_bar=poll_bar, event_tone=event_tone, row_color=row_color, EVENT_COLORS=EVENT_COLORS)
+
+
+def poll_card(s, compact=False, vote=True):
+    """Poll results as a sideways chart, same look as the Manage chart card (2.0 / Chart card):
+    graphite card, caps kicker, lime bars from a hairline track, counts at the end of each bar.
+    s is polls.summary(). compact: the chat card (no voter names). vote: show the Vote / Change vote button."""
+    e = escape
+    bits = ["%d voted" % s["voters"]]
+    if s["closed"]: bits.append("Closed")
+    elif s["ends"]: bits.append(s["ends"])
+    if s["anonymous"]: bits.append("Anonymous")
+    kicker = "POLL · " + " · ".join(b.upper() for b in bits)
+    out = ['<div class="rg-chartcard rg-poll%s">' % (" compact" if compact else ""),
+           '<p class="ty-caps rg-pollkick">%s</p>' % e(kicker),
+           '<h3 class=rg-polltitle>%s</h3>' % e(s["title"])]
+    for q in s["questions"]:
+        top = max([o["n"] for o in q["options"]] or [0])
+        out.append('<div class=rg-pollq>')
+        if len(s["questions"]) > 1 or q["text"] != s["title"]:
+            out.append('<p class=rg-pollqt>%s<small>%s</small></p>' % (e(q["text"]), "Pick any" if q["multi"] else "Pick one"))
+        for o in q["options"]:
+            w = (100 * o["n"] / top) if top else 0
+            who = ""
+            if o["who"] and not compact:
+                who = '<small class=rg-pollwho>%s</small>' % e(", ".join(o["who"]))
+            out.append('<div class="rg-pollrow%s%s"><span class=rg-polllabel>%s%s</span>'
+                       '<span class=rg-polltrack><i class="rg-pollbar%s" style="width:%.1f%%"></i></span>'
+                       '<b class=rg-polln>%d</b>%s</div>' % (
+                           " top" if o["top"] else "", " mine" if o["mine"] else "",
+                           e(o["text"]), ' <em>· You</em>' if o["mine"] else "",
+                           " zero" if not o["n"] else "", w, o["n"], who))
+        out.append('</div>')
+    if vote and not s["closed"]:
+        out.append('<a class="rg-btn %s rg-wide" href="%s">%s</a>' % ("secondary" if s["voted"] else "primary", e(s["href"]), "Change vote" if s["voted"] else "Vote"))
+    elif vote and s["closed"]:
+        out.append('<a class="rg-btn secondary rg-wide" href="%s">See results</a>' % e(s["href"]))
+    out.append('</div>')
+    return Markup("".join(out))
+
+
+def poll_bar(s):
+    """Sticky bar at the top of a chat: unanswered polls ask for a vote; answered ones collapse to a line."""
+    e = escape
+    if s["voted"]:
+        # Answered and still live: a small sideways tracker of the leading answer (first question).
+        q = s["questions"][0] if s["questions"] else {"options": []}
+        lead = next((o for o in q["options"] if o["top"]), None)
+        pct = lead["pct"] if lead else 0
+        name = lead["text"] if lead else "No votes yet"
+        return Markup('<a class="rg-pollsticky done" href="%s"><span class=rg-pollstx><b>%s</b>'
+                      '<span class=rg-polltrk><span class=rg-polltrkbar><i style="width:%d%%"></i></span><small>%s · %d%%</small></span>'
+                      '<small>%d voted%s</small></span><span class=rg-pollgo>Results</span></a>'
+                      % (e(s["href"]), e(s["title"]), pct, e(name), pct, s["voters"], (" · " + e(s["ends"])) if s["ends"] else ""))
+    return Markup('<a class="rg-pollsticky" href="%s"><span class=rg-pollstx><small>NEW POLL%s</small><b>%s</b></span><span class="rg-btn primary rg-pollgo">Vote</span></a>'
+                  % (e(s["href"]), (" · " + e(s["ends"]).upper()) if s["ends"] else "", e(s["title"])))
