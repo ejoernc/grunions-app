@@ -853,10 +853,36 @@ def coach_sports(d, m):
         slugs = clubadmin.coached_slugs(d, m["id"])
     except Exception:
         slugs = set()
+    slugs = slugs or {legacy_coach_slug(d)}  # no sport yet: they keep the original coaches room
     return [sport for sport in sports if sport["slug"] in slugs]
 def _can_read_coach_chat(ch):
     slug = ch.split(":", 1)[1]
     return any(sport["slug"] == slug for sport in coach_sports(db(), me()))
+def legacy_coach_slug(d):
+    """The sport whose coaches chat is the pre-2.0 coaches room. Its history stays where it was
+    (channel 'coaches'); the sport chat reads and writes there, so nothing is moved or rewritten."""
+    slugs = [s["slug"] for s in club_sports(d)]
+    return "water-polo" if "water-polo" in slugs or not slugs else slugs[0]
+def coach_channel(d, slug):
+    return "coaches" if slug == legacy_coach_slug(d) else "coach:" + slug
+def coach_room_members(d, slug):
+    """Everyone in a sport's coaches chat: active coaches of that sport (program, series, or practice),
+    plus admins. The original room also keeps coaches who have no sport assigned yet, as before 2.0."""
+    import clubadmin
+    legacy = slug == legacy_coach_slug(d)
+    out = []
+    for m in d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' AND COALESCE(joined,0)=1 ORDER BY id"):
+        if m["is_admin"]:
+            out.append(m); continue
+        if (m["role"] or "") != "coach":
+            continue
+        try:
+            slugs = clubadmin.coached_slugs(d, m["id"])
+        except Exception:
+            slugs = set()
+        if slug in slugs or (legacy and not slugs):
+            out.append(m)
+    return out
 def can_make_channel(m=None):
     """Official channels. Coach or admin only. Admin lite has no manage-chats grant yet."""
     m = m or me()
@@ -2135,11 +2161,10 @@ def compute_unread(d, member):
     staff = bool(member["is_admin"] or member["role"] == "coach")
     ensure_cancel_notices(d, mid)
     team = chat_unread_n(d, mid, "team")
-    coaches = chat_unread_n(d, mid, "coaches") if staff else 0
+    rooms = {coach_channel(d, sport["slug"]) for sport in coach_sports(d, member)}
+    coaches = sum(chat_unread_n(d, mid, ch) for ch in rooms)
     if is_board(member):
         coaches += chat_unread_n(d, mid, "board")
-    for sport in coach_sports(d, member):
-        coaches += chat_unread_n(d, mid, "coach:" + sport["slug"])
     rows = d.execute("""SELECT n.practice_id AS practice_id, COUNT(*) AS cnt FROM practice_notices n
         JOIN practices p ON p.id=n.practice_id
         WHERE n.member_id=? AND n.seen_at IS NULL AND """ + upcoming_where("p") + " GROUP BY n.practice_id", (mid, *upcoming_bounds())).fetchall()
@@ -2206,7 +2231,10 @@ def parse_channel(ch):
     if ch.startswith("coach:"):
         slug = ch.split(":", 1)[1]
         if _CHANNEL_SLUG.match(slug):
-            return ch
+            try:
+                return coach_channel(db(), slug)
+            except Exception:
+                return ch
     if ch.startswith("req:"):
         rid = ch.split(":", 1)[1]
         if rid.isdigit():
@@ -2228,7 +2256,7 @@ def can_read(ch):
     if not ch or not me():
         return False
     if ch == "coaches":
-        return is_staff() or bool(me()["is_admin"])
+        return bool(me()["is_admin"]) or any(m["id"] == me()["id"] for m in coach_room_members(db(), legacy_coach_slug(db())))
     if ch == "board":
         return is_board()
     if ch.startswith("coach:"):
@@ -2970,13 +2998,11 @@ def chat_muted(d, mid, channel):
 def chat_tab_unread(d, mid, staff):
     """Unread across chats the person can see, skipping muted ones."""
     channels = ["team"]
-    if staff:
-        channels.append("coaches")
     person = d.execute("SELECT * FROM members WHERE id=?", (mid,)).fetchone()
     if person and is_board(person):
         channels.append("board")
     if person:
-        channels.extend("coach:" + sport["slug"] for sport in coach_sports(d, person))
+        channels.extend(c for c in (coach_channel(d, sport["slug"]) for sport in coach_sports(d, person)) if c not in channels)
     channels.extend(row["channel"] for row in d.execute("""SELECT DISTINCT channel FROM messages
             WHERE channel LIKE 'practice:%' OR channel LIKE 'ch:%' OR channel LIKE 'ask:%' OR channel LIKE 'grp:%' OR channel LIKE 'req:%' OR channel LIKE 'coach:%'"""))
     channels.extend(row[0] for row in _dm_unread(d, mid)[1])
@@ -3934,8 +3960,16 @@ def _inbox_role_sections(d, m):
     """Coaches and Admin hold the staff inboxes. Ask the club is only for people who can still file one."""
     parts = []
     coach_rows = []
-    for sport in _assigned_sports(d, m):
-        ch = "coach:" + sport["slug"]
+    assigned = _assigned_sports(d, m)
+    if not assigned and is_active_coach(m):
+        # A coach with no sport yet keeps the original coaches room (no requests until they have a sport).
+        legacy = [s for s in club_sports(d) if s["slug"] == legacy_coach_slug(d)]
+        for sport in legacy:
+            ch = coach_channel(d, sport["slug"])
+            preview, when = channel_preview(d, ch)
+            coach_rows.append(_chat_row("/chat?c=%s" % ch, "C", "%s coaches" % sport["name"], preview or "Coaches only · can't be deleted", when, chat_unread_n(d, m["id"], ch), "sky", chat_muted(d, m["id"], ch)))
+    for sport in assigned:
+        ch = coach_channel(d, sport["slug"])
         preview, when = channel_preview(d, ch)
         coach_rows.append(_chat_row("/chat?c=%s" % ch, "C", "%s coaches" % sport["name"], preview or "Coaches only · can't be deleted", when, chat_unread_n(d, m["id"], ch), "sky", chat_muted(d, m["id"], ch)))
         n = _open_scoped(d, m, "coaches", sport["slug"])
@@ -3968,7 +4002,7 @@ def _thread_title(d, m, ch):
     if ch == "board":
         return "Board room"
     if ch == "coaches":
-        return "Coaches"
+        return _coach_chat_title(d, "coach:" + legacy_coach_slug(d))
     if ch.startswith("coach:"):
         return _coach_chat_title(d, ch)
     if ch.startswith("req:"):
@@ -3994,10 +4028,9 @@ def _thread_people(d, ch):
     if ch == "board":
         return d.execute("SELECT COUNT(*) FROM members WHERE COALESCE(board_member,0)=1").fetchone()[0]
     if ch == "coaches":
-        return d.execute("SELECT COUNT(*) FROM members WHERE role='coach' AND COALESCE(joined,0)=1").fetchone()[0]
+        return len(coach_room_members(d, legacy_coach_slug(d)))
     if ch.startswith("coach:"):
-        slug = ch.split(":", 1)[1]
-        return d.execute("""SELECT COUNT(*) FROM program_coaches c JOIN programs p ON p.id=c.program_id WHERE p.slug=?""", (slug,)).fetchone()[0]
+        return len(coach_room_members(d, ch.split(":", 1)[1]))
     return _joined_count(d)
 def _thread_subtitle(d, ch):
     if ch.startswith("dm:"):
@@ -6337,7 +6370,7 @@ def handle_practice_post(d):
                 prog = None
             if prog:
                 d.execute("INSERT INTO messages(member_id, body, channel) VALUES(?,?,?)", (me()["id"],
-                          "Plan for %s %s: %s" % (practice_title(p_), fmt_d(p_["date"]), clean_plan(request.form.get("coaching_plan"))[:1500]), "coach:" + prog["slug"]))
+                          "Plan for %s %s: %s" % (practice_title(p_), fmt_d(p_["date"]), clean_plan(request.form.get("coaching_plan"))[:1500]), coach_channel(d, prog["slug"])))
                 flash("Plan saved · copied to the coaches chat", "toast")
     elif a == "coach_plan" and pid:
         if not can_host_practice(): abort(403)
@@ -9261,7 +9294,7 @@ def _manage_catalog(d):
         add("club", "Plans & payments", "Memberships, drop-ins, pricing and how members pay", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass integration club assistant provider payment link")
         add("club", "Venues", "Manage locations and assign them to sports", "/manage/club/venues", "pin", "venue pool location address marina westminster")
         add("club", "Documents", "Waiver and agreements members sign on their first Going", "/manage/club/documents", "shield", "waiver liability agreement sign version document code of conduct")
-        add("club", "Leaders", "The board, sport leads, and who can manage what", "/manage/club/leaders", "key", "leaders leadership board president treasurer secretary sport leads head coach captain permission admin admin lite sport admin who can manage role")
+        add("club", "Leaders", "The board, sport leadership, coaches, and referees", "/manage/club/leaders", "key", "coaches coach leaders leadership board president treasurer secretary sport leads head coach captain permission admin admin lite sport admin who can manage role")
         add("club", "Website & sharing", "Public schedule and the website widget", "/manage/widget", "widget", "embed website widget preview")
         add("club", "Reminders", "Emails and notifications before a practice. Off until you turn them on.", "/manage/club/reminders", "tray", "practice reminder email hours before")
         add("tools", "QR codes", "Join the club", "/manage/tools/qr", "qr", "qr code join check-in")
@@ -9882,7 +9915,60 @@ def club_leaders():
     import clubadmin, leaders
     d = db(); clubadmin.ensure(d); leaders.ensure(d)
     progs = clubadmin.programs(d)
-    return page(T["leaders"], tab="admin", ov=leaders.overview(d, progs), access=leaders.access_counts(d))
+    sport_cards = []
+    for p in progs:
+        rs = leaders.roles(d, p["id"])
+        n_lead = len({r["member_id"] for r in rs if not r["open"]})
+        n_coach = len(sport_coach_list(d, p))
+        n_ref = len(sport_ref_list(d, p))
+        sub = " · ".join(["%d lead%s" % (n_lead, "" if n_lead == 1 else "s"), "%d coach%s" % (n_coach, "" if n_coach == 1 else "es"), "%d referee%s" % (n_ref, "" if n_ref == 1 else "s")])
+        sport_cards.append({"slug": p["slug"], "name": p["public_name"] or p["name"], "sub": sub, "chat": bool(n_coach), "requests": leaders.leads_requests_on(d, p["slug"]) and bool(n_coach)})
+    return page(T["leaders"], tab="admin", ov=leaders.overview(d, progs), access=leaders.access_counts(d), sport_cards=sport_cards)
+def sport_coach_list(d, program):
+    """A sport's coaches: assigned to the sport here, or coaching it on the schedule (series or practice).
+    Only program assignments can be removed from this list; schedule ones follow the schedule."""
+    import clubadmin
+    assigned = {r[0] for r in d.execute("SELECT member_id FROM program_coaches WHERE program_id=?", (program["id"],))}
+    out = []
+    for m in d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' ORDER BY lower(COALESCE(NULLIF(preferred_first,''), first)), lower(last)"):
+        here = m["id"] in assigned
+        if not here:
+            if (m["role"] or "") != "coach": continue
+            try:
+                if program["slug"] not in clubadmin.coached_slugs(d, m["id"]): continue
+            except Exception:
+                continue
+        name = ("%s %s" % (display_first(m), m["last"] or "")).strip()
+        photo = (m["photo"] if "photo" in m.keys() else "") or ""
+        out.append({"id": m["id"], "name": name, "assigned": here, "active": (m["role"] or "") == "coach",
+                    "line": ("Coach" if (m["role"] or "") == "coach" else "Not an active coach yet") if here else "Coaches on the schedule",
+                    "photo": ("/avatar/%d?v=%s" % (m["id"], photo)) if photo else ""})
+    return out
+def sport_ref_list(d, program):
+    """A sport's referees (program_referees). Adding one also puts them on the club referee list."""
+    import leaders
+    leaders.ensure(d)
+    out = []
+    for m in d.execute("""SELECT m.* FROM program_referees r JOIN members m ON m.id=r.member_id
+            WHERE r.program_id=? AND COALESCE(m.role,'')!='system' ORDER BY lower(COALESCE(NULLIF(m.preferred_first,''), m.first)), lower(m.last)""", (program["id"],)):
+        photo = (m["photo"] if "photo" in m.keys() else "") or ""
+        out.append({"id": m["id"], "name": ("%s %s" % (display_first(m), m["last"] or "")).strip(), "assigned": True, "line": "Referee",
+                    "photo": ("/avatar/%d?v=%s" % (m["id"], photo)) if photo else ""})
+    return out
+def _sport_pick_people(d, skip):
+    out = []
+    for m in d.execute("""SELECT * FROM members WHERE COALESCE(role,'')!='system' AND COALESCE(joined,1)=1
+            ORDER BY lower(COALESCE(NULLIF(preferred_first,''), first)), lower(last)"""):
+        if m["id"] in skip: continue
+        nm = ("%s %s" % (display_first(m), m["last"] or "")).strip()
+        photo = (m["photo"] if "photo" in m.keys() else "") or ""
+        out.append({"id": m["id"], "name": nm, "q": nm.casefold(), "line": "Coach" if (m["role"] or "") == "coach" else ("Admin" if m["is_admin"] else "Member"),
+                    "photo": ("/avatar/%d?v=%s" % (m["id"], photo)) if photo else ""})
+    return out
+@app.route("/manage/club/coaches/<slug>")
+@admin_required
+def club_coaches_sport(slug):
+    return redirect("/manage/club/leaders/%s#coaches" % slug)
 def _leaders_group(slug):
     import clubadmin, leaders
     d = db(); clubadmin.ensure(d); leaders.ensure(d)
@@ -9909,11 +9995,37 @@ def _leaders_group(slug):
                 d.commit(); sync_practice_sheets(d)
                 flash("%s is open" % role["name"], "toast")
             elif a == "add_role":
-                leaders.add_role(d, request.form.get("name"), pid, request.form.get("access") or "none")
+                leaders.add_role(d, request.form.get("name"), pid, request.form.get("access") or "none", request.form.get("board") == "1")
                 d.commit(); flash("Role added", "toast")
+            elif a == "role_board" and program:
+                on = request.form.get("board") == "1"
+                role = leaders.set_board(d, request.form.get("role_id", type=int), on)
+                d.commit(); sync_practice_sheets(d)
+                flash("%s is %s board role" % (role["name"], "a" if on else "not a"), "toast")
             elif a == "delete_role":
                 leaders.delete_role(d, request.form.get("role_id", type=int))
                 d.commit(); flash("Role removed", "toast")
+            elif a in ("coach_add", "ref_add") and program:
+                ids = [int(x) for x in request.form.getlist("member_id") if str(x).isdigit()]
+                n = 0
+                for mid in ids:
+                    if not d.execute("SELECT 1 FROM members WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone(): continue
+                    if a == "coach_add":
+                        d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (pid, mid))
+                        d.execute("UPDATE members SET role='coach' WHERE id=? AND COALESCE(role,'')!='coach'", (mid,))
+                    else:
+                        d.execute("INSERT OR IGNORE INTO program_referees(program_id, member_id) VALUES(?,?)", (pid, mid))
+                        add_referee(d, mid)
+                    n += 1
+                d.commit(); sync_practice_sheets(d)
+                what = "coach" if a == "coach_add" else "referee"
+                flash("Added %d %s%s" % (n, what, "" if n == 1 else ("es" if what == "coach" else "s")), "toast")
+            elif a == "coach_remove" and program:
+                d.execute("DELETE FROM program_coaches WHERE program_id=? AND member_id=?", (pid, request.form.get("member_id", type=int) or 0))
+                d.commit(); sync_practice_sheets(d); flash("Removed from coaches", "toast")
+            elif a == "ref_remove" and program:
+                d.execute("DELETE FROM program_referees WHERE program_id=? AND member_id=?", (pid, request.form.get("member_id", type=int) or 0))
+                d.commit(); flash("Removed from referees", "toast")
             else:
                 abort(400)
         except ValueError as exc:
@@ -9923,8 +10035,8 @@ def _leaders_group(slug):
     if program:
         name = program["public_name"] or program["name"]
         chat_n = len(leaders.sport_coaches(d, pid))
-        chat = {"label": "%s coaches" % name, "n": chat_n, "href": ("/chat?c=coach:%s" % program["slug"]) if program["slug"] in {s["slug"] for s in _assigned_sports(d, me())} else ""}
-        info = {"title": "%s leads" % name, "sub": "Leads for %s only. Their questions come from members in %s requests." % (name, name),
+        chat = {"label": "%s coaches" % name, "n": chat_n, "href": ("/chat?c=%s" % coach_channel(d, program["slug"])) if program["slug"] in {s["slug"] for s in _assigned_sports(d, me())} else ""}
+        info = {"title": name, "sub": "Leadership, coaches, and referees for %s." % name,
                 "toggle": "Members can ask %s leads" % name, "toggle_sub": "Questions about practices, gear, teams",
                 "empty": "No %s leads yet." % name, "role_hint": "Head coach, Assistant, Captain…"}
     else:
@@ -9934,8 +10046,13 @@ def _leaders_group(slug):
                 "toggle": "Members can message the board", "toggle_sub": "Arrives in Board requests as a thread",
                 "empty": "No board yet.", "role_hint": "President, Treasurer, Secretary…"}
     seats = {r["role_id"] for r in rows if r["role_id"]}
+    coaches = sport_coach_list(d, program) if program else []
+    refs = sport_ref_list(d, program) if program else []
     return page(T["leaders_group"], tab="admin", rows=rows, n_roles=len(rows), program=program, chat=chat, info=info,
-                requests_on=leaders.flag(d, flag_key), people=leaders.people_for_pick(d), back_label="Leaders")
+                requests_on=leaders.flag(d, flag_key), people=leaders.people_for_pick(d), back_label="Leaders",
+                coaches=coaches, refs=refs,
+                coach_pick=_sport_pick_people(d, {c["id"] for c in coaches if c["assigned"]}) if program else [],
+                ref_pick=_sport_pick_people(d, {r["id"] for r in refs}) if program else [])
 @app.route("/manage/club/leaders/board", methods=["GET", "POST"])
 @admin_required
 def club_leaders_board():
@@ -11431,7 +11548,8 @@ def members():
     if filt not in ("", "expiring", "uncleared", "ready", "unpaid", "unpaid_only", "uncleared_only", "both"): filt = ""
     if view == "members" and request.args.get("classic") != "1":
         return _participants_page(d, rows, q, filt)
-    if filt not in ("", "expiring", "uncleared"): filt = ""
+    card_view = view in ("coaches", "admins", "referees", "compliance") and request.args.get("classic") != "1"
+    if filt not in ("", "expiring", "uncleared") and not card_view: filt = ""
     sets = roster_sets(d, rows)
     if view == "coaches": rows = [r for r in rows if r["id"] in sets["coaches"]]
     elif view == "admins": rows = [r for r in rows if r["id"] in sets["admins"]]
@@ -11447,6 +11565,8 @@ def members():
         clubadmin.ensure(d)
         today = today_pt().isoformat()
         rows = [r for r in rows if clubadmin.has_monthly_membership(d, r["id"], today)]
+    if card_view:
+        return _participants_page(d, rows, q, filt, view)
     if q:
         needle = q.casefold()
         rows = [r for r in rows if needle in " ".join(x for x in (r["first"], r["preferred_first"], r["last"], r["email"]) if x).casefold()]
@@ -11461,10 +11581,10 @@ def members():
         tab="admin", admin_back="/manage/area/people", rows=rows, c=c, view=view, filt=filt, pay="", date=focus, q=q, title=titles[view],
         listed=sets["listed"], referees=sets["referees"], coach_ids=sets["coach_ids"], ref_ids=sets["ref_ids"],
         n_admins=len(sets["admins"]), boot=ADMIN_EMAILS, **_people_sheets(d))
-def _participant_card(d, r, sport_name, today):
+def _participant_card(d, r, sport_name, today, view="members"):
     """Figma 62 S1 row: clearance chip, payment chip, one line on what's missing."""
     import clubadmin, leaders
-    st = list_status(d, r, "members")
+    st = list_status(d, r, "coaches" if view == "coaches" else ("admins" if view == "admins" else "members"))
     pending = (r["vr_status"] or "") == "pending"
     if pending:
         word, tone = "Pending", "interested"
@@ -11482,21 +11602,30 @@ def _participant_card(d, r, sport_name, today):
         left = tw.get("days_left") or 0
         note = "Trial · %d day%s left" % (left, "" if left == 1 else "s")
     kind = "Coach" if (r["role"] or "") == "coach" else "Player"
+    if kind == "Coach":
+        try:
+            slugs = clubadmin.coached_slugs(d, r["id"])
+            names = [p["public_name"] or p["name"] for p in clubadmin.programs(d) if p["slug"] in slugs]
+            if names: sport_name = ", ".join(names)
+        except Exception:
+            pass
+    if view == "admins": kind = "Admin" if r["is_admin"] else "Board"
+    elif view == "referees": kind = "Referee"
     name = ("%s %s" % (display_first(r), r["last"] or "")).strip()
-    good = st["ok"] and not pending and paid and tone == "cleared"
+    good = st["ok"] and not pending and paid and tone == "cleared" and view == "members"
     photo = (r["photo"] if "photo" in r.keys() else "") or ""
     return {"id": r["id"], "name": name, "photo": ("/avatar/%d?v=%s" % (r["id"], photo)) if photo else "",
             "sub": leaders.member_line(d, r["id"], "%s · %s" % (kind, sport_name)),
             "chips": [(word, tone), ("Paid" if paid else "Unpaid", "paid" if paid else "neutral")],
             "note": "" if good else note, "ok": st["ok"] and not pending, "paid": paid, "expiring": tone == "expiring", "good": good,
             "search": " ".join(x for x in (r["first"], r["preferred_first"], r["last"]) if x).casefold()}
-def _participants_page(d, rows, q, filt):
+def _participants_page(d, rows, q, filt, view="members"):
     import clubadmin
     clubadmin.ensure(d)
     today = today_pt().isoformat()
     progs = [p for p in clubadmin.programs(d) if p["active"]] or clubadmin.programs(d)
     sport_name = (progs[0]["public_name"] or progs[0]["name"]) if progs else "Water Polo"
-    cards = [_participant_card(d, r, sport_name, today) for r in rows]
+    cards = [_participant_card(d, r, sport_name, today, view) for r in rows]
     n = {"all": len(cards), "ready": sum(1 for c in cards if c["ok"] and c["paid"]),
          "unpaid_only": sum(1 for c in cards if c["ok"] and not c["paid"]),
          "uncleared_only": sum(1 for c in cards if not c["ok"] and c["paid"]),
@@ -11507,13 +11636,87 @@ def _participants_page(d, rows, q, filt):
             "uncleared_only": lambda c: not c["ok"] and c["paid"], "both": lambda c: not c["ok"] and not c["paid"],
             "uncleared": lambda c: not c["ok"], "unpaid": lambda c: not c["paid"], "expiring": lambda c: c["expiring"]}
     for c in cards: c["shown"] = keep[filt](c) if filt in keep else True
-    return page(T["participants"], tab="admin", admin_back="/manage/area/people", cards=cards, n=n, filt=filt, q=q)
+    titles = {"members": ("Participants", "Cleared to play, and paying."), "coaches": ("Coaches", "Cleared to coach, and paying."),
+              "admins": ("Admins", "Who can open Manage."), "referees": ("Referees", "Cleared to ref, and paying."),
+              "compliance": ("Compliance", "Expiring soon or past due.")}
+    title, blurb = titles.get(view, titles["members"])
+    base = "/members" if view == "members" else "/members?view=" + view
+    return page(T["participants"], tab="admin", admin_back="/manage/area/people", cards=cards, n=n, filt=filt, q=q,
+                view=view, title=title, blurb=blurb, base=base, sep="&" if "?" in base else "?")
 @app.route("/members/<int:mid>/status")
 @admin_required
 def member_status_sheet(mid):
     """Figma 62 S3: what this person needs, fixed right here. Returned as the drawer's inside."""
-    import clubadmin
+    return _member_status_html(db(), mid)
+@app.route("/members/<int:mid>/roles", methods=["POST"])
+@login_required
+def member_roles_save(mid):
+    """Drawer · Roles: admin, coach (with the sports they coach), and leadership seats.
+    Saves one change and returns the refreshed drawer, so coach-only requirements show right away."""
+    if not is_club_admin(): abort(403)
+    import clubadmin, leaders
     d = db(); clubadmin.ensure(d)
+    m = d.execute("SELECT * FROM members WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone()
+    if not m: abort(404)
+    act = request.form.get("action") or ""
+    note = ""
+    try:
+        if act == "admin":
+            if request.form.get("on") == "1":
+                d.execute("UPDATE members SET is_admin=1 WHERE id=?", (mid,))
+            elif m["is_admin"]:
+                if is_last_admin(d, mid): note = "The last admin can't be removed."
+                elif (m["email"] or "") in ADMIN_EMAILS: note = "This admin is set by the ADMIN_EMAIL setting."
+                else: d.execute("UPDATE members SET is_admin=0 WHERE id=?", (mid,))
+        elif act == "coach":
+            d.execute("UPDATE members SET role=? WHERE id=?", ("coach" if request.form.get("on") == "1" else "athlete", mid))
+        elif act == "coach_sport":
+            prog = d.execute("SELECT id FROM programs WHERE slug=?", (request.form.get("slug") or "",)).fetchone()
+            if prog:
+                if request.form.get("on") == "1":
+                    d.execute("INSERT OR IGNORE INTO program_coaches(program_id, member_id) VALUES(?,?)", (prog["id"], mid))
+                else:
+                    d.execute("DELETE FROM program_coaches WHERE program_id=? AND member_id=?", (prog["id"], mid))
+        elif act == "lead_add":
+            role_id = int(request.form.get("role_id") or 0)
+            leaders.assign(d, role_id, mid)
+        elif act == "lead_remove":
+            leaders.clear(d, int(request.form.get("role_id") or 0), mid)
+        else:
+            abort(400)
+        d.commit()
+    except ValueError as exc:
+        d.rollback(); note = str(exc)
+    return _member_status_html(d, mid, note=note)
+def _member_roles(d, m):
+    """What the Roles section of the drawer shows."""
+    import leaders
+    sports = []
+    try:
+        progs = d.execute("SELECT id, slug, COALESCE(NULLIF(public_name,''), name) AS name FROM programs ORDER BY name").fetchall()
+    except sqlite3.OperationalError:
+        progs = []
+    mine = {r[0] for r in d.execute("SELECT program_id FROM program_coaches WHERE member_id=?", (m["id"],))}
+    for p in progs:
+        sports.append({"slug": p["slug"], "name": p["name"], "on": p["id"] in mine})
+    held = d.execute("""SELECT r.id, r.name, r.program_id, COALESCE(NULLIF(p.public_name,''), p.name) AS sport FROM leadership_members lm
+        JOIN leadership_roles r ON r.id=lm.role_id LEFT JOIN programs p ON p.id=r.program_id
+        WHERE lm.member_id=? ORDER BY (r.program_id IS NOT NULL), sport, r.sort""", (m["id"],)).fetchall()
+    held_ids = {r["id"] for r in held}
+    seats = [{"role_id": r["id"], "title": r["name"], "sub": ("%s leadership" % r["sport"]) if r["program_id"] else "Board"} for r in held]
+    groups = []
+    board = [r for r in d.execute("SELECT id, name FROM leadership_roles WHERE program_id IS NULL AND board=1 ORDER BY sort, id") if r["id"] not in held_ids]
+    if board: groups.append({"label": "Board", "roles": board})
+    for p in progs:
+        rs = [r for r in d.execute("SELECT id, name FROM leadership_roles WHERE program_id=? ORDER BY sort, id", (p["id"],)) if r["id"] not in held_ids]
+        if rs: groups.append({"label": p["name"], "roles": rs})
+    holders = {}
+    for r in d.execute("""SELECT lm.role_id, m.first, m.preferred_first, m.last FROM leadership_members lm JOIN members m ON m.id=lm.member_id"""):
+        holders[r["role_id"]] = display_first(r)
+    return {"is_admin": bool(m["is_admin"]), "is_coach": (m["role"] or "") == "coach", "sports": sports, "seats": seats, "groups": groups, "holders": holders}
+def _member_status_html(d, mid, note=""):
+    import clubadmin
+    clubadmin.ensure(d)
     m = d.execute("SELECT m.*, (SELECT status FROM verify_requests WHERE member_id=m.id ORDER BY id DESC LIMIT 1) AS vr_status FROM members m WHERE id=? AND COALESCE(role,'')!='system'", (mid,)).fetchone()
     if not m: abort(404)
     today = today_pt().isoformat()
@@ -11536,7 +11739,7 @@ def member_status_sheet(mid):
     for rq in reqs:
         kind = _req_kind(rq)
         label = _req_label(rq, kind)
-        if not _counts_on_list(kind, rq["applies_to"], "members", m):
+        if not _counts_on_list(kind, rq["applies_to"], "coaches" if (m["role"] or "") == "coach" else "members", m):
             if kind == "safesport": rows.append({"title": label, "sub": "Not needed for players", "chip": ("N/A", "neutral")})
             continue
         if not rq["expires"]: continue  # same rules as the row's chip (list_status)
@@ -11556,7 +11759,8 @@ def member_status_sheet(mid):
     kind = "Coach" if (m["role"] or "") == "coach" else "Player"
     import leaders
     return render_template_string(T["member_status"], m=m, name=name, sub=leaders.member_line(d, mid, kind), rows=rows, pay=pay, plans=plans,
-                                  dm=dm_channel(me()["id"], mid) if me()["id"] != mid else "", today_iso=today)
+                                  dm=dm_channel(me()["id"], mid) if me()["id"] != mid else "", today_iso=today,
+                                  roles=_member_roles(d, m) if is_club_admin() else None, note=note)
 def _people_sheets(d):
     """Data for the People ⋯ sheets: insurance, membership plans (monthly/annual only), board roles."""
     import clubadmin
@@ -12209,8 +12413,9 @@ def chat_push_recipients(d, channel, sender_id):
     base = "SELECT * FROM members WHERE COALESCE(role,'')!='system' AND id!=?"
     if ch == "team" or ch.startswith("ch:"):
         return d.execute(base, (sender_id,)).fetchall()
-    if ch == "coaches":
-        return [m for m in d.execute(base, (sender_id,)) if is_active_coach(m) or m["is_admin"]]
+    if ch == "coaches" or ch.startswith("coach:"):
+        slug = legacy_coach_slug(d) if ch == "coaches" else ch.split(":", 1)[1]
+        return [m for m in coach_room_members(d, slug) if m["id"] != sender_id]
     if ch.startswith("dm:"):
         try: ids = [int(x) for x in ch.split(":")[1:3]]
         except ValueError: return []
@@ -12233,7 +12438,7 @@ def chat_push_recipients(d, channel, sender_id):
     return []  # coach:<sport>, ask:… and anything new: no push until its audience is defined
 def notify_chat(d, channel, sender, body, has_image):
     ch = channel or "team"
-    kind = "coaches_chat" if ch == "coaches" else "team_chat"
+    kind = "coaches_chat" if (ch == "coaches" or ch.startswith("coach:")) else "team_chat"
     text = (body or "").strip()
     if not text and has_image: text = "Sent a photo"
     if not text: return

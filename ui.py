@@ -8704,9 +8704,9 @@ T["leaders"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
 {{ rg_page_title('Leaders', 'Groups that run the club. Each has its own chat.') }}
 {{ rg_section_count('Board') }}
 {{ rg_group_card('Board', ov.board.sub, [('Chat on' if ov.board.chat else 'Chat off', ov.board.chat), ('Requests on' if ov.board.requests else 'Requests off', ov.board.requests)], '/manage/club/leaders/board') }}
-{{ rg_section_count('Sport leads') }}
+{{ rg_section_count('Sports') }}
 <div class=rg-stack8>
-{% for s in ov.sports %}{{ rg_group_card(s.name ~ ' leads', s.sub, [('Chat on' if s.chat else 'Chat off', s.chat), ('Requests on' if s.requests else 'Requests off', s.requests)], '/manage/club/leaders/' ~ s.slug) }}{% else %}<p class=rg-note>Add a sport first, then its leads.</p>{% endfor %}
+{% for s in sport_cards %}{{ rg_group_card(s.name, s.sub, [('Chat on' if s.chat else 'Chat off', s.chat), ('Requests on' if s.requests else 'Requests off', s.requests)], '/manage/club/leaders/' ~ s.slug) }}{% else %}<p class=rg-note>Add a sport first.</p>{% endfor %}
 </div>
 {{ rg_section_count('Access') }}
 <div class=rg-stack8>
@@ -8718,15 +8718,52 @@ T["leaders"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
 T["leaders_group"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
 {# Figma 62 · L2 Board / L3 not set up / L4 sport leads, L5 assign sheet #}
 {{ rg_page_title(info.title, info.sub) }}
-{% if not rows %}
+{% if program and not rows %}{{ rg_section_count('Leadership') }}{% endif %}
+{% if not rows and program %}
+<p class=rg-note>No {{ program.public_name or program.name }} leads yet. Add the roles this sport needs, like Head coach or Captain, then assign people.</p>
+<button type=button class="rg-btn secondary rg-wide" data-open-dialog=roleAdd>Add a role</button>
+{% elif not rows %}
 <div class=rg-leadempty>{{ rg_empty(info.empty, ('Board chat and member requests to the board stay off until someone holds a board role.' if not program else 'Add the roles this sport needs, then assign people.'), '', '', '0') }}
 <button type=button class="rg-btn primary" data-open-dialog=roleAdd>{{ 'Add a board role' if not program else 'Add a role' }}</button></div>
 {% else %}
-{{ rg_section_count('Roles', n_roles) }}
+{{ rg_section_count('Leadership' if program else 'Roles', n_roles) }}
 <div class=rg-plist>
-{% for r in rows %}{% if r.legacy %}{{ rg_person(r.name, r.role, r.initials, r.access, 'going', '/admin/member/' ~ r.member_id) }}{% else %}{{ rg_person(r.name, r.role, r.initials, r.access, 'going', '', 'data-seat data-role="' ~ r.role_id ~ '" data-title="' ~ r.role|e ~ '" data-member="' ~ (r.member_id or '') ~ '" data-perm="' ~ r.permission ~ '"', 'sun') }}{% endif %}{% endfor %}
+{% for r in rows %}{% if r.legacy %}{{ rg_person(r.name, r.role, r.initials, r.access, 'going', '/admin/member/' ~ r.member_id) }}{% else %}{{ rg_person(r.name, r.role, r.initials, r.access, 'going', '', 'data-seat data-role="' ~ r.role_id ~ '" data-title="' ~ (r.role|string|replace('"', '&#34;')|replace('<', '&lt;')) ~ '" data-member="' ~ (r.member_id or '') ~ '" data-perm="' ~ r.permission ~ '" data-board="' ~ (1 if r.board else 0) ~ '"', 'sun') }}{% endif %}{% endfor %}
 </div>
 <button type=button class="rg-btn secondary rg-wide" data-open-dialog=roleAdd>Add a role</button>
+{% endif %}
+{% macro people_area(anchor, label, list, pick, dlg, add_label, remove_action, empty) %}
+<div id="{{ anchor }}">{{ rg_section_count(label) }}</div>
+<div class=rg-plist>
+{% for c in list %}<div class=rg-coachrow>{{ rg_person(c.name, c.line, '', '', 'neutral', '/admin/member/' ~ c.id, '', 'sky', c.photo) }}{% if c.assigned %}<form method=post>{{ csrf_field() }}<input type=hidden name=action value="{{ remove_action }}"><input type=hidden name=member_id value="{{ c.id }}"><button class=rg-dgact aria-label="Remove {{ c.name }}">Remove</button></form>{% endif %}</div>{% else %}<p class=rg-note>{{ empty }}</p>{% endfor %}
+</div>
+<button type=button class="rg-btn secondary rg-wide" data-open-dialog="{{ dlg }}">{{ add_label }}</button>
+{% endmacro %}
+{% macro pick_dialog(dlg, title, action, pick) %}
+<dialog id="{{ dlg }}" class="botsheet pickpeople" data-pickdlg><form method=post class=sheet>{{ csrf_field() }}<input type=hidden name=action value="{{ action }}"><div class=grab aria-hidden=true></div>
+<div class=pickhead><button type=button class=pickx data-sheet-close aria-label=Close>{{ rg_icon('close', 'md') }}</button><h2>{{ title }}</h2><button class=pickgo disabled>Add · 0</button></div>
+<div class="pickchips" data-chips hidden></div>
+{{ rg_search(dlg ~ 'Q', 'Search people') }}
+<div class=coachpicklist data-list>{% for p in pick %}<label class=coachpick data-q="{{ p.q }}"><input type=checkbox name=member_id value="{{ p.id }}" data-name="{{ p.name }}">{{ rg_person(p.name, p.line, '', '', 'neutral', '', '', 'sky', p.photo) }}<i aria-hidden=true></i></label>{% else %}<p class=rg-note>Everyone is already here.</p>{% endfor %}</div>
+<p class="ty-muted ty-sm" data-empty hidden>No one by that name</p>
+</form></dialog>
+{% endmacro %}
+{% if program %}
+{{ people_area('coaches', 'Coaches', coaches, coach_pick, 'coachPick', 'Add coaches', 'coach_remove', 'No ' ~ (program.public_name or program.name) ~ ' coaches yet.') }}
+<p class=rg-note>Adding someone makes them an active coach. Coaches on the schedule show here too and follow their practices.</p>
+{{ people_area('referees', 'Referees', refs, ref_pick, 'refPick', 'Add referees', 'ref_remove', 'No ' ~ (program.public_name or program.name) ~ ' referees yet.') }}
+{{ pick_dialog('coachPick', 'Add ' ~ (program.public_name or program.name) ~ ' coaches', 'coach_add', coach_pick) }}
+{{ pick_dialog('refPick', 'Add ' ~ (program.public_name or program.name) ~ ' referees', 'ref_add', ref_pick) }}
+<script>(function(){
+ document.querySelectorAll('[data-pickdlg]').forEach(function(dlg){
+  var list=dlg.querySelector('[data-list]'), go=dlg.querySelector('.pickgo'), chips=dlg.querySelector('[data-chips]'), q=dlg.querySelector('input[type=search],.rg-search input'), none=dlg.querySelector('[data-empty]');
+  function sync(){ var on=[].slice.call(list.querySelectorAll('input:checked')); go.disabled=!on.length; go.textContent='Add · '+on.length; chips.hidden=!on.length; chips.innerHTML='';
+   on.forEach(function(i){ var b=document.createElement('button'); b.type='button'; b.className='pickchip'; b.textContent=i.getAttribute('data-name')+' ×'; b.onclick=function(){ i.checked=false; sync(); }; chips.appendChild(b); }); }
+  list.addEventListener('change',sync);
+  if(q) q.addEventListener('input',function(){ var v=q.value.trim().toLowerCase(), any=false; list.querySelectorAll('[data-q]').forEach(function(r){ var hit=!v||r.getAttribute('data-q').indexOf(v)>=0; r.hidden=!hit; if(hit) any=true; }); none.hidden=any; });
+  dlg.querySelector('[data-sheet-close]').addEventListener('click',function(){ dlg.close(); });
+ });
+})();</script>
 {% endif %}
 {{ rg_section_count('Chat & requests', 2) }}
 <div class=rg-stack8>
@@ -8748,13 +8785,14 @@ T["leaders_group"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
 <button class="rg-btn primary" id=seatSave>Assign</button>
 </form>
 <form method=post id=seatClearForm hidden>{{ csrf_field() }}<input type=hidden name=action value=clear><input type=hidden name=role_id><input type=hidden name=member_id><button class="rg-btn ghost rg-wide">Clear this role</button></form>
+{% if program %}<form method=post id=seatBoardForm>{{ csrf_field() }}<input type=hidden name=action value=role_board><input type=hidden name=role_id>{{ rg_toggle('board', 'Board role', 'Whoever holds it is also on the board, in #board, and can open Manage', false, attrs='onchange="this.form.submit()"') }}</form>{% endif %}
 <form method=post id=seatDeleteForm hidden>{{ csrf_field() }}<input type=hidden name=action value=delete_role><input type=hidden name=role_id><button class="rg-btn ghost rg-wide">Remove this role</button></form>
 </dialog>
 
 <dialog id=roleAdd class="botsheet modal"><form method=post class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><input type=hidden name=action value=add_role>
 <h2>Add a role.</h2><p class=ty-muted>{{ info.title }}</p>
 <label class=rg-field><span>ROLE NAME</span><input name=name required maxlength=80 placeholder="{{ info.role_hint }}" autocomplete=off></label>
-{% if program %}<h3 class=rg-day>ACCESS</h3>{{ rg_choice('access', 'none', 'No access', 'Title only', true) }}{{ rg_choice('access', 'sport_admin', 'Sport admin', 'A title for this sport') }}{% endif %}
+{% if program %}<h3 class=rg-day>ACCESS</h3>{{ rg_choice('access', 'none', 'No access', 'Title only', true) }}{{ rg_choice('access', 'sport_admin', 'Sport admin', 'A title for this sport') }}{{ rg_toggle('board', 'Board role', 'Whoever holds it is also on the board') }}{% endif %}
 <button class="rg-btn primary">Add role</button></form></dialog>
 <script>(function(){
  var sheet=document.getElementById('seatSheet'); if(!sheet) return;
@@ -8767,6 +8805,7 @@ T["leaders_group"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
   var c=document.getElementById('seatClearForm'), dl=document.getElementById('seatDeleteForm');
   c.hidden=!member; c.role_id.value=role; c.member_id.value=member||'';
   dl.hidden=!!member; dl.role_id.value=role;
+  var bf=document.getElementById('seatBoardForm'); if(bf){ bf.role_id.value=role; bf.board.checked=b.getAttribute('data-board')==='1'; }
   var q=document.getElementById('seatSearch'); if(q){ q.value=''; filter(''); }
   if(window.grunionsOpenSheet) grunionsOpenSheet(sheet); else sheet.showModal();
  });
@@ -8864,15 +8903,15 @@ T["reminders"] = ADMIN_NAV + """<div class="rg-screen rg-remind"{% if not s.enab
 
 T["participants"] = ADMIN_NAV + """<div class="rg-screen rg-parts">
 {# Figma 62 · S1 Participants ‹ People. Rows carry no buttons; tap → the status drawer (S3), or the profile when all good (S4). #}
-{{ rg_page_title('Participants', n.all ~ ' people. Cleared to play, and paying.', '<a class="rg-btn ghost" href=/members.csv>Export CSV</a>') }}
-<form method=get action=/members class=rg-partsearch>{% if filt %}<input type=hidden name=filt value="{{ filt }}">{% endif %}{{ rg_search('partQ', 'Search people') }}</form>
+{{ rg_page_title(title or 'Participants', n.all ~ ' people. ' ~ (blurb or 'Cleared to play, and paying.'), '<a class="rg-btn ghost" href=/members.csv>Export CSV</a>') }}
+<form method=get action=/members class=rg-partsearch>{% if view and view != 'members' %}<input type=hidden name=view value="{{ view }}">{% endif %}{% if filt %}<input type=hidden name=filt value="{{ filt }}">{% endif %}{{ rg_search('partQ', 'Search people') }}</form>
 <div class=rg-tiles2>
-{{ rg_metric('%02d'|format(n.ready), 'Ready', 'lime', '/members?filt=ready', filt == 'ready') }}
-{{ rg_metric('%02d'|format(n.unpaid_only), 'Unpaid only', 'sun', '/members?filt=unpaid_only', filt == 'unpaid_only') }}
-{{ rg_metric('%02d'|format(n.uncleared_only), 'Not cleared only', 'sky', '/members?filt=uncleared_only', filt == 'uncleared_only') }}
-{{ rg_metric('%02d'|format(n.both), 'Needs both', 'carbon', '/members?filt=both', filt == 'both') }}
+{{ rg_metric('%02d'|format(n.ready), 'Ready', 'lime', (base or '/members') ~ (sep or '?') ~ 'filt=ready', filt == 'ready') }}
+{{ rg_metric('%02d'|format(n.unpaid_only), 'Unpaid only', 'sun', (base or '/members') ~ (sep or '?') ~ 'filt=unpaid_only', filt == 'unpaid_only') }}
+{{ rg_metric('%02d'|format(n.uncleared_only), 'Not cleared only', 'sky', (base or '/members') ~ (sep or '?') ~ 'filt=uncleared_only', filt == 'uncleared_only') }}
+{{ rg_metric('%02d'|format(n.both), 'Needs both', 'carbon', (base or '/members') ~ (sep or '?') ~ 'filt=both', filt == 'both') }}
 </div>
-{{ rg_filters([('', 'All · ' ~ n.all, '/members'), ('uncleared', 'Not cleared · ' ~ n.uncleared, '/members?filt=uncleared'), ('unpaid', 'Unpaid · ' ~ n.unpaid, '/members?filt=unpaid'), ('expiring', 'Expiring · ' ~ n.expiring, '/members?filt=expiring')], filt if filt in ('uncleared', 'unpaid', 'expiring') else '') }}
+{{ rg_filters([('', 'All · ' ~ n.all, base or '/members'), ('uncleared', 'Not cleared · ' ~ n.uncleared, (base or '/members') ~ (sep or '?') ~ 'filt=uncleared'), ('unpaid', 'Unpaid · ' ~ n.unpaid, (base or '/members') ~ (sep or '?') ~ 'filt=unpaid'), ('expiring', 'Expiring · ' ~ n.expiring, (base or '/members') ~ (sep or '?') ~ 'filt=expiring')], filt if filt in ('uncleared', 'unpaid', 'expiring') else '') }}
 <div class=rg-plist id=partList>
 {% for c in cards %}<div data-q="{{ c.search }}" data-ok="{{ 1 if c.ok else 0 }}" data-paid="{{ 1 if c.paid else 0 }}" data-exp="{{ 1 if c.expiring else 0 }}"{% if not c.shown %} data-off hidden{% endif %}>{% if c.good %}{{ rg_person_status(c.name, c.sub, c.chips, c.note, '', '/admin/member/' ~ c.id, '', 'sun', c.photo) }}{% else %}{{ rg_person_status(c.name, c.sub, c.chips, c.note, '', '', 'data-status="' ~ c.id ~ '"', 'sun', c.photo) }}{% endif %}</div>{% else %}<p class=rg-note>No one here.</p>{% endfor %}
 </div>
@@ -8909,7 +8948,25 @@ T["participants"] = ADMIN_NAV + """<div class="rg-screen rg-parts">
   var b=e.target.closest&&e.target.closest('[data-status]'); if(b){ e.preventDefault(); body.innerHTML='<p class=rg-note>Loading…</p>';
    if(window.grunionsOpenSheet) grunionsOpenSheet(sheet); else sheet.showModal();
    fetch('/members/'+b.getAttribute('data-status')+'/status',{credentials:'same-origin'}).then(function(r){return r.text();}).then(function(h){ body.innerHTML=h; }); return; }
+  var rm=e.target.closest&&e.target.closest('button[data-role-act]'); if(rm){ e.preventDefault(); roleSave({action:rm.getAttribute('data-role-act'), role_id:rm.getAttribute('data-role-id')||''}); return; }
   var o=e.target.closest&&e.target.closest('[data-sl-open]'); if(o){ e.preventDefault(); var t=document.getElementById(o.getAttribute('data-sl-open')); if(t) t.hidden=!t.hidden; }
+ });
+ /* Roles: each change saves and the drawer comes back fresh (coach requirements appear once someone is a coach). */
+ function roleSave(fields){
+  var box=body.querySelector('[data-roles]'); if(!box) return;
+  var fd=new FormData(); var tok=document.querySelector('input[name=csrf]'); if(tok) fd.append('csrf', tok.value);
+  Object.keys(fields).forEach(function(k){ fd.append(k, fields[k]); });
+  box.setAttribute('aria-busy','true');
+  fetch('/members/'+box.getAttribute('data-roles')+'/roles',{method:'POST',credentials:'same-origin',body:fd}).then(function(r){ if(!r.ok) throw r; return r.text(); })
+   .then(function(h){ var y=body.scrollTop; body.innerHTML=h; body.scrollTop=y; }).catch(function(){ box.removeAttribute('aria-busy'); });
+ }
+ document.addEventListener('change',function(e){
+  var i=e.target; if(!i.matches||!i.matches('#statusBody input[data-role-act]')) return;
+  roleSave({action:i.getAttribute('data-role-act'), on:i.checked?'1':'0', slug:i.getAttribute('data-slug')||''});
+ });
+ document.addEventListener('submit',function(e){
+  var f=e.target; if(!f.matches||!f.matches('#statusBody [data-role-form]')) return; e.preventDefault();
+  roleSave({action:'lead_add', role_id:f.role_id.value});
  });
 })();</script>
 </div>"""
@@ -8927,6 +8984,17 @@ T["member_status"] = """<div class=rg-sthead><span class="rg-pav tone-sky{% if m
 <label class=rg-field><span>PLAN</span><select name=plan_id>{% for p in plans %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></label>
 <label class=rg-field><span>PAID THROUGH</span><input type=date name=paid_through min="{{ today_iso }}" required></label>
 <button class="rg-btn primary">Mark paid</button></form>{% endif %}
+{% if roles %}<h3 class=rg-day>ROLES</h3>{% if note %}<p class="rg-note rg-rolenote">{{ note }}</p>{% endif %}
+<div class=rg-roles data-roles="{{ m.id }}">
+{{ rg_toggle('admin', 'Admin', 'Full Manage access', roles.is_admin, attrs='data-role-act=admin') }}
+{{ rg_toggle('coach', 'Coach', 'Check-in, coaches chat, and coach requirements', roles.is_coach, attrs='data-role-act=coach') }}
+{% if roles.is_coach and roles.sports %}<div class=rg-rolesports><p class=rg-day>COACHES</p><div class=rg-chipset>{% for s in roles.sports %}<label><input type=checkbox data-role-act=coach_sport data-slug="{{ s.slug }}"{% if s.on %} checked{% endif %}><span>{{ s.name }}</span></label>{% endfor %}</div></div>{% endif %}
+<div class=rg-slist>{% for s in roles.seats %}<div class=rg-slrow><span class=rg-txt><b>{{ s.title }}</b><small>{{ s.sub }}</small></span><button type=button class=rg-dgact data-role-act=lead_remove data-role-id="{{ s.role_id }}">Remove</button></div>{% endfor %}
+<div class=rg-slrow><span class=rg-txt><b>Leadership</b><small>{% if roles.seats %}Add another position{% else %}Board or a sport's leads{% endif %}</small></span>{% if roles.groups %}<button type=button class=rg-dgact data-sl-open=slLead>Add</button>{% else %}<a class=rg-dgact href="/manage/club/leaders">Set up</a>{% endif %}</div></div>
+{% if roles.groups %}<form id=slLead class=rg-slform hidden data-role-form>
+<label class=rg-field><span>POSITION</span><select name=role_id>{% for g in roles.groups %}<optgroup label="{{ g.label }}">{% for r in g.roles %}<option value="{{ r.id }}">{{ r.name }}{% if roles.holders.get(r.id) %} · replaces {{ roles.holders[r.id] }}{% endif %}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
+<button class="rg-btn primary">Add position</button></form>{% endif %}
+</div>{% endif %}
 <div class=rg-btnrow style="margin-top:12px"><a class="rg-btn primary" href="/admin/member/{{ m.id }}">View profile</a>{% if dm %}<a class="rg-btn secondary" href="/chat?c={{ dm }}&place=me">Message {{ name.split()[0] }}</a>{% endif %}</div>
 <p class=rg-note>Fixes save right here. View profile opens the full profile.</p>"""
 

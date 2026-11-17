@@ -9,6 +9,8 @@ from markupsafe import escape
 
 def ensure(d):
     d.execute("CREATE TABLE IF NOT EXISTS club_flags(key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')")
+    # Referees per sport. New, additive. The club-wide referee_list stays the source for "is a referee".
+    d.execute("CREATE TABLE IF NOT EXISTS program_referees(program_id INTEGER NOT NULL, member_id INTEGER NOT NULL, PRIMARY KEY(program_id, member_id))")
 
 
 def flag(d, key, default="1"):
@@ -46,21 +48,24 @@ def roles(d, program_id=None):
     if program_id:
         rs = d.execute("SELECT * FROM leadership_roles WHERE program_id=? ORDER BY sort, id", (program_id,)).fetchall()
     else:
-        rs = d.execute("SELECT * FROM leadership_roles WHERE program_id IS NULL AND board=1 ORDER BY sort, id").fetchall()
+        rs = d.execute("""SELECT r.*, COALESCE(NULLIF(p.public_name,''), p.name) AS sport FROM leadership_roles r
+            LEFT JOIN programs p ON p.id=r.program_id WHERE r.board=1 ORDER BY (r.program_id IS NOT NULL), r.sort, r.id""").fetchall()
     out = []
     for r in rs:
         people = d.execute("""SELECT m.id, m.first, m.preferred_first, m.last, m.is_admin FROM leadership_members lm
             JOIN members m ON m.id=lm.member_id WHERE lm.role_id=? AND COALESCE(m.role,'')!='system' ORDER BY m.last, m.first""", (r["id"],)).fetchall()
-        if program_id:
-            access = SPORT_ACCESS.get(r["permission"], "")
+        board = bool(r["board"])
+        if board:
+            access = "Board"  # board members open Manage (is_club_admin); the chip says what they can actually do
         else:
-            access = "Admin"  # board members open Manage (is_club_admin); the chip says what they can actually do
+            access = SPORT_ACCESS.get(r["permission"], "")
+        label = r["name"] if (program_id or not r["program_id"]) else "%s · %s" % (r["name"], r["sport"] or "")
         if not people:
-            out.append({"role_id": r["id"], "role": r["name"], "member_id": None, "name": "Open", "initials": "+", "access": "Assign", "open": True, "permission": r["permission"]})
+            out.append({"role_id": r["id"], "role": label, "member_id": None, "name": "Open", "initials": "+", "access": "Assign", "open": True, "permission": r["permission"], "board": board})
         for p in people:
             name = _name(p)
-            out.append({"role_id": r["id"], "role": r["name"], "member_id": p["id"], "name": name, "initials": _initials(name),
-                        "access": access or "—", "open": False, "permission": r["permission"]})
+            out.append({"role_id": r["id"], "role": label, "member_id": p["id"], "name": name, "initials": _initials(name),
+                        "access": access or "—", "open": False, "permission": r["permission"], "board": board})
     if not program_id:
         # Board members from before titles existed: on the board, no role yet. Shown, never rewritten.
         seated = {r["member_id"] for r in out if r["member_id"]}
@@ -132,14 +137,14 @@ def _board_last_guard(d, member_id):
 def _sync_board_flag(d, member_id):
     """On the board while they hold any board role. Never strips the last person who can open Manage."""
     holds = d.execute("""SELECT 1 FROM leadership_members lm JOIN leadership_roles r ON r.id=lm.role_id
-        WHERE lm.member_id=? AND r.program_id IS NULL AND r.board=1 LIMIT 1""", (member_id,)).fetchone()
+        WHERE lm.member_id=? AND r.board=1 LIMIT 1""", (member_id,)).fetchone()
     if holds:
         d.execute("UPDATE members SET board_member=1 WHERE id=?", (member_id,))
     elif _board_last_guard(d, member_id):
         d.execute("UPDATE members SET board_member=0 WHERE id=?", (member_id,))
 
 
-def add_role(d, name, program_id=None, permission="none"):
+def add_role(d, name, program_id=None, permission="none", board=False):
     name = " ".join((name or "").split())[:80]
     if len(name) < 2:
         raise ValueError("Add a role name.")
@@ -154,7 +159,25 @@ def add_role(d, name, program_id=None, permission="none"):
         return hit["id"]
     sort = d.execute("SELECT COALESCE(MAX(sort),0)+1 FROM leadership_roles WHERE COALESCE(program_id,0)=COALESCE(?,0)", (program_id,)).fetchone()[0]
     return d.execute("INSERT INTO leadership_roles(program_id, name, permission, sort, board) VALUES(?,?,?,?,?)",
-                     (program_id, name, permission, sort, 0 if program_id else 1)).lastrowid
+                     (program_id, name, permission, sort, (1 if board else 0) if program_id else 1)).lastrowid
+
+
+def set_board(d, role_id, on):
+    """A sport role can also be a board role: its holder joins the board (#board, Manage)."""
+    role = d.execute("SELECT * FROM leadership_roles WHERE id=? AND program_id IS NOT NULL", (role_id,)).fetchone()
+    if not role:
+        raise ValueError("Choose a sport role.")
+    holders = [r["member_id"] for r in d.execute("SELECT member_id FROM leadership_members WHERE role_id=?", (role_id,))]
+    if not on:
+        for mid in holders:
+            still = d.execute("""SELECT 1 FROM leadership_members lm JOIN leadership_roles r ON r.id=lm.role_id
+                WHERE lm.member_id=? AND r.board=1 AND r.id!=? LIMIT 1""", (mid, role_id)).fetchone()
+            if not still and not _board_last_guard(d, mid):
+                raise ValueError("The last admin can't be removed.")
+    d.execute("UPDATE leadership_roles SET board=? WHERE id=?", (1 if on else 0, role_id))
+    for mid in holders:
+        _sync_board_flag(d, mid)
+    return role
 
 
 def assign(d, role_id, member_id, permission=None):
@@ -172,6 +195,7 @@ def assign(d, role_id, member_id, permission=None):
         d.execute("UPDATE leadership_roles SET permission=? WHERE id=?", (permission, role_id))
     if not role["program_id"]:
         d.execute("UPDATE leadership_roles SET board=1 WHERE id=?", (role_id,))
+    if not role["program_id"] or role["board"]:
         for mid in set(before + [member_id]):
             _sync_board_flag(d, mid)
     return role
@@ -181,13 +205,13 @@ def clear(d, role_id, member_id):
     role = d.execute("SELECT * FROM leadership_roles WHERE id=?", (role_id,)).fetchone()
     if not role:
         raise ValueError("Choose a role.")
-    if not role["program_id"]:
+    if role["board"]:
         still = d.execute("""SELECT 1 FROM leadership_members lm JOIN leadership_roles r ON r.id=lm.role_id
-            WHERE lm.member_id=? AND r.program_id IS NULL AND r.board=1 AND r.id!=? LIMIT 1""", (member_id, role_id)).fetchone()
+            WHERE lm.member_id=? AND r.board=1 AND r.id!=? LIMIT 1""", (member_id, role_id)).fetchone()
         if not still and not _board_last_guard(d, member_id):
             raise ValueError("The last admin can't be removed.")
     d.execute("DELETE FROM leadership_members WHERE role_id=? AND member_id=?", (role_id, member_id))
-    if not role["program_id"]:
+    if role["board"]:
         _sync_board_flag(d, member_id)
     return role
 

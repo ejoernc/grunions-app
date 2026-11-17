@@ -1698,3 +1698,24 @@ header.homehead .headmain:has(.schedback)>.displayhead{display:contents}
 header.homehead .headmain:has(.schedback) .schedback{grid-column:1/-1;grid-row:1}
 header.homehead .headmain:has(.schedback) h1{grid-column:1;grid-row:2}
 header.homehead .headmain:has(.schedback)>:not(.displayhead){grid-column:2;grid-row:2;align-self:center}
+
+/* People drawer · Roles */
+.rg-roles{display:grid;gap:8px}
+.rg-roles[aria-busy=true]{opacity:.6;pointer-events:none}
+.rg-rolesports{padding:4px 4px 0}
+.rg-rolesports .rg-day{margin:0 0 8px}
+.rg-rolenote{color:var(--team-cherry,#FF3D57)}
+
+/* Leaders & coaches › a sport's coaches */
+.rg-coachrow{display:flex;align-items:center;gap:8px}
+.rg-coachrow>.rg-person{flex:1;min-width:0}
+.rg-coachrow form{flex:none;margin:0}
+dialog .pickgo{height:auto;padding:8px 14px;border-radius:999px;border:0;background:var(--lime);color:var(--fixed-ink);font:700 14px/1 var(--font-sans)}
+dialog .pickgo:disabled{opacity:.45}
+.coachpicklist{display:flex;flex-direction:column;gap:4px;overflow:auto;max-height:52dvh}
+.coachpick{position:relative;display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;text-transform:none;letter-spacing:0}
+.coachpick[hidden]{display:none}
+.coachpick input{position:absolute;opacity:0;width:1px;height:1px}
+.coachpick>.rg-person{flex:1;min-width:0;background:transparent}
+.coachpick>i{flex:none;width:24px;height:24px;margin-right:8px;border-radius:999px;border:2px solid var(--smoke)}
+.coachpick input:checked~i{border-color:var(--lime);background:var(--lime);box-shadow:inset 0 0 0 4px var(--carbon)}

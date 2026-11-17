@@ -291,7 +291,7 @@ def test_manage_home_groups_destinations_and_keeps_the_chart():
     assert 'class=rg-tbdisc href="/manage/area/people"' in roster and ".people{padding-bottom:48px}" in roster
     coaches = admin.get("/members?view=coaches").get_data(as_text=True)
     admins = admin.get("/members?view=admins").get_data(as_text=True)
-    assert "<h1 class=rg-pt>Coaches.</h1>" in coaches and "aria-label=\"Role\"" not in coaches and "Search people..." in coaches
+    assert "<h1 class=rg-pt>Coaches.</h1>" in coaches and "aria-label=\"Role\"" not in coaches and "id=partList" in coaches and "id=statusSheet" in coaches
     assert "<h1 class=rg-pt>Admins.</h1>" in admins and admin.get("/members?view=all").headers.get("Location", "").endswith("/members")
     paying = admin.get("/members?view=membership").get_data(as_text=True)
     assert "<h1 class=rg-pt>Members.</h1>" in paying and "Export CSV" in paying and "Search people..." in paying and 'aria-label="Payment"' not in paying
