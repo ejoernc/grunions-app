@@ -1722,3 +1722,8 @@ dialog .pickgo:disabled{opacity:.45}
 /* People pages: chips without the dot (Participants, Coaches, Admins, Referees, Compliance, the drawer, Leaders). */
 html body .rg-parts .rg-chip i,html body #statusSheet .rg-chip i,html body .rg-leaders .rg-chip i{display:none}
 html body .rg-parts .rg-chip,html body #statusSheet .rg-chip,html body .rg-leaders .rg-chip{gap:0}
+/* Bottom sheets: the sticky handle covers the sheet's top padding and full width, so content scrolling
+   underneath never peeks out above or beside it. */
+html body dialog.botsheet:not(.profmenu):not(.pickpeople):not(.attachsheet):not(.newchat):not(.msgactions):not(#chatActions) .sheet>.grab{
+  top:-10px;margin:-10px -16px 8px;width:auto;height:28px;padding-top:10px;box-sizing:content-box;background:var(--carbon);z-index:3}
+html body dialog.botsheet:not(.profmenu):not(.pickpeople):not(.attachsheet):not(.newchat):not(.msgactions):not(#chatActions) .sheet>.grab::after{top:22px}
