@@ -6870,10 +6870,11 @@ document.getElementById('f').onsubmit=async e=>{e.preventDefault();if(sending)re
   if(!r.ok){const j=await r.json().catch(()=>({}));toast(j.error||'Could not send.',4500);return}}}
  else{
   // Show it right away; the real message replaces it when the server answers.
-  var pend=null;try{pend=document.createElement('div');pend.className='m mine pending';var bh='';try{bh=bodyHtml({id:0,body:text,mine:true,rx:{}})}catch(_){bh='<div class=b>'+esc(text)+'</div>'}
+  var pend=null;try{pend=document.createElement('div');pend.className='m mine pending';var bh='';var pcard=pollDraft&&document.querySelector('#pollAttach .rg-poll');try{bh=bodyHtml({id:0,body:text,mine:true,rx:{},poll:pcard?pcard.outerHTML:null})}catch(_){bh='<div class=b>'+esc(text)+'</div>'}var sentPoll=pollDraft;if(sentPoll){var keepDraft=pollDraft;dropPollDraft();pollDraft=keepDraft}
    pend.innerHTML='<div class=mstack>'+bh+'<div class=msgfoot><span class="exact msgtime">Sending…</span></div></div>';thread().appendChild(pend);var rt=replyTo;clearCompose();replyTo=rt;stick=true;pinBottom()}catch(_){}
   r=await fetch('/api/messages?c='+CH,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify(pollDraft?{body:text,reply_to:replyTo,poll_id:pollDraft}:{body:text,reply_to:replyTo})});
   if(r&&r.ok&&pollDraft)dropPollDraft();
+  if(r&&!r.ok&&sentPoll){toast('Could not post the poll.',4500)}
   if(pend&&r&&!r.ok){pend.remove();ta.value=text;grow()}
   if(pend&&r&&r.ok){replyTo=null;quoteBar.hidden=true}
   if(r&&r.ok){const epoch=window.grunionsNavEpoch|0;await poll();if(pend)pend.remove();if((window.grunionsNavEpoch|0)!==epoch)return;stick=true;pinBottom();return}}

@@ -4890,11 +4890,7 @@ def api_messages():
         _touch_request(d, ch, me())
         d.commit()
         if draft:
-            try:
-                import polls
-                send_poll_emails(d, ch, polls.get(d, draft["id"]), me())
-            except Exception as exc:
-                app.logger.warning("poll emails failed: %s", exc)
+            _poll_emails_later(ch, draft["id"], me())
         mark_chat_read(d, me()["id"], ch)
         _notify_chat_later(ch, me(), body, bool(image))  # pushes go out after the reply, so sending feels instant
         return jsonify(ok=True)
@@ -13067,20 +13063,41 @@ def post_poll_results(d, now=None):
                 app.logger.warning("poll results notify failed: %s", exc)
 def public_base_url():
     return PUBLIC_URL.rstrip("/") if PUBLIC_URL else request.host_url.rstrip("/")
-def send_poll_emails(d, ch, p, sender):
+def _poll_emails_later(ch, pid, sender):
+    """Poll emails go out after the reply, so posting the poll feels instant (same pattern as chat pushes)."""
+    import threading
+    base = public_base_url()
+    sender = dict(sender)
+    def run():
+        try:
+            with app.app_context():
+                import polls
+                d2 = open_db()
+                try:
+                    p = polls.get(d2, pid)
+                    if p: send_poll_emails(d2, ch, p, sender, base)
+                finally: d2.close()
+        except Exception as e:
+            app.logger.warning("poll emails failed: %s", e)
+    if app.config.get("TESTING") or os.environ.get("GRUNIONS_SYNC_PUSH") or "PYTEST_CURRENT_TEST" in os.environ:
+        run()
+    else:
+        threading.Thread(target=run, daemon=True).start()
+def send_poll_emails(d, ch, p, sender, base=None):
     """Email everyone in the chat about a new poll (not the person who made it). Each person can turn these off."""
     import polls
     qs = polls.questions(d, p["id"])
-    link = public_base_url() + "/polls/%d" % p["id"]
+    base = base or public_base_url()
+    link = base + "/polls/%d" % p["id"]
     lines = []
     for q in qs:
         lines.append("%s (%s)" % (q["text"], "pick any" if q["multi"] else "pick one"))
         lines += ["  - %s" % o["text"] for o in q["options"]]
     who = "%s %s." % (display_first(sender), (sender["last"] or "")[:1])
-    where = _thread_title(d, me(), ch)
+    where = _thread_title(d, sender, ch)
     subject = "New poll in %s: %s" % (where, p["title"])
     text = "%s posted a poll in %s.\n\n%s\n\n%s\n\nVote: %s\n\nTurn poll emails off: %s/notifications" % (
-        who, where, p["title"], "\n".join(lines), link, public_base_url())
+        who, where, p["title"], "\n".join(lines), link, base)
     for m in chat_push_recipients(d, ch, sender["id"]):
         if not m["email"] or ("poll_email" in m.keys() and m["poll_email"] == 0): continue
         try:
