@@ -166,7 +166,7 @@ route("club_documents", "Documents", ("manage_area", {"area": "club"}), "manage"
 route("club_document", "Document", "club_documents", "manage")
 route("club_document_people", "Signatures", "club_document", "manage")
 route("manage_waiver", "Documents", "club_documents", "manage", "redirect")
-route("club_leaders", "Leaders", ("manage_area", {"area": "club"}), "manage")
+route("club_leaders", "Staff", ("manage_area", {"area": "club"}), "manage")
 route("club_coaches_sport", "Sport", "club_leaders", "manage", "redirect")
 route("club_leaders_board", "Board", "club_leaders", "manage")
 route("club_leaders_sport", "Sport", "club_leaders", "manage")

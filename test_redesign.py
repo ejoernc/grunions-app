@@ -496,7 +496,7 @@ def test_practice_page_level_and_division_sheets_save():
 
 def test_leaders_board_roles_assign_replace_and_requests_switch():
     page = boss.get("/manage/club/leaders").get_data(as_text=True)
-    assert "Leaders." in page and "/manage/club/leaders/board" in page
+    assert "Staff." in page and "/manage/club/leaders/board" in page
     tok = csrf(boss, "/manage/club/leaders/board")
     boss.post("/manage/club/leaders/board", data=dict(csrf=tok, action="add_role", name="Treasurer"))
     rid = sql("SELECT id FROM leadership_roles WHERE program_id IS NULL AND name='Treasurer'")[0][0]

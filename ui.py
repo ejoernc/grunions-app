@@ -8701,7 +8701,7 @@ nav.tabs.ds-sample{position:static;left:auto;right:auto;bottom:auto;margin:0 aut
 
 T["leaders"] = ADMIN_NAV + """<div class="rg-screen rg-leaders">
 {# Figma 62 · L1 Leaders ‹ Club #}
-{{ rg_page_title('Leaders', 'Groups that run the club. Each has its own chat.') }}
+{{ rg_page_title('Staff', 'The board, sport leads, coaches, and referees. Each group has its own chat.') }}
 {{ rg_section_count('Board') }}
 {{ rg_group_card('Board', ov.board.sub, [('Chat on' if ov.board.chat else 'Chat off', ov.board.chat), ('Requests on' if ov.board.requests else 'Requests off', ov.board.requests)], '/manage/club/leaders/board') }}
 {{ rg_section_count('Sports') }}

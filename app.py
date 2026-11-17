@@ -9299,7 +9299,7 @@ def _manage_catalog(d):
         add("club", "Plans & payments", "Memberships, drop-ins, pricing and how members pay", "/manage/club/plans", "seal", "pricing payment trial free trial drop-in drop in plan pass integration club assistant provider payment link")
         add("club", "Venues", "Manage locations and assign them to sports", "/manage/club/venues", "pin", "venue pool location address marina westminster")
         add("club", "Documents", "Waiver and agreements members sign on their first Going", "/manage/club/documents", "shield", "waiver liability agreement sign version document code of conduct")
-        add("club", "Leaders", "The board, sport leadership, coaches, and referees", "/manage/club/leaders", "key", "coaches coach leaders leadership board president treasurer secretary sport leads head coach captain permission admin admin lite sport admin who can manage role")
+        add("club", "Staff", "The board, sport leads, coaches, and referees", "/manage/club/leaders", "key", "staff coaches coach leaders leadership board president treasurer secretary sport leads head coach captain permission admin admin lite sport admin who can manage role")
         add("club", "Website & sharing", "Public schedule and the website widget", "/manage/widget", "widget", "embed website widget preview")
         add("club", "Reminders", "Emails and notifications before a practice. Off until you turn them on.", "/manage/club/reminders", "tray", "practice reminder email hours before")
         add("tools", "QR codes", "Join the club", "/manage/tools/qr", "qr", "qr code join check-in")
@@ -10054,7 +10054,7 @@ def _leaders_group(slug):
     coaches = sport_coach_list(d, program) if program else []
     refs = sport_ref_list(d, program) if program else []
     return page(T["leaders_group"], tab="admin", rows=rows, n_roles=len(rows), program=program, chat=chat, info=info,
-                requests_on=leaders.flag(d, flag_key), people=leaders.people_for_pick(d), back_label="Leaders",
+                requests_on=leaders.flag(d, flag_key), people=leaders.people_for_pick(d), back_label="Staff",
                 coaches=coaches, refs=refs,
                 coach_pick=_sport_pick_people(d, {c["id"] for c in coaches if c["assigned"]}) if program else [],
                 ref_pick=_sport_pick_people(d, {r["id"] for r in refs}) if program else [])
