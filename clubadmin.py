@@ -841,13 +841,18 @@ def plan_cents(d, plan, today=None):
     return cents or 0
 
 
-def _is_coach_of(d, member_id, slugs):
-    """Coaches the pass's sport: listed as that sport's coach, on a practice or series of it, or a club coach."""
-    coached = coached_slugs(d, member_id)
-    if coached & set(slugs):
-        return True
+def _is_coach(d, member_id):
     row = d.execute("SELECT role FROM members WHERE id=?", (member_id,)).fetchone()
-    return bool(row and (row["role"] or "") == "coach" and not coached)
+    return bool(row and (row["role"] or "") == "coach")
+
+
+def _is_coach_of(d, member_id, slugs):
+    """An active coach (Coach switch on) of the pass's sport: listed as that sport's coach, on a practice or series
+    of it, or a club coach with no sport yet. Turning Coach off ends the pass, whatever they're still assigned to."""
+    if not _is_coach(d, member_id):
+        return False
+    coached = coached_slugs(d, member_id)
+    return bool(coached & set(slugs)) or not coached
 
 
 def auto_pass_since(d, plan, today):
@@ -893,15 +898,20 @@ def has_monthly_membership(d, member_id, today):
     if auto_passes(d, member_id, today):
         return True
     try:
-        rows = d.execute("""SELECT e.status, e.paid_through, e.valid_from, p.kind AS plan_kind
+        rows = d.execute("""SELECT e.status, e.paid_through, e.valid_from, p.kind AS plan_kind, COALESCE(p.audience,'') AS audience
             FROM access_entitlements e LEFT JOIN payment_plans p ON p.id=e.plan_id
             WHERE e.member_id=?""", (member_id,)).fetchall()
     except Exception:
         return False
     today = str(today or "")[:10]
+    coach = None
     for row in rows:
         if (row["plan_kind"] or "") != "monthly":
             continue
+        if row["audience"] == "coaches":
+            # A coaches pass someone was given by hand only counts while they're a coach.
+            if coach is None: coach = _is_coach(d, member_id)
+            if not coach: continue
         through = str(row["paid_through"] or "")[:10]
         start = str(row["valid_from"] or "")[:10]
         if row["status"] == "active" and not (through and through < today) and not (start and start > today):
@@ -912,11 +922,13 @@ def has_monthly_membership(d, member_id, today):
 def payment_view(d, member_id, today):
     """Latest entitlement as a People-list label. Paying is not clearance."""
     try:
-        rows = d.execute("""SELECT e.*, p.name AS plan_name, p.kind AS plan_kind, p.provider_id
+        rows = d.execute("""SELECT e.*, p.name AS plan_name, p.kind AS plan_kind, p.provider_id, COALESCE(p.audience,'') AS plan_audience
             FROM access_entitlements e LEFT JOIN payment_plans p ON p.id=e.plan_id
             WHERE e.member_id=? ORDER BY e.id DESC""", (member_id,)).fetchall()
     except Exception:
         rows = []
+    if any(r["plan_audience"] == "coaches" for r in rows) and not _is_coach(d, member_id):
+        rows = [r for r in rows if r["plan_audience"] != "coaches"]  # a coaches pass ends when Coach is off
     chosen = None
     for row in rows:
         through = str(row["paid_through"] or "")[:10]

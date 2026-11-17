@@ -66,3 +66,32 @@ def test_going_is_never_blocked_by_the_drawer():
     assert "/participate" not in (r.headers.get("Location") or "")
     with A.app.app_context():
         assert not sportspay.require_rsvp(A.db())  # the hard payment gate stays off
+
+
+def test_coaches_pass_follows_the_coach_switch_and_isnt_a_mark_paid_choice():
+    import clubadmin
+    with A.app.app_context():
+        d = A.db()
+        clubadmin.ensure(d)
+        prog = d.execute("SELECT id, slug FROM programs WHERE slug='water-polo'").fetchone()
+        if not prog:
+            d.execute("INSERT INTO programs(slug, name, active) VALUES('water-polo','Water Polo',1)")
+            prog = d.execute("SELECT id, slug FROM programs WHERE slug='water-polo'").fetchone()
+        pid = d.execute("""INSERT INTO payment_plans(name, kind, active, audience, sports, activities)
+            VALUES('Coaches Pass','monthly',1,'coaches','water-polo','')""").lastrowid
+        d.execute("INSERT OR IGNORE INTO plan_programs(plan_id, program_id) VALUES(?,?)", (pid, prog["id"]))
+        d.execute("INSERT INTO members(first, last, email, role, joined) VALUES('Cy','Coach','cy@example.com','coach',1)")
+        cy = d.execute("SELECT id FROM members WHERE email='cy@example.com'").fetchone()[0]
+        # Even a coaches pass marked by hand stops counting when Coach is turned off.
+        sportspay.save_entitlement(d, cy, None, pid, "active", "2026-01-01", "", "given by hand")
+        d.commit()
+        today = A.today_pt().isoformat()
+        assert clubadmin.has_monthly_membership(d, cy, today)
+        assert clubadmin.payment_view(d, cy, today)["label"] == "Paid"
+        d.execute("UPDATE members SET role='athlete' WHERE id=?", (cy,)); d.commit()
+        assert not clubadmin.has_monthly_membership(d, cy, today)
+        assert clubadmin.payment_view(d, cy, today)["label"] == "Unpaid"
+        d.execute("UPDATE members SET role='coach' WHERE id=?", (cy,)); d.commit()
+        assert clubadmin.has_monthly_membership(d, cy, today)  # back on: the pass applies again, nothing to pick
+        names = [p["name"] for p in A._people_sheets(d)["member_plans"]]
+        assert "Coaches Pass" not in names

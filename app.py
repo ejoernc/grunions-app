@@ -11897,7 +11897,9 @@ def _people_sheets(d):
     import clubadmin
     clubadmin.ensure(d)
     try:
-        plans = d.execute("SELECT id, name, kind FROM payment_plans WHERE active=1 AND kind IN ('monthly','annual') ORDER BY kind DESC, name").fetchall()
+        # Memberships the board marks by hand. Coaches passes aren't here: they follow the Coach switch.
+        plans = d.execute("""SELECT id, name, kind FROM payment_plans WHERE active=1 AND kind IN ('monthly','annual')
+            AND COALESCE(audience,'')!='coaches' AND COALESCE(archived,0)=0 ORDER BY kind DESC, name""").fetchall()
     except sqlite3.OperationalError:
         plans = []
     roles = d.execute("SELECT id, name, board FROM leadership_roles WHERE program_id IS NULL ORDER BY board DESC, sort, name").fetchall()
