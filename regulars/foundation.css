@@ -1807,3 +1807,10 @@ a.rg-polllink:active{transform:scale(.99)}
 a.rg-polllink:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
 
 html body .m .rg-poll{width:min(78vw,360px);box-sizing:border-box}
+
+#goingMemSheet .sheet{display:grid;gap:12px}
+.rg-memkick{margin:4px 0 0;color:var(--smoke)}
+.rg-memtitle{margin:0;font:700 26px/1.1 var(--font-display);letter-spacing:-.02em;color:var(--paper)}
+.rg-memcopy{margin:0;color:var(--smoke);font:500 15px/1.45 var(--font-sans)}
+.rg-memcopy b{color:var(--paper)}
+#goingMemSheet a.rg-btn{text-decoration:none;display:flex;align-items:center;justify-content:center}

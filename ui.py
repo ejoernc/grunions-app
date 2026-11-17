@@ -2234,6 +2234,10 @@ dialog.memberedit .help a{color:var(--t1)}
     else if (choice === "interested") posted = "interested";
     var pid = field(form, "pid"), eid = field(form, "event_id");
     var social = isSocialForm(form);
+    if (pid && !social && posted === "going" && window.GRUNIONS_MEMBERSHIP && window.grunionsMemberGate && !button.dataset.memok) {
+      window.grunionsMemberGate(pid, function () { button.dataset.memok = "1"; try { save(button, sweep); } finally { delete button.dataset.memok; } });
+      return;
+    }
     if(pid && !social && window.grunionsDriveSetGoing) window.grunionsDriveSetGoing(posted==="going"?"1":(posted==="notgoing"?"0":""));
     var key = (pid ? ("p" + pid) : ("e" + eid)) + (social ? ":social" : ":rsvp");
     var forms = groupForms(document, pid, eid, social);
@@ -2711,8 +2715,38 @@ TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and not (nav_kind 
 {% if nav.show_find %}<a class="crestgo" href="/discover">+ Find or join a team</a>{% endif %}
 <a class="crestout" href="/logout">Log out</a>
 </dialog>{% endif %}
+{% if membership_maybe %}<dialog id=goingMemSheet class="botsheet modal"><div class=sheet><div class=grab aria-hidden=true></div>
+<p class="ty-caps rg-memkick">MEMBERSHIP</p>
+<h2 class=rg-memtitle>Membership fees are due <span data-mem-start>December 1, 2026</span>.</h2>
+<p class=rg-memcopy>Please enable the <b data-mem-price>$45/mo</b> membership now. <span data-mem-when></span></p>
+<p class=rg-memcopy>Club Assistant is only used for membership fees. You'll be marked Going either way.</p>
+<a class="rg-btn primary rg-wide" data-mem-enable href="#" target=_blank rel=noopener><span>Enable membership</span></a>
+<button type=button class="rg-btn secondary rg-wide" data-mem-registered>I've already registered</button>
+<button type=button class="rg-btn ghost rg-wide" data-mem-later>Not now</button>
+</div></dialog>{% endif %}
 <script>
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=122');
+window.GRUNIONS_MEMBERSHIP={{ 'true' if membership_maybe else 'false' }};
+window.grunionsMemberGate=function(pid, proceed){
+ var cache=window.__memPrompt||(window.__memPrompt={});
+ function open(j){
+  var dlg=document.getElementById('goingMemSheet'); if(!dlg){proceed();return}
+  dlg.querySelector('[data-mem-price]').textContent=j.price||'monthly';
+  dlg.querySelectorAll('[data-mem-start]').forEach(function(n){n.textContent=j.start});
+  var go=dlg.querySelector('[data-mem-enable]'); go.href=j.url; go.querySelector('span').textContent='Enable '+(j.price||'monthly')+' membership';
+  dlg.querySelector('[data-mem-when]').textContent=j.before_start?("You won't be charged until "+j.start+"."):"Membership fees are due now.";
+  function ack(action){var fd=new FormData();var t=document.querySelector('input[name=csrf]');if(t)fd.append('csrf',t.value);fd.append('action',action);fd.append('pid',pid);
+   return fetch('/membership/ack',{method:'POST',body:fd,credentials:'same-origin'}).catch(function(){})}
+  function done(action){window.GRUNIONS_MEMBERSHIP=false;ack(action);try{dlg.close()}catch(_){}proceed()}
+  go.onclick=function(){done('enabled')};  /* the link opens Club Assistant in a new tab; Going saves here */
+  dlg.querySelector('[data-mem-registered]').onclick=function(){done('registered')};
+  dlg.querySelector('[data-mem-later]').onclick=function(){try{dlg.close()}catch(_){}};
+  if(window.grunionsOpenSheet)grunionsOpenSheet(dlg);else dlg.showModal();
+ }
+ if(cache[pid]){cache[pid].show?open(cache[pid]):proceed();return}
+ fetch('/api/membership/prompt?pid='+encodeURIComponent(pid),{credentials:'same-origin'}).then(function(r){return r.json()})
+  .then(function(j){cache[pid]=j;if(j&&j.show)open(j);else proceed()}).catch(function(){proceed()});
+};
 /* Seen it: close notifications for the page you're on (a chat, a practice). Runs on open and when the app comes back. */
 window.grunionsClearNotes=function(match){
  try{ if(!('serviceWorker' in navigator)) return;

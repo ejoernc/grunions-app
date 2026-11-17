@@ -13233,6 +13233,89 @@ def poll_sticky():
     unanswered = [s for s in rows if not s["voted"]]
     show = unanswered[:2] if unanswered else rows[:1]
     return jsonify(html="".join(str(components.poll_bar(s)) for s in show))
+# ---------- Membership drawer on Going (soft; never blocks) ----------
+MEMBERSHIP_START = dt.date(2026, 12, 1)
+def _ensure_membership_ack(d):
+    cols = {r[1] for r in d.execute("PRAGMA table_info(members)")}
+    if "membership_ack" not in cols:
+        d.execute("ALTER TABLE members ADD COLUMN membership_ack TEXT NOT NULL DEFAULT ''")
+    if "membership_ack_at" not in cols:
+        d.execute("ALTER TABLE members ADD COLUMN membership_ack_at TEXT NOT NULL DEFAULT ''")
+def _membership_plan(d, practice):
+    """The monthly membership that covers this practice and has a Club Assistant link (drop-ins hidden for now)."""
+    import sportspay
+    sport = sportspay._sport_for(d, practice["sport"] or "Water Polo")
+    slug = sport["slug"] if sport else "water-polo"
+    activity = (practice["activity_type"] or "practice").strip().lower() if "activity_type" in practice.keys() else "practice"
+    for plan in sportspay.plans(d):
+        if plan["active"] and plan["kind"] == "monthly" and (plan["external_url"] or "") and sportspay._covers(plan, slug, activity):
+            if "audience" in plan.keys() and plan["audience"] in ("coaches", "specific"):
+                continue
+            return plan
+    return None
+def membership_prompt_for(d, m, practice):
+    """What the Going drawer shows, or None. Skips anyone with a membership (or a pass that applies on its own)
+    and anyone who already enabled it or said they're registered."""
+    import clubadmin
+    if not m or not practice or (m["role"] or "") == "system": return None
+    _ensure_membership_ack(d)
+    row = d.execute("SELECT membership_ack FROM members WHERE id=?", (m["id"],)).fetchone()
+    if row and (row["membership_ack"] or ""): return None
+    today = today_pt()
+    try:
+        if clubadmin.has_monthly_membership(d, m["id"], today.isoformat()): return None
+    except Exception:
+        pass
+    plan = _membership_plan(d, practice)
+    if not plan: return None
+    cents = clubadmin.plan_cents(d, plan, max(today, MEMBERSHIP_START)) or 0
+    price = ("$%d/mo" % (cents // 100)) if cents and cents % 100 == 0 else (("$%.2f/mo" % (cents / 100)) if cents else "")
+    start = "%s %d, %d" % (MEMBERSHIP_START.strftime("%B"), MEMBERSHIP_START.day, MEMBERSHIP_START.year)
+    return {"show": True, "plan_id": plan["id"], "url": plan["external_url"], "price": price, "start": start,
+            "before_start": today < MEMBERSHIP_START}
+@app.context_processor
+def membership_drawer_context():
+    """The Going drawer is only on the page for people who may need it (no membership, not yet answered)."""
+    try:
+        m = me()
+        if not m or (m["role"] or "") == "system": return {"membership_maybe": False}
+        if g.get("_mem_maybe") is not None: return {"membership_maybe": g._mem_maybe}
+        import clubadmin
+        d = db(); _ensure_membership_ack(d)
+        row = d.execute("SELECT membership_ack FROM members WHERE id=?", (m["id"],)).fetchone()
+        maybe = not (row and (row["membership_ack"] or "")) and not clubadmin.has_monthly_membership(d, m["id"], today_pt().isoformat())
+        g._mem_maybe = bool(maybe)
+        return {"membership_maybe": g._mem_maybe}
+    except Exception:
+        return {"membership_maybe": False}
+@app.route("/api/membership/prompt")
+@login_required
+def membership_prompt():
+    d = db()
+    pid = request.args.get("pid", type=int)
+    practice = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone() if pid else None
+    return jsonify(membership_prompt_for(d, me(), practice) or {"show": False})
+@app.route("/membership/ack", methods=["POST"])
+@login_required
+def membership_ack():
+    """Enable the membership (they're sent to Club Assistant) or say they're already registered. Either way they're
+    marked Going by the normal Going save, and the drawer doesn't come back. Admins see it in pending payment checks."""
+    import sportspay
+    d = db(); _ensure_membership_ack(d)
+    action = request.form.get("action") or ""
+    if action not in ("enabled", "registered"): abort(400)
+    pid = request.form.get("pid", type=int)
+    practice = d.execute("SELECT * FROM practices WHERE id=?", (pid,)).fetchone() if pid else None
+    plan = _membership_plan(d, practice) if practice else None
+    d.execute("UPDATE members SET membership_ack=?, membership_ack_at=? WHERE id=?", (action, stamp_pt(), me()["id"]))
+    if plan:
+        try:
+            sportspay.record_check(d, me()["id"], pid, plan["id"],
+                                   "Enabled monthly on Club Assistant from Going" if action == "enabled" else "Says already registered on Club Assistant")
+        except Exception as exc:
+            app.logger.warning("membership check not recorded: %s", exc)
+    d.commit()
+    return jsonify(ok=True)
 @app.route("/notifications", methods=["GET", "POST"])
 @login_required
 def notifications():
