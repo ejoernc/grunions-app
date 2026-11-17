@@ -825,7 +825,9 @@ def poll_card(s, compact=False, vote=True):
     elif s["ends"]: bits.append(s["ends"])
     if s["anonymous"]: bits.append("Anonymous")
     kicker = "POLL · " + " · ".join(b.upper() for b in bits)
-    out = ['<div class="rg-chartcard rg-poll%s">' % (" compact" if compact else ""),
+    link = compact and vote  # in the chat and the polls list the whole card opens the poll; no button
+    out = [('<a class="rg-chartcard rg-poll compact rg-polllink" href="%s" aria-label="%s">' % (e(s["href"]), e("Open poll: " + s["title"])))
+           if link else '<div class="rg-chartcard rg-poll%s">' % (" compact" if compact else ""),
            '<p class="ty-caps rg-pollkick">%s</p>' % e(kicker),
            '<h3 class=rg-polltitle>%s</h3>' % e(s["title"])]
     for q in s["questions"]:
@@ -845,11 +847,10 @@ def poll_card(s, compact=False, vote=True):
                            e(o["text"]), ' <em>· You</em>' if o["mine"] else "",
                            " zero" if not o["n"] else "", w, o["n"], who))
         out.append('</div>')
-    if vote and not s["closed"]:
-        out.append('<a class="rg-btn %s rg-wide" href="%s">%s</a>' % ("secondary" if s["voted"] else "primary", e(s["href"]), "Change vote" if s["voted"] else "Vote"))
-    elif vote and s["closed"]:
-        out.append('<a class="rg-btn secondary rg-wide" href="%s">See results</a>' % e(s["href"]))
-    out.append('</div>')
+    if vote and not link:
+        out.append('<a class="rg-btn %s rg-wide" href="%s">%s</a>' % ("secondary" if s["voted"] or s["closed"] else "primary", e(s["href"]),
+                                                                      "See results" if s["closed"] else ("Change vote" if s["voted"] else "Vote")))
+    out.append('</a>' if link else '</div>')
     return Markup("".join(out))
 
 
