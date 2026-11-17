@@ -9510,15 +9510,17 @@ def manage_charts(d, today=None):
     year0 = dt.date(today.year, 1, 1).isoformat()
     days = d.execute("""SELECT p.date, (SELECT COUNT(*) FROM checkins c WHERE c.practice_date=p.date) AS n FROM practices p
         WHERE COALESCE(p.cancelled,0)=0 AND p.date>=? AND p.date<=? GROUP BY p.date ORDER BY p.date""", (year0, today.isoformat())).fetchall()
-    avg = (sum(r["n"] for r in days) / len(days)) if days else 0
+    # Today's practice counts toward the average once someone is checked in; until then it's only a bar.
+    counted = [r for r in days if r["date"] < today.isoformat() or r["n"] > 0]
+    avg = (sum(r["n"] for r in counted) / len(counted)) if counted else 0
     last = days[-8:]
     att_bars = []
     for r in last:
         day = dt.date.fromisoformat(r["date"])
         att_bars.append({"label": "%d/%d" % (day.month, day.day), "segs": [int(r["n"])],
                          "tip": "%s %s %d · %d checked in" % (day.strftime("%a"), day.strftime("%b"), day.day, r["n"])})
-    practices = {"key": "practices", "kicker": "AVG CHECKED IN · %d" % today.year, "value": ("%.1f" % avg).rstrip("0").rstrip(".") if days else "–",
-                 "title": "People", "sub": ("per practice · %d practice%s this year" % (len(days), "" if len(days) == 1 else "s")) if days else "No practices yet this year",
+    practices = {"key": "practices", "kicker": "AVG CHECKED IN · %d" % today.year, "value": ("%.1f" % avg).rstrip("0").rstrip(".") if counted else "–",
+                 "title": "People", "sub": ("per practice · %d practice%s this year" % (len(counted), "" if len(counted) == 1 else "s")) if counted else "No practices yet this year",
                  "bars": att_bars, "series": [("Checked in", "")], "empty": "No practices yet this year."}
     joined, verified = signup_days(d)
     joined = sorted(x for x in joined if x <= today)
