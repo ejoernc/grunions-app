@@ -736,6 +736,8 @@ body.homefull .homealerts .card:not(#pushCard) .t3,body.homefull .homealerts .ca
 .drivechip[data-tone=jam] .drivechiptext,.drivechip[data-tone=jam] a.drivechiptext{background:var(--team-tangerine)}
 .drivecard[data-tone=slow]{background:var(--team-sun)}
 .drivecard[data-tone=jam]{background:var(--team-tangerine)}
+.drivecard[data-tone=slow] .drivetop b,.drivecard[data-tone=slow] .drivego{color:var(--team-sun)}
+.drivecard[data-tone=jam] .drivetop b,.drivecard[data-tone=jam] .drivego{color:var(--team-tangerine)}
 main:has(.lineupfilt) .seclabel{color:var(--r2-smoke);font:700 28px/.95 var(--r2-font-display);letter-spacing:-.03em;text-transform:none}
 .linekind{display:inline-flex;margin:0 0 8px;padding:5px 10px;border-radius:999px;background:var(--r2-fixed-ink);color:var(--r2-fixed-paper);font:700 11px/1 var(--r2-font-sans)}
 .tripcard .nxtitle.cardtitle{font:700 34px/.95 var(--r2-font-display);letter-spacing:-.03em}
