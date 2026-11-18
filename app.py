@@ -6095,7 +6095,7 @@ def leave_by_label(result, arrive, now):
     wall = wall_pt(leave)
     return "Leave by %d:%02d" % ((wall.hour - 1) % 12 + 1, wall.minute)
 def traffic_tone(points, levels):
-    """By distance along the route: 12.5%+ jammed (heavy/severe) → 'jam', else 25%+ slow (moderate) → 'slow', else ''.
+    """By distance along the route: 12.5%+ jammed (heavy/severe) or over 66% slow → 'jam', else 25%+ slow (moderate) → 'slow', else ''.
     None when there is no congestion to go on."""
     if not points or not levels or len(levels) != len(points) - 1: return None
     total = slow = jam = 0.0
@@ -6105,7 +6105,8 @@ def traffic_tone(points, levels):
         if level == "moderate": slow += km
         elif level in ("heavy", "severe"): jam += km
     if total <= 0: return None
-    return "jam" if jam / total >= 0.125 else ("slow" if slow / total >= 0.25 else "")
+    if jam / total >= 0.125 or slow / total > 0.66: return "jam"
+    return "slow" if slow / total >= 0.25 else ""
 def traffic_note(result, tone):
     """Second line on the drive card; matches the chip and card color."""
     if not result or result.estimated:

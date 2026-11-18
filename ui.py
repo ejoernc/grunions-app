@@ -3313,7 +3313,7 @@ function grunionsClearCommute(){
  if(el._applyRoute) el._applyRoute();
 }
 function grunionsDriveTone(row, tone){
- // Map chip color follows the live route (server: 12.5%+ of the distance jammed → jam, else 25%+ slow → slow).
+ // Map chip color follows the live route (server: 12.5%+ of the distance jammed or over 66% slow → jam, else 25%+ slow → slow).
  if(!row) return; if(tone) row.setAttribute('data-tone', tone); else row.removeAttribute('data-tone');
 }
 function grunionsCardPaint(card, mins, note, tone, leave){
