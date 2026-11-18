@@ -2439,8 +2439,8 @@ dialog.memberedit .help a{color:var(--t1)}
 {%- else -%}{{ rg_event_line(href, kicker ~ ' · ' ~ title, meta ~ ((' · ' ~ count ~ ' going') if count else ''), 'graphite' if variant == 'off' else event_tone(kind)) }}{%- endif -%}
 {%- endmacro %}
 {% macro r2_social_card(card, variant='home') -%}{{ rg_social_card(card, csrf_field(), 'page' if variant in ('row', 'open') else 'home', fmt_clock(card.clock) if card.clock else '', variant == 'open') }}{%- endmacro %}
-{% macro r2_drive_card(minutes, detail, leave, placeholder=false, kicker='YOUR DRIVE', href='') -%}
-<{{ 'a' if href else 'div' }} class="r2-drive drivecard" data-r2="drive-card"{% if href %} href="{{ href }}" aria-label="Plan when to leave"{% endif %} {% if placeholder %}data-placeholder=1{% endif %}><div class=drivetop><span>{{ kicker }}</span>{% if leave %}<b>{{ leave }}</b>{% endif %}</div><div class=drivemain><strong>{{ minutes }}</strong><small><i>MIN</i>{{ detail }}</small><span class=drivego aria-hidden=true>›</span></div></{{ 'a' if href else 'div' }}>
+{% macro r2_drive_card(minutes, detail, leave, placeholder=false, kicker='YOUR DRIVE', href='', tone='', fc=none) -%}
+<{{ 'a' if href else 'div' }} class="r2-drive drivecard" data-r2="drive-card"{% if tone %} data-tone="{{ tone }}"{% endif %}{% if fc %} data-fc="{{ fc|tojson|forceescape }}"{% endif %}{% if href %} href="{{ href }}" aria-label="Plan when to leave"{% endif %} {% if placeholder %}data-placeholder=1{% endif %}><div class=drivetop><span>{{ kicker }}</span>{% if leave %}<b>{{ leave }}</b>{% endif %}</div><div class=drivemain><strong>{{ minutes }}</strong><small><i>MIN</i>{{ detail }}</small><span class=drivego aria-hidden=true>›</span></div></{{ 'a' if href else 'div' }}>
 {%- endmacro %}
 {% macro r2_metric(value, label, tone='ink') -%}{{ rg_metric(value, label, {'ink':'carbon','lime':'lime'}.get(tone, tone)) }}{%- endmacro %}
 {% macro r2_info(kicker, body) -%}{{ rg_info(kicker, body) }}{%- endmacro %}
@@ -3326,8 +3326,10 @@ function grunionsCardPaint(card, mins, note, tone, leave){
 function grunionsDriveCard(j, row, pos, spec){
  // Home "Your estimated drive" card: the traffic forecast for when you'd leave (same as the leave-by planner).
  // The forecast is re-asked every 15 min, every 5 in the last hour; from 10 min before leave-by on it shows the live drive.
- var card=document.querySelector('.r2-drive:not([data-placeholder])'); if(!card||!j) return;
- card._live=j;
+ var card=document.querySelector('.r2-drive:not([data-placeholder])'); if(!card) return;
+ if(!card._fc && card.getAttribute('data-fc')){ try{ var f0=JSON.parse(card.getAttribute('data-fc')); card._fc=f0; card._fcAt=Date.now()/1000-(+f0.age||0); }catch(e){} }
+ if(j) card._live=j;
+ j=j||{};
  var k=card.querySelector('.drivetop span'); if(k && j.miles) k.textContent='YOUR ESTIMATED DRIVE · '+j.miles+' MI';
  function show(){
   var fc=card._fc, live=card._live, now=Date.now()/1000;
@@ -3335,7 +3337,7 @@ function grunionsDriveCard(j, row, pos, spec){
    var tone={slow:'slow',jammed:'jam'}[fc.level]||'';
    var note=fc.estimated?'Estimate · no traffic forecast':({slow:'Some traffic expected',jammed:'Heavy traffic expected'}[fc.level]||'Light traffic expected');
    grunionsCardPaint(card, fc.minutes, note, tone, 'Leave by '+fc.leave_by);
-  } else if(live && live.minutes){
+  } else if(live && live.minutes && (fc || card._fcFail)){
    grunionsCardPaint(card, live.minutes, live.note||(live.estimated?'Estimate · no live traffic':'With live traffic'), live.tone||'', live.chip||'');
   }
  }
@@ -3347,7 +3349,7 @@ function grunionsDriveCard(j, row, pos, spec){
  card._fcAt=now;
  fetch('/api/leave-by',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF':(window.PUSH_CSRF||'')},
   body:JSON.stringify({id:spec.id,lat:pos.coords.latitude,lng:pos.coords.longitude,bike:false})})
-  .then(function(r){ return r.json(); }).then(function(f){ if(f&&f.ok&&f.minutes){ card._fc=f; show(); } }).catch(function(){});
+  .then(function(r){ return r.json(); }).then(function(f){ if(f&&f.ok&&f.minutes){ card._fc=f; card._fcFail=false; } else card._fcFail=true; show(); }).catch(function(){ card._fcFail=true; show(); });
 }
 function grunionsLeaveChip(label){
  var chip=document.querySelector('.nextcard .daychip');
@@ -3485,6 +3487,7 @@ function grunionsAskDrive(row, quiet){
   grunionsDriveRemember(row, 'yes');
   if(window.grunionsShowYou && document.querySelector('[data-drive]')) grunionsShowYou(pos.coords.latitude, pos.coords.longitude);
   var spec={}; try{ spec=JSON.parse(row.getAttribute('data-drive')||'{}'); }catch(err){}
+  grunionsDriveCard(null, row, pos, spec);  // forecast starts now, alongside the live check
   fetch('/api/drive',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':window.PUSH_CSRF||''},body:JSON.stringify({kind:spec.kind,id:spec.id,lat:pos.coords.latitude,lng:pos.coords.longitude})})
    .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
    .then(function(res){
@@ -5296,7 +5299,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <div class=weekthis>
 {% if tab == 'home' %}<div class=homealerts>{{ push_card() }}{% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}</div>
 {% if not (me().usawp_number or '')|trim %}{{ rg_usawp_card(csrf_field(), not trial_window(me()), TRIAL_JOIN_URL) }}{% endif %}{% endif %}
-{% if show_drive %}{{ r2_drive_card(drive_num or '–', drive_note or drive_detail, ('' if drive_card_live else drive_chip), drive_placeholder, drive_kicker or 'YOUR ESTIMATED DRIVE', ('/practices/' ~ nextp.id ~ '/leave-by?from=' ~ ('home' if request.path == '/home' else 'week')) if nextp else '') }}{% endif %}
+{% if show_drive %}{{ r2_drive_card(drive_num or '–', drive_note or drive_detail, (('Leave by ' ~ drive_fc.leave_by) if drive_fc else ('' if drive_card_live else drive_chip)), drive_placeholder, drive_kicker or 'YOUR ESTIMATED DRIVE', ('/practices/' ~ nextp.id ~ '/leave-by?from=' ~ ('home' if request.path == '/home' else 'week')) if nextp else '', drive_card_tone, drive_fc)}}{% endif %}
 {% if show_rides %}<div class=ridebtns><button type=button id=needRide>{{ ride_label }}</button><button type=button id=offerRide>Offer a ride</button></div>{% endif %}
 {% if ann %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(ann)|upper }}</b><p>{{ ann.body }}</p></div>{% endif %}
 {% if not week_sessions %}{% if can_host_practice() %}{{ rg_empty('Nothing coming up.', 'Nothing is on the schedule yet. Add a practice, scrimmage or game and it shows up here for everyone.', 'Add to the schedule', '/events/new?lane=schedule') }}{% else %}{{ rg_empty('Nothing coming up.', 'Coaches post practices here. Want a game or meetup? Suggest one for the Lineup.', 'Suggest an event', '/events/new?lane=lineup') }}{% endif %}{% endif %}

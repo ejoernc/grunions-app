@@ -7032,6 +7032,7 @@ def combined_view(entry):
     drive_num = "–"
     drive_kicker = "YOUR ESTIMATED DRIVE"
     drive_card_live = False
+    drive_fc, drive_card_tone = None, ""
     show_drive = False
     drive_placeholder = False
     home_out = False
@@ -7087,6 +7088,13 @@ def combined_view(entry):
             drive_detail = "Practice at %s · %s" % (fmt_clock(target["start"]), short_place(target["location"]))
             # The card is the departure forecast; the phone asks for it once it has your location.
             drive_num, drive_note, drive_card_live = "–", "Checking the traffic forecast", True
+            drive_fc = forecast_seen(m["id"], target["id"])
+            if drive_fc and drive_fc["leave_epoch"] and time.time() >= drive_fc["leave_epoch"] - 600:
+                drive_fc = None  # close to leave-by: the card shows the live drive once the phone has it
+            if drive_fc:
+                drive_num = str(drive_fc["minutes"])
+                drive_note = "Estimate · no traffic forecast" if drive_fc["estimated"] else {"slow": "Some traffic expected", "jammed": "Heavy traffic expected"}.get(drive_fc["level"], "Light traffic expected")
+                drive_card_tone = {"slow": "slow", "jammed": "jam"}.get(drive_fc["level"], "")
             if preview_home == "soon" and not drive_mem:
                 drive_num, drive_note, drive_placeholder, drive_card_live = "18", "Light traffic", True, False
                 if not drive_chip:
@@ -7156,7 +7164,7 @@ def combined_view(entry):
         home_out=home_out, preview_on=preview_on, preview_drawer=preview_drawer, pin_label=pin_label, week_strip=week_strip,
         m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices,
         nextp=nextp, next_kind=next_kind, nextev=nextev, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined,
-        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, route=route, drive_on=drive_on, drive_until=drive_until, drive_saved=drive_saved, drive_card_live=drive_card_live, drive_age=drive_age, drive_chip=drive_chip, drive_going=drive_going,
+        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, route=route, drive_on=drive_on, drive_until=drive_until, drive_saved=drive_saved, drive_card_live=drive_card_live, drive_fc=drive_fc, drive_card_tone=drive_card_tone, drive_age=drive_age, drive_chip=drive_chip, drive_going=drive_going,
         social_after=social_after, social_mins=social_mins, data=data, coach_choices=coach_candidates(d) if m["is_admin"] else [])
 @app.route("/practices", methods=["GET", "POST"])
 @login_required
@@ -13576,6 +13584,12 @@ def leave_by_page(pid):
     return page(flows2.LEAVE_BY, tab="flow", p=p, buffer=buf, arrive_label=_clock_short(start - dt.timedelta(minutes=buf)),
                 when=fmt_d(p["date"]) + " · " + fmt_clock(p["start"]), dest=p["address"] or p["location"] or "")
 
+_FORECAST_SEEN = {}  # (member, practice) → (unix time, last departure forecast); lets Home paint the drive card at once
+FORECAST_FRESH = 15 * 60
+def forecast_seen(member_id, pid):
+    hit = _FORECAST_SEEN.get((member_id, pid))
+    if not hit or time.time() - hit[0] > FORECAST_FRESH: return None
+    return dict(hit[1], age=int(time.time() - hit[0]))
 @app.route("/api/leave-by", methods=["POST"])
 @login_required
 def api_leave_by():
@@ -13606,6 +13620,8 @@ def api_leave_by():
         bike_min = bike.minutes if not bike.estimated else max(1, int(round(routing.haversine_km(origin, dest) * 1.3 / 16 * 60)))
         bike_est = bike.estimated
     pick = next((b for b in plan["bars"] if b["pick"]), None)
+    _FORECAST_SEEN[(m["id"], pid)] = (time.time(), {"minutes": plan["minutes"], "leave_by": _clock_short(plan["leave_by"]),
+        "leave_epoch": int(plan["leave_by"].replace(tzinfo=PT).timestamp()), "level": (pick or {}).get("level", ""), "estimated": plan["estimated"]})
     resp = jsonify(ok=True, leave_by=_clock_short(plan["leave_by"]), arrive_by=_clock_short(plan["arrive_by"]), buffer=buf,
                    leave_epoch=int(plan["leave_by"].replace(tzinfo=PT).timestamp()), level=(pick or {}).get("level", ""),
                    minutes=plan["minutes"], miles=round(routing.haversine_km(origin, dest) * 1.3 * 0.621, 1), estimated=plan["estimated"],
