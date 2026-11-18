@@ -306,9 +306,9 @@ body.schedhome .mappinchip{opacity:calc(1 - var(--mapfade, 0))}
 .socialgo.on{background:var(--ink);color:var(--paper)}
 .drivemain{position:relative}
 .drivego{margin-left:auto;width:44px;height:44px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--ink);color:var(--lime);font:700 18px/1 var(--r2-font-sans);flex:none}
-.drivecard{border-radius:28px;background:var(--lime);color:var(--ink);padding:16px 18px}
+.drivecard{border-radius:28px;background:var(--lime);color:var(--fixed-ink);padding:16px 18px}
 .drivetop{display:flex;justify-content:space-between;align-items:center;font:700 11px/1 var(--r2-font-sans);letter-spacing:.06em}
-.drivetop b{padding:6px 10px;border-radius:999px;background:var(--ink);color:var(--lime);letter-spacing:0}
+.drivetop b{padding:6px 10px;border-radius:999px;background:var(--fixed-ink);color:var(--lime);letter-spacing:0}
 .drivemain{display:flex;align-items:flex-end;gap:10px;margin-top:8px}
 .drivemain strong{font:700 64px/.85 var(--r2-font-display);letter-spacing:-.05em}
 .drivemain small{display:flex;flex-direction:column;gap:2px;padding-bottom:10px;font:600 13px/1.2 var(--r2-font-sans)}
@@ -730,8 +730,8 @@ body.homefull .homedock .nextcard:not(.cancelled){background:var(--r2-sun);color
 body.homefull .homedock .nextcard:not(.cancelled) .nxtitle,body.homefull .homedock .nextcard:not(.cancelled) .nxrow,body.homefull .homedock .nextcard:not(.cancelled) .cardtitle,body.homefull .homedock .nextcard:not(.cancelled) .datetile{color:var(--r2-fixed-ink)}
 body.homefull .homealerts .card:not(#pushCard){background:var(--r2-lavender);color:var(--r2-fixed-ink);border-radius:32px;padding:20px 22px}
 body.homefull .homealerts .card:not(#pushCard) .t3,body.homefull .homealerts .card:not(#pushCard) p{color:var(--r2-fixed-ink)}
-.drivechipbtn,.drivechiptext{background:var(--r2-lime);color:var(--r2-fixed-ink);border-color:transparent}
-.drivechiptext .driveage{color:var(--r2-fixed-ink)}
+.drivechipbtn,.drivechiptext,a.drivechiptext{background:var(--r2-lime);color:var(--r2-fixed-ink);border-color:transparent}
+.drivechiptext .driveage,a.drivechiptext .driveage{color:var(--r2-fixed-ink)}
 main:has(.lineupfilt) .seclabel{color:var(--r2-smoke);font:700 28px/.95 var(--r2-font-display);letter-spacing:-.03em;text-transform:none}
 .linekind{display:inline-flex;margin:0 0 8px;padding:5px 10px;border-radius:999px;background:var(--r2-fixed-ink);color:var(--r2-fixed-paper);font:700 11px/1 var(--r2-font-sans)}
 .tripcard .nxtitle.cardtitle{font:700 34px/.95 var(--r2-font-display);letter-spacing:-.03em}
@@ -4516,7 +4516,13 @@ window.grunionsMountMap=function(el, opts){
     var d=drawer.getBoundingClientRect(), box=el.getBoundingClientRect();
     return (d.height>box.height*0.6 && d.left>box.left+box.width*0.3) ? d : null;
    }
-   function rightLimit(){ var sp=sidePanel(), box=el.getBoundingClientRect(); return sp?sp.left:box.right; }
+   function rightLimit(){
+    var sp=sidePanel(), box=el.getBoundingClientRect(); if(sp) return sp.left;
+    // Phone: keep the route left of the zoom buttons.
+    var zc=document.querySelector('.mapcontrols');
+    if(zc && zc.getClientRects().length){ var z=zc.getBoundingClientRect(); if(z.width>1 && z.left>box.left+box.width*0.5) return Math.min(box.right, z.left-8); }
+    return box.right;
+   }
    function lowerLimit(){
     var box=el.getBoundingClientRect();
     if(sidePanel()) return box.bottom-56;  // leave the bottom-left place chip clear

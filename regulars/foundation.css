@@ -842,7 +842,7 @@ dialog.modal .sheet .rg-btn{width:100%}
 .rg-tableview summary{font:var(--type-label);color:var(--smoke);cursor:pointer}
 .rg-tableview table{width:100%;border-collapse:collapse;font:var(--type-caption);margin-top:var(--space-2)}
 .rg-tableview td,.rg-tableview th{padding:var(--space-1) 0;text-align:left;border-bottom:1px solid var(--graphite)}
-a.drivecard{color:inherit;text-decoration:none;display:block}
+a.drivecard{color:var(--fixed-ink);text-decoration:none;display:block}
 a.drivecard:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
 .rg-chartlegend{display:flex;gap:var(--space-4);font:var(--type-label);color:var(--paper)}
 .rg-chartlegend span{display:inline-flex;align-items:center;gap:var(--space-1-5)}
@@ -1656,6 +1656,9 @@ body.schedhome .weekhi .weekplus{opacity:var(--titlefade);pointer-events:none}
 body.schedhome .weekhi .weekplus.on,body.schedhome .weekhi .weekplus.on .rg-plus{pointer-events:auto}
 /* Home map: the original drive-time chip (traffic line from your location to the next practice) */
 body.schedhome .homedrivechip{position:fixed;z-index:3;top:132px;left:calc(var(--rail-w, 0px) + 16px);right:72px;justify-content:flex-start;margin:0;opacity:calc(1 - var(--titlefade, 0))}
+@media (max-width:767px){body.schedhome .homedrivechip{top:16px;right:16px;left:auto;max-width:62vw;justify-content:flex-end}
+ body.schedhome .homedrivechip .drivechiptext,body.schedhome .homedrivechip .drivechipbtn{height:auto;min-height:0;padding:6px 10px;font:600 12px/1 var(--r2-font-sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:none}
+ body.schedhome:has(.homedrivechip) .mappinchip{display:none}}
 .homeptr{position:fixed;left:50%;z-index:60;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--graphite);color:var(--smoke);box-shadow:0 4px 16px rgba(0,0,0,.35);pointer-events:none;opacity:0;transition:opacity .2s,color .15s,background .15s}
 .homeptr.ready{background:var(--lime);color:var(--fixed-ink)}
 .homeptr.spinning{transition:opacity .2s,transform .2s}
