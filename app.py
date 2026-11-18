@@ -4986,7 +4986,9 @@ def api_drive():
         if len(points) >= 1:
             payload["line"] = points
             if levels: payload["congestion"] = levels
-        payload["note"] = traffic_note(result, levels)
+        tone = traffic_tone(points, levels)
+        payload["note"] = traffic_note(result, tone)
+        if tone is not None: payload["tone"] = tone
         if len(points) >= 2:
             km = sum(routing.haversine_km(points[i], points[i + 1]) for i in range(len(points) - 1)) + routing.haversine_km((lat, lng), points[0])
             payload["miles"] = round(km * 0.621, 1)
@@ -6089,17 +6091,25 @@ def leave_by_label(result, arrive, now):
         return ""
     wall = wall_pt(leave)
     return "Leave by %d:%02d" % ((wall.hour - 1) % 12 + 1, wall.minute)
-def traffic_note(result, levels):
-    """Second line on the drive card. From the route's congestion when Mapbox gives it."""
+def traffic_tone(points, levels):
+    """By distance along the route: 25%+ jammed (heavy/severe) → 'jam', else 25%+ slow (moderate) → 'slow', else ''.
+    None when there is no congestion to go on."""
+    if not points or not levels or len(levels) != len(points) - 1: return None
+    total = slow = jam = 0.0
+    for i, level in enumerate(levels):
+        km = routing.haversine_km(points[i], points[i + 1])
+        total += km
+        if level == "moderate": slow += km
+        elif level in ("heavy", "severe"): jam += km
+    if total <= 0: return None
+    return "jam" if jam / total >= 0.25 else ("slow" if slow / total >= 0.25 else "")
+def traffic_note(result, tone):
+    """Second line on the drive card; matches the chip and card color."""
     if not result or result.estimated:
         return "Estimate · no live traffic"
-    known = [l for l in (levels or []) if l in ("low", "moderate", "heavy", "severe")]
-    if known:
-        bad = sum(1 for l in known if l in ("heavy", "severe")) / len(known)
-        mid = sum(1 for l in known if l in ("moderate", "heavy", "severe")) / len(known)
-        if bad >= 0.15: return "Heavy traffic"
-        if mid >= 0.25: return "Some traffic"
-        return "Light traffic"
+    if tone == "jam": return "Heavy traffic"
+    if tone == "slow": return "Some traffic"
+    if tone == "": return "Light traffic"
     return "With live traffic" if result.traffic else "No traffic data"
 def drive_phrase(result, arrive, now):
     """Overlay text is the drive duration. The departure clock is the status chip."""

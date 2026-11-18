@@ -734,6 +734,8 @@ body.homefull .homealerts .card:not(#pushCard) .t3,body.homefull .homealerts .ca
 .drivechiptext .driveage,a.drivechiptext .driveage{color:var(--r2-fixed-ink)}
 .drivechip[data-tone=slow] .drivechiptext,.drivechip[data-tone=slow] a.drivechiptext{background:var(--team-sun)}
 .drivechip[data-tone=jam] .drivechiptext,.drivechip[data-tone=jam] a.drivechiptext{background:var(--team-tangerine)}
+.drivecard[data-tone=slow]{background:var(--team-sun)}
+.drivecard[data-tone=jam]{background:var(--team-tangerine)}
 main:has(.lineupfilt) .seclabel{color:var(--r2-smoke);font:700 28px/.95 var(--r2-font-display);letter-spacing:-.03em;text-transform:none}
 .linekind{display:inline-flex;margin:0 0 8px;padding:5px 10px;border-radius:999px;background:var(--r2-fixed-ink);color:var(--r2-fixed-paper);font:700 11px/1 var(--r2-font-sans)}
 .tripcard .nxtitle.cardtitle{font:700 34px/.95 var(--r2-font-display);letter-spacing:-.03em}
@@ -3308,14 +3310,9 @@ function grunionsClearCommute(){
  if(el._youMarker){ try{ el._youMarker.remove(); }catch(e){} el._youMarker=null; }
  if(el._applyRoute) el._applyRoute();
 }
-function grunionsDriveTone(row, pts, levels){
- // Chip color follows the route: 25%+ of the distance jammed → red, else 25%+ slow → yellow, else lime.
- if(!row||!pts||!levels||levels.length!==pts.length-1) return;
- function km(a,b){ var r=Math.PI/180, dl=(b[0]-a[0])*r, dg=(b[1]-a[1])*r, h=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dg/2)*Math.sin(dg/2); return 12742*Math.asin(Math.min(1,Math.sqrt(h))); }
- var total=0, slow=0, jam=0;
- for(var i=0;i<levels.length;i++){ var d=km(pts[i],pts[i+1]); total+=d; if(levels[i]==='moderate') slow+=d; else if(levels[i]==='heavy'||levels[i]==='severe') jam+=d; }
- var tone=!total?'':(jam/total>=0.25?'jam':(slow/total>=0.25?'slow':''));
- if(tone) row.setAttribute('data-tone', tone); else row.removeAttribute('data-tone');
+function grunionsDriveTone(row, tone){
+ // Chip and drive card color follow the route (server: 25%+ of the distance jammed → jam, else 25%+ slow → slow).
+ [row, document.querySelector('.r2-drive:not([data-placeholder])')].forEach(function(n){ if(!n) return; if(tone) n.setAttribute('data-tone', tone); else n.removeAttribute('data-tone'); });
 }
 function grunionsDriveCard(j){
  // The home "Your estimated drive" card shows the same live result as the map chip.
@@ -3474,7 +3471,7 @@ function grunionsAskDrive(row, quiet){
     if(line){ line.hidden=false; line.dataset.saved='1'; line.dataset.driveRetry=res.j.stale?'1':''; grunionsPaintDrive(line, res.j.text); }
     if(!res.j.estimated) grunionsLeaveChip(res.j.chip||'');
     grunionsDriveCard(res.j);
-    if(res.j.line && res.j.congestion && !res.j.stale) grunionsDriveTone(row, res.j.line, res.j.congestion);
+    if('tone' in res.j) grunionsDriveTone(row, res.j.tone);
     row.dataset.driveFetched=String(Date.now()-((+res.j.stale)?grunionsDriveAge(row)*1000:0));
     if(!res.j.stale) row.setAttribute('data-drive-age','0');
     if(res.j.line && res.j.line.length && !res.j.estimated && !res.j.stale) grunionsShowDriveLine(res.j.line, {lat:pos.coords.latitude,lng:pos.coords.longitude}, res.j.congestion);
