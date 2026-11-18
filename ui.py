@@ -3311,17 +3311,41 @@ function grunionsClearCommute(){
  if(el._applyRoute) el._applyRoute();
 }
 function grunionsDriveTone(row, tone){
- // Chip and drive card color follow the route (server: 25%+ of the distance jammed → jam, else 25%+ slow → slow).
- [row, document.querySelector('.r2-drive:not([data-placeholder])')].forEach(function(n){ if(!n) return; if(tone) n.setAttribute('data-tone', tone); else n.removeAttribute('data-tone'); });
+ // Map chip color follows the live route (server: 25%+ of the distance jammed → jam, else 25%+ slow → slow).
+ if(!row) return; if(tone) row.setAttribute('data-tone', tone); else row.removeAttribute('data-tone');
 }
-function grunionsDriveCard(j){
- // The home "Your estimated drive" card shows the same live result as the map chip.
- var card=document.querySelector('.r2-drive:not([data-placeholder])'); if(!card||!j||!j.minutes) return;
- var n=card.querySelector('.drivemain strong'); if(n) n.textContent=String(j.minutes);
- var sm=card.querySelector('.drivemain small'); if(sm){ var i=sm.querySelector('i'); sm.textContent=''; if(i) sm.appendChild(i); sm.appendChild(document.createTextNode(j.note||(j.estimated?'Estimate · no live traffic':'With live traffic'))); }
- var k=card.querySelector('.drivetop span'); if(k) k.textContent='YOUR ESTIMATED DRIVE'+(j.miles?' · '+j.miles+' MI':'');
+function grunionsCardPaint(card, mins, note, tone, leave){
+ var n=card.querySelector('.drivemain strong'); if(n) n.textContent=String(mins);
+ var sm=card.querySelector('.drivemain small'); if(sm){ var i=sm.querySelector('i'); sm.textContent=''; if(i) sm.appendChild(i); sm.appendChild(document.createTextNode(note)); }
+ if(tone) card.setAttribute('data-tone', tone); else card.removeAttribute('data-tone');
  var top=card.querySelector('.drivetop'), b=top&&top.querySelector('b');
- if(top){ if(j.chip){ if(!b){ b=document.createElement('b'); top.appendChild(b); } b.textContent=j.chip; } else if(b && !j.estimated){ b.remove(); } }
+ if(top){ if(leave){ if(!b){ b=document.createElement('b'); top.appendChild(b); } b.textContent=leave; } else if(b){ b.remove(); } }
+}
+function grunionsDriveCard(j, row, pos, spec){
+ // Home "Your estimated drive" card: the traffic forecast for when you'd leave (same as the leave-by planner).
+ // The forecast is re-asked every 15 min, every 5 in the last hour; from 10 min before leave-by on it shows the live drive.
+ var card=document.querySelector('.r2-drive:not([data-placeholder])'); if(!card||!j) return;
+ card._live=j;
+ var k=card.querySelector('.drivetop span'); if(k && j.miles) k.textContent='YOUR ESTIMATED DRIVE · '+j.miles+' MI';
+ function show(){
+  var fc=card._fc, live=card._live, now=Date.now()/1000;
+  if(fc && !(fc.leave_epoch && now>=fc.leave_epoch-600)){
+   var tone={slow:'slow',jammed:'jam'}[fc.level]||'';
+   var note=fc.estimated?'Estimate · no traffic forecast':({slow:'Some traffic expected',jammed:'Heavy traffic expected'}[fc.level]||'Light traffic expected');
+   grunionsCardPaint(card, fc.minutes, note, tone, 'Leave by '+fc.leave_by);
+  } else if(live && live.minutes){
+   grunionsCardPaint(card, live.minutes, live.note||(live.estimated?'Estimate · no live traffic':'With live traffic'), live.tone||'', live.chip||'');
+  }
+ }
+ show();
+ if(!pos||!spec||!spec.id) return;
+ var until=+((row&&row.getAttribute('data-drive-until'))||0), now=Date.now()/1000;
+ var every=(until && until-now<3600)?300:900;
+ if(card._fcAt && now-card._fcAt<every) return;
+ card._fcAt=now;
+ fetch('/api/leave-by',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF':(window.PUSH_CSRF||'')},
+  body:JSON.stringify({id:spec.id,lat:pos.coords.latitude,lng:pos.coords.longitude,bike:false})})
+  .then(function(r){ return r.json(); }).then(function(f){ if(f&&f.ok&&f.minutes){ card._fc=f; show(); } }).catch(function(){});
 }
 function grunionsLeaveChip(label){
  var chip=document.querySelector('.nextcard .daychip');
@@ -3470,7 +3494,7 @@ function grunionsAskDrive(row, quiet){
     if(btn) btn.hidden=true;
     if(line){ line.hidden=false; line.dataset.saved='1'; line.dataset.driveRetry=res.j.stale?'1':''; grunionsPaintDrive(line, res.j.text); }
     if(!res.j.estimated) grunionsLeaveChip(res.j.chip||'');
-    grunionsDriveCard(res.j);
+    grunionsDriveCard(res.j, row, pos, spec);
     if('tone' in res.j) grunionsDriveTone(row, res.j.tone);
     row.dataset.driveFetched=String(Date.now()-((+res.j.stale)?grunionsDriveAge(row)*1000:0));
     if(!res.j.stale) row.setAttribute('data-drive-age','0');
@@ -5270,7 +5294,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <div class=weekthis>
 {% if tab == 'home' %}<div class=homealerts>{{ push_card() }}{% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}</div>
 {% if not (me().usawp_number or '')|trim %}{{ rg_usawp_card(csrf_field(), not trial_window(me()), TRIAL_JOIN_URL) }}{% endif %}{% endif %}
-{% if show_drive %}{{ r2_drive_card(drive_num or '–', drive_note or drive_detail, drive_chip, drive_placeholder, drive_kicker or 'YOUR ESTIMATED DRIVE', ('/practices/' ~ nextp.id ~ '/leave-by') if nextp else '') }}{% endif %}
+{% if show_drive %}{{ r2_drive_card(drive_num or '–', drive_note or drive_detail, ('' if drive_card_live else drive_chip), drive_placeholder, drive_kicker or 'YOUR ESTIMATED DRIVE', ('/practices/' ~ nextp.id ~ '/leave-by') if nextp else '') }}{% endif %}
 {% if show_rides %}<div class=ridebtns><button type=button id=needRide>{{ ride_label }}</button><button type=button id=offerRide>Offer a ride</button></div>{% endif %}
 {% if ann %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(ann)|upper }}</b><p>{{ ann.body }}</p></div>{% endif %}
 {% if not week_sessions %}{% if can_host_practice() %}{{ rg_empty('Nothing coming up.', 'Nothing is on the schedule yet. Add a practice, scrimmage or game and it shows up here for everyone.', 'Add to the schedule', '/events/new?lane=schedule') }}{% else %}{{ rg_empty('Nothing coming up.', 'Coaches post practices here. Want a game or meetup? Suggest one for the Lineup.', 'Suggest an event', '/events/new?lane=lineup') }}{% endif %}{% endif %}

@@ -7028,6 +7028,7 @@ def combined_view(entry):
     drive_note = ""
     drive_num = "–"
     drive_kicker = "YOUR ESTIMATED DRIVE"
+    drive_card_live = False
     show_drive = False
     drive_placeholder = False
     home_out = False
@@ -7077,18 +7078,14 @@ def combined_view(entry):
             drive_detail = drive_note
             drive_placeholder = True
         elif (drive_on and nextp_mine == 1) or preview_home == "soon":
-            # The phone fills this in from /api/drive (live traffic, refreshed every ~15 min, more often near start).
-            # Until then: the last real result if there is one, otherwise a dash. Never made-up numbers.
+            # Filled in on the phone: the traffic forecast for your departure, refreshed as practice gets closer,
+            # then the live drive from 10 min before leave-by. Never made-up numbers.
             show_drive = True
             drive_detail = "Practice at %s · %s" % (fmt_clock(target["start"]), short_place(target["location"]))
-            if drive_mem:
-                drive_num = str(drive_mem.minutes)
-                drive_note = traffic_note(drive_mem, None)
-            else:
-                drive_num = "–"
-                drive_note = "Checking traffic"
+            # The card is the departure forecast; the phone asks for it once it has your location.
+            drive_num, drive_note, drive_card_live = "–", "Checking the traffic forecast", True
             if preview_home == "soon" and not drive_mem:
-                drive_num, drive_note, drive_placeholder = "18", "Light traffic", True
+                drive_num, drive_note, drive_placeholder, drive_card_live = "18", "Light traffic", True, False
                 if not drive_chip:
                     start, _end = practice_span(target)
                     drive_chip = "Leave by %s" % fmt_t((start - dt.timedelta(minutes=18)).strftime("%H:%M"))
@@ -7156,7 +7153,7 @@ def combined_view(entry):
         home_out=home_out, preview_on=preview_on, preview_drawer=preview_drawer, pin_label=pin_label, week_strip=week_strip,
         m=m, hist=hist, nmonth=sum(1 for h in hist if h['practice_date'].startswith(month)), ann=ann, notices=notices,
         nextp=nextp, next_kind=next_kind, nextev=nextev, nextp_n=nextp_n, nextp_mine=nextp_mine, next_coaches=next_coaches, next_joined=next_joined,
-        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, route=route, drive_on=drive_on, drive_until=drive_until, drive_saved=drive_saved, drive_age=drive_age, drive_chip=drive_chip, drive_going=drive_going,
+        vr_pending=vr_pending, today=today_pt().isoformat(), pins=pins, route=route, drive_on=drive_on, drive_until=drive_until, drive_saved=drive_saved, drive_card_live=drive_card_live, drive_age=drive_age, drive_chip=drive_chip, drive_going=drive_going,
         social_after=social_after, social_mins=social_mins, data=data, coach_choices=coach_candidates(d) if m["is_admin"] else [])
 @app.route("/practices", methods=["GET", "POST"])
 @login_required
@@ -13599,11 +13596,17 @@ def api_leave_by():
     origin, dest = (lat, lng), (p["lat"], p["lng"])
     with route_purpose("leave_by"):
         plan = flows2.leave_plan(start, buf, lambda deps: drive_service.forecast(origin, dest, deps, now_pt()))
-        bike = drive_service.once(origin, dest, "cycling", now_pt())
-    bike_min = bike.minutes if not bike.estimated else max(1, int(round(routing.haversine_km(origin, dest) * 1.3 / 16 * 60)))
+        # The home drive card only needs the drive forecast; skip the bike route there.
+        bike = drive_service.once(origin, dest, "cycling", now_pt()) if body.get("bike") is not False else None
+    if bike is None: bike_min, bike_est = None, True
+    else:
+        bike_min = bike.minutes if not bike.estimated else max(1, int(round(routing.haversine_km(origin, dest) * 1.3 / 16 * 60)))
+        bike_est = bike.estimated
+    pick = next((b for b in plan["bars"] if b["pick"]), None)
     resp = jsonify(ok=True, leave_by=_clock_short(plan["leave_by"]), arrive_by=_clock_short(plan["arrive_by"]), buffer=buf,
+                   leave_epoch=int(plan["leave_by"].replace(tzinfo=PT).timestamp()), level=(pick or {}).get("level", ""),
                    minutes=plan["minutes"], miles=round(routing.haversine_km(origin, dest) * 1.3 * 0.621, 1), estimated=plan["estimated"],
-                   late_delta=plan["late_delta"], late_at=_clock_short(plan["late_at"]), bike_minutes=bike_min, bike_estimated=bike.estimated,
+                   late_delta=plan["late_delta"], late_at=_clock_short(plan["late_at"]), bike_minutes=bike_min, bike_estimated=bike_est,
                    bars=[{"at": _clock_short(b["at"]), "minutes": b["minutes"], "level": b["level"], "pick": b["pick"]} for b in plan["bars"]])
     resp.headers["Cache-Control"] = "no-store"
     return resp
