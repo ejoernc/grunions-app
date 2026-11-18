@@ -4977,7 +4977,7 @@ def api_drive():
     arrive = start.replace(tzinfo=PT)
     result, age = drive_cached(d, me()["id"], p["id"], (lat, lng), (p["lat"], p["lng"]), now)
     stale = bool(age is not None and age >= routing.CACHE_FOR)
-    payload = {"ok": True, "show": True, "text": drive_phrase(result, arrive, now) + _updated_phrase(age),
+    payload = {"ok": True, "show": True, "text": drive_phrase(result, arrive, now) + live_tag(result, age),
                "chip": "" if result.estimated else leave_by_label(result, arrive, now),
                "minutes": result.minutes, "traffic": result.traffic, "estimated": result.estimated, "stale": stale}
     if not result.estimated and not stale:
@@ -6078,8 +6078,8 @@ def drive_head(result):
     if result.estimated:
         return "%d min est." % result.minutes
     if result.traffic:
-        return "Currently %d min with traffic" % result.minutes
-    return "Currently %d min" % result.minutes
+        return "%d min with traffic" % result.minutes
+    return "%d min" % result.minutes
 def leave_by_label(result, arrive, now):
     """'Leave by 6:24' when a real traffic departure is still ahead. No meridiem."""
     if not result or result.estimated or not result.traffic or arrive is None:
@@ -6104,9 +6104,12 @@ def traffic_note(result, levels):
 def drive_phrase(result, arrive, now):
     """Overlay text is the drive duration. The departure clock is the status chip."""
     return drive_head(result)
-SHOW_DRIVE_AGE = False  # "· updated N min ago" after the drive time; off for now
+def live_tag(result, age):
+    """' · Live' while the traffic result is fresh (under 15 min old). Nothing for estimates or older results."""
+    if not result or result.estimated or not result.traffic or age is None or age >= routing.CACHE_FOR: return ""
+    return " · Live"
 def _updated_phrase(age):
-    if age is None or not SHOW_DRIVE_AGE: return ""
+    if age is None: return ""
     mins = int(age.total_seconds() // 60)
     if mins <= 0: return " · updated just now"
     if mins == 1: return " · updated 1 min ago"
@@ -6934,7 +6937,7 @@ def combined_view(entry):
             drive_mem = saved
             start, _end = practice_span(nextp)
             arrive = start.replace(tzinfo=PT)
-            drive_saved = drive_phrase(saved, arrive, now_pt()) + _updated_phrase(saved_age)
+            drive_saved = drive_phrase(saved, arrive, now_pt()) + live_tag(saved, saved_age)
             drive_chip = leave_by_label(saved, arrive, now_pt())
             drive_age = int(saved_age.total_seconds())
     social_after = next_kind == "practice" and bool(nextp) and social_after_window(nextp)
