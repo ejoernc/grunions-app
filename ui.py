@@ -3330,7 +3330,7 @@ function grunionsDriveCard(j, row, pos, spec){
  if(!card._fc && card.getAttribute('data-fc')){ try{ var f0=JSON.parse(card.getAttribute('data-fc')); card._fc=f0; card._fcAt=Date.now()/1000-(+f0.age||0); }catch(e){} }
  if(j) card._live=j;
  j=j||{};
- var k=card.querySelector('.drivetop span'); if(k && j.miles) k.textContent='YOUR ESTIMATED DRIVE · '+j.miles+' MI';
+ var k=card.querySelector('.drivetop span'); if(k && j.miles) k.textContent='ESTIMATED DRIVE TO PRACTICE · '+j.miles+' MI';
  function show(){
   var fc=card._fc, live=card._live, now=Date.now()/1000;
   if(fc && !(fc.leave_epoch && now>=fc.leave_epoch-600)){
@@ -5299,7 +5299,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <div class=weekthis>
 {% if tab == 'home' %}<div class=homealerts>{{ push_card() }}{% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}</div>
 {% if not (me().usawp_number or '')|trim %}{{ rg_usawp_card(csrf_field(), not trial_window(me()), TRIAL_JOIN_URL) }}{% endif %}{% endif %}
-{% if show_drive %}{{ r2_drive_card(drive_num or '–', drive_note or drive_detail, (('Leave by ' ~ drive_fc.leave_by) if drive_fc else ('' if drive_card_live else drive_chip)), drive_placeholder, drive_kicker or 'YOUR ESTIMATED DRIVE', ('/practices/' ~ nextp.id ~ '/leave-by?from=' ~ ('home' if request.path == '/home' else 'week')) if nextp else '', drive_card_tone, drive_fc)}}{% endif %}
+{% if show_drive %}{{ r2_drive_card(drive_num or '–', drive_note or drive_detail, (('Leave by ' ~ drive_fc.leave_by) if drive_fc else ('' if drive_card_live else drive_chip)), drive_placeholder, drive_kicker or 'ESTIMATED DRIVE TO PRACTICE', ('/practices/' ~ nextp.id ~ '/leave-by?from=' ~ ('home' if request.path == '/home' else 'week')) if nextp else '', drive_card_tone, drive_fc)}}{% endif %}
 {% if show_rides %}<div class=ridebtns><button type=button id=needRide>{{ ride_label }}</button><button type=button id=offerRide>Offer a ride</button></div>{% endif %}
 {% if ann %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(ann)|upper }}</b><p>{{ ann.body }}</p></div>{% endif %}
 {% if not week_sessions %}{% if can_host_practice() %}{{ rg_empty('Nothing coming up.', 'Nothing is on the schedule yet. Add a practice, scrimmage or game and it shows up here for everyone.', 'Add to the schedule', '/events/new?lane=schedule') }}{% else %}{{ rg_empty('Nothing coming up.', 'Coaches post practices here. Want a game or meetup? Suggest one for the Lineup.', 'Suggest an event', '/events/new?lane=lineup') }}{% endif %}{% endif %}
@@ -8100,7 +8100,7 @@ T["practice"] = """{% set p = x.p %}
 <div class=rg-plist id=pqGoing>{% for r in x.going %}{% set why = holds.get(r.id, '') if host else '' %}<div{% if loop.index > 4 %} data-more hidden{% endif %}>{{ rg_person(display_first(r) ~ ' ' ~ r.last, why or (('Coach' if r.id in x.coach_ids else 'Player') ~ ' · ' ~ (p.sport or 'Water Polo')), initials(r), 'In' if r.id in in_ids else 'Going', 'going', '', '', 'sun', ('/avatar/' ~ r.id ~ '?v=' ~ r.photo) if r.photo else '') }}</div>{% else %}<p class=rg-note>No one yet.</p>{% endfor %}</div>
 {% if x.going|length > 4 %}<button type=button class=rg-seeall data-seeall=pqGoing>See all {{ x.going|length }} going</button>{% endif %}{% endif %}
 {% if p.location and not p.cancelled %}{{ rg_section('Getting there') }}
-{{ rg_drive('–', 'Tap to plan when to leave', '', 'YOUR ESTIMATED DRIVE', '/practices/' ~ p.id ~ '/leave-by') }}
+{{ rg_drive('–', 'Tap to plan when to leave', '', 'ESTIMATED DRIVE TO PRACTICE', '/practices/' ~ p.id ~ '/leave-by') }}
 <div data-pqdrive="{{ p.id }}" hidden></div>
 {{ rg_settings_row('Rides', 'Ask for one · Offer seats', '/practices/' ~ p.id ~ '/rides') }}
 {% endif %}
@@ -8152,7 +8152,7 @@ T["practice"] = """{% set p = x.p %}
 <script>(function(){var m=document.querySelector('[data-pqdrive]'); if(!m||!navigator.geolocation||!navigator.permissions) return; var card=m.previousElementSibling; if(!card||!card.classList.contains('rg-drive')) return;
  navigator.permissions.query({name:'geolocation'}).then(function(st){ if(st.state!=='granted') return;
   navigator.geolocation.getCurrentPosition(function(pos){ fetch('/api/leave-by',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF':(window.PUSH_CSRF||'')},body:JSON.stringify({id:+m.getAttribute('data-pqdrive'),lat:pos.coords.latitude,lng:pos.coords.longitude})}).then(function(r){return r.json();}).then(function(j){ if(!j||!j.ok) return;
-   var top=card.querySelector('.rg-drvk'); if(top&&j.miles) top.textContent='YOUR ESTIMATED DRIVE · '+j.miles+' MI';
+   var top=card.querySelector('.rg-drvk'); if(top&&j.miles) top.textContent='ESTIMATED DRIVE TO PRACTICE · '+j.miles+' MI';
    var n=card.querySelector('.rg-drvnum b'); if(n) n.textContent=j.minutes;
    var sm=card.querySelector('.rg-drvnum small'); if(sm) sm.textContent=j.estimated?'Estimate':'With traffic';
    var t=card.querySelector('.rg-drvtop'); if(t&&j.leave_by){ var b=t.querySelector('.rg-drvleave')||document.createElement('span'); b.className='rg-drvleave'; b.textContent='Leave by '+j.leave_by; t.appendChild(b); } }).catch(function(){}); }, function(){}, {maximumAge:600000,timeout:8000}); }).catch(function(){}); })();</script>

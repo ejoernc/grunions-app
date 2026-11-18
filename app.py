@@ -7031,7 +7031,7 @@ def combined_view(entry):
     drive_detail = ""
     drive_note = ""
     drive_num = "–"
-    drive_kicker = "YOUR ESTIMATED DRIVE"
+    drive_kicker = "ESTIMATED DRIVE TO PRACTICE"
     drive_card_live = False
     drive_fc, drive_card_tone = None, ""
     show_drive = False
