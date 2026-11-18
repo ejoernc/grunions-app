@@ -4986,6 +4986,10 @@ def api_drive():
         if len(points) >= 1:
             payload["line"] = points
             if levels: payload["congestion"] = levels
+        payload["note"] = traffic_note(result, levels)
+        if len(points) >= 2:
+            km = sum(routing.haversine_km(points[i], points[i + 1]) for i in range(len(points) - 1)) + routing.haversine_km((lat, lng), points[0])
+            payload["miles"] = round(km * 0.621, 1)
         app.logger.warning("drive geometry segments=%d congestion=%s", len(points), "yes" if levels else "no")
     resp = jsonify(payload)
     resp.headers["Cache-Control"] = "no-store"
@@ -6074,8 +6078,8 @@ def drive_head(result):
     if result.estimated:
         return "%d min est." % result.minutes
     if result.traffic:
-        return "%d min with traffic" % result.minutes
-    return "%d min" % result.minutes
+        return "Currently %d min with traffic" % result.minutes
+    return "Currently %d min" % result.minutes
 def leave_by_label(result, arrive, now):
     """'Leave by 6:24' when a real traffic departure is still ahead. No meridiem."""
     if not result or result.estimated or not result.traffic or arrive is None:
@@ -6085,11 +6089,24 @@ def leave_by_label(result, arrive, now):
         return ""
     wall = wall_pt(leave)
     return "Leave by %d:%02d" % ((wall.hour - 1) % 12 + 1, wall.minute)
+def traffic_note(result, levels):
+    """Second line on the drive card. From the route's congestion when Mapbox gives it."""
+    if not result or result.estimated:
+        return "Estimate · no live traffic"
+    known = [l for l in (levels or []) if l in ("low", "moderate", "heavy", "severe")]
+    if known:
+        bad = sum(1 for l in known if l in ("heavy", "severe")) / len(known)
+        mid = sum(1 for l in known if l in ("moderate", "heavy", "severe")) / len(known)
+        if bad >= 0.15: return "Heavy traffic"
+        if mid >= 0.25: return "Some traffic"
+        return "Light traffic"
+    return "With live traffic" if result.traffic else "No traffic data"
 def drive_phrase(result, arrive, now):
     """Overlay text is the drive duration. The departure clock is the status chip."""
     return drive_head(result)
+SHOW_DRIVE_AGE = False  # "· updated N min ago" after the drive time; off for now
 def _updated_phrase(age):
-    if age is None: return ""
+    if age is None or not SHOW_DRIVE_AGE: return ""
     mins = int(age.total_seconds() // 60)
     if mins <= 0: return " · updated just now"
     if mins == 1: return " · updated 1 min ago"
@@ -6909,11 +6926,12 @@ def combined_view(entry):
     drive_going = "1" if nextp_mine == 1 else ("" if nextp_mine is None else "0")
     drive_on = next_kind == "practice" and bool(nextp) and drive_offer(d, nextp, m["id"])
     drive_until = practice_start_epoch(nextp) if drive_on and nextp else 0
-    drive_saved, drive_age, drive_chip = "", 0, ""
+    drive_saved, drive_age, drive_chip, drive_mem = "", 0, "", None
     if drive_on and nextp:
         remembered = drive_remembered(d, m["id"], nextp, now_pt())
         if remembered:
             saved, saved_age = remembered
+            drive_mem = saved
             start, _end = practice_span(nextp)
             arrive = start.replace(tzinfo=PT)
             drive_saved = drive_phrase(saved, arrive, now_pt()) + _updated_phrase(saved_age)
@@ -6994,9 +7012,9 @@ def combined_view(entry):
     show_rides = bool(sched_home and going_today)
     ride_label = "Need a ride?"
     drive_detail = ""
-    drive_note = "Light traffic"
-    drive_num = "18"
-    drive_kicker = "YOUR DRIVE · 7.4 MI"
+    drive_note = ""
+    drive_num = "–"
+    drive_kicker = "YOUR ESTIMATED DRIVE"
     show_drive = False
     drive_placeholder = False
     home_out = False
@@ -7046,16 +7064,21 @@ def combined_view(entry):
             drive_detail = drive_note
             drive_placeholder = True
         elif (drive_on and nextp_mine == 1) or preview_home == "soon":
+            # The phone fills this in from /api/drive (live traffic, refreshed every ~15 min, more often near start).
+            # Until then: the last real result if there is one, otherwise a dash. Never made-up numbers.
             show_drive = True
-            drive_note = "Light traffic"
             drive_detail = "Practice at %s · %s" % (fmt_clock(target["start"]), short_place(target["location"]))
-            if not drive_chip:
-                start, _end = practice_span(target)
-                leave = start - dt.timedelta(minutes=18)
-                drive_chip = "Leave by %s" % fmt_t(leave.strftime("%H:%M"))
-            drive_num = "18"
-            drive_saved = "18"
-            drive_placeholder = True
+            if drive_mem:
+                drive_num = str(drive_mem.minutes)
+                drive_note = traffic_note(drive_mem, None)
+            else:
+                drive_num = "–"
+                drive_note = "Checking traffic"
+            if preview_home == "soon" and not drive_mem:
+                drive_num, drive_note, drive_placeholder = "18", "Light traffic", True
+                if not drive_chip:
+                    start, _end = practice_span(target)
+                    drive_chip = "Leave by %s" % fmt_t((start - dt.timedelta(minutes=18)).strftime("%H:%M"))
     if preview_home == "coffee" and not show_drive and nextp:
         show_drive = True
         show_rides = True

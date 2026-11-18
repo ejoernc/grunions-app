@@ -3306,6 +3306,15 @@ function grunionsClearCommute(){
  if(el._youMarker){ try{ el._youMarker.remove(); }catch(e){} el._youMarker=null; }
  if(el._applyRoute) el._applyRoute();
 }
+function grunionsDriveCard(j){
+ // The home "Your estimated drive" card shows the same live result as the map chip.
+ var card=document.querySelector('.r2-drive:not([data-placeholder])'); if(!card||!j||!j.minutes) return;
+ var n=card.querySelector('.drivemain strong'); if(n) n.textContent=String(j.minutes);
+ var sm=card.querySelector('.drivemain small'); if(sm){ var i=sm.querySelector('i'); sm.textContent=''; if(i) sm.appendChild(i); sm.appendChild(document.createTextNode(j.note||(j.estimated?'Estimate · no live traffic':'With live traffic'))); }
+ var k=card.querySelector('.drivetop span'); if(k) k.textContent='YOUR ESTIMATED DRIVE'+(j.miles?' · '+j.miles+' MI':'');
+ var top=card.querySelector('.drivetop'), b=top&&top.querySelector('b');
+ if(top){ if(j.chip){ if(!b){ b=document.createElement('b'); top.appendChild(b); } b.textContent=j.chip; } else if(b && !j.estimated){ b.remove(); } }
+}
 function grunionsLeaveChip(label){
  var chip=document.querySelector('.nextcard .daychip');
  if(!chip) return;
@@ -3453,6 +3462,7 @@ function grunionsAskDrive(row, quiet){
     if(btn) btn.hidden=true;
     if(line){ line.hidden=false; line.dataset.saved='1'; line.dataset.driveRetry=res.j.stale?'1':''; grunionsPaintDrive(line, res.j.text); }
     if(!res.j.estimated) grunionsLeaveChip(res.j.chip||'');
+    grunionsDriveCard(res.j);
     row.dataset.driveFetched=String(Date.now()-((+res.j.stale)?grunionsDriveAge(row)*1000:0));
     if(!res.j.stale) row.setAttribute('data-drive-age','0');
     if(res.j.line && res.j.line.length && !res.j.estimated && !res.j.stale) grunionsShowDriveLine(res.j.line, {lat:pos.coords.latitude,lng:pos.coords.longitude}, res.j.congestion);
@@ -4684,6 +4694,62 @@ window.grunionsMountMap=function(el, opts){
       if(extra>0) shift(sp, 0, extra);
      }
     }
+    // Keep each label off the drive route: try right of the dot (default), then left, above, below.
+    function routeScreen(){
+     var box=el.getBoundingClientRect(), out=[];
+     [homeView()?el._driveRoute:null, opts.route].forEach(function(line){
+      var seg=[];
+      (line||[]).forEach(function(p){
+       if(!p||p.length<2||!isFinite(+p[0])||!isFinite(+p[1])) return;
+       var pt; try{ pt=map.project([+p[1], +p[0]]); }catch(e){ return; }
+       if(pt&&isFinite(pt.x)&&isFinite(pt.y)) seg.push([box.left+pt.x, box.top+pt.y]);
+      });
+      if(seg.length>1) out.push(seg);
+     });
+     return out;
+    }
+    function hitsRoute(r, lines){
+     var pad=6, L=r.left-pad, R=r.right+pad, T=r.top-pad, B=r.bottom+pad;
+     function inside(x,y){ return x>=L&&x<=R&&y>=T&&y<=B; }
+     function cross(ax,ay,bx,by,cx,cy,dx,dy){
+      var d=(bx-ax)*(dy-cy)-(by-ay)*(dx-cx); if(!d) return false;
+      var t=((cx-ax)*(dy-cy)-(cy-ay)*(dx-cx))/d, u=((cx-ax)*(by-ay)-(cy-ay)*(bx-ax))/d;
+      return t>=0&&t<=1&&u>=0&&u<=1;
+     }
+     for(var k=0;k<lines.length;k++){ var ln=lines[k];
+      for(var i=0;i<ln.length-1;i++){ var a=ln[i], b=ln[i+1];
+       if(Math.max(a[0],b[0])<L||Math.min(a[0],b[0])>R||Math.max(a[1],b[1])<T||Math.min(a[1],b[1])>B) continue;
+       if(inside(a[0],a[1])||inside(b[0],b[1])) return true;
+       if(cross(a[0],a[1],b[0],b[1],L,T,R,T)||cross(a[0],a[1],b[0],b[1],L,B,R,B)||cross(a[0],a[1],b[0],b[1],L,T,L,B)||cross(a[0],a[1],b[0],b[1],R,T,R,B)) return true;
+      }
+     }
+     return false;
+    }
+    function avoidRoute(){
+     var lines=routeScreen(); if(!lines.length) return;
+     var bounds=el.getBoundingClientRect();
+     pinsNow.forEach(function(pin){
+      var pill=pin.querySelector('.pinpill'), dot=pin.querySelector('.pinhold'); if(!pill||!dot) return;
+      var r=pill.getBoundingClientRect(), d=dot.getBoundingClientRect();
+      var w=r.width, h=r.height, gap=r.left-d.right;
+      var cy=(d.top+d.bottom)/2;
+      var spots={
+       right:[0,0],
+       left:[(d.left-gap-w)-r.left, 0],
+       above:[((d.left+d.right)/2-w/2)-r.left, (d.top-6-h)-r.top],
+       below:[((d.left+d.right)/2-w/2)-r.left, (d.bottom+6)-r.top]
+      };
+      var order=['right','left','above','below'], prev=pill.dataset.side;
+      if(prev && spots[prev]) order=[prev].concat(order.filter(function(k){ return k!==prev; }));
+      for(var i=0;i<order.length;i++){
+       var o=spots[order[i]], t={left:r.left+o[0], right:r.right+o[0], top:r.top+o[1], bottom:r.bottom+o[1]};
+       if(t.left<bounds.left+4||t.right>bounds.right-4||t.top<bounds.top+4||t.bottom>bounds.bottom-4) continue;
+       if(!hitsRoute(t, lines)){ pill.dataset.side=order[i]; if(o[0]||o[1]) shift(pill, o[0], o[1]); return; }
+      }
+      pill.dataset.side='right';
+     });
+    }
+    avoidRoute();
     stackLabels();
     var chip=document.querySelector('.nexstack>.drivechip');
     if(chip && !chip.hidden && chip.getClientRects().length && window.grunionsPinAbove){
@@ -5195,7 +5261,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <div class=weekthis>
 {% if tab == 'home' %}<div class=homealerts>{{ push_card() }}{% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}</div>
 {% if not (me().usawp_number or '')|trim %}{{ rg_usawp_card(csrf_field(), not trial_window(me()), TRIAL_JOIN_URL) }}{% endif %}{% endif %}
-{% if show_drive %}{{ r2_drive_card(drive_num or '18', drive_note or drive_detail, drive_chip, drive_placeholder, drive_kicker or 'YOUR DRIVE · 7.4 MI', ('/practices/' ~ nextp.id ~ '/leave-by') if nextp else '') }}{% endif %}
+{% if show_drive %}{{ r2_drive_card(drive_num or '–', drive_note or drive_detail, drive_chip, drive_placeholder, drive_kicker or 'YOUR ESTIMATED DRIVE', ('/practices/' ~ nextp.id ~ '/leave-by') if nextp else '') }}{% endif %}
 {% if show_rides %}<div class=ridebtns><button type=button id=needRide>{{ ride_label }}</button><button type=button id=offerRide>Offer a ride</button></div>{% endif %}
 {% if ann %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(ann)|upper }}</b><p>{{ ann.body }}</p></div>{% endif %}
 {% if not week_sessions %}{% if can_host_practice() %}{{ rg_empty('Nothing coming up.', 'Nothing is on the schedule yet. Add a practice, scrimmage or game and it shows up here for everyone.', 'Add to the schedule', '/events/new?lane=schedule') }}{% else %}{{ rg_empty('Nothing coming up.', 'Coaches post practices here. Want a game or meetup? Suggest one for the Lineup.', 'Suggest an event', '/events/new?lane=lineup') }}{% endif %}{% endif %}
@@ -7996,7 +8062,7 @@ T["practice"] = """{% set p = x.p %}
 <div class=rg-plist id=pqGoing>{% for r in x.going %}{% set why = holds.get(r.id, '') if host else '' %}<div{% if loop.index > 4 %} data-more hidden{% endif %}>{{ rg_person(display_first(r) ~ ' ' ~ r.last, why or (('Coach' if r.id in x.coach_ids else 'Player') ~ ' · ' ~ (p.sport or 'Water Polo')), initials(r), 'In' if r.id in in_ids else 'Going', 'going', '', '', 'sun', ('/avatar/' ~ r.id ~ '?v=' ~ r.photo) if r.photo else '') }}</div>{% else %}<p class=rg-note>No one yet.</p>{% endfor %}</div>
 {% if x.going|length > 4 %}<button type=button class=rg-seeall data-seeall=pqGoing>See all {{ x.going|length }} going</button>{% endif %}{% endif %}
 {% if p.location and not p.cancelled %}{{ rg_section('Getting there') }}
-{{ rg_drive('–', 'Tap to plan when to leave', '', 'YOUR DRIVE', '/practices/' ~ p.id ~ '/leave-by') }}
+{{ rg_drive('–', 'Tap to plan when to leave', '', 'YOUR ESTIMATED DRIVE', '/practices/' ~ p.id ~ '/leave-by') }}
 <div data-pqdrive="{{ p.id }}" hidden></div>
 {{ rg_settings_row('Rides', 'Ask for one · Offer seats', '/practices/' ~ p.id ~ '/rides') }}
 {% endif %}
@@ -8048,7 +8114,7 @@ T["practice"] = """{% set p = x.p %}
 <script>(function(){var m=document.querySelector('[data-pqdrive]'); if(!m||!navigator.geolocation||!navigator.permissions) return; var card=m.previousElementSibling; if(!card||!card.classList.contains('rg-drive')) return;
  navigator.permissions.query({name:'geolocation'}).then(function(st){ if(st.state!=='granted') return;
   navigator.geolocation.getCurrentPosition(function(pos){ fetch('/api/leave-by',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF':(window.PUSH_CSRF||'')},body:JSON.stringify({id:+m.getAttribute('data-pqdrive'),lat:pos.coords.latitude,lng:pos.coords.longitude})}).then(function(r){return r.json();}).then(function(j){ if(!j||!j.ok) return;
-   var top=card.querySelector('.rg-drvk'); if(top&&j.miles) top.textContent='YOUR DRIVE · '+j.miles+' MI';
+   var top=card.querySelector('.rg-drvk'); if(top&&j.miles) top.textContent='YOUR ESTIMATED DRIVE · '+j.miles+' MI';
    var n=card.querySelector('.rg-drvnum b'); if(n) n.textContent=j.minutes;
    var sm=card.querySelector('.rg-drvnum small'); if(sm) sm.textContent=j.estimated?'Estimate':'With traffic';
    var t=card.querySelector('.rg-drvtop'); if(t&&j.leave_by){ var b=t.querySelector('.rg-drvleave')||document.createElement('span'); b.className='rg-drvleave'; b.textContent='Leave by '+j.leave_by; t.appendChild(b); } }).catch(function(){}); }, function(){}, {maximumAge:600000,timeout:8000}); }).catch(function(){}); })();</script>

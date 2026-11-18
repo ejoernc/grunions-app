@@ -801,7 +801,7 @@ def progress_card(title, done, total, sub=""):
         _e(title), pct, ('<small>%s</small>' % _e(sub)) if sub else ""))
 
 
-def drive_card(minutes, note="", leave="", kicker="YOUR DRIVE", href=""):
+def drive_card(minutes, note="", leave="", kicker="YOUR ESTIMATED DRIVE", href=""):
     """2.0 / Drive card (Figma 359:1134): lime, r40. Caps kicker + ink 'Leave by' pill, 80px minutes, MIN + note, 60px ink disc."""
     pill = ('<span class=rg-drvleave>%s</span>' % _e(leave)) if leave else ""
     inner = ('<span class=rg-drvtop><span class=rg-drvk>%s</span>%s</span><span class=rg-drvmid><span class=rg-drvnum><b>%s</b>'
