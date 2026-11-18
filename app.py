@@ -1307,6 +1307,9 @@ def nav_context_processor():
     if ep == "admin" and (request.args.get("from") or "") == "practice" and (request.args.get("ev") or "").startswith("p-"):
         pid = (request.args.get("ev") or "")[2:]
         if pid.isdigit(): href, back_title = "/practices/%s" % pid, "Practice"
+    # Leave-by opened from the drive card on the map / week goes back there; from a practice, back to the practice.
+    if ep == "leave_by_page" and (request.args.get("from") or "") in ("home", "week"):
+        href, back_title = ("/home" if request.args.get("from") == "home" else "/practices"), "My week"
     return {"nav_kind": kind, "nav_area": nav.area(ep, args), "nav_back_href": href,
             "nav_back_title": back_title, "nav_title": nav.title(ep, args),
             "nav_topbar": kind == "page" and bool(href)}

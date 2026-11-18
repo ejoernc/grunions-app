@@ -5294,7 +5294,7 @@ T["home"] = """{% if (tab=='home' or sched_home) and pins %}
 <div class=weekthis>
 {% if tab == 'home' %}<div class=homealerts>{{ push_card() }}{% for n in notices %}<div class="note notice">{{n.body}}</div>{% endfor %}</div>
 {% if not (me().usawp_number or '')|trim %}{{ rg_usawp_card(csrf_field(), not trial_window(me()), TRIAL_JOIN_URL) }}{% endif %}{% endif %}
-{% if show_drive %}{{ r2_drive_card(drive_num or '–', drive_note or drive_detail, ('' if drive_card_live else drive_chip), drive_placeholder, drive_kicker or 'YOUR ESTIMATED DRIVE', ('/practices/' ~ nextp.id ~ '/leave-by') if nextp else '') }}{% endif %}
+{% if show_drive %}{{ r2_drive_card(drive_num or '–', drive_note or drive_detail, ('' if drive_card_live else drive_chip), drive_placeholder, drive_kicker or 'YOUR ESTIMATED DRIVE', ('/practices/' ~ nextp.id ~ '/leave-by?from=' ~ ('home' if request.path == '/home' else 'week')) if nextp else '') }}{% endif %}
 {% if show_rides %}<div class=ridebtns><button type=button id=needRide>{{ ride_label }}</button><button type=button id=offerRide>Offer a ride</button></div>{% endif %}
 {% if ann %}<div class=anncard><b>ANNOUNCEMENT · {{ display_first(ann)|upper }}</b><p>{{ ann.body }}</p></div>{% endif %}
 {% if not week_sessions %}{% if can_host_practice() %}{{ rg_empty('Nothing coming up.', 'Nothing is on the schedule yet. Add a practice, scrimmage or game and it shows up here for everyone.', 'Add to the schedule', '/events/new?lane=schedule') }}{% else %}{{ rg_empty('Nothing coming up.', 'Coaches post practices here. Want a game or meetup? Suggest one for the Lineup.', 'Suggest an event', '/events/new?lane=lineup') }}{% endif %}{% endif %}
