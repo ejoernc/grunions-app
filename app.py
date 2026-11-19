@@ -9071,6 +9071,7 @@ def manage_home_groups(d):
         activities.append(_manage_row("Schedule", "Practices, scrimmages & games", "/admin", "cal"))
     if host:
         activities.append(_manage_row("Lineup", "Events, tournaments, camps & socials", "/manage/lineup", "people"))
+        activities.append(_manage_row("Tournaments", "Host one: interest, sports, fees", "/tournaments", "people"))
         activities.append(_manage_row("Requests", "Member-submitted events", "/manage/requests", "tray", approval_count(), "info"))
     if admin:
         sets = roster_sets(d)
@@ -9435,6 +9436,7 @@ def _manage_catalog(d):
         add("activities", "Weekly schedule", "Each sport's regular weekly times, for your website", "/manage/usual-schedule", "cal", "usual regular weekly hours times general schedule website embed")
     if host:
         add("activities", "Lineup", "Events, tournaments, camps, and socials", "/manage/lineup", "people", "event tournament camp trip lineup")
+        add("activities", "Tournaments", "Host a tournament: interest, sports, fees", "/tournaments", "people", "tournament host multi-sport interest fees registration")
         # Bulletin hidden for now (Nov 13).
         add("activities", "Requests", "Member-submitted events", "/manage/requests", "tray", "approval pending request")
     if admin:
@@ -13962,6 +13964,143 @@ def setup_card():
     done = sum(1 for s in steps if s[1])
     return {"show": done < len(steps), "steps": steps, "done": done}
 app.jinja_env.globals.update(setup_card=setup_card)
+
+
+# ---------- Tournaments (Figma 22 · Tournament module; spec Regulars_Sports_Formats_and_Tags v0.4) ----------
+import tournaments as tourn
+
+def _tour_db():
+    d = db(); tourn.ensure(d); return d
+
+def _tour_or_404(d, tid):
+    t = tourn.get(d, tid)
+    if not t: abort(404)
+    m = me()
+    if not (is_club_admin() or (m and t["created_by"] == m["id"])): abort(404)
+    return t
+
+def _tour_ctx(d, t, step):
+    hrefs = {k: "/tournaments/%d/setup/%s" % (t["id"], k) for k, _l in tourn.STEPS} if t else {"basics": "/tournaments/new"}
+    done = set()
+    if t:
+        for key, _title, _sub, ok in tourn.checklist(d, t):
+            if ok and key != "interest": done.add(key)
+        if tourn.interest_summary(d, t["id"])["responses"] or t["status"] != "draft": done.add("interest")
+    return dict(t=t, step=step, steps=tourn.STEPS, step_hrefs=hrefs, steps_done=done, presets=tourn.PRESETS,
+                title=((t["name"] if t else "") or "New tournament").rstrip(".") + ".")
+
+@app.route("/tournaments")
+@login_required
+def tournaments_list():
+    if not can_host_practice(): abort(403)
+    d = _tour_db()
+    rows = tourn.mine(d, me()["id"], is_club_admin())
+    items = [{"t": r, "line": tourn.meta_line(r), "status": tourn.STATUS.get(r["status"], ("Draft", ""))[0]} for r in rows]
+    return page(T["tour_list"], tab="tournament", items=items)
+
+@app.route("/tournaments/new", methods=["GET", "POST"])
+@login_required
+def tournament_new():
+    if not can_host_practice(): abort(403)
+    d = _tour_db(); error = ""
+    if request.method == "POST":
+        try:
+            tid = tourn.save_basics(d, None, request.form, me()["id"]); d.commit()
+            return redirect("/tournaments/%d/setup/sports" % tid)
+        except ValueError as e:
+            error = str(e)
+    return page(T["tour_setup"], tab="tournament", error=error, form=request.form, **_tour_ctx(d, None, "basics"))
+
+@app.route("/tournaments/<int:tid>/setup/<step>", methods=["GET", "POST"])
+@login_required
+def tournament_setup(tid, step):
+    if step not in dict(tourn.STEPS): abort(404)
+    d = _tour_db(); t = _tour_or_404(d, tid); error = ""
+    order = [k for k, _l in tourn.STEPS]
+    nxt = order[min(order.index(step) + 1, len(order) - 1)]
+    if request.method == "POST":
+        a = request.form.get("action") or "continue"
+        try:
+            if step == "basics":
+                tourn.save_basics(d, tid, request.form, me()["id"])
+            elif step == "sports":
+                keys = [x["key"] for x in tourn.sports_of(d, tid)]
+                presets = {x["key"]: x["preset"] for x in tourn.sports_of(d, tid)}
+                if a == "add" and request.form.get("key") in tourn.SPORTS:
+                    k = request.form["key"]
+                    if k not in keys: keys.append(k)
+                    tourn.save_sports(d, tid, keys, presets); d.commit()
+                    return redirect("/tournaments/%d/setup/sports?focus=%s" % (tid, k))
+                if a == "remove":
+                    keys = [k for k in keys if k != request.form.get("key")]
+                    if keys: tourn.save_sports(d, tid, keys, presets)
+                    else: d.execute("DELETE FROM tournament_sports WHERE tournament_id=?", (tid,))
+                    d.commit(); return redirect("/tournaments/%d/setup/sports" % tid)
+                if a == "preset":
+                    k = request.form.get("key")
+                    presets[k] = request.form.get("preset")
+                    tourn.save_sports(d, tid, keys, presets); d.commit()
+                    return redirect("/tournaments/%d/setup/sports?focus=%s" % (tid, k))
+                tourn.save_sports(d, tid, keys, presets)
+            elif step == "interest":
+                if a == "open":
+                    if t["status"] == "draft": tourn.set_status(d, tid, "interest")
+                    d.commit(); return redirect("/tournaments/%d/setup/interest" % tid)
+                if a == "close":
+                    if t["status"] == "interest": tourn.set_status(d, tid, "draft")
+                    d.commit(); return redirect("/tournaments/%d/setup/interest" % tid)
+            elif step == "registration":
+                tourn.save_registration(d, tid, request.form)
+            elif step == "review":
+                if a == "publish":
+                    missing = [title for key, title, _s, ok in tourn.checklist(d, t) if not ok]
+                    if missing: raise ValueError("Finish %s first." % " and ".join(missing))
+                    tourn.set_status(d, tid, "published"); d.commit()
+                    flash("Published", "toast"); return redirect("/tournaments/%d" % tid)
+            d.commit()
+            return redirect("/tournaments/%d" % tid if step == "review" else "/tournaments/%d/setup/%s" % (tid, nxt))
+        except ValueError as e:
+            error = str(e); d.rollback(); t = tourn.get(d, tid)
+    ctx = _tour_ctx(d, t, step)
+    sp = tourn.sports_of(d, tid)
+    focus = request.args.get("focus") or (sp[0]["key"] if sp else "")
+    fs = next((x for x in sp if x["key"] == focus), None)
+    q = (request.args.get("q") or "").strip()
+    picked = {x["key"] for x in sp}
+    found = [x for x in tourn.search(q, 12) if x["key"] not in picked][:8 if q else 4]
+    iv = tourn.interest_summary(d, tid)
+    share = public_base_url() + "/t/" + t["token"]
+    today = today_pt().isoformat()
+    return page(T["tour_setup"], tab="tournament", error=error, form=request.form if error else None, sports=sp, focus=fs, found=found, q=q,
+                iv=iv, share=share, checklist=tourn.checklist(d, t), fee=tourn.fee_today(t, today), today_label=tourn.short(today),
+                money=tourn.money, dims=tourn.PRESET_DIMS, meta=tourn.meta_line(t), **ctx)
+
+@app.route("/tournaments/<int:tid>")
+@login_required
+def tournament_ws(tid):
+    d = _tour_db(); t = _tour_or_404(d, tid)
+    tab = request.args.get("tab") or "overview"
+    iv = tourn.interest_summary(d, tid)
+    sp = tourn.sports_of(d, tid)
+    return page(T["tour_ws"], tab="tournament", t=t, ws_tab=tab, iv=iv, sports=sp, meta=tourn.meta_line(t), status=tourn.STATUS.get(t["status"], ("Draft", "")),
+                share=public_base_url() + "/t/" + t["token"], money=tourn.money, presets=tourn.PRESETS)
+
+@app.route("/t/<token>", methods=["GET", "POST"])
+def tournament_public(token):
+    d = _tour_db(); t = tourn.by_token(d, token)
+    if not t: abort(404)
+    sp = tourn.sports_of(d, t["id"]); error = ""; sent = request.args.get("sent") == "1"
+    open_ = t["status"] in ("interest", "published")
+    if request.method == "POST":
+        if not open_: abort(403)
+        try:
+            m = me()
+            tourn.add_interest(d, t, request.form, m["id"] if m else None); d.commit()
+            return redirect("/t/%s?sent=1" % token)
+        except ValueError as e:
+            error = str(e)
+    return page(T["tour_public"], tab="tournament", t=t, sports=sp, error=error, sent=sent, open_=open_, form=request.form if error else None,
+                meta=tourn.meta_line(t), presets=tourn.PRESETS, iv=tourn.interest_summary(d, t["id"]))
 
 ensure_vapid()
 start_scheduler()

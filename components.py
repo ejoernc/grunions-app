@@ -812,7 +812,9 @@ def drive_card(minutes, note="", leave="", kicker="ESTIMATED DRIVE TO PRACTICE",
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,
                 rg_event=event_line, rg_event_line=event_line, rg_event_row=event_row, rg_event_card=event_card, rg_row=row, rg_callout=callout, rg_metric=metric,
-                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, rg_person=person_row, rg_group_card=group_card, rg_detail_group=detail_group, rg_doc_card=doc_card, rg_notif=notif_preview, rg_person_status=person_status, rg_status_list=status_list, rg_pass=pass_card, rg_kv=kv_rows, rg_progress=progress_card, rg_drive=drive_card, rg_color_dots=color_dots, rg_poll=poll_card, rg_poll_bar=poll_bar, event_tone=event_tone, row_color=row_color, EVENT_COLORS=EVENT_COLORS)
+                rg_info=info, rg_empty=empty, rg_manage_tile=manage_tile, rg_social_card=social_card, rg_practice_actions=practice_actions, rg_search=search_field, rg_stat=stat_card, rg_chart_switch=chart_switch, rg_top_bar=top_bar, rg_qr_card=qr_card, rg_sheet_head=sheet_head, rg_page_title=page_title, rg_button=button, rg_settings_row=settings_row, rg_hub=hub_tile, rg_stack_tile=stack_tile, rg_counts=count_chips, rg_event_cancelled=event_cancelled, rg_checklist=checklist, rg_checkin_hero=checkin_hero, rg_checkin_row=checkin_row, rg_plus=plus_button, rg_event_hero=event_hero, rg_back=back_button, rg_toggle=toggle, rg_choice=choice, rg_section_count=section_count, rg_status_toggle=status_toggle, rg_choice_chips=choice_chips, rg_code=code_block, rg_steps=steps, rg_block_row=block_row, rg_auth_head=auth_head, rg_brand=brand_mark, rg_notice=notice, rg_divider=divider, rg_dob=dob_field, rg_membership_sex=membership_sex, rg_info_block=info_block, rg_person=person_row, rg_group_card=group_card, rg_detail_group=detail_group, rg_doc_card=doc_card, rg_notif=notif_preview, rg_person_status=person_status, rg_status_list=status_list, rg_pass=pass_card, rg_kv=kv_rows, rg_progress=progress_card, rg_drive=drive_card, rg_color_dots=color_dots, rg_poll=poll_card, rg_poll_bar=poll_bar, event_tone=event_tone, row_color=row_color, EVENT_COLORS=EVENT_COLORS,
+                rg_tour_head=tour_head, rg_stepper=stepper, rg_note_bar=note_bar, rg_host_choice=host_choice, rg_preset_card=preset_card, rg_dim_chip=dim_chip,
+                rg_fee_hero=fee_hero, rg_check_row=check_row, rg_hero_card=hero_card, rg_status_pills=status_pills, rg_pill_tabs=pill_tabs, rg_next_card=next_card)
 
 
 def poll_card(s, compact=False, vote=True):
@@ -869,3 +871,94 @@ def poll_bar(s):
                       % (e(s["href"]), e(s["title"]), pct, e(name), pct, s["voters"], (" · " + e(s["ends"])) if s["ends"] else ""))
     return Markup('<a class="rg-pollsticky" href="%s"><span class=rg-pollstx><small>NEW POLL%s</small><b>%s</b></span><span class="rg-btn primary rg-pollgo">Vote</span></a>'
                   % (e(s["href"]), (" · " + e(s["ends"]).upper()) if s["ends"] else "", e(s["title"])))
+
+
+# ---------- Tournaments (Figma 22 · Tournament module, 2.0 frames) ----------
+
+def tour_head(right="", right_href=""):
+    """Tournament module header (Setup / Workspace 2.0): logo mark + "tournaments" wordmark, caps link on the right."""
+    r = ""
+    if right:
+        r = ('<a class=rg-tourright href="%s">%s</a>' % (_e(right_href), _e(right))) if right_href else ('<span class=rg-tourright>%s</span>' % _e(right))
+    return Markup('<div class=rg-tourhead><span class=rg-tourmark><i class=rg-brandmark aria-hidden=true></i><b>tournaments</b></span>%s</div>' % r)
+
+
+def stepper(items, current, hrefs=None, done=()):
+    """2.0 / Stepper (364:1263): numbered pills; the current one is lime with its label, done ones get a lime number."""
+    out = []
+    for i, (key, lbl) in enumerate(items):
+        num = "%02d" % (i + 1)
+        if key == current:
+            inner = '<i>%s</i><b>%s</b>' % (num, _e(lbl))
+            cls = "rg-stepper-on"
+        else:
+            inner = '<i>%s</i>' % num
+            cls = "rg-stepper-done" if key in done else ""
+        href = (hrefs or {}).get(key)
+        tag = ('<a class="rg-stepperpill %s" href="%s" aria-label="%s"%s>%s</a>' % (cls, _e(href), _e(lbl), ' aria-current=step' if key == current else "", inner)) if href \
+            else ('<span class="rg-stepperpill %s" aria-label="%s"%s>%s</span>' % (cls, _e(lbl), ' aria-current=step' if key == current else "", inner))
+        out.append(tag)
+    return Markup('<nav class=rg-stepper aria-label=Steps>%s</nav>' % "".join(out))
+
+
+def note_bar(text):
+    """Setup note (387:4542): graphite card with a lime bar on the left."""
+    return Markup('<div class=rg-notebar><i aria-hidden=true></i><p>%s</p></div>' % _e(text))
+
+
+def host_choice(name, value, title, sub, checked=False):
+    """Who is hosting (387:4356): big radio card; the picked one is cobalt."""
+    return Markup('<label class=rg-hostcard><input type=radio name="%s" value="%s"%s><b>%s</b><small>%s</small></label>' % (
+        _e(name), _e(value), " checked" if checked else "", _e(title), _e(sub)))
+
+
+def preset_card(letter, name, sub, tone="sun", on=False, attrs="", tag="div"):
+    """Sport / format preset tile (387:4546): big letter, check when picked, sport name, format name."""
+    mark = icon("check") if on else '<span class=rg-presetplus aria-hidden=true>+</span>'
+    return Markup('<%s class="rg-preset%s" style="--tone:var(--team-%s)"%s><span class=rg-presettop><b>%s</b>%s</span><strong>%s</strong><small>%s</small></%s>' % (
+        tag, " on" if on else "", _e(tone), (" " + attrs) if attrs else "", _e(letter), mark, _e(name), _e(sub), tag))
+
+
+def dim_chip(kicker, value, tone=""):
+    """Format dimension / date-window chip (387:4572, 387:5347): caps kicker over a bold value."""
+    style = (' style="--tone:var(--team-%s)"' % _e(tone)) if tone else ""
+    return Markup('<div class="rg-dimchip%s"%s><span>%s</span><b>%s</b></div>' % (" toned" if tone else "", style, _e(kicker), _e(value)))
+
+
+def fee_hero(kicker, amount, sub="", size="xl"):
+    """Lime fee card. xl = Setup / Registration base fee (387:5325); md = Review "fee today" (387:5729)."""
+    return Markup('<div class="rg-feehero %s"><span>%s</span><b>%s</b>%s</div>' % (
+        _e(size), _e(kicker), _e(amount), ('<small>%s</small>' % _e(sub)) if sub else ""))
+
+
+def check_row(title, sub, done=True, href="", action="Edit"):
+    """Review checklist row (387:5701): lime check circle, title + one line, Edit on the right."""
+    tick = '<span class="rg-checkdot%s">%s</span>' % ("" if done else " todo", icon("check") if done else "")
+    inner = '%s<span class=rg-txt><b>%s</b><small>%s</small></span><em>%s</em>' % (tick, _e(title), _e(sub), _e(action))
+    if href:
+        return Markup('<a class=rg-checkrow href="%s">%s</a>' % (_e(href), inner))
+    return Markup('<div class=rg-checkrow>%s</div>' % inner)
+
+
+def hero_card(chip_label, title, line="", tone="cobalt", chips=()):
+    """Review / public hero (387:5694): colored card, lime chip, display title, one line, optional outline chips."""
+    extra = ('<span class=rg-herochips>%s</span>' % "".join('<i>%s</i>' % _e(c) for c in chips)) if chips else ""
+    return Markup('<div class=rg-herocard style="--tone:var(--team-%s)"><span class=rg-herochip>%s</span><h2>%s</h2>%s%s</div>' % (
+        _e(tone), _e(chip_label), _e(title), ('<p>%s</p>' % _e(line)) if line else "", extra))
+
+
+def status_pills(items):
+    """Status chips over a workspace title (388:5258): [(label, tone)] where tone is sun | lime | graphite."""
+    return Markup('<div class=rg-statuspills>%s</div>' % "".join('<span class="rg-statuspill %s">%s</span>' % (_e(t), _e(l)) for l, t in items))
+
+
+def pill_tabs(items, current):
+    """Workspace tabs (388:5264): wrapping pills, the current one lime. items = [(key, label, href)]."""
+    return Markup('<nav class=rg-pilltabs aria-label=Sections>%s</nav>' % "".join(
+        '<a href="%s"%s>%s</a>' % (_e(h), ' class=on aria-current=page' if k == current else "", _e(l)) for k, l, h in items))
+
+
+def next_card(kicker, title, actions=()):
+    """Workspace "Next" card (388:5279): caps kicker, display line, small pill buttons. actions = [(label, href, primary)]."""
+    btns = "".join('<a class="rg-pillbtn%s" href="%s">%s</a>' % (" on" if p else "", _e(h), _e(l)) for l, h, p in actions)
+    return Markup('<div class=rg-nextcard><span>%s</span><h2>%s</h2>%s</div>' % (_e(kicker), _e(title), ('<div class=rg-nextbtns>%s</div>' % btns) if btns else ""))

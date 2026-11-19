@@ -101,6 +101,12 @@ route("poll_new", "New poll", "chat", "chat")
 route("poll_page", "Poll", "chat", "chat")
 route("poll_edit", "Edit poll", "chat", "chat")
 route("chat_polls", "Polls", "chat", "chat")
+# Tournaments (Figma 22)
+route("tournaments_list", "Tournaments", "lineup", "lineup")
+route("tournament_new", "New tournament", "tournaments_list", "lineup")
+route("tournament_ws", "Tournament", "tournaments_list", "lineup")
+route("tournament_setup", "Tournament setup", "tournament_ws", "lineup")
+route("tournament_public", "Tournament", None, "public", "root")
 route("person_profile", "Person", "chat", "chat")
 route("inbox", "Chat", "chat", "chat", "redirect")
 # Calendar (Me)
@@ -245,7 +251,7 @@ def parent(endpoint, args):
 
 
 # View args a parent inherits from its child (e.g. /practices/<pid>/rides → /practices/<pid>).
-CARRY = ("pid", "eid", "slug", "mid", "area")
+CARRY = ("pid", "eid", "slug", "mid", "area", "tid")
 
 
 def parent_url(endpoint, args, url_for):
