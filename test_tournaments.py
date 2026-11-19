@@ -127,12 +127,13 @@ def test_hosted_competition_in_lineup_opens_the_setup():
     tok = _csrf(c, "/events/new?lane=lineup")
     r = c.post("/events/new", data={"csrf": tok, "action": "preview", "lane": "lineup", "event_type": "Competition", "hosting": "Hosting", "line_title": "Grunion Open",
                                     "description": "Our open.", "date": "2027-05-01", "date_precision": "exact", "start": "09:00", "location": "Belmont Pool",
-                                    "line_sport_on": "1", "line_sport": ["Water Polo", "Swimming"]})
+                                    "line_sport_on": "1", "line_sport": ["Water Polo", "Swimming", "Pickleball", "Tube relay"]})
     assert r.status_code == 302 and "/setup/basics" in r.headers["Location"], r.headers.get("Location")
     tid = int(r.headers["Location"].split("/")[2])
     with A.app.app_context():
         t = tourn.get(A.db(), tid)
         assert t["lineup_event_id"] and t["name"] == "Grunion Open" and t["multi"] == 1
-        assert [s["key"] for s in tourn.sports_of(A.db(), tid)] == ["water-polo", "swimming"]
+        # Club sports, a listed sport the club doesn't run yet, and one the host typed.
+        assert [s["key"] for s in tourn.sports_of(A.db(), tid)] == ["water-polo", "swimming", "pickleball", "custom-tube-relay"]
     # The Lineup event links back to its setup.
     assert "/tournaments/%d" % tid in c.get("/lineup/%d" % t["lineup_event_id"]).get_data(as_text=True)

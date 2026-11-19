@@ -461,6 +461,9 @@ body.editor .sportchips label{display:inline-flex;margin:0;cursor:pointer}
 body.editor .sportchips input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
 body.editor .sportchips span{display:inline-flex;align-items:center;height:40px;padding:0 14px;border-radius:999px;background:var(--graphite);color:var(--paper);font:600 16px/16px var(--r2-font-sans);letter-spacing:normal;text-transform:none}
 body.editor .sportchips input:checked+span{background:var(--team-lavender);color:var(--ink)}
+body.editor .sportchips .sportmore{display:inline-flex;align-items:center;height:40px;padding:0 14px;border:1.5px dashed var(--smoke);border-radius:999px;background:transparent;color:var(--paper);font:600 16px/16px var(--r2-font-sans, var(--font-sans));cursor:pointer}
+body.editor .sportadd{display:flex;gap:8px;margin:0 0 6px}
+body.editor .sportadd input{flex:1 1 auto;min-width:0}
 body.editor .sportchips input:focus-visible+span{outline:2px solid var(--lime);outline-offset:2px}
 body.editor .sporthint{margin:0 0 16px}
 body.editor label{font:700 11px/1.2 var(--r2-font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--smoke)}
@@ -2571,8 +2574,23 @@ dialog.memberedit .help a{color:var(--t1)}
 {%- endif -%}
 {%- endmacro %}
 {% macro line_sport_chips(selected) %}<div class=rg-day>Sport</div>
-<div class="typechips sportchips" role=group aria-label="Sport"><input type=hidden name=line_sport_on value=1>{% for s in lineup_sport_options(selected) %}<label><input type=checkbox name=line_sport value="{{ s }}"{% if s in selected %} checked{% endif %}><span>{{ s }}</span></label>{% endfor %}</div>
-<p class="ty-muted ty-sm sporthint">Pick more than one for a multi-sport event.</p>{% endmacro %}
+<div class="typechips sportchips" role=group aria-label="Sport" id=lineSportChips><input type=hidden name=line_sport_on value=1>{% for s in lineup_sport_options(selected) %}<label><input type=checkbox name=line_sport value="{{ s }}"{% if s in selected %} checked{% endif %}><span>{{ s }}</span></label>{% endfor %}<button type=button class=sportmore id=lineSportMore aria-expanded=false>+ Another sport</button></div>
+<div class=sportadd id=lineSportAdd hidden><input id=lineSportName list=lineSportList maxlength=40 autocomplete=off placeholder="Search sports or type your own" aria-label="Another sport"><button type=button class="rg-btn secondary" id=lineSportAddBtn>Add</button>
+<datalist id=lineSportList>{% for n in all_sport_names() %}<option value="{{ n }}">{% endfor %}</datalist></div>
+<p class="ty-muted ty-sm sporthint">Pick more than one for a multi-sport event. Not one of your club's sports? Add it.</p>
+<script>(function(){
+ var more=document.getElementById('lineSportMore'), box=document.getElementById('lineSportAdd'), inp=document.getElementById('lineSportName'), go=document.getElementById('lineSportAddBtn'), chips=document.getElementById('lineSportChips');
+ if(!more||!box) return;
+ more.onclick=function(){ box.hidden=!box.hidden; more.setAttribute('aria-expanded', String(!box.hidden)); if(!box.hidden) inp.focus(); };
+ function add(){
+  var name=(inp.value||'').replace(/\s+/g,' ').trim().slice(0,40); if(!name) return;
+  var hit=[].slice.call(chips.querySelectorAll('input[name=line_sport]')).filter(function(x){ return x.value.toLowerCase()===name.toLowerCase(); })[0];
+  if(hit){ hit.checked=true; }
+  else { var l=document.createElement('label'), c=document.createElement('input'), s=document.createElement('span'); c.type='checkbox'; c.name='line_sport'; c.value=name; c.checked=true; s.textContent=name; l.appendChild(c); l.appendChild(s); chips.insertBefore(l, more); }
+  inp.value=''; box.hidden=true; more.setAttribute('aria-expanded','false');
+ }
+ go.onclick=add; inp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); add(); } });
+})();</script>{% endmacro %}
 {% macro lineup_card(e, back='/lineup', mode='compact', past=false) %}
 {%- set title = e.title if e.title.endswith('.') else e.title ~ '.' -%}
 {%- set place = e.city or e.venue -%}
