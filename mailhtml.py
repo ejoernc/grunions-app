@@ -83,13 +83,15 @@ def _pills(links):
     return '<table role="presentation" width="100%%" cellspacing="0" cellpadding="0" border="0" style="table-layout:fixed;"><tr>%s</tr></table>' % "".join(cells)
 
 def render_v2(base, hero, eyebrow, big, headline, first, paragraphs, org=ORG_NAME, rows=None, note=None, cta=None,
-              calendar=None, fallback=None, footer_link=None, footer_note=None, big_size=112, preheader=""):
+              calendar=None, fallback=None, footer_link=None, footer_note=None, big_size=112, preheader="", image=""):
     """Figma 11 · Emails 2.0: colored hero (logo, eyebrow, big figure, headline), body, footer.
     Table layout with inline styles; dark mode comes from prefers-color-scheme. Dynamic text is escaped."""
     hero_bg = HERO.get(hero, hero)
     track = -0.05 * big_size
     big_html = "<br>".join(_e(part) for part in str(big).split("\n"))
     blocks = ['<div class="r-text" style="font-family:%s;font-size:17px;line-height:22px;font-weight:700;color:%s;">Hi %s,</div>' % (SANS, TEXT, _e(first))]
+    if image:
+        blocks.insert(0, '<img src="%s" alt="" width="552" style="display:block;width:100%%;max-width:552px;height:auto;border:0;outline:none;border-radius:22px;">' % _a(image))
     for p in paragraphs:
         blocks.append('<div class="r-text" style="font-family:%s;font-size:15px;line-height:22.5px;font-weight:500;color:%s;">%s</div>' % (SANS, TEXT, _e(p)))
     if note:
@@ -325,6 +327,13 @@ def preview_catalog(base, org=ORG_NAME):
             n += 1
     return out
 
+
+def lineup_new_html(base, first, title, figure, rows, image, url, unsub, org=ORG_NAME):
+    """A new Lineup event. Emails 2.0 Lineup layout (lavender hero), with the event's banner on top of the body."""
+    return render_v2(base, "lavender", "NEW ON THE LINEUP", figure, title, first,
+                     ["%s is on the Lineup. Take a look and say if you're in." % title], org=org, rows=rows,
+                     cta=("View the event", url), fallback=url, footer_link=("Turn off Lineup emails", unsub),
+                     preheader="New on the Lineup: %s" % title, image=image)
 
 def poll_html(base, first, who, where, title, rows, url, unsub, org=ORG_NAME):
     """New poll in a chat. Emails 2.0 layout; the button opens the poll's vote page."""
