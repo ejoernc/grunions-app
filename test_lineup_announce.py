@@ -84,3 +84,22 @@ def test_preview_is_a_draft_and_save_posts_and_emails_everyone():
         assert A.db().execute("SELECT status FROM lineup_events WHERE id=?", (eid,)).fetchone()[0] == "published"
     to = [s[0] for s in SENT[before:]]
     assert "lineupadmin@example.com" in to and "amy@example.com" in to
+
+
+def test_manual_email_me_and_everyone():
+    import re
+    with A.app.app_context():
+        d = A.db()
+        admin = d.execute("SELECT id FROM members WHERE email='lineupadmin@example.com'").fetchone()[0]
+        eid = d.execute("SELECT id FROM lineup_events WHERE title='Bay 5K'").fetchone()[0]
+    c = A.app.test_client()
+    with c.session_transaction() as s: s["mid"] = admin
+    tok = re.search(r'name=csrf value="([^"]+)"', c.get("/lineup/%d" % eid).get_data(as_text=True)).group(1)
+    assert "value=email_all" in c.get("/lineup/%d" % eid).get_data(as_text=True)
+    n, p = len(SENT), len(PUSHED)
+    c.post("/lineup/%d" % eid, data={"csrf": tok, "action": "email_me"})
+    assert [s[0] for s in SENT[n:]] == ["lineupadmin@example.com"] and len(PUSHED) == p
+    n = len(SENT)
+    c.post("/lineup/%d" % eid, data={"csrf": tok, "action": "email_all"})
+    to = [s[0] for s in SENT[n:]]
+    assert "amy@example.com" in to and "lineupadmin@example.com" in to and "bo@example.com" not in to and len(PUSHED) == p

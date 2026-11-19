@@ -7625,7 +7625,7 @@ def lineup_figure(row):
     except (TypeError, ValueError): return "New"
     precision = row["date_precision"] if "date_precision" in row.keys() and row["date_precision"] else "exact"
     return day.strftime("%b") if precision == "month" else "%s %d" % (day.strftime("%b"), day.day)
-def announce_lineup_event(d, eid, actor_id=None, base=None):
+def announce_lineup_event(d, eid, actor_id=None, base=None, only=None, manual=False):
     """A Lineup event just went up: tell the club once (in-app notice, push with the banner, and an email with
     the banner). Everyone gets it, the person who posted it too. Each member gets it at most once per event."""
     row = lineup_event_row(d, eid)
@@ -7638,12 +7638,14 @@ def announce_lineup_event(d, eid, actor_id=None, base=None):
     title = row["title"]
     body = "%s · %s" % (title, when) if when else title
     sent = 0
-    for m in d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system'").fetchall():
-        if not claim_notice(d, m["id"], "lineup_new:%d" % eid): continue
-        d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (m["id"], "New on the Lineup: %s" % body))
-        try: push_member(d, m, "lineup", "New on the Lineup", body, url, image)
-        except Exception as e: app.logger.warning("lineup push failed: %s", e)
-        if m["email"] and not ("lineup_email" in m.keys() and m["lineup_email"] == 0):
+    people = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system'" + (" AND id=?" if only else ""), ((only,) if only else ())).fetchall()
+    for m in people:
+        if not manual:
+            if not claim_notice(d, m["id"], "lineup_new:%d" % eid): continue
+            d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (m["id"], "New on the Lineup: %s" % body))
+            try: push_member(d, m, "lineup", "New on the Lineup", body, url, image)
+            except Exception as e: app.logger.warning("lineup push failed: %s", e)
+        if m["email"] and (only or not ("lineup_email" in m.keys() and m["lineup_email"] == 0)):
             rows = [("WHEN", when)] + ([("WHERE", place)] if place else [])
             if row["cost"]: rows.append(("COST", str(row["cost"])))
             text = "%s is on the Lineup.\n\n%s%s\n\nView the event: %s\n\nTurn Lineup emails off: %s/notifications" % (
@@ -7652,19 +7654,22 @@ def announce_lineup_event(d, eid, actor_id=None, base=None):
                 html = mailhtml.lineup_new_html(base, display_first(m), title, lineup_figure(row), rows, image, base + url,
                                                 base + "/notifications", org_name())
                 send_email(m["email"], "New on the Lineup: %s" % title, text, html=html)
+                sent += 1
             except Exception as exc:
                 app.logger.warning("lineup email to member %s failed: %s", m["id"], exc)
-        sent += 1
+        elif not manual:
+            sent += 1
     d.commit()
+    app.logger.warning("lineup announce event %s: %d sent%s", eid, sent, " (manual)" if manual else "")
     return sent
-def announce_lineup_later(eid, actor_id):
+def announce_lineup_later(eid, actor_id, only=None, manual=False):
     """Send after the reply, so publishing feels instant (same pattern as poll emails)."""
     base = app_base()
     def run():
         try:
             with app.app_context():
                 d2 = open_db()
-                try: announce_lineup_event(d2, eid, actor_id, base)
+                try: announce_lineup_event(d2, eid, actor_id, base, only=only, manual=manual)
                 finally: d2.close()
         except Exception as e:
             app.logger.warning("lineup announce failed: %s", e)
@@ -8740,6 +8745,16 @@ def lineup_detail(eid):
                 d.execute("UPDATE lineup_events SET team_intent='official', team_plan='committed', stage='going', status=CASE WHEN status IS NULL OR status='' OR status='draft' THEN 'published' ELSE status END WHERE id=?", (eid,))
                 d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "official"); d.commit()
                 if (row["status"] or "") in ("", "draft"): announce_lineup_later(eid, me()["id"])
+            return redirect("/lineup/%d" % eid)
+        if action in ("email_me", "email_all"):
+            if not _ic_host(d, row): abort(403)
+            if (row["status"] or "") != "published": abort(400)
+            if action == "email_me":
+                announce_lineup_later(eid, me()["id"], only=me()["id"], manual=True)
+                flash("Sent to %s" % me()["email"], "toast")
+            else:
+                announce_lineup_later(eid, me()["id"], manual=True)
+                flash("Emailing the club", "toast")
             return redirect("/lineup/%d" % eid)
         if action == "publish":
             if not _ic_host(d, row): abort(403)

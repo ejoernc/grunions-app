@@ -7132,6 +7132,9 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {{ whos_going(e.interested, "interested") }}
 {{ whos_going(e.people) }}
 {% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="rg-btn primary full" name=action value=official>Make official</button></form>{% endif %}
+{% if ic_host and e.status == 'published' %}<div class=rg-day>Email</div>
+<form method=post action="/lineup/{{ e.id }}" class="evnav two">{{ csrf_field() }}<button class="rg-btn secondary" name=action value=email_me>Email me a test</button><button class="rg-btn secondary" name=action value=email_all onclick="return confirm('Email this event to everyone in the club now?')">Email everyone</button></form>
+<p class="ty-muted ty-sm">The same email with the banner. Everyone gets it again, even if they had it already.</p>{% endif %}
 {% if e.venue or e.city %}{{ event_location('lineLoc', e.pins, e.venue or e.city, e.city if e.venue else '', e.dir_href) }}{% endif %}
 <script>(function(){var el=document.getElementById('evdesc'),btn=document.getElementById('evmore');if(!el||!btn)return;if(el.scrollHeight>el.clientHeight+2)btn.hidden=false;btn.onclick=function(){var open=el.classList.toggle('open');btn.textContent=open?'Less':'More';};})();</script>"""
 T["approvals"] = """{% call admin_page('Events') %}<a class="rg-btn ghost pageact" href="/events/new">Create event</a>{% endcall %}
