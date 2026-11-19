@@ -1643,6 +1643,8 @@ def send_link(email):
                      (hashlib.sha256(tok.encode()).hexdigest(), m["id"], (dt.datetime.utcnow() + dt.timedelta(minutes=LINK_MINUTES)).isoformat(),
                       safe_return_path(session.get("next") or "") or None)); db().commit()
         link = (PUBLIC_URL.rstrip("/") if PUBLIC_URL else request.host_url.rstrip("/")) + "/auth/" + tok
+        if os.environ.get("IS_PULL_REQUEST") == "true" and email.lower() in PREVIEW_INSTANT_LOGIN:
+            return redirect("/auth/" + tok)  # preview servers only: listed test accounts skip the emailed link
         if smtp_ready():
             try:
                 plain = (f"Hi {display_first(m)},\n\nTap to sign in to the Grunions team app:\n{link}\n\n"
@@ -2363,6 +2365,7 @@ PREVIEW_PEOPLE = (
     ("Sasha", "Reed", "sasha.reed@preview.regulars.invalid", "athlete", 0),
 )
 ELI_PREVIEW_EMAIL = "ejoernc@gmail.com"
+PREVIEW_INSTANT_LOGIN = {e.strip().lower() for e in os.environ.get("PREVIEW_INSTANT_LOGIN", "").split(",") if e.strip()}
 def seed_preview_club(d):
     """Fictional people for the pull-request preview disk. Never runs anywhere else, and never deletes rows."""
     if os.environ.get("IS_PULL_REQUEST") != "true":
