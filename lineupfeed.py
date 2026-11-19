@@ -153,7 +153,7 @@ def ensure_schema(d):
             team_intent=?, start_time=COALESCE(NULLIF(trim(start_time),''), ?) WHERE id=?""",
             (ids.get(slug), sub, intent, start or "09:00", row["id"]))
     d.execute("""UPDATE lineup_events SET team_plan='committed',
-        status=CASE WHEN status IS NULL OR trim(status)='' OR status='draft' THEN 'published' ELSE status END
+        status=CASE WHEN status IS NULL OR trim(status)='' THEN 'published' ELSE status END
         WHERE team_intent='official' AND (team_plan IS NULL OR trim(team_plan)='')""")
     d.execute("""UPDATE lineup_events SET team_plan='considering'
         WHERE team_intent='considering' AND (team_plan IS NULL OR trim(team_plan)='')""")

@@ -157,6 +157,7 @@ a.reglink{color:var(--accent);text-decoration:none;font-weight:600}
 .bannerprev{margin:0 0 10px;border-radius:var(--radius-card,14px);overflow:hidden;background:var(--surface);aspect-ratio:3/2}
 .bannerprev img{width:100%;height:100%;object-fit:cover;display:block}
 .bannerpick .btn{position:relative;overflow:hidden}
+.evstep .bannerpick{margin-bottom:16px}
 body.practicepage main{padding-top:0}
 .mapboxgl-ctrl-bottom-right{margin:0 6px 6px 0;z-index:460}
 .mapboxgl-ctrl-logo{opacity:.5;transform:scale(.62);transform-origin:right bottom;margin:0;cursor:pointer}
@@ -7070,6 +7071,8 @@ T["lineup"] = """{% macro lineup_months(groups, mode, past=false) %}{% for g in 
 {% if past %}<details class=lineuppast open><summary>{% if group %}Past{% else %}Past{% endif %} <span class=pastn>{{ past_n }}</span></summary>{{ lineup_months(past, 'tall', true) }}</details>{% endif %}"""
 T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
 {{ rg_event_hero(e.event_type or 'Event', e.title, [e.when, e.venue, e.city]|select|join(' · '), 'graphite' if e.status == 'canceled' else event_tone(e.event_type, false, e.color), e.status_text if e.status != 'published' else (e.tag or '')) }}
+{% if e.status == 'draft' and ic_host %}<div class=createfoot><p class="ty-muted ty-sm">Preview. Only organizers can see this. Save posts it to the Lineup and emails everyone.</p>
+<form method=post action="/lineup/{{ e.id }}" class="evnav two">{{ csrf_field() }}<a class="rg-btn secondary" href="/lineup/{{ e.id }}/edit">Edit</a><button class="rg-btn primary" name=action value=publish>Save</button></form></div>{% endif %}
 {% if ic and ic.status == 'open' %}{# Figma 62 · I2 Interest check, member view #}
 {% set icn = ic_res.counts %}
 <section class=rg-ic>
@@ -7369,6 +7372,10 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <button type=button class="lanecard{{ ' on' if lane != 'lineup' }}" data-lane=schedule><b>Team schedule</b><span>Practices, scrimmages &amp; games</span></button>
 <button type=button class="lanecard{{ ' on' if lane == 'lineup' }}" data-lane=lineup><b>Lineup event</b><span>Tournaments, camps, trips &amp; socials</span></button>
 </div>{% endif %}
+<div class=bannerpick>
+<div class="ty-muted ty-sm xs">Banner image</div>
+{{ upload_field('image', src=(dup.image_src if dup else ''), clear_name=('image_clear' if dup and dup.image else '')) }}
+</div>
 {% if staff %}<div id=schedBlock {% if lane == 'lineup' %}hidden{% endif %}>
 <div class=actseg role=radiogroup aria-label="Session type">
 <label><input type=radio name=activity_type value=practice {% if activity != 'scrimmage' and activity != 'game' %}checked{% endif %}><span>Practice</span></label>
@@ -7451,7 +7458,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div><div id=assignedCoaches class=list></div></div>
 <div class=formsec><h2>Additional details</h2><div class=list>
 <button type=button class="li selfield" data-open=setSocial><span class=selfieldk>After-practice social</span><span class="selfieldv ell" id=socSum>Not added</span>""" + _CHEV + """</button>
-<button type=button class="li selfield" data-open=setNotes><span class=selfieldk>Notes &amp; cover image</span><span class="selfieldv ell" id=noteSum>{% if dup and (dup.note or dup.image) %}Added{% else %}Not added{% endif %}</span>""" + _CHEV + """</button>
+<button type=button class="li selfield" data-open=setNotes><span class=selfieldk>Notes</span><span class="selfieldv ell" id=noteSum>{% if dup and dup.note %}Added{% else %}Not added{% endif %}</span>""" + _CHEV + """</button>
 </div></div>
 </div>{% endif %}
 <div class=list id=lineSets {% if staff and lane != 'lineup' %}hidden{% endif %}>
@@ -7547,9 +7554,8 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label>Time (optional)<input data-native type=time name=social_time min="{{ (dup.end if dup else '20:30')[:5] }}" value="{{ (dup.social_time or dup.end) if dup else '20:30' }}"></label>
 <label>Note<textarea class=planfield name=social_note rows=4>{{ dup.social_note if dup else '' }}</textarea></label>
 <button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
-<dialog class=botsheet id=setNotes><div class=sheet><div class=grab></div><h2>Notes &amp; media</h2>
+<dialog class=botsheet id=setNotes><div class=sheet><div class=grab></div><h2>Notes</h2>
 <label>Notes<textarea class=planfield name=note id=noteInput rows=4>{{ dup.note if dup else '' }}</textarea></label>
-{{ upload_field('image', src=(dup.image_src if dup else ''), clear_name=('image_clear' if dup and dup.image else '')) }}
 <button type=button class="rg-btn primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
 <dialog class=botsheet id=setReg><div class=sheet><div class=grab></div><h2>Registration</h2>
 <label>Format<select name=comp_format><option value="">Not set</option>{% for pid, name, blurb in SPORTS.FORMATS %}<option value="{{ pid }}">{{ name }}</option>{% endfor %}</select></label>

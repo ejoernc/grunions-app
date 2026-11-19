@@ -7627,7 +7627,7 @@ def lineup_figure(row):
     return day.strftime("%b") if precision == "month" else "%s %d" % (day.strftime("%b"), day.day)
 def announce_lineup_event(d, eid, actor_id=None, base=None):
     """A Lineup event just went up: tell the club once (in-app notice, push with the banner, and an email with
-    the banner). Never the person who posted it. Each member gets it at most once per event."""
+    the banner). Everyone gets it, the person who posted it too. Each member gets it at most once per event."""
     row = lineup_event_row(d, eid)
     if not row or (row["status"] or "") != "published": return 0
     base = base or app_base()
@@ -7638,7 +7638,7 @@ def announce_lineup_event(d, eid, actor_id=None, base=None):
     title = row["title"]
     body = "%s · %s" % (title, when) if when else title
     sent = 0
-    for m in d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system' AND id!=?", (actor_id or 0,)).fetchall():
+    for m in d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system'").fetchall():
         if not claim_notice(d, m["id"], "lineup_new:%d" % eid): continue
         d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (m["id"], "New on the Lineup: %s" % body))
         try: push_member(d, m, "lineup", "New on the Lineup", body, url, image)
@@ -8741,6 +8741,13 @@ def lineup_detail(eid):
                 d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "official"); d.commit()
                 if (row["status"] or "") in ("", "draft"): announce_lineup_later(eid, me()["id"])
             return redirect("/lineup/%d" % eid)
+        if action == "publish":
+            if not _ic_host(d, row): abort(403)
+            if (row["status"] or "") == "draft":
+                d.execute("UPDATE lineup_events SET status='published' WHERE id=?", (eid,)); d.commit()
+                announce_lineup_later(eid, me()["id"])
+                flash("Posted · the club is getting an email", "toast")
+            return redirect("/lineup/%d" % eid)
         if action in ("interested", "going", "notgoing", "clear") and not rsvp_seq_fresh("e%d" % eid):
             return redirect("/lineup/%d" % eid)
         try: set_lineup_rsvp(d, row, action)
@@ -9340,9 +9347,12 @@ def event_new():
             if plan_now not in lineupfeed.TEAM_PLANS: plan_now = "considering"
         wrapped = _FormWrap(request.form, title=title, start_time=request.form.get("start") or "19:00",
             mode="create" if staff else "suggest", event_type=request.form.get("event_type") or "Social",
-            hosting=hosting_now, team_intent=intent_now, team_plan=plan_now)
+            hosting=hosting_now, team_intent=intent_now, team_plan=plan_now, action="draft" if staff else "save")
+        banner = None
+        f = request.files.get("image") if request.files else None
         try:
-            info = lineupfeed.save_event(d, wrapped, me(), staff, parse_date=parse_date)
+            if f and f.filename: banner = save_banner(f)
+            info = lineupfeed.save_event(d, wrapped, me(), staff, banner=banner, parse_date=parse_date)
         except ValueError as e:
             flash(str(e))
             return _event_draft_back("/events/new?lane=lineup")
@@ -9360,8 +9370,8 @@ def event_new():
         if not staff:
             flash("Sent to admins for review", "toast")
             return redirect("/lineup")
-        flash("Preview", "toast")
-        return redirect("/lineup/%d" % info["id"] if info["status"] == "published" else "/lineup")
+        flash("Preview · nothing is posted until you save", "toast")
+        return redirect("/lineup/%d" % info["id"] if info["status"] in ("published", "draft") else "/lineup")
     practice_days = []
     if staff:
         practice_days = [r[0] for r in db().execute(

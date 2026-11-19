@@ -37,11 +37,11 @@ def test_new_lineup_event_announced_once_with_banner():
         A.announce_lineup_event(d, eid, host, "https://x.test")
         A.announce_lineup_event(d, eid, host, "https://x.test")
         got = {p[0] for p in PUSHED}
-        assert amy in got and bo in got and host not in got
+        assert amy in got and bo in got and host in got
         assert len([p for p in PUSHED if p[0] == amy]) == 1
         assert all(p[1] == "lineup" and p[4] == "/lineup/%d" % eid and p[5].endswith("/public-image/e/%d" % eid) for p in PUSHED)
         to = [s[0] for s in SENT]
-        assert to.count("amy@example.com") == 1 and "bo@example.com" not in to and "hana@example.com" not in to
+        assert to.count("amy@example.com") == 1 and "bo@example.com" not in to and to.count("hana@example.com") == 1
         html = [s[2] for s in SENT if s[0] == "amy@example.com"][0]
         assert "Charity 5K" in html and "/public-image/e/%d" % eid in html and "View the event" in html and "Mar 14" in html
         assert d.execute("SELECT COUNT(*) FROM notices WHERE member_id=? AND body LIKE 'New on the Lineup%'", (amy,)).fetchone()[0] == 1
@@ -55,3 +55,32 @@ def test_draft_or_pending_is_not_announced():
         d.commit()
         n = len(PUSHED)
         assert A.announce_lineup_event(d, eid, host, "https://x.test") == 0 and len(PUSHED) == n
+
+
+def test_preview_is_a_draft_and_save_posts_and_emails_everyone():
+    import re, io
+    with A.app.test_request_context("/"):
+        d = A.db()
+        admin = _member(d, "Ada", "lineupadmin@example.com", is_admin=1, role="admin")
+        d.commit()
+    c = A.app.test_client()
+    with c.session_transaction() as s: s["mid"] = admin
+    tok = re.search(r'name=csrf value="([^"]+)"', c.get("/events/new?lane=lineup").get_data(as_text=True)).group(1)
+    from PIL import Image
+    buf = io.BytesIO(); Image.new("RGB", (900, 600), (200, 80, 40)).save(buf, "JPEG"); buf.seek(0)
+    r = c.post("/events/new", data={"csrf": tok, "action": "preview", "lane": "lineup", "line_title": "Bay 5K", "description": "Fun run.",
+        "date": "2027-03-14", "date_precision": "exact", "location": "Back Bay", "event_type": "Social", "hosting": "Hosting",
+        "line_sport_on": "1", "line_sport": ["Road running"], "image": (buf, "b.jpg")}, content_type="multipart/form-data")
+    assert r.status_code == 302 and "/lineup/" in r.headers["Location"], r.get_data(as_text=True)[:300]
+    eid = int(r.headers["Location"].rsplit("/", 1)[1])
+    with A.app.app_context():
+        row = A.db().execute("SELECT status, banner FROM lineup_events WHERE id=?", (eid,)).fetchone()
+    assert row["status"] == "draft" and row["banner"]
+    before = len(SENT)
+    page = c.get("/lineup/%d" % eid).get_data(as_text=True)
+    assert "value=publish" in page and len(SENT) == before
+    c.post("/lineup/%d" % eid, data={"csrf": tok, "action": "publish"})
+    with A.app.app_context():
+        assert A.db().execute("SELECT status FROM lineup_events WHERE id=?", (eid,)).fetchone()[0] == "published"
+    to = [s[0] for s in SENT[before:]]
+    assert "lineupadmin@example.com" in to and "amy@example.com" in to
