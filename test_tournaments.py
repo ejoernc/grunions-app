@@ -49,11 +49,18 @@ def test_catalog_has_formats_from_the_research():
 
 def test_full_setup_interest_and_publish():
     c = _as(ADMIN)
-    r = c.post("/tournaments/new", data={"csrf": _csrf(c, "/tournaments/new"), "name": "Harbor Invitational", "starts": "2027-03-06",
+    r = c.post("/tournaments/new", data={"csrf": _csrf(c, "/tournaments/new"), "name": "Harbor Invitational", "starts": "2027-03-06", "term": "Meet",
                                           "ends": "2027-03-07", "hosting": "organization", "host_org": "Grunions", "venue": "Belmont", "city": "Long Beach"})
     assert r.status_code == 302 and r.headers["Location"].endswith("/setup/sports")
     tid = int(r.headers["Location"].split("/")[2])
     tok = _csrf(c, "/tournaments/%d/setup/sports" % tid)
+    # One sport by default: a second pick replaces the first.
+    c.post("/tournaments/%d/setup/sports" % tid, data={"csrf": tok, "action": "add", "key": "diving"})
+    c.post("/tournaments/%d/setup/sports" % tid, data={"csrf": tok, "action": "add", "key": "soccer"})
+    with A.app.app_context():
+        assert [s["key"] for s in tourn.sports_of(A.db(), tid)] == ["soccer"]
+    c.post("/tournaments/%d/setup/sports" % tid, data={"csrf": tok, "action": "mode", "multi": "1"})
+    c.post("/tournaments/%d/setup/sports" % tid, data={"csrf": tok, "action": "remove", "key": "soccer"})
     for k in ("water-polo", "swimming"):
         assert c.post("/tournaments/%d/setup/sports" % tid, data={"csrf": tok, "action": "add", "key": k}).status_code == 302
     c.post("/tournaments/%d/setup/sports" % tid, data={"csrf": tok, "action": "preset", "key": "swimming", "preset": "E"})
@@ -61,6 +68,12 @@ def test_full_setup_interest_and_publish():
     with A.app.app_context():
         sp = {s["key"]: s["preset"] for s in tourn.sports_of(A.db(), tid)}
     assert sp == {"water-polo": "A", "swimming": "E"}
+    # A sport that isn't listed: the host names it and picks how it's won.
+    c.post("/tournaments/%d/setup/sports" % tid, data={"csrf": tok, "action": "custom", "custom_name": "Tube polo", "preset": "A"})
+    with A.app.app_context():
+        names = [(s["name"], s["preset"]) for s in tourn.sports_of(A.db(), tid)]
+    assert ("Tube polo", "A") in names
+    c.post("/tournaments/%d/setup/sports" % tid, data={"csrf": tok, "action": "remove", "key": "custom-tube-polo"})
     page = c.get("/tournaments/%d/setup/sports" % tid).get_data(as_text=True)
     assert "multi-sport" in page and "Water polo" in page
     # Interest: closed until opened; anyone with the link can answer once it's open.
@@ -89,7 +102,7 @@ def test_full_setup_interest_and_publish():
     r = c.post("/tournaments/%d/setup/review" % tid, data={"csrf": tok, "action": "publish"})
     assert r.status_code == 302 and r.headers["Location"] == "/tournaments/%d" % tid
     ws = c.get("/tournaments/%d" % tid).get_data(as_text=True)
-    assert "Published" in ws and "Harbor Invitational" in ws
+    assert "Published" in ws and "Harbor Invitational" in ws and "meets" in ws  # the host's word, everywhere
 
 
 def test_only_hosts_can_create_and_only_the_owner_or_admin_can_open_it():
@@ -107,3 +120,19 @@ def test_fee_today_picks_the_window():
     assert tourn.fee_today(t, "2026-09-01") == 18000
     assert tourn.fee_today(t, "2026-10-01") == 22000
     assert tourn.fee_today(t, "2026-10-25") == 26000
+
+
+def test_hosted_competition_in_lineup_opens_the_setup():
+    c = _as(ADMIN)
+    tok = _csrf(c, "/events/new?lane=lineup")
+    r = c.post("/events/new", data={"csrf": tok, "action": "preview", "lane": "lineup", "event_type": "Competition", "hosting": "Hosting", "line_title": "Grunion Open",
+                                    "description": "Our open.", "date": "2027-05-01", "date_precision": "exact", "start": "09:00", "location": "Belmont Pool",
+                                    "line_sport_on": "1", "line_sport": ["Water Polo", "Swimming"]})
+    assert r.status_code == 302 and "/setup/basics" in r.headers["Location"], r.headers.get("Location")
+    tid = int(r.headers["Location"].split("/")[2])
+    with A.app.app_context():
+        t = tourn.get(A.db(), tid)
+        assert t["lineup_event_id"] and t["name"] == "Grunion Open" and t["multi"] == 1
+        assert [s["key"] for s in tourn.sports_of(A.db(), tid)] == ["water-polo", "swimming"]
+    # The Lineup event links back to its setup.
+    assert "/tournaments/%d" % tid in c.get("/lineup/%d" % t["lineup_event_id"]).get_data(as_text=True)

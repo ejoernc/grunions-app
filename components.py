@@ -875,12 +875,12 @@ def poll_bar(s):
 
 # ---------- Tournaments (Figma 22 · Tournament module, 2.0 frames) ----------
 
-def tour_head(right="", right_href=""):
-    """Tournament module header (Setup / Workspace 2.0): logo mark + "tournaments" wordmark, caps link on the right."""
+def tour_head(right="", right_href="", word="tournaments"):
+    """Tournament module header (Setup / Workspace 2.0): logo mark + wordmark (the host's word for it, plural), caps link on the right."""
     r = ""
     if right:
         r = ('<a class=rg-tourright href="%s">%s</a>' % (_e(right_href), _e(right))) if right_href else ('<span class=rg-tourright>%s</span>' % _e(right))
-    return Markup('<div class=rg-tourhead><span class=rg-tourmark><i class=rg-brandmark aria-hidden=true></i><b>tournaments</b></span>%s</div>' % r)
+    return Markup('<div class=rg-tourhead><span class=rg-tourmark><i class=rg-brandmark aria-hidden=true></i><b>%s</b></span>%s</div>' % (_e(word), r))
 
 
 def stepper(items, current, hrefs=None, done=()):

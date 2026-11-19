@@ -7050,6 +7050,7 @@ T["lineup"] = """{% macro lineup_months(groups, mode, past=false) %}{% for g in 
 {{ lineup_months(upcoming, 'tall') }}
 {% if past %}<details class=lineuppast open><summary>{% if group %}Past{% else %}Past{% endif %} <span class=pastn>{{ past_n }}</span></summary>{{ lineup_months(past, 'tall', true) }}</details>{% endif %}"""
 T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
+{% if comp %}<div style="padding:12px 20px 0">{{ rg_button(((comp.term or 'Competition') ~ ' setup') if comp.status != 'published' else ('Run the ' ~ (comp.term or 'competition')|lower), 'primary', '/tournaments/' ~ comp.id) }}</div>{% endif %}
 {{ rg_event_hero(e.event_type or 'Event', e.title, [e.when, e.venue, e.city]|select|join(' · '), 'graphite' if e.status == 'canceled' else event_tone(e.event_type, false, e.color), e.status_text if e.status != 'published' else (e.tag or '')) }}
 {% if ic and ic.status == 'open' %}{# Figma 62 · I2 Interest check, member view #}
 {% set icn = ic_res.counts %}
@@ -7349,7 +7350,6 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <div class=lanepick role=radiogroup aria-label="What are you planning?">
 <button type=button class="lanecard{{ ' on' if lane != 'lineup' }}" data-lane=schedule><b>Team schedule</b><span>Practices, scrimmages &amp; games</span></button>
 <button type=button class="lanecard{{ ' on' if lane == 'lineup' }}" data-lane=lineup><b>Lineup event</b><span>Tournaments, camps, trips &amp; socials</span></button>
-<a class=lanecard href=/tournaments/new><b>Host a tournament</b><span>Multi-sport · interest check · fees</span></a>
 </div>{% endif %}
 {% if staff %}<div id=schedBlock {% if lane == 'lineup' %}hidden{% endif %}>
 <div class=actseg role=radiogroup aria-label="Session type">
@@ -7364,9 +7364,9 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label id=titleField {% if not dup or not dup.title %}hidden{% endif %}>Event name<input name=title id=titleInput value="{{ dup.title if dup else '' }}" autocomplete=off><button type=button class="rg-btn ghost" id=titleReset>Reset to automatic</button></label>
 </div>{% endif %}
 <div id=lineBlock {% if staff and lane != 'lineup' %}hidden{% endif %}>
-<label>Type{{ type_select(line_types) }}</label>
+<label>Type{{ type_select(line_types, 'Competition' if staff else '') }}</label>
 {% if staff %}<div class=typechips id=typeChips>
-<button type=button data-type=Tournament class=on>Tournament</button>
+<button type=button data-type=Competition class=on>Competition</button>
 <button type=button data-type=Clinic>Clinic</button>
 <button type=button data-type=Trip>Trip</button>
 <button type=button data-type=Social>Social</button>
@@ -7724,7 +7724,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   syncHost();
   var title=document.getElementById('lineTitle');
   if(title && !title.value){
-    title.placeholder=name==='Trip'?'Fall team trip':(name==='Social'?'Fall Team Dinner':(name==='Tournament'?'IGLA 2027':'Event name'));
+    title.placeholder=name==='Trip'?'Fall team trip':(name==='Social'?'Fall Team Dinner':((name==='Tournament'||name==='Competition')?'IGLA 2027':'Event name'));
   }
   document.querySelectorAll('#typeChips button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-type')===name); });
  }
@@ -9390,15 +9390,15 @@ T["interest_results"] = """<div class="rg-screen rg-ic">
 
 # ---------- Tournaments (Figma 22 · Tournament module, 2.0 frames) ----------
 T["tour_list"] = """<div class=rg-tour>
-{{ rg_tour_head('NEW', '/tournaments/new') }}
-<h1 class=rg-tourtitle>Tournaments.</h1>
-{% if items %}{% for x in items %}{{ rg_check_row(x.t.name, x.status ~ ' · ' ~ x.line, x.t.status == 'published', '/tournaments/' ~ x.t.id, 'Open') }}{% endfor %}
-{% else %}{{ rg_empty('No tournaments yet.', 'Host one: set the basics, check who is interested, then set fees and divisions.', 'New tournament', '/tournaments/new') }}{% endif %}
-{{ rg_button('New tournament', 'primary', '/tournaments/new') }}
+{{ rg_tour_head('LINEUP', '/lineup', 'competitions') }}
+<h1 class=rg-tourtitle>Competitions.</h1>
+{% if items %}{% for x in items %}{{ rg_check_row(x.t.name, x.term ~ ' · ' ~ x.status ~ ' · ' ~ x.line, x.t.status == 'published', '/tournaments/' ~ x.t.id, 'Open') }}{% endfor %}
+{% else %}{{ rg_empty('No competitions yet.', 'Host one from Lineup: New event › Competition › Our organization.', 'New event', '/events/new?lane=lineup') }}{% endif %}
 </div>"""
 
 T["tour_setup"] = """<div class=rg-tour>
-{{ rg_tour_head('CREATE' if not t else 'MY TOURNAMENTS', '' if not t else '/tournaments/' ~ t.id) }}
+{% set word = (term|lower) ~ ('es' if (term|lower).endswith('h') else 's') %}
+{{ rg_tour_head('CREATE' if not t else ('LINEUP' if t.lineup_event_id else 'OVERVIEW'), '' if not t else ('/lineup/' ~ t.lineup_event_id if t.lineup_event_id else '/tournaments/' ~ t.id), word) }}
 <h1 class=rg-tourtitle>{{ title }}</h1>
 {{ rg_stepper(steps, step, step_hrefs if t else None, steps_done) }}
 {% if error %}<p class=rg-tourerr role=alert>{{ error }}</p>{% endif %}
@@ -9406,6 +9406,10 @@ T["tour_setup"] = """<div class=rg-tour>
 {% if step == 'basics' %}
 <form method=post action="{{ '/tournaments/new' if not t else '/tournaments/' ~ t.id ~ '/setup/basics' }}" id=tourForm>{{ csrf_field() }}
 <label class=rg-field><span>Name</span><input name=name required maxlength=120 value="{{ f.get('name') or (t.name if t else '') }}" placeholder="Harbor Regulars Invitational"></label>
+<p class=rg-tourcaps>What do you call it?</p>
+{% set cur = f.get('term') or (term if term in terms else ('other' if t and t.term else 'Competition')) %}
+<div class=rg-chanset role=radiogroup aria-label="What do you call it?">{% for w in terms %}<label><input type=radio name=term value="{{ w }}"{% if cur == w %} checked{% endif %}><span>{{ w }}</span></label>{% endfor %}<label><input type=radio name=term value=other{% if cur == 'other' %} checked{% endif %}><span>Something else</span></label></div>
+<label class=rg-field data-term=other><span>Your word</span><input name=term_other maxlength=24 value="{{ f.get('term_other') or (term if t and term not in terms else '') }}" placeholder="Invitational, Open, Classic…"></label>
 <label class=rg-field><span>Summary</span><input name=summary maxlength=240 value="{{ f.get('summary') or (t.summary if t else '') or '' }}" placeholder="A club weekend at your pool"></label>
 <div class=rg-tourpair><label class=rg-field><span>Starts</span><input type=date name=starts required value="{{ f.get('starts') or (t.starts if t else '') }}"></label>
 <label class=rg-field><span>Ends</span><input type=date name=ends value="{{ f.get('ends') or (t.ends if t else '') }}"></label></div>
@@ -9425,26 +9429,37 @@ T["tour_setup"] = """<div class=rg-tour>
 <div class=rg-tournav>{{ rg_button('Cancel', 'secondary', '/tournaments' if not t else '/tournaments/' ~ t.id) }}{{ rg_button('Continue', 'primary') }}</div>
 </form>
 {% elif step == 'sports' %}
-{{ rg_note_bar('Pick the sports in this tournament. A preset fills entrant, structure, result, ranking, and progression. Each stage can use its own format later — pools then a bracket, heats then a final.') }}
+<form method=post class=rg-hostlist role=radiogroup aria-label="How many sports?" onchange="this.requestSubmit?this.requestSubmit():this.submit()">{{ csrf_field() }}<input type=hidden name=action value=mode>
+{{ rg_host_choice('multi', '0', 'One sport', 'Every entrant plays the same sport.', not t.multi) }}
+{{ rg_host_choice('multi', '1', 'Multiple sports', 'Like a multi-sport weekend: one base fee and one schedule per athlete.', t.multi) }}
+</form>
+{{ rg_note_bar(('Pick the sports in this ' if t.multi else 'Pick the sport for this ') ~ (term|lower) ~ '. A preset fills entrant, structure, result, ranking, and progression. Each stage can use its own format later — pools then a bracket, heats then a final.') }}
 <div class=rg-presetgrid>
 {% for s in sports %}{% set p = presets[s.preset] %}{{ rg_preset_card(s.preset, s.name, p[0], p[3], True, 'href="?focus=' ~ s.key ~ '"' ~ (' aria-current=true' if focus and focus.key == s.key else ''), 'a') }}{% endfor %}
-{% for s in found %}{% set p = presets[s.default] %}<form method=post class=rg-presetform>{{ csrf_field() }}<input type=hidden name=action value=add><input type=hidden name=key value="{{ s.key }}">{{ rg_preset_card(s.default, s.name, p[0], p[3], False, 'type=submit aria-label="Add ' ~ s.name ~ '"', 'button') }}</form>{% endfor %}
+{% for s in found %}{% set p = presets[s.default] %}<form method=post class=rg-presetform>{{ csrf_field() }}<input type=hidden name=action value=add><input type=hidden name=key value="{{ s.key }}">{{ rg_preset_card(s.default, s.name, p[0], p[3], False, 'type=submit aria-label="' ~ ('Add ' if t.multi or not sports else 'Switch to ') ~ s.name ~ '"', 'button') }}</form>{% endfor %}
 </div>
 <form method=get class=rg-sportsearch role=search><label class=rg-field><span>Find a sport</span><input name=q value="{{ q }}" placeholder="Pickleball, diving, disc golf…" autocomplete=off></label></form>
-{% if q and not found %}<p class=rg-tourmeta>No sport matches “{{ q }}”. Try another name.</p>{% endif %}
+{% if q and not found %}<p class=rg-tourmeta>No listed sport matches “{{ q }}”. Add it as your own below.</p>{% endif %}
+<details class=rg-customsport{% if q and not found %} open{% endif %}><summary>Not listed? Add your own sport</summary>
+<form method=post>{{ csrf_field() }}<input type=hidden name=action value=custom>
+<label class=rg-field><span>Sport name</span><input name=custom_name maxlength=40 required value="{{ q if q and not found else '' }}" placeholder="Inner-tube water polo"></label>
+<p class=rg-tourcaps>How is it won?</p>
+<div class=rg-presetpick>{% for c, p in presets.items() %}<label style="--tone:var(--team-{{ p[3] }})"><input type=radio name=preset value="{{ c }}"{% if loop.first %} checked{% endif %}><span>{{ c }} · {{ p[0] }}</span></label>{% endfor %}</div>
+{{ rg_button('Add sport', 'secondary') }}
+</form></details>
 {% if focus %}{% set p = presets[focus.preset] %}
 <p class=rg-tourcaps>Format preset · {{ focus.name }}</p>
 <form method=post class=rg-presetpick style="--tone:var(--team-{{ p[3] }})">{{ csrf_field() }}<input type=hidden name=action value=preset><input type=hidden name=key value="{{ focus.key }}">
 {% for c in focus.allowed %}<label><input type=radio name=preset value="{{ c }}" onchange="this.form.submit()"{% if c == focus.preset %} checked{% endif %}><span>{{ c }} · {{ presets[c][0] }}</span></label>{% endfor %}
 </form>
 <div class=rg-dims>{% for k, v in dims[focus.preset] %}{{ rg_dim_chip(k, v) }}{% endfor %}</div>
-{% if focus.stages %}{{ rg_info_block('Typical stages', focus.stages, focus.tier ~ (' · ' ~ focus.sub if focus.sub else '')) }}{% endif %}
+{% if focus.stages %}{{ rg_info_block('Typical stages', focus.stages, focus.tier ~ (' · ' ~ focus.sub if focus.sub else '')) }}{% elif focus.custom %}<p class=rg-tourmeta>Your own sport. Pick how it's won; stages come with divisions.</p>{% endif %}
 <form method=post>{{ csrf_field() }}<input type=hidden name=action value=remove><input type=hidden name=key value="{{ focus.key }}">{{ rg_button('Remove ' ~ focus.name, 'ghost') }}</form>
 {% endif %}
-{% if sports|length > 1 %}<p class=rg-tourmeta>{{ sports|length }} sports · multi-sport (F): one base fee and one schedule per athlete.</p>{% endif %}
+{% if t.multi %}<p class=rg-tourmeta>{{ sports|length }} sport{{ '' if sports|length == 1 else 's' }} · multi-sport (F): one base fee and one schedule per athlete.</p>{% endif %}
 <form method=post>{{ csrf_field() }}<div class=rg-tournav>{{ rg_button('Back', 'secondary', step_hrefs['basics']) }}{{ rg_button('Continue', 'primary') }}</div></form>
 {% elif step == 'interest' %}
-{{ rg_note_bar('Before you set fees or divisions, see who would come. Share this link with teams and athletes; they say they are in — no account needed.') }}
+{{ rg_note_bar('Before you set fees or divisions, see who would come to this ' ~ (term|lower) ~ '. Share this link with teams and athletes; they say they are in — no account needed.') }}
 {{ rg_status_pills([(('Open' if t.status in ('interest', 'published') else 'Closed'), ('lime' if t.status in ('interest', 'published') else 'graphite')), (iv.responses ~ ' responses', 'graphite')]) }}
 {% if t.status in ('interest', 'published') %}<div class=rg-sharebox><code id=tourShare>{{ share }}</code><button type=button class="rg-pillbtn on" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('tourShare').textContent);this.textContent='Copied'">Copy link</button></div>{% endif %}
 <div class=rg-metrics>{{ rg_metric('%02d' % iv.athletes, 'Athletes') }}{{ rg_metric('%02d' % iv.teams, 'Teams') }}</div>
@@ -9456,7 +9471,7 @@ T["tour_setup"] = """<div class=rg-tour>
 <form method=post>{{ csrf_field() }}<div class=rg-tournav>{{ rg_button('Back', 'secondary', step_hrefs['sports']) }}{{ rg_button('Continue', 'primary') }}</div></form>
 {% elif step == 'registration' %}
 <form method=post>{{ csrf_field() }}
-{{ rg_note_bar("Registration is for the whole tournament. One base fee per athlete; divisions in more than one sport don't multiply it. Totals can't go below zero.") }}
+{{ rg_note_bar("Registration is for the whole " ~ (term|lower) ~ ". One base fee per athlete; divisions in more than one sport don't multiply it. Totals can't go below zero.") }}
 {% set base = f.get('base') if form else ((t.base_cents / 100)|round(2)|string|replace('.0', '') if t.base_cents is not none else '') %}
 <label class="rg-feehero xl"><span>Base fee · one per athlete</span><span class=rg-feeinput aria-hidden=false>$<input name=base inputmode=decimal required value="{{ base }}" placeholder="220" aria-label="Base fee in dollars"></span></label>
 <div class=rg-tourpair><label class=rg-field><span>Opens</span><input type=date name=opens value="{{ f.get('opens') or t.opens or '' }}"></label>
@@ -9479,12 +9494,12 @@ T["tour_setup"] = """<div class=rg-tour>
 <h2 class=rg-tourh2>Checklist</h2>
 {% for key, title, sub, ok in checklist %}{{ rg_check_row(title, sub, ok, step_hrefs[key]) }}{% endfor %}
 {% if fee is not none %}{{ rg_fee_hero('Fee today · ' ~ today_label, '$%.2f' % (fee / 100), 'Demo · payment not collected. Nothing is charged.', 'md') }}{% endif %}
-<form method=post>{{ csrf_field() }}{{ rg_button('Publish tournament', 'primary', '', 'action', 'publish', '', not ready) }}</form>
+<form method=post>{{ csrf_field() }}{{ rg_button('Publish ' ~ (term|lower), 'primary', '', 'action', 'publish', '', not ready) }}</form>
 {% endif %}
 </div>"""
 
 T["tour_ws"] = """<div class=rg-tour>
-{{ rg_tour_head('MY TOURNAMENTS', '/tournaments') }}
+{{ rg_tour_head('LINEUP' if t.lineup_event_id else 'COMPETITIONS', ('/lineup/' ~ t.lineup_event_id) if t.lineup_event_id else '/tournaments', (term|lower) ~ ('es' if (term|lower).endswith('h') else 's')) }}
 {{ rg_status_pills([(status[0], 'sun' if t.status == 'draft' else 'lime'), (status[1], 'graphite')]) }}
 <h1 class="rg-tourtitle ws">{{ t.name.rstrip('.') }}.</h1>
 <p class=rg-tourmeta>{{ meta }}</p>
@@ -9502,7 +9517,7 @@ T["tour_ws"] = """<div class=rg-tour>
 </div>"""
 
 T["tour_public"] = """<div class=rg-tour>
-{{ rg_tour_head(display_first(me()) if me() else '', '') }}
+{{ rg_tour_head(display_first(me()) if me() else '', '', (term|lower) ~ ('es' if (term|lower).endswith('h') else 's')) }}
 {{ rg_hero_card('Interest check open' if open_ else 'Not open yet', t.name.rstrip('.') ~ '.', meta, 'cobalt', sports|map(attribute='name')|list) }}
 {% if t.summary %}<p class=rg-tourmeta style="margin:0;color:var(--paper);font-size:15px">{{ t.summary }}</p>{% endif %}
 {% if sent %}{{ rg_notice("You're on the list.", 'The host will reach out when registration opens.', 'lime', 'check', False) }}

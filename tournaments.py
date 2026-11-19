@@ -235,6 +235,11 @@ def ensure(d):
         late_cents INTEGER, late_from TEXT, interest_note TEXT, interest_until TEXT)""")
     d.execute("""CREATE TABLE IF NOT EXISTS tournament_sports(id INTEGER PRIMARY KEY, tournament_id INTEGER NOT NULL,
         sport_key TEXT NOT NULL, preset TEXT NOT NULL, sort INTEGER DEFAULT 0, UNIQUE(tournament_id, sport_key))""")
+    cols = {r[1] for r in d.execute("PRAGMA table_info(tournaments)")}
+    for col, decl in (("term", "TEXT"), ("lineup_event_id", "INTEGER"), ("multi", "INTEGER")):
+        if col not in cols: d.execute("ALTER TABLE tournaments ADD COLUMN %s %s" % (col, decl))
+    if "custom_name" not in {r[1] for r in d.execute("PRAGMA table_info(tournament_sports)")}:
+        d.execute("ALTER TABLE tournament_sports ADD COLUMN custom_name TEXT")
     d.execute("""CREATE TABLE IF NOT EXISTS tournament_interest(id INTEGER PRIMARY KEY, tournament_id INTEGER NOT NULL,
         kind TEXT NOT NULL, name TEXT NOT NULL, team TEXT, email TEXT, players INTEGER, sports TEXT, note TEXT,
         member_id INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
@@ -276,10 +281,24 @@ def mine(d, member_id, is_admin=False):
     return d.execute("SELECT * FROM tournaments WHERE created_by=? ORDER BY COALESCE(starts,'') DESC, id DESC", (member_id,)).fetchall()
 
 
+TERMS = ("Meet", "Tournament", "Competition")
+
+
+def term(t):
+    """What the host calls it: Meet, Tournament, Competition, or their own word."""
+    return ((t["term"] if t and "term" in t.keys() else "") or "Tournament").strip()
+
+
+def custom_sport(name, preset):
+    p = preset if preset in PRESETS else "A"
+    return {"key": "custom-" + re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:40], "name": name, "sub": "Added by you", "default": p,
+            "allowed": list(PRESETS), "stages": "", "category": "custom", "tier": "Custom", "custom": True}
+
+
 def sports_of(d, tid):
     out = []
     for r in d.execute("SELECT * FROM tournament_sports WHERE tournament_id=? ORDER BY sort, id", (tid,)):
-        s = sport(r["sport_key"])
+        s = custom_sport(r["custom_name"], r["preset"]) if r["custom_name"] else sport(r["sport_key"])
         if s:
             s["preset"] = r["preset"] if r["preset"] in PRESETS else s["default"]
             out.append(s)
@@ -318,29 +337,91 @@ def save_basics(d, tid, form, member_id):
     vals = (name, (form.get("summary") or "").strip()[:240], starts, ends, (form.get("tz") or "America/Los_Angeles").strip()[:60], hosting,
             host_org, (form.get("cohosts") or "").strip()[:200] if hosting == "several" else "",
             (form.get("venue") or "").strip()[:120], (form.get("city") or "").strip()[:80])
+    word = form.get("term") if form.get("term") in TERMS else " ".join((form.get("term_other") or "").split())[:24]
+    if form.get("term") == "other" and not word: raise ValueError("Say what you call it.")
+    word = word or "Tournament"
     if tid:
-        d.execute("""UPDATE tournaments SET name=?, summary=?, starts=?, ends=?, tz=?, hosting=?, host_org=?, cohosts=?, venue=?, city=?
-            WHERE id=?""", vals + (tid,))
+        d.execute("""UPDATE tournaments SET name=?, summary=?, starts=?, ends=?, tz=?, hosting=?, host_org=?, cohosts=?, venue=?, city=?, term=?
+            WHERE id=?""", vals + (word, tid))
         return tid
-    cur = d.execute("""INSERT INTO tournaments(name, summary, starts, ends, tz, hosting, host_org, cohosts, venue, city, status, token, created_by)
-        VALUES(?,?,?,?,?,?,?,?,?,?,'draft',?,?)""", vals + (secrets.token_urlsafe(9), member_id))
+    cur = d.execute("""INSERT INTO tournaments(name, summary, starts, ends, tz, hosting, host_org, cohosts, venue, city, status, token, created_by, term, multi)
+        VALUES(?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,0)""", vals + (secrets.token_urlsafe(9), member_id, word))
     return cur.lastrowid
 
 
-def save_sports(d, tid, keys, presets):
-    keys = [k for k in dict.fromkeys(keys) if k in SPORTS]
+def save_sports(d, tid, keys, presets, customs=None):
+    customs = dict(customs or {})
+    for r in d.execute("SELECT sport_key, custom_name FROM tournament_sports WHERE tournament_id=? AND custom_name IS NOT NULL", (tid,)):
+        customs.setdefault(r["sport_key"], r["custom_name"])
+    keys = [k for k in dict.fromkeys(keys) if k in SPORTS or k in customs]
     if not keys: raise ValueError("Pick at least one sport.")
     have = {r["sport_key"] for r in d.execute("SELECT sport_key FROM tournament_sports WHERE tournament_id=?", (tid,))}
     for i, k in enumerate(keys):
-        s = sport(k)
+        s = custom_sport(customs[k], presets.get(k)) if k in customs else sport(k)
         p = presets.get(k) if presets.get(k) in s["allowed"] else s["default"]
         if k in have:
             d.execute("UPDATE tournament_sports SET preset=?, sort=? WHERE tournament_id=? AND sport_key=?", (p, i, tid, k))
         else:
-            d.execute("INSERT INTO tournament_sports(tournament_id, sport_key, preset, sort) VALUES(?,?,?,?)", (tid, k, p, i))
+            d.execute("INSERT INTO tournament_sports(tournament_id, sport_key, preset, sort, custom_name) VALUES(?,?,?,?,?)",
+                      (tid, k, p, i, customs.get(k)))
     for k in have - set(keys):
         # The organizer took this sport off the setup. Interest answers that named it keep their own text.
         d.execute("DELETE FROM tournament_sports WHERE tournament_id=? AND sport_key=?", (tid, k))
+
+
+def set_mode(d, tid, multi):
+    d.execute("UPDATE tournaments SET multi=? WHERE id=?", (1 if multi else 0, tid))
+
+
+def add_sport(d, t, key=None, custom_name="", preset=""):
+    """Add a listed sport or one the host names. One-sport mode replaces the sport; multi-sport adds it."""
+    tid = t["id"]
+    current = sports_of(d, tid)
+    keys = [x["key"] for x in current]
+    presets = {x["key"]: x["preset"] for x in current}
+    customs = {}
+    if custom_name:
+        name = " ".join(custom_name.split())[:40]
+        if len(name) < 2: raise ValueError("Name the sport.")
+        listed = search(name, 1)
+        if listed and listed[0]["name"].lower() == name.lower():
+            key = listed[0]["key"]
+        else:
+            cs = custom_sport(name, preset)
+            key = cs["key"]; customs[key] = name; presets[key] = cs["default"]
+    if not key or (key not in SPORTS and key not in customs): raise ValueError("Pick a sport.")
+    if not t["multi"]:
+        keys = []  # one sport: the new pick replaces the old one
+        d.execute("DELETE FROM tournament_sports WHERE tournament_id=?", (tid,))
+    if key not in keys: keys.append(key)
+    save_sports(d, tid, keys, presets, customs)
+    return key
+
+
+def from_lineup(d, ev, member_id):
+    """A hosted competition made in Lineup: start its setup from the Lineup event, linked both ways."""
+    row = d.execute("SELECT id FROM tournaments WHERE lineup_event_id=?", (ev["id"],)).fetchone()
+    if row: return row["id"]
+    keys = ev.keys()
+    starts = (ev["date"] if "date" in keys else "") or ""
+    ends = (ev["end_date"] if "end_date" in keys else "") or starts
+    kind = (ev["event_type"] if "event_type" in keys else "") or ""
+    cur = d.execute("""INSERT INTO tournaments(name, summary, starts, ends, tz, hosting, venue, city, status, token, created_by, term, lineup_event_id, multi)
+        VALUES(?,?,?,?,?,?,?,?,'draft',?,?,?,?,0)""", ((ev["title"] or "Untitled")[:120], ((ev["description"] if "description" in keys else "") or "")[:240],
+        starts[:10], ends[:10], "America/Los_Angeles", "organization",
+        ((ev["venue"] if "venue" in keys else "") or (ev["location"] if "location" in keys else "") or "")[:120],
+        ((ev["city"] if "city" in keys else "") or "") if ((ev["city"] if "city" in keys else "") or "") != ((ev["location"] if "location" in keys else "") or "") else "",
+        secrets.token_urlsafe(9), member_id, "Tournament" if kind == "Tournament" else "Competition", ev["id"]))
+    tid = cur.lastrowid
+    picked = [x.strip() for x in ((ev["sport"] if "sport" in keys else "") or "").split(",") if x.strip()]
+    t = get(d, tid)
+    if len(picked) > 1: set_mode(d, tid, True); t = get(d, tid)
+    for name in picked:
+        try:
+            add_sport(d, t, custom_name=name); t = get(d, tid)
+        except ValueError:
+            pass
+    return tid
 
 
 def save_registration(d, tid, form):

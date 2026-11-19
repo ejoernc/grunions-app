@@ -1948,3 +1948,7 @@ a.rg-preset{text-decoration:none}
 a.rg-preset[aria-current]{outline:2px solid var(--paper);outline-offset:2px}
 .lanepick a.lanecard{grid-column:1/-1;display:flex;flex-direction:column;gap:4px;min-height:0;padding:16px;border-radius:28px;background:var(--graphite);color:var(--paper);text-decoration:none}
 .rg-tour button.rg-preset{height:auto;min-height:0;max-height:none;width:auto;margin:0;line-height:normal;align-items:stretch;justify-content:flex-start;box-shadow:none}
+.rg-tour:not(:has(input[name=term][value=other]:checked)) [data-term=other]{display:none}
+.rg-customsport{display:flex;flex-direction:column;gap:12px;padding:14px 16px;border-radius:24px;background:var(--carbon)}
+.rg-customsport summary{cursor:pointer;color:var(--paper);font:700 15px/1.25 var(--font-sans)}
+.rg-customsport form{display:flex;flex-direction:column;gap:12px;margin-top:12px}

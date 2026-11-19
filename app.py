@@ -8706,7 +8706,12 @@ def lineup_detail(eid):
     ic_res = interest.results(d, eid) if ic else None
     return page(T["lineup_event"], tab="lineup_event", e=packed, from_admin=request.args.get("from") == "admin", admin_date=(request.args.get("date") or row["date"] or "")[:10],
                 ic=ic, ic_res=ic_res, ic_mine=interest.mine(d, eid, me()["id"]) if ic else None, ic_host=bool(packed.get("can_edit") or packed.get("can_review")),
-                ic_considering=(row["team_intent"] or "") == "considering")
+                ic_considering=(row["team_intent"] or "") == "considering", comp=_lineup_comp(d, eid, packed))
+def _lineup_comp(d, eid, packed):
+    """The competition set up from this Lineup event, for the people who run it."""
+    if not (packed.get("can_edit") or packed.get("can_review")): return None
+    tourn.ensure(d)
+    return d.execute("SELECT id, status, term FROM tournaments WHERE lineup_event_id=?", (eid,)).fetchone()
 def _ic_host(d, row):
     p = lineup_pack(d, [row])[0]
     return bool(p.get("can_edit") or p.get("can_review"))
@@ -9079,7 +9084,6 @@ def manage_home_groups(d):
         activities.append(_manage_row("Schedule", "Practices, scrimmages & games", "/admin", "cal"))
     if host:
         activities.append(_manage_row("Lineup", "Events, tournaments, camps & socials", "/manage/lineup", "people"))
-        activities.append(_manage_row("Tournaments", "Host one: interest, sports, fees", "/tournaments", "people"))
         activities.append(_manage_row("Requests", "Member-submitted events", "/manage/requests", "tray", approval_count(), "info"))
     if admin:
         sets = roster_sets(d)
@@ -9306,6 +9310,14 @@ def event_new():
         if not staff:
             flash("Sent to admins for review", "toast")
             return redirect("/lineup")
+        posted_kind = request.form.get("event_type") or ""
+        if posted_kind in ("Tournament", "Competition") and hosting_now == "Hosting":
+            # Our organization is hosting a competition: the Lineup event is its public face; set the competition up next.
+            tourn.ensure(d)
+            ev = d.execute("SELECT * FROM lineup_events WHERE id=?", (info["id"],)).fetchone()
+            tid = tourn.from_lineup(d, ev, me()["id"])
+            d.execute("UPDATE tournaments SET host_org=? WHERE id=? AND COALESCE(host_org,'')=''", (org_name(), tid)); d.commit()
+            return redirect("/tournaments/%d/setup/basics" % tid)
         flash("Preview", "toast")
         return redirect("/lineup/%d" % info["id"] if info["status"] == "published" else "/lineup")
     practice_days = []
@@ -9444,7 +9456,6 @@ def _manage_catalog(d):
         add("activities", "Weekly schedule", "Each sport's regular weekly times, for your website", "/manage/usual-schedule", "cal", "usual regular weekly hours times general schedule website embed")
     if host:
         add("activities", "Lineup", "Events, tournaments, camps, and socials", "/manage/lineup", "people", "event tournament camp trip lineup")
-        add("activities", "Tournaments", "Host a tournament: interest, sports, fees", "/tournaments", "people", "tournament host multi-sport interest fees registration")
         # Bulletin hidden for now (Nov 13).
         add("activities", "Requests", "Member-submitted events", "/manage/requests", "tray", "approval pending request")
     if admin:
@@ -13994,8 +14005,9 @@ def _tour_ctx(d, t, step):
         for key, _title, _sub, ok in tourn.checklist(d, t):
             if ok and key != "interest": done.add(key)
         if tourn.interest_summary(d, t["id"])["responses"] or t["status"] != "draft": done.add("interest")
-    return dict(t=t, step=step, steps=tourn.STEPS, step_hrefs=hrefs, steps_done=done, presets=tourn.PRESETS,
-                title=((t["name"] if t else "") or "New tournament").rstrip(".") + ".")
+    word = tourn.term(t) if t else "Competition"
+    return dict(t=t, step=step, steps=tourn.STEPS, step_hrefs=hrefs, steps_done=done, presets=tourn.PRESETS, term=word,
+                title=((t["name"] if t else "") or ("New " + word.lower())).rstrip(".") + ".")
 
 @app.route("/tournaments")
 @login_required
@@ -14003,7 +14015,7 @@ def tournaments_list():
     if not can_host_practice(): abort(403)
     d = _tour_db()
     rows = tourn.mine(d, me()["id"], is_club_admin())
-    items = [{"t": r, "line": tourn.meta_line(r), "status": tourn.STATUS.get(r["status"], ("Draft", ""))[0]} for r in rows]
+    items = [{"t": r, "line": tourn.meta_line(r), "status": tourn.STATUS.get(r["status"], ("Draft", ""))[0], "term": tourn.term(r)} for r in rows]
     return page(T["tour_list"], tab="tournament", items=items)
 
 @app.route("/tournaments/new", methods=["GET", "POST"])
@@ -14017,7 +14029,7 @@ def tournament_new():
             return redirect("/tournaments/%d/setup/sports" % tid)
         except ValueError as e:
             error = str(e)
-    return page(T["tour_setup"], tab="tournament", error=error, form=request.form, **_tour_ctx(d, None, "basics"))
+    return page(T["tour_setup"], tab="tournament", error=error, form=request.form, terms=tourn.TERMS, **_tour_ctx(d, None, "basics"))
 
 @app.route("/tournaments/<int:tid>/setup/<step>", methods=["GET", "POST"])
 @login_required
@@ -14034,11 +14046,16 @@ def tournament_setup(tid, step):
             elif step == "sports":
                 keys = [x["key"] for x in tourn.sports_of(d, tid)]
                 presets = {x["key"]: x["preset"] for x in tourn.sports_of(d, tid)}
-                if a == "add" and request.form.get("key") in tourn.SPORTS:
-                    k = request.form["key"]
-                    if k not in keys: keys.append(k)
-                    tourn.save_sports(d, tid, keys, presets); d.commit()
-                    return redirect("/tournaments/%d/setup/sports?focus=%s" % (tid, k))
+                if a == "mode":
+                    multi = request.form.get("multi") == "1"
+                    tourn.set_mode(d, tid, multi)
+                    if not multi and len(keys) > 1:  # back to one sport: keep the first
+                        tourn.save_sports(d, tid, keys[:1], presets)
+                    d.commit(); return redirect("/tournaments/%d/setup/sports" % tid)
+                if a in ("add", "custom"):
+                    k = tourn.add_sport(d, t, key=request.form.get("key") if a == "add" else None,
+                                        custom_name=request.form.get("custom_name", "") if a == "custom" else "", preset=request.form.get("preset", ""))
+                    d.commit(); return redirect("/tournaments/%d/setup/sports?focus=%s" % (tid, k))
                 if a == "remove":
                     keys = [k for k in keys if k != request.form.get("key")]
                     if keys: tourn.save_sports(d, tid, keys, presets)
@@ -14081,7 +14098,7 @@ def tournament_setup(tid, step):
     today = today_pt().isoformat()
     return page(T["tour_setup"], tab="tournament", error=error, form=request.form if error else None, sports=sp, focus=fs, found=found, q=q,
                 iv=iv, share=share, checklist=tourn.checklist(d, t), fee=tourn.fee_today(t, today), today_label=tourn.short(today),
-                money=tourn.money, dims=tourn.PRESET_DIMS, meta=tourn.meta_line(t), **ctx)
+                money=tourn.money, dims=tourn.PRESET_DIMS, meta=tourn.meta_line(t), terms=tourn.TERMS, **ctx)
 
 @app.route("/tournaments/<int:tid>")
 @login_required
@@ -14090,7 +14107,7 @@ def tournament_ws(tid):
     tab = request.args.get("tab") or "overview"
     iv = tourn.interest_summary(d, tid)
     sp = tourn.sports_of(d, tid)
-    return page(T["tour_ws"], tab="tournament", t=t, ws_tab=tab, iv=iv, sports=sp, meta=tourn.meta_line(t), status=tourn.STATUS.get(t["status"], ("Draft", "")),
+    return page(T["tour_ws"], tab="tournament", t=t, ws_tab=tab, term=tourn.term(t), iv=iv, sports=sp, meta=tourn.meta_line(t), status=tourn.STATUS.get(t["status"], ("Draft", "")),
                 share=public_base_url() + "/t/" + t["token"], money=tourn.money, presets=tourn.PRESETS)
 
 @app.route("/t/<token>", methods=["GET", "POST"])
@@ -14107,7 +14124,7 @@ def tournament_public(token):
             return redirect("/t/%s?sent=1" % token)
         except ValueError as e:
             error = str(e)
-    return page(T["tour_public"], tab="tournament", t=t, sports=sp, error=error, sent=sent, open_=open_, form=request.form if error else None,
+    return page(T["tour_public"], tab="tournament", t=t, sports=sp, term=tourn.term(t), error=error, sent=sent, open_=open_, form=request.form if error else None,
                 meta=tourn.meta_line(t), presets=tourn.PRESETS, iv=tourn.interest_summary(d, t["id"]))
 
 ensure_vapid()
