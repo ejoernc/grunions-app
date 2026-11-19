@@ -2489,6 +2489,11 @@ def seed_preview_club(d):
         "Preview: want a ride at 6:31?")
     say("noah.kim@preview.regulars.invalid", dm_channel(ids["noah.kim@preview.regulars.invalid"], ids["sasha.reed@preview.regulars.invalid"]),
         "Preview: thanks, see you at the pool.")
+    # Preview servers start empty on every deploy: give the owner and any bootstrap admins an account to log in with.
+    for email in sorted({ELI_PREVIEW_EMAIL} | ADMIN_EMAILS):
+        if not d.execute("SELECT 1 FROM members WHERE lower(email)=?", (email,)).fetchone():
+            first = "Eli" if email == ELI_PREVIEW_EMAIL else email.split("@")[0].capitalize()
+            d.execute("INSERT INTO members(first, last, email, is_admin, joined) VALUES(?,?,?,1,1)", (first, "Preview", email))
     promoted = False
     eli = d.execute("SELECT id, is_admin FROM members WHERE lower(email)=?", (ELI_PREVIEW_EMAIL,)).fetchone()
     if eli:
