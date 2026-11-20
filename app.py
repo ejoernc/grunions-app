@@ -286,6 +286,10 @@ def migrate_lineup(d):
     d.execute("UPDATE lineup_events SET end_date=date WHERE end_date IS NULL OR trim(end_date)=''")
     d.execute("UPDATE lineup_events SET venue=location WHERE (venue IS NULL OR trim(venue)='') AND trim(COALESCE(location,''))!=''")
     cols = [r[1] for r in d.execute("PRAGMA table_info(lineup_events)")]
+    if "volunteer_link" not in cols:
+        d.execute("ALTER TABLE lineup_events ADD COLUMN volunteer_link TEXT")
+    if "draft_form" not in cols:
+        d.execute("ALTER TABLE lineup_events ADD COLUMN draft_form TEXT")
     if "stage" not in cols:
         d.execute("ALTER TABLE lineup_events ADD COLUMN stage TEXT")
     if "hosting" not in cols:
@@ -7308,6 +7312,12 @@ def _form_last():
         else:
             out[k] = vals[-1] if vals else ""
     return out
+def apply_volunteer_link(d, eid):
+    """Optional volunteer sign-up link (Google Form, SignUpGenius...). Only when the form has the field."""
+    if "volunteer_link" not in request.form: return
+    link = (request.form.get("volunteer_link") or "").strip()[:500]
+    if link and not link.lower().startswith(("http://", "https://")): link = "https://" + link
+    d.execute("UPDATE lineup_events SET volunteer_link=? WHERE id=?", (link, eid))
 def apply_place_pick(d, eid):
     """The place picked from the suggestions decides the pin, not a fresh lookup of its name (a bar's name alone
     can land in another city). The picker posts <field>_geo (lat,lng) or <field>_addr (the full address).
@@ -7549,6 +7559,7 @@ def lineup_pack(d, rows):
             "host_org": primary if card_mode == "other" else "",
             "cohosts": cohosts, "host_names": host_names, "host_mode": card_mode,
             "description": r["description"] or "", "details": r["details"] or "", "link": r["link"] or "",
+            "volunteer_link": (r["volunteer_link"] if "volunteer_link" in r.keys() else "") or "",
             "cost": r["cost"] or "", "capacity": cap, "full": full, "reg_deadline": r["reg_deadline"] or "",
             "review_note": r["review_note"] or "", "banner": r["banner"] or "",
             "color": components.row_color(r),
@@ -7672,6 +7683,7 @@ def announce_lineup_event(d, eid, actor_id=None, base=None, only=None, manual=Fa
     if not names and (row["hosting"] or "") == "Hosting": names = [org_name()]
     names += [n for n in lineupfeed.host_list(row["host_orgs"] if "host_orgs" in row.keys() else "") if n not in names]
     hosts = lineupfeed.host_summary(names) if names else ""
+    vol = ((row["volunteer_link"] if "volunteer_link" in row.keys() else "") or "").strip()
     kind = mailhtml.new_event_label(row["event_type"] if "event_type" in row.keys() else "")
     hero = components.event_tone(row["event_type"] if "event_type" in row.keys() else "lineup", False, components.row_color(row))
     sent = 0
@@ -7689,12 +7701,14 @@ def announce_lineup_event(d, eid, actor_id=None, base=None, only=None, manual=Fa
             rows = [("WHEN", when)] + ([("WHERE", place)] if place else [])
             if hosts: rows.append(("HOSTED BY", hosts))
             if row["cost"]: rows.append(("COST", str(row["cost"])))
-            text = "%s is on the %s Lineup.\n\n%s%s%s%s\n\nI'm going: %s?rsvp=going\nInterested: %s?rsvp=interested\nView the event: %s\n\nTurn Lineup emails off: %s/notifications" % (
+            text = "%s is on the %s Lineup.\n\n%s%s%s%s\n\nI'm going: %s?rsvp=going\nInterested: %s?rsvp=interested\nView the event: %s%s\n\nTurn Lineup emails off: %s/notifications" % (
                 title, org_name(), ("%s: %s\n\n" % (note_by, note)) if note else "", when, ("\n" + place) if place else "",
-                ("\nHosted by " + hosts) if hosts else "", base + url, base + url, base + url, base)
+                ("\nHosted by " + hosts) if hosts else "", base + url, base + url, base + url,
+                ("\nVolunteer: " + vol) if vol else "", base)
             try:
                 html = mailhtml.lineup_new_html(base, display_first(m), title, lineup_figure(row), rows, image, base + url,
-                                                base + "/notifications", org_name(), note=note, note_by=note_by, hero=hero, kind=kind)
+                                                base + "/notifications", org_name(), note=note, note_by=note_by, hero=hero, kind=kind,
+                                                volunteer=vol)
                 send_email(m["email"], "%s · %s: %s" % (org_name(), kind, title), text, html=html)
                 sent += 1
             except Exception as exc:
@@ -7979,6 +7993,7 @@ def _save_lineup(d, existing=None):
     except PermissionError:
         abort(403)
     apply_place_pick(d, info["id"])
+    apply_volunteer_link(d, info["id"])
     apply_lineup_side_effects(d, info, existing)
     cat = d.execute("SELECT slug FROM lineup_categories c JOIN lineup_events e ON e.category_id=c.id WHERE e.id=?", (info["id"],)).fetchone()
     slug = cat["slug"] if cat else ""
@@ -8820,7 +8835,10 @@ def lineup_detail(eid):
     import interest
     ic = interest.get(d, eid) if (row["team_intent"] or "") == "considering" or interest.get(d, eid) else None
     ic_res = interest.results(d, eid) if ic else None
-    return page(T["lineup_event"], tab="lineup_event", e=packed, from_admin=request.args.get("from") == "admin", admin_date=(request.args.get("date") or row["date"] or "")[:10],
+    draft_back = {}
+    if (row["status"] or "") == "draft" and _ic_host(d, row) and ("draft_form" in row.keys() and row["draft_form"]):
+        draft_back = {"nav_back_href": "/events/new?lane=lineup&draft=%d" % eid, "nav_back_title": "New event", "draft_back": "/events/new?lane=lineup&draft=%d" % eid}
+    return page(T["lineup_event"], tab="lineup_event", e=packed, **draft_back, from_admin=request.args.get("from") == "admin", admin_date=(request.args.get("date") or row["date"] or "")[:10],
                 ic=ic, ic_res=ic_res, ic_mine=interest.mine(d, eid, me()["id"]) if ic else None, ic_host=bool(packed.get("can_edit") or packed.get("can_review")),
                 ic_considering=(row["team_intent"] or "") == "considering")
 @app.route("/lineup/<int:eid>/email", methods=["POST"])
@@ -9291,6 +9309,12 @@ class _FormWrap:
 def _picked_color(field):
     v = (request.form.get(field) or "").strip().lower()
     return v if v in dict(components.EVENT_COLORS) else ""
+def _own_draft(d, eid):
+    """A Lineup draft this person can keep editing from the create form (Back from Preview)."""
+    if not eid: return None
+    row = lineup_event_row(d, eid)
+    if not row or (row["status"] or "") != "draft" or not _ic_host(d, row): return None
+    return row
 def _event_draft_back(url):
     """A create error goes back to the form with everything the person typed, on the step to fix."""
     form = {k: request.form.getlist(k) for k in request.form if k not in ("csrf", "action")}
@@ -9298,6 +9322,8 @@ def _event_draft_back(url):
     last = (msgs[-1] if msgs else "").lower()
     step = 1 if any(w in last for w in ("name", "description", "type", "sport")) else (2 if any(w in last for w in ("date", "location", "place", "days", "repeat")) else 3)
     session["event_draft"] = {"form": form, "step": step}
+    did = request.form.get("draft_id", type=int)
+    if did: url += ("&" if "?" in url else "?") + "draft=%d" % did
     return redirect(url)
 @app.route("/events/new", methods=["GET", "POST"])
 @login_required
@@ -9422,15 +9448,19 @@ def event_new():
             hosting=hosting_now, team_intent=intent_now, team_plan=plan_now, action="draft" if staff else "save")
         banner = None
         f = request.files.get("image") if request.files else None
+        draft_row = _own_draft(d, request.form.get("draft_id", type=int)) if staff else None
         try:
             if f and f.filename: banner = save_banner(f)
-            info = lineupfeed.save_event(d, wrapped, me(), staff, banner=banner, parse_date=parse_date)
+            info = lineupfeed.save_event(d, wrapped, me(), staff, existing=draft_row, banner=banner, parse_date=parse_date)
         except ValueError as e:
             flash(str(e))
             return _event_draft_back("/events/new?lane=lineup")
         except PermissionError:
             abort(403)
-        if info and info.get("id"): apply_place_pick(d, info["id"])
+        if info and info.get("id"): apply_place_pick(d, info["id"]); apply_volunteer_link(d, info["id"])
+        if info and info.get("id") and staff and info.get("status") == "draft":
+            keep = {k: request.form.getlist(k) for k in request.form if k not in ("csrf", "action", "draft_id")}
+            d.execute("UPDATE lineup_events SET draft_form=? WHERE id=?", (json.dumps(keep)[:20000], info["id"]))
         if info and info.get("id") and _picked_color("event_color_line"):
             d.execute("UPDATE lineup_events SET color=? WHERE id=?", (_picked_color("event_color_line"), info["id"]))
         if info and info.get("id") and request.form.get("line_sport_on"):
@@ -9450,7 +9480,16 @@ def event_new():
         practice_days = [r[0] for r in db().execute(
             "SELECT DISTINCT date FROM practices WHERE cancelled=0 AND date>=? ORDER BY date",
             (today_pt().isoformat(),)).fetchall()]
-    return page(T["event_new"], tab="event_new", event_draft=(session.pop("event_draft", None) if request.method == "GET" else None), staff=staff, lane=lane, activity=activity, line_types=line_types,
+    event_draft = session.pop("event_draft", None) if request.method == "GET" else None
+    draft_id = None
+    back_draft = _own_draft(db(), request.args.get("draft", type=int)) if staff and request.method == "GET" else None
+    if back_draft:
+        try: saved = json.loads(back_draft["draft_form"] or "{}")
+        except ValueError: saved = {}
+        if saved:
+            event_draft = event_draft or {"form": saved, "step": 3}
+            draft_id, lane = back_draft["id"], "lineup"
+    return page(T["event_new"], tab="event_new", event_draft=event_draft, draft_id=draft_id, staff=staff, lane=lane, activity=activity, line_types=line_types,
         coaches=coach_candidates(db()) if staff else [], dup=dup, practice_days=practice_days,
         plan_back=("/practices/%d" % dup["id"]) if dup else (("/manage/lineup" if lane == "lineup" else ("/admin" if is_staff() else "/manage/schedule")) if staff else "/lineup"),
         plan_title=("Create event" if staff else "Suggest an event"),

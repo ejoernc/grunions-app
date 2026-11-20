@@ -711,7 +711,7 @@ def form_values(form=None, row=None, cat_slug="", mode="create"):
             "host_org": primary,
             "host_orgs": cos, "cohost_orgs": cos,
             "location": form.get("location") or form.get("venue") or "", "city": form.get("city") or "",
-            "description": form.get("description") or "", "link": form.get("link") or "", "details": form.get("details") or "",
+            "description": form.get("description") or "", "link": form.get("link") or "", "volunteer_link": form.get("volunteer_link") or "", "details": form.get("details") or "",
             "cost": form.get("cost") or "", "capacity": form.get("capacity") or "", "reg_deadline": form.get("reg_deadline") or "",
             "team_intent": form.get("team_intent") or ("considering" if mode == "propose" else ""), "team_plan": plan_choice(form), "official": form.get("official") or "", "featured": form.get("featured") or ""}
     if row:
@@ -733,6 +733,7 @@ def form_values(form=None, row=None, cat_slug="", mode="create"):
             "host_orgs": cos, "cohost_orgs": cos,
             "location": row["venue"] or "", "city": row["city"] or "", "description": row["description"] or "",
             "link": row["link"] or "", "details": row["details"] or "", "cost": row["cost"] or "",
+            "volunteer_link": (row["volunteer_link"] if "volunteer_link" in row.keys() else "") or "",
             "capacity": "" if row["capacity"] is None else str(row["capacity"]), "reg_deadline": row["reg_deadline"] or "",
             "team_intent": row["team_intent"] or "", "team_plan": plan_choice(row=row), "official": "1" if row["official"] else "", "featured": "1" if row["featured"] else ""}
     intent = "considering" if mode == "propose" else ""

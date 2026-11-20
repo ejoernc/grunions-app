@@ -128,3 +128,48 @@ def test_picked_place_sets_the_pin_even_when_the_name_is_unchanged():
     with A.app.app_context():
         lat, lng = A.db().execute("SELECT lat, lng FROM lineup_events WHERE id=?", (eid,)).fetchone()
     assert (lat, lng) == (33.7701, -118.1937)
+
+
+def test_volunteer_link_saves_shows_and_goes_in_the_email():
+    import re
+    with A.app.app_context():
+        d = A.db()
+        admin = d.execute("SELECT id FROM members WHERE email='lineupadmin@example.com'").fetchone()[0]
+        eid = d.execute("SELECT id FROM lineup_events WHERE title='Bay 5K'").fetchone()[0]
+        row = d.execute("SELECT * FROM lineup_events WHERE id=?", (eid,)).fetchone()
+    c = A.app.test_client()
+    with c.session_transaction() as s: s["mid"] = admin
+    tok = re.search(r'name=csrf value="([^"]+)"', c.get("/lineup/%d/edit" % eid).get_data(as_text=True)).group(1)
+    c.post("/lineup/%d/edit" % eid, data={"csrf": tok, "action": "save", "mode": "edit", "title": row["title"], "event_type": "Social",
+        "date": row["date"], "start_time": row["start_time"] or "19:00", "city": row["city"] or "Back Bay",
+        "description": row["description"], "hosting": "Hosting", "volunteer_link": "forms.gle/abc"})
+    with A.app.app_context():
+        assert A.db().execute("SELECT volunteer_link FROM lineup_events WHERE id=?", (eid,)).fetchone()[0] == "https://forms.gle/abc"
+    assert "https://forms.gle/abc" in c.get("/lineup/%d" % eid).get_data(as_text=True)
+    assert 'value="https://forms.gle/abc"' in c.get("/lineup/%d/edit" % eid).get_data(as_text=True)
+    n = len(SENT)
+    c.post("/lineup/%d/email" % eid, data={"csrf": tok, "action": "test"})
+    assert "https://forms.gle/abc" in SENT[n][2] and ">Volunteer<" in SENT[n][2]
+
+
+def test_back_from_preview_reopens_the_form_and_updates_the_same_draft():
+    import re
+    with A.app.app_context():
+        admin = A.db().execute("SELECT id FROM members WHERE email='lineupadmin@example.com'").fetchone()[0]
+    c = A.app.test_client()
+    with c.session_transaction() as s: s["mid"] = admin
+    tok = re.search(r'name=csrf value="([^"]+)"', c.get("/events/new?lane=lineup").get_data(as_text=True)).group(1)
+    base = {"csrf": tok, "action": "preview", "lane": "lineup", "line_title": "Toy Drive", "description": "Bring a toy.",
+        "date": "2027-12-12", "date_precision": "exact", "location": "Back Bay", "event_type": "Social", "hosting": "Hosting"}
+    r = c.post("/events/new", data=base)
+    eid = int(r.headers["Location"].rsplit("/", 1)[1])
+    page = c.get("/lineup/%d" % eid).get_data(as_text=True)
+    assert "/events/new?lane=lineup&amp;draft=%d" % eid in page
+    form = c.get("/events/new?lane=lineup&draft=%d" % eid).get_data(as_text=True)
+    assert 'name=draft_id value="%d"' % eid in form and "Bring a toy." in form and "step={{" not in form
+    r = c.post("/events/new", data=dict(base, line_title="Toy Drive 2027", draft_id=str(eid)))
+    assert r.headers["Location"].endswith("/lineup/%d" % eid)
+    with A.app.app_context():
+        d = A.db()
+        assert d.execute("SELECT title, status FROM lineup_events WHERE id=?", (eid,)).fetchone()[:] == ("Toy Drive 2027", "draft")
+        assert d.execute("SELECT COUNT(*) FROM lineup_events WHERE title LIKE 'Toy Drive%'").fetchone()[0] == 1

@@ -7083,7 +7083,7 @@ T["lineup"] = """{% macro lineup_months(groups, mode, past=false) %}{% for g in 
 T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
 {{ rg_event_hero(e.event_type or 'Event', e.title, [e.when, e.venue, e.city]|select|join(' · '), 'graphite' if e.status == 'canceled' else event_tone(e.event_type, false, e.color), e.status_text if e.status != 'published' else (e.tag or '')) }}
 {% if e.status == 'draft' and ic_host %}<div class=createfoot><p class="ty-muted ty-sm">Preview. Only organizers can see this. Save posts it to the Lineup and emails everyone.</p>
-<form method=post action="/lineup/{{ e.id }}" class="evnav two">{{ csrf_field() }}<a class="rg-btn secondary" href="/lineup/{{ e.id }}/edit">Edit</a><button class="rg-btn primary" name=action value=publish>Save</button></form></div>{% endif %}
+<form method=post action="/lineup/{{ e.id }}" class="evnav two">{{ csrf_field() }}<a class="rg-btn secondary" href="{{ draft_back or ('/lineup/' ~ e.id ~ '/edit') }}">Edit</a><button class="rg-btn primary" name=action value=publish>Save</button></form></div>{% endif %}
 {% if ic and ic.status == 'open' %}{# Figma 62 · I2 Interest check, member view #}
 {% set icn = ic_res.counts %}
 <section class=rg-ic>
@@ -7130,6 +7130,7 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.description %}<div class="li evdescrow"><div class=clamp id=evdesc>{{ e.description }}</div><button type=button class=textlink id=evmore hidden>More</button></div>{% endif %}
 {% if e.host_org %}<div class="li prow"><span class=k>Host organization</span><span class=v>{{ e.host_org }}</span></div>{% endif %}
 {% if e.cohosts %}<div class="li prow"><span class=k>Co-host organizations</span><span class=v>{{ e.cohosts|join(', ') }}</span></div>{% endif %}
+{% if e.volunteer_link %}<div class="li prow"><span class=k>Volunteers</span><span class=v><a class=reglink href="{{ e.volunteer_link }}" target=_blank rel="noopener noreferrer">Sign up to volunteer</a></span></div>{% endif %}
 {% if e.link %}<div class="li prow"><span class=k>Registration</span><span class=v><a class=reglink href="{{ e.link }}" target=_blank rel="noopener noreferrer">Registration</a></span></div>{% endif %}
 {% if e.event_type %}<div class="li prow"><span class=k>Type</span><span class=v>{{ e.event_type }}</span></div>{% endif %}
 {% if e.sports_line %}<div class="li prow"><span class=k>Session</span><span class=v>{{ e.sports_line }}</span></div>{% endif %}
@@ -7395,6 +7396,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <input type=hidden name=title_mode id=titleMode value="{{ 'custom' if dup and dup.title else 'auto' }}">
 {% if dup %}<input type=hidden name=copy_from value="{{ dup.id }}"><textarea name=coaching_plan hidden>{{ dup.coaching_plan }}</textarea>{% endif %}
 <input type=hidden name=mode value="{{ 'create' if staff else 'suggest' }}">
+{% if draft_id %}<input type=hidden name=draft_id value="{{ draft_id }}">{% endif %}
 <section class=evstep data-step=1>
 {% if staff %}<h2 class=planask>What are you planning?</h2>
 <div class=lanepick role=radiogroup aria-label="What are you planning?">
@@ -7492,6 +7494,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>{% endif %}
 <div class=list id=lineSets {% if staff and lane != 'lineup' %}hidden{% endif %}>
 <button type=button class="li setrow" id=regRow data-open=setReg><span class=grow>Registration<span class=sum id=regSum> Not set</span></span>""" + _CHEV + """</button>
+<button type=button class="li setrow" id=volRow data-open=setVol hidden><span class=grow>Volunteer sign-up<span class=sum id=volSum> Not added</span></span>""" + _CHEV + """</button>
 </div>
 <div id=signupBlock {% if not staff or lane != 'lineup' %}hidden{% endif %}>
 <div class=rg-day>Who can sign up</div>
@@ -7503,8 +7506,8 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>
 </div>
 <div class=createfoot>
-<div class="evnav two"><button type=button class="rg-btn secondary" data-evgo=2>Back</button><button class="rg-btn primary" name=action value=preview id=evPost>{% if dup %}Save{% elif not staff %}Submit{% elif lane == 'lineup' %}Post to Lineup{% else %}Post to Schedule{% endif %}</button></div>
-<p class=pagesub id=destHint>{% if not staff %}Sent to admins for review{% elif lane == 'lineup' %}Appears on Lineup by default{% else %}Appears on Home by default{% endif %}</p>
+<div class="evnav two"><button type=button class="rg-btn secondary" data-evgo=2>Back</button><button class="rg-btn primary" name=action value=preview id=evPost>{% if dup %}Save{% elif not staff %}Submit{% elif lane == 'lineup' %}Preview{% else %}Post to Schedule{% endif %}</button></div>
+<p class=pagesub id=destHint>{% if not staff %}Sent to admins for review{% elif lane == 'lineup' %}Nothing posts until you save the preview{% else %}Appears on Home by default{% endif %}</p>
 </div>
 </section>
 <input class=pickhold type=date name=date id=dateInput value="{{ dup.date if dup else '' }}">
@@ -7586,6 +7589,10 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <dialog class=botsheet id=setNotes><div class=sheet><div class=grab></div><h2>Notes</h2>
 <label>Notes<textarea class=planfield name=note id=noteInput rows=4>{{ dup.note if dup else '' }}</textarea></label>
 <button type=button class="rg-btn primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
+<dialog class=botsheet id=setVol><div class=sheet><div class=grab></div><h2>Volunteer sign-up</h2>
+<p class="ty-muted ty-sm">Optional. A link to your sign-up sheet (Google Form, SignUpGenius). It shows on the event and in the email.</p>
+<label>Link<input name=volunteer_link id=volLink inputmode=url autocomplete=off placeholder="https://" oninput="document.getElementById('volSum').textContent=this.value.trim()?' Added':' Not added'"></label>
+<button type=button class="rg-btn primary full" onclick="var v=document.getElementById('volLink').value.trim();document.getElementById('volSum').textContent=v?' Added':' Not added';this.closest('dialog').close()">Done</button></div></dialog>
 <dialog class=botsheet id=setReg><div class=sheet><div class=grab></div><h2>Registration</h2>
 <label>Format<select name=comp_format><option value="">Not set</option>{% for pid, name, blurb in SPORTS.FORMATS %}<option value="{{ pid }}">{{ name }}</option>{% endfor %}</select></label>
 <label>Link<input name=link inputmode=url placeholder="https://"></label>
@@ -7614,7 +7621,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   if(schedSets) schedSets.hidden=!home;
   if(lineSets) lineSets.hidden=home;
   var signup=document.getElementById('signupBlock'); if(signup) signup.hidden=!staff || home;
-  if(hint) hint.textContent=home?'Appears on Home by default':'Appears on Lineup by default';
+  if(hint) hint.textContent=home?'Appears on Home by default':'Nothing posts until you save the preview';
   var big=document.getElementById('newEventTitle'); if(big) big.textContent='New event.';
   document.querySelectorAll('button.lanecard').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-lane')===name); });
   paintTitle(); syncLine();
@@ -7774,6 +7781,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   var type=document.getElementById('lineType'); var name=type?type.value:'Social';
   var reg=document.getElementById('regRow');
   if(reg) reg.hidden=!(name==='Tournament'||name==='Competition');
+  var vol=document.getElementById('volRow'); if(vol) vol.hidden=(name==='Tournament'||name==='Competition');
   syncHost();
   var title=document.getElementById('lineTitle');
   if(title && !title.value){
@@ -7808,7 +7816,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   form.querySelectorAll('.evstep').forEach(function(s){ s.hidden=+s.getAttribute('data-step')!==n; });
   form.querySelectorAll('.evbars i').forEach(function(b,i){ b.classList.toggle('on', i<n); }); var lab=document.getElementById('evStepLab'); if(lab) lab.textContent='STEP '+n+' OF 3 · '+names[n];
   miss[0].setCustomValidity(miss[1]); miss[0].reportValidity(); miss[0].addEventListener('input',function(){ miss[0].setCustomValidity(''); },{once:true}); miss[0].focus(); });
- form.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('[data-lane]'); if(!c) return; var p=document.getElementById('evPost'); if(p&&p.textContent.indexOf('Post to')===0) p.textContent=c.getAttribute('data-lane')==='lineup'?'Post to Lineup':'Post to Schedule'; });
+ form.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('[data-lane]'); if(!c) return; var p=document.getElementById('evPost'); if(p&&(p.textContent.indexOf('Post to')===0||p.textContent==='Preview')) p.textContent=c.getAttribute('data-lane')==='lineup'?'Preview':'Post to Schedule'; });
 })();</script>
 {% if event_draft %}<script>(function(){var draft={{ event_draft.form|tojson }}, step={{ event_draft.step|int }};
  function restore(){ var form=document.getElementById('planForm'); if(!form) return;
@@ -7869,6 +7877,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <details class=moredetails><summary>More details</summary>
 {{ sports_editor(sports_row, false, true) }}
 <label>Link<input name=link value="{{ values.link }}" inputmode=url autocomplete=off placeholder="https://"></label>
+<label>Volunteer sign-up link<input name=volunteer_link value="{{ values.volunteer_link or '' }}" inputmode=url autocomplete=off placeholder="https://"></label>
 <label>Capacity<input name=capacity inputmode=numeric value="{{ values.capacity }}" autocomplete=off></label>
 <label>Estimated cost<input name=cost value="{{ values.cost }}" autocomplete=off></label>
 <label>Register by<input type=date name=reg_deadline value="{{ values.reg_deadline }}"></label>
