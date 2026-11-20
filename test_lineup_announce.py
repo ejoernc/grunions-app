@@ -86,7 +86,7 @@ def test_preview_is_a_draft_and_save_posts_and_emails_everyone():
     assert "lineupadmin@example.com" in to and "amy@example.com" in to
 
 
-def test_manual_email_me_and_everyone():
+def test_email_from_edit_page_with_note_and_log():
     import re
     with A.app.app_context():
         d = A.db()
@@ -94,12 +94,15 @@ def test_manual_email_me_and_everyone():
         eid = d.execute("SELECT id FROM lineup_events WHERE title='Bay 5K'").fetchone()[0]
     c = A.app.test_client()
     with c.session_transaction() as s: s["mid"] = admin
-    tok = re.search(r'name=csrf value="([^"]+)"', c.get("/lineup/%d" % eid).get_data(as_text=True)).group(1)
-    assert "value=email_all" in c.get("/lineup/%d" % eid).get_data(as_text=True)
+    page = c.get("/lineup/%d/edit" % eid).get_data(as_text=True)
+    tok = re.search(r'name=csrf value="([^"]+)"', page).group(1)
+    assert "Email this event" in page and "When posted" in page
     n, p = len(SENT), len(PUSHED)
-    c.post("/lineup/%d" % eid, data={"csrf": tok, "action": "email_me"})
-    assert [s[0] for s in SENT[n:]] == ["lineupadmin@example.com"] and len(PUSHED) == p
+    c.post("/lineup/%d/email" % eid, data={"csrf": tok, "action": "test", "note": "Carpool at 7"})
+    assert [s[0] for s in SENT[n:]] == ["lineupadmin@example.com"] and "Carpool at 7" in SENT[-1][2] and len(PUSHED) == p
     n = len(SENT)
-    c.post("/lineup/%d" % eid, data={"csrf": tok, "action": "email_all"})
+    c.post("/lineup/%d/email" % eid, data={"csrf": tok, "action": "all", "note": "Last call"})
     to = [s[0] for s in SENT[n:]]
     assert "amy@example.com" in to and "lineupadmin@example.com" in to and "bo@example.com" not in to and len(PUSHED) == p
+    page = c.get("/lineup/%d/edit" % eid).get_data(as_text=True)
+    assert "Test · 1 sent" in page and "Ada T." in page and "Last call" in page and "Everyone · %d sent" % len(to) in page

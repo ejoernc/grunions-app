@@ -328,10 +328,12 @@ def preview_catalog(base, org=ORG_NAME):
     return out
 
 
-def lineup_new_html(base, first, title, figure, rows, image, url, unsub, org=ORG_NAME):
-    """A new Lineup event. Emails 2.0 Lineup layout (lavender hero), with the event's banner on top of the body."""
+def lineup_new_html(base, first, title, figure, rows, image, url, unsub, org=ORG_NAME, note="", note_by="Note"):
+    """A new Lineup event. Emails 2.0 Lineup layout (lavender hero), with the event's banner on top of the body.
+    An organizer's note shows in the note box above the details."""
     return render_v2(base, "lavender", "NEW ON THE LINEUP", figure, title, first,
                      ["%s is on the Lineup. Take a look and say if you're in." % title], org=org, rows=rows,
+                     note=(note_by, note) if note else None,
                      cta=("View the event", url), fallback=url, footer_link=("Turn off Lineup emails", unsub),
                      preheader="New on the Lineup: %s" % title, image=image)
 

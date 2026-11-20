@@ -7625,7 +7625,21 @@ def lineup_figure(row):
     except (TypeError, ValueError): return "New"
     precision = row["date_precision"] if "date_precision" in row.keys() and row["date_precision"] else "exact"
     return day.strftime("%b") if precision == "month" else "%s %d" % (day.strftime("%b"), day.day)
-def announce_lineup_event(d, eid, actor_id=None, base=None, only=None, manual=False):
+def ensure_lineup_emails(d):
+    d.execute("""CREATE TABLE IF NOT EXISTS lineup_emails(id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL,
+        sent_at TEXT, sent_by INTEGER, kind TEXT, note TEXT, sent INTEGER DEFAULT 0)""")
+def lineup_email_log(d, eid):
+    """Every time this event was emailed: when, by whom, how many, and the note."""
+    ensure_lineup_emails(d)
+    out = []
+    for r in d.execute("""SELECT l.*, m.first, m.preferred_first, m.last FROM lineup_emails l LEFT JOIN members m ON m.id=l.sent_by
+            WHERE l.event_id=? ORDER BY l.id DESC""", (eid,)):
+        who = (display_first(r) + " " + (r["last"] or "")[:1] + ".") if r["first"] else ""
+        what = {"auto": "When posted", "manual": "Everyone", "test": "Test"}.get(r["kind"] or "", "Everyone")
+        out.append({"when": fmt_stamp(r["sent_at"]), "who": who, "what": what, "n": r["sent"] or 0, "note": r["note"] or ""})
+    return out
+app.jinja_env.globals.update(lineup_email_log=lambda eid: lineup_email_log(db(), eid))
+def announce_lineup_event(d, eid, actor_id=None, base=None, only=None, manual=False, note=""):
     """A Lineup event just went up: tell the club once (in-app notice, push with the banner, and an email with
     the banner). Everyone gets it, the person who posted it too. Each member gets it at most once per event."""
     row = lineup_event_row(d, eid)
@@ -7638,6 +7652,9 @@ def announce_lineup_event(d, eid, actor_id=None, base=None, only=None, manual=Fa
     title = row["title"]
     body = "%s · %s" % (title, when) if when else title
     sent = 0
+    note = (note or "").strip()[:1000]
+    sender = d.execute("SELECT * FROM members WHERE id=?", (actor_id,)).fetchone() if actor_id else None
+    note_by = ("Note from %s" % display_first(sender)) if sender else "Note"
     people = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system'" + (" AND id=?" if only else ""), ((only,) if only else ())).fetchall()
     for m in people:
         if not manual:
@@ -7648,28 +7665,29 @@ def announce_lineup_event(d, eid, actor_id=None, base=None, only=None, manual=Fa
         if m["email"] and (only or not ("lineup_email" in m.keys() and m["lineup_email"] == 0)):
             rows = [("WHEN", when)] + ([("WHERE", place)] if place else [])
             if row["cost"]: rows.append(("COST", str(row["cost"])))
-            text = "%s is on the Lineup.\n\n%s%s\n\nView the event: %s\n\nTurn Lineup emails off: %s/notifications" % (
-                title, when, ("\n" + place) if place else "", base + url, base)
+            text = "%s is on the Lineup.\n\n%s%s%s\n\nView the event: %s\n\nTurn Lineup emails off: %s/notifications" % (
+                title, ("%s: %s\n\n" % (note_by, note)) if note else "", when, ("\n" + place) if place else "", base + url, base)
             try:
                 html = mailhtml.lineup_new_html(base, display_first(m), title, lineup_figure(row), rows, image, base + url,
-                                                base + "/notifications", org_name())
+                                                base + "/notifications", org_name(), note=note, note_by=note_by)
                 send_email(m["email"], "New on the Lineup: %s" % title, text, html=html)
                 sent += 1
             except Exception as exc:
                 app.logger.warning("lineup email to member %s failed: %s", m["id"], exc)
-        elif not manual:
-            sent += 1
+    ensure_lineup_emails(d)
+    d.execute("INSERT INTO lineup_emails(event_id, sent_at, sent_by, kind, note, sent) VALUES(?,?,?,?,?,?)",
+              (eid, stamp_pt(), actor_id, "test" if only else ("manual" if manual else "auto"), note, sent))
     d.commit()
     app.logger.warning("lineup announce event %s: %d sent%s", eid, sent, " (manual)" if manual else "")
     return sent
-def announce_lineup_later(eid, actor_id, only=None, manual=False):
+def announce_lineup_later(eid, actor_id, only=None, manual=False, note=""):
     """Send after the reply, so publishing feels instant (same pattern as poll emails)."""
     base = app_base()
     def run():
         try:
             with app.app_context():
                 d2 = open_db()
-                try: announce_lineup_event(d2, eid, actor_id, base, only=only, manual=manual)
+                try: announce_lineup_event(d2, eid, actor_id, base, only=only, manual=manual, note=note)
                 finally: d2.close()
         except Exception as e:
             app.logger.warning("lineup announce failed: %s", e)
@@ -8746,16 +8764,6 @@ def lineup_detail(eid):
                 d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "official"); d.commit()
                 if (row["status"] or "") in ("", "draft"): announce_lineup_later(eid, me()["id"])
             return redirect("/lineup/%d" % eid)
-        if action in ("email_me", "email_all"):
-            if not _ic_host(d, row): abort(403)
-            if (row["status"] or "") != "published": abort(400)
-            if action == "email_me":
-                announce_lineup_later(eid, me()["id"], only=me()["id"], manual=True)
-                flash("Sent to %s" % me()["email"], "toast")
-            else:
-                announce_lineup_later(eid, me()["id"], manual=True)
-                flash("Emailing the club", "toast")
-            return redirect("/lineup/%d" % eid)
         if action == "publish":
             if not _ic_host(d, row): abort(403)
             if (row["status"] or "") == "draft":
@@ -8783,6 +8791,23 @@ def lineup_detail(eid):
     return page(T["lineup_event"], tab="lineup_event", e=packed, from_admin=request.args.get("from") == "admin", admin_date=(request.args.get("date") or row["date"] or "")[:10],
                 ic=ic, ic_res=ic_res, ic_mine=interest.mine(d, eid, me()["id"]) if ic else None, ic_host=bool(packed.get("can_edit") or packed.get("can_review")),
                 ic_considering=(row["team_intent"] or "") == "considering")
+@app.route("/lineup/<int:eid>/email", methods=["POST"])
+@login_required
+def lineup_email(eid):
+    """Email this event now (from its Edit page): a test to me, or everyone, with an optional note."""
+    d = db()
+    row = lineup_event_row(d, eid)
+    if not row or not lineup_seen(row, me()): abort(404)
+    if not _ic_host(d, row): abort(403)
+    if (row["status"] or "") != "published": abort(400)
+    note = (request.form.get("note") or "").strip()[:1000]
+    if request.form.get("action") == "test":
+        announce_lineup_later(eid, me()["id"], only=me()["id"], manual=True, note=note)
+        flash("Test sent to %s" % me()["email"], "toast")
+    else:
+        announce_lineup_later(eid, me()["id"], manual=True, note=note)
+        flash("Emailing everyone", "toast")
+    return redirect("/lineup/%d/edit" % eid)
 def _ic_host(d, row):
     p = lineup_pack(d, [row])[0]
     return bool(p.get("can_edit") or p.get("can_review"))
@@ -8966,6 +8991,7 @@ def lineup_edit(eid):
     ctx["line_sport"] = (row["sport"] if "sport" in row.keys() else "") or ""
     ended = lineup_ended(row)
     ctx["show_cancel"] = can_host_practice() and (row["status"] or "") == "published" and not ended
+    ctx["can_email"] = (row["status"] or "") == "published" and _ic_host(d, row)
     ctx["show_delete"] = (not ended) and (can_host_practice() or (row["created_by"] == me()["id"] and (row["status"] or "") in ("draft", "declined", "changes_requested")))
     return page(T["lineup_edit"], tab="lineup_edit", action="/lineup/%d/edit" % eid, **ctx)
 def _anon_people(rows):

@@ -7132,9 +7132,6 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {{ whos_going(e.interested, "interested") }}
 {{ whos_going(e.people) }}
 {% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="rg-btn primary full" name=action value=official>Make official</button></form>{% endif %}
-{% if ic_host and e.status == 'published' %}<div class=rg-day>Email</div>
-<form method=post action="/lineup/{{ e.id }}" class="evnav two">{{ csrf_field() }}<button class="rg-btn secondary" name=action value=email_me>Email me a test</button><button class="rg-btn secondary" name=action value=email_all onclick="return confirm('Email this event to everyone in the club now?')">Email everyone</button></form>
-<p class="ty-muted ty-sm">The same email with the banner. Everyone gets it again, even if they had it already.</p>{% endif %}
 {% if e.venue or e.city %}{{ event_location('lineLoc', e.pins, e.venue or e.city, e.city if e.venue else '', e.dir_href) }}{% endif %}
 <script>(function(){var el=document.getElementById('evdesc'),btn=document.getElementById('evmore');if(!el||!btn)return;if(el.scrollHeight>el.clientHeight+2)btn.hidden=false;btn.onclick=function(){var open=el.classList.toggle('open');btn.textContent=open?'Less':'More';};})();</script>"""
 T["approvals"] = """{% call admin_page('Events') %}<a class="rg-btn ghost pageact" href="/events/new">Create event</a>{% endcall %}
@@ -7856,6 +7853,14 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 {% if show_delete %}<button class="rg-btn secondary" name=action value=delete formnovalidate onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
 </div>{% endif %}
 </form>
+{% if can_email %}{% set log = lineup_email_log(event_id) %}<div class=rg-day>Email</div>
+<div class="list rg-evdetails">{% for r in log %}<div class="li prow"><span class=k>{{ r.when }}{% if r.who %} · {{ r.who }}{% endif %}{% if r.note %}<br><small class=ty-muted>{{ r.note }}</small>{% endif %}</span><span class=v>{{ r.what }} · {{ r.n }} sent</span></div>{% else %}<div class=li><span class=ty-muted>Not emailed yet.</span></div>{% endfor %}</div>
+<button type=button class="rg-btn secondary full" style="margin-top:12px" onclick="document.getElementById('emailSheet').showModal()">Email this event</button>
+<dialog class="botsheet modal" id=emailSheet><form method=post action="/lineup/{{ event_id }}/email" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><h2>Email this event.</h2>
+<p class="ty-muted ty-sm">The event email with the banner. Your note shows at the top.</p>
+<label>Note (optional)<textarea class=planfield name=note rows=4 maxlength=1000 placeholder="Carpools leave from the pool at 7."></textarea></label>
+<div class=evnav><button class="rg-btn primary" name=action value=all onclick="return confirm('Email this event to everyone in the club now?')">Email everyone</button><button class="rg-btn secondary" name=action value=test>Send me a test</button></div>
+<button type=button class="rg-btn ghost full" onclick="this.closest('dialog').close()">Cancel</button></form></dialog>{% endif %}
 <script>(function(){
  var org=document.getElementById('lineOrg'), cos=document.getElementById('lineCo');
  function sync(){
