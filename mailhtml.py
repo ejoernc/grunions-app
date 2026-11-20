@@ -3,7 +3,7 @@ import html
 import os
 
 ORG_NAME = "Grunions Water Polo"
-TAGLINE = "Built for the people who show up."
+TAGLINE = "Good things happen when we show up."
 # Figma 11 · Emails (2.0). Light is the default; dark comes from the stylesheet below.
 FIXED_INK = "#0B0B0C"
 LIME = "#C8FF3C"
