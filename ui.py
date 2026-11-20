@@ -2419,14 +2419,7 @@ dialog.memberedit .help a{color:var(--t1)}
   chips.forEach(function(c){ c.classList.toggle('on', c.getAttribute('data-group')===g); });
   other.hidden=sel.value.indexOf('__other__')!==0;
  }
- chips.forEach(function(c){ c.onclick=function(){
-  var g=c.getAttribute('data-group'), host=document.querySelector('#whoHost input[name=hosting]:checked');
-  if(g==='competitions' && host && host.value==='Hosting' && document.getElementById('whoHost')){
-   var t=document.getElementById('lineTitle'), col=document.querySelector('input[name=event_color_line]:checked');
-   location.href='/tournaments/new?from=lineup'+(t&&t.value?'&name='+encodeURIComponent(t.value):'')+(col?'&color='+encodeURIComponent(col.value):'');
-   return;
-  }
-  fill(g); sel.dispatchEvent(new Event('change',{bubbles:true})); }; });
+ chips.forEach(function(c){ c.onclick=function(){ fill(c.getAttribute('data-group')); sel.dispatchEvent(new Event('change',{bubbles:true})); }; });
  sel.addEventListener('change', function(){ other.hidden=sel.value.indexOf('__other__')!==0; if(!other.hidden) document.getElementById('typeOther').focus(); });
  sel._restore=function(v){ var g=groupOf(v); if(g){ fill(g, v); sel.dispatchEvent(new Event('change',{bubbles:true})); } };
  fill('competitions');
@@ -7835,6 +7828,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
  function go(n){
   if(n>1){ var lane=(document.getElementById('laneVal')||{}).value; var title=lane==='lineup'?document.getElementById('lineTitle'):null;
    if(title&&!title.value.trim()){ title.focus(); title.reportValidity&&title.setCustomValidity('Add an event name.'); title.reportValidity&&title.reportValidity(); title.setCustomValidity(''); return; } }
+  if(n===2 && hostingComp()){ form.action='/tournaments/new?from=lineup'; var a=document.createElement('input'); a.type='hidden'; a.name='start'; a.value='1'; form.appendChild(a); form.submit(); return; }
   if(n>2){ var dt=document.getElementById('dateInput'), prec=form.querySelector('input[name=date_precision]:checked');
    if(dt&&!dt.value&&(!prec||prec.value==='exact')){ var lab=document.getElementById('dateSum'); if(lab){ lab.textContent=' Pick a date first'; } return; } }
   form.querySelectorAll('.evstep').forEach(function(s){ s.hidden=+s.getAttribute('data-step')!==n; });
@@ -7842,6 +7836,14 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   var lab=document.getElementById('evStepLab'); if(lab) lab.textContent='STEP '+n+' OF 3 · '+names[n];
   window.scrollTo({top:0,behavior:'smooth'});
  }
+ // A competition we host or co-host: step 1 is enough here; the competition setup is the next page.
+ function hostingComp(){
+  var lane=(document.getElementById('laneVal')||{}).value, sel=document.getElementById('lineType'), host=form.querySelector('#whoHost input[name=hosting]:checked');
+  var o=sel&&sel.selectedOptions?sel.selectedOptions[0]:null;
+  return lane==='lineup' && !!document.getElementById('typeChips') && !!o && o.getAttribute('data-group')==='competitions' && !!host && host.value==='Hosting';
+ }
+ function syncNext(){ var b=form.querySelector('.evstep[data-step="1"] [data-evgo="2"]'); if(b) b.textContent=hostingComp()?'Next: set up the competition':'Next: when & where'; }
+ form.addEventListener('change', syncNext); form.addEventListener('click', function(){ setTimeout(syncNext, 0); }); syncNext();
  form.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('[data-evgo]'); if(!b) return; e.preventDefault(); go(+b.getAttribute('data-evgo')); });
  form.addEventListener('submit',function(e){ var lane=(document.getElementById('laneVal')||{}).value; if(lane!=='lineup') return;
   var miss=[['line_title','Add an event name.'],['description','Add a short description.']].map(function(x){ var el=form.querySelector('[name='+x[0]+']'); return el&&!el.value.trim()?[el,x[1]]:null; }).filter(Boolean)[0];
@@ -9500,7 +9502,7 @@ T["tour_setup"] = """<div class=rg-tour>
 {% if error %}<p class=rg-tourerr role=alert>{{ error }}</p>{% endif %}
 {% set f = form or {} %}
 {% if step == 'basics' %}
-{% if from_lineup and not t %}<p class=rg-tourmeta>Going to another organization's competition instead? <a href="/events/new?lane=lineup&amp;host=other">Add it to the Lineup</a>.</p>{% endif %}
+
 <form method=post action="{{ '/tournaments/new' if not t else '/tournaments/' ~ t.id ~ '/setup/basics' }}" id=tourForm>{{ csrf_field() }}{% if from_lineup %}<input type=hidden name=from value=lineup>{% endif %}<input type=hidden name=color_seen value=1>
 <label class=rg-field><span>Name</span><input name=name required maxlength=120 value="{{ f.get('name') or (t.name if t else '') }}" placeholder="Harbor Regulars Invitational"></label>
 <p class=rg-tourcaps>What do you call it?</p>
@@ -9524,7 +9526,7 @@ T["tour_setup"] = """<div class=rg-tour>
 </div>
 <label class=rg-field data-host=org><span>Host organization</span><input name=host_org maxlength=120 value="{{ f.get('host_org') or (t.host_org if t else '') or '' }}" placeholder="Harbor Aquatic Club"></label>
 <label class=rg-field data-host=co><span>Co-hosts</span><input name=cohosts maxlength=200 value="{{ f.get('cohosts') or (t.cohosts if t else '') or '' }}" placeholder="Names or organizations"></label>
-<div class=rg-tournav>{{ rg_button('Cancel', 'secondary', ('/lineup' if from_lineup else '/tournaments') if not t else '/tournaments/' ~ t.id) }}{{ rg_button('Continue', 'primary') }}</div>
+<div class=rg-tournav>{% if from_lineup and not t %}<button type=button class="rg-btn secondary" onclick="history.length>1?history.back():location.assign('/events/new?lane=lineup')">Back</button>{% else %}{{ rg_button('Cancel', 'secondary', '/tournaments' if not t else '/tournaments/' ~ t.id) }}{% endif %}{{ rg_button('Continue', 'primary') }}</div>
 </form>
 {% elif step == 'sports' %}
 <form method=post class=rg-hostlist role=radiogroup aria-label="How many sports?" onchange="this.requestSubmit?this.requestSubmit():this.submit()">{{ csrf_field() }}<input type=hidden name=action value=mode>

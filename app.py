@@ -14251,16 +14251,44 @@ def tournament_new():
     if not can_host_practice(): abort(403)
     d = _tour_db(); error = ""
     from_lineup = (request.values.get("from") == "lineup")
+    if request.method == "POST" and request.form.get("start") and request.form.get("lane") == "lineup":
+        # Step 1 of New event (a competition we host or co-host) hands over to the competition setup.
+        f = request.form
+        raw = (f.get("event_type") or "").strip()
+        shown = raw.split("|", 1)[1] if "|" in raw else (" ".join((f.get("type_custom") or "").split())[:24] if raw.startswith("__other__") else "")
+        term, other = (shown, "") if shown in tourn.TERMS else (("other", shown) if shown else ("Tournament", ""))
+        cohosts = [c.strip() for c in f.getlist("cohost_org") if c.strip()] if f.get("cohosted") else []
+        banner = ""
+        up = request.files.get("image") if request.files else None
+        if up and up.filename:
+            try: banner = save_banner(up)
+            except ValueError as e: flash(str(e), "error")
+        session["tour_prefill"] = {"name": (f.get("line_title") or "")[:120], "summary": (f.get("description") or "")[:240],
+            "color": f.get("event_color_line") or "", "term": term, "term_other": other,
+            "hosting": "several" if cohosts else "organization", "host_org": org_name(), "cohosts": ", ".join(cohosts)[:200],
+            "sports": [x for x in f.getlist("line_sport") if x.strip()][:12] if f.get("line_sport_on") or f.getlist("line_sport") else [],
+            "banner": banner}
+        return redirect("/tournaments/new?from=lineup")
+    pre = session.get("tour_prefill") if from_lineup else None
     if request.method == "POST":
         try:
             tid = tourn.save_basics(d, None, request.form, me()["id"])
-            if from_lineup: tour_sync_lineup(d, tid, create=True)
+            if from_lineup:
+                eid = tour_sync_lineup(d, tid, create=True)
+                if pre:
+                    if pre.get("banner") and eid: d.execute("UPDATE lineup_events SET banner=? WHERE id=?", (pre["banner"], eid))
+                    sports = pre.get("sports") or []
+                    if len(sports) > 1: tourn.set_mode(d, tid, True)
+                    for name in sports:
+                        try: tourn.add_sport(d, tourn.get(d, tid), custom_name=name)
+                        except ValueError: pass
+                    session.pop("tour_prefill", None)
             d.commit()
             return redirect("/tournaments/%d/setup/sports" % tid)
         except ValueError as e:
             error = str(e)
-    form = request.form if request.method == "POST" else {"name": (request.args.get("name") or "")[:120], "color": request.args.get("color") or "",
-                                                           "hosting": "organization", "host_org": org_name(), "term": "Tournament"}
+    form = request.form if request.method == "POST" else dict({"name": (request.args.get("name") or "")[:120], "color": request.args.get("color") or "",
+                                                               "hosting": "organization", "host_org": org_name(), "term": "Tournament"}, **(pre or {}))
     return page(T["tour_setup"], tab="tournament", error=error, form=form, terms=tourn.TERMS, from_lineup=from_lineup,
                 colors=components.EVENT_COLORS, **_tour_ctx(d, None, "basics"))
 

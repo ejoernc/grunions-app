@@ -191,3 +191,28 @@ def test_competition_started_from_lineup_makes_a_linked_draft_and_publishes_it()
     with A.app.app_context():
         ev = A.db().execute("SELECT title, status, color, end_date FROM lineup_events WHERE id=?", (eid,)).fetchone()
     assert tuple(ev) == ("Harbor Open 2027", "published", "sky", "2027-06-07")
+
+
+def test_new_event_step_one_hands_over_to_competition_setup():
+    import io
+    from PIL import Image
+    c = _as(ADMIN)
+    tok = _csrf(c, "/events/new?lane=lineup")
+    buf = io.BytesIO(); Image.new("RGB", (900, 600), (20, 120, 200)).save(buf, "JPEG"); buf.seek(0)
+    r = c.post("/tournaments/new?from=lineup", data={"csrf": tok, "start": "1", "lane": "lineup", "line_title": "Bay Meet",
+        "description": "Two days of racing.", "event_type": "competitions|Meet", "hosting": "Hosting", "cohosted": "1",
+        "cohost_org": ["Long Beach Swim"], "event_color_line": "aqua", "line_sport_on": "1", "line_sport": ["Swimming", "Water Polo"],
+        "image": (buf, "b.jpg")}, content_type="multipart/form-data")
+    assert r.headers["Location"].endswith("/tournaments/new?from=lineup")
+    page = c.get("/tournaments/new?from=lineup").get_data(as_text=True)
+    assert 'value="Bay Meet"' in page and 'value="Long Beach Swim"' in page and 'value="aqua" checked' in page and 'value="Meet" checked' in page
+    r = c.post("/tournaments/new", data={"csrf": tok, "from": "lineup", "name": "Bay Meet", "term": "Meet", "starts": "2027-07-10", "ends": "2027-07-11",
+        "hosting": "several", "host_org": "Grunions", "cohosts": "Long Beach Swim", "color": "aqua", "color_seen": "1"})
+    tid = int(r.headers["Location"].split("/")[2])
+    with A.app.app_context():
+        d = A.db()
+        t = d.execute("SELECT multi, lineup_event_id FROM tournaments WHERE id=?", (tid,)).fetchone()
+        keys = [x["sport_key"] for x in d.execute("SELECT sport_key FROM tournament_sports WHERE tournament_id=? ORDER BY sort", (tid,))]
+        ev = d.execute("SELECT banner, type_custom, color, status FROM lineup_events WHERE id=?", (t["lineup_event_id"],)).fetchone()
+    assert t["multi"] == 1 and keys == ["swimming", "water-polo"]
+    assert ev["banner"] and ev["type_custom"] == "Meet" and ev["color"] == "aqua" and ev["status"] == "draft"
