@@ -167,3 +167,27 @@ def test_browse_by_format_and_each_sport_details():
         row = A.db().execute("SELECT fee_cents, cap, venue, rules_link FROM tournament_sports WHERE id=?", (sid,)).fetchone()
     assert tuple(row) == (2500, 64, "Belmont Plaza", "https://example.com/rules")
     assert "1 of" in c.get("/tournaments/%d/setup/review" % tid).get_data(as_text=True)
+
+
+def test_competition_started_from_lineup_makes_a_linked_draft_and_publishes_it():
+    c = _as(ADMIN)
+    page = c.get("/tournaments/new?from=lineup&name=Harbor%20Open&color=cherry").get_data(as_text=True)
+    assert 'value="Harbor Open"' in page and 'value="cherry" checked' in page and "name=from value=lineup" in page
+    r = c.post("/tournaments/new", data={"csrf": _csrf(c, "/tournaments/new?from=lineup"), "from": "lineup", "name": "Harbor Open", "term": "Meet",
+        "starts": "2027-06-05", "ends": "2027-06-06", "hosting": "organization", "host_org": "Grunions", "venue": "Belmont", "city": "Long Beach",
+        "color": "cherry", "color_seen": "1"})
+    tid = int(r.headers["Location"].split("/")[2])
+    with A.app.app_context():
+        d = A.db()
+        eid = d.execute("SELECT lineup_event_id FROM tournaments WHERE id=?", (tid,)).fetchone()[0]
+        ev = d.execute("SELECT title, status, color, event_type, type_custom, end_date FROM lineup_events WHERE id=?", (eid,)).fetchone()
+    assert tuple(ev) == ("Harbor Open", "draft", "cherry", "Competition", "Meet", "2027-06-06")
+    tok = _csrf(c, "/tournaments/%d/setup/basics" % tid)
+    c.post("/tournaments/%d/setup/basics" % tid, data={"csrf": tok, "name": "Harbor Open 2027", "term": "Meet", "starts": "2027-06-05", "ends": "2027-06-07",
+        "hosting": "organization", "host_org": "Grunions", "color": "sky", "color_seen": "1"})
+    c.post("/tournaments/%d/setup/sports" % tid, data={"csrf": tok, "action": "add", "key": "swimming"})
+    c.post("/tournaments/%d/setup/registration" % tid, data={"csrf": tok, "base": "40", "channels": "app"})
+    c.post("/tournaments/%d/setup/review" % tid, data={"csrf": tok, "action": "publish"})
+    with A.app.app_context():
+        ev = A.db().execute("SELECT title, status, color, end_date FROM lineup_events WHERE id=?", (eid,)).fetchone()
+    assert tuple(ev) == ("Harbor Open 2027", "published", "sky", "2027-06-07")

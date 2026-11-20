@@ -222,6 +222,7 @@ CATALOG = [
 SPORTS = {row[0]: row for row in CATALOG}
 FIRST = ("water-polo", "swimming", "diving", "open-water-swimming", "volleyball", "pickleball", "soccer", "basketball", "road-running", "ultimate-frisbee")
 
+COLORS = ("sun", "sky", "tangerine", "lime", "aqua", "cobalt", "bubblegum", "cherry", "lavender")
 STATUS = {"draft": ("Draft", "Not on the public page yet"), "interest": ("Gauging interest", "Share link is open"),
           "published": ("Published", "Registration is set")}
 STEPS = (("basics", "Basics"), ("sports", "Sports"), ("interest", "Interest"), ("registration", "Registration"),
@@ -239,7 +240,7 @@ def ensure(d):
     d.execute("""CREATE TABLE IF NOT EXISTS tournament_sports(id INTEGER PRIMARY KEY, tournament_id INTEGER NOT NULL,
         sport_key TEXT NOT NULL, preset TEXT NOT NULL, sort INTEGER DEFAULT 0, UNIQUE(tournament_id, sport_key))""")
     cols = {r[1] for r in d.execute("PRAGMA table_info(tournaments)")}
-    for col, decl in (("term", "TEXT"), ("lineup_event_id", "INTEGER"), ("multi", "INTEGER")):
+    for col, decl in (("term", "TEXT"), ("lineup_event_id", "INTEGER"), ("multi", "INTEGER"), ("color", "TEXT")):
         if col not in cols: d.execute("ALTER TABLE tournaments ADD COLUMN %s %s" % (col, decl))
     scols = {r[1] for r in d.execute("PRAGMA table_info(tournament_sports)")}
     for col, decl in (("custom_name", "TEXT"),) + SPORT_DETAIL_COLS:
@@ -372,12 +373,14 @@ def save_basics(d, tid, form, member_id):
     word = form.get("term") if form.get("term") in TERMS else " ".join((form.get("term_other") or "").split())[:24]
     if form.get("term") == "other" and not word: raise ValueError("Say what you call it.")
     word = word or "Tournament"
+    color = form.get("color") if form.get("color") in COLORS else None
     if tid:
+        if "color" in form or form.get("color_seen"): d.execute("UPDATE tournaments SET color=? WHERE id=?", (color, tid))
         d.execute("""UPDATE tournaments SET name=?, summary=?, starts=?, ends=?, tz=?, hosting=?, host_org=?, cohosts=?, venue=?, city=?, term=?
             WHERE id=?""", vals + (word, tid))
         return tid
-    cur = d.execute("""INSERT INTO tournaments(name, summary, starts, ends, tz, hosting, host_org, cohosts, venue, city, status, token, created_by, term, multi)
-        VALUES(?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,0)""", vals + (secrets.token_urlsafe(9), member_id, word))
+    cur = d.execute("""INSERT INTO tournaments(name, summary, starts, ends, tz, hosting, host_org, cohosts, venue, city, status, token, created_by, term, multi, color)
+        VALUES(?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,0,?)""", vals + (secrets.token_urlsafe(9), member_id, word, color))
     return cur.lastrowid
 
 
@@ -445,6 +448,7 @@ def from_lineup(d, ev, member_id):
         ((ev["city"] if "city" in keys else "") or "") if ((ev["city"] if "city" in keys else "") or "") != ((ev["location"] if "location" in keys else "") or "") else "",
         secrets.token_urlsafe(9), member_id, "Tournament" if kind == "Tournament" else "Competition", ev["id"]))
     tid = cur.lastrowid
+    if "color" in keys and ev["color"] in COLORS: d.execute("UPDATE tournaments SET color=? WHERE id=?", (ev["color"], tid))
     picked = [x.strip() for x in ((ev["sport"] if "sport" in keys else "") or "").split(",") if x.strip()]
     t = get(d, tid)
     if len(picked) > 1: set_mode(d, tid, True); t = get(d, tid)

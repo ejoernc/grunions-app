@@ -14220,18 +14220,49 @@ def tournaments_list():
     items = [{"t": r, "line": tourn.meta_line(r), "status": tourn.STATUS.get(r["status"], ("Draft", ""))[0], "term": tourn.term(r)} for r in rows]
     return page(T["tour_list"], tab="tournament", items=items)
 
+def tour_sync_lineup(d, tid, create=False):
+    """A competition and its Lineup event stay in step: name, dates, place, summary, color and what it's called.
+    create=True makes the Lineup event (a draft only organizers see) when the competition was started from Lineup."""
+    t = tourn.get(d, tid)
+    if not t: return None
+    word = (t["term"] or "Tournament").strip()
+    etype = "Tournament" if word == "Tournament" else "Competition"
+    custom = "" if word in ("Tournament", "Competition") else word
+    place_city = t["city"] or ""
+    vals = (t["name"], t["starts"], t["ends"] or t["starts"], t["venue"] or "", place_city, t["summary"] or "",
+            t["color"] if "color" in t.keys() else None, etype, custom)
+    eid = t["lineup_event_id"]
+    if eid and d.execute("SELECT 1 FROM lineup_events WHERE id=?", (eid,)).fetchone():
+        d.execute("""UPDATE lineup_events SET title=?, date=?, end_date=?, venue=?, city=?, description=CASE WHEN ?='' THEN description ELSE ? END,
+            color=COALESCE(?, color), event_type=?, type_custom=? WHERE id=?""",
+            (vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[5], vals[6], vals[7], vals[8], eid))
+        return eid
+    if not create: return None
+    cur = d.execute("""INSERT INTO lineup_events(kind, title, date, end_date, venue, city, description, color, event_type, type_custom,
+        status, created_by, hosting, team_intent, team_plan, date_precision, start_time)
+        VALUES('event',?,?,?,?,?,?,?,?,?,'draft',?,'Hosting','official','committed','exact','09:00')""", vals + (me()["id"],))
+    eid = cur.lastrowid
+    d.execute("UPDATE tournaments SET lineup_event_id=? WHERE id=?", (eid, tid))
+    return eid
+
 @app.route("/tournaments/new", methods=["GET", "POST"])
 @login_required
 def tournament_new():
     if not can_host_practice(): abort(403)
     d = _tour_db(); error = ""
+    from_lineup = (request.values.get("from") == "lineup")
     if request.method == "POST":
         try:
-            tid = tourn.save_basics(d, None, request.form, me()["id"]); d.commit()
+            tid = tourn.save_basics(d, None, request.form, me()["id"])
+            if from_lineup: tour_sync_lineup(d, tid, create=True)
+            d.commit()
             return redirect("/tournaments/%d/setup/sports" % tid)
         except ValueError as e:
             error = str(e)
-    return page(T["tour_setup"], tab="tournament", error=error, form=request.form, terms=tourn.TERMS, **_tour_ctx(d, None, "basics"))
+    form = request.form if request.method == "POST" else {"name": (request.args.get("name") or "")[:120], "color": request.args.get("color") or "",
+                                                           "hosting": "organization", "host_org": org_name(), "term": "Tournament"}
+    return page(T["tour_setup"], tab="tournament", error=error, form=form, terms=tourn.TERMS, from_lineup=from_lineup,
+                colors=components.EVENT_COLORS, **_tour_ctx(d, None, "basics"))
 
 @app.route("/tournaments/<int:tid>/setup/<step>", methods=["GET", "POST"])
 @login_required
@@ -14245,6 +14276,7 @@ def tournament_setup(tid, step):
         try:
             if step == "basics":
                 tourn.save_basics(d, tid, request.form, me()["id"])
+                tour_sync_lineup(d, tid)
             elif step == "sports":
                 keys = [x["key"] for x in tourn.sports_of(d, tid)]
                 presets = {x["key"]: x["preset"] for x in tourn.sports_of(d, tid)}
@@ -14284,8 +14316,14 @@ def tournament_setup(tid, step):
                 if a == "publish":
                     missing = [title for key, title, _s, ok in tourn.checklist(d, t) if not ok]
                     if missing: raise ValueError("Finish %s first." % " and ".join(missing))
-                    tourn.set_status(d, tid, "published"); d.commit()
-                    flash("Published", "toast"); return redirect("/tournaments/%d" % tid)
+                    tourn.set_status(d, tid, "published")
+                    eid = t["lineup_event_id"]
+                    erow = d.execute("SELECT status FROM lineup_events WHERE id=?", (eid,)).fetchone() if eid else None
+                    if erow and (erow["status"] or "") == "draft":
+                        d.execute("UPDATE lineup_events SET status='published' WHERE id=?", (eid,)); d.commit()
+                        announce_lineup_later(eid, me()["id"])
+                    d.commit()
+                    flash("Published · on the Lineup" if erow else "Published", "toast"); return redirect("/tournaments/%d" % tid)
             d.commit()
             return redirect("/tournaments/%d" % tid if step == "review" else "/tournaments/%d/setup/%s" % (tid, nxt))
         except ValueError as e:

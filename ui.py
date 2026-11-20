@@ -2419,7 +2419,14 @@ dialog.memberedit .help a{color:var(--t1)}
   chips.forEach(function(c){ c.classList.toggle('on', c.getAttribute('data-group')===g); });
   other.hidden=sel.value.indexOf('__other__')!==0;
  }
- chips.forEach(function(c){ c.onclick=function(){ fill(c.getAttribute('data-group')); sel.dispatchEvent(new Event('change',{bubbles:true})); }; });
+ chips.forEach(function(c){ c.onclick=function(){
+  var g=c.getAttribute('data-group'), host=document.querySelector('#whoHost input[name=hosting]:checked');
+  if(g==='competitions' && host && host.value==='Hosting' && document.getElementById('whoHost')){
+   var t=document.getElementById('lineTitle'), col=document.querySelector('input[name=event_color_line]:checked');
+   location.href='/tournaments/new?from=lineup'+(t&&t.value?'&name='+encodeURIComponent(t.value):'')+(col?'&color='+encodeURIComponent(col.value):'');
+   return;
+  }
+  fill(g); sel.dispatchEvent(new Event('change',{bubbles:true})); }; });
  sel.addEventListener('change', function(){ other.hidden=sel.value.indexOf('__other__')!==0; if(!other.hidden) document.getElementById('typeOther').focus(); });
  sel._restore=function(v){ var g=groupOf(v); if(g){ fill(g, v); sel.dispatchEvent(new Event('change',{bubbles:true})); } };
  fill('competitions');
@@ -7449,8 +7456,8 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 {{ rg_color_dots('event_color_line', '') }}
 <div class=rg-day>Who's hosting?</div>
 <div class="actseg hostseg" id=whoHost role=radiogroup aria-label="Who's hosting?">
-<label><input type=radio name=hosting value=Hosting checked><span>Our organization</span></label>
-<label><input type=radio name=hosting value=Attending><span>Another organization</span></label>
+<label><input type=radio name=hosting value=Hosting{% if request.args.get('host') != 'other' %} checked{% endif %}><span>Our organization</span></label>
+<label><input type=radio name=hosting value=Attending{% if request.args.get('host') == 'other' %} checked{% endif %}><span>Another organization</span></label>
 </div>
 <label class=switchrow>Co-hosted?<span class=switch><input type=checkbox name=cohosted id=coHosted value=1><span></span></span></label>
 <label id=lineOrg hidden>Host organization<input name=host_org id=hostOrg autocomplete=off placeholder="West Hollywood Aquatics"></label>
@@ -9493,13 +9500,15 @@ T["tour_setup"] = """<div class=rg-tour>
 {% if error %}<p class=rg-tourerr role=alert>{{ error }}</p>{% endif %}
 {% set f = form or {} %}
 {% if step == 'basics' %}
-<form method=post action="{{ '/tournaments/new' if not t else '/tournaments/' ~ t.id ~ '/setup/basics' }}" id=tourForm>{{ csrf_field() }}
+{% if from_lineup and not t %}<p class=rg-tourmeta>Going to another organization's competition instead? <a href="/events/new?lane=lineup&amp;host=other">Add it to the Lineup</a>.</p>{% endif %}
+<form method=post action="{{ '/tournaments/new' if not t else '/tournaments/' ~ t.id ~ '/setup/basics' }}" id=tourForm>{{ csrf_field() }}{% if from_lineup %}<input type=hidden name=from value=lineup>{% endif %}<input type=hidden name=color_seen value=1>
 <label class=rg-field><span>Name</span><input name=name required maxlength=120 value="{{ f.get('name') or (t.name if t else '') }}" placeholder="Harbor Regulars Invitational"></label>
 <p class=rg-tourcaps>What do you call it?</p>
 {% set cur = f.get('term') or (term if term in terms else ('other' if t and t.term else 'Competition')) %}
 <div class=rg-chanset role=radiogroup aria-label="What do you call it?">{% for w in terms %}<label><input type=radio name=term value="{{ w }}"{% if cur == w %} checked{% endif %}><span>{{ w }}</span></label>{% endfor %}<label><input type=radio name=term value=other{% if cur == 'other' %} checked{% endif %}><span>Something else</span></label></div>
 <label class=rg-field data-term=other><span>Your word</span><input name=term_other maxlength=24 value="{{ f.get('term_other') or (term if t and term not in terms else '') }}" placeholder="Invitational, Open, Classic…"></label>
 <label class=rg-field><span>Summary</span><input name=summary maxlength=240 value="{{ f.get('summary') or (t.summary if t else '') or '' }}" placeholder="A club weekend at your pool"></label>
+{{ rg_color_dots('color', f.get('color') or (t.color if t and t.color else '')) }}
 <div class=rg-tourpair><label class=rg-field><span>Starts</span><input type=date name=starts required value="{{ f.get('starts') or (t.starts if t else '') }}"></label>
 <label class=rg-field><span>Ends</span><input type=date name=ends value="{{ f.get('ends') or (t.ends if t else '') }}"></label></div>
 {% set tz = f.get('tz') or (t.tz if t else '') or 'America/Los_Angeles' %}
@@ -9515,7 +9524,7 @@ T["tour_setup"] = """<div class=rg-tour>
 </div>
 <label class=rg-field data-host=org><span>Host organization</span><input name=host_org maxlength=120 value="{{ f.get('host_org') or (t.host_org if t else '') or '' }}" placeholder="Harbor Aquatic Club"></label>
 <label class=rg-field data-host=co><span>Co-hosts</span><input name=cohosts maxlength=200 value="{{ f.get('cohosts') or (t.cohosts if t else '') or '' }}" placeholder="Names or organizations"></label>
-<div class=rg-tournav>{{ rg_button('Cancel', 'secondary', '/tournaments' if not t else '/tournaments/' ~ t.id) }}{{ rg_button('Continue', 'primary') }}</div>
+<div class=rg-tournav>{{ rg_button('Cancel', 'secondary', ('/lineup' if from_lineup else '/tournaments') if not t else '/tournaments/' ~ t.id) }}{{ rg_button('Continue', 'primary') }}</div>
 </form>
 {% elif step == 'sports' %}
 <form method=post class=rg-hostlist role=radiogroup aria-label="How many sports?" onchange="this.requestSubmit?this.requestSubmit():this.submit()">{{ csrf_field() }}<input type=hidden name=action value=mode>
