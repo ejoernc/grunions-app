@@ -795,7 +795,9 @@ def me():
 def login_required(f):
     @functools.wraps(f)
     def w(*a, **k):
-        if not me(): return redirect(url_for("login", next=request.path))
+        if not me():
+            rsvp = request.args.get("rsvp") if request.method == "GET" else ""
+            return redirect(url_for("login", next=request.path + ("?rsvp=" + rsvp if rsvp in ("going", "interested") else "")))
         return f(*a, **k)
     return w
 def admin_required(f):
@@ -1269,7 +1271,7 @@ def safe_return_path(raw):
         return ""
     if raw.startswith("/register?event="):
         return raw
-    if re.fullmatch(r"/practices/\d+(/event\.ics)?", raw) or re.fullmatch(r"/lineup/\d+", raw):
+    if re.fullmatch(r"/practices/\d+(/event\.ics)?", raw) or re.fullmatch(r"/lineup/\d+(\?rsvp=(going|interested))?", raw):
         return raw
     return ""
 def auth_destination(mid):
@@ -7651,6 +7653,12 @@ def announce_lineup_event(d, eid, actor_id=None, base=None, only=None, manual=Fa
     image = (base + "/public-image/e/%d" % eid) if _stored_file(row["banner"] or "") else ""
     title = row["title"]
     body = "%s · %s" % (title, when) if when else title
+    names = lineupfeed.host_list(row["host_org"] if "host_org" in row.keys() else "")
+    if not names and (row["hosting"] or "") == "Hosting": names = [org_name()]
+    names += [n for n in lineupfeed.host_list(row["host_orgs"] if "host_orgs" in row.keys() else "") if n not in names]
+    hosts = lineupfeed.host_summary(names) if names else ""
+    kind = mailhtml.new_event_label(row["event_type"] if "event_type" in row.keys() else "")
+    hero = components.event_tone(row["event_type"] if "event_type" in row.keys() else "lineup", False, components.row_color(row))
     sent = 0
     note = (note or "").strip()[:1000]
     sender = d.execute("SELECT * FROM members WHERE id=?", (actor_id,)).fetchone() if actor_id else None
@@ -7664,13 +7672,15 @@ def announce_lineup_event(d, eid, actor_id=None, base=None, only=None, manual=Fa
             except Exception as e: app.logger.warning("lineup push failed: %s", e)
         if m["email"] and (only or not ("lineup_email" in m.keys() and m["lineup_email"] == 0)):
             rows = [("WHEN", when)] + ([("WHERE", place)] if place else [])
+            if hosts: rows.append(("HOSTED BY", hosts))
             if row["cost"]: rows.append(("COST", str(row["cost"])))
-            text = "%s is on the Lineup.\n\n%s%s%s\n\nView the event: %s\n\nTurn Lineup emails off: %s/notifications" % (
-                title, ("%s: %s\n\n" % (note_by, note)) if note else "", when, ("\n" + place) if place else "", base + url, base)
+            text = "%s is on the %s Lineup.\n\n%s%s%s%s\n\nI'm going: %s?rsvp=going\nInterested: %s?rsvp=interested\nView the event: %s\n\nTurn Lineup emails off: %s/notifications" % (
+                title, org_name(), ("%s: %s\n\n" % (note_by, note)) if note else "", when, ("\n" + place) if place else "",
+                ("\nHosted by " + hosts) if hosts else "", base + url, base + url, base + url, base)
             try:
                 html = mailhtml.lineup_new_html(base, display_first(m), title, lineup_figure(row), rows, image, base + url,
-                                                base + "/notifications", org_name(), note=note, note_by=note_by)
-                send_email(m["email"], "New on the Lineup: %s" % title, text, html=html)
+                                                base + "/notifications", org_name(), note=note, note_by=note_by, hero=hero, kind=kind)
+                send_email(m["email"], "%s · %s: %s" % (org_name(), kind, title), text, html=html)
                 sent += 1
             except Exception as exc:
                 app.logger.warning("lineup email to member %s failed: %s", m["id"], exc)

@@ -15,7 +15,7 @@ MUTED = "#6A6E73"       # color/smoke (light)
 ACCENT = "#4A6A00"      # accent/text (light)
 DARK = {"page": "#0B0B0C", "card": "#17181A", "text": "#F6F4EF", "box": "#24262A", "muted": "#8B8F93", "accent": "#C8FF3C"}
 HERO = {"lime": "#C8FF3C", "tangerine": "#FF5A1F", "lavender": "#A89CFF", "sky": "#7CC8F4", "aqua": "#2EE6C8",
-        "sun": "#FFC61A", "mango": "#FF9F1C", "cherry": "#FF3D57"}
+        "sun": "#FFC61A", "mango": "#FF9F1C", "cherry": "#FF3D57", "cobalt": "#4F7BFF", "bubblegum": "#FF5FB8"}
 DISPLAY = "'Space Grotesk',Arial,Helvetica,sans-serif"
 SANS = "'Plus Jakarta Sans',Arial,Helvetica,sans-serif"
 # Kept for callers that still import them.
@@ -136,7 +136,7 @@ def render_v2(base, hero, eyebrow, big, headline, first, paragraphs, org=ORG_NAM
         '<td style="vertical-align:top;padding-top:2px;"><img src="%s" alt="" width="33" height="13" style="display:block;border:0;outline:none;width:33px;height:13px;"></td>'
         '<td style="padding-left:4px;font-family:%s;font-size:18px;line-height:18px;font-weight:700;letter-spacing:-0.54px;color:%s;white-space:nowrap;">regulars</td>'
         '</tr></table></td>'
-        '<td align="right" style="vertical-align:middle;font-family:%s;font-size:10px;line-height:13px;font-weight:700;letter-spacing:.8px;color:%s;white-space:nowrap;">%s</td>'
+        '<td align="right" style="vertical-align:middle;font-family:%s;font-size:10px;line-height:13px;font-weight:700;letter-spacing:.8px;color:%s;padding-left:12px;">%s</td>'
         '</tr></table>'
         '<div style="height:18px;line-height:18px;font-size:0;">&nbsp;</div>'
         '<div class="r-big" style="font-family:%s;font-size:%dpx;line-height:%.2fpx;font-weight:700;letter-spacing:%.2fpx;color:%s;">%s</div>'
@@ -149,7 +149,7 @@ def render_v2(base, hero, eyebrow, big, headline, first, paragraphs, org=ORG_NAM
         '<tr><td class="r-box" bgcolor="%s" style="background:%s;padding:18px 24px 22px;border-radius:0 0 36px 36px;">%s</td></tr>'
         '</table></td></tr></table></body></html>'
         % (_style(base), PAGE, PAGE, pre, PAGE, PAGE, CARD, CARD,
-           hero_bg, hero_bg, _a(mark), DISPLAY, FIXED_INK, SANS, FIXED_INK, _e(eyebrow),
+           hero_bg, hero_bg, _a(mark), DISPLAY, FIXED_INK, SANS, FIXED_INK, "<br>".join(_e(x) for x in str(eyebrow).split("\n")),
            DISPLAY, big_size, big_size * 0.86, track, FIXED_INK, big_html,
            DISPLAY, FIXED_INK, _e(headline), body, BOX, BOX, footer))
 
@@ -328,14 +328,24 @@ def preview_catalog(base, org=ORG_NAME):
     return out
 
 
-def lineup_new_html(base, first, title, figure, rows, image, url, unsub, org=ORG_NAME, note="", note_by="Note"):
-    """A new Lineup event. Emails 2.0 Lineup layout (lavender hero), with the event's banner on top of the body.
-    An organizer's note shows in the note box above the details."""
-    return render_v2(base, "lavender", "NEW ON THE LINEUP", figure, title, first,
-                     ["%s is on the Lineup. Take a look and say if you're in." % title], org=org, rows=rows,
+def new_event_label(event_type):
+    """'New social event', 'New tournament': a type that already names an event stands alone."""
+    t = " ".join(str(event_type or "").split())
+    if not t: return "New event"
+    if t.lower() in ("tournament", "competition", "meet", "clinic", "trip", "camp", "fundraiser", "race", "regatta", "match", "game", "scrimmage", "party"):
+        return "New " + t.lower()
+    return "New %s event" % t.lower()
+
+def lineup_new_html(base, first, title, figure, rows, image, url, unsub, org=ORG_NAME, note="", note_by="Note", hero="lavender", kind="New event"):
+    """A new Lineup event. Emails 2.0 layout in the event's own color, the club named in the eyebrow, the event's
+    banner on top of the body, and one-tap Going / Interested (the event page records the choice)."""
+    sep = "&" if "?" in url else "?"
+    return render_v2(base, hero if hero in HERO else "lavender", "%s\n%s" % (org.upper(), kind.upper()), figure, title, first,
+                     ["%s is on the %s Lineup. Are you in?" % (title, org)], org=org, rows=rows,
                      note=(note_by, note) if note else None,
-                     cta=("View the event", url), fallback=url, footer_link=("Turn off Lineup emails", unsub),
-                     preheader="New on the Lineup: %s" % title, image=image)
+                     cta=("I'm going", url + sep + "rsvp=going"), calendar=[("Interested", url + sep + "rsvp=interested"), ("View the event", url)],
+                     fallback=url, footer_link=("Turn off Lineup emails", unsub),
+                     preheader="%s · %s: %s" % (org, kind, title), image=image)
 
 def poll_html(base, first, who, where, title, rows, url, unsub, org=ORG_NAME):
     """New poll in a chat. Emails 2.0 layout; the button opens the poll's vote page."""

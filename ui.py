@@ -7148,6 +7148,9 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 <div class=rg-day>Sent</div>
 <div class="list rg-evdetails">{% for r in log %}<div class="li prow"><span class=k>{{ r.when }}{% if r.who %} · {{ r.who }}{% endif %}{% if r.note %}<br><small class=ty-muted>{{ r.note }}</small>{% endif %}</span><span class=v>{{ r.what }} · {{ r.n }} sent</span></div>{% else %}<div class=li><span class=ty-muted>Not emailed yet.</span></div>{% endfor %}</div>
 </form></dialog>{% endif %}{% endif %}
+<script>(function(){var q=new URLSearchParams(location.search).get('rsvp');if(q!=='going'&&q!=='interested')return;
+ history.replaceState(null,'',location.pathname);
+ var b=document.querySelector('form.rsvprow button[name=action][value="'+q+'"]');if(b)b.click();})();</script>
 <script>(function(){var el=document.getElementById('evdesc'),btn=document.getElementById('evmore');if(!el||!btn)return;if(el.scrollHeight>el.clientHeight+2)btn.hidden=false;btn.onclick=function(){var open=el.classList.toggle('open');btn.textContent=open?'Less':'More';};})();</script>"""
 T["approvals"] = """{% call admin_page('Events') %}<a class="rg-btn ghost pageact" href="/events/new">Create event</a>{% endcall %}
 {% if queue %}<h2>Needs review ({{ queue|length }})</h2>
