@@ -336,14 +336,14 @@ def new_event_label(event_type):
         return "New " + t.lower()
     return "New %s event" % t.lower()
 
-def lineup_new_html(base, first, title, figure, rows, image, url, unsub, org=ORG_NAME, note="", note_by="Note", hero="lavender", kind="New event"):
+def lineup_new_html(base, first, title, figure, rows, image, url, unsub, org=ORG_NAME, note="", note_by="Note", hero="lavender", kind="New event", volunteer=""):
     """A new Lineup event. Emails 2.0 layout in the event's own color, the club named in the eyebrow, the event's
     banner on top of the body, and one-tap Going / Interested (the event page records the choice)."""
     sep = "&" if "?" in url else "?"
     return render_v2(base, hero if hero in HERO else "lavender", "%s\n%s" % (org.upper(), kind.upper()), figure, title, first,
                      ["%s is on the %s Lineup. Are you in?" % (title, org)], org=org, rows=rows,
                      note=(note_by, note) if note else None,
-                     cta=("I'm going", url + sep + "rsvp=going"), calendar=[("Interested", url + sep + "rsvp=interested"), ("View the event", url)],
+                     cta=("I'm going", url + sep + "rsvp=going"), calendar=[("Interested", url + sep + "rsvp=interested")] + ([("Volunteer", volunteer)] if volunteer else []) + [("View the event", url)],
                      fallback=url, footer_link=("Turn off Lineup emails", unsub),
                      preheader="%s · %s: %s" % (org, kind, title), image=image)
 
