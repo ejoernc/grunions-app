@@ -6402,7 +6402,7 @@ def sport_card_status(practice, mine):
         return sportspay.card_status(db(), me(), practice, mine, today_pt().isoformat())
     except Exception:
         return ""
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_live_chip=practice_live_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, month_label=month_label, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, PRACTICE_SOCIAL_KINDS=PRACTICE_SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, LINEUP_FILTER_GROUPS=lineupfeed.FILTER_GROUPS, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS, sport_filter_names=sport_filter_names, sport_card_status=sport_card_status, level_catalog=level_catalog)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_live_chip=practice_live_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, month_label=month_label, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, PRACTICE_SOCIAL_KINDS=PRACTICE_SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, LINEUP_FILTER_GROUPS=lineupfeed.FILTER_GROUPS, LINEUP_TYPE_MENU=lineupfeed.TYPE_MENU, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS, sport_filter_names=sport_filter_names, sport_card_status=sport_card_status, level_catalog=level_catalog)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
@@ -9446,11 +9446,9 @@ def event_new():
         else:
             intent_now = "official" if plan_now == "committed" else "considering"
             if plan_now not in lineupfeed.TEAM_PLANS: plan_now = "considering"
-        raw_type = (request.form.get("event_type") or "Social").strip()
-        type_custom = ""
-        if raw_type.startswith("__other__"):
-            raw_type = {"competitions": "Competition", "camps": "Clinic", "trips": "Trip"}.get(raw_type.split(":", 1)[-1], "Other")
-            type_custom = " ".join((request.form.get("type_custom") or "").split())[:40]
+        raw_type, type_custom = (request.form.get("event_type") or "Social").strip(), ""
+        if staff and ("|" in raw_type or raw_type.startswith("__other__")):
+            raw_type, type_custom = lineupfeed.type_choice(raw_type, request.form.get("type_custom"))
         wrapped = _FormWrap(request.form, title=title, start_time=request.form.get("start") or "19:00",
             mode="create" if staff else "suggest", event_type=raw_type,
             hosting=hosting_now, team_intent=intent_now, team_plan=plan_now, action="draft" if staff else "save")

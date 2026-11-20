@@ -2405,12 +2405,10 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro manage_row(href, title, desc, icon, count=0, tone='info', tile='carbon', num=false) %}{{ rg_manage_tile(href, title, desc, icon, count, tone, tile, num) }}{% endmacro %}
 {% macro type_select(types, selected='') %}<select name=event_type id=lineType>{% for glabel, options in lineup_type_groups(types) %}<optgroup label="{{ glabel }}">{% for name, label in options %}<option value="{{ name }}" {% if selected == name %}selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>{% endfor %}</select>{% endmacro %}
 {% macro type_chip_select(types) %}{# Chips pick the group; the dropdown lists only that group's types, then Other (type your own). #}
-{%- set allowed = types|map(attribute=0)|list -%}
-{%- set chips = [('competitions', 'Tournament'), ('camps', 'Clinic'), ('trips', 'Trip'), ('community', 'Social')] -%}
 <div class=rg-day>Type</div>
-<div class=typechips id=typeChips>{% for slug, label in chips %}<button type=button data-group="{{ slug }}"{% if loop.first %} class=on{% endif %}>{{ label }}</button>{% endfor %}</div>
+<div class=typechips id=typeChips>{% for slug, chip, items, other in LINEUP_TYPE_MENU %}<button type=button data-group="{{ slug }}"{% if loop.first %} class=on{% endif %}>{{ chip }}</button>{% endfor %}</div>
 <select name=event_type id=lineType aria-label="Kind of event"></select>
-<template id=lineTypeAll>{% for slug, glabel, names in LINEUP_FILTER_GROUPS %}{% for name, label in types if name in names and name != 'Other' %}<option value="{{ name }}" data-group="{{ slug }}">{{ label }}</option>{% endfor %}<option value="__other__:{{ slug }}" data-group="{{ slug }}">Other</option>{% endfor %}</template>
+<template id=lineTypeAll>{% for slug, chip, items, other in LINEUP_TYPE_MENU %}{% for shown, stored in items %}<option value="{{ slug }}|{{ shown }}" data-group="{{ slug }}" data-type="{{ stored }}">{{ shown }}</option>{% endfor %}<option value="__other__:{{ slug }}" data-group="{{ slug }}" data-type="{{ other }}">Other</option>{% endfor %}</template>
 <label id=typeOtherField hidden>What kind of event?<input name=type_custom id=typeOther maxlength=40 autocomplete=off placeholder="Toy drive"></label>
 <script>(function(){
  var sel=document.getElementById('lineType'), all=[].slice.call(document.getElementById('lineTypeAll').content.children), chips=document.querySelectorAll('#typeChips button'), other=document.getElementById('typeOtherField');
@@ -7798,14 +7796,15 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
  }
  function syncLine(){
   var type=document.getElementById('lineType'); var name=type?type.value:'Social';
-  var comp=name==='Tournament'||name==='Competition'||name==='__other__:competitions';
+  var comp=name==='Tournament'||name==='Competition'||name.indexOf('competitions')>=0;
   var reg=document.getElementById('regRow');
   if(reg) reg.hidden=!comp;
   var vol=document.getElementById('volRow'); if(vol) vol.hidden=comp;
   syncHost();
   var title=document.getElementById('lineTitle');
   if(title && !title.value){
-    title.placeholder=name==='Trip'?'Fall team trip':(name==='Social'?'Fall Team Dinner':(name==='Tournament'?'IGLA 2027':'Event name'));
+    var grp=name.indexOf('|')>0?name.split('|')[0]:(name.indexOf('__other__:')===0?name.slice(10):name);
+    title.placeholder=(grp==='Trip'||grp==='trips')?'Fall team trip':((grp==='Social'||grp==='community')?'Fall Team Dinner':((grp==='Tournament'||grp==='competitions')?'IGLA 2027':'Event name'));
   }
   document.querySelectorAll('#typeChips button[data-type]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-type')===name); });
  }

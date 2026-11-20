@@ -39,6 +39,26 @@ FILTER_GROUPS = (
     ("community", "Community", ("Social", "Volunteer", "Fundraiser", "Meeting", "Other")),
 )
 _FILTER_ALIAS = {"training": "camps"}
+# New event › Type: chip, then the types under it. Each type is (shown name, stored event_type); the shown name
+# is kept in type_custom when it differs, so filters and colors still follow the stored type.
+TYPE_MENU = (
+    ("competitions", "Competitions", (("Tournament", "Tournament"), ("Meet", "Competition"), ("Race", "Competition"),
+                                      ("Match", "Competition"), ("Championship", "Competition")), "Competition"),
+    ("camps", "Clinic", (("Clinic", "Clinic"), ("Camp", "Clinic"), ("Workshop", "Clinic"), ("Training", "Clinic")), "Clinic"),
+    ("trips", "Trip", (("Team Trip", "Trip"), ("Retreat", "Trip"), ("Excursion", "Trip"), ("Travel", "Trip")), "Trip"),
+    ("community", "Social", (("Social", "Social"), ("Party", "Social"), ("Volunteer", "Volunteer"), ("Fundraiser", "Fundraiser"),
+                             ("Meeting", "Meeting"), ("Community Event", "Social")), "Other"),
+)
+def type_choice(raw, custom=""):
+    """A posted New event type -> (stored event_type, shown name or ''). Other uses the typed name."""
+    raw = (raw or "").strip()
+    for slug, _chip, items, other in TYPE_MENU:
+        if raw == "__other__:" + slug:
+            return other, " ".join((custom or "").split())[:40]
+        for shown, stored in items:
+            if raw == "%s|%s" % (slug, shown):
+                return stored, ("" if shown == stored else shown)
+    return (raw if raw in EVENT_TYPES else "Social"), ""
 # Canonical storage: category slug, subtype column, legacy kind.
 TYPE_STORE = {
     "Tournament": ("travel", "Tournament", "Tournament"),

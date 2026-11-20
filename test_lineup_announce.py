@@ -182,7 +182,7 @@ def test_type_chips_filter_and_other_takes_a_custom_name():
     c = A.app.test_client()
     with c.session_transaction() as s: s["mid"] = admin
     page = c.get("/events/new?lane=lineup").get_data(as_text=True)
-    assert 'value="__other__:community"' in page and 'data-group="competitions"' in page
+    assert 'value="__other__:community"' in page and 'value="competitions|Meet"' in page and ">Competitions</button>" in page
     tok = re.search(r'name=csrf value="([^"]+)"', page).group(1)
     r = c.post("/events/new", data={"csrf": tok, "action": "preview", "lane": "lineup", "line_title": "Gift Wrap Night",
         "description": "Wrap gifts.", "date": "2027-12-10", "date_precision": "exact", "location": "Back Bay",
@@ -192,3 +192,12 @@ def test_type_chips_filter_and_other_takes_a_custom_name():
         row = A.db().execute("SELECT event_type, type_custom FROM lineup_events WHERE id=?", (eid,)).fetchone()
     assert tuple(row) == ("Other", "Toy drive")
     assert "Toy drive" in c.get("/lineup/%d" % eid).get_data(as_text=True)
+
+
+def test_type_menu_maps_to_stored_types():
+    import lineupfeed as L
+    assert L.type_choice("competitions|Meet") == ("Competition", "Meet")
+    assert L.type_choice("competitions|Tournament") == ("Tournament", "")
+    assert L.type_choice("trips|Team Trip") == ("Trip", "Team Trip")
+    assert L.type_choice("community|Volunteer") == ("Volunteer", "")
+    assert L.type_choice("__other__:camps", " Swim  school ") == ("Clinic", "Swim school")
