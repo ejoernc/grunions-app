@@ -409,7 +409,7 @@ def test_email_builder_preview_send_and_tracking():
     old_ready, old_send = A.smtp_ready, A.send_email
     os.environ["CLUB_EMAIL_SYNC"] = "1"
     A.smtp_ready = lambda: True
-    A.send_email = lambda to, subject, text, html=None, ics=None: sent.append((to, subject, html))
+    A.send_email = lambda to, subject, text, html=None, ics=None, sender=None: sent.append((to, subject, html))
     try:
         boss.post("/manage/email/%d/preview" % eid, data={"csrf": csrf(boss, "/manage/email/%d/preview" % eid), "action": "send"})
     finally:
