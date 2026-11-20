@@ -8807,7 +8807,7 @@ def lineup_email(eid):
     else:
         announce_lineup_later(eid, me()["id"], manual=True, note=note)
         flash("Emailing everyone", "toast")
-    return redirect("/lineup/%d/edit" % eid)
+    return redirect("/lineup/%d" % eid)
 def _ic_host(d, row):
     p = lineup_pack(d, [row])[0]
     return bool(p.get("can_edit") or p.get("can_review"))
@@ -8991,7 +8991,6 @@ def lineup_edit(eid):
     ctx["line_sport"] = (row["sport"] if "sport" in row.keys() else "") or ""
     ended = lineup_ended(row)
     ctx["show_cancel"] = can_host_practice() and (row["status"] or "") == "published" and not ended
-    ctx["can_email"] = (row["status"] or "") == "published" and _ic_host(d, row)
     ctx["show_delete"] = (not ended) and (can_host_practice() or (row["created_by"] == me()["id"] and (row["status"] or "") in ("draft", "declined", "changes_requested")))
     return page(T["lineup_edit"], tab="lineup_edit", action="/lineup/%d/edit" % eid, **ctx)
 def _anon_people(rows):

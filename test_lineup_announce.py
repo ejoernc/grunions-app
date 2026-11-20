@@ -94,7 +94,7 @@ def test_email_from_edit_page_with_note_and_log():
         eid = d.execute("SELECT id FROM lineup_events WHERE title='Bay 5K'").fetchone()[0]
     c = A.app.test_client()
     with c.session_transaction() as s: s["mid"] = admin
-    page = c.get("/lineup/%d/edit" % eid).get_data(as_text=True)
+    page = c.get("/lineup/%d" % eid).get_data(as_text=True)
     tok = re.search(r'name=csrf value="([^"]+)"', page).group(1)
     assert "Email this event" in page and "When posted" in page
     n, p = len(SENT), len(PUSHED)
@@ -104,5 +104,5 @@ def test_email_from_edit_page_with_note_and_log():
     c.post("/lineup/%d/email" % eid, data={"csrf": tok, "action": "all", "note": "Last call"})
     to = [s[0] for s in SENT[n:]]
     assert "amy@example.com" in to and "lineupadmin@example.com" in to and "bo@example.com" not in to and len(PUSHED) == p
-    page = c.get("/lineup/%d/edit" % eid).get_data(as_text=True)
+    page = c.get("/lineup/%d" % eid).get_data(as_text=True)
     assert "Test · 1 sent" in page and "Ada T." in page and "Last call" in page and "Everyone · %d sent" % len(to) in page
