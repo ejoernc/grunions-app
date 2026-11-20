@@ -7308,6 +7308,21 @@ def _form_last():
         else:
             out[k] = vals[-1] if vals else ""
     return out
+def apply_place_pick(d, eid):
+    """The place picked from the suggestions decides the pin, not a fresh lookup of its name (a bar's name alone
+    can land in another city). The picker posts <field>_geo (lat,lng) or <field>_addr (the full address).
+    Venue is the most exact, then the one Location box (New event), then City (Edit)."""
+    for field in ("venue", "location", "city"):
+        geo = (request.form.get(field + "_geo") or "").strip()
+        m = re.fullmatch(r"(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)", geo)
+        hit = (float(m.group(1)), float(m.group(2))) if m else None
+        if not hit:
+            addr = " ".join((request.form.get(field + "_addr") or "").split())[:300]
+            if addr: hit = geocode_address(addr)
+        if hit and -90 <= hit[0] <= 90 and -180 <= hit[1] <= 180:
+            d.execute("UPDATE lineup_events SET lat=?, lng=? WHERE id=?", (hit[0], hit[1], eid))
+            return True
+    return False
 def ensure_lineup_coords(d, row):
     """Cache a pin for the venue so the event map can draw without another lookup."""
     if not row or "lat" not in row.keys(): return row
@@ -7899,8 +7914,14 @@ def mapbox_retrieve(mapbox_id, session):
     full = " ".join(str(props.get("full_address") or "").split())
     detail = " ".join(str(props.get("place_formatted") or "").split())
     if not name and not full: return None
-    return {"name": name or full.split(",")[0], "detail": detail, "address": full or detail or name,
-            "business": name, "verified": True, "id": safe}
+    out = {"name": name or full.split(",")[0], "detail": detail, "address": full or detail or name,
+           "business": name, "verified": True, "id": safe}
+    try:
+        lng, lat = (features[0].get("geometry") or {}).get("coordinates")[:2]
+        out["lat"], out["lng"] = round(float(lat), 6), round(float(lng), 6)
+    except (TypeError, ValueError, IndexError):
+        pass
+    return out
 def mapbox_calls_today():
     row = db().execute("SELECT calls FROM route_budget WHERE day=?", (today_pt().isoformat(),)).fetchone()
     return int(row["calls"]) if row else 0
@@ -7957,6 +7978,7 @@ def _save_lineup(d, existing=None):
             banner_clear=form.get("banner_clear") == "1", parse_date=parse_date)
     except PermissionError:
         abort(403)
+    apply_place_pick(d, info["id"])
     apply_lineup_side_effects(d, info, existing)
     cat = d.execute("SELECT slug FROM lineup_categories c JOIN lineup_events e ON e.category_id=c.id WHERE e.id=?", (info["id"],)).fetchone()
     slug = cat["slug"] if cat else ""
@@ -9408,6 +9430,7 @@ def event_new():
             return _event_draft_back("/events/new?lane=lineup")
         except PermissionError:
             abort(403)
+        if info and info.get("id"): apply_place_pick(d, info["id"])
         if info and info.get("id") and _picked_color("event_color_line"):
             d.execute("UPDATE lineup_events SET color=? WHERE id=?", (_picked_color("event_color_line"), info["id"]))
         if info and info.get("id") and request.form.get("line_sport_on"):

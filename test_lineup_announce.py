@@ -106,3 +106,25 @@ def test_email_from_edit_page_with_note_and_log():
     assert "amy@example.com" in to and "lineupadmin@example.com" in to and "bo@example.com" not in to and len(PUSHED) == p
     page = c.get("/lineup/%d" % eid).get_data(as_text=True)
     assert "Test · 1 sent" in page and "Ada T." in page and "Last call" in page and "Everyone · %d sent" % len(to) in page
+
+
+def test_picked_place_sets_the_pin_even_when_the_name_is_unchanged():
+    import re
+    with A.app.app_context():
+        d = A.db()
+        admin = d.execute("SELECT id FROM members WHERE email='lineupadmin@example.com'").fetchone()[0]
+        eid = d.execute("SELECT id FROM lineup_events WHERE title='Bay 5K'").fetchone()[0]
+        d.execute("UPDATE lineup_events SET lat=32.75, lng=-117.13 WHERE id=?", (eid,)); d.commit()
+    c = A.app.test_client()
+    with c.session_transaction() as s: s["mid"] = admin
+    page = c.get("/lineup/%d/edit" % eid).get_data(as_text=True)
+    tok = re.search(r'name=csrf value="([^"]+)"', page).group(1)
+    with A.app.app_context():
+        row = A.db().execute("SELECT * FROM lineup_events WHERE id=?", (eid,)).fetchone()
+    r = c.post("/lineup/%d/edit" % eid, data={"csrf": tok, "action": "save", "mode": "edit", "title": row["title"], "event_type": "Social",
+        "date": row["date"], "start_time": row["start_time"] or "19:00", "location": row["city"] or "Back Bay", "city": row["city"] or "Back Bay",
+        "description": row["description"], "hosting": "Hosting", "city_geo": "33.7701,-118.1937"})
+    assert r.status_code == 302, r.get_data(as_text=True)[:500]
+    with A.app.app_context():
+        lat, lng = A.db().execute("SELECT lat, lng FROM lineup_events WHERE id=?", (eid,)).fetchone()
+    assert (lat, lng) == (33.7701, -118.1937)

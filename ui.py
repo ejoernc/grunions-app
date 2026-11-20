@@ -4245,18 +4245,29 @@ window.grunionsPlaces=function(input){
   if(place){
    input.value=item.custom ? item.name : (item.address||item.detail||item.map||item.name);
    if(place.getAttribute('data-name-edited')!=='1') place.value=item.custom ? '' : (item.business||'');
-  } else input.value=item.name;
+  } else { input.value=item.name; pick(item.custom ? null : item); }
   setBadge(!!item.verified&&!item.custom);
   input.dispatchEvent(new Event('change',{bubbles:true}));
   close();
   input._placeSession='';
+ }
+ function hidden(suffix){
+  if(!input.form||!input.name) return null;
+  var h=input.form.querySelector('input[type=hidden][name="'+input.name+suffix+'"]');
+  if(!h){ h=document.createElement('input'); h.type='hidden'; h.name=input.name+suffix; input.parentNode.appendChild(h); }
+  return h;
+ }
+ function pick(item){
+  var g=hidden('_geo'), a=hidden('_addr'); if(!g||!a) return;
+  g.value=(item&&item.lat!=null&&item.lng!=null)?(item.lat+','+item.lng):'';
+  a.value=item?(item.address||item.detail||''):'';
  }
  function choose(i){
   var item=items[i]; if(!item) return;
   if(item.id && !item.custom){
    var token=session();
    fetch('/api/places/retrieve?id='+encodeURIComponent(item.id)+'&session='+encodeURIComponent(token)).then(function(r){ return r.json(); }).then(function(row){
-    if(row && (row.address||row.name)) applyChoice({name:row.name||item.name, detail:row.detail||item.detail, address:row.address||item.address, business:row.business||item.business, verified:true, custom:false});
+    if(row && (row.address||row.name)) applyChoice({name:row.name||item.name, detail:row.detail||item.detail, address:row.address||item.address, business:row.business||item.business, lat:row.lat, lng:row.lng, verified:true, custom:false});
     else applyChoice(item);
    }).catch(function(){ applyChoice(item); });
    return;
@@ -4279,7 +4290,7 @@ window.grunionsPlaces=function(input){
   }).catch(function(){});
  }
  input.addEventListener('input', function(){
-  setBadge(false);
+  setBadge(false); if(!nameField()) pick(null);
   clearTimeout(wait);
   var q=input.value.trim();
   if(q.length<3){ seq++; items=[]; close(); return; }
