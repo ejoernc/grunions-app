@@ -9449,7 +9449,7 @@ def event_new():
         raw_type, type_custom = (request.form.get("event_type") or "Social").strip(), ""
         if staff and ("|" in raw_type or raw_type.startswith("__other__")):
             raw_type, type_custom = lineupfeed.type_choice(raw_type, request.form.get("type_custom"))
-        wrapped = _FormWrap(request.form, title=title, start_time=request.form.get("start") or "19:00",
+        wrapped = _FormWrap(request.form, title=title, start_time=request.form.get("start") or "19:00", end_time=request.form.get("end") or "",
             mode="create" if staff else "suggest", event_type=raw_type,
             hosting=hosting_now, team_intent=intent_now, team_plan=plan_now, action="draft" if staff else "save")
         banner = None

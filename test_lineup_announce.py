@@ -201,3 +201,24 @@ def test_type_menu_maps_to_stored_types():
     assert L.type_choice("trips|Team Trip") == ("Trip", "Team Trip")
     assert L.type_choice("community|Volunteer") == ("Volunteer", "")
     assert L.type_choice("__other__:camps", " Swim  school ") == ("Clinic", "Swim school")
+
+
+def test_new_lineup_event_keeps_end_date_and_end_time():
+    import re
+    with A.app.app_context():
+        admin = A.db().execute("SELECT id FROM members WHERE email='lineupadmin@example.com'").fetchone()[0]
+    c = A.app.test_client()
+    with c.session_transaction() as s: s["mid"] = admin
+    page = c.get("/events/new?lane=lineup").get_data(as_text=True)
+    assert "id=lineEndRow" in page and "name=end_date" in page
+    tok = re.search(r'name=csrf value="([^"]+)"', page).group(1)
+    base = {"csrf": tok, "action": "preview", "lane": "lineup", "line_title": "Spring Camp", "description": "Camp.",
+        "date": "2027-04-02", "date_precision": "exact", "start": "09:00", "end": "16:00", "location": "Back Bay",
+        "event_type": "camps|Camp", "hosting": "Hosting"}
+    r = c.post("/events/new", data=dict(base, end_date="2027-04-04"))
+    eid = int(r.headers["Location"].rsplit("/", 1)[1])
+    with A.app.app_context():
+        row = A.db().execute("SELECT date, end_date, start_time, end_time FROM lineup_events WHERE id=?", (eid,)).fetchone()
+    assert tuple(row) == ("2027-04-02", "2027-04-04", "09:00", "16:00")
+    r = c.post("/events/new", data=dict(base, line_title="Bad Camp", end_date="2027-04-01"))
+    assert "/events/new" in r.headers["Location"]

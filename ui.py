@@ -477,7 +477,7 @@ body.editor #exactWhen{display:grid;grid-template-columns:1fr;gap:8px;background
 body.editor #exactWhen .setrow{min-height:56px;border:0;border-radius:999px;background:var(--carbon);color:var(--paper);align-items:center;flex-direction:row;padding:0 20px;gap:8px}
 body.editor #exactWhen .setrow .grow{display:flex;justify-content:space-between;align-items:center;flex:1;font:700 16px/1.2 var(--r2-font-sans)}
 body.editor #exactWhen .setrow .sum{color:var(--smoke);font:500 15px/1.2 var(--r2-font-sans)}
-body.editor #exactWhen .setrow[data-matfor=dateInput],body.editor #exactWhen #repeatRow,body.editor #exactWhen #freqRow,body.editor #exactWhen #endsRow,body.editor #exactWhen #skipRow{grid-column:1 / -1}
+body.editor #exactWhen .setrow[data-matfor=dateInput],body.editor #exactWhen #lineEndRow,body.editor #exactWhen #repeatRow,body.editor #exactWhen #freqRow,body.editor #exactWhen #endsRow,body.editor #exactWhen #skipRow{grid-column:1 / -1}
 body.editor .livetitle{display:flex;align-items:center;justify-content:space-between;min-height:56px;margin:0 0 16px;padding:0 16px;border-radius:22px;background:var(--carbon)}
 body.editor .plancards{flex-direction:row;align-items:stretch}
 body.editor label.plancard{flex:1;min-height:132px;border:0;border-radius:28px;background:var(--graphite);color:var(--paper);box-shadow:none}
@@ -7479,6 +7479,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>{% endif %}
 <div class=list id=exactWhen>
 <button type=button class="li setrow" data-matfor=dateInput><span class=grow><span id=dateLab>Date</span><span class="sum" id=dateSum> Add a date</span></span>""" + _CHEV + """</button>
+<button type=button class="li setrow" id=lineEndRow data-matfor=lineEndInput hidden><span class=grow>End date<span class="sum" id=lineEndSum> Same day</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" data-matfor=startInput><span class=grow>Start<span class="sum" id=startSum> 7:00 PM</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" data-matfor=endInput><span class=grow>End<span class="sum" id=endSum> 8:30 PM</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" id=repeatRow data-open=sheetDays hidden aria-haspopup=dialog aria-controls=sheetDays><span class=grow><span id=daysLab>Choose days</span><span class=sum id=daysSum></span></span>""" + _CHEV + """</button>
@@ -7528,6 +7529,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>
 </section>
 <input class=pickhold type=date name=date id=dateInput value="{{ dup.date if dup else '' }}">
+<input class=pickhold type=date name=end_date id=lineEndInput disabled>
 <input class=pickhold type=time name=start id=startInput value="{{ dup.start if dup else '19:00' }}">
 <input class=pickhold type=time name=end id=endInput value="{{ dup.end if dup else '20:30' }}">
 <input class=pickhold type=month name=month id=monthInput>
@@ -7701,6 +7703,8 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   if(prec) prec.hidden=!staff;
   var home=!lane || lane.value!=='lineup';
   var allow=home?{exact:1,recur:1}:{exact:1,month:1};
+  var edRow=document.getElementById('lineEndRow'), edIn=document.getElementById('lineEndInput');
+  if(edRow) edRow.hidden=home; if(edIn) edIn.disabled=home;
   document.querySelectorAll('#whenPrec label[data-prec]').forEach(function(lab){
    var v=lab.getAttribute('data-prec');
    var show=!!(staff && allow[v]);
@@ -7726,7 +7730,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   var monthInput=document.getElementById('monthInput'); if(monthInput) monthInput.disabled=!monthOn;
   var dateInput=document.getElementById('dateInput'); if(dateInput) dateInput.disabled=monthOn;
   ['startInput','endInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.disabled=monthOn; });
-  var dateLab=document.getElementById('dateLab'); if(dateLab) dateLab.textContent=recurOn?'Starts':'Date';
+  var dateLab=document.getElementById('dateLab'); if(dateLab) dateLab.textContent=recurOn?'Starts':(home?'Date':'Start date');
   syncDays(); syncFreq(); syncSkips(); syncRecurEnd();
  }
  document.querySelectorAll('input[name=date_precision]').forEach(function(r){ r.addEventListener('change', syncPrec); });
@@ -7770,19 +7774,21 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   var d=document.getElementById('dateInput'), s=document.getElementById('startInput'), e=document.getElementById('endInput'), mo=document.getElementById('monthInput'), u=document.getElementById('untilInput');
   var ds=document.getElementById('dateSum'), ss=document.getElementById('startSum'), es=document.getElementById('endSum'), ms=document.getElementById('monthSum'), us=document.getElementById('untilSum');
   if(ds) ds.textContent=d&&d.value?(' '+d.value):' Add a date';
+  var ed=document.getElementById('lineEndInput'), eds=document.getElementById('lineEndSum');
+  if(ed){ if(d&&d.value){ ed.min=d.value; if(ed.value&&ed.value<d.value) ed.value=''; } if(eds) eds.textContent=ed.value&&(!d||ed.value!==d.value)?(' '+ed.value):' Same day'; }
   if(ss) ss.textContent=s&&s.value?(' '+clock(s.value)):'';
   if(es) es.textContent=e&&e.value?(' '+clock(e.value)):'';
   if(ms) ms.textContent=monthLabel(mo&&mo.value);
   if(us) us.textContent=u&&u.value?(' '+u.value):' Add a date';
   syncRecurEnd();
  }
- ['dateInput','startInput','endInput','monthInput','datePart','untilInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change', syncWhen); });
+ ['dateInput','lineEndInput','startInput','endInput','monthInput','datePart','untilInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change', syncWhen); });
  syncWhen();
  function syncHost(){
   var host=document.querySelector('#whoHost input[name=hosting]:checked');
   var mode=host?host.value:'Hosting';
   var co=document.getElementById('coHosted');
-  var type=document.getElementById('lineType'); var name=type?type.value:'';
+  var type=document.getElementById('lineType'); var opt=type&&type.selectedOptions?type.selectedOptions[0]:null; var name=(opt&&opt.getAttribute('data-type'))||(type?type.value:'');
   var team=name==='Tournament'||name==='Competition'||name==='Trip'||name==='Clinic';
   var org=document.getElementById('lineOrg'), cos=document.getElementById('lineCo');
   var plans=document.getElementById('orgPlans'), planLabel=document.getElementById('orgPlanLabel');
