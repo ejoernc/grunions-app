@@ -266,7 +266,7 @@ def migrate_members(d):
                  ("show_attendance", "INTEGER DEFAULT 1"), ("show_pronouns", "INTEGER DEFAULT 1"),
                  ("messages_outside", "INTEGER DEFAULT 0"), ("show_in_picker", "INTEGER DEFAULT 1"),
                  ("share_exact_location", "INTEGER DEFAULT 1"), ("pronouns", "TEXT"), ("other_clubs", "TEXT"),
-                 ("appearance", "TEXT DEFAULT 'dark'")):
+                 ("appearance", "TEXT DEFAULT 'dark'"), ("lineup_email", "INTEGER")):
         if c not in cols: d.execute(f"ALTER TABLE members ADD COLUMN {c} {t}")
     # /join always stores a phone. Existing registrations keep Google sign-in; a blank phone is not one.
     cols = [r[1] for r in d.execute("PRAGMA table_info(members)")]
@@ -286,6 +286,12 @@ def migrate_lineup(d):
     d.execute("UPDATE lineup_events SET end_date=date WHERE end_date IS NULL OR trim(end_date)=''")
     d.execute("UPDATE lineup_events SET venue=location WHERE (venue IS NULL OR trim(venue)='') AND trim(COALESCE(location,''))!=''")
     cols = [r[1] for r in d.execute("PRAGMA table_info(lineup_events)")]
+    if "volunteer_link" not in cols:
+        d.execute("ALTER TABLE lineup_events ADD COLUMN volunteer_link TEXT")
+    if "draft_form" not in cols:
+        d.execute("ALTER TABLE lineup_events ADD COLUMN draft_form TEXT")
+    if "type_custom" not in cols:
+        d.execute("ALTER TABLE lineup_events ADD COLUMN type_custom TEXT")
     if "stage" not in cols:
         d.execute("ALTER TABLE lineup_events ADD COLUMN stage TEXT")
     if "hosting" not in cols:
@@ -795,7 +801,9 @@ def me():
 def login_required(f):
     @functools.wraps(f)
     def w(*a, **k):
-        if not me(): return redirect(url_for("login", next=request.path))
+        if not me():
+            rsvp = request.args.get("rsvp") if request.method == "GET" else ""
+            return redirect(url_for("login", next=request.path + ("?rsvp=" + rsvp if rsvp in ("going", "interested") else "")))
         return f(*a, **k)
     return w
 def admin_required(f):
@@ -1269,7 +1277,7 @@ def safe_return_path(raw):
         return ""
     if raw.startswith("/register?event="):
         return raw
-    if re.fullmatch(r"/practices/\d+(/event\.ics)?", raw) or re.fullmatch(r"/lineup/\d+", raw):
+    if re.fullmatch(r"/practices/\d+(/event\.ics)?", raw) or re.fullmatch(r"/lineup/\d+(\?rsvp=(going|interested))?", raw):
         return raw
     return ""
 def auth_destination(mid):
@@ -2493,7 +2501,7 @@ def seed_preview_club(d):
     say("noah.kim@preview.regulars.invalid", dm_channel(ids["noah.kim@preview.regulars.invalid"], ids["sasha.reed@preview.regulars.invalid"]),
         "Preview: thanks, see you at the pool.")
     # Preview servers start empty on every deploy: give the owner and any bootstrap admins an account to log in with.
-    for email in sorted({ELI_PREVIEW_EMAIL} | ADMIN_EMAILS):
+    for email in ([] if "PYTEST_CURRENT_TEST" in os.environ else sorted({ELI_PREVIEW_EMAIL} | ADMIN_EMAILS)):
         if not d.execute("SELECT 1 FROM members WHERE lower(email)=?", (email,)).fetchone():
             first = "Eli" if email == ELI_PREVIEW_EMAIL else email.split("@")[0].capitalize()
             d.execute("INSERT INTO members(first, last, email, is_admin, joined) VALUES(?,?,?,1,1)", (first, "Preview", email))
@@ -6402,7 +6410,7 @@ def sport_card_status(practice, mine):
         return sportspay.card_status(db(), me(), practice, mine, today_pt().isoformat())
     except Exception:
         return ""
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_live_chip=practice_live_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, month_label=month_label, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, PRACTICE_SOCIAL_KINDS=PRACTICE_SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS, sport_filter_names=sport_filter_names, sport_card_status=sport_card_status, level_catalog=level_catalog)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_live_chip=practice_live_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, month_label=month_label, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, PRACTICE_SOCIAL_KINDS=PRACTICE_SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, LINEUP_FILTER_GROUPS=lineupfeed.FILTER_GROUPS, LINEUP_TYPE_MENU=lineupfeed.TYPE_MENU, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS, sport_filter_names=sport_filter_names, sport_card_status=sport_card_status, level_catalog=level_catalog)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
@@ -7314,6 +7322,27 @@ def _form_last():
         else:
             out[k] = vals[-1] if vals else ""
     return out
+def apply_volunteer_link(d, eid):
+    """Optional volunteer sign-up link (Google Form, SignUpGenius...). Only when the form has the field."""
+    if "volunteer_link" not in request.form: return
+    link = (request.form.get("volunteer_link") or "").strip()[:500]
+    if link and not link.lower().startswith(("http://", "https://")): link = "https://" + link
+    d.execute("UPDATE lineup_events SET volunteer_link=? WHERE id=?", (link, eid))
+def apply_place_pick(d, eid):
+    """The place picked from the suggestions decides the pin, not a fresh lookup of its name (a bar's name alone
+    can land in another city). The picker posts <field>_geo (lat,lng) or <field>_addr (the full address).
+    Venue is the most exact, then the one Location box (New event), then City (Edit)."""
+    for field in ("venue", "location", "city"):
+        geo = (request.form.get(field + "_geo") or "").strip()
+        m = re.fullmatch(r"(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)", geo)
+        hit = (float(m.group(1)), float(m.group(2))) if m else None
+        if not hit:
+            addr = " ".join((request.form.get(field + "_addr") or "").split())[:300]
+            if addr: hit = geocode_address(addr)
+        if hit and -90 <= hit[0] <= 90 and -180 <= hit[1] <= 180:
+            d.execute("UPDATE lineup_events SET lat=?, lng=? WHERE id=?", (hit[0], hit[1], eid))
+            return True
+    return False
 def ensure_lineup_coords(d, row):
     """Cache a pin for the venue so the event map can draw without another lookup."""
     if not row or "lat" not in row.keys(): return row
@@ -7522,7 +7551,7 @@ def lineup_pack(d, rows):
         full = bool(cap and going_n >= cap)
         start, end = event_window(r)
         out.append({"id": r["id"], "title": r["title"], "slug": r["cat_slug"] or "", "category": r["cat_name"] or r["kind"] or "Event",
-            "event_type": etype, "tag": lineup_tag(r), "card_line": lineup_card_line(etype, host_names, card_mode), "days": span, "pins": pins,
+            "event_type": etype, "type_name": ((r["type_custom"] if "type_custom" in r.keys() else "") or "").strip() or etype, "tag": lineup_tag(r), "card_line": lineup_card_line(etype, host_names, card_mode), "days": span, "pins": pins,
             "status_kind": status_kind, "status_text": status_text, "people": people, "interested": interested_people,
             "chip": r["cat_chip"] or "", "subtype": r["subtype"] or "", "hosting": lineupfeed.hosting_label(r["hosting"]),
             "official": bool(r["official"]), "intent": intent, "status": r["status"] or "published", "status_label": lineup_status_label(r),
@@ -7540,6 +7569,7 @@ def lineup_pack(d, rows):
             "host_org": primary if card_mode == "other" else "",
             "cohosts": cohosts, "host_names": host_names, "host_mode": card_mode,
             "description": r["description"] or "", "details": r["details"] or "", "link": r["link"] or "",
+            "volunteer_link": (r["volunteer_link"] if "volunteer_link" in r.keys() else "") or "",
             "cost": r["cost"] or "", "capacity": cap, "full": full, "reg_deadline": r["reg_deadline"] or "",
             "review_note": r["review_note"] or "", "banner": r["banner"] or "",
             "color": components.row_color(r),
@@ -7627,8 +7657,98 @@ def notify_lineup_review(d, event, kind):
     else:
         return
     if creator: notify_lineup_people(d, [creator], "Lineup", body.strip(), "/lineup/%d" % event["id"])
+def lineup_figure(row):
+    """Big figure on the new-event email: Mar 14, or Mar for a month-only date."""
+    try: day = dt.date.fromisoformat(str(row["date"])[:10])
+    except (TypeError, ValueError): return "New"
+    precision = row["date_precision"] if "date_precision" in row.keys() and row["date_precision"] else "exact"
+    return day.strftime("%b") if precision == "month" else "%s %d" % (day.strftime("%b"), day.day)
+def ensure_lineup_emails(d):
+    d.execute("""CREATE TABLE IF NOT EXISTS lineup_emails(id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL,
+        sent_at TEXT, sent_by INTEGER, kind TEXT, note TEXT, sent INTEGER DEFAULT 0)""")
+def lineup_email_log(d, eid):
+    """Every time this event was emailed: when, by whom, how many, and the note."""
+    ensure_lineup_emails(d)
+    out = []
+    for r in d.execute("""SELECT l.*, m.first, m.preferred_first, m.last FROM lineup_emails l LEFT JOIN members m ON m.id=l.sent_by
+            WHERE l.event_id=? ORDER BY l.id DESC""", (eid,)):
+        who = (display_first(r) + " " + (r["last"] or "")[:1] + ".") if r["first"] else ""
+        what = {"auto": "When posted", "manual": "Everyone", "test": "Test"}.get(r["kind"] or "", "Everyone")
+        out.append({"when": fmt_stamp(r["sent_at"]), "who": who, "what": what, "n": r["sent"] or 0, "note": r["note"] or ""})
+    return out
+app.jinja_env.globals.update(lineup_email_log=lambda eid: lineup_email_log(db(), eid))
+def announce_lineup_event(d, eid, actor_id=None, base=None, only=None, manual=False, note=""):
+    """A Lineup event just went up: tell the club once (in-app notice, push with the banner, and an email with
+    the banner). Everyone gets it, the person who posted it too. Each member gets it at most once per event."""
+    row = lineup_event_row(d, eid)
+    if not row or (row["status"] or "") != "published": return 0
+    base = base or app_base()
+    url = "/lineup/%d" % eid
+    when = lineup_when_label(row)
+    place = (row["venue"] or row["city"] or "").strip()
+    image = (base + "/public-image/e/%d" % eid) if _stored_file(row["banner"] or "") else ""
+    title = row["title"]
+    body = "%s · %s" % (title, when) if when else title
+    names = lineupfeed.host_list(row["host_org"] if "host_org" in row.keys() else "")
+    if not names and (row["hosting"] or "") == "Hosting": names = [org_name()]
+    names += [n for n in lineupfeed.host_list(row["host_orgs"] if "host_orgs" in row.keys() else "") if n not in names]
+    hosts = lineupfeed.host_summary(names) if names else ""
+    vol = ((row["volunteer_link"] if "volunteer_link" in row.keys() else "") or "").strip()
+    kind = mailhtml.new_event_label(((row["type_custom"] if "type_custom" in row.keys() else "") or "").strip()
+                                    or (row["event_type"] if "event_type" in row.keys() else ""))
+    hero = components.event_tone(row["event_type"] if "event_type" in row.keys() else "lineup", False, components.row_color(row))
+    sent = 0
+    note = (note or "").strip()[:1000]
+    sender = d.execute("SELECT * FROM members WHERE id=?", (actor_id,)).fetchone() if actor_id else None
+    note_by = ("Note from %s" % display_first(sender)) if sender else "Note"
+    people = d.execute("SELECT * FROM members WHERE COALESCE(role,'')!='system'" + (" AND id=?" if only else ""), ((only,) if only else ())).fetchall()
+    for m in people:
+        if not manual:
+            if not claim_notice(d, m["id"], "lineup_new:%d" % eid): continue
+            d.execute("INSERT INTO notices(member_id, body) VALUES(?,?)", (m["id"], "New on the Lineup: %s" % body))
+            try: push_member(d, m, "lineup", "New on the Lineup", body, url, image)
+            except Exception as e: app.logger.warning("lineup push failed: %s", e)
+        if m["email"] and (only or not ("lineup_email" in m.keys() and m["lineup_email"] == 0)):
+            rows = [("WHEN", when)] + ([("WHERE", place)] if place else [])
+            if hosts: rows.append(("HOSTED BY", hosts))
+            if row["cost"]: rows.append(("COST", str(row["cost"])))
+            text = "%s is on the %s Lineup.\n\n%s%s%s%s\n\nI'm going: %s?rsvp=going\nInterested: %s?rsvp=interested\nView the event: %s%s\n\nTurn Lineup emails off: %s/notifications" % (
+                title, org_name(), ("%s: %s\n\n" % (note_by, note)) if note else "", when, ("\n" + place) if place else "",
+                ("\nHosted by " + hosts) if hosts else "", base + url, base + url, base + url,
+                ("\nVolunteer: " + vol) if vol else "", base)
+            try:
+                html = mailhtml.lineup_new_html(base, display_first(m), title, lineup_figure(row), rows, image, base + url,
+                                                base + "/notifications", org_name(), note=note, note_by=note_by, hero=hero, kind=kind,
+                                                volunteer=vol)
+                send_email(m["email"], "%s · %s: %s" % (org_name(), kind, title), text, html=html)
+                sent += 1
+            except Exception as exc:
+                app.logger.warning("lineup email to member %s failed: %s", m["id"], exc)
+    ensure_lineup_emails(d)
+    d.execute("INSERT INTO lineup_emails(event_id, sent_at, sent_by, kind, note, sent) VALUES(?,?,?,?,?,?)",
+              (eid, stamp_pt(), actor_id, "test" if only else ("manual" if manual else "auto"), note, sent))
+    d.commit()
+    app.logger.warning("lineup announce event %s: %d sent%s", eid, sent, " (manual)" if manual else "")
+    return sent
+def announce_lineup_later(eid, actor_id, only=None, manual=False, note=""):
+    """Send after the reply, so publishing feels instant (same pattern as poll emails)."""
+    base = app_base()
+    def run():
+        try:
+            with app.app_context():
+                d2 = open_db()
+                try: announce_lineup_event(d2, eid, actor_id, base, only=only, manual=manual, note=note)
+                finally: d2.close()
+        except Exception as e:
+            app.logger.warning("lineup announce failed: %s", e)
+    if app.config.get("TESTING") or os.environ.get("GRUNIONS_SYNC_PUSH") or "PYTEST_CURRENT_TEST" in os.environ:
+        run()
+    else:
+        threading.Thread(target=run, daemon=True).start()
 def apply_lineup_side_effects(d, info, before):
     row = lineup_event_row(d, info["id"])
+    if info.get("status") == "published" and (not before or (before["status"] or "") != "published"):
+        d.commit(); announce_lineup_later(info["id"], me()["id"] if me() else None)
     if info.get("submitted"): notify_lineup_review(d, row, "submitted")
     if info.get("promoted"): notify_lineup_review(d, row, "official")
     if info.get("dates_set"): notify_lineup_review(d, row, "dated")
@@ -7819,8 +7939,14 @@ def mapbox_retrieve(mapbox_id, session):
     full = " ".join(str(props.get("full_address") or "").split())
     detail = " ".join(str(props.get("place_formatted") or "").split())
     if not name and not full: return None
-    return {"name": name or full.split(",")[0], "detail": detail, "address": full or detail or name,
-            "business": name, "verified": True, "id": safe}
+    out = {"name": name or full.split(",")[0], "detail": detail, "address": full or detail or name,
+           "business": name, "verified": True, "id": safe}
+    try:
+        lng, lat = (features[0].get("geometry") or {}).get("coordinates")[:2]
+        out["lat"], out["lng"] = round(float(lat), 6), round(float(lng), 6)
+    except (TypeError, ValueError, IndexError):
+        pass
+    return out
 def mapbox_calls_today():
     row = db().execute("SELECT calls FROM route_budget WHERE day=?", (today_pt().isoformat(),)).fetchone()
     return int(row["calls"]) if row else 0
@@ -7877,6 +8003,8 @@ def _save_lineup(d, existing=None):
             banner_clear=form.get("banner_clear") == "1", parse_date=parse_date)
     except PermissionError:
         abort(403)
+    apply_place_pick(d, info["id"])
+    apply_volunteer_link(d, info["id"])
     apply_lineup_side_effects(d, info, existing)
     cat = d.execute("SELECT slug FROM lineup_categories c JOIN lineup_events e ON e.category_id=c.id WHERE e.id=?", (info["id"],)).fetchone()
     slug = cat["slug"] if cat else ""
@@ -8624,6 +8752,7 @@ def lineup():
             if (row["team_intent"] or "") == "considering":
                 d.execute("UPDATE lineup_events SET team_intent='official', team_plan='committed', stage='going', status=CASE WHEN status IS NULL OR status='' OR status='draft' THEN 'published' ELSE status END WHERE id=?", (eid,))
                 d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "official"); d.commit()
+                if (row["status"] or "") in ("", "draft"): announce_lineup_later(eid, me()["id"])
             return redirect(back if back.startswith("/lineup/") else "/lineup/%d" % eid)
         if action in ("interested", "going", "notgoing", "clear") and not rsvp_seq_fresh("e%d" % eid):
             return redirect(back)
@@ -8691,6 +8820,14 @@ def lineup_detail(eid):
             if (row["team_intent"] or "") == "considering":
                 d.execute("UPDATE lineup_events SET team_intent='official', team_plan='committed', stage='going', status=CASE WHEN status IS NULL OR status='' OR status='draft' THEN 'published' ELSE status END WHERE id=?", (eid,))
                 d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "official"); d.commit()
+                if (row["status"] or "") in ("", "draft"): announce_lineup_later(eid, me()["id"])
+            return redirect("/lineup/%d" % eid)
+        if action == "publish":
+            if not _ic_host(d, row): abort(403)
+            if (row["status"] or "") == "draft":
+                d.execute("UPDATE lineup_events SET status='published' WHERE id=?", (eid,)); d.commit()
+                announce_lineup_later(eid, me()["id"])
+                flash("Posted · the club is getting an email", "toast")
             return redirect("/lineup/%d" % eid)
         if action in ("interested", "going", "notgoing", "clear") and not rsvp_seq_fresh("e%d" % eid):
             return redirect("/lineup/%d" % eid)
@@ -8709,7 +8846,10 @@ def lineup_detail(eid):
     import interest
     ic = interest.get(d, eid) if (row["team_intent"] or "") == "considering" or interest.get(d, eid) else None
     ic_res = interest.results(d, eid) if ic else None
-    return page(T["lineup_event"], tab="lineup_event", e=packed, from_admin=request.args.get("from") == "admin", admin_date=(request.args.get("date") or row["date"] or "")[:10],
+    draft_back = {}
+    if (row["status"] or "") == "draft" and _ic_host(d, row) and ("draft_form" in row.keys() and row["draft_form"]):
+        draft_back = {"nav_back_href": "/events/new?lane=lineup&draft=%d" % eid, "nav_back_title": "New event", "draft_back": "/events/new?lane=lineup&draft=%d" % eid}
+    return page(T["lineup_event"], tab="lineup_event", e=packed, **draft_back, from_admin=request.args.get("from") == "admin", admin_date=(request.args.get("date") or row["date"] or "")[:10],
                 ic=ic, ic_res=ic_res, ic_mine=interest.mine(d, eid, me()["id"]) if ic else None, ic_host=bool(packed.get("can_edit") or packed.get("can_review")),
                 ic_considering=(row["team_intent"] or "") == "considering", comp=_lineup_comp(d, eid, packed))
 def _lineup_comp(d, eid, packed):
@@ -8717,6 +8857,23 @@ def _lineup_comp(d, eid, packed):
     if not (packed.get("can_edit") or packed.get("can_review")): return None
     tourn.ensure(d)
     return d.execute("SELECT id, status, term FROM tournaments WHERE lineup_event_id=?", (eid,)).fetchone()
+@app.route("/lineup/<int:eid>/email", methods=["POST"])
+@login_required
+def lineup_email(eid):
+    """Email this event now (from its Edit page): a test to me, or everyone, with an optional note."""
+    d = db()
+    row = lineup_event_row(d, eid)
+    if not row or not lineup_seen(row, me()): abort(404)
+    if not _ic_host(d, row): abort(403)
+    if (row["status"] or "") != "published": abort(400)
+    note = (request.form.get("note") or "").strip()[:1000]
+    if request.form.get("action") == "test":
+        announce_lineup_later(eid, me()["id"], only=me()["id"], manual=True, note=note)
+        flash("Test sent to %s" % me()["email"], "toast")
+    else:
+        announce_lineup_later(eid, me()["id"], manual=True, note=note)
+        flash("Emailing everyone", "toast")
+    return redirect("/lineup/%d" % eid)
 def _ic_host(d, row):
     p = lineup_pack(d, [row])[0]
     return bool(p.get("can_edit") or p.get("can_review"))
@@ -8766,6 +8923,7 @@ def lineup_interest(eid):
                     note = ("Picked: %s. " % pick) if pick else ""
                     d.execute("UPDATE lineup_events SET team_intent='official', team_plan='committed', stage='going', status=CASE WHEN status IS NULL OR status='' OR status='draft' THEN 'published' ELSE status END WHERE id=?", (eid,))
                     d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "official")
+                    if (row["status"] or "") in ("", "draft"): announce_lineup_later(eid, me()["id"])
                     if pick:
                         notify_lineup_people(d, lineup_rsvp_members(d, eid, ("interested",)), "It's happening", "%s · %s. Dates and cost come next." % (row["title"], pick), "/lineup/%d" % eid)
                 d.commit(); flash("Official%s" % (" · " + pick if pick else ""), "toast")
@@ -9167,6 +9325,12 @@ class _FormWrap:
 def _picked_color(field):
     v = (request.form.get(field) or "").strip().lower()
     return v if v in dict(components.EVENT_COLORS) else ""
+def _own_draft(d, eid):
+    """A Lineup draft this person can keep editing from the create form (Back from Preview)."""
+    if not eid: return None
+    row = lineup_event_row(d, eid)
+    if not row or (row["status"] or "") != "draft" or not _ic_host(d, row): return None
+    return row
 def _event_draft_back(url):
     """A create error goes back to the form with everything the person typed, on the step to fix."""
     form = {k: request.form.getlist(k) for k in request.form if k not in ("csrf", "action")}
@@ -9174,6 +9338,8 @@ def _event_draft_back(url):
     last = (msgs[-1] if msgs else "").lower()
     step = 1 if any(w in last for w in ("name", "description", "type", "sport")) else (2 if any(w in last for w in ("date", "location", "place", "days", "repeat")) else 3)
     session["event_draft"] = {"form": form, "step": step}
+    did = request.form.get("draft_id", type=int)
+    if did: url += ("&" if "?" in url else "?") + "draft=%d" % did
     return redirect(url)
 @app.route("/events/new", methods=["GET", "POST"])
 @login_required
@@ -9293,16 +9459,28 @@ def event_new():
         else:
             intent_now = "official" if plan_now == "committed" else "considering"
             if plan_now not in lineupfeed.TEAM_PLANS: plan_now = "considering"
-        wrapped = _FormWrap(request.form, title=title, start_time=request.form.get("start") or "19:00",
-            mode="create" if staff else "suggest", event_type=request.form.get("event_type") or "Social",
-            hosting=hosting_now, team_intent=intent_now, team_plan=plan_now)
+        raw_type, type_custom = (request.form.get("event_type") or "Social").strip(), ""
+        if staff and ("|" in raw_type or raw_type.startswith("__other__")):
+            raw_type, type_custom = lineupfeed.type_choice(raw_type, request.form.get("type_custom"))
+        wrapped = _FormWrap(request.form, title=title, start_time=request.form.get("start") or "19:00", end_time=request.form.get("end") or "",
+            mode="create" if staff else "suggest", event_type=raw_type,
+            hosting=hosting_now, team_intent=intent_now, team_plan=plan_now, action="draft" if staff else "save")
+        banner = None
+        f = request.files.get("image") if request.files else None
+        draft_row = _own_draft(d, request.form.get("draft_id", type=int)) if staff else None
         try:
-            info = lineupfeed.save_event(d, wrapped, me(), staff, parse_date=parse_date)
+            if f and f.filename: banner = save_banner(f)
+            info = lineupfeed.save_event(d, wrapped, me(), staff, existing=draft_row, banner=banner, parse_date=parse_date)
         except ValueError as e:
             flash(str(e))
             return _event_draft_back("/events/new?lane=lineup")
         except PermissionError:
             abort(403)
+        if info and info.get("id"): apply_place_pick(d, info["id"]); apply_volunteer_link(d, info["id"])
+        if info and info.get("id"): d.execute("UPDATE lineup_events SET type_custom=? WHERE id=?", (type_custom, info["id"]))
+        if info and info.get("id") and staff and info.get("status") == "draft":
+            keep = {k: request.form.getlist(k) for k in request.form if k not in ("csrf", "action", "draft_id")}
+            d.execute("UPDATE lineup_events SET draft_form=? WHERE id=?", (json.dumps(keep)[:20000], info["id"]))
         if info and info.get("id") and _picked_color("event_color_line"):
             d.execute("UPDATE lineup_events SET color=? WHERE id=?", (_picked_color("event_color_line"), info["id"]))
         if info and info.get("id") and request.form.get("line_sport_on"):
@@ -9315,22 +9493,34 @@ def event_new():
         if not staff:
             flash("Sent to admins for review", "toast")
             return redirect("/lineup")
-        posted_kind = request.form.get("event_type") or ""
-        if posted_kind in ("Tournament", "Competition") and hosting_now == "Hosting":
+        if staff and raw_type in ("Tournament", "Competition") and hosting_now == "Hosting":
             # Our organization is hosting a competition: the Lineup event is its public face; set the competition up next.
             tourn.ensure(d)
-            ev = d.execute("SELECT * FROM lineup_events WHERE id=?", (info["id"],)).fetchone()
-            tid = tourn.from_lineup(d, ev, me()["id"])
-            d.execute("UPDATE tournaments SET host_org=? WHERE id=? AND COALESCE(host_org,'')=''", (org_name(), tid)); d.commit()
+            had = d.execute("SELECT id FROM tournaments WHERE lineup_event_id=?", (info["id"],)).fetchone()
+            if had:
+                tid = had["id"]
+            else:
+                ev = d.execute("SELECT * FROM lineup_events WHERE id=?", (info["id"],)).fetchone()
+                tid = tourn.from_lineup(d, ev, me()["id"])
+                d.execute("UPDATE tournaments SET host_org=? WHERE id=? AND COALESCE(host_org,'')=''", (org_name(), tid)); d.commit()
             return redirect("/tournaments/%d/setup/basics" % tid)
-        flash("Preview", "toast")
-        return redirect("/lineup/%d" % info["id"] if info["status"] == "published" else "/lineup")
+        flash("Preview · nothing is posted until you save", "toast")
+        return redirect("/lineup/%d" % info["id"] if info["status"] in ("published", "draft") else "/lineup")
     practice_days = []
     if staff:
         practice_days = [r[0] for r in db().execute(
             "SELECT DISTINCT date FROM practices WHERE cancelled=0 AND date>=? ORDER BY date",
             (today_pt().isoformat(),)).fetchall()]
-    return page(T["event_new"], tab="event_new", event_draft=(session.pop("event_draft", None) if request.method == "GET" else None), staff=staff, lane=lane, activity=activity, line_types=line_types,
+    event_draft = session.pop("event_draft", None) if request.method == "GET" else None
+    draft_id = None
+    back_draft = _own_draft(db(), request.args.get("draft", type=int)) if staff and request.method == "GET" else None
+    if back_draft:
+        try: saved = json.loads(back_draft["draft_form"] or "{}")
+        except ValueError: saved = {}
+        if saved:
+            event_draft = event_draft or {"form": saved, "step": 3}
+            draft_id, lane = back_draft["id"], "lineup"
+    return page(T["event_new"], tab="event_new", event_draft=event_draft, draft_id=draft_id, staff=staff, lane=lane, activity=activity, line_types=line_types,
         coaches=coach_candidates(db()) if staff else [], dup=dup, practice_days=practice_days,
         plan_back=("/practices/%d" % dup["id"]) if dup else (("/manage/lineup" if lane == "lineup" else ("/admin" if is_staff() else "/manage/schedule")) if staff else "/lineup"),
         plan_title=("Create event" if staff else "Suggest an event"),
@@ -9385,6 +9575,7 @@ def approvals():
         if action == "approve":
             d.execute("UPDATE lineup_events SET status='published', official=0, review_note='' WHERE id=?", (eid,))
             d.commit(); notify_lineup_review(d, lineup_event_row(d, eid), "approved"); d.commit()
+            if (row["status"] or "") != "published": announce_lineup_later(eid, row["created_by"])
             flash("Published", "toast")
         elif action == "changes":
             note = (request.form.get("note") or "").strip()[:500]
@@ -12443,6 +12634,7 @@ NOTIFY_PUSH = (
     ("verification_result", "Verification result", "all"),
     ("practice_cancelled", "Practice cancelled", "all"),
     ("ride", "Rides: requests, pickups, and changes", "all"),
+    ("lineup", "Lineup: new events, and changes to ones you're in", "all"),
     ("leave_by", "Leave-by: 3 hours out, and when traffic moves it 5+ min", "all"),
     ("expiry", "Trial, membership, SafeSport, and background screening expiring or expired", "all"),
     ("verify_request", "New verification requests", "admin"),
@@ -12579,7 +12771,7 @@ def send_push(sub, payload):
     from pywebpush import webpush
     webpush(subscription_info={"endpoint": sub["endpoint"], "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]}},
             data=json.dumps(payload), vapid_private_key=VAPID, vapid_claims={"sub": vapid_subject()}, ttl=12 * 60 * 60, timeout=10)
-def push_member(d, member, kind, title, body, url):
+def push_member(d, member, kind, title, body, url, image=""):
     """Push to every subscription for this member. member is a row or an id. Returns how many landed."""
     if isinstance(member, int):
         member = d.execute("SELECT * FROM members WHERE id=?", (member,)).fetchone()
@@ -12589,6 +12781,7 @@ def push_member(d, member, kind, title, body, url):
     except Exception as e:
         app.logger.warning("unread badge failed: %s", e); badge = 0
     payload = {"title": title, "body": body, "url": url, "badge": badge}
+    if image: payload["image"] = image
     n = 0
     for s in d.execute("SELECT * FROM push_subscriptions WHERE member_id=?", (member["id"],)):
         try:
@@ -13068,7 +13261,7 @@ self.addEventListener('push', function(event) {
     }
     return self.registration.showNotification(data.title || 'Regulars', {
       body: data.body || '', icon: '/static/icons/icon-192.png?v=120', badge: '/static/icons/badge-96.png?v=1',
-      tag: target, renotify: true, data: {url: target}
+      image: data.image || undefined, tag: target, renotify: true, data: {url: target}
     });
   })];
   if (typeof data.badge === 'number' && navigator.setAppBadge) {
@@ -13404,9 +13597,11 @@ def notifications():
         import polls
         polls.ensure(d)
         d.execute("UPDATE members SET poll_email=? WHERE id=?", (1 if request.form.get("poll_email") else 0, m["id"]))
+        d.execute("UPDATE members SET lineup_email=? WHERE id=?", (1 if request.form.get("lineup_email") else 0, m["id"]))
         d.commit(); flash("Notification settings saved."); return redirect("/notifications")
     poll_email = not ("poll_email" in m.keys() and m["poll_email"] == 0)
-    return page(T["notifications"], tab="notifications", types=notify_types_for(m), prefs=notify_prefs(m), email_on=wants_email_reminders(m), practice_reminder=practice_reminder_choice(m), poll_email=poll_email)
+    lineup_email = not ("lineup_email" in m.keys() and m["lineup_email"] == 0)
+    return page(T["notifications"], tab="notifications", types=notify_types_for(m), prefs=notify_prefs(m), email_on=wants_email_reminders(m), practice_reminder=practice_reminder_choice(m), poll_email=poll_email, lineup_email=lineup_email)
 
 # ---------- Regulars 2.0 flows (flows2.py) ----------
 def _trial_active(m):

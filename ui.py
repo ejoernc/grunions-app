@@ -157,6 +157,9 @@ a.reglink{color:var(--accent);text-decoration:none;font-weight:600}
 .bannerprev{margin:0 0 10px;border-radius:var(--radius-card,14px);overflow:hidden;background:var(--surface);aspect-ratio:3/2}
 .bannerprev img{width:100%;height:100%;object-fit:cover;display:block}
 .bannerpick .btn{position:relative;overflow:hidden}
+.evstep .bannerpick{margin-bottom:16px}
+#typeOtherField{display:block;margin-top:16px}
+#typeOtherField[hidden]{display:none}
 body.practicepage main{padding-top:0}
 .mapboxgl-ctrl-bottom-right{margin:0 6px 6px 0;z-index:460}
 .mapboxgl-ctrl-logo{opacity:.5;transform:scale(.62);transform-origin:right bottom;margin:0;cursor:pointer}
@@ -474,7 +477,7 @@ body.editor #exactWhen{display:grid;grid-template-columns:1fr;gap:8px;background
 body.editor #exactWhen .setrow{min-height:56px;border:0;border-radius:999px;background:var(--carbon);color:var(--paper);align-items:center;flex-direction:row;padding:0 20px;gap:8px}
 body.editor #exactWhen .setrow .grow{display:flex;justify-content:space-between;align-items:center;flex:1;font:700 16px/1.2 var(--r2-font-sans)}
 body.editor #exactWhen .setrow .sum{color:var(--smoke);font:500 15px/1.2 var(--r2-font-sans)}
-body.editor #exactWhen .setrow[data-matfor=dateInput],body.editor #exactWhen #repeatRow,body.editor #exactWhen #freqRow,body.editor #exactWhen #endsRow,body.editor #exactWhen #skipRow{grid-column:1 / -1}
+body.editor #exactWhen .setrow[data-matfor=dateInput],body.editor #exactWhen #lineEndRow,body.editor #exactWhen #repeatRow,body.editor #exactWhen #freqRow,body.editor #exactWhen #endsRow,body.editor #exactWhen #skipRow{grid-column:1 / -1}
 body.editor .livetitle{display:flex;align-items:center;justify-content:space-between;min-height:56px;margin:0 0 16px;padding:0 16px;border-radius:22px;background:var(--carbon)}
 body.editor .plancards{flex-direction:row;align-items:stretch}
 body.editor label.plancard{flex:1;min-height:132px;border:0;border-radius:28px;background:var(--graphite);color:var(--paper);box-shadow:none}
@@ -2401,6 +2404,27 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro admin_page(title, subtitle='') %}{{ rg_page_title(title, subtitle, caller() if caller is defined else '') }}{% endmacro %}
 {% macro manage_row(href, title, desc, icon, count=0, tone='info', tile='carbon', num=false) %}{{ rg_manage_tile(href, title, desc, icon, count, tone, tile, num) }}{% endmacro %}
 {% macro type_select(types, selected='') %}<select name=event_type id=lineType>{% for glabel, options in lineup_type_groups(types) %}<optgroup label="{{ glabel }}">{% for name, label in options %}<option value="{{ name }}" {% if selected == name %}selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>{% endfor %}</select>{% endmacro %}
+{% macro type_chip_select(types) %}{# Chips pick the group; the dropdown lists only that group's types, then Other (type your own). #}
+<div class=rg-day>Type</div>
+<div class=typechips id=typeChips>{% for slug, chip, items, other in LINEUP_TYPE_MENU %}<button type=button data-group="{{ slug }}"{% if loop.first %} class=on{% endif %}>{{ chip }}</button>{% endfor %}</div>
+<select name=event_type id=lineType aria-label="Kind of event"></select>
+<template id=lineTypeAll>{% for slug, chip, items, other in LINEUP_TYPE_MENU %}{% for shown, stored in items %}<option value="{{ slug }}|{{ shown }}" data-group="{{ slug }}" data-type="{{ stored }}">{{ shown }}</option>{% endfor %}<option value="__other__:{{ slug }}" data-group="{{ slug }}" data-type="{{ other }}">Other</option>{% endfor %}</template>
+<label id=typeOtherField hidden>What kind of event?<input name=type_custom id=typeOther maxlength=40 autocomplete=off placeholder="Toy drive"></label>
+<script>(function(){
+ var sel=document.getElementById('lineType'), all=[].slice.call(document.getElementById('lineTypeAll').content.children), chips=document.querySelectorAll('#typeChips button'), other=document.getElementById('typeOtherField');
+ function groupOf(v){ var o=all.filter(function(x){ return x.value===v; })[0]; return o?o.getAttribute('data-group'):''; }
+ function fill(g, v){
+  sel.innerHTML=''; all.forEach(function(o){ if(o.getAttribute('data-group')===g) sel.appendChild(o.cloneNode(true)); });
+  if(v && groupOf(v)===g) sel.value=v;
+  chips.forEach(function(c){ c.classList.toggle('on', c.getAttribute('data-group')===g); });
+  other.hidden=sel.value.indexOf('__other__')!==0;
+ }
+ chips.forEach(function(c){ c.onclick=function(){ fill(c.getAttribute('data-group')); sel.dispatchEvent(new Event('change',{bubbles:true})); }; });
+ sel.addEventListener('change', function(){ other.hidden=sel.value.indexOf('__other__')!==0; if(!other.hidden) document.getElementById('typeOther').focus(); });
+ sel._restore=function(v){ var g=groupOf(v); if(g){ fill(g, v); sel.dispatchEvent(new Event('change',{bubbles:true})); } };
+ fill('competitions');
+})();</script>
+{% endmacro %}
 {% macro event_chooser(staff) %}
 <h2 class=planask>What are you planning?</h2>
 <div class=planlane>
@@ -2626,7 +2650,7 @@ dialog.memberedit .help a{color:var(--t1)}
 </a>{% endif %}
 {% endmacro %}
 {% macro app_header(fade, entry, plus_href, plus_label='Add') %}<header class="homehead apphead{% if fade %} homefade{% endif %}"{% if entry %} data-entry="{{ entry }}"{% endif %}><div class=headmain>{{ caller() }}{% if plus_href %}{{ rg_plus(plus_href, plus_label) }}{% endif %}</div></header>{% endmacro %}
-{% set _tbact %}{% if tab == 'practice' and (me().is_admin or is_staff()) %}<button type=button class=rg-tbdisc data-open-dialog=pqMore aria-label="Practice menu">{{ rg_icon('more') }}</button>{% elif tab == 'lineup_event' and e and e.can_edit %}<a class=rg-tbdisc href="/lineup/{{ e.id }}/edit" aria-label="Edit event">{{ rg_icon('edit') }}</a>{% elif tab == 'person' %}<button type=button class="rg-tbdisc morebtn" id=profileMore aria-label="Profile menu">{{ rg_icon('more') }}</button>{% elif tab == 'member' and me().is_admin %}<button type=button class="rg-tbdisc viewonly" id=profileEdit aria-label="Edit member">{{ rg_icon('edit') }}</button><button type=submit class="rg-btn primary editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}{% endset %}{% if nav_kind == 'sheet' and me() and tab in ('flow', 'settings_sheet') %}{{ rg_sheet_head(nav_title, nav_back_href) }}{% elif tab == 'practice' and editing and me() %}{{ rg_sheet_head('Edit practice', '/practices/' ~ x.p.id) }}{% elif nav_topbar and me() and tab != 'tournament' and not (editing or plan_editing) %}{{ rg_top_bar('compact', '' if (tab == 'person' and not nav_back_href) else nav_back_title, back_href=nav_back_href, back_label=nav_back_title, action_html=_tbact) }}{% elif tab == 'profile' and me() %}<header class=profilebar>
+{% set _tbact %}{% if tab == 'practice' and (me().is_admin or is_staff()) %}<button type=button class=rg-tbdisc data-open-dialog=pqMore aria-label="Practice menu">{{ rg_icon('more') }}</button>{% elif tab == 'lineup_event' and e and e.can_edit %}<button type=button class=rg-tbdisc data-open-dialog=evMore aria-label="Event menu">{{ rg_icon('more') }}</button>{% elif tab == 'person' %}<button type=button class="rg-tbdisc morebtn" id=profileMore aria-label="Profile menu">{{ rg_icon('more') }}</button>{% elif tab == 'member' and me().is_admin %}<button type=button class="rg-tbdisc viewonly" id=profileEdit aria-label="Edit member">{{ rg_icon('edit') }}</button><button type=submit class="rg-btn primary editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}{% endset %}{% if nav_kind == 'sheet' and me() and tab in ('flow', 'settings_sheet') %}{{ rg_sheet_head(nav_title, nav_back_href) }}{% elif tab == 'practice' and editing and me() %}{{ rg_sheet_head('Edit practice', '/practices/' ~ x.p.id) }}{% elif nav_topbar and me() and not (editing or plan_editing) %}{{ rg_top_bar('compact', '' if (tab == 'person' and not nav_back_href) else nav_back_title, back_href=nav_back_href, back_label=nav_back_title, action_html=_tbact) }}{% elif tab == 'profile' and me() %}<header class=profilebar>
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button><button type=button class="profileact editonly" id=profileCancel>Cancel</button></div>
 <h1 class=editonly>Profile</h1>
 <div class=right><button type=button class="rg-tbdisc viewonly morebtn" id=profileMore aria-label="Profile menu">{{ rg_icon('more') }}</button><button type=button id=profileEdit hidden>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=profileForm>Save</button></div>
@@ -2642,7 +2666,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <div class=left><button type=button class="profileback viewonly" id=profileBack aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button>{% if me().is_admin %}<button type=button class="profileact editonly" id=profileCancel>Cancel</button>{% endif %}</div>
 <h1>{{ display_first(m) }} {{ m.last }}</h1>
 <div class=right>{% if me().is_admin %}<button type=button class="profileact viewonly" id=profileEdit>Edit</button><button type=submit class="profileact savebtn editonly" id=profileSave form=memberForm name=action value=edit>Save</button>{% endif %}</div>
-</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<a class=profileact href="/lineup/{{ e.id }}/edit">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class="rg-tbdisc" href="/practices/{{ x.p.id }}" aria-label="Close">{{ rg_icon('close') }}</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{% if editing or plan_editing %}Edit practice{% else %}Practice{% endif %}</h1><div class=right>{% if editing %}{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() and tab in ('chat', 'tournament') %}{% elif me() %}{% call app_header(tab == 'home' or tab == 'practices', ('schedule' if tab == 'practices' else 'home') if (tab == 'home' or tab == 'practices') else '', (('/events/new?lane=lineup' if tab == 'lineup' else '/events/new') if can_host_practice() and (tab == 'lineup' or (tab == 'practices' and not sched_home)) else ('/lineup/new' if tab == 'lineup' else '')), 'Create' if can_host_practice() else 'Suggest an event') %}{% if tab == 'practices' %}{% if sched_list %}<div class=displayhead><div class="rg-tbrow schedback"><a class=rg-tbdisc href=/practices aria-label="Back to My week">{{ rg_icon('chevron_left') }}</a><a class=rg-tbtitle href=/practices>My week</a></div><h1>Schedule</h1></div>{% else %}<div class=displayhead><h1>Schedule</h1></div>{% endif %}{% elif tab == 'home' %}<div class=displayhead><div class=displayeye>{{ hi_membership() }}</div><h1>Hi, {{ display_first(me()) }}</h1></div>{% elif tab == 'discover' %}<h1>Discover.</h1>{% elif tab == 'calendar' %}<div class=displayhead><p class=displayeye>{{ display_first(me()) }} {{ me().last }}</p><h1>Calendar</h1></div>{% elif tab == 'manage' %}<div class=displayhead><h1>Manage</h1></div>{% elif tab == 'admin' %}{% elif tab == 'lineup' %}<div class=displayhead><h1>Lineup</h1></div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% elif tab in ('appearance', 'rides', 'availability', 'flow') %}{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}{% endcall %}{% elif tab == 'tournament' %}{% else %}<header><a class=brand href=/ aria-label=Regulars><img src="/static/icons/icon-192.png?v=120" alt=""></a></header>{% endif %}<main>
+</header>{% elif me() and tab == 'lineup_edit' %}<header class=profilebar><div class=left><a class=profileact href=/lineup>Cancel</a></div><h1>Event</h1><div class=right><button type=submit class="profileact savebtn" form=eventForm name=action value=save>{{ save_label or 'Save' }}</button></div></header>{% elif me() and tab == 'lineup_event' %}<header class=profilebar><div class=left>{% if from_admin %}<a class=profileback href="/admin?date={{ admin_date }}" aria-label="Back">{% else %}<a class=profileback href=/lineup aria-label="Back">{% endif %}<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a></div><h1>Event</h1><div class=right>{% if e.can_edit %}<button type=button class=rg-tbdisc data-open-dialog=evMore aria-label="Event menu">{{ rg_icon('more') }}</button>{% endif %}</div></header>{% elif me() and tab == 'series_edit' %}<header class=profilebar><div class=left><a class=profileact href=/practices>Cancel</a></div><h1>Series</h1><div class=right><button type=submit class="profileact savebtn" form=seriesForm>Save</button></div></header>{% elif me() and tab == 'practice' %}<header class=profilebar><div class=left>{% if editing or plan_editing %}<a class="rg-tbdisc" href="/practices/{{ x.p.id }}" aria-label="Close">{{ rg_icon('close') }}</a>{% else %}<a class=profileback href="{% if from_admin %}/admin?date={{ x.p.date }}{% else %}/practices{% endif %}" aria-label="Back"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></a>{% endif %}</div><h1>{% if editing or plan_editing %}Edit practice{% else %}Practice{% endif %}</h1><div class=right>{% if editing %}{% elif plan_editing %}<button type=submit class="profileact savebtn" form=practiceForm name=action value=plan>Save</button>{% elif me().is_admin or is_staff() %}<a class=profileact href="/practices/{{ x.p.id }}?edit=1{% if from_admin %}&amp;from=admin{% endif %}">Edit</a>{% endif %}</div></header>{% elif me() and tab == 'event_new' %}<header class=profilebar><div class=left><a class=profileact href="{{ plan_back }}">Cancel</a></div><h1>{{ plan_title or 'Create event' }}</h1><div class=right>{% if plan_save %}<button type=submit class="profileact savebtn" form=planForm name=action value=preview>{{ plan_save }}</button>{% endif %}</div></header>{% elif me() and tab in ('chat', 'tournament') %}{% elif me() %}{% call app_header(tab == 'home' or tab == 'practices', ('schedule' if tab == 'practices' else 'home') if (tab == 'home' or tab == 'practices') else '', (('/events/new?lane=lineup' if tab == 'lineup' else '/events/new') if can_host_practice() and (tab == 'lineup' or (tab == 'practices' and not sched_home)) else ('/lineup/new' if tab == 'lineup' else '')), 'Create' if can_host_practice() else 'Suggest an event') %}{% if tab == 'practices' %}{% if sched_list %}<div class=displayhead><div class="rg-tbrow schedback"><a class=rg-tbdisc href=/practices aria-label="Back to My week">{{ rg_icon('chevron_left') }}</a><a class=rg-tbtitle href=/practices>My week</a></div><h1>Schedule</h1></div>{% else %}<div class=displayhead><h1>Schedule</h1></div>{% endif %}{% elif tab == 'home' %}<div class=displayhead><div class=displayeye>{{ hi_membership() }}</div><h1>Hi, {{ display_first(me()) }}</h1></div>{% elif tab == 'discover' %}<h1>Discover.</h1>{% elif tab == 'calendar' %}<div class=displayhead><p class=displayeye>{{ display_first(me()) }} {{ me().last }}</p><h1>Calendar</h1></div>{% elif tab == 'manage' %}<div class=displayhead><h1>Manage</h1></div>{% elif tab == 'admin' %}{% elif tab == 'lineup' %}<div class=displayhead><h1>Lineup</h1></div>{% elif tab == 'notifications' %}<h1>Notifications</h1>{% elif tab in ('appearance', 'rides', 'availability', 'flow') %}{% else %}<h1>{{ display_first(me()) }}</h1>{% endif %}{% endcall %}{% elif tab == 'tournament' %}{% else %}<header><a class=brand href=/ aria-label=Regulars><img src="/static/icons/icon-192.png?v=120" alt=""></a></header>{% endif %}<main>
 {% if me() and can_host_practice() %}<dialog id=createSheet class="botsheet profmenu modal" data-sheet-name=create><div class=sheet><div class=grab aria-hidden=true></div>
 <h2 class=newtitle>Create.</h2><p class=ty-muted>What are you planning?</p>
 {{ rg_label('Team schedule') }}
@@ -4244,18 +4268,29 @@ window.grunionsPlaces=function(input){
   if(place){
    input.value=item.custom ? item.name : (item.address||item.detail||item.map||item.name);
    if(place.getAttribute('data-name-edited')!=='1') place.value=item.custom ? '' : (item.business||'');
-  } else input.value=item.name;
+  } else { input.value=item.name; pick(item.custom ? null : item); }
   setBadge(!!item.verified&&!item.custom);
   input.dispatchEvent(new Event('change',{bubbles:true}));
   close();
   input._placeSession='';
+ }
+ function hidden(suffix){
+  if(!input.form||!input.name) return null;
+  var h=input.form.querySelector('input[type=hidden][name="'+input.name+suffix+'"]');
+  if(!h){ h=document.createElement('input'); h.type='hidden'; h.name=input.name+suffix; input.parentNode.appendChild(h); }
+  return h;
+ }
+ function pick(item){
+  var g=hidden('_geo'), a=hidden('_addr'); if(!g||!a) return;
+  g.value=(item&&item.lat!=null&&item.lng!=null)?(item.lat+','+item.lng):'';
+  a.value=item?(item.address||item.detail||''):'';
  }
  function choose(i){
   var item=items[i]; if(!item) return;
   if(item.id && !item.custom){
    var token=session();
    fetch('/api/places/retrieve?id='+encodeURIComponent(item.id)+'&session='+encodeURIComponent(token)).then(function(r){ return r.json(); }).then(function(row){
-    if(row && (row.address||row.name)) applyChoice({name:row.name||item.name, detail:row.detail||item.detail, address:row.address||item.address, business:row.business||item.business, verified:true, custom:false});
+    if(row && (row.address||row.name)) applyChoice({name:row.name||item.name, detail:row.detail||item.detail, address:row.address||item.address, business:row.business||item.business, lat:row.lat, lng:row.lng, verified:true, custom:false});
     else applyChoice(item);
    }).catch(function(){ applyChoice(item); });
    return;
@@ -4278,7 +4313,7 @@ window.grunionsPlaces=function(input){
   }).catch(function(){});
  }
  input.addEventListener('input', function(){
-  setBadge(false);
+  setBadge(false); if(!nameField()) pick(null);
   clearTimeout(wait);
   var q=input.value.trim();
   if(q.length<3){ seq++; items=[]; close(); return; }
@@ -6534,6 +6569,7 @@ T["notifications"] = """<div class=rg-screen>
 <p class="ty-muted ty-sm">In-app uses the push you allow above. Emails include a link to turn practice reminder emails off.</p>
 {{ rg_label('Email') }}
 {{ rg_toggle('poll_email', 'Polls', 'An email when a poll is posted in a chat you are in, with a link to vote.', poll_email) }}
+{{ rg_toggle('lineup_email', 'New Lineup events', 'An email with the event banner when a new event goes up on the Lineup.', lineup_email) }}
 <label class=rg-toggle><span><b>Membership, SafeSport and trial reminders</b><small>7 days before, 1 day before, and on the day it expires. Practice cancellation emails always send.</small></span><input type=checkbox name=email_reminders value=1 {% if email_on %}checked{% endif %}><i aria-hidden=true></i></label>
 {{ rg_button('Save', 'primary') }}
 </form></div>"""
@@ -7068,8 +7104,10 @@ T["lineup"] = """{% macro lineup_months(groups, mode, past=false) %}{% for g in 
 {{ lineup_months(upcoming, 'tall') }}
 {% if past %}<details class=lineuppast open><summary>{% if group %}Past{% else %}Past{% endif %} <span class=pastn>{{ past_n }}</span></summary>{{ lineup_months(past, 'tall', true) }}</details>{% endif %}"""
 T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
+{{ rg_event_hero(e.type_name or e.event_type or 'Event', e.title, [e.when, e.venue, e.city]|select|join(' · '), 'graphite' if e.status == 'canceled' else event_tone(e.event_type, false, e.color), e.status_text if e.status != 'published' else (e.tag or '')) }}
 {% if comp %}<div style="padding:12px 20px 0">{{ rg_button(((comp.term or 'Competition') ~ ' setup') if comp.status != 'published' else ('Run the ' ~ (comp.term or 'competition')|lower), 'primary', '/tournaments/' ~ comp.id) }}</div>{% endif %}
-{{ rg_event_hero(e.event_type or 'Event', e.title, [e.when, e.venue, e.city]|select|join(' · '), 'graphite' if e.status == 'canceled' else event_tone(e.event_type, false, e.color), e.status_text if e.status != 'published' else (e.tag or '')) }}
+{% if e.status == 'draft' and ic_host %}<div class=createfoot><p class="ty-muted ty-sm">Preview. Only organizers can see this. Save posts it to the Lineup and emails everyone.</p>
+<form method=post action="/lineup/{{ e.id }}" class="evnav two">{{ csrf_field() }}<a class="rg-btn secondary" href="{{ draft_back or ('/lineup/' ~ e.id ~ '/edit') }}">Edit</a><button class="rg-btn primary" name=action value=publish>Save</button></form></div>{% endif %}
 {% if ic and ic.status == 'open' %}{# Figma 62 · I2 Interest check, member view #}
 {% set icn = ic_res.counts %}
 <section class=rg-ic>
@@ -7116,8 +7154,9 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.description %}<div class="li evdescrow"><div class=clamp id=evdesc>{{ e.description }}</div><button type=button class=textlink id=evmore hidden>More</button></div>{% endif %}
 {% if e.host_org %}<div class="li prow"><span class=k>Host organization</span><span class=v>{{ e.host_org }}</span></div>{% endif %}
 {% if e.cohosts %}<div class="li prow"><span class=k>Co-host organizations</span><span class=v>{{ e.cohosts|join(', ') }}</span></div>{% endif %}
+{% if e.volunteer_link %}<div class="li prow"><span class=k>Volunteers</span><span class=v><a class=reglink href="{{ e.volunteer_link }}" target=_blank rel="noopener noreferrer">Sign up to volunteer</a></span></div>{% endif %}
 {% if e.link %}<div class="li prow"><span class=k>Registration</span><span class=v><a class=reglink href="{{ e.link }}" target=_blank rel="noopener noreferrer">Registration</a></span></div>{% endif %}
-{% if e.event_type %}<div class="li prow"><span class=k>Type</span><span class=v>{{ e.event_type }}</span></div>{% endif %}
+{% if e.event_type %}<div class="li prow"><span class=k>Type</span><span class=v>{{ e.type_name or e.event_type }}</span></div>{% endif %}
 {% if e.sports_line %}<div class="li prow"><span class=k>Session</span><span class=v>{{ e.sports_line }}</span></div>{% endif %}
 {% if e.details %}<div class=li>{{ e.details }}</div>{% endif %}
 {% if e.cost %}<div class="li prow"><span class=k>Cost</span><span class=v>About {{ e.cost }}</span></div>{% endif %}
@@ -7130,6 +7169,24 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {{ whos_going(e.people) }}
 {% if e.can_review and e.intent == 'considering' %}<form method=post action="/lineup/{{ e.id }}" style="margin-top:10px">{{ csrf_field() }}<button class="rg-btn primary full" name=action value=official>Make official</button></form>{% endif %}
 {% if e.venue or e.city %}{{ event_location('lineLoc', e.pins, e.venue or e.city, e.city if e.venue else '', e.dir_href) }}{% endif %}
+{% if e.can_edit %}{% set can_mail = e.status == 'published' and ic_host %}{% set log = lineup_email_log(e.id) if can_mail else [] %}
+<dialog id=evMore class="botsheet modal pqsheet"><div class=sheet tabindex=-1 autofocus><div class=grab aria-hidden=true></div>
+<h2>{{ e.title }}</h2><p class=ty-muted>{{ [e.when, e.venue or e.city]|select|join(' · ') }}</p>
+<div class=rg-stack8>
+{{ rg_settings_row('Edit event', 'All details', '/lineup/' ~ e.id ~ '/edit') }}
+{% if can_mail %}{{ rg_settings_row('Email this event', ('Sent ' ~ log[0].when.split(',')[0].split(' ', 1)[1]) if log else 'Not sent yet', '#', 'data-open-dialog=emailSheet') }}{% endif %}
+<button type=button class=rg-srow data-copy="{{ app_base() }}/lineup/{{ e.id }}"><span class=rg-srlabel>Copy link</span><span class=rg-srvalue>Share</span>{{ rg_icon('chevron_right', 'sm') }}</button>
+</div></div></dialog>
+{% if can_mail %}<dialog class="botsheet modal" id=emailSheet><form method=post action="/lineup/{{ e.id }}/email" class=sheet>{{ csrf_field() }}<div class=grab aria-hidden=true></div><h2>Email this event.</h2>
+<p class="ty-muted ty-sm">The event email with the banner. Your note shows at the top.</p>
+<label>Note (optional)<textarea class=planfield name=note rows=4 maxlength=1000 placeholder="Carpools leave from the pool at 7."></textarea></label>
+<div class=evnav><button class="rg-btn primary" name=action value=all onclick="return confirm('Email this event to everyone in the club now?')">Email everyone</button><button class="rg-btn secondary" name=action value=test>Send me a test</button></div>
+<div class=rg-day>Sent</div>
+<div class="list rg-evdetails">{% for r in log %}<div class="li prow"><span class=k>{{ r.when }}{% if r.who %} · {{ r.who }}{% endif %}{% if r.note %}<br><small class=ty-muted>{{ r.note }}</small>{% endif %}</span><span class=v>{{ r.what }} · {{ r.n }} sent</span></div>{% else %}<div class=li><span class=ty-muted>Not emailed yet.</span></div>{% endfor %}</div>
+</form></dialog>{% endif %}{% endif %}
+<script>(function(){var q=new URLSearchParams(location.search).get('rsvp');if(q!=='going'&&q!=='interested')return;
+ history.replaceState(null,'',location.pathname);
+ var b=document.querySelector('form.rsvprow button[name=action][value="'+q+'"]');if(b)b.click();})();</script>
 <script>(function(){var el=document.getElementById('evdesc'),btn=document.getElementById('evmore');if(!el||!btn)return;if(el.scrollHeight>el.clientHeight+2)btn.hidden=false;btn.onclick=function(){var open=el.classList.toggle('open');btn.textContent=open?'Less':'More';};})();</script>"""
 T["approvals"] = """{% call admin_page('Events') %}<a class="rg-btn ghost pageact" href="/events/new">Create event</a>{% endcall %}
 {% if queue %}<h2>Needs review ({{ queue|length }})</h2>
@@ -7363,12 +7420,17 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <input type=hidden name=title_mode id=titleMode value="{{ 'custom' if dup and dup.title else 'auto' }}">
 {% if dup %}<input type=hidden name=copy_from value="{{ dup.id }}"><textarea name=coaching_plan hidden>{{ dup.coaching_plan }}</textarea>{% endif %}
 <input type=hidden name=mode value="{{ 'create' if staff else 'suggest' }}">
+{% if draft_id %}<input type=hidden name=draft_id value="{{ draft_id }}">{% endif %}
 <section class=evstep data-step=1>
 {% if staff %}<h2 class=planask>What are you planning?</h2>
 <div class=lanepick role=radiogroup aria-label="What are you planning?">
 <button type=button class="lanecard{{ ' on' if lane != 'lineup' }}" data-lane=schedule><b>Team schedule</b><span>Practices, scrimmages &amp; games</span></button>
 <button type=button class="lanecard{{ ' on' if lane == 'lineup' }}" data-lane=lineup><b>Lineup event</b><span>Tournaments, camps, trips &amp; socials</span></button>
 </div>{% endif %}
+<div class=bannerpick>
+<div class="ty-muted ty-sm xs">Banner image</div>
+{{ upload_field('image', src=(dup.image_src if dup else ''), clear_name=('image_clear' if dup and dup.image else '')) }}
+</div>
 {% if staff %}<div id=schedBlock {% if lane == 'lineup' %}hidden{% endif %}>
 <div class=actseg role=radiogroup aria-label="Session type">
 <label><input type=radio name=activity_type value=practice {% if activity != 'scrimmage' and activity != 'game' %}checked{% endif %}><span>Practice</span></label>
@@ -7382,13 +7444,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label id=titleField {% if not dup or not dup.title %}hidden{% endif %}>Event name<input name=title id=titleInput value="{{ dup.title if dup else '' }}" autocomplete=off><button type=button class="rg-btn ghost" id=titleReset>Reset to automatic</button></label>
 </div>{% endif %}
 <div id=lineBlock {% if staff and lane != 'lineup' %}hidden{% endif %}>
-<label>Type{{ type_select(line_types, 'Competition' if staff else '') }}</label>
-{% if staff %}<div class=typechips id=typeChips>
-<button type=button data-type=Competition class=on>Competition</button>
-<button type=button data-type=Clinic>Clinic</button>
-<button type=button data-type=Trip>Trip</button>
-<button type=button data-type=Social>Social</button>
-</div>{% endif %}
+{% if staff %}{{ type_chip_select(line_types) }}{% else %}<label>Type{{ type_select(line_types) }}</label>{% endif %}
 {{ line_sport_chips(['Water Polo']) }}
 {{ rg_color_dots('event_color_line', '') }}
 <div class=rg-day>Who's hosting?</div>
@@ -7424,6 +7480,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>{% endif %}
 <div class=list id=exactWhen>
 <button type=button class="li setrow" data-matfor=dateInput><span class=grow><span id=dateLab>Date</span><span class="sum" id=dateSum> Add a date</span></span>""" + _CHEV + """</button>
+<button type=button class="li setrow" id=lineEndRow data-matfor=lineEndInput hidden><span class=grow>End date<span class="sum" id=lineEndSum> Same day</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" data-matfor=startInput><span class=grow>Start<span class="sum" id=startSum> 7:00 PM</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" data-matfor=endInput><span class=grow>End<span class="sum" id=endSum> 8:30 PM</span></span>""" + _CHEV + """</button>
 <button type=button class="li setrow" id=repeatRow data-open=sheetDays hidden aria-haspopup=dialog aria-controls=sheetDays><span class=grow><span id=daysLab>Choose days</span><span class=sum id=daysSum></span></span>""" + _CHEV + """</button>
@@ -7451,11 +7508,12 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div><div id=assignedCoaches class=list></div></div>
 <div class=formsec><h2>Additional details</h2><div class=list>
 <button type=button class="li selfield" data-open=setSocial><span class=selfieldk>After-practice social</span><span class="selfieldv ell" id=socSum>Not added</span>""" + _CHEV + """</button>
-<button type=button class="li selfield" data-open=setNotes><span class=selfieldk>Notes &amp; cover image</span><span class="selfieldv ell" id=noteSum>{% if dup and (dup.note or dup.image) %}Added{% else %}Not added{% endif %}</span>""" + _CHEV + """</button>
+<button type=button class="li selfield" data-open=setNotes><span class=selfieldk>Notes</span><span class="selfieldv ell" id=noteSum>{% if dup and dup.note %}Added{% else %}Not added{% endif %}</span>""" + _CHEV + """</button>
 </div></div>
 </div>{% endif %}
 <div class=list id=lineSets {% if staff and lane != 'lineup' %}hidden{% endif %}>
 <button type=button class="li setrow" id=regRow data-open=setReg><span class=grow>Registration<span class=sum id=regSum> Not set</span></span>""" + _CHEV + """</button>
+<button type=button class="li setrow" id=volRow data-open=setVol hidden><span class=grow>Volunteer sign-up<span class=sum id=volSum> Not added</span></span>""" + _CHEV + """</button>
 </div>
 <div id=signupBlock {% if not staff or lane != 'lineup' %}hidden{% endif %}>
 <div class=rg-day>Who can sign up</div>
@@ -7467,11 +7525,12 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 </div>
 </div>
 <div class=createfoot>
-<div class="evnav two"><button type=button class="rg-btn secondary" data-evgo=2>Back</button><button class="rg-btn primary" name=action value=preview id=evPost>{% if dup %}Save{% elif not staff %}Submit{% elif lane == 'lineup' %}Post to Lineup{% else %}Post to Schedule{% endif %}</button></div>
-<p class=pagesub id=destHint>{% if not staff %}Sent to admins for review{% elif lane == 'lineup' %}Appears on Lineup by default{% else %}Appears on Home by default{% endif %}</p>
+<div class="evnav two"><button type=button class="rg-btn secondary" data-evgo=2>Back</button><button class="rg-btn primary" name=action value=preview id=evPost>{% if dup %}Save{% elif not staff %}Submit{% elif lane == 'lineup' %}Preview{% else %}Post to Schedule{% endif %}</button></div>
+<p class=pagesub id=destHint>{% if not staff %}Sent to admins for review{% elif lane == 'lineup' %}Nothing posts until you save the preview{% else %}Appears on Home by default{% endif %}</p>
 </div>
 </section>
 <input class=pickhold type=date name=date id=dateInput value="{{ dup.date if dup else '' }}">
+<input class=pickhold type=date name=end_date id=lineEndInput disabled>
 <input class=pickhold type=time name=start id=startInput value="{{ dup.start if dup else '19:00' }}">
 <input class=pickhold type=time name=end id=endInput value="{{ dup.end if dup else '20:30' }}">
 <input class=pickhold type=month name=month id=monthInput>
@@ -7547,10 +7606,13 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label>Time (optional)<input data-native type=time name=social_time min="{{ (dup.end if dup else '20:30')[:5] }}" value="{{ (dup.social_time or dup.end) if dup else '20:30' }}"></label>
 <label>Note<textarea class=planfield name=social_note rows=4>{{ dup.social_note if dup else '' }}</textarea></label>
 <button type=button class="rg-btn primary full" data-sheetdone>Done</button></div></dialog>
-<dialog class=botsheet id=setNotes><div class=sheet><div class=grab></div><h2>Notes &amp; media</h2>
+<dialog class=botsheet id=setNotes><div class=sheet><div class=grab></div><h2>Notes</h2>
 <label>Notes<textarea class=planfield name=note id=noteInput rows=4>{{ dup.note if dup else '' }}</textarea></label>
-{{ upload_field('image', src=(dup.image_src if dup else ''), clear_name=('image_clear' if dup and dup.image else '')) }}
 <button type=button class="rg-btn primary full" onclick="this.closest('dialog').close()">Done</button></div></dialog>
+<dialog class=botsheet id=setVol><div class=sheet><div class=grab></div><h2>Volunteer sign-up</h2>
+<p class="ty-muted ty-sm">Optional. A link to your sign-up sheet (Google Form, SignUpGenius). It shows on the event and in the email.</p>
+<label>Link<input name=volunteer_link id=volLink inputmode=url autocomplete=off placeholder="https://" oninput="document.getElementById('volSum').textContent=this.value.trim()?' Added':' Not added'"></label>
+<button type=button class="rg-btn primary full" onclick="var v=document.getElementById('volLink').value.trim();document.getElementById('volSum').textContent=v?' Added':' Not added';this.closest('dialog').close()">Done</button></div></dialog>
 <dialog class=botsheet id=setReg><div class=sheet><div class=grab></div><h2>Registration</h2>
 <label>Format<select name=comp_format><option value="">Not set</option>{% for pid, name, blurb in SPORTS.FORMATS %}<option value="{{ pid }}">{{ name }}</option>{% endfor %}</select></label>
 <label>Link<input name=link inputmode=url placeholder="https://"></label>
@@ -7579,7 +7641,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   if(schedSets) schedSets.hidden=!home;
   if(lineSets) lineSets.hidden=home;
   var signup=document.getElementById('signupBlock'); if(signup) signup.hidden=!staff || home;
-  if(hint) hint.textContent=home?'Appears on Home by default':'Appears on Lineup by default';
+  if(hint) hint.textContent=home?'Appears on Home by default':'Nothing posts until you save the preview';
   var big=document.getElementById('newEventTitle'); if(big) big.textContent='New event.';
   document.querySelectorAll('button.lanecard').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-lane')===name); });
   paintTitle(); syncLine();
@@ -7642,6 +7704,8 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   if(prec) prec.hidden=!staff;
   var home=!lane || lane.value!=='lineup';
   var allow=home?{exact:1,recur:1}:{exact:1,month:1};
+  var edRow=document.getElementById('lineEndRow'), edIn=document.getElementById('lineEndInput');
+  if(edRow) edRow.hidden=home; if(edIn) edIn.disabled=home;
   document.querySelectorAll('#whenPrec label[data-prec]').forEach(function(lab){
    var v=lab.getAttribute('data-prec');
    var show=!!(staff && allow[v]);
@@ -7667,7 +7731,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   var monthInput=document.getElementById('monthInput'); if(monthInput) monthInput.disabled=!monthOn;
   var dateInput=document.getElementById('dateInput'); if(dateInput) dateInput.disabled=monthOn;
   ['startInput','endInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.disabled=monthOn; });
-  var dateLab=document.getElementById('dateLab'); if(dateLab) dateLab.textContent=recurOn?'Starts':'Date';
+  var dateLab=document.getElementById('dateLab'); if(dateLab) dateLab.textContent=recurOn?'Starts':(home?'Date':'Start date');
   syncDays(); syncFreq(); syncSkips(); syncRecurEnd();
  }
  document.querySelectorAll('input[name=date_precision]').forEach(function(r){ r.addEventListener('change', syncPrec); });
@@ -7678,7 +7742,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
  var recurCount=document.getElementById('recurCount'); if(recurCount) recurCount.addEventListener('input', syncRecurEnd);
  document.querySelectorAll('button.lanecard').forEach(function(b){ b.onclick=function(){ showLane(b.getAttribute('data-lane')); syncPrec(); }; });
  document.querySelectorAll('button.cdot').forEach(function(b){ b.onclick=function(){ document.querySelectorAll('button.cdot').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); }; });
- document.querySelectorAll('#typeChips button').forEach(function(b){
+ document.querySelectorAll('#typeChips button[data-type]').forEach(function(b){
   b.onclick=function(){
    var sel=document.getElementById('lineType'); if(!sel) return;
    var opt=[].slice.call(sel.options).some(function(o){ return o.value===b.getAttribute('data-type'); });
@@ -7711,19 +7775,21 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   var d=document.getElementById('dateInput'), s=document.getElementById('startInput'), e=document.getElementById('endInput'), mo=document.getElementById('monthInput'), u=document.getElementById('untilInput');
   var ds=document.getElementById('dateSum'), ss=document.getElementById('startSum'), es=document.getElementById('endSum'), ms=document.getElementById('monthSum'), us=document.getElementById('untilSum');
   if(ds) ds.textContent=d&&d.value?(' '+d.value):' Add a date';
+  var ed=document.getElementById('lineEndInput'), eds=document.getElementById('lineEndSum');
+  if(ed){ if(d&&d.value){ ed.min=d.value; if(ed.value&&ed.value<d.value) ed.value=''; } if(eds) eds.textContent=ed.value&&(!d||ed.value!==d.value)?(' '+ed.value):' Same day'; }
   if(ss) ss.textContent=s&&s.value?(' '+clock(s.value)):'';
   if(es) es.textContent=e&&e.value?(' '+clock(e.value)):'';
   if(ms) ms.textContent=monthLabel(mo&&mo.value);
   if(us) us.textContent=u&&u.value?(' '+u.value):' Add a date';
   syncRecurEnd();
  }
- ['dateInput','startInput','endInput','monthInput','datePart','untilInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change', syncWhen); });
+ ['dateInput','lineEndInput','startInput','endInput','monthInput','datePart','untilInput'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change', syncWhen); });
  syncWhen();
  function syncHost(){
   var host=document.querySelector('#whoHost input[name=hosting]:checked');
   var mode=host?host.value:'Hosting';
   var co=document.getElementById('coHosted');
-  var type=document.getElementById('lineType'); var name=type?type.value:'';
+  var type=document.getElementById('lineType'); var opt=type&&type.selectedOptions?type.selectedOptions[0]:null; var name=(opt&&opt.getAttribute('data-type'))||(type?type.value:'');
   var team=name==='Tournament'||name==='Competition'||name==='Trip'||name==='Clinic';
   var org=document.getElementById('lineOrg'), cos=document.getElementById('lineCo');
   var plans=document.getElementById('orgPlans'), planLabel=document.getElementById('orgPlanLabel');
@@ -7737,14 +7803,17 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
  }
  function syncLine(){
   var type=document.getElementById('lineType'); var name=type?type.value:'Social';
+  var comp=name==='Tournament'||name==='Competition'||name.indexOf('competitions')>=0;
   var reg=document.getElementById('regRow');
-  if(reg) reg.hidden=!(name==='Tournament'||name==='Competition');
+  if(reg) reg.hidden=!comp;
+  var vol=document.getElementById('volRow'); if(vol) vol.hidden=comp;
   syncHost();
   var title=document.getElementById('lineTitle');
   if(title && !title.value){
-    title.placeholder=name==='Trip'?'Fall team trip':(name==='Social'?'Fall Team Dinner':((name==='Tournament'||name==='Competition')?'IGLA 2027':'Event name'));
+    var grp=name.indexOf('|')>0?name.split('|')[0]:(name.indexOf('__other__:')===0?name.slice(10):name);
+    title.placeholder=(grp==='Trip'||grp==='trips')?'Fall team trip':((grp==='Social'||grp==='community')?'Fall Team Dinner':((grp==='Tournament'||grp==='competitions')?'IGLA 2027':'Event name'));
   }
-  document.querySelectorAll('#typeChips button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-type')===name); });
+  document.querySelectorAll('#typeChips button[data-type]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-type')===name); });
  }
  var lt=document.getElementById('lineType'); if(lt) lt.addEventListener('change', syncLine);
  document.querySelectorAll('#whoHost input[name=hosting]').forEach(function(r){ r.addEventListener('change', syncHost); });
@@ -7773,14 +7842,14 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   form.querySelectorAll('.evstep').forEach(function(s){ s.hidden=+s.getAttribute('data-step')!==n; });
   form.querySelectorAll('.evbars i').forEach(function(b,i){ b.classList.toggle('on', i<n); }); var lab=document.getElementById('evStepLab'); if(lab) lab.textContent='STEP '+n+' OF 3 · '+names[n];
   miss[0].setCustomValidity(miss[1]); miss[0].reportValidity(); miss[0].addEventListener('input',function(){ miss[0].setCustomValidity(''); },{once:true}); miss[0].focus(); });
- form.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('[data-lane]'); if(!c) return; var p=document.getElementById('evPost'); if(p&&p.textContent.indexOf('Post to')===0) p.textContent=c.getAttribute('data-lane')==='lineup'?'Post to Lineup':'Post to Schedule'; });
+ form.addEventListener('click',function(e){ var c=e.target.closest&&e.target.closest('[data-lane]'); if(!c) return; var p=document.getElementById('evPost'); if(p&&(p.textContent.indexOf('Post to')===0||p.textContent==='Preview')) p.textContent=c.getAttribute('data-lane')==='lineup'?'Preview':'Post to Schedule'; });
 })();</script>
 {% if event_draft %}<script>(function(){var draft={{ event_draft.form|tojson }}, step={{ event_draft.step|int }};
  function restore(){ var form=document.getElementById('planForm'); if(!form) return;
   Object.keys(draft).forEach(function(name){ var vals=draft[name]; var els=form.querySelectorAll('[name="'+name.replace(/"/g,'')+'"]');
    els.forEach(function(el){ if(el.type==='file'||el.type==='hidden'&&name==='csrf') return;
     if(el.type==='radio'||el.type==='checkbox'){ var on=vals.indexOf(el.value)>=0; if(el.checked!==on){ el.checked=on; el.dispatchEvent(new Event('change',{bubbles:true})); } }
-    else { var v=vals.length>1&&els.length===vals.length?vals[[].indexOf.call(els,el)]:vals[0]; if(v!=null&&el.value!==v){ el.value=v; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); } } }); });
+    else { var v=vals.length>1&&els.length===vals.length?vals[[].indexOf.call(els,el)]:vals[0]; if(v!=null&&el._restore){ el._restore(v); return; } if(v!=null&&el.value!==v){ el.value=v; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); } } }); });
   if(step>1){ var b=document.createElement('button'); b.type='button'; b.hidden=true; b.setAttribute('data-evgo', String(step)); form.appendChild(b); b.click(); b.remove(); } }
  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(restore, 0); }); else setTimeout(restore, 0); })();</script>{% endif %}
 """ + _PRACTICE_JS
@@ -7834,6 +7903,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 <details class=moredetails><summary>More details</summary>
 {{ sports_editor(sports_row, false, true) }}
 <label>Link<input name=link value="{{ values.link }}" inputmode=url autocomplete=off placeholder="https://"></label>
+<label>Volunteer sign-up link<input name=volunteer_link value="{{ values.volunteer_link or '' }}" inputmode=url autocomplete=off placeholder="https://"></label>
 <label>Capacity<input name=capacity inputmode=numeric value="{{ values.capacity }}" autocomplete=off></label>
 <label>Estimated cost<input name=cost value="{{ values.cost }}" autocomplete=off></label>
 <label>Register by<input type=date name=reg_deadline value="{{ values.reg_deadline }}"></label>
@@ -7847,6 +7917,7 @@ T["lineup_edit"] = """<form id=eventForm method=post action="{{ action }}" encty
 {% if show_delete %}<button class="rg-btn secondary" name=action value=delete formnovalidate onclick="return confirm('Delete this event?')">Delete event</button>{% endif %}
 </div>{% endif %}
 </form>
+
 <script>(function(){
  var org=document.getElementById('lineOrg'), cos=document.getElementById('lineCo');
  function sync(){

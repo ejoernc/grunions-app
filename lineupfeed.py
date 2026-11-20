@@ -39,6 +39,26 @@ FILTER_GROUPS = (
     ("community", "Community", ("Social", "Volunteer", "Fundraiser", "Meeting", "Other")),
 )
 _FILTER_ALIAS = {"training": "camps"}
+# New event › Type: chip, then the types under it. Each type is (shown name, stored event_type); the shown name
+# is kept in type_custom when it differs, so filters and colors still follow the stored type.
+TYPE_MENU = (
+    ("competitions", "Competitions", (("Tournament", "Tournament"), ("Meet", "Competition"), ("Race", "Competition"),
+                                      ("Match", "Competition"), ("Championship", "Competition")), "Competition"),
+    ("camps", "Clinic", (("Clinic", "Clinic"), ("Camp", "Clinic"), ("Workshop", "Clinic"), ("Training", "Clinic")), "Clinic"),
+    ("trips", "Trip", (("Team Trip", "Trip"), ("Retreat", "Trip"), ("Excursion", "Trip"), ("Travel", "Trip")), "Trip"),
+    ("community", "Social", (("Social", "Social"), ("Party", "Social"), ("Volunteer", "Volunteer"), ("Fundraiser", "Fundraiser"),
+                             ("Meeting", "Meeting"), ("Community Event", "Social")), "Other"),
+)
+def type_choice(raw, custom=""):
+    """A posted New event type -> (stored event_type, shown name or ''). Other uses the typed name."""
+    raw = (raw or "").strip()
+    for slug, _chip, items, other in TYPE_MENU:
+        if raw == "__other__:" + slug:
+            return other, " ".join((custom or "").split())[:40]
+        for shown, stored in items:
+            if raw == "%s|%s" % (slug, shown):
+                return stored, ("" if shown == stored else shown)
+    return (raw if raw in EVENT_TYPES else "Social"), ""
 # Canonical storage: category slug, subtype column, legacy kind.
 TYPE_STORE = {
     "Tournament": ("travel", "Tournament", "Tournament"),
@@ -153,7 +173,7 @@ def ensure_schema(d):
             team_intent=?, start_time=COALESCE(NULLIF(trim(start_time),''), ?) WHERE id=?""",
             (ids.get(slug), sub, intent, start or "09:00", row["id"]))
     d.execute("""UPDATE lineup_events SET team_plan='committed',
-        status=CASE WHEN status IS NULL OR trim(status)='' OR status='draft' THEN 'published' ELSE status END
+        status=CASE WHEN status IS NULL OR trim(status)='' THEN 'published' ELSE status END
         WHERE team_intent='official' AND (team_plan IS NULL OR trim(team_plan)='')""")
     d.execute("""UPDATE lineup_events SET team_plan='considering'
         WHERE team_intent='considering' AND (team_plan IS NULL OR trim(team_plan)='')""")
@@ -711,7 +731,7 @@ def form_values(form=None, row=None, cat_slug="", mode="create"):
             "host_org": primary,
             "host_orgs": cos, "cohost_orgs": cos,
             "location": form.get("location") or form.get("venue") or "", "city": form.get("city") or "",
-            "description": form.get("description") or "", "link": form.get("link") or "", "details": form.get("details") or "",
+            "description": form.get("description") or "", "link": form.get("link") or "", "volunteer_link": form.get("volunteer_link") or "", "details": form.get("details") or "",
             "cost": form.get("cost") or "", "capacity": form.get("capacity") or "", "reg_deadline": form.get("reg_deadline") or "",
             "team_intent": form.get("team_intent") or ("considering" if mode == "propose" else ""), "team_plan": plan_choice(form), "official": form.get("official") or "", "featured": form.get("featured") or ""}
     if row:
@@ -733,6 +753,7 @@ def form_values(form=None, row=None, cat_slug="", mode="create"):
             "host_orgs": cos, "cohost_orgs": cos,
             "location": row["venue"] or "", "city": row["city"] or "", "description": row["description"] or "",
             "link": row["link"] or "", "details": row["details"] or "", "cost": row["cost"] or "",
+            "volunteer_link": (row["volunteer_link"] if "volunteer_link" in row.keys() else "") or "",
             "capacity": "" if row["capacity"] is None else str(row["capacity"]), "reg_deadline": row["reg_deadline"] or "",
             "team_intent": row["team_intent"] or "", "team_plan": plan_choice(row=row), "official": "1" if row["official"] else "", "featured": "1" if row["featured"] else ""}
     intent = "considering" if mode == "propose" else ""
