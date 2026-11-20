@@ -173,3 +173,22 @@ def test_back_from_preview_reopens_the_form_and_updates_the_same_draft():
         d = A.db()
         assert d.execute("SELECT title, status FROM lineup_events WHERE id=?", (eid,)).fetchone()[:] == ("Toy Drive 2027", "draft")
         assert d.execute("SELECT COUNT(*) FROM lineup_events WHERE title LIKE 'Toy Drive%'").fetchone()[0] == 1
+
+
+def test_type_chips_filter_and_other_takes_a_custom_name():
+    import re
+    with A.app.app_context():
+        admin = A.db().execute("SELECT id FROM members WHERE email='lineupadmin@example.com'").fetchone()[0]
+    c = A.app.test_client()
+    with c.session_transaction() as s: s["mid"] = admin
+    page = c.get("/events/new?lane=lineup").get_data(as_text=True)
+    assert 'value="__other__:community"' in page and 'data-group="competitions"' in page
+    tok = re.search(r'name=csrf value="([^"]+)"', page).group(1)
+    r = c.post("/events/new", data={"csrf": tok, "action": "preview", "lane": "lineup", "line_title": "Gift Wrap Night",
+        "description": "Wrap gifts.", "date": "2027-12-10", "date_precision": "exact", "location": "Back Bay",
+        "event_type": "__other__:community", "type_custom": "Toy drive", "hosting": "Hosting"})
+    eid = int(r.headers["Location"].rsplit("/", 1)[1])
+    with A.app.app_context():
+        row = A.db().execute("SELECT event_type, type_custom FROM lineup_events WHERE id=?", (eid,)).fetchone()
+    assert tuple(row) == ("Other", "Toy drive")
+    assert "Toy drive" in c.get("/lineup/%d" % eid).get_data(as_text=True)

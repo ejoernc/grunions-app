@@ -290,6 +290,8 @@ def migrate_lineup(d):
         d.execute("ALTER TABLE lineup_events ADD COLUMN volunteer_link TEXT")
     if "draft_form" not in cols:
         d.execute("ALTER TABLE lineup_events ADD COLUMN draft_form TEXT")
+    if "type_custom" not in cols:
+        d.execute("ALTER TABLE lineup_events ADD COLUMN type_custom TEXT")
     if "stage" not in cols:
         d.execute("ALTER TABLE lineup_events ADD COLUMN stage TEXT")
     if "hosting" not in cols:
@@ -6400,7 +6402,7 @@ def sport_card_status(practice, mine):
         return sportspay.card_status(db(), me(), practice, mine, today_pt().isoformat())
     except Exception:
         return ""
-app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_live_chip=practice_live_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, month_label=month_label, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, PRACTICE_SOCIAL_KINDS=PRACTICE_SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS, sport_filter_names=sport_filter_names, sport_card_status=sport_card_status, level_catalog=level_catalog)
+app.jinja_env.globals.update(fmt_t=fmt_t, fmt_d=fmt_d, fmt_card_date=fmt_card_date, practice_title=practice_title, practice_sports_line=practice_sports_line, practice_going_line=practice_going_line, practice_is_month=practice_is_month, practice_when=practice_when, practice_chip=practice_chip, practice_live_chip=practice_live_chip, practice_tile=practice_tile, sports_editor=sports_editor, fmt_clock=fmt_clock, fmt_span=fmt_span, fmt_stamp=fmt_stamp, weekday_abbr=weekday_abbr, month_abbr=month_abbr, month_label=month_label, day_num=day_num, short_place=short_place, social_line=social_line, social_home=social_home, SOCIAL_KINDS=SOCIAL_KINDS, PRACTICE_SOCIAL_KINDS=PRACTICE_SOCIAL_KINDS, SPORTS=sports, lineup_type_groups=lineupfeed.type_groups, LINEUP_FILTER_GROUPS=lineupfeed.FILTER_GROUPS, EVENT_TYPE_LABELS=lineupfeed.EVENT_TYPE_LABELS, MEMBER_TYPE_LABELS=lineupfeed.MEMBER_TYPE_LABELS, sport_filter_names=sport_filter_names, sport_card_status=sport_card_status, level_catalog=level_catalog)
 def practice_people(rows):
     return sorted(rows, key=lambda r: (display_first(r).casefold(), (r["last"] or "").casefold(), r["id"]))
 def redirect_practice(pid, action):
@@ -7541,7 +7543,7 @@ def lineup_pack(d, rows):
         full = bool(cap and going_n >= cap)
         start, end = event_window(r)
         out.append({"id": r["id"], "title": r["title"], "slug": r["cat_slug"] or "", "category": r["cat_name"] or r["kind"] or "Event",
-            "event_type": etype, "tag": lineup_tag(r), "card_line": lineup_card_line(etype, host_names, card_mode), "days": span, "pins": pins,
+            "event_type": etype, "type_name": ((r["type_custom"] if "type_custom" in r.keys() else "") or "").strip() or etype, "tag": lineup_tag(r), "card_line": lineup_card_line(etype, host_names, card_mode), "days": span, "pins": pins,
             "status_kind": status_kind, "status_text": status_text, "people": people, "interested": interested_people,
             "chip": r["cat_chip"] or "", "subtype": r["subtype"] or "", "hosting": lineupfeed.hosting_label(r["hosting"]),
             "official": bool(r["official"]), "intent": intent, "status": r["status"] or "published", "status_label": lineup_status_label(r),
@@ -7684,7 +7686,8 @@ def announce_lineup_event(d, eid, actor_id=None, base=None, only=None, manual=Fa
     names += [n for n in lineupfeed.host_list(row["host_orgs"] if "host_orgs" in row.keys() else "") if n not in names]
     hosts = lineupfeed.host_summary(names) if names else ""
     vol = ((row["volunteer_link"] if "volunteer_link" in row.keys() else "") or "").strip()
-    kind = mailhtml.new_event_label(row["event_type"] if "event_type" in row.keys() else "")
+    kind = mailhtml.new_event_label(((row["type_custom"] if "type_custom" in row.keys() else "") or "").strip()
+                                    or (row["event_type"] if "event_type" in row.keys() else ""))
     hero = components.event_tone(row["event_type"] if "event_type" in row.keys() else "lineup", False, components.row_color(row))
     sent = 0
     note = (note or "").strip()[:1000]
@@ -9443,8 +9446,13 @@ def event_new():
         else:
             intent_now = "official" if plan_now == "committed" else "considering"
             if plan_now not in lineupfeed.TEAM_PLANS: plan_now = "considering"
+        raw_type = (request.form.get("event_type") or "Social").strip()
+        type_custom = ""
+        if raw_type.startswith("__other__"):
+            raw_type = {"competitions": "Competition", "camps": "Clinic", "trips": "Trip"}.get(raw_type.split(":", 1)[-1], "Other")
+            type_custom = " ".join((request.form.get("type_custom") or "").split())[:40]
         wrapped = _FormWrap(request.form, title=title, start_time=request.form.get("start") or "19:00",
-            mode="create" if staff else "suggest", event_type=request.form.get("event_type") or "Social",
+            mode="create" if staff else "suggest", event_type=raw_type,
             hosting=hosting_now, team_intent=intent_now, team_plan=plan_now, action="draft" if staff else "save")
         banner = None
         f = request.files.get("image") if request.files else None
@@ -9458,6 +9466,7 @@ def event_new():
         except PermissionError:
             abort(403)
         if info and info.get("id"): apply_place_pick(d, info["id"]); apply_volunteer_link(d, info["id"])
+        if info and info.get("id"): d.execute("UPDATE lineup_events SET type_custom=? WHERE id=?", (type_custom, info["id"]))
         if info and info.get("id") and staff and info.get("status") == "draft":
             keep = {k: request.form.getlist(k) for k in request.form if k not in ("csrf", "action", "draft_id")}
             d.execute("UPDATE lineup_events SET draft_form=? WHERE id=?", (json.dumps(keep)[:20000], info["id"]))

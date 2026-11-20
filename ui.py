@@ -158,6 +158,8 @@ a.reglink{color:var(--accent);text-decoration:none;font-weight:600}
 .bannerprev img{width:100%;height:100%;object-fit:cover;display:block}
 .bannerpick .btn{position:relative;overflow:hidden}
 .evstep .bannerpick{margin-bottom:16px}
+#typeOtherField{display:block;margin-top:16px}
+#typeOtherField[hidden]{display:none}
 body.practicepage main{padding-top:0}
 .mapboxgl-ctrl-bottom-right{margin:0 6px 6px 0;z-index:460}
 .mapboxgl-ctrl-logo{opacity:.5;transform:scale(.62);transform-origin:right bottom;margin:0;cursor:pointer}
@@ -2402,6 +2404,29 @@ dialog.memberedit .help a{color:var(--t1)}
 {% macro admin_page(title, subtitle='') %}{{ rg_page_title(title, subtitle, caller() if caller is defined else '') }}{% endmacro %}
 {% macro manage_row(href, title, desc, icon, count=0, tone='info', tile='carbon', num=false) %}{{ rg_manage_tile(href, title, desc, icon, count, tone, tile, num) }}{% endmacro %}
 {% macro type_select(types, selected='') %}<select name=event_type id=lineType>{% for glabel, options in lineup_type_groups(types) %}<optgroup label="{{ glabel }}">{% for name, label in options %}<option value="{{ name }}" {% if selected == name %}selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>{% endfor %}</select>{% endmacro %}
+{% macro type_chip_select(types) %}{# Chips pick the group; the dropdown lists only that group's types, then Other (type your own). #}
+{%- set allowed = types|map(attribute=0)|list -%}
+{%- set chips = [('competitions', 'Tournament'), ('camps', 'Clinic'), ('trips', 'Trip'), ('community', 'Social')] -%}
+<div class=rg-day>Type</div>
+<div class=typechips id=typeChips>{% for slug, label in chips %}<button type=button data-group="{{ slug }}"{% if loop.first %} class=on{% endif %}>{{ label }}</button>{% endfor %}</div>
+<select name=event_type id=lineType aria-label="Kind of event"></select>
+<template id=lineTypeAll>{% for slug, glabel, names in LINEUP_FILTER_GROUPS %}{% for name, label in types if name in names and name != 'Other' %}<option value="{{ name }}" data-group="{{ slug }}">{{ label }}</option>{% endfor %}<option value="__other__:{{ slug }}" data-group="{{ slug }}">Other</option>{% endfor %}</template>
+<label id=typeOtherField hidden>What kind of event?<input name=type_custom id=typeOther maxlength=40 autocomplete=off placeholder="Toy drive"></label>
+<script>(function(){
+ var sel=document.getElementById('lineType'), all=[].slice.call(document.getElementById('lineTypeAll').content.children), chips=document.querySelectorAll('#typeChips button'), other=document.getElementById('typeOtherField');
+ function groupOf(v){ var o=all.filter(function(x){ return x.value===v; })[0]; return o?o.getAttribute('data-group'):''; }
+ function fill(g, v){
+  sel.innerHTML=''; all.forEach(function(o){ if(o.getAttribute('data-group')===g) sel.appendChild(o.cloneNode(true)); });
+  if(v && groupOf(v)===g) sel.value=v;
+  chips.forEach(function(c){ c.classList.toggle('on', c.getAttribute('data-group')===g); });
+  other.hidden=sel.value.indexOf('__other__')!==0;
+ }
+ chips.forEach(function(c){ c.onclick=function(){ fill(c.getAttribute('data-group')); sel.dispatchEvent(new Event('change',{bubbles:true})); }; });
+ sel.addEventListener('change', function(){ other.hidden=sel.value.indexOf('__other__')!==0; if(!other.hidden) document.getElementById('typeOther').focus(); });
+ sel._restore=function(v){ var g=groupOf(v); if(g){ fill(g, v); sel.dispatchEvent(new Event('change',{bubbles:true})); } };
+ fill('competitions');
+})();</script>
+{% endmacro %}
 {% macro event_chooser(staff) %}
 <h2 class=planask>What are you planning?</h2>
 <div class=planlane>
@@ -7081,7 +7106,7 @@ T["lineup"] = """{% macro lineup_months(groups, mode, past=false) %}{% for g in 
 {{ lineup_months(upcoming, 'tall') }}
 {% if past %}<details class=lineuppast open><summary>{% if group %}Past{% else %}Past{% endif %} <span class=pastn>{{ past_n }}</span></summary>{{ lineup_months(past, 'tall', true) }}</details>{% endif %}"""
 T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.id ~ '?v=' ~ e.banner) if e.banner else '', e.where or e.title) }}
-{{ rg_event_hero(e.event_type or 'Event', e.title, [e.when, e.venue, e.city]|select|join(' · '), 'graphite' if e.status == 'canceled' else event_tone(e.event_type, false, e.color), e.status_text if e.status != 'published' else (e.tag or '')) }}
+{{ rg_event_hero(e.type_name or e.event_type or 'Event', e.title, [e.when, e.venue, e.city]|select|join(' · '), 'graphite' if e.status == 'canceled' else event_tone(e.event_type, false, e.color), e.status_text if e.status != 'published' else (e.tag or '')) }}
 {% if e.status == 'draft' and ic_host %}<div class=createfoot><p class="ty-muted ty-sm">Preview. Only organizers can see this. Save posts it to the Lineup and emails everyone.</p>
 <form method=post action="/lineup/{{ e.id }}" class="evnav two">{{ csrf_field() }}<a class="rg-btn secondary" href="{{ draft_back or ('/lineup/' ~ e.id ~ '/edit') }}">Edit</a><button class="rg-btn primary" name=action value=publish>Save</button></form></div>{% endif %}
 {% if ic and ic.status == 'open' %}{# Figma 62 · I2 Interest check, member view #}
@@ -7132,7 +7157,7 @@ T["lineup_event"] = """{{ event_hero('lineHero', e.pins, ('/lineup-image/' ~ e.i
 {% if e.cohosts %}<div class="li prow"><span class=k>Co-host organizations</span><span class=v>{{ e.cohosts|join(', ') }}</span></div>{% endif %}
 {% if e.volunteer_link %}<div class="li prow"><span class=k>Volunteers</span><span class=v><a class=reglink href="{{ e.volunteer_link }}" target=_blank rel="noopener noreferrer">Sign up to volunteer</a></span></div>{% endif %}
 {% if e.link %}<div class="li prow"><span class=k>Registration</span><span class=v><a class=reglink href="{{ e.link }}" target=_blank rel="noopener noreferrer">Registration</a></span></div>{% endif %}
-{% if e.event_type %}<div class="li prow"><span class=k>Type</span><span class=v>{{ e.event_type }}</span></div>{% endif %}
+{% if e.event_type %}<div class="li prow"><span class=k>Type</span><span class=v>{{ e.type_name or e.event_type }}</span></div>{% endif %}
 {% if e.sports_line %}<div class="li prow"><span class=k>Session</span><span class=v>{{ e.sports_line }}</span></div>{% endif %}
 {% if e.details %}<div class=li>{{ e.details }}</div>{% endif %}
 {% if e.cost %}<div class="li prow"><span class=k>Cost</span><span class=v>About {{ e.cost }}</span></div>{% endif %}
@@ -7420,13 +7445,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
 <label id=titleField {% if not dup or not dup.title %}hidden{% endif %}>Event name<input name=title id=titleInput value="{{ dup.title if dup else '' }}" autocomplete=off><button type=button class="rg-btn ghost" id=titleReset>Reset to automatic</button></label>
 </div>{% endif %}
 <div id=lineBlock {% if staff and lane != 'lineup' %}hidden{% endif %}>
-<label>Type{{ type_select(line_types) }}</label>
-{% if staff %}<div class=typechips id=typeChips>
-<button type=button data-type=Tournament class=on>Tournament</button>
-<button type=button data-type=Clinic>Clinic</button>
-<button type=button data-type=Trip>Trip</button>
-<button type=button data-type=Social>Social</button>
-</div>{% endif %}
+{% if staff %}{{ type_chip_select(line_types) }}{% else %}<label>Type{{ type_select(line_types) }}</label>{% endif %}
 {{ line_sport_chips(['Water Polo']) }}
 {{ rg_color_dots('event_color_line', '') }}
 <div class=rg-day>Who's hosting?</div>
@@ -7720,7 +7739,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
  var recurCount=document.getElementById('recurCount'); if(recurCount) recurCount.addEventListener('input', syncRecurEnd);
  document.querySelectorAll('button.lanecard').forEach(function(b){ b.onclick=function(){ showLane(b.getAttribute('data-lane')); syncPrec(); }; });
  document.querySelectorAll('button.cdot').forEach(function(b){ b.onclick=function(){ document.querySelectorAll('button.cdot').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); }; });
- document.querySelectorAll('#typeChips button').forEach(function(b){
+ document.querySelectorAll('#typeChips button[data-type]').forEach(function(b){
   b.onclick=function(){
    var sel=document.getElementById('lineType'); if(!sel) return;
    var opt=[].slice.call(sel.options).some(function(o){ return o.value===b.getAttribute('data-type'); });
@@ -7779,15 +7798,16 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
  }
  function syncLine(){
   var type=document.getElementById('lineType'); var name=type?type.value:'Social';
+  var comp=name==='Tournament'||name==='Competition'||name==='__other__:competitions';
   var reg=document.getElementById('regRow');
-  if(reg) reg.hidden=!(name==='Tournament'||name==='Competition');
-  var vol=document.getElementById('volRow'); if(vol) vol.hidden=(name==='Tournament'||name==='Competition');
+  if(reg) reg.hidden=!comp;
+  var vol=document.getElementById('volRow'); if(vol) vol.hidden=comp;
   syncHost();
   var title=document.getElementById('lineTitle');
   if(title && !title.value){
     title.placeholder=name==='Trip'?'Fall team trip':(name==='Social'?'Fall Team Dinner':(name==='Tournament'?'IGLA 2027':'Event name'));
   }
-  document.querySelectorAll('#typeChips button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-type')===name); });
+  document.querySelectorAll('#typeChips button[data-type]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-type')===name); });
  }
  var lt=document.getElementById('lineType'); if(lt) lt.addEventListener('change', syncLine);
  document.querySelectorAll('#whoHost input[name=hosting]').forEach(function(r){ r.addEventListener('change', syncHost); });
@@ -7823,7 +7843,7 @@ T["event_new"] = """<form id=planForm method=post action=/events/new enctype=mul
   Object.keys(draft).forEach(function(name){ var vals=draft[name]; var els=form.querySelectorAll('[name="'+name.replace(/"/g,'')+'"]');
    els.forEach(function(el){ if(el.type==='file'||el.type==='hidden'&&name==='csrf') return;
     if(el.type==='radio'||el.type==='checkbox'){ var on=vals.indexOf(el.value)>=0; if(el.checked!==on){ el.checked=on; el.dispatchEvent(new Event('change',{bubbles:true})); } }
-    else { var v=vals.length>1&&els.length===vals.length?vals[[].indexOf.call(els,el)]:vals[0]; if(v!=null&&el.value!==v){ el.value=v; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); } } }); });
+    else { var v=vals.length>1&&els.length===vals.length?vals[[].indexOf.call(els,el)]:vals[0]; if(v!=null&&el._restore){ el._restore(v); return; } if(v!=null&&el.value!==v){ el.value=v; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); } } }); });
   if(step>1){ var b=document.createElement('button'); b.type='button'; b.hidden=true; b.setAttribute('data-evgo', String(step)); form.appendChild(b); b.click(); b.remove(); } }
  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(restore, 0); }); else setTimeout(restore, 0); })();</script>{% endif %}
 """ + _PRACTICE_JS
