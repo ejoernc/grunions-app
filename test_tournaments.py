@@ -137,3 +137,33 @@ def test_hosted_competition_in_lineup_opens_the_setup():
         assert [s["key"] for s in tourn.sports_of(A.db(), tid)] == ["water-polo", "swimming", "pickleball", "custom-tube-relay"]
     # The Lineup event links back to its setup.
     assert "/tournaments/%d" % tid in c.get("/lineup/%d" % t["lineup_event_id"]).get_data(as_text=True)
+
+
+def _new_comp_for_details():
+    c = _as(ADMIN)
+    r = c.post("/tournaments/new", data={"csrf": _csrf(c, "/tournaments/new"), "name": "Bay Games", "starts": "2027-05-06", "term": "Competition",
+                                          "ends": "2027-05-07", "hosting": "organization", "host_org": "Grunions", "venue": "Belmont", "city": "Long Beach"})
+    tid = int(r.headers["Location"].split("/")[2])
+    tok = _csrf(c, "/tournaments/%d/setup/sports" % tid)
+    c.post("/tournaments/%d/setup/sports" % tid, data={"csrf": tok, "action": "mode", "multi": "1"})
+    for k in ("water-polo", "swimming"):
+        c.post("/tournaments/%d/setup/sports" % tid, data={"csrf": tok, "action": "add", "key": k})
+    return c, tid
+
+
+def test_browse_by_format_and_each_sport_details():
+    c, tid = _new_comp_for_details()
+    page = c.get("/tournaments/%d/setup/sports?fmt=B" % tid).get_data(as_text=True)
+    assert "Browse by format" in page and "Open water swimming" in page.replace("Open Water Swimming", "Open water swimming")
+    page = c.get("/tournaments/%d/setup/details" % tid).get_data(as_text=True)
+    tok = re.search(r'name=csrf value="([^"]+)"', page).group(1)
+    with A.app.app_context():
+        sid = A.db().execute("SELECT id FROM tournament_sports WHERE tournament_id=? ORDER BY id LIMIT 1", (tid,)).fetchone()[0]
+    p = "s%d_" % sid
+    r = c.post("/tournaments/%d/setup/details" % tid, data={"csrf": tok, p + "fee": "25", p + "cap": "64", p + "venue": "Belmont Plaza",
+        p + "schedule": "Sat 8 AM - 4 PM", p + "checkin": "7:15 AM", p + "rules": "FINA rules.", p + "rules_link": "example.com/rules"})
+    assert r.status_code == 302 and r.headers["Location"].endswith("/setup/review")
+    with A.app.app_context():
+        row = A.db().execute("SELECT fee_cents, cap, venue, rules_link FROM tournament_sports WHERE id=?", (sid,)).fetchone()
+    assert tuple(row) == (2500, 64, "Belmont Plaza", "https://example.com/rules")
+    assert "1 of" in c.get("/tournaments/%d/setup/review" % tid).get_data(as_text=True)

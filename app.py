@@ -14203,7 +14203,9 @@ def _tour_ctx(d, t, step):
     done = set()
     if t:
         for key, _title, _sub, ok in tourn.checklist(d, t):
-            if ok and key != "interest": done.add(key)
+            if ok and key not in ("interest", "details"): done.add(key)
+        sp_all = tourn.sports_of(d, t["id"])
+        if sp_all and all(x["has_details"] for x in sp_all): done.add("details")
         if tourn.interest_summary(d, t["id"])["responses"] or t["status"] != "draft": done.add("interest")
     word = tourn.term(t) if t else "Competition"
     return dict(t=t, step=step, steps=tourn.STEPS, step_hrefs=hrefs, steps_done=done, presets=tourn.PRESETS, term=word,
@@ -14276,6 +14278,8 @@ def tournament_setup(tid, step):
                     d.commit(); return redirect("/tournaments/%d/setup/interest" % tid)
             elif step == "registration":
                 tourn.save_registration(d, tid, request.form)
+            elif step == "details":
+                tourn.save_details(d, tid, request.form)
             elif step == "review":
                 if a == "publish":
                     missing = [title for key, title, _s, ok in tourn.checklist(d, t) if not ok]
@@ -14292,11 +14296,15 @@ def tournament_setup(tid, step):
     fs = next((x for x in sp if x["key"] == focus), None)
     q = (request.args.get("q") or "").strip()
     picked = {x["key"] for x in sp}
-    found = [x for x in tourn.search(q, 12) if x["key"] not in picked][:8 if q else 4]
+    fmt = (request.args.get("fmt") or "").strip().upper()
+    if fmt and not q:
+        found = tourn.by_format(fmt, picked)
+    else:
+        found = [x for x in tourn.search(q, 12) if x["key"] not in picked][:8 if q else 4]
     iv = tourn.interest_summary(d, tid)
     share = public_base_url() + "/t/" + t["token"]
     today = today_pt().isoformat()
-    return page(T["tour_setup"], tab="tournament", error=error, form=request.form if error else None, sports=sp, focus=fs, found=found, q=q,
+    return page(T["tour_setup"], tab="tournament", error=error, form=request.form if error else None, sports=sp, focus=fs, found=found, q=q, fmt=fmt,
                 iv=iv, share=share, checklist=tourn.checklist(d, t), fee=tourn.fee_today(t, today), today_label=tourn.short(today),
                 money=tourn.money, dims=tourn.PRESET_DIMS, meta=tourn.meta_line(t), terms=tourn.TERMS, **ctx)
 

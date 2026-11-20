@@ -9523,6 +9523,9 @@ T["tour_setup"] = """<div class=rg-tour>
 {{ rg_host_choice('multi', '1', 'Multiple sports', 'Like a multi-sport weekend: one base fee and one schedule per athlete.', t.multi) }}
 </form>
 {{ rg_note_bar(('Pick the sports in this ' if t.multi else 'Pick the sport for this ') ~ (term|lower) ~ '. A preset fills entrant, structure, result, ranking, and progression. Each stage can use its own format later — pools then a bracket, heats then a final.') }}
+<p class=rg-tourcaps>Browse by format</p>
+<div class=rg-dims role=group aria-label="Browse by format">{% for c, p in presets.items() %}<a class="rg-pillbtn{{ ' on' if fmt == c }}" href="?fmt={{ c }}"{% if fmt == c %} aria-current=true{% endif %} style="--tone:var(--team-{{ p[3] }})">{{ c }} · {{ p[0] }}</a>{% endfor %}</div>
+{% if fmt and presets.get(fmt) %}<p class=rg-tourmeta>{{ presets[fmt][1] }} Tap a sport to add it.</p>{% endif %}
 <div class=rg-presetgrid>
 {% for s in sports %}{% set p = presets[s.preset] %}{{ rg_preset_card(s.preset, s.name, p[0], p[3], True, 'href="?focus=' ~ s.key ~ '"' ~ (' aria-current=true' if focus and focus.key == s.key else ''), 'a') }}{% endfor %}
 {% for s in found %}{% set p = presets[s.default] %}<form method=post class=rg-presetform>{{ csrf_field() }}<input type=hidden name=action value=add><input type=hidden name=key value="{{ s.key }}">{{ rg_preset_card(s.default, s.name, p[0], p[3], False, 'type=submit aria-label="' ~ ('Add ' if t.multi or not sports else 'Switch to ') ~ s.name ~ '"', 'button') }}</form>{% endfor %}
@@ -9576,6 +9579,24 @@ T["tour_setup"] = """<div class=rg-tour>
 {% if t.base_cents is not none %}<div class=rg-dims>{% if t.early_cents is not none %}{{ rg_dim_chip('Early bird · to ' ~ t.early_until[5:]|replace('-', '/'), money(t.early_cents), 'sky') }}{% endif %}{{ rg_dim_chip('Regular', money(t.base_cents), 'sky') }}{% if t.late_cents is not none %}{{ rg_dim_chip('Late · from ' ~ t.late_from[5:]|replace('-', '/'), money(t.late_cents), 'sky') }}{% endif %}</div>{% endif %}
 <p class=rg-tourmeta>Demo pricing: nothing is charged until payments are connected.</p>
 <div class=rg-tournav>{{ rg_button('Back', 'secondary', step_hrefs['interest']) }}{{ rg_button('Continue', 'primary') }}</div>
+</form>
+{% elif step == 'details' %}
+<form method=post>{{ csrf_field() }}
+{{ rg_note_bar('Rules and logistics for each sport. All optional; fill what you know and come back later.' ~ (' A sport fee is added to the base fee for athletes who enter it.' if t.multi else '')) }}
+{% for s in sports %}{% set p = presets[s.preset] %}{% set px = 's' ~ s.sid ~ '_' %}
+<section class=rg-sportdetail style="--tone:var(--team-{{ p[3] }})">
+<h2 class=rg-tourh2>{{ s.name }}</h2><p class=rg-tourmeta>{{ s.preset }} · {{ p[0] }}</p>
+{% if t.multi %}<div class=rg-tourpair><label class=rg-field><span>Sport fee $</span><input name="{{ px }}fee" inputmode=decimal value="{{ f.get(px ~ 'fee') if form else ((s.fee_cents / 100)|round(2)|string|replace('.0', '') if s.fee_cents is not none else '') }}" placeholder="0"></label>
+<label class=rg-field><span>Entry cap</span><input name="{{ px }}cap" inputmode=numeric value="{{ f.get(px ~ 'cap') if form else (s.cap or '') }}" placeholder="No cap"></label></div>
+{% else %}<label class=rg-field><span>Entry cap</span><input name="{{ px }}cap" inputmode=numeric value="{{ f.get(px ~ 'cap') if form else (s.cap or '') }}" placeholder="No cap"></label>{% endif %}
+<label class=rg-field><span>Venue</span><input name="{{ px }}venue" value="{{ f.get(px ~ 'venue') if form else (s.venue or '') }}" placeholder="{{ t.venue or t.city or 'Pool, field or court' }}"></label>
+<div class=rg-tourpair><label class=rg-field><span>When</span><input name="{{ px }}schedule" value="{{ f.get(px ~ 'schedule') if form else (s.schedule or '') }}" placeholder="Sat 8 AM – 4 PM"></label>
+<label class=rg-field><span>Check-in</span><input name="{{ px }}checkin" value="{{ f.get(px ~ 'checkin') if form else (s.checkin or '') }}" placeholder="7:15 AM at the deck"></label></div>
+<label class=rg-field><span>Rules</span><textarea name="{{ px }}rules" rows=4 placeholder="Format, divisions, equipment, eligibility…">{{ f.get(px ~ 'rules') if form else (s.rules or '') }}</textarea></label>
+<label class=rg-field><span>Rules link</span><input name="{{ px }}rules_link" inputmode=url value="{{ f.get(px ~ 'rules_link') if form else (s.rules_link or '') }}" placeholder="https://"></label>
+</section>
+{% else %}<p class=rg-tourmeta>Add a sport first.</p>{% endfor %}
+<div class=rg-tournav>{{ rg_button('Back', 'secondary', step_hrefs['registration']) }}{{ rg_button('Continue', 'primary') }}</div>
 </form>
 {% elif step == 'review' %}
 {% set ready = (checklist|selectattr(3)|list|length) == (checklist|length) %}

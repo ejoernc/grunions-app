@@ -224,7 +224,10 @@ FIRST = ("water-polo", "swimming", "diving", "open-water-swimming", "volleyball"
 
 STATUS = {"draft": ("Draft", "Not on the public page yet"), "interest": ("Gauging interest", "Share link is open"),
           "published": ("Published", "Registration is set")}
-STEPS = (("basics", "Basics"), ("sports", "Sports"), ("interest", "Interest"), ("registration", "Registration"), ("review", "Review"))
+STEPS = (("basics", "Basics"), ("sports", "Sports"), ("interest", "Interest"), ("registration", "Registration"),
+         ("details", "Each sport"), ("review", "Review"))
+SPORT_DETAIL_COLS = (("fee_cents", "INTEGER"), ("cap", "INTEGER"), ("venue", "TEXT"), ("schedule", "TEXT"),
+                     ("checkin", "TEXT"), ("rules", "TEXT"), ("rules_link", "TEXT"))
 
 
 def ensure(d):
@@ -238,8 +241,9 @@ def ensure(d):
     cols = {r[1] for r in d.execute("PRAGMA table_info(tournaments)")}
     for col, decl in (("term", "TEXT"), ("lineup_event_id", "INTEGER"), ("multi", "INTEGER")):
         if col not in cols: d.execute("ALTER TABLE tournaments ADD COLUMN %s %s" % (col, decl))
-    if "custom_name" not in {r[1] for r in d.execute("PRAGMA table_info(tournament_sports)")}:
-        d.execute("ALTER TABLE tournament_sports ADD COLUMN custom_name TEXT")
+    scols = {r[1] for r in d.execute("PRAGMA table_info(tournament_sports)")}
+    for col, decl in (("custom_name", "TEXT"),) + SPORT_DETAIL_COLS:
+        if col not in scols: d.execute("ALTER TABLE tournament_sports ADD COLUMN %s %s" % (col, decl))
     d.execute("""CREATE TABLE IF NOT EXISTS tournament_interest(id INTEGER PRIMARY KEY, tournament_id INTEGER NOT NULL,
         kind TEXT NOT NULL, name TEXT NOT NULL, team TEXT, email TEXT, players INTEGER, sports TEXT, note TEXT,
         member_id INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
@@ -301,8 +305,36 @@ def sports_of(d, tid):
         s = custom_sport(r["custom_name"], r["preset"]) if r["custom_name"] else sport(r["sport_key"])
         if s:
             s["preset"] = r["preset"] if r["preset"] in PRESETS else s["default"]
+            s["sid"] = r["id"]
+            for col, _decl in SPORT_DETAIL_COLS:
+                s[col] = r[col] if col in r.keys() else None
+            s["has_details"] = any(s.get(c) for c in ("venue", "schedule", "checkin", "rules", "rules_link"))
             out.append(s)
     return out
+
+
+def by_format(code, exclude=(), limit=8):
+    """Catalog sports usually played in this format (the down-selection on the Sports step)."""
+    if code not in PRESETS: return []
+    first = [k for k in FIRST if k in SPORTS]
+    rows = sorted((k for k, row in SPORTS.items() if (row[3] or "A") == code), key=lambda k: (k not in first, first.index(k) if k in first else 0, SPORTS[k][1]))
+    return [sport(k) for k in rows if k not in exclude][:limit]
+
+
+def save_details(d, tid, form):
+    """Each sport's own fee (multi-sport add-on), cap, venue, schedule, check-in and rules."""
+    for r in d.execute("SELECT id FROM tournament_sports WHERE tournament_id=?", (tid,)).fetchall():
+        p = "s%d_" % r["id"]
+        if p + "venue" not in form: continue
+        fee = _cents(form.get(p + "fee")) if (form.get(p + "fee") or "").strip() else None
+        cap_raw = (form.get(p + "cap") or "").strip()
+        if cap_raw and not cap_raw.isdigit(): raise ValueError("Entry cap is a whole number.")
+        link = (form.get(p + "rules_link") or "").strip()[:500]
+        if link and not link.lower().startswith(("http://", "https://")): link = "https://" + link
+        clean = lambda k, n: " ".join((form.get(p + k) or "").split())[:n]
+        d.execute("""UPDATE tournament_sports SET fee_cents=?, cap=?, venue=?, schedule=?, checkin=?, rules=?, rules_link=?
+            WHERE id=? AND tournament_id=?""", (fee, int(cap_raw) if cap_raw else None, clean("venue", 120), clean("schedule", 120),
+            clean("checkin", 160), (form.get(p + "rules") or "").strip()[:4000], link, r["id"], tid))
 
 
 def _date(raw):
@@ -527,4 +559,6 @@ def checklist(d, t):
         ("interest", "Interest", ("%d responses · %d athletes" % (iv["responses"], iv["athletes"])) if iv["responses"]
             else ("Share link is open" if t["status"] == "interest" else "Optional · share a link first"), True),
         ("registration", "Registration", reg, t["base_cents"] is not None),
+        ("details", "Each sport", ("%d of %d sports have rules or logistics" % (sum(1 for x in sp if x["has_details"]), len(sp))) if sp
+            else "Rules, logistics and fees per sport", True),
     ]
