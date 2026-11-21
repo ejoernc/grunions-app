@@ -76,7 +76,7 @@ def test_cancel_emails_members_and_pushes_and_delete_cleans_up():
     emails, pushes = [], []
     old_e, old_p, old_r = A.send_email, A.send_push, A.smtp_ready
     A.smtp_ready = lambda: True
-    A.send_email = lambda to, subj, text, html=None, ics=None: emails.append((to, subj, text))
+    A.send_email = lambda to, subj, text, html=None, ics=None, sender=None: emails.append((to, subj, text))
     A.send_push = lambda sub, payload: pushes.append((sub.get("member_id"), payload))
     try:
         pid = practice("Cancel Me", days=3)

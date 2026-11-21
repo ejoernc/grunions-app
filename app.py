@@ -1574,13 +1574,36 @@ def _smtp_ehlo_name():
     raw = (PUBLIC_URL or "").split("://", 1)[-1].split("/")[0].split(":")[0].strip().lower()
     if raw and "." in raw and all(c.isalnum() or c in ".-" for c in raw): return raw
     return "localhost"
-def send_email(to, subject, text, html=None, ics=None):
+SENDER_FALLBACK = "Regulars"
+SENDER_NAME_MAX = 78
+def mail_address(raw):
+    """The verified address inside MAIL_FROM. A display name already on it is not reused."""
+    from email.utils import parseaddr
+    _name, addr = parseaddr(raw or "")
+    return (addr or "").strip()
+def sender_display_name(name, limit=SENDER_NAME_MAX):
+    """One line, collapsed, and short enough for a mailbox display name."""
+    name = " ".join(str(name or "").split())
+    if len(name) <= limit:
+        return name
+    return name[:limit - 3].rstrip() + "..."
+def format_from_header(display_name, mail_from):
+    """\"Team\" <existing address>. Quotes, commas, and non-ASCII follow the mail library.
+    No team name means Regulars. The address itself is never rewritten."""
+    from email.utils import formataddr
+    addr = mail_address(mail_from)
+    name = sender_display_name(display_name) or SENDER_FALLBACK
+    if not addr:
+        return (mail_from or "").strip()
+    return formataddr((name, addr))
+def send_email(to, subject, text, html=None, ics=None, sender=None):
     """Send via SMTP. Port 465 is implicit TLS. Every other port must upgrade with STARTTLS.
-    The certificate check stays on. The connection is closed even when a later step fails."""
+    The certificate check stays on. The connection is closed even when a later step fails.
+    sender is the team display name. Auth and other mail with no team uses Regulars."""
     import smtplib, ssl
     from email.message import EmailMessage
     msg = EmailMessage()
-    msg["From"] = SMTP["MAIL_FROM"]; msg["To"] = to; msg["Subject"] = subject; msg.set_content(text)
+    msg["From"] = format_from_header(sender, SMTP["MAIL_FROM"]); msg["To"] = to; msg["Subject"] = subject; msg.set_content(text)
     if html and mailhtml.html_emails_enabled(): msg.add_alternative(html, subtype="html")
     if ics:
         msg.add_attachment(ics.encode("utf-8"), maintype="text", subtype="calendar", filename="practice.ics")
@@ -1655,7 +1678,7 @@ def send_link(email):
             try:
                 plain = (f"Hi {display_first(m)},\n\nTap to sign in to the Grunions team app:\n{link}\n\n"
                          f"This link works once and expires in {LINK_MINUTES} minutes. If you didn't ask for it, ignore this email.\n\nGrunions Water Polo")
-                send_email(email, "Your Grunions login link", plain, html=mailhtml.sign_in_html(PUBLIC_URL or request.host_url, display_first(m), link, LINK_MINUTES, org_name()))
+                send_email(email, "Your Grunions login link", plain, html=mailhtml.sign_in_html(PUBLIC_URL or request.host_url, display_first(m), link, LINK_MINUTES, org_name()), sender=None)
             except Exception as e:
                 app.logger.error("login email failed at %s: %s", getattr(e, "stage", "send"), getattr(e, "cause", e).__class__.__name__)
         elif DEV_SHOW_LINKS: app.logger.warning("MAGIC LINK for %s: %s", email, link)
@@ -8505,7 +8528,7 @@ def _email_send_one(d, row, rcpt, member, base=None):
     first = display_first(member) if member else ""
     html = _email_render(d, row, first=first, link=link, pixel="%s/e/o/%s.gif" % (base, tok), unsub="%s/e/u/%s" % (base, tok))
     text = clubemail.plain_text(clubemail.blocks_of(row), first, _email_practice_lookup(d)) + "\n\nUnsubscribe: %s/e/u/%s" % (base, tok)
-    send_email(rcpt["address"], row["subject"] or "News from %s" % org_name(), text, html)
+    send_email(rcpt["address"], row["subject"] or "News from %s" % org_name(), text, html, sender=org_name())
 def _email_deliver(eid, only_ids=None, base=None):
     """Send to everyone staged and not yet sent. Runs off the request so a big list doesn't time out."""
     d = open_db()
@@ -8647,7 +8670,7 @@ def email_preview(eid):
         if action == "test":
             try:
                 send_email(me()["email"], "[Test] " + row["subject"], clubemail.plain_text(clubemail.blocks_of(row), display_first(me()), _email_practice_lookup(d)),
-                           _email_render(d, row, first=display_first(me())))
+                           _email_render(d, row, first=display_first(me())), sender=org_name())
                 flash("Test sent to %s" % me()["email"], "toast")
             except Exception:
                 app.logger.exception("test email failed"); flash("The test didn't send. Check the email settings.")
@@ -12850,7 +12873,7 @@ def notify_practice_cancelled(d, p):
                 text = "Hi %s,\n\nPractice is cancelled.\n\n%s\n%s\n" % (display_first(m), when, loc)
                 if reason: text += "\n%s\n" % reason
                 text += "\nGrunions Water Polo\n"
-                try: send_email(m["email"], subject, text, html=mailhtml.practice_cancelled_html(app_base(), display_first(m), when, loc, reason, app_base() + url, org_name(), p["date"]))
+                try: send_email(m["email"], subject, text, html=mailhtml.practice_cancelled_html(app_base(), display_first(m), when, loc, reason, app_base() + url, org_name(), p["date"]), sender=org_name())
                 except Exception as e:
                     app.logger.error("cancel email to %s failed: %s", m["email"], e); release_notice(d, m["id"], ek)
         if wants_push(m, "practice_cancelled") and claim_notice(d, m["id"], pk):
@@ -12902,7 +12925,7 @@ def deliver_expiry(d, m, kind, date_iso, left):
                         "You can turn off these reminder emails in Notification settings. Practice cancellation emails still send.\n\nGrunions Water Polo\n") % (
                         display_first(m), sentence, app_base(), TRIAL_JOIN_URL)
                 try:
-                    send_email(m["email"], title, text, html=mailhtml.expiry_html(app_base(), display_first(m), title, sentence, app_base() + "/home", org_name(), mailhtml.expiry_eyebrow(kind), left)); notice_sent(d, m["id"], ek)
+                    send_email(m["email"], title, text, html=mailhtml.expiry_html(app_base(), display_first(m), title, sentence, app_base() + "/home", org_name(), mailhtml.expiry_eyebrow(kind), left), sender=org_name()); notice_sent(d, m["id"], ek)
                 except Exception as e:
                     app.logger.error("expiry email failed at %s: %s", getattr(e, "stage", "send"), getattr(e, "cause", e).__class__.__name__)
                     notice_failed(d, m["id"], ek)
@@ -13061,7 +13084,7 @@ def send_practice_signup(d, practice, member):
     delivered = False
     if choice in ("email", "both") and member["email"] and smtp_ready():
         try:
-            send_email(member["email"], headline, text, html=html, ics=ics)
+            send_email(member["email"], headline, text, html=html, ics=ics, sender=org_name())
             delivered = True
         except Exception as exc:
             app.logger.error("signup confirmation to %s failed: %s", member["email"], exc)
@@ -13104,7 +13127,7 @@ def _deliver_practice_reminder(d, practice, who="team"):
                     email_failed.append(member["email"])
                 else:
                     try:
-                        send_email(member["email"], subject, text, html=html)
+                        send_email(member["email"], subject, text, html=html, sender=org_name())
                         email_sent += 1
                     except Exception as exc:
                         app.logger.error("practice reminder email to %s failed: %s", member["email"], exc)
