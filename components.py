@@ -683,12 +683,13 @@ def dob_field(name="birth_date", value="", club="", min_age=18):
     """2.0 / Field / Date of birth (02 H, 2328:139058): three typed boxes, no calendar. Age line when valid,
     cherry error under the age floor. A hidden input carries YYYY-MM-DD for the form."""
     y, m, d = (str(value or "")[:10].split("-") + ["", "", ""])[:3] if value else ("", "", "")
-    box = lambda key, label, ph, val, n: ('<label class=rg-dobbox><span>%s</span><input data-dob=%s inputmode=numeric pattern="[0-9]*" maxlength=%d placeholder="%s" value="%s" autocomplete=%s></label>'
-                                       % (label, key, n, ph, _e(val), {"m": "bday-month", "d": "bday-day", "y": "bday-year"}[key]))
+    help_id = "dob-help-" + "".join(ch if ch.isalnum() or ch in "-_" else "-" for ch in (name or "birth"))
+    box = lambda key, label, ph, val, n: ('<label class=rg-dobbox><span>%s</span><input data-dob=%s inputmode=numeric pattern="[0-9]*" maxlength=%d placeholder="%s" value="%s" autocomplete=%s aria-describedby="%s"></label>'
+                                       % (label, key, n, ph, _e(val), {"m": "bday-month", "d": "bday-day", "y": "bday-year"}[key], help_id))
     return Markup('<div class=rg-dob data-min-age="%d" data-club="%s"><div class=rg-dobrow>%s%s%s</div>'
-                  '<input type=hidden name="%s" value="%s"><p class=rg-dobhelp>Type it — 2-digit month and day, 4-digit year.</p></div>' % (
+                  '<input type=hidden name="%s" value="%s"><p class=rg-dobhelp id="%s">Type it — 2-digit month and day, 4-digit year.</p></div>' % (
                       int(min_age), _e(club), box("m", "MONTH", "MM", m, 2), box("d", "DAY", "DD", d, 2), box("y", "YEAR", "YYYY", y, 4),
-                      _e(name), _e(value or "")))
+                      _e(name), _e(value or ""), help_id))
 
 
 def membership_sex(current="", body="USA Water Polo", name="membership_sex", options=None):
@@ -807,7 +808,7 @@ def drive_card(minutes, note="", leave="", kicker="ESTIMATED DRIVE TO PRACTICE",
     inner = ('<span class=rg-drvtop><span class=rg-drvk>%s</span>%s</span><span class=rg-drvmid><span class=rg-drvnum><b>%s</b>'
              '<span><i>MIN</i><small>%s</small></span></span><span class=rg-drvdisc aria-hidden=true>%s</span></span>') % (
         _e(kicker), pill, _e(minutes), _e(note), icon("chevron_right"))
-    return Markup(_tag(href, "rg-drive", inner, ' aria-label="Plan when to leave"' if href else ""))
+    return Markup(_tag(href, "rg-drive", inner, ""))
 
 def jinja_globals():
     return dict(rg_icon=icon, rg_chip=chip, rg_head=head, rg_section=section, rg_seg=seg, rg_seg_choice=seg_choice, rg_map_unavailable=map_unavailable, rg_callout_card=callout_card, rg_usawp_card=usawp_card, rg_ride_row=ride_row, rg_ride_pick=ride_pick, rg_week_grid=week_grid, rg_filters=filters, rg_day=day, rg_label=label,

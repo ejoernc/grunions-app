@@ -774,7 +774,7 @@ body.schedhome:has(.rg-mapmiss) .mappinchip{display:none}
 .rg-field>span{font:var(--type-caps);letter-spacing:var(--track-caps);text-transform:uppercase;color:var(--smoke)}
 .rg-field input,.rg-field select,.rg-field textarea{min-height:var(--size-button);padding:0 var(--space-4);border:1.5px solid transparent;border-radius:var(--radius-input);background:var(--ink);color:var(--paper);font:var(--type-body-semi);box-sizing:border-box;width:100%}
 .rg-field textarea{padding:var(--space-3) var(--space-4);min-height:96px}
-.rg-field input:focus,.rg-field select:focus,.rg-field textarea:focus{outline:none;border-color:var(--color-focus)}
+.rg-field input:focus,.rg-field select:focus,.rg-field textarea:focus{outline:2px solid var(--color-focus);outline-offset:2px;border-color:var(--color-focus)}
 .rg-field input:user-invalid{border-color:var(--team-tangerine)}
 /* /home USAWP card */
 .rg-usawp{display:grid;gap:var(--space-3);padding:var(--space-5);margin:0 0 var(--space-3);border-radius:var(--radius-row);background:var(--graphite);color:var(--paper)}
@@ -1160,7 +1160,7 @@ button.rg-secact{border:0;background:transparent;padding:0;cursor:pointer;color:
 .rg-notice b{font:700 17px/1.2 var(--font-display)}
 .rg-notice small{font:600 12px/1.35 var(--font-sans)}
 .rg-notice small a{color:inherit;text-decoration:underline}
-.rg-noticex{flex:none;border:0;background:transparent;color:var(--fixed-ink);padding:6px;cursor:pointer;min-height:0;height:auto}
+.rg-noticex{flex:none;border:0;background:transparent;color:var(--fixed-ink);padding:6px;cursor:pointer;min-width:24px;min-height:24px;height:auto}
 .rg-joincard{display:grid;gap:10px;margin:0 0 20px;padding:20px;border-radius:32px;background:var(--team-sun);color:var(--fixed-ink)}
 .rg-joincard .ek{font:700 10px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase}
 .rg-joindays{display:flex;gap:28px;flex-wrap:wrap}
@@ -1281,7 +1281,7 @@ body.practicepage:not(.editor) .pq .rg-day{display:block}
 a.rg-person,button.rg-person{cursor:pointer}
 .rg-pav{flex:none;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:var(--team-sun);color:var(--fixed-ink);font:700 15px/1 var(--font-display)}
 .rg-pav.tone-sky{background:var(--team-sky)}.rg-pav.tone-lime{background:var(--lime)}.rg-pav.tone-grape{background:var(--team-grape)}.rg-pav.tone-bubble{background:var(--team-bubble)}.rg-pav.tone-mango{background:var(--team-mango)}.rg-pav.tone-aqua{background:var(--team-aqua)}
-.rg-person .rg-txt{flex:1;min-width:0;display:grid;gap:2px}.rg-person .rg-txt b{color:var(--paper);font:700 16px/1.2 var(--font-sans)}.rg-person .rg-txt small{color:var(--smoke);font:600 13px/1.3 var(--font-sans)}
+.rg-person .rg-txt{flex:1;min-width:0;display:grid;gap:2px}.rg-person .rg-txt b{color:var(--paper);font:700 16px/1.2 var(--font-sans)}.rg-person .rg-txt small{color:var(--smoke);font:600 13px/1.3 var(--font-sans);opacity:1}
 .rg-plist{display:grid;gap:8px}.rg-plist>.rg-person{padding:12px 16px;border-radius:24px;background:var(--carbon)}.rg-plist .rg-pav{width:52px;height:52px;font-size:17px}
 /* 2.0 / Group card (Figma 62 L1) */
 .rg-gcard{display:grid;gap:10px;padding:16px 20px;border-radius:24px;background:var(--carbon);color:var(--paper);text-decoration:none}
@@ -1463,7 +1463,7 @@ body.practicepage:not(.editor):has(.pq) main{padding-left:16px;padding-right:16p
 .pq .rg-person .rg-pav{width:52px;height:52px;font:700 18px/1 var(--font-display)}
 .pq .rg-person .rg-txt{gap:2px}
 .pq .rg-person .rg-txt b{font:700 18px/normal var(--font-display);color:var(--paper)}
-.pq .rg-person .rg-txt small{font:600 13px/normal var(--font-sans);color:var(--smoke)}
+.pq .rg-person .rg-txt small{font:600 13px/normal var(--font-sans);color:var(--smoke);opacity:1}
 .pq .rg-person .rg-chip{height:auto;padding:6px 12px;gap:0;background:var(--lime);color:var(--fixed-ink);font:700 12px/normal var(--font-sans)}
 .pq .rg-person .rg-chip i{display:none}
 .pq .rg-seeall{align-self:flex-start;color:var(--lime);font:700 13px/normal var(--font-sans);text-decoration:none}

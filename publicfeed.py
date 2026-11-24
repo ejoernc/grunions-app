@@ -1177,7 +1177,7 @@ def widget_document(payload, theme=None, preview=False):
         for slug, label in chips:
             on = " chip on" if slug == active else ""
             pressed = "true" if slug == active else "false"
-            parts.append('<button type=button class="chip%s" role=tab aria-pressed="%s" data-chip="%s">%s</button>' % (on, pressed, e(slug), e(label)))
+            parts.append('<button type=button class="chip%s" role=tab aria-selected="%s" data-chip="%s">%s</button>' % (on, pressed, e(slug), e(label)))
         return "".join(parts)
 
     def public_event(item):
@@ -1529,7 +1529,7 @@ header.brandbar .authlinks a{justify-content:center;height:44px;font-size:15px}
   function closeDetail(){ sheet.hidden=true; browse.hidden=false; if(opener) opener.focus(); report(); }
   function show(name){
     var n=0;
-    chips.forEach(function(btn){var on=btn.getAttribute("data-chip")===name;btn.setAttribute("aria-pressed",on?"true":"false");btn.classList.toggle("on",on);});
+    chips.forEach(function(btn){var on=btn.getAttribute("data-chip")===name;btn.setAttribute("aria-selected",on?"true":"false");btn.classList.toggle("on",on);});
     [].slice.call(cards.children).forEach(function(card){
       var chipName=card.getAttribute("data-chip");
       var hide=name!=="all"&&chipName!==name;

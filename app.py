@@ -2855,6 +2855,35 @@ def apply_practice_image(d, pid):
         d.execute("UPDATE practices SET image='' WHERE id=?", (pid,))
         return True
     return False
+def _client_wants_html():
+    """Browsers get a page. API clients keep a JSON error."""
+    if request.path.startswith("/api/"):
+        return False
+    accept = request.headers.get("Accept") or ""
+    return "application/json" not in accept or "text/html" in accept
+def _plain_error(status, title, message):
+    if not _client_wants_html():
+        return jsonify(error=message), status
+    try:
+        logged = bool(me())
+    except Exception:
+        logged = False
+    href, label = ("/practices", "Back to the schedule") if logged else ("/login", "Log in")
+    body = (
+        '<!doctype html><html lang=en><head><meta charset=utf-8>'
+        '<meta name=viewport content="width=device-width,initial-scale=1"><title>%s</title>'
+        '<style>body{margin:0;background:#0B0B0C;color:#F6F4EF;font:16px/1.45 system-ui,sans-serif}'
+        'main{max-width:28rem;margin:0 auto;padding:64px 20px}h1{margin:0 0 12px;font-size:2rem;letter-spacing:-.03em}'
+        'p{margin:0 0 16px}a{color:#C8FF3C}</style></head><body><main>'
+        '<h1>%s</h1><p>%s</p><p><a href="%s">%s</a></p></main></body></html>'
+    ) % (title, title, message, href, label)
+    return body, status
+@app.errorhandler(403)
+def forbidden(e):
+    return _plain_error(403, "No access", "This page is not available for your role.")
+@app.errorhandler(404)
+def missing(e):
+    return _plain_error(404, "Page not found", "That page is not here.")
 @app.errorhandler(413)
 def too_big(e): return jsonify(error="Image is larger than 8 MB."), 413
 @app.route("/api/messages/<int:mid>/react", methods=["POST"])

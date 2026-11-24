@@ -25,7 +25,7 @@ BASE = """<!doctype html><html lang=en data-theme="{{ ui_theme or 'dark' }}" sty
 <link rel=apple-touch-startup-image href=/static/splash/splash-1320x2868.png?v=118 media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
 <title>Regulars</title>
 <style>{{ foundation_css|safe }}
-html,body{background:var(--color-bg);color:var(--color-text)}html{color-scheme:dark}html[data-theme=light]{color-scheme:light}@media (prefers-color-scheme: light){html[data-theme=system]{color-scheme:light}}
+html,body{background:var(--color-bg);color:var(--color-text)}html{color-scheme:dark;scroll-padding-bottom:calc(var(--nav-clear) + 16px + env(safe-area-inset-bottom))}html[data-theme=light]{color-scheme:light}@media (prefers-color-scheme: light){html[data-theme=system]{color-scheme:light}}
 html:has(#chat),body:has(#chat){height:100dvh;overflow:hidden}
 body:has(#chat){display:flex;flex-direction:column}
 body:has(#chat) main{flex:1;min-width:0;width:100%;max-width:640px;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:8px var(--space-5) 0}
@@ -206,7 +206,15 @@ body.schedhome .weekhi h1{font:700 40px/1.05 var(--r2-font-display);letter-spaci
 body.schedhome .weekhi .hititle{opacity:calc(1 - var(--titlefade))}
 body.schedhome .weekhi h1.schedtitle{opacity:var(--titlefade);transform:none}
 body.schedhome .weekhi .maplegend{position:static;display:flex;gap:10px;margin-top:10px;width:auto;opacity:calc(1 - var(--titlefade));max-height:24px;overflow:hidden}
-.weekdrawer{position:fixed;z-index:3;left:0;right:0;bottom:0;height:var(--drawer-h);pointer-events:auto;display:flex;flex-direction:column;gap:8px;margin:0;padding:8px 16px 0;overflow:hidden;color:var(--paper);background:var(--carbon);border-radius:32px 32px 0 0}
+.weekdrawer{position:fixed;z-index:3;left:0;right:0;bottom:0;height:var(--drawer-h);pointer-events:auto;display:flex;flex-direction:column;gap:8px;margin:0;padding:8px 16px 0;overflow:hidden;color:var(--paper);background:var(--carbon);border-radius:32px 32px 0 0;box-sizing:border-box}
+@media (max-width:767px){
+ /* The nav sits on top of the sheet. Keep the sheet's content above it so a card is not stuck underneath. */
+ body.schedhome .weekdrawer{padding-bottom:calc(var(--nav-clear) + env(safe-area-inset-bottom))}
+ body.schedhome .weekbody::after{height:12px}
+}
+@media (max-width:360px){
+ body.schedhome .weekhi h1{white-space:normal;font-size:32px}
+}
 .weekdrawer.peek .weekthis>*:not(.r2-drive){display:none}
 .weekthis{display:flex;flex-direction:column;gap:12px;min-height:0}
 .weekdrawer.full{border-radius:0}
@@ -940,7 +948,7 @@ input[type=file].pick{position:absolute;left:0;top:0;width:1px;height:1px;margin
 .sheetopt input,.coachrow input{display:inline-block;width:22px;height:22px;min-width:22px;flex:none;margin:2px 0 0;padding:0;background:transparent}
 input[type=date]::-webkit-calendar-picker-indicator,input[type=datetime-local]::-webkit-calendar-picker-indicator{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20256%20256'%3E%3Cpath%20fill%3D'%23F2F6F1'%20d%3D'M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z'%2F%3E%3C%2Fsvg%3E");background-repeat:no-repeat;background-size:20px 20px;background-position:center}
 input[type=time]::-webkit-calendar-picker-indicator{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20256%20256'%3E%3Cpath%20fill%3D'%23F2F6F1'%20d%3D'M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z'%2F%3E%3C%2Fsvg%3E");background-repeat:no-repeat;background-size:20px 20px;background-position:center}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--color-focus)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--color-focus);outline-offset:2px;border-color:var(--color-focus)}
 .btn,a.btn,button.btn,button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);box-sizing:border-box;height:var(--size-button);padding:0 var(--space-4);border-radius:var(--radius-button);border:0;font:inherit;font-weight:600;line-height:1;
 cursor:pointer;text-decoration:none;background:var(--surface2);color:var(--color-text);transition:background-color 160ms ease,color 160ms ease}
 .btn,a.btn,button.btn{min-height:var(--size-button)}
@@ -1062,7 +1070,7 @@ nav.tabs .ico-fill{display:none}
 nav.tabs a.on .ico-reg{display:none}
 nav.tabs a.on .ico-fill{display:flex}
 nav.tabs a:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
-@media (prefers-reduced-motion:reduce){nav.tabs a{transition:none}}
+@media (prefers-reduced-motion:reduce){nav.tabs a{transition:none}dialog.botsheet .sheet{transition:none !important}}
 .badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--color-coral);color:var(--color-forest);font-size:10px;font-weight:700;line-height:1}
 nav.tabs a .badge{position:absolute;top:0;right:0;margin:0}.datetile{position:relative}.datetile .pdate{position:absolute;top:0;right:0}.datetile .pdate .badge{position:absolute;top:-4px;right:-4px;margin:0}
 /* Phosphor icons. Nav uses Regular, and Fill on the selected circle. */
@@ -1480,7 +1488,7 @@ dialog.botsheet .sheet :is(.ty-muted,.attachsub,.t3){color:var(--smoke)}
 dialog.botsheet .sheet>form,dialog.botsheet form.sheet{display:grid;gap:14px}
 dialog.botsheet .newcard,dialog.botsheet .actgroup{background:var(--graphite);border-radius:20px;padding:0;margin:0 0 12px;gap:0;overflow:hidden}
 dialog.botsheet .newcard .newrow{height:auto}
-dialog.botsheet :is(.newrow,.actrow):focus{outline:none}dialog.botsheet :is(.newrow,.actrow):focus-visible{background:color-mix(in srgb,var(--paper) 8%,transparent)}
+dialog.botsheet :is(.newrow,.actrow):focus{outline:none}dialog.botsheet :is(.newrow,.actrow):focus-visible{outline:2px solid var(--lime);outline-offset:2px;background:color-mix(in srgb,var(--paper) 8%,transparent)}
 dialog.botsheet .newcard .newrow,dialog.botsheet .actgroup .actrow{min-height:52px;padding:13px 16px;border-radius:0;border-bottom:0;background:transparent;color:var(--paper);font:600 16px/1.2 var(--r2-font-sans);justify-content:flex-start;gap:12px}
 dialog.botsheet .newcard .newrow small{font:500 13px/1.3 var(--r2-font-sans);color:var(--smoke)}
 dialog.botsheet :is(.newrow.actdanger,.actrow.danger),dialog.botsheet :is(.newrow.actdanger,.actrow.danger) :is(svg,b){color:var(--team-cherry)}
@@ -2467,7 +2475,7 @@ dialog.memberedit .help a{color:var(--t1)}
 {%- endmacro %}
 {% macro r2_social_card(card, variant='home') -%}{{ rg_social_card(card, csrf_field(), 'page' if variant in ('row', 'open') else 'home', fmt_clock(card.clock) if card.clock else '', variant == 'open') }}{%- endmacro %}
 {% macro r2_drive_card(minutes, detail, leave, placeholder=false, kicker='YOUR DRIVE', href='', tone='', fc=none) -%}
-<{{ 'a' if href else 'div' }} class="r2-drive drivecard" data-r2="drive-card"{% if tone %} data-tone="{{ tone }}"{% endif %}{% if fc %} data-fc="{{ fc|tojson|forceescape }}"{% endif %}{% if href %} href="{{ href }}" aria-label="Plan when to leave"{% endif %} {% if placeholder %}data-placeholder=1{% endif %}><div class=drivetop><span>{{ kicker }}</span>{% if leave %}<b>{{ leave }}</b>{% endif %}</div><div class=drivemain><strong>{{ minutes }}</strong><small><i>MIN</i>{{ detail }}</small><span class=drivego aria-hidden=true>›</span></div></{{ 'a' if href else 'div' }}>
+<{{ 'a' if href else 'div' }} class="r2-drive drivecard" data-r2="drive-card"{% if tone %} data-tone="{{ tone }}"{% endif %}{% if fc %} data-fc="{{ fc|tojson|forceescape }}"{% endif %}{% if href %} href="{{ href }}"{% endif %} {% if placeholder %}data-placeholder=1{% endif %}><div class=drivetop><span>{{ kicker }}</span>{% if leave %}<b>{{ leave }}</b>{% endif %}</div><div class=drivemain><strong>{{ minutes }}</strong><small><i>MIN</i>{{ detail }}</small><span class=drivego aria-hidden=true>›</span></div></{{ 'a' if href else 'div' }}>
 {%- endmacro %}
 {% macro r2_metric(value, label, tone='ink') -%}{{ rg_metric(value, label, {'ink':'carbon','lime':'lime'}.get(tone, tone)) }}{%- endmacro %}
 {% macro r2_info(kicker, body) -%}{{ rg_info(kicker, body) }}{%- endmacro %}
@@ -2680,7 +2688,7 @@ dialog.memberedit .help a{color:var(--t1)}
 <a class=newrow href="/events/new?lane=lineup"><span class=grow><b>Lineup event</b><small>Tournaments, camps, trips and socials</small></span><span class=chatgo>›</span></a>
 </div>
 </div></dialog>{% endif %}
-{% if tab != 'auth' %}{% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note>{{msg|safe}}</div>{% endif %}{% endfor %}{% endif %}
+{% if tab != 'auth' %}{% for cat, msg in get_flashed_messages(with_categories=true) %}{% if cat == 'toast' %}<div class="toast noprint" role=status>{{msg}}</div>{% else %}<div class=note role=alert>{{msg|safe}}</div>{% endif %}{% endfor %}{% endif %}
 <script>document.querySelectorAll('.toast').forEach(function(t){setTimeout(function(){t.remove()},3000)})</script>
 {% macro push_card() %}{{ rg_callout_card('Notifications', 'Allow notifications for chat, practice reminders, and membership expiry. This works on Android, and on iPhone once Regulars is on your Home Screen (iOS 16.4 or later).', 'Allow notifications', 'allowPush', 'Notification settings', '/notifications', 'lavender', 'pushCard', '<p id=iosPushHint hidden>On iPhone or iPad, add Regulars to your Home Screen to get notifications. Tap Share, then Add to Home Screen, and open the app from there (iOS 16.4 or later).</p><p id=pushDenied hidden>Notifications are blocked in this browser. Allow them in the site settings, then come back.</p>', True) }}{% endmacro %}"""
 
@@ -2748,7 +2756,7 @@ def nav_icon(key):
 _HOME_ON = "tab=='home' or tab=='practices' or tab=='practice' or tab=='series_edit'"
 _LINEUP_ON = "tab=='lineup' or tab=='lineup_edit' or tab=='lineup_event'"
 TABS = ("""</main>{% set nav = nav_context() %}{% if nav.show and not (nav_kind == 'sheet' and tab == 'flow') and tab != 'event_new' and tab != 'lineup_edit' and tab != 'series_edit' and not (tab=='practice' and editing) %}<nav class="nav3 noprint" data-place="{{ nav.place }}" aria-label="Places">
-<button type="button" class="nav3-crest" aria-expanded="false" aria-controls="crestMenu" aria-label="Open places"><span class="nav3-crest-face"><img class="nav3-logo lg lime" src="/static/nav/mark-lime.svg" width="32" height="13" alt=""><img class="nav3-logo lg ink" src="/static/nav/mark-ink.svg" width="32" height="13" alt=""><img class="nav3-logo sm ink" src="/static/nav/mark-ink.svg" width="26" height="10" alt="">{% if nav.place == 'me' and me().photo %}<img class="nav3-photo" src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="">{% endif %}<span class="nav3-initials">{{ nav.crest }}</span></span><span class="nav3-more" aria-hidden="true">⋯</span><span class="nav3-switch-copy"><b>{{ nav.switch_title }}</b><small>{{ nav.switch_sub }}</small></span><span class="nav3-chevron" aria-hidden="true"></span></button>
+<button type="button" class="nav3-crest" aria-expanded="false" aria-controls="crestMenu" aria-label="{{ nav.crest }}. {{ nav.switch_title }}. {{ nav.switch_sub }}. Open places"><span class="nav3-crest-face"><img class="nav3-logo lg lime" src="/static/nav/mark-lime.svg" width="32" height="13" alt=""><img class="nav3-logo lg ink" src="/static/nav/mark-ink.svg" width="32" height="13" alt=""><img class="nav3-logo sm ink" src="/static/nav/mark-ink.svg" width="26" height="10" alt="">{% if nav.place == 'me' and me().photo %}<img class="nav3-photo" src="/avatar/{{ me().id }}?v={{ me().photo }}" alt="">{% endif %}<span class="nav3-initials">{{ nav.crest }}</span></span><span class="nav3-more" aria-hidden="true">⋯</span><span class="nav3-switch-copy"><b>{{ nav.switch_title }}</b><small>{{ nav.switch_sub }}</small></span><span class="nav3-chevron" aria-hidden="true"></span></button>
 <p class="nav3-menu-label">Menu</p>
 <span class="nav3-rule"></span>
 <div class="nav3-tabs"><span class="nav3-slide" aria-hidden="true"></span>{% for key, label, href, on in nav.tabs %}<a href="{{ href }}" data-tab="{{ key }}" {% if on %}class=on aria-current=page {% endif %}>{{ nav_icon(key)|safe }}<span class="nav3-dot"></span><span class="nav3-meta"><span class="nav3-label">{{ label }}</span>{% if label == 'Chat' and nav.chat_unread %}<span class=nav3-badge>{{ nav.chat_unread }}</span>{% endif %}</span></a>{% endfor %}</div>
@@ -3168,17 +3176,18 @@ function grunionsPopOverlay(){ history.back(); }
  function upd(w){ var g=function(k){ return (w.querySelector('[data-dob='+k+']').value||'').replace(/[^0-9]/g,''); };
   var m=g('m'), d=g('d'), y=g('y'), help=w.querySelector('.rg-dobhelp'), out=w.querySelector('input[type=hidden]'), min=+w.getAttribute('data-min-age')||0;
   w.classList.remove('bad'); out.value='';
+  function mark(bad){ w.querySelectorAll('[data-dob]').forEach(function(el){ if(bad) el.setAttribute('aria-invalid','true'); else el.removeAttribute('aria-invalid'); }); }
   if(m.length&&d.length&&y.length===4){ var mm=+m, dd=+d, yy=+y, dt=new Date(yy, mm-1, dd);
-   if(mm<1||mm>12||dd<1||dd>31||dt.getMonth()!==mm-1){ w.classList.add('bad'); help.textContent="That date doesn't exist. Check the month and day."; return; }
+   if(mm<1||mm>12||dd<1||dd>31||dt.getMonth()!==mm-1){ w.classList.add('bad'); mark(true); help.textContent="That date doesn't exist. Check the month and day."; return; }
    var now=new Date(), age=now.getFullYear()-yy-((now.getMonth()<mm-1||(now.getMonth()===mm-1&&now.getDate()<dd))?1:0);
-   if(age<0||age>110){ w.classList.add('bad'); help.textContent='Check the year.'; return; }
-   if(min&&age<min){ w.classList.add('bad'); help.textContent=(w.getAttribute('data-club')||'This club')+' is adults-only ('+min+'+). We can point you to youth programs nearby.'; out.value=yy+'-'+(mm<10?'0':'')+mm+'-'+(dd<10?'0':'')+dd; return; }
-   out.value=yy+'-'+(mm<10?'0':'')+mm+'-'+(dd<10?'0':'')+dd; help.textContent=age+" · you're all set"; return; }
-  help.textContent='Type it — 2-digit month and day, 4-digit year.'; }
+   if(age<0||age>110){ w.classList.add('bad'); mark(true); help.textContent='Check the year.'; return; }
+   if(min&&age<min){ w.classList.add('bad'); mark(true); help.textContent=(w.getAttribute('data-club')||'This club')+' is adults-only ('+min+'+). We can point you to youth programs nearby.'; out.value=yy+'-'+(mm<10?'0':'')+mm+'-'+(dd<10?'0':'')+dd; return; }
+   out.value=yy+'-'+(mm<10?'0':'')+mm+'-'+(dd<10?'0':'')+dd; mark(false); help.textContent=age+" · you're all set"; return; }
+  mark(false); help.textContent='Type it — 2-digit month and day, 4-digit year.'; }
  document.addEventListener('input', function(e){ var i=e.target; if(!i.matches||!i.matches('[data-dob]')) return; var w=i.closest('.rg-dob');
   i.value=i.value.replace(/[^0-9]/g,''); if(i.value.length>=+i.maxLength){ var nx=i.closest('label').nextElementSibling; if(nx){ var n=nx.querySelector('input'); if(n) n.focus(); } } upd(w); });
  document.addEventListener('keydown', function(e){ var i=e.target; if(!i.matches||!i.matches('[data-dob]')||e.key!=='Backspace'||i.value) return; var pv=i.closest('label').previousElementSibling; if(pv){ var p=pv.querySelector('input'); if(p){ e.preventDefault(); p.focus(); p.value=p.value.slice(0,-1); upd(i.closest('.rg-dob')); } } });
- document.addEventListener('submit', function(e){ var w=e.target.querySelector&&e.target.querySelector('.rg-dob'); if(!w) return; upd(w); if(!w.querySelector('input[type=hidden]').value){ e.preventDefault(); w.classList.add('bad'); w.querySelector('.rg-dobhelp').textContent='Add your date of birth.'; w.querySelector('[data-dob=m]').focus(); } }, true);
+ document.addEventListener('submit', function(e){ var w=e.target.querySelector&&e.target.querySelector('.rg-dob'); if(!w) return; upd(w); if(!w.querySelector('input[type=hidden]').value){ e.preventDefault(); w.classList.add('bad'); w.querySelectorAll('[data-dob]').forEach(function(el){ el.setAttribute('aria-invalid','true'); }); var help=w.querySelector('.rg-dobhelp'); help.textContent='Add your date of birth.'; w.querySelector('[data-dob=m]').focus(); } }, true);
 })();
 /* Social Join / Joined: save in place and swap just that card, so the Schedule view you're on stays put. */
 document.addEventListener('submit', function(e){
@@ -3852,23 +3861,27 @@ window.addEventListener('popstate',function(){
  else if(document.querySelector('main')&&!document.body.classList.contains('homefull')) location.reload(); /* left a no-nav task (event create): bring the nav back */
  else if(window.grunionsWakeHome) grunionsWakeHome();
 });
+function grunionsReduceMotion(){return !!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)}
 window.grunionsOpenSheet=function(d){
  if(!d||d.classList.contains('closing')) return;
- var panel=d.querySelector('.sheet');
+ var panel=d.querySelector('.sheet'), reduce=grunionsReduceMotion();
  d.classList.remove('closing'); d.classList.add('opening');
- if(panel){panel.style.transition='none';panel.style.transform='translateY(110%)'}
+ d._a11yTrigger=document.activeElement;
+ if(panel){panel.style.transition='none';panel.style.transform=reduce?'':'translateY(110%)'}
  if(!d.open) d.showModal();
+ var focus=d.querySelector('[autofocus],h1,h2,button,a,input,select,textarea');
+ if(focus&&focus.focus){try{focus.focus()}catch(e){}}
  requestAnimationFrame(function(){requestAnimationFrame(function(){
   d.classList.remove('opening');
-  if(panel){panel.style.transition='transform .25s ease-out';panel.style.transform='translateY(0)'}
+  if(panel){panel.style.transition=reduce?'none':'transform .25s ease-out';panel.style.transform='translateY(0)'}
  })});
 };
 window.grunionsCloseSheet=function(d){
  if(!d||!d.open||d.classList.contains('closing')) return;
  d.classList.add('closing');
- var panel=d.querySelector('.sheet');
- if(panel){panel.style.transition='transform .25s ease-out';panel.style.transform='translateY(110%)'}
- setTimeout(function(){d.classList.remove('closing');if(panel){panel.style.transition='';panel.style.transform=''}if(d.open)d.close()},250);
+ var panel=d.querySelector('.sheet'), reduce=grunionsReduceMotion(), back=d._a11yTrigger;
+ if(panel){panel.style.transition=reduce?'none':'transform .25s ease-out';panel.style.transform=reduce?'':'translateY(110%)'}
+ setTimeout(function(){d.classList.remove('closing');if(panel){panel.style.transition='';panel.style.transform=''}if(d.open)d.close();if(back&&back.focus&&document.contains(back)){try{back.focus()}catch(e){}}},reduce?0:250);
 };
 if(!window.grunionsSheetDrag){window.grunionsSheetDrag=1;
  document.addEventListener('pointerdown',function(e){
@@ -5862,7 +5875,7 @@ _CAM = '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" ar
 T["profile"] = """<form id=profileForm method=post action=/profile enctype=multipart/form-data>{{ csrf_field() }}<input type=hidden name=action value=save><input type=hidden name=photo_clear id=photoClear value="">
 <div class=profilehero>
 <div class=avatarwrap>
-<button type=button class="avatar hero" id=avatarBtn aria-label="Profile photo">{% if m.photo %}<img id=avatarImg src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="" width="112" height="112">{% else %}<img id=avatarImg alt="" width="112" height="112" hidden>{% endif %}<span id=avatarLetters {% if m.photo %}hidden{% endif %}>{{ initials(m) }}</span></button>
+<button type=button class="avatar hero" id=avatarBtn aria-label="{{ initials(m) }}. Profile photo">{% if m.photo %}<img id=avatarImg src="/avatar/{{ m.id }}?v={{ m.photo }}" alt="" width="112" height="112">{% else %}<img id=avatarImg alt="" width="112" height="112" hidden>{% endif %}<span id=avatarLetters {% if m.photo %}hidden{% endif %}>{{ initials(m) }}</span></button>
 <button type=button class=cambadge id=camBadge aria-label="Choose photo">""" + _CAM + """</button>
 </div>
 <dialog class="botsheet attachsheet" id=photoDlg><div class=sheet>
@@ -5884,7 +5897,7 @@ T["profile"] = """<form id=profileForm method=post action=/profile enctype=multi
 <p class=attachnote>Up to 10 · JPG, PNG, HEIC, GIF · 20 MB each. You can also paste (⌘V) or drag straight into the chat.</p>
 </div>
 <p class=attacherr id=photoErr hidden></p>
-<input class="pick fileclip" type=file name=photo id=photoFile accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif">
+<input class="pick fileclip" type=file name=photo id=photoFile aria-label="Choose a profile photo" accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif">
 <div id=photoDrop hidden>
 <div class=dropzone id=photoZone>
 <button type=button class=dropempty id=photoPick><span class=droplink>Drop a photo here</span><span class=drophint>or Select photo</span></button>
@@ -6576,7 +6589,7 @@ T["notifications"] = """<div class=rg-screen>
 
 T["chat"] = """<template id=chatSeed>{{ chat_seed|tojson }}</template>{% if polls_enabled(ch) %}<div class=rg-pollstickies id=pollSticky hidden></div>{% endif %}<div class=chat id=chat><div class=chatin><button type=button id=earlier class=earlier hidden>Load earlier messages</button></div></div><div class=chatpad></div>
 {% if chat_locked %}<p class=chatlock>read-only · this practice ended.</p>{% endif %}<div class="composer noprint">{% if polls_enabled(ch) %}<div class=pollattach id=pollAttach hidden></div>{% endif %}<div class=qbar id=quoteBar hidden><div class=grow><b id=quoteWho></b><span id=quoteTxt></span></div><button type=button id=quoteX aria-label="Cancel reply">✕</button></div><div class=qbar id=editBar hidden><div class=grow><b>Editing</b><span id=editHint></span></div><button type=button id=editX aria-label="Cancel edit">✕</button></div><div class=thumbs id=prev hidden></div>
-<form id=f data-nonav><input class=fileclip type=file id=file accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif,.gif,.png,.jpg,.jpeg,.webp" multiple>
+<form id=f data-nonav><input class=fileclip type=file id=file aria-label="Attach a photo" accept="image/*,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif,.gif,.png,.jpg,.jpeg,.webp" multiple>
 <textarea id=body rows=1 maxlength=2000 placeholder="{{ chat_placeholder or 'Message' }}" {% if chat_locked %}disabled{% endif %}></textarea>
 <button type=button class="iconbtn send" id=attach aria-label="Add photo">+</button>
 </form></div>
@@ -8346,7 +8359,7 @@ T["admin"] = ADMIN_NAV + """<div class="rg-screen rg-checkin">
 </div>
 </div></dialog>
 {% if events %}<nav class=cksessions aria-label="Sessions">{% for ev in events %}<a class="cksess{% if ev.key == evkey %} on{% endif %}" href="/admin?date={{ date }}&amp;ev={{ ev.key }}{{ fbit }}{{ qbit }}"><small>{{ ev.pill|upper }} · {{ ev.n_in }}/{{ ev.n_going }}</small><b>{{ ev.title }}</b></a>{% endfor %}</nav>{% endif %}
-{% if sel %}{% if sel.detail %}<a{% else %}<div{% endif %} id="ev-{{ sel.key }}" class="ckhero tone-{{ sel.tone or 'sun' }}{% if ev_pinned %} on{% endif %}"{% if sel.detail %} href="{{ sel.detail }}" aria-label="Open {{ sel.title }}"{% endif %}><b>{{ n_in_sel }} of {{ going|length }} in{% if n_look %} · {{ n_look }} need{{ 's' if n_look == 1 else '' }} a look{% endif %}</b><small>{{ sel.title }} · {{ sel.when }}{% if sel.place %} · {{ sel.place }}{% endif %}</small>{% if sel.detail %}<span class=ckherolink aria-hidden=true>›</span></a>{% else %}</div>{% endif %}
+{% if sel %}{% if sel.detail %}<a{% else %}<div{% endif %} id="ev-{{ sel.key }}" class="ckhero tone-{{ sel.tone or 'sun' }}{% if ev_pinned %} on{% endif %}"{% if sel.detail %} href="{{ sel.detail }}"{% endif %}><b>{{ n_in_sel }} of {{ going|length }} in{% if n_look %} · {{ n_look }} need{{ 's' if n_look == 1 else '' }} a look{% endif %}</b><small>{{ sel.title }} · {{ sel.when }}{% if sel.place %} · {{ sel.place }}{% endif %}</small>{% if sel.detail %}<span class=ckherolink aria-hidden=true>›</span></a>{% else %}</div>{% endif %}
 {% elif week_empty %}<p class=rg-note>No events this week.</p>{% else %}<p class=rg-note>No sessions on this day. Pick another day above.</p>{% endif %}
 <form class=rg-cisearch method=get action=/admin><input type=hidden name=date value="{{ date }}">{% if filt != 'going' %}<input type=hidden name=filt value="{{ filt }}">{% endif %}{% if evkey %}<input type=hidden name=ev value="{{ evkey }}">{% endif %}<label class=rg-search>{{ rg_icon('search') }}<input name=q type=search value="{{ q }}" placeholder="Search people" enterkeyhint=search autocomplete=off></label></form>
 {%- set ebit -%}{% if evkey %}&ev={{ evkey }}{% endif %}{%- endset -%}
